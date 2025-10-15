@@ -6,7 +6,12 @@ class Enemy extends Entity {
         
         this.type = type;
         this.name = enemyConfig.NAME;
+        // 基礎血量，後續依波次倍率提升
         this.maxHealth = enemyConfig.HEALTH;
+        // 依照目前波次提高血量（每波乘以倍率）
+        const wave = (typeof WaveSystem !== 'undefined' && WaveSystem.currentWave) ? WaveSystem.currentWave : 1;
+        const hpMult = Math.pow(CONFIG.WAVES.HEALTH_MULTIPLIER_PER_WAVE || 1, Math.max(0, wave - 1));
+        this.maxHealth = Math.floor(this.maxHealth * hpMult);
         this.health = this.maxHealth;
         this.damage = enemyConfig.DAMAGE;
         this.speed = enemyConfig.SPEED;
