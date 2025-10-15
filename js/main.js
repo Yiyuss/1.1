@@ -1,95 +1,162 @@
-// 遊戲主入口
-document.addEventListener('DOMContentLoaded', function() {
-    // 獲取開始按鈕
-    const startButton = document.getElementById('start-button');
+// 音效系統
+const AudioManager = {
+    sounds: {},
+    music: {},
+    isMuted: false,
+    musicVolume: 0.5,
+    soundVolume: 0.7,
     
-    // 添加開始按鈕點擊事件
-    startButton.addEventListener('click', function() {
-        Game.startNewGame();
-    });
+    init: function() {
+        // 初始化音效
+        this.loadSounds();
+        
+        console.log('音效系統已初始化');
+    },
     
-    // 添加視頻結束事件處理
-    const gameOverVideo = document.getElementById('game-over-video');
-    gameOverVideo.addEventListener('ended', function() {
-        document.getElementById('game-over-screen').classList.add('hidden');
-        document.getElementById('start-screen').classList.remove('hidden');
-    });
+    // 加載所有音效
+    loadSounds: function() {
+        // 音效列表
+        const soundsToLoad = [
+            { name: 'player_hurt', src: 'assets/audio/player_hurt.mp3' },
+            { name: 'enemy_hurt', src: 'assets/audio/enemy_hurt.mp3' },
+            { name: 'enemy_death', src: 'assets/audio/enemy_death.mp3' },
+            { name: 'level_up', src: 'assets/audio/level_up.mp3' },
+            { name: 'collect_exp', src: 'assets/audio/collect_exp.mp3' },
+            { name: 'dagger_shoot', src: 'assets/audio/dagger_shoot.mp3' },
+            { name: 'fireball_shoot', src: 'assets/audio/fireball_shoot.mp3' },
+            { name: 'lightning_shoot', src: 'assets/audio/lightning_shoot.mp3' },
+            { name: 'game_over', src: 'assets/audio/game_over.mp3' },
+            { name: 'victory', src: 'assets/audio/victory.mp3' },
+            { name: 'button_click', src: 'assets/audio/button_click.mp3' }
+        ];
+        
+        // 音樂列表
+        const musicToLoad = [
+            { name: 'menu_music', src: 'assets/audio/menu_music.mp3' },
+            { name: 'game_music', src: 'assets/audio/game_music.mp3' },
+            { name: 'boss_music', src: 'assets/audio/boss_music.mp3' }
+        ];
+        
+        // 加載音效
+        soundsToLoad.forEach(sound => {
+            this.sounds[sound.name] = new Audio();
+            this.sounds[sound.name].src = sound.src;
+            this.sounds[sound.name].volume = this.soundVolume;
+            
+            // 音效加載失敗處理
+            this.sounds[sound.name].onerror = () => {
+                console.warn(`無法加載音效: ${sound.name}`);
+                // 創建一個空的音頻上下文作為替代
+                this.sounds[sound.name] = {
+                    play: function() {},
+                    pause: function() {}
+                };
+            };
+        });
+        
+        // 加載音樂
+        musicToLoad.forEach(music => {
+            this.music[music.name] = new Audio();
+            this.music[music.name].src = music.src;
+            this.music[music.name].volume = this.musicVolume;
+            this.music[music.name].loop = true;
+            
+            // 音樂加載失敗處理
+            this.music[music.name].onerror = () => {
+                console.warn(`無法加載音樂: ${music.name}`);
+                // 創建一個空的音頻上下文作為替代
+                this.music[music.name] = {
+                    play: function() {},
+                    pause: function() {}
+                };
+            };
+        });
+    },
     
-    const victoryVideo = document.getElementById('victory-video');
-    victoryVideo.addEventListener('ended', function() {
-        document.getElementById('victory-screen').classList.add('hidden');
-        document.getElementById('start-screen').classList.remove('hidden');
-    });
+    // 播放音效
+    playSound: function(name) {
+        if (this.isMuted || !this.sounds[name]) return;
+        
+        try {
+            // 克隆音效以允許重疊播放
+            const sound = this.sounds[name].cloneNode();
+            sound.volume = this.soundVolume;
+            sound.play();
+        } catch (e) {
+            console.error(`播放音效 ${name} 時出錯:`, e);
+        }
+    },
     
-    // 創建預設的視頻文件
-    createDefaultVideos();
+    // 播放音樂
+    playMusic: function(name) {
+        if (this.isMuted || !this.music[name]) return;
+        
+        // 停止所有其他音樂
+        this.stopAllMusic();
+        
+        try {
+            this.music[name].currentTime = 0;
+            this.music[name].play();
+        } catch (e) {
+            console.error(`播放音樂 ${name} 時出錯:`, e);
+        }
+    },
     
-    // 創建預設的圖片資源
-    createDefaultImages();
+    // 停止所有音樂
+    stopAllMusic: function() {
+        for (const key in this.music) {
+            if (this.music.hasOwnProperty(key)) {
+                try {
+                    this.music[key].pause();
+                    this.music[key].currentTime = 0;
+                } catch (e) {
+                    console.error(`停止音樂 ${key} 時出錯:`, e);
+                }
+            }
+        }
+    },
     
-    // 初始化遊戲（但不開始）
-    Game.init();
+    // 靜音/取消靜音
+    toggleMute: function() {
+        this.isMuted = !this.isMuted;
+        
+        if (this.isMuted) {
+            this.stopAllMusic();
+        } else {
+            // 恢復遊戲中的音樂
+            if (Game.isGameOver) {
+                // 不播放音樂
+            } else if (Game.boss) {
+                this.playMusic('boss_music');
+            } else {
+                this.playMusic('game_music');
+            }
+        }
+        
+        return this.isMuted;
+    },
     
-    console.log('遊戲已初始化，等待開始...');
-});
-
-// 創建預設視頻文件
-function createDefaultVideos() {
-    // 檢查視頻是否存在，如果不存在則使用預設視頻
-    const gameOverVideo = document.getElementById('game-over-video');
-    const victoryVideo = document.getElementById('victory-video');
+    // 設置音效音量
+    setSoundVolume: function(volume) {
+        this.soundVolume = volume;
+        
+        // 更新所有已加載音效的音量
+        for (const key in this.sounds) {
+            if (this.sounds.hasOwnProperty(key) && this.sounds[key].volume !== undefined) {
+                this.sounds[key].volume = volume;
+            }
+        }
+    },
     
-    // 如果視頻源無效，使用預設視頻（這裡使用 base64 編碼的簡單視頻）
-    gameOverVideo.onerror = function() {
-        console.log('失敗視頻載入失敗，使用預設視頻');
-        createDefaultVideo('game-over-video', '遊戲結束');
-    };
-    
-    victoryVideo.onerror = function() {
-        console.log('勝利視頻載入失敗，使用預設視頻');
-        createDefaultVideo('victory-video', '勝利！');
-    };
-}
-
-// 創建預設視頻
-function createDefaultVideo(videoId, text) {
-    const video = document.getElementById(videoId);
-    
-    // 創建一個 canvas 元素
-    const canvas = document.createElement('canvas');
-    canvas.width = 400;
-    canvas.height = 300;
-    const ctx = canvas.getContext('2d');
-    
-    // 繪製文字
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = videoId === 'game-over-video' ? '#f00' : '#0f0';
-    ctx.font = '48px Arial';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, canvas.width / 2, canvas.height / 2);
-    
-    // 將 canvas 轉換為 data URL
-    const dataURL = canvas.toDataURL();
-    
-    // 創建一個 img 元素
-    const img = document.createElement('img');
-    img.src = dataURL;
-    
-    // 替換視頻元素
-    video.parentNode.replaceChild(img, video);
-    
-    // 模擬視頻播放結束事件
-    setTimeout(function() {
-        const event = new Event('ended');
-        img.dispatchEvent(event);
-    }, 3000);
-}
-
-// 創建預設圖片資源
-function createDefaultImages() {
-    // 這裡可以添加預設圖片的創建邏輯
-    // 由於我們使用簡單的幾何圖形繪製，暫時不需要預載圖片
-    console.log('使用預設圖形繪製遊戲元素');
-}
+    // 設置音樂音量
+    setMusicVolume: function(volume) {
+        this.musicVolume = volume;
+        
+        // 更新所有已加載音樂的音量
+        for (const key in this.music) {
+            if (this.music.hasOwnProperty(key) && this.music[key].volume !== undefined) {
+                this.music[key].volume = volume;
+            }
+        }
+    }
+};
