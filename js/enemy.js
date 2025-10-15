@@ -33,33 +33,46 @@ class Enemy extends Entity {
     draw(ctx) {
         ctx.save();
         
-        // 根據敵人類型選擇顏色
+        // 根據敵人類型選擇圖片或顏色
+        let imageName;
         let color;
+        
         switch(this.type) {
             case 'ZOMBIE':
+                imageName = 'zombie';
                 color = '#0a0';
                 break;
             case 'SKELETON':
+                imageName = 'skeleton';
                 color = '#aaa';
                 break;
             case 'GHOST':
+                imageName = 'ghost';
                 color = '#aaf';
                 break;
             case 'MINI_BOSS':
+                imageName = 'mini_boss';
                 color = '#f80';
                 break;
             case 'BOSS':
+                imageName = 'boss';
                 color = '#f00';
                 break;
             default:
+                imageName = 'zombie';
                 color = '#0a0';
         }
         
-        // 繪製敵人
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
-        ctx.fill();
+        // 繪製敵人 - 優先使用圖片
+        if (Game.images && Game.images[imageName]) {
+            ctx.drawImage(Game.images[imageName], this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+        } else {
+            // 備用：使用純色圓形
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
         
         // 繪製血條
         const healthBarWidth = this.width;
