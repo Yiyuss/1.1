@@ -117,6 +117,11 @@ class Player extends Entity {
         
         // 顯示升級選單
         UI.showLevelUpMenu();
+
+        // 播放升級音效
+        if (typeof AudioManager !== 'undefined') {
+            AudioManager.playSound('level_up');
+        }
     }
     
     // 添加武器
