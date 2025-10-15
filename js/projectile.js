@@ -46,27 +46,33 @@ class Projectile extends Entity {
     draw(ctx) {
         ctx.save();
         
-        // 根據武器類型選擇顏色
-        let color;
+        // 優先使用圖片繪製（1:1比例）
+        let imageName = null;
         switch(this.weaponType) {
             case 'DAGGER':
-                color = '#fff';
+                imageName = 'dagger';
                 break;
             case 'FIREBALL':
-                color = '#f50';
+                imageName = 'fireball';
                 break;
             case 'LIGHTNING':
-                color = '#0ff';
+                imageName = 'lightning';
                 break;
-            default:
-                color = '#fff';
         }
         
-        // 繪製投射物
-        ctx.fillStyle = color;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
-        ctx.fill();
+        if (imageName && Game.images && Game.images[imageName]) {
+            const size = Math.max(this.width, this.height);
+            ctx.drawImage(Game.images[imageName], this.x - size / 2, this.y - size / 2, size, size);
+        } else {
+            // 備用：使用純色圓形
+            let color = '#fff';
+            if (this.weaponType === 'FIREBALL') color = '#f50';
+            if (this.weaponType === 'LIGHTNING') color = '#0ff';
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
         
         // 繪製尾跡效果
         ctx.globalAlpha = 0.5;
