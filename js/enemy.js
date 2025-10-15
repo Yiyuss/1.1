@@ -156,5 +156,10 @@ class Enemy extends Entity {
         
         // 標記為刪除
         this.destroy();
+
+        // 播放死亡音效
+        if (typeof AudioManager !== 'undefined') {
+            AudioManager.playSound('enemy_death');
+        }
     }
 }
