@@ -47,16 +47,22 @@ class Player extends Entity {
             ctx.globalAlpha = 0.5;
         }
         
-        ctx.fillStyle = '#00f';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // 繪製方向指示器
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(this.x + this.width / 3, this.y - this.height / 3, 5, 0, Math.PI * 2);
-        ctx.fill();
+        // 使用玩家圖片
+        if (Game.images && Game.images.player) {
+            ctx.drawImage(Game.images.player, this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+        } else {
+            // 備用：使用純色球體
+            ctx.fillStyle = '#00f';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 繪製方向指示器
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(this.x + this.width / 3, this.y - this.height / 3, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
         
         ctx.restore();
     }
