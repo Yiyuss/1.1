@@ -14,6 +14,15 @@ class Player extends Entity {
         this.invulnerabilityTime = 0;
         this.invulnerabilityDuration = 1000; // 受傷後1秒無敵時間
         
+        // 能量與大招狀態
+        this.energy = 0;
+        this.maxEnergy = CONFIG.ENERGY.MAX;
+        this.energyRegenRate = CONFIG.ENERGY.REGEN_PER_SEC;
+        this.isUltimateActive = false;
+        this.ultimateEndTime = 0;
+        this._ultimateBackup = null;
+        this.ultimateKeyHeld = false;
+        
         // 初始武器 - 飛鏢
         this.addWeapon('DAGGER');
     }
@@ -28,6 +37,22 @@ class Player extends Entity {
         this.x = Utils.clamp(this.x, this.width / 2, CONFIG.CANVAS_WIDTH - this.width / 2);
         this.y = Utils.clamp(this.y, this.height / 2, CONFIG.CANVAS_HEIGHT - this.height / 2);
         
+        // 能量自然恢復（每秒+1，封頂100）
+        this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegenRate * (deltaTime / 1000));
+        UI.updateEnergyBar(this.energy, this.maxEnergy);
+
+        // 監聽大招觸發（Q鍵）
+        const qDown = Input.isKeyDown('q') || Input.isKeyDown('Q');
+        if (qDown && !this.ultimateKeyHeld) {
+            this.tryActivateUltimate();
+        }
+        this.ultimateKeyHeld = qDown;
+
+        // 大招結束判定
+        if (this.isUltimateActive && Date.now() >= this.ultimateEndTime) {
+            this.deactivateUltimate();
+        }
+
         // 更新無敵狀態
         if (this.isInvulnerable) {
             this.invulnerabilityTime += deltaTime;
@@ -47,11 +72,12 @@ class Player extends Entity {
             ctx.globalAlpha = 0.5;
         }
         
-        // 使用玩家圖片
-        if (Game.images && Game.images.player) {
+        // 使用玩家圖片（大招期間使用playerN）
+        const imgKey = (this.isUltimateActive && Game.images && Game.images[CONFIG.ULTIMATE.IMAGE_KEY]) ? CONFIG.ULTIMATE.IMAGE_KEY : 'player';
+        if (Game.images && Game.images[imgKey]) {
             // 確保圖片以1:1比例繪製
             const size = Math.max(this.width, this.height);
-            ctx.drawImage(Game.images.player, this.x - size / 2, this.y - size / 2, size, size);
+            ctx.drawImage(Game.images[imgKey], this.x - size / 2, this.y - size / 2, size, size);
         } else {
             // 備用：使用純色球體
             ctx.fillStyle = '#00f';
@@ -145,5 +171,71 @@ class Player extends Entity {
         if (weapon) {
             weapon.levelUp();
         }
+    }
+
+    // 嘗試啟動大招
+    tryActivateUltimate() {
+        if (this.isUltimateActive) return;
+        if (Math.floor(this.energy) < this.maxEnergy) return; // 需要100能量
+        this.activateUltimate();
+    }
+
+    // 啟動大招：變身、體型變大、四技能LV10、能量消耗
+    activateUltimate() {
+        // 保存必要的玩家狀態，不初始化玩家
+        this._ultimateBackup = {
+            width: this.width,
+            height: this.height,
+            collisionRadius: this.collisionRadius,
+            weapons: this.weapons.map(w => ({ type: w.type, level: w.level }))
+        };
+        
+        // 變身狀態
+        this.isUltimateActive = true;
+        this.ultimateEndTime = Date.now() + CONFIG.ULTIMATE.DURATION_MS;
+        
+        // 體型變大
+        this.width = Math.floor(this.width * CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER);
+        this.height = Math.floor(this.height * CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER);
+        this.collisionRadius = Math.max(this.width, this.height) / 2;
+        
+        // 啟用四種武器，全部LV10
+        this.weapons = CONFIG.ULTIMATE.ULTIMATE_WEAPONS.map(type => {
+            const w = new Weapon(this, type);
+            w.level = CONFIG.ULTIMATE.ULTIMATE_LEVEL;
+            w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
+            return w;
+        });
+        
+        // 消耗能量
+        this.energy = 0;
+        UI.updateEnergyBar(this.energy, this.maxEnergy);
+    }
+
+    // 結束大招：恢復原始狀態與武器、能量歸零
+    deactivateUltimate() {
+        if (!this.isUltimateActive || !this._ultimateBackup) return;
+        this.isUltimateActive = false;
+        
+        // 恢復尺寸與碰撞半徑
+        this.width = this._ultimateBackup.width;
+        this.height = this._ultimateBackup.height;
+        this.collisionRadius = this._ultimateBackup.collisionRadius;
+        
+        // 恢復原本武器與等級
+        this.weapons = this._ultimateBackup.weapons.map(info => {
+            const w = new Weapon(this, info.type);
+            w.level = info.level;
+            w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
+            return w;
+        });
+        
+        // 能量歸零
+        this.energy = 0;
+        UI.updateEnergyBar(this.energy, this.maxEnergy);
+        
+        // 清理備份
+        this._ultimateBackup = null;
+        this.ultimateEndTime = 0;
     }
 }
