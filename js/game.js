@@ -62,6 +62,18 @@ const Game = {
         // 更新遊戲時間
         this.gameTime += deltaTime;
         
+        // 更新玩家
+        if (this.player) {
+            this.player.update(deltaTime);
+        }
+        
+        // 更新所有武器
+        if (this.player && this.player.weapons) {
+            for (const weapon of this.player.weapons) {
+                weapon.update(deltaTime);
+            }
+        }
+        
         // 更新UI計時器
         UI.updateTimer(this.gameTime);
         
@@ -126,6 +138,15 @@ const Game = {
         // 繪製背景
         this.drawBackground();
         
+        // 繪製網格（可選）
+        // this.drawGrid();
+        
+        // 繪製所有實體
+        this.drawEntities();
+    },
+    
+    // 繪製所有實體
+    drawEntities: function() {
         // 繪製經驗寶石
         for (const orb of this.experienceOrbs) {
             orb.draw(this.ctx);
@@ -147,10 +168,21 @@ const Game = {
     
     // 繪製背景
     drawBackground: function() {
-        this.ctx.fillStyle = '#111';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // 繪製網格
+        if (this.images && this.images.background) {
+            // 使用背景圖片
+            this.ctx.drawImage(this.images.background, 0, 0, this.canvas.width, this.canvas.height);
+        } else {
+            // 備用：使用純色背景
+            this.ctx.fillStyle = '#111';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            
+            // 繪製網格
+            this.drawGrid();
+        }
+    },
+    
+    // 繪製網格
+    drawGrid: function() {
         this.ctx.strokeStyle = '#222';
         this.ctx.lineWidth = 1;
         
