@@ -65,6 +65,21 @@ class Weapon {
             );
             
             Game.addProjectile(projectile);
+
+            // 觸發音效（每次發射只播放一次即可）
+            if (i === 0 && typeof AudioManager !== 'undefined') {
+                switch (this.type) {
+                    case 'DAGGER':
+                        AudioManager.playSound('dagger_shoot');
+                        break;
+                    case 'FIREBALL':
+                        AudioManager.playSound('fireball_shoot');
+                        break;
+                    case 'LIGHTNING':
+                        AudioManager.playSound('lightning_shoot');
+                        break;
+                }
+            }
         }
     }
     
