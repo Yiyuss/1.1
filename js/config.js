@@ -23,7 +23,14 @@ const CONFIG = {
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每秒發射1顆飛鏢" },
                 { COUNT: 2, DESCRIPTION: "每秒發射2顆飛鏢" },
-                { COUNT: 3, DESCRIPTION: "每秒發射3顆飛鏢" }
+                { COUNT: 3, DESCRIPTION: "每秒發射3顆飛鏢" },
+                { COUNT: 4, DESCRIPTION: "每秒發射4顆飛鏢" },
+                { COUNT: 5, DESCRIPTION: "每秒發射5顆飛鏢" },
+                { COUNT: 6, DESCRIPTION: "每秒發射6顆飛鏢" },
+                { COUNT: 7, DESCRIPTION: "每秒發射7顆飛鏢" },
+                { COUNT: 8, DESCRIPTION: "每秒發射8顆飛鏢" },
+                { COUNT: 9, DESCRIPTION: "每秒發射9顆飛鏢" },
+                { COUNT: 10, DESCRIPTION: "每秒發射10顆飛鏢" }
             ]
         },
         FIREBALL: {
@@ -35,7 +42,14 @@ const CONFIG = {
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每2秒發射1顆火球" },
                 { COUNT: 2, DESCRIPTION: "每2秒發射2顆火球" },
-                { COUNT: 3, DESCRIPTION: "每2秒發射3顆火球" }
+                { COUNT: 3, DESCRIPTION: "每2秒發射3顆火球" },
+                { COUNT: 4, DESCRIPTION: "每2秒發射4顆火球" },
+                { COUNT: 5, DESCRIPTION: "每2秒發射5顆火球" },
+                { COUNT: 6, DESCRIPTION: "每2秒發射6顆火球" },
+                { COUNT: 7, DESCRIPTION: "每2秒發射7顆火球" },
+                { COUNT: 8, DESCRIPTION: "每2秒發射8顆火球" },
+                { COUNT: 9, DESCRIPTION: "每2秒發射9顆火球" },
+                { COUNT: 10, DESCRIPTION: "每2秒發射10顆火球" }
             ]
         },
         LIGHTNING: {
@@ -47,7 +61,14 @@ const CONFIG = {
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每1.5秒發射1道閃電" },
                 { COUNT: 2, DESCRIPTION: "每1.5秒發射2道閃電" },
-                { COUNT: 3, DESCRIPTION: "每1.5秒發射3道閃電" }
+                { COUNT: 3, DESCRIPTION: "每1.5秒發射3道閃電" },
+                { COUNT: 4, DESCRIPTION: "每1.5秒發射4道閃電" },
+                { COUNT: 5, DESCRIPTION: "每1.5秒發射5道閃電" },
+                { COUNT: 6, DESCRIPTION: "每1.5秒發射6道閃電" },
+                { COUNT: 7, DESCRIPTION: "每1.5秒發射7道閃電" },
+                { COUNT: 8, DESCRIPTION: "每1.5秒發射8道閃電" },
+                { COUNT: 9, DESCRIPTION: "每1.5秒發射9道閃電" },
+                { COUNT: 10, DESCRIPTION: "每1.5秒發射10道閃電" }
             ]
         }
     },
@@ -114,11 +135,20 @@ const CONFIG = {
         DURATION: 60000, // 每波持續60秒
         MINI_BOSS_INTERVAL: 180000, // 每3分鐘出現小BOSS
         BOSS_WAVE: 30, // 第30波出現大BOSS
+        TOTAL_WAVES: 30,
         ENEMY_SPAWN_RATE: {
             INITIAL: 2000, // 初始每2秒生成一個敵人
             DECREASE_PER_WAVE: 100, // 每波減少100毫秒
             MINIMUM: 500 // 最低500毫秒
         },
+        // 每次生成的敵人數量隨波次增加
+        SPAWN_COUNT: {
+            INITIAL: 1,
+            INCREASE_PER_WAVE: 0.2,
+            MAXIMUM: 5
+        },
+        // 敵人血量隨波次的倍率（每波在基礎上乘以此倍率）
+        HEALTH_MULTIPLIER_PER_WAVE: 1.05,
         ENEMY_TYPES: [
             { WAVE: 1, TYPE: "ZOMBIE" },
             { WAVE: 2, TYPE: "SKELETON" },
