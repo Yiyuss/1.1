@@ -114,24 +114,29 @@ const UI = {
     getUpgradeOptions: function() {
         const options = [];
         const player = Game.player;
-        
-        // 現有武器升級選項
-        for (const weapon of player.weapons) {
-            const nextLevel = weapon.getNextLevelDescription();
-            if (nextLevel) {
+
+        // 在大招期間，升級選項基於「大招前的武器狀態」生成，避免因LV10臨時武器導致無選項
+        const sourceWeaponsInfo = (player.isUltimateActive && player._ultimateBackup)
+            ? player._ultimateBackup.weapons // [{ type, level }]
+            : player.weapons.map(w => ({ type: w.type, level: w.level }));
+
+        // 現有武器升級選項（使用CONFIG計算下一級描述）
+        for (const info of sourceWeaponsInfo) {
+            const cfg = CONFIG.WEAPONS[info.type];
+            if (!cfg) continue;
+            if (info.level < cfg.LEVELS.length) {
                 options.push({
-                    type: weapon.type,
-                    name: nextLevel.name,
-                    level: nextLevel.level,
-                    description: nextLevel.description
+                    type: info.type,
+                    name: cfg.NAME,
+                    level: info.level + 1,
+                    description: cfg.LEVELS[info.level].DESCRIPTION
                 });
             }
         }
-        
-        // 新武器選項
+
+        // 新武器選項（基於來源狀態判定）
         const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT'];
-        const playerWeaponTypes = player.weapons.map(w => w.type);
-        
+        const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
         for (const weaponType of availableWeapons) {
             if (!playerWeaponTypes.includes(weaponType)) {
                 const weaponConfig = CONFIG.WEAPONS[weaponType];
@@ -143,7 +148,7 @@ const UI = {
                 });
             }
         }
-        
+
         // 每次升級隨機挑選3個（不足3則返回全部）
         const shuffled = Utils.shuffleArray(options);
         return shuffled.slice(0, 3);
@@ -152,18 +157,30 @@ const UI = {
     // 選擇升級
     selectUpgrade: function(weaponType) {
         const player = Game.player;
-        
-        // 檢查玩家是否已有此武器
-        const existingWeapon = player.weapons.find(w => w.type === weaponType);
-        
-        if (existingWeapon) {
-            // 升級現有武器
-            player.upgradeWeapon(weaponType);
+
+        // 大招期間：將升級作用在「大招前的武器狀態」上，避免臨時LV10武器干擾
+        if (player.isUltimateActive && player._ultimateBackup) {
+            const idx = player._ultimateBackup.weapons.findIndex(w => w.type === weaponType);
+            if (idx >= 0) {
+                const info = player._ultimateBackup.weapons[idx];
+                const cfg = CONFIG.WEAPONS[info.type];
+                if (cfg && info.level < cfg.LEVELS.length) {
+                    info.level++;
+                }
+            } else {
+                // 添加新武器到備份狀態（LV1）
+                player._ultimateBackup.weapons.push({ type: weaponType, level: 1 });
+            }
         } else {
-            // 添加新武器
-            player.addWeapon(weaponType);
+            // 平常狀態：直接升級/新增到當前玩家武器
+            const existingWeapon = player.weapons.find(w => w.type === weaponType);
+            if (existingWeapon) {
+                player.upgradeWeapon(weaponType);
+            } else {
+                player.addWeapon(weaponType);
+            }
         }
-        
+
         // 隱藏升級選單
         this.hideLevelUpMenu();
     },
