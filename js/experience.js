@@ -39,11 +39,17 @@ class ExperienceOrb extends Entity {
     draw(ctx) {
         ctx.save();
         
-        // 繪製經驗寶石
-        ctx.fillStyle = '#0f0';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
-        ctx.fill();
+        // 優先使用圖片繪製（1:1比例）
+        if (Game.images && Game.images.exp_orb) {
+            const size = Math.max(this.width, this.height);
+            ctx.drawImage(Game.images.exp_orb, this.x - size / 2, this.y - size / 2, size, size);
+        } else {
+            // 備用：使用純色圓形
+            ctx.fillStyle = '#0f0';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
         
         // 閃爍效果
         const pulseSize = Math.sin(Date.now() / 200) * 2;
