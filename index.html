@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>吸血鬼倖存者 - 遊戲模板</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- 開始畫面 -->
+        <div id="start-screen" class="screen">
+            <h1>吸血鬼倖存者</h1>
+            <button id="start-button">開始遊戲</button>
+        </div>
+
+        <!-- 遊戲畫面 -->
+        <div id="game-screen" class="screen hidden">
+            <canvas id="game-canvas"></canvas>
+            
+            <!-- 遊戲UI -->
+            <div id="game-ui">
+                <div id="health-bar-container">
+                    <div class="ui-label">HP:</div>
+                    <div id="health-bar">
+                        <div id="health-fill"></div>
+                    </div>
+                    <div id="health-text">100/100</div>
+                </div>
+                
+                <div id="level-info">
+                    <div class="ui-label">等級:</div>
+                    <div id="level-text">1</div>
+                </div>
+                
+                <div id="exp-bar-container">
+                    <div class="ui-label">經驗:</div>
+                    <div id="exp-bar">
+                        <div id="exp-fill"></div>
+                    </div>
+                    <div id="exp-text">0/100</div>
+                </div>
+                
+                <div id="timer">00:00</div>
+                <div id="wave-info">波次: 1</div>
+            </div>
+            
+            <!-- 升級選單 -->
+            <div id="level-up-menu" class="hidden">
+                <h2>升級!</h2>
+                <div id="upgrade-options"></div>
+            </div>
+        </div>
+        
+        <!-- 失敗畫面 -->
+        <div id="game-over-screen" class="screen hidden">
+            <video id="game-over-video" src="assets/videos/game_over.mp4"></video>
+        </div>
+        
+        <!-- 勝利畫面 -->
+        <div id="victory-screen" class="screen hidden">
+            <video id="victory-video" src="assets/videos/victory.mp4"></video>
+        </div>
+    </div>
+
+    <!-- 遊戲腳本 -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/entity.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/enemy.js"></script>
+    <script src="js/weapon.js"></script>
+    <script src="js/projectile.js"></script>
+    <script src="js/experience.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/level.js"></script>
+    <script src="js/wave.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

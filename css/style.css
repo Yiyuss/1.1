@@ -1,0 +1,200 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #000;
+    color: #fff;
+    overflow: hidden;
+}
+
+#game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.screen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+.hidden {
+    display: none;
+}
+
+#start-screen {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+#start-screen h1 {
+    font-size: 3rem;
+    margin-bottom: 2rem;
+    color: #ff0000;
+    text-shadow: 0 0 10px #ff0000;
+}
+
+#start-button {
+    padding: 1rem 2rem;
+    font-size: 1.5rem;
+    background-color: #ff0000;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+#start-button:hover {
+    background-color: #cc0000;
+    transform: scale(1.1);
+}
+
+#game-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+#game-ui {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+#health-bar-container, #exp-bar-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.ui-label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+#health-bar, #exp-bar {
+    width: 200px;
+    height: 20px;
+    background-color: #333;
+    border: 2px solid #fff;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-right: 5px;
+}
+
+#health-fill {
+    height: 100%;
+    background-color: #ff0000;
+    width: 100%;
+    transition: width 0.3s;
+}
+
+#exp-fill {
+    height: 100%;
+    background-color: #00ff00;
+    width: 0%;
+    transition: width 0.3s;
+}
+
+#level-info {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+#level-text, #health-text, #exp-text {
+    font-weight: bold;
+}
+
+#timer {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+#wave-info {
+    position: absolute;
+    top: 40px;
+    right: 10px;
+    font-size: 1.2rem;
+}
+
+#level-up-menu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.9);
+    padding: 20px;
+    border-radius: 10px;
+    border: 2px solid #ff0000;
+    z-index: 100;
+    text-align: center;
+}
+
+#level-up-menu h2 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: #ff0000;
+}
+
+#upgrade-options {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.upgrade-option {
+    background-color: #333;
+    border: 2px solid #ff0000;
+    border-radius: 5px;
+    padding: 10px;
+    width: 150px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.upgrade-option:hover {
+    background-color: #555;
+    transform: scale(1.05);
+}
+
+.upgrade-option h3 {
+    font-size: 1.2rem;
+    margin-bottom: 5px;
+    color: #ff0000;
+}
+
+.upgrade-option p {
+    font-size: 0.9rem;
+}
+
+#game-over-screen, #victory-screen {
+    background-color: #000;
+}
+
+#game-over-video, #victory-video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
