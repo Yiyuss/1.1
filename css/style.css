@@ -92,7 +92,7 @@ body {
     pointer-events: none;
 }
 
-#health-bar-container, #exp-bar-container {
+#health-bar-container, #exp-bar-container, #energy-bar-container {
     display: flex;
     align-items: center;
     margin-bottom: 5px;
@@ -103,7 +103,7 @@ body {
     margin-right: 5px;
 }
 
-#health-bar, #exp-bar {
+#health-bar, #exp-bar, #energy-bar {
     width: 200px;
     height: 20px;
     background-color: #333;
@@ -127,6 +127,13 @@ body {
     transition: width 0.3s;
 }
 
+#energy-fill {
+    height: 100%;
+    background-color: #00bfff;
+    width: 0%;
+    transition: width 0.3s;
+}
+
 #level-info {
     position: absolute;
     top: 10px;
@@ -135,7 +142,7 @@ body {
     align-items: center;
 }
 
-#level-text, #health-text, #exp-text {
+#level-text, #health-text, #exp-text, #energy-text {
     font-weight: bold;
 }
 
@@ -167,24 +174,31 @@ body {
     left: 10px;
 }
 
+#energy-bar-container {
+    position: absolute;
+    top: 100px;
+    left: 10px;
+}
+
 /* 手機響應式調整：縮小字體與血條尺寸，避免遮擋 */
 @media (max-width: 600px) {
     #level-info { font-size: 0.85rem; top: 6px; }
     #timer { font-size: 1rem; top: 6px; }
     #wave-info { font-size: 0.9rem; top: 24px; }
-    #health-bar, #exp-bar { width: 120px; height: 10px; border-width: 1px; }
-    #health-text, #exp-text { font-size: 0.8rem; margin-left: 4px; }
+    #health-bar, #exp-bar, #energy-bar { width: 120px; height: 10px; border-width: 1px; }
+    #health-text, #exp-text, #energy-text { font-size: 0.8rem; margin-left: 4px; }
     .ui-label { display: none; }
     #health-bar-container { top: 24px; }
     #exp-bar-container { top: 40px; }
+    #energy-bar-container { top: 56px; }
 }
 
 @media (max-width: 400px) {
     #level-info { font-size: 0.75rem; top: 4px; }
     #timer { font-size: 0.9rem; top: 4px; }
     #wave-info { font-size: 0.8rem; top: 20px; }
-    #health-bar, #exp-bar { width: 100px; height: 8px; }
-    #health-text, #exp-text { font-size: 0.7rem; }
+    #health-bar, #exp-bar, #energy-bar { width: 100px; height: 8px; }
+    #health-text, #exp-text, #energy-text { font-size: 0.7rem; }
 }
 
 #level-up-menu {
