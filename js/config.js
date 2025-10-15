@@ -70,6 +70,28 @@ const CONFIG = {
                 { COUNT: 9, DESCRIPTION: "每1.5秒發射9道閃電" },
                 { COUNT: 10, DESCRIPTION: "每1.5秒發射10道閃電" }
             ]
+        },
+        ORBIT: {
+            NAME: "旋球",
+            DAMAGE: 8,
+            COOLDOWN: 4000,
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 16,
+            ORBIT_RADIUS: 60,
+            DURATION: 3000, // 3秒持續
+            ANGULAR_SPEED: 6.283, // 約1圈/秒
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "生成1個旋球環繞3秒" },
+                { COUNT: 2, DESCRIPTION: "生成2個旋球環繞3秒" },
+                { COUNT: 3, DESCRIPTION: "生成3個旋球環繞3秒" },
+                { COUNT: 4, DESCRIPTION: "生成4個旋球環繞3秒" },
+                { COUNT: 5, DESCRIPTION: "生成5個旋球環繞3秒" },
+                { COUNT: 6, DESCRIPTION: "生成6個旋球環繞3秒" },
+                { COUNT: 7, DESCRIPTION: "生成7個旋球環繞3秒" },
+                { COUNT: 8, DESCRIPTION: "生成8個旋球環繞3秒" },
+                { COUNT: 9, DESCRIPTION: "生成9個旋球環繞3秒" },
+                { COUNT: 10, DESCRIPTION: "生成10個旋球環繞3秒" }
+            ]
         }
     },
     
