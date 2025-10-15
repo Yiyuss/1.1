@@ -23,9 +23,14 @@ const Input = {
             const rect = Game.canvas.getBoundingClientRect();
             this.mousePosition.x = e.clientX - rect.left;
             this.mousePosition.y = e.clientY - rect.top;
-            this.mouseTarget = { x: this.mousePosition.x, y: this.mousePosition.y };
+            // 將目標點夾限在可到達範圍內，避免卡在邊界
+            const halfW = Game.player ? Game.player.width / 2 : 0;
+            const halfH = Game.player ? Game.player.height / 2 : 0;
+            const clampedX = Utils.clamp(this.mousePosition.x, halfW, Game.canvas.width - halfW);
+            const clampedY = Utils.clamp(this.mousePosition.y, halfH, Game.canvas.height - halfH);
+            this.mouseTarget = { x: clampedX, y: clampedY };
             this.isMouseMoving = true;
-            console.log('滑鼠點擊:', this.mouseTarget);
+            console.log('滑鼠點擊目標(已夾限):', this.mouseTarget);
         });
         
         // 監聽滑鼠移動事件以更新位置
