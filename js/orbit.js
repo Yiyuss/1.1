@@ -6,8 +6,8 @@ class OrbitBall extends Entity {
         this.angle = initialAngle;
         this.radius = radius;
         this.damage = damage;
-        // 持續傷害改為約原始傷害的30%，並以固定間隔觸發一次
-        this.tickDamage = Math.max(1, Math.round(this.damage * 0.3));
+        // 持續傷害改為約原始傷害的60%，並以固定間隔觸發一次
+        this.tickDamage = Math.max(1, Math.round(this.damage * 0.6));
         this.tickIntervalMs = 120; // 約每0.12秒一次，避免每幀秒殺
         this.tickAccumulator = 0;
         this.duration = durationMs;
