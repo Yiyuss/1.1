@@ -166,7 +166,7 @@ const CONFIG = {
         // 每次生成的敵人數量隨波次增加
         SPAWN_COUNT: {
             INITIAL: 1,
-            INCREASE_PER_WAVE: 0.2,
+            INCREASE_PER_WAVE: 0.26, // 約提升30%
             MAXIMUM: 5
         },
         // 敵人血量隨波次的倍率（每波在基礎上乘以此倍率）
