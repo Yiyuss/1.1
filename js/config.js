@@ -6,7 +6,7 @@ const CONFIG = {
     
     // 玩家設置
     PLAYER: {
-        SPEED: 5,
+        SPEED: 3, // 降低移動速度
         MAX_HEALTH: 100,
         SIZE: 32,
         COLLISION_RADIUS: 16
