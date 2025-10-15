@@ -21,7 +21,27 @@ class Weapon {
     
     // 發射投射物
     fire() {
-        // 根據武器等級發射不同數量的投射物
+        // 特殊技能：旋球
+        if (this.type === 'ORBIT') {
+            const count = this.projectileCount;
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2;
+                const orb = new OrbitBall(
+                    this.player,
+                    angle,
+                    this.config.ORBIT_RADIUS,
+                    this.config.DAMAGE,
+                    this.config.PROJECTILE_SIZE,
+                    this.config.DURATION,
+                    this.config.ANGULAR_SPEED
+                );
+                Game.addProjectile(orb);
+            }
+            // 旋球技能不需要追蹤敵人角度，直接返回
+            return;
+        }
+
+        // 一般投射武器：根據武器等級發射不同數量的投射物
         for (let i = 0; i < this.projectileCount; i++) {
             let angle;
             
@@ -77,6 +97,9 @@ class Weapon {
                         break;
                     case 'LIGHTNING':
                         AudioManager.playSound('lightning_shoot');
+                        break;
+                    case 'ORBIT':
+                        // 可選：為旋球加入音效
                         break;
                 }
             }
