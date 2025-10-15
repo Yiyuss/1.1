@@ -78,6 +78,7 @@ const CONFIG = {
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 16,
             ORBIT_RADIUS: 60,
+            ORBIT_RADIUS_PER_LEVEL: 10,
             DURATION: 3000, // 3秒持續
             ANGULAR_SPEED: 6.283, // 約1圈/秒
             LEVELS: [
@@ -93,6 +94,19 @@ const CONFIG = {
                 { COUNT: 10, DESCRIPTION: "生成10個旋球環繞3秒" }
             ]
         }
+    },
+
+    // 能量與大招設置
+    ENERGY: {
+        MAX: 100,
+        REGEN_PER_SEC: 1
+    },
+    ULTIMATE: {
+        DURATION_MS: 15000,
+        PLAYER_SIZE_MULTIPLIER: 2.0, // 變身體型變大
+        IMAGE_KEY: 'playerN',
+        ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT'],
+        ULTIMATE_LEVEL: 10
     },
     
     // 敵人設置
