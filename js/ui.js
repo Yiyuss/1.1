@@ -119,7 +119,7 @@ const UI = {
         }
         
         // 新武器選項
-        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING'];
+        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT'];
         const playerWeaponTypes = player.weapons.map(w => w.type);
         
         for (const weaponType of availableWeapons) {
