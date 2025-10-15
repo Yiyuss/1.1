@@ -62,22 +62,32 @@ body {
     transform: scale(1.1);
 }
 
+/* 視窗內的等比縮放容器 */
+#viewport {
+    position: relative;
+    width: 800px;
+    height: 600px;
+    display: block;
+}
+
+/* 畫布填滿viewport（內部解析度仍為800x600） */
 #game-canvas {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    /* 使用canvas本身的寬高(800x600)，避免比例拉伸 */
-    width: auto;
-    height: auto;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     z-index: 1;
     image-rendering: pixelated;
 }
 
+/* UI覆蓋在viewport之上，元素絕對定位到角落 */
 #game-ui {
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     z-index: 2;
     pointer-events: none;
 }
@@ -118,9 +128,11 @@ body {
 }
 
 #level-info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
     display: flex;
     align-items: center;
-    margin-bottom: 5px;
 }
 
 #level-text, #health-text, #exp-text {
@@ -140,6 +152,19 @@ body {
     top: 40px;
     right: 10px;
     font-size: 1.2rem;
+}
+
+/* 左上角的HP與EXP條依序排列在Level下方 */
+#health-bar-container {
+    position: absolute;
+    top: 40px;
+    left: 10px;
+}
+
+#exp-bar-container {
+    position: absolute;
+    top: 70px;
+    left: 10px;
 }
 
 #level-up-menu {
