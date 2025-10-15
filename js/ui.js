@@ -59,6 +59,12 @@ const UI = {
         
         // 獲取可用的升級選項
         const options = this.getUpgradeOptions();
+
+        // 若無任何選項（所有技能已滿級且無新武器），直接略過並恢復遊戲
+        if (options.length === 0) {
+            this.hideLevelUpMenu();
+            return;
+        }
         
         // 添加升級選項
         options.forEach(option => {
