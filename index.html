@@ -16,39 +16,41 @@
 
         <!-- 遊戲畫面 -->
         <div id="game-screen" class="screen hidden">
-            <canvas id="game-canvas"></canvas>
-            
-            <!-- 遊戲UI -->
-            <div id="game-ui">
-                <div id="health-bar-container">
-                    <div class="ui-label">HP:</div>
-                    <div id="health-bar">
-                        <div id="health-fill"></div>
+            <div id="viewport">
+                <canvas id="game-canvas"></canvas>
+
+                <!-- 遊戲UI（置於遊戲視窗內） -->
+                <div id="game-ui">
+                    <div id="level-info">
+                        <div class="ui-label">等級:</div>
+                        <div id="level-text">1</div>
                     </div>
-                    <div id="health-text">100/100</div>
-                </div>
-                
-                <div id="level-info">
-                    <div class="ui-label">等級:</div>
-                    <div id="level-text">1</div>
-                </div>
-                
-                <div id="exp-bar-container">
-                    <div class="ui-label">經驗:</div>
-                    <div id="exp-bar">
-                        <div id="exp-fill"></div>
+
+                    <div id="health-bar-container">
+                        <div class="ui-label">HP:</div>
+                        <div id="health-bar">
+                            <div id="health-fill"></div>
+                        </div>
+                        <div id="health-text">100/100</div>
                     </div>
-                    <div id="exp-text">0/100</div>
+
+                    <div id="exp-bar-container">
+                        <div class="ui-label">經驗:</div>
+                        <div id="exp-bar">
+                            <div id="exp-fill"></div>
+                        </div>
+                        <div id="exp-text">0/100</div>
+                    </div>
+
+                    <div id="timer">00:00</div>
+                    <div id="wave-info">波次: 1</div>
                 </div>
-                
-                <div id="timer">00:00</div>
-                <div id="wave-info">波次: 1</div>
-            </div>
-            
-            <!-- 升級選單 -->
-            <div id="level-up-menu" class="hidden">
-                <h2>升級!</h2>
-                <div id="upgrade-options"></div>
+
+                <!-- 升級選單（置於遊戲視窗內） -->
+                <div id="level-up-menu" class="hidden">
+                    <h2>升級!</h2>
+                    <div id="upgrade-options"></div>
+                </div>
             </div>
         </div>
         
