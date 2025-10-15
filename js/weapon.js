@@ -25,21 +25,32 @@ class Weapon {
         for (let i = 0; i < this.projectileCount; i++) {
             let angle;
             
-            // 根據投射物數量計算發射角度
-            if (this.projectileCount === 1) {
-                // 單個投射物朝最近的敵人發射
-                const nearestEnemy = this.findNearestEnemy();
-                if (nearestEnemy) {
-                    angle = Utils.angle(this.player.x, this.player.y, nearestEnemy.x, nearestEnemy.y);
+            // 找到最近的敵人
+            const nearestEnemy = this.findNearestEnemy();
+            
+            // 無論投射物數量如何，都優先追蹤敵人
+            if (nearestEnemy) {
+                // 基礎角度是朝向最近敵人的方向
+                const baseAngle = Utils.angle(this.player.x, this.player.y, nearestEnemy.x, nearestEnemy.y);
+                
+                if (this.projectileCount === 1) {
+                    // 單個投射物直接朝敵人發射
+                    angle = baseAngle;
                 } else {
-                    // 如果沒有敵人，則向右發射
-                    angle = 0;
+                    // 多個投射物也朝敵人方向發射，但有小角度差異
+                    const spreadAngle = Math.PI / 6; // 30度扇形，比原來小一些
+                    const startAngle = baseAngle - spreadAngle / 2;
+                    angle = startAngle + (spreadAngle / (this.projectileCount - 1)) * i;
                 }
             } else {
-                // 多個投射物呈扇形發射
-                const spreadAngle = Math.PI / 4; // 45度扇形
-                const startAngle = -spreadAngle / 2;
-                angle = startAngle + (spreadAngle / (this.projectileCount - 1)) * i;
+                // 如果沒有敵人，則向右發射，或者呈扇形發射
+                if (this.projectileCount === 1) {
+                    angle = 0; // 向右
+                } else {
+                    const spreadAngle = Math.PI / 4; // 45度扇形
+                    const startAngle = -spreadAngle / 2;
+                    angle = startAngle + (spreadAngle / (this.projectileCount - 1)) * i;
+                }
             }
             
             // 創建投射物
