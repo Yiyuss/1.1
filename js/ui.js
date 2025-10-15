@@ -7,6 +7,8 @@ const UI = {
         this.levelText = document.getElementById('level-text');
         this.expBar = document.getElementById('exp-fill');
         this.expText = document.getElementById('exp-text');
+        this.energyBar = document.getElementById('energy-fill');
+        this.energyText = document.getElementById('energy-text');
         this.timer = document.getElementById('timer');
         this.waveInfo = document.getElementById('wave-info');
         this.levelUpMenu = document.getElementById('level-up-menu');
@@ -16,6 +18,7 @@ const UI = {
         this.updateHealthBar(CONFIG.PLAYER.MAX_HEALTH, CONFIG.PLAYER.MAX_HEALTH);
         this.updateLevel(1);
         this.updateExpBar(0, CONFIG.EXPERIENCE.LEVEL_UP_BASE);
+        this.updateEnergyBar(0, CONFIG.ENERGY.MAX);
         this.updateTimer(0);
         this.updateWaveInfo(1);
     },
@@ -37,6 +40,13 @@ const UI = {
         const percentage = Math.max(0, current / max * 100);
         this.expBar.style.width = percentage + '%';
         this.expText.textContent = `${Math.floor(current)}/${max}`;
+    },
+
+    // 更新能量條
+    updateEnergyBar: function(current, max) {
+        const percentage = Math.max(0, current / max * 100);
+        this.energyBar.style.width = percentage + '%';
+        this.energyText.textContent = `${Math.floor(current)}/${max}`;
     },
     
     // 更新計時器
