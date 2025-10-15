@@ -21,8 +21,10 @@ const Input = {
         // 監聽滑鼠點擊事件
         Game.canvas.addEventListener('click', (e) => {
             const rect = Game.canvas.getBoundingClientRect();
-            this.mousePosition.x = e.clientX - rect.left;
-            this.mousePosition.y = e.clientY - rect.top;
+            const scaleX = Game.canvas.width / rect.width;
+            const scaleY = Game.canvas.height / rect.height;
+            this.mousePosition.x = (e.clientX - rect.left) * scaleX;
+            this.mousePosition.y = (e.clientY - rect.top) * scaleY;
             // 將目標點夾限在可到達範圍內，避免卡在邊界
             const halfW = Game.player ? Game.player.width / 2 : 0;
             const halfH = Game.player ? Game.player.height / 2 : 0;
@@ -36,8 +38,10 @@ const Input = {
         // 監聽滑鼠移動事件以更新位置
         Game.canvas.addEventListener('mousemove', (e) => {
             const rect = Game.canvas.getBoundingClientRect();
-            this.mousePosition.x = e.clientX - rect.left;
-            this.mousePosition.y = e.clientY - rect.top;
+            const scaleX = Game.canvas.width / rect.width;
+            const scaleY = Game.canvas.height / rect.height;
+            this.mousePosition.x = (e.clientX - rect.left) * scaleX;
+            this.mousePosition.y = (e.clientY - rect.top) * scaleY;
         });
         
         console.log('輸入系統已初始化');
