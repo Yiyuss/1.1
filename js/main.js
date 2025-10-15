@@ -5,8 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 添加開始按鈕點擊事件
     startButton.addEventListener('click', function() {
-        // 播放按鈕點擊音效
-        AudioManager.playSound('button_click');
+        // 開始遊戲（移除不存在音效的觸發）
         Game.startNewGame();
     });
     
@@ -35,8 +34,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化遊戲（但不開始）
     Game.init();
     
-    // 播放主選單音樂
-    AudioManager.playMusic('menu_music');
+    // （如需主選單音樂，請於assets/audio添加menu_music.mp3後再啟用）
+    // AudioManager.playMusic('menu_music');
     
     console.log('遊戲已初始化，等待開始...');
 });
