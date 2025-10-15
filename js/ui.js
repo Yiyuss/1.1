@@ -134,12 +134,9 @@ const UI = {
             }
         }
         
-        // 隨機選擇3個選項（如果有足夠的選項）
-        if (options.length > 3) {
-            return Utils.shuffleArray(options).slice(0, 3);
-        }
-        
-        return options;
+        // 每次升級隨機挑選3個（不足3則返回全部）
+        const shuffled = Utils.shuffleArray(options);
+        return shuffled.slice(0, 3);
     },
     
     // 選擇升級
