@@ -67,24 +67,31 @@ const WaveSystem = {
         if (Game.enemies.length >= CONFIG.OPTIMIZATION.MAX_ENEMIES) {
             return;
         }
-        
+
         // 獲取可用的敵人類型
         const availableTypes = CONFIG.WAVES.ENEMY_TYPES
             .filter(entry => entry.WAVE <= this.currentWave)
             .map(entry => entry.TYPE);
-        
+
         if (availableTypes.length === 0) {
             return;
         }
-        
-        // 隨機選擇敵人類型
-        const enemyType = Utils.randomChoice(availableTypes);
-        
-        // 在畫布邊緣生成敵人
-        const position = Utils.getRandomEdgePosition(Game.canvas);
-        const enemy = new Enemy(position.x, position.y, enemyType);
-        
-        Game.addEnemy(enemy);
+
+        // 計算本次生成數量隨波次增加
+        const base = CONFIG.WAVES.SPAWN_COUNT.INITIAL;
+        const inc = CONFIG.WAVES.SPAWN_COUNT.INCREASE_PER_WAVE;
+        const max = CONFIG.WAVES.SPAWN_COUNT.MAXIMUM;
+        const count = Math.min(Math.floor(base + (this.currentWave - 1) * inc), max);
+
+        for (let i = 0; i < count; i++) {
+            if (Game.enemies.length >= CONFIG.OPTIMIZATION.MAX_ENEMIES) break;
+            // 隨機選擇敵人類型
+            const enemyType = Utils.randomChoice(availableTypes);
+            // 在畫布邊緣生成敵人
+            const position = Utils.getRandomEdgePosition(Game.canvas);
+            const enemy = new Enemy(position.x, position.y, enemyType);
+            Game.addEnemy(enemy);
+        }
     },
     
     // 生成小BOSS
