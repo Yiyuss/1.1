@@ -26,10 +26,13 @@ class Weapon {
             const count = this.projectileCount;
             for (let i = 0; i < count; i++) {
                 const angle = (i / count) * Math.PI * 2;
+                const baseRadius = this.config.ORBIT_RADIUS;
+                const perLevel = this.config.ORBIT_RADIUS_PER_LEVEL || 0;
+                const dynamicRadius = baseRadius + perLevel * (this.level - 1);
                 const orb = new OrbitBall(
                     this.player,
                     angle,
-                    this.config.ORBIT_RADIUS,
+                    dynamicRadius,
                     this.config.DAMAGE,
                     this.config.PROJECTILE_SIZE,
                     this.config.DURATION,
