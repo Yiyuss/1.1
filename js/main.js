@@ -111,6 +111,8 @@ function createDefaultImages() {
         { name: 'mini_boss', src: 'assets/images/mini_boss.png' },
         { name: 'boss', src: 'assets/images/boss.png' },
         { name: 'dagger', src: 'assets/images/dagger.png' },
+        { name: 'fireball', src: 'assets/images/fireball.png' },
+        { name: 'lightning', src: 'assets/images/lightning.png' },
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
         { name: 'background', src: 'assets/images/background.jpeg' }
     ];
