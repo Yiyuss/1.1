@@ -21,8 +21,42 @@ class Enemy extends Entity {
         const player = Game.player;
         const angle = Utils.angle(this.x, this.y, player.x, player.y);
         
-        this.x += Math.cos(angle) * this.speed;
-        this.y += Math.sin(angle) * this.speed;
+        // 計算新位置
+        const newX = this.x + Math.cos(angle) * this.speed;
+        const newY = this.y + Math.sin(angle) * this.speed;
+        
+        // 檢查與其他敵人的碰撞
+        let canMove = true;
+        if (Game.enemies) {
+            for (const otherEnemy of Game.enemies) {
+                // 跳過自己
+                if (otherEnemy === this) continue;
+                
+                // 計算與其他敵人的距離
+                const dx = newX - otherEnemy.x;
+                const dy = newY - otherEnemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                // 如果距離小於兩者碰撞半徑之和，則不能移動
+                const minDistance = this.collisionRadius + otherEnemy.collisionRadius;
+                if (distance < minDistance) {
+                    canMove = false;
+                    
+                    // 嘗試繞開其他敵人
+                    const pushAngle = Utils.angle(otherEnemy.x, otherEnemy.y, this.x, this.y);
+                    const pushDistance = minDistance - distance;
+                    this.x += Math.cos(pushAngle) * pushDistance * 0.1;
+                    this.y += Math.sin(pushAngle) * pushDistance * 0.1;
+                    break;
+                }
+            }
+        }
+        
+        // 如果沒有碰撞，則移動到新位置
+        if (canMove) {
+            this.x = newX;
+            this.y = newY;
+        }
         
         // 檢查與玩家的碰撞
         if (this.isColliding(player)) {
@@ -65,7 +99,9 @@ class Enemy extends Entity {
         
         // 繪製敵人 - 優先使用圖片
         if (Game.images && Game.images[imageName]) {
-            ctx.drawImage(Game.images[imageName], this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+            // 確保圖片以1:1比例繪製
+            const size = Math.max(this.width, this.height);
+            ctx.drawImage(Game.images[imageName], this.x - size / 2, this.y - size / 2, size, size);
         } else {
             // 備用：使用純色圓形
             ctx.fillStyle = color;
