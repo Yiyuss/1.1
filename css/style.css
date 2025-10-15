@@ -64,11 +64,14 @@ body {
 
 #game-canvas {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* 使用canvas本身的寬高(800x600)，避免比例拉伸 */
+    width: auto;
+    height: auto;
     z-index: 1;
+    image-rendering: pixelated;
 }
 
 #game-ui {
