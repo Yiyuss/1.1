@@ -33,6 +33,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 初始化遊戲（但不開始）
     Game.init();
+
+    // 設定視窗縮放（PC與手機皆可）
+    setupResponsiveViewport();
     
     // （如需主選單音樂，請於assets/audio添加menu_music.mp3後再啟用）
     // AudioManager.playMusic('menu_music');
@@ -137,4 +140,22 @@ function createDefaultImages() {
             loadedCount++;
         };
     });
+}
+
+// 等比縮放遊戲視窗，避免變形
+function setupResponsiveViewport() {
+    const resizeViewport = () => {
+        const viewport = document.getElementById('viewport');
+        if (!viewport) return;
+        const targetW = CONFIG.CANVAS_WIDTH;
+        const targetH = CONFIG.CANVAS_HEIGHT;
+        const scale = Math.min(window.innerWidth / targetW, window.innerHeight / targetH);
+        const displayW = Math.max(1, Math.floor(targetW * scale));
+        const displayH = Math.max(1, Math.floor(targetH * scale));
+        viewport.style.width = displayW + 'px';
+        viewport.style.height = displayH + 'px';
+    };
+    window.addEventListener('resize', resizeViewport);
+    window.addEventListener('orientationchange', resizeViewport);
+    resizeViewport();
 }
