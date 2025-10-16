@@ -88,5 +88,35 @@ const Utils = {
     // 檢查對象是否在畫布範圍外
     isOutOfBounds: function(x, y, canvas, margin = 100) {
         return x < -margin || x > canvas.width + margin || y < -margin || y > canvas.height + margin;
+    },
+
+    // 世界範圍外檢查（基於世界寬高）
+    isOutOfWorldBounds: function(x, y, worldWidth, worldHeight, margin = 100) {
+        return x < -margin || x > worldWidth + margin || y < -margin || y > worldHeight + margin;
+    },
+
+    // 在指定寬高的矩形邊緣生成隨機位置（世界邊緣）
+    getRandomEdgePositionInWorld: function(worldWidth, worldHeight, padding = 50) {
+        const edge = Math.floor(Math.random() * 4); // 0: 上, 1: 右, 2: 下, 3: 左
+        let x, y;
+        switch(edge) {
+            case 0: // 上邊
+                x = Utils.randomInt(0, worldWidth);
+                y = -padding;
+                break;
+            case 1: // 右邊
+                x = worldWidth + padding;
+                y = Utils.randomInt(0, worldHeight);
+                break;
+            case 2: // 下邊
+                x = Utils.randomInt(0, worldWidth);
+                y = worldHeight + padding;
+                break;
+            case 3: // 左邊
+                x = -padding;
+                y = Utils.randomInt(0, worldHeight);
+                break;
+        }
+        return { x, y };
     }
 };
