@@ -137,6 +137,16 @@ const CONFIG = {
         ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER'],
         ULTIMATE_LEVEL: 10
     },
+
+    // 選角列表（僅影響基礎速度與最大HP）
+    CHARACTERS: [
+        { id: 'balanced', name: '平衡', hpMultiplier: 1.0, speedMultiplier: 1.0, description: '全方面平均，穩健新手選擇。' },
+        { id: 'sprinter', name: '疾風', hpMultiplier: 0.8, speedMultiplier: 1.35, description: '移動極快，但較脆弱，適合走位。' },
+        { id: 'guardian', name: '守護', hpMultiplier: 1.4, speedMultiplier: 0.85, description: '血量厚實，移動較沉穩。' },
+        { id: 'rogue', name: '游俠', hpMultiplier: 0.9, speedMultiplier: 1.15, description: '靈活機動，兼顧安全與速度。' },
+        { id: 'mystic', name: '秘術', hpMultiplier: 0.95, speedMultiplier: 1.05, description: '微幅提升機動，適合迴避。' },
+        { id: 'scholar', name: '學者', hpMultiplier: 1.1, speedMultiplier: 0.95, description: '耐打且穩定，入門首選。' }
+    ],
     
     // 敵人設置
     ENEMIES: {
@@ -180,7 +190,7 @@ const CONFIG = {
             NAME: "大BOSS",
             HEALTH: 1000,
             DAMAGE: 40,
-            SPEED: 0.5,
+            SPEED: 0.7,
             SIZE: 128,
             EXPERIENCE: 500,
             COLLISION_RADIUS: 64
