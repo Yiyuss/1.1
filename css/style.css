@@ -238,7 +238,7 @@ body {
 #level-info {
     position: absolute;
     top: 10px;
-    left: 10px;
+    left: 90px;
     display: flex;
     align-items: center;
 }
@@ -266,32 +266,32 @@ body {
 #health-bar-container {
     position: absolute;
     top: 40px;
-    left: 10px;
+    left: 90px;
 }
 
 #exp-bar-container {
     position: absolute;
     top: 70px;
-    left: 10px;
+    left: 90px;
 }
 
 #energy-bar-container {
     position: absolute;
     top: 100px;
-    left: 10px;
+    left: 90px;
 }
 
 /* 手機響應式調整：縮小字體與血條尺寸，避免遮擋 */
 @media (max-width: 600px) {
-    #level-info { font-size: 0.85rem; top: 6px; }
+    #level-info { font-size: 0.85rem; top: 6px; left: 80px; }
     #timer { font-size: 1rem; top: 6px; }
     #wave-info { font-size: 0.9rem; top: 24px; }
     #health-bar, #exp-bar, #energy-bar { width: 120px; height: 10px; border-width: 1px; }
     #health-text, #exp-text, #energy-text { font-size: 0.8rem; margin-left: 4px; }
     .ui-label { display: none; }
-    #health-bar-container { top: 24px; }
-    #exp-bar-container { top: 40px; }
-    #energy-bar-container { top: 56px; }
+    #health-bar-container { top: 24px; left: 80px; }
+    #exp-bar-container { top: 40px; left: 80px; }
+    #energy-bar-container { top: 56px; left: 80px; }
 }
 
 @media (max-width: 400px) {
@@ -363,7 +363,11 @@ body {
 }
 
 /* 選角介面 */
-#character-select-screen { background: #0b2a3a; }
+#character-select-screen {
+    background:
+        linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.65) 100%),
+        url('../assets/images/background.jpg') center/cover no-repeat;
+}
 .char-card-wrap { width: min(1100px, 92vw); padding: 20px; background: rgba(10,20,30,0.7); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
 .char-title { font-size: clamp(26px, 4vw, 40px); letter-spacing: 1px; margin-bottom: 6px; }
 .char-subtitle { color: #cfe7ff; margin-bottom: 16px; }
@@ -382,6 +386,25 @@ body {
 .char-preview-name { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
 .char-preview-desc { color: #cfe7ff; margin-bottom: 8px; }
 .char-hint { color: #9ed0ff; font-size: .95rem; }
+
+/* 左上角玩家頭像 */
+#player-avatar {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.35);
+    background: rgba(0,0,0,0.35);
+}
+#player-avatar img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: pixelated;
+}
 
 .char-confirm { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); z-index: 50; }
 .char-dialog { width: min(480px, 92vw); background: rgba(20,30,40,0.92); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
