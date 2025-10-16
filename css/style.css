@@ -283,25 +283,28 @@ body {
 
 /* 手機響應式調整：縮小字體與血條尺寸，避免遮擋 */
 @media (max-width: 600px) {
-    #level-info { font-size: 0.85rem; top: 6px; left: 80px; }
+    #level-info { font-size: 0.85rem; top: 6px; left: 66px; }
     #timer { font-size: 1rem; top: 6px; }
     #wave-info { font-size: 0.9rem; top: 24px; }
-    #health-bar, #exp-bar, #energy-bar { width: 120px; height: 10px; border-width: 1px; }
+    #health-bar, #exp-bar, #energy-bar { width: 110px; height: 10px; border-width: 1px; }
     #health-text, #exp-text, #energy-text { font-size: 0.8rem; margin-left: 4px; }
     .ui-label { display: none; }
-    #health-bar-container { top: 24px; left: 80px; }
-    #exp-bar-container { top: 40px; left: 80px; }
-    #energy-bar-container { top: 56px; left: 80px; }
-    #player-avatar { width: 64px; height: 64px; }
+    #health-bar-container { top: 10px; left: 66px; }
+    #exp-bar-container { top: 26px; left: 66px; }
+    #energy-bar-container { top: 42px; left: 66px; }
+    #player-avatar { width: 56px; height: 56px; }
 }
 
 @media (max-width: 400px) {
-    #level-info { font-size: 0.75rem; top: 4px; }
+    #level-info { font-size: 0.75rem; top: 4px; left: 58px; }
     #timer { font-size: 0.9rem; top: 4px; }
     #wave-info { font-size: 0.8rem; top: 20px; }
-    #health-bar, #exp-bar, #energy-bar { width: 100px; height: 8px; }
+    #health-bar, #exp-bar, #energy-bar { width: 90px; height: 8px; }
     #health-text, #exp-text, #energy-text { font-size: 0.7rem; }
-    #player-avatar { width: 56px; height: 56px; }
+    #health-bar-container { top: 8px; left: 58px; }
+    #exp-bar-container { top: 22px; left: 58px; }
+    #energy-bar-container { top: 36px; left: 58px; }
+    #player-avatar { width: 48px; height: 48px; top: 6px; left: 6px; }
 }
 
 #level-up-menu {
