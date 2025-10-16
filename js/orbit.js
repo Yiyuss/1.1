@@ -6,9 +6,9 @@ class OrbitBall extends Entity {
         this.angle = initialAngle;
         this.radius = radius;
         this.damage = damage;
-        // 持續傷害改為約原始傷害的60%，並以固定間隔觸發一次
-        this.tickDamage = Math.max(1, Math.round(this.damage * 0.6));
-        this.tickIntervalMs = 120; // 約每0.12秒一次，避免每幀秒殺
+        // 調整為每顆球「每1秒」觸發一次傷害；數量升級則每顆獨立觸發
+        this.tickDamage = Math.max(1, Math.round(this.damage));
+        this.tickIntervalMs = 1000; // 每秒一次
         this.tickAccumulator = 0;
         this.duration = durationMs;
         this.angularSpeed = angularSpeedRadPerSec; // 弧度/秒
@@ -23,15 +23,15 @@ class OrbitBall extends Entity {
         this.x = this.player.x + Math.cos(this.angle) * this.radius;
         this.y = this.player.y + Math.sin(this.angle) * this.radius;
 
-        // 對碰到的敵人造成傷害（固定時間間隔的持續傷害）
+        // 對碰到的敵人造成傷害（每球每秒一次）。若延遲較大，逐步補齊間隔。
         this.tickAccumulator += deltaTime;
-        if (this.tickAccumulator >= this.tickIntervalMs) {
+        while (this.tickAccumulator >= this.tickIntervalMs) {
             for (const enemy of Game.enemies) {
                 if (this.isColliding(enemy)) {
                     enemy.takeDamage(this.tickDamage);
                 }
             }
-            this.tickAccumulator = 0;
+            this.tickAccumulator -= this.tickIntervalMs;
         }
 
         // 到期銷毀
