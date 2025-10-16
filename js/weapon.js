@@ -44,6 +44,26 @@ class Weapon {
             return;
         }
 
+        // 特殊技能：雷射
+        if (this.type === 'LASER') {
+            // 朝最近敵人方向；若無敵人則向右
+            const nearestEnemy = this.findNearestEnemy();
+            const angle = nearestEnemy ? Utils.angle(this.player.x, this.player.y, nearestEnemy.x, nearestEnemy.y) : 0;
+            const baseWidth = this.config.BEAM_WIDTH_BASE || 8;
+            const perLevel = this.config.BEAM_WIDTH_PER_LEVEL || 2;
+            const widthPx = baseWidth + perLevel * (this.level - 1);
+            const beam = new LaserBeam(
+                this.player,
+                angle,
+                this.config.DAMAGE,
+                widthPx,
+                this.config.DURATION,
+                this.config.TICK_INTERVAL_MS || 120
+            );
+            Game.addProjectile(beam);
+            return;
+        }
+
         // 一般投射武器：根據武器等級發射不同數量的投射物
         for (let i = 0; i < this.projectileCount; i++) {
             let angle;
