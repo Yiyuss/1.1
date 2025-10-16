@@ -22,6 +22,26 @@ const CONFIG = {
     
     // 武器設置
     WEAPONS: {
+        SING: {
+            NAME: "唱歌",
+            DAMAGE: 0,
+            COOLDOWN: 5000,
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 0,
+            DURATION: 1000,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復1HP並展示音符特效1秒" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復2HP並展示音符特效1秒" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復3HP並展示音符特效1秒" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復4HP並展示音符特效1秒" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復5HP並展示音符特效1秒" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復6HP並展示音符特效1秒" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復7HP並展示音符特效1秒" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復8HP並展示音符特效1秒" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復9HP並展示音符特效1秒" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復10HP並展示音符特效1秒" }
+            ]
+        },
         DAGGER: {
             NAME: "飛鏢",
             DAMAGE: 10,
