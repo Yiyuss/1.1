@@ -8,9 +8,34 @@ class Projectile extends Entity {
         this.speed = speed;
         this.distance = 0;
         this.maxDistance = 1000; // 最大飛行距離
+        // 追蹤屬性（僅閃電使用）
+        this.homing = false;
+        this.turnRatePerSec = 0; // 每秒最大轉向弧度（rad/s）
     }
     
     update(deltaTime) {
+        // 閃電追蹤：朝最近敵人方向逐步轉向
+        if (this.homing && Game.enemies && Game.enemies.length) {
+            let target = null;
+            let minDist = Infinity;
+            for (const enemy of Game.enemies) {
+                const d = Utils.distance(this.x, this.y, enemy.x, enemy.y);
+                if (d < minDist) { minDist = d; target = enemy; }
+            }
+            if (target) {
+                const desired = Utils.angle(this.x, this.y, target.x, target.y);
+                let delta = desired - this.angle;
+                // 將角度差規範化到 [-PI, PI]
+                if (delta > Math.PI) delta -= Math.PI * 2;
+                if (delta < -Math.PI) delta += Math.PI * 2;
+                const maxTurn = (this.turnRatePerSec || 0) * (deltaTime / 1000);
+                // 限制每幀最大轉向量
+                if (delta > maxTurn) delta = maxTurn;
+                if (delta < -maxTurn) delta = -maxTurn;
+                this.angle += delta;
+            }
+        }
+
         // 移動投射物（先檢查障礙物阻擋）
         const dx = Math.cos(this.angle) * this.speed;
         const dy = Math.sin(this.angle) * this.speed;
