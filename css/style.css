@@ -36,37 +36,137 @@ body {
 }
 
 #start-screen {
-    background-color: rgba(0, 0, 0, 0.8);
+    background: #000;
+    overflow: hidden;
 }
 
-#start-screen h1 {
-    font-size: 3rem;
-    margin-bottom: 2rem;
-    color: #ff0000;
-    text-shadow: 0 0 10px #ff0000;
+/* 開始畫面背景（16:9） */
+.start-bg {
+    position: absolute;
+    inset: 0;
+    background: url('../assets/images/background.jpeg') center/cover no-repeat;
+    filter: blur(2px) brightness(0.9) saturate(1.1);
 }
 
-#start-button {
-    padding: 1rem 2rem;
-    font-size: 1.5rem;
-    background-color: #ff0000;
-    color: white;
+.start-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.65) 100%);
+}
+
+.start-card {
+    position: relative;
+    width: min(900px, 92vw);
+    max-height: 92vh;
+    padding: 24px;
+    border-radius: 12px;
+    background: rgba(20, 20, 20, 0.85);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    backdrop-filter: blur(6px);
+    overflow: auto;
+}
+
+.start-header h1 {
+    font-size: clamp(28px, 5vw, 42px);
+    margin-bottom: 8px;
+    color: #ff4757;
+    text-shadow: 0 0 10px rgba(255,71,87,0.4);
+}
+
+.start-header .subtitle {
+    font-size: clamp(14px, 2.5vw, 18px);
+    color: #ddd;
+}
+
+.start-actions {
+    margin: 16px 0 24px;
+}
+
+.start-actions .primary {
+    padding: 12px 24px;
+    font-size: clamp(16px, 3.5vw, 20px);
+    background: linear-gradient(135deg, #ff4757, #ff6b81);
+    color: #fff;
     border: none;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: transform .2s ease, box-shadow .2s ease;
 }
 
-#start-button:hover {
-    background-color: #cc0000;
-    transform: scale(1.1);
+.start-actions .primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255,107,129,0.4);
+}
+
+.settings {
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding-top: 16px;
+}
+
+.settings h2 {
+    font-size: clamp(18px, 3vw, 22px);
+    margin-bottom: 12px;
+}
+
+.volume-row {
+    display: grid;
+    grid-template-columns: 80px 1fr 50px;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.volume-row input[type="range"] {
+    width: 100%;
+}
+
+.volume-row .ghost {
+    padding: 8px 12px;
+    font-size: 14px;
+    background: transparent;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.info details {
+    margin-top: 12px;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.info summary {
+    background: rgba(255,255,255,0.06);
+    padding: 10px 12px;
+    cursor: pointer;
+}
+
+.info .content {
+    padding: 12px;
+}
+
+.info .regarding ul {
+    padding-left: 18px;
+}
+
+@media (max-width: 640px) {
+    .start-card {
+        width: 95vw;
+        padding: 16px;
+    }
+    .volume-row {
+        grid-template-columns: 70px 1fr 40px;
+        gap: 8px;
+    }
 }
 
 /* 視窗內的等比縮放容器 */
 #viewport {
     position: relative;
-    width: 800px;
-    height: 600px;
+    width: 1280px;
+    height: 720px;
     display: block;
 }
 
