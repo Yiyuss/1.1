@@ -8,7 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (AudioManager.playMusic) {
             AudioManager.playMusic('game_music');
         }
-        Game.startNewGame();
+        // 進入選角介面而非直接開始
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('character-select-screen').classList.remove('hidden');
     });
 
     // 音量設置
@@ -66,6 +68,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 初始化遊戲（但不開始）
     Game.init();
+
+    // 設定選角介面事件
+    setupCharacterSelection();
 
     // 設定視窗縮放（PC與手機皆可）
     setupResponsiveViewport();
@@ -150,6 +155,9 @@ function createDefaultImages() {
         { name: 'fireball', src: 'assets/images/fireball.png' },
         { name: 'lightning', src: 'assets/images/lightning.png' },
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
+        // 障礙物素材
+        { name: 'S1', src: 'assets/images/S1.png' },
+        { name: 'S2', src: 'assets/images/S2.png' },
         // 修正背景檔名為現有的 background.jpg
         { name: 'background', src: 'assets/images/background.jpg' }
     ];
@@ -178,6 +186,45 @@ function createDefaultImages() {
             console.warn(`無法加載圖片: ${img.name}，使用預設圖形`);
             loadedCount++;
         };
+    });
+}
+
+// 選角介面事件與確認流程
+function setupCharacterSelection() {
+    const screen = document.getElementById('character-select-screen');
+    if (!screen) return;
+    const cards = screen.querySelectorAll('.char-card');
+    const confirmBox = document.getElementById('char-confirm');
+    const nameEl = document.getElementById('char-confirm-name');
+    const descEl = document.getElementById('char-confirm-desc');
+    const okBtn = document.getElementById('char-confirm-ok');
+    const cancelBtn = document.getElementById('char-confirm-cancel');
+    let picked = null;
+
+    cards.forEach(card => {
+        card.addEventListener('click', () => {
+            const id = card.getAttribute('data-char-id');
+            const ch = (CONFIG.CHARACTERS || []).find(c => c.id === id);
+            picked = ch || { id: 'balanced', name: '平衡', hpMultiplier: 1.0, speedMultiplier: 1.0, description: '全方面平均，穩健新手選擇。' };
+            nameEl.textContent = picked.name;
+            descEl.textContent = `${picked.description}\nHP倍率：x${picked.hpMultiplier}，速度倍率：x${picked.speedMultiplier}`;
+            confirmBox.classList.remove('hidden');
+        });
+    });
+
+    okBtn.addEventListener('click', () => {
+        confirmBox.classList.add('hidden');
+        // 套用選角並開始新遊戲
+        Game.selectedCharacter = picked;
+        Game.startNewGame();
+        // 切換畫面
+        document.getElementById('character-select-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+    });
+
+    cancelBtn.addEventListener('click', () => {
+        confirmBox.classList.add('hidden');
+        picked = null;
     });
 }
 
