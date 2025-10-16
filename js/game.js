@@ -6,6 +6,7 @@ const Game = {
     enemies: [],
     projectiles: [],
     experienceOrbs: [],
+    obstacles: [],
     lastUpdateTime: 0,
     gameTime: 0,
     isPaused: false,
@@ -167,6 +168,13 @@ const Game = {
     
     // 繪製所有實體
     drawEntities: function() {
+        // 繪製障礙物
+        if (this.obstacles && this.obstacles.length) {
+            for (const obs of this.obstacles) {
+                obs.draw(this.ctx);
+            }
+        }
+
         // 繪製經驗寶石
         for (const orb of this.experienceOrbs) {
             orb.draw(this.ctx);
@@ -243,6 +251,11 @@ const Game = {
     addProjectile: function(projectile) {
         this.projectiles.push(projectile);
     },
+
+    // 添加障礙物
+    addObstacle: function(obstacle) {
+        this.obstacles.push(obstacle);
+    },
     
     // 生成經驗寶石
     spawnExperienceOrb: function(x, y, value) {
@@ -310,6 +323,7 @@ const Game = {
         this.enemies = [];
         this.projectiles = [];
         this.experienceOrbs = [];
+        this.obstacles = [];
         this.gameTime = 0;
         this.isPaused = false;
         this.isGameOver = false;
@@ -326,6 +340,9 @@ const Game = {
         
         // 重置UI
         UI.init();
+
+        // 生成障礙物（3個S1與3個S2）
+        this.spawnObstacles();
         
         // 重置時間
         this.lastUpdateTime = Date.now();
@@ -339,5 +356,45 @@ const Game = {
         // 顯示遊戲畫面
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
+    }
+    ,
+    // 生成障礙物：3x3世界中隨機位置，不重疊也不卡住玩家
+    spawnObstacles: function() {
+        const size = 150;
+        const half = size / 2;
+        const types = ['S1', 'S2'];
+        const counts = { S1: 3, S2: 3 };
+        const minPlayerDist = 220;
+
+        const tryPlace = (imageKey) => {
+            let attempts = 0;
+            while (attempts++ < 100) {
+                const x = Utils.randomInt(half, this.worldWidth - half);
+                const y = Utils.randomInt(half, this.worldHeight - half);
+                if (Utils.distance(x, y, this.player.x, this.player.y) < minPlayerDist) continue;
+                let overlap = false;
+                for (const o of this.obstacles) {
+                    const left = o.x - o.width / 2;
+                    const right = o.x + o.width / 2;
+                    const top = o.y - o.height / 2;
+                    const bottom = o.y + o.height / 2;
+                    const cx = Utils.clamp(x, left, right);
+                    const cy = Utils.clamp(y, top, bottom);
+                    const dx = x - cx;
+                    const dy = y - cy;
+                    const clearance = 95;
+                    if ((dx * dx + dy * dy) <= clearance * clearance) { overlap = true; break; }
+                }
+                if (overlap) continue;
+                this.addObstacle(new Obstacle(x, y, imageKey, size));
+                break;
+            }
+        };
+
+        for (const t of types) {
+            for (let i = 0; i < counts[t]; i++) {
+                tryPlace(t);
+            }
+        }
     }
 };
