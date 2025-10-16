@@ -193,23 +193,55 @@ function createDefaultImages() {
 function setupCharacterSelection() {
     const screen = document.getElementById('character-select-screen');
     if (!screen) return;
-    const cards = screen.querySelectorAll('.char-card');
+    const cards = screen.querySelectorAll('.char-card.selectable');
     const confirmBox = document.getElementById('char-confirm');
     const nameEl = document.getElementById('char-confirm-name');
     const descEl = document.getElementById('char-confirm-desc');
     const okBtn = document.getElementById('char-confirm-ok');
     const cancelBtn = document.getElementById('char-confirm-cancel');
+    const previewBox = document.getElementById('char-preview');
+    const previewImg = document.getElementById('char-preview-img');
+    const previewName = document.getElementById('char-preview-name');
+    const previewDesc = document.getElementById('char-preview-desc');
     let picked = null;
+    let lastTapTime = 0;
+
+    const showPreview = (ch) => {
+        if (!ch) return;
+        previewImg.src = Game.images && Game.images.player ? Game.images.player.src : 'assets/images/player.png';
+        previewName.textContent = ch.name || '角色';
+        previewDesc.textContent = ch.description || '角色介紹（範例文字）';
+        picked = ch;
+    };
+
+    const openConfirm = () => {
+        if (!picked) return;
+        nameEl.textContent = picked.name;
+        descEl.textContent = `${picked.description}\nHP倍率：x${picked.hpMultiplier}，速度倍率：x${picked.speedMultiplier}`;
+        confirmBox.classList.remove('hidden');
+    };
 
     cards.forEach(card => {
+        const id = card.getAttribute('data-char-id');
+        const ch = (CONFIG.CHARACTERS || []).find(c => c.id === id);
+        // 單擊：僅更新預覽
         card.addEventListener('click', () => {
-            const id = card.getAttribute('data-char-id');
-            const ch = (CONFIG.CHARACTERS || []).find(c => c.id === id);
-            picked = ch || { id: 'balanced', name: '平衡', hpMultiplier: 1.0, speedMultiplier: 1.0, description: '全方面平均，穩健新手選擇。' };
-            nameEl.textContent = picked.name;
-            descEl.textContent = `${picked.description}\nHP倍率：x${picked.hpMultiplier}，速度倍率：x${picked.speedMultiplier}`;
-            confirmBox.classList.remove('hidden');
+            showPreview(ch);
         });
+        // 雙擊：開啟確認
+        card.addEventListener('dblclick', () => {
+            showPreview(ch);
+            openConfirm();
+        });
+        // 觸控雙擊（兩次點擊間隔<=300ms）
+        card.addEventListener('touchend', () => {
+            const now = Date.now();
+            if (now - lastTapTime <= 300) {
+                showPreview(ch);
+                openConfirm();
+            }
+            lastTapTime = now;
+        }, { passive: true });
     });
 
     okBtn.addEventListener('click', () => {
@@ -225,6 +257,16 @@ function setupCharacterSelection() {
     cancelBtn.addEventListener('click', () => {
         confirmBox.classList.add('hidden');
         picked = null;
+    });
+
+    // 空白鍵：在選角頁面時開啟確認
+    document.addEventListener('keydown', (e) => {
+        const selectVisible = !document.getElementById('character-select-screen').classList.contains('hidden');
+        if (!selectVisible) return;
+        if (e.code === 'Space') {
+            e.preventDefault();
+            openConfirm();
+        }
     });
 }
 
