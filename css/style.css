@@ -361,3 +361,21 @@ body {
     height: 100%;
     object-fit: contain;
 }
+
+/* 選角介面 */
+#character-select-screen { background: #0b2a3a; }
+.char-card-wrap { width: min(1100px, 92vw); padding: 20px; background: rgba(10,20,30,0.7); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.char-title { font-size: clamp(26px, 4vw, 40px); letter-spacing: 1px; margin-bottom: 6px; }
+.char-subtitle { color: #cfe7ff; margin-bottom: 16px; }
+.char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+.char-card { display: flex; flex-direction: column; align-items: center; gap: 8px; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 12px; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; color: #fff; }
+.char-card img { width: 96px; height: 96px; image-rendering: pixelated; }
+.char-card:hover { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(0,0,0,0.4); }
+.char-name { font-weight: 700; }
+.char-stats { font-size: 0.9rem; color: #d8eaff; }
+
+.char-confirm { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); z-index: 50; }
+.char-dialog { width: min(480px, 92vw); background: rgba(20,30,40,0.92); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
+.char-dialog-title { font-size: 1.4rem; margin-bottom: 6px; }
+.char-dialog-desc { color: #cfe7ff; margin-bottom: 12px; }
+.char-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
