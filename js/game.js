@@ -12,6 +12,7 @@ const Game = {
     isPaused: false,
     isGameOver: false,
     boss: null,
+    selectedCharacter: null,
     // 世界與鏡頭
     worldWidth: 0,
     worldHeight: 0,
@@ -331,6 +332,15 @@ const Game = {
         
         // 世界大小無需重算（保持init設定）。重新置中玩家
         this.player = new Player(this.worldWidth / 2, this.worldHeight / 2);
+        // 應用選角屬性（若有）
+        if (this.selectedCharacter) {
+            const sc = this.selectedCharacter;
+            if (sc.speedMultiplier) this.player.speed = CONFIG.PLAYER.SPEED * sc.speedMultiplier;
+            if (sc.hpMultiplier) {
+                this.player.maxHealth = Math.floor(CONFIG.PLAYER.MAX_HEALTH * sc.hpMultiplier);
+                this.player.health = this.player.maxHealth;
+            }
+        }
         // 重置鏡頭
         this.camera.x = Utils.clamp(this.player.x - this.canvas.width / 2, 0, Math.max(0, this.worldWidth - this.canvas.width));
         this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
