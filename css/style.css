@@ -44,7 +44,8 @@ body {
 .start-bg {
     position: absolute;
     inset: 0;
-    background: url('../assets/images/background.jpeg') center/cover no-repeat;
+    /* 修正為正確的檔名 background.jpg 以顯示明亮磁磚背景 */
+    background: url('../assets/images/background.jpg') center/cover no-repeat;
     filter: blur(2px) brightness(0.9) saturate(1.1);
 }
 
