@@ -83,6 +83,62 @@ class Weapon {
             return;
         }
 
+        // 特殊技能：閃電（追蹤且分配唯一目標，避免重疊）
+        if (this.type === 'LIGHTNING') {
+            const count = this.projectileCount;
+            const baseSize = this.config.PROJECTILE_SIZE;
+            const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
+            const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
+
+            // 取距離玩家最近的前 count 名敵人作為目標
+            const sorted = [...(Game.enemies || [])].sort((a, b) => {
+                const da = Utils.distance(this.player.x, this.player.y, a.x, a.y);
+                const db = Utils.distance(this.player.x, this.player.y, b.x, b.y);
+                return da - db;
+            });
+            const targets = sorted.slice(0, count);
+
+            for (let i = 0; i < count; i++) {
+                const target = targets[i] || null;
+                let angle;
+                if (target) {
+                    const baseAngle = Utils.angle(this.player.x, this.player.y, target.x, target.y);
+                    // 為每道閃電加入微小抖動，避免軌跡完全重疊
+                    const jitter = (Math.random() - 0.5) * 0.20; // ±0.1rad
+                    angle = baseAngle + jitter;
+                } else {
+                    // 沒有足夠目標時，平均分布在360度
+                    angle = (i / Math.max(1, count)) * Math.PI * 2;
+                }
+
+                // 起始位置稍作偏移，避免完全疊在玩家身上
+                const spawnOffset = 12;
+                const sx = this.player.x + Math.cos(angle) * spawnOffset;
+                const sy = this.player.y + Math.sin(angle) * spawnOffset;
+                const projectile = new Projectile(
+                    sx,
+                    sy,
+                    angle,
+                    this.type,
+                    this.config.DAMAGE,
+                    this.config.PROJECTILE_SPEED,
+                    dynamicSize
+                );
+                projectile.homing = true;
+                projectile.turnRatePerSec = this.level >= 10 ? 6.0 : 3.5; // rad/s
+                if (target) {
+                    projectile.assignedTargetId = target.id;
+                }
+                Game.addProjectile(projectile);
+
+                // 音效（發射一次）
+                if (i === 0 && typeof AudioManager !== 'undefined') {
+                    AudioManager.playSound('lightning_shoot');
+                }
+            }
+            return;
+        }
+
         // 一般投射武器：根據武器等級發射不同數量的投射物
         for (let i = 0; i < this.projectileCount; i++) {
             let angle;
@@ -119,21 +175,19 @@ class Weapon {
             const baseSize = this.config.PROJECTILE_SIZE;
             const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
             const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
+            // 起始位置小偏移，避免完全重疊
+            const spawnOffset = 8;
+            const sx = this.player.x + Math.cos(angle) * spawnOffset;
+            const sy = this.player.y + Math.sin(angle) * spawnOffset;
             const projectile = new Projectile(
-                this.player.x,
-                this.player.y,
+                sx,
+                sy,
                 angle,
                 this.type,
                 this.config.DAMAGE,
                 this.config.PROJECTILE_SPEED,
                 dynamicSize
             );
-            // 閃電加入追蹤能力
-            if (this.type === 'LIGHTNING') {
-                projectile.homing = true;
-                // 低等級較慢、LV10更敏捷
-                projectile.turnRatePerSec = this.level >= 10 ? 6.0 : 3.5; // rad/s
-            }
             
             Game.addProjectile(projectile);
 
@@ -147,7 +201,7 @@ class Weapon {
                         AudioManager.playSound('fireball_shoot');
                         break;
                     case 'LIGHTNING':
-                        AudioManager.playSound('lightning_shoot');
+                        // 閃電在專用邏輯中已播放
                         break;
                     case 'ORBIT':
                         // 可選：為旋球加入音效
