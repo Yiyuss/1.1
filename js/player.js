@@ -22,6 +22,10 @@ class Player extends Entity {
         this.ultimateEndTime = 0;
         this._ultimateBackup = null;
         this.ultimateKeyHeld = false;
+
+        // 生命自然恢復：每5秒回1HP（不溢出，上限100）
+        this.healthRegenIntervalMs = 5000;
+        this.healthRegenAccumulator = 0;
         
         // 初始武器 - 飛鏢
         this.addWeapon('DAGGER');
@@ -30,8 +34,25 @@ class Player extends Entity {
     update(deltaTime) {
         // 處理移動
         const direction = Input.getMovementDirection();
-        this.x += direction.x * this.speed;
-        this.y += direction.y * this.speed;
+        // 嘗試分軸移動，並以障礙物進行阻擋
+        const tryMove = (newX, newY) => {
+            for (const obs of Game.obstacles || []) {
+                if (Utils.circleRectCollision(newX, newY, this.collisionRadius, obs.x, obs.y, obs.width, obs.height)) {
+                    return false;
+                }
+            }
+            return true;
+        };
+        // X軸
+        const candX = this.x + direction.x * this.speed;
+        if (tryMove(candX, this.y)) {
+            this.x = candX;
+        }
+        // Y軸
+        const candY = this.y + direction.y * this.speed;
+        if (tryMove(this.x, candY)) {
+            this.y = candY;
+        }
         
         // 限制玩家在世界範圍內（不循環）
         this.x = Utils.clamp(this.x, this.width / 2, (Game.worldWidth || CONFIG.CANVAS_WIDTH) - this.width / 2);
@@ -40,6 +61,20 @@ class Player extends Entity {
         // 能量自然恢復（每秒+1，封頂100）
         this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegenRate * (deltaTime / 1000));
         UI.updateEnergyBar(this.energy, this.maxEnergy);
+
+        // 生命自然恢復：每5秒+1（上限100）
+        if (this.health < this.maxHealth) {
+            this.healthRegenAccumulator += deltaTime;
+            if (this.healthRegenAccumulator >= this.healthRegenIntervalMs) {
+                const ticks = Math.floor(this.healthRegenAccumulator / this.healthRegenIntervalMs);
+                this.healthRegenAccumulator -= ticks * this.healthRegenIntervalMs;
+                this.health = Math.min(this.maxHealth, this.health + ticks);
+                UI.updateHealthBar(this.health, this.maxHealth);
+            }
+        } else {
+            // 滿血時維持計時器但不回復；避免溢出
+            this.healthRegenAccumulator = 0;
+        }
 
         // 監聽大招觸發（Q鍵）
         const qDown = Input.isKeyDown('q') || Input.isKeyDown('Q');
