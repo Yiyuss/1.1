@@ -6,6 +6,7 @@ const Game = {
     enemies: [],
     projectiles: [],
     experienceOrbs: [],
+    chests: [],
     obstacles: [],
     lastUpdateTime: 0,
     gameTime: 0,
@@ -140,6 +141,15 @@ const Game = {
                 this.experienceOrbs.splice(i, 1);
             }
         }
+
+        // 更新寶箱
+        for (let i = this.chests.length - 1; i >= 0; i--) {
+            const chest = this.chests[i];
+            chest.update(deltaTime);
+            if (chest.markedForDeletion) {
+                this.chests.splice(i, 1);
+            }
+        }
         
         // 優化：限制實體數量
         this.optimizeEntities();
@@ -179,6 +189,11 @@ const Game = {
         // 繪製經驗寶石
         for (const orb of this.experienceOrbs) {
             orb.draw(this.ctx);
+        }
+
+        // 繪製寶箱
+        for (const chest of this.chests) {
+            chest.draw(this.ctx);
         }
         
         // 繪製投射物
@@ -268,6 +283,12 @@ const Game = {
         const orb = new ExperienceOrb(x, y, value);
         this.experienceOrbs.push(orb);
     },
+
+    // 生成寶箱（免費升級觸發）
+    spawnChest: function(x, y) {
+        const chest = new Chest(x, y);
+        this.chests.push(chest);
+    },
     
     // 優化實體數量
     optimizeEntities: function() {
@@ -298,12 +319,21 @@ const Game = {
     // 暫停遊戲
     pause: function() {
         this.isPaused = true;
+        if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) {
+            AudioManager.setMuted(true);
+        }
     },
     
     // 恢復遊戲
     resume: function() {
         this.isPaused = false;
         this.lastUpdateTime = Date.now(); // 重置時間，避免大幅度時間跳躍
+        if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) {
+            // 若升級選單仍打開則保持靜音
+            const levelMenu = document.getElementById('level-up-menu');
+            const shouldUnmute = !levelMenu || levelMenu.classList.contains('hidden');
+            if (shouldUnmute) AudioManager.setMuted(false);
+        }
     },
     
     // 遊戲結束
@@ -324,6 +354,7 @@ const Game = {
         this.enemies = [];
         this.projectiles = [];
         this.experienceOrbs = [];
+        this.chests = [];
         this.obstacles = [];
         this.gameTime = 0;
         this.isPaused = false;
