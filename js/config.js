@@ -101,6 +101,27 @@ const CONFIG = {
                 { COUNT: 9, DESCRIPTION: "生成9個旋球環繞3秒" },
                 { COUNT: 10, DESCRIPTION: "生成10個旋球環繞3秒" }
             ]
+        },
+        LASER: {
+            NAME: "雷射",
+            DAMAGE: 15,
+            COOLDOWN: 5000, // 5秒一次（持續2秒，空檔3秒）
+            DURATION: 2000,
+            BEAM_WIDTH_BASE: 8,
+            BEAM_WIDTH_PER_LEVEL: 2,
+            TICK_INTERVAL_MS: 120, // 參考旋球的持續傷害間隔
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每5秒釋放雷射，持續2秒（粗度+0px）" },
+                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+2px）" },
+                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+4px）" },
+                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+6px）" },
+                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+8px）" },
+                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+10px）" },
+                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+12px）" },
+                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+14px）" },
+                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+16px）" },
+                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+18px）" }
+            ]
         }
     },
 
@@ -113,7 +134,7 @@ const CONFIG = {
         DURATION_MS: 15000,
         PLAYER_SIZE_MULTIPLIER: 2.0, // 變身體型變大
         IMAGE_KEY: 'playerN',
-        ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT'],
+        ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER'],
         ULTIMATE_LEVEL: 10
     },
     
@@ -187,9 +208,10 @@ const CONFIG = {
         },
         // 每次生成的敵人數量隨波次增加
         SPAWN_COUNT: {
-            INITIAL: 1,
-            INCREASE_PER_WAVE: 0.26, // 約提升30%
-            MAXIMUM: 5
+            // 敵人數量翻倍（基於原規則），單次生成量提高
+            INITIAL: 2,
+            INCREASE_PER_WAVE: 0.52, // 約原本的兩倍增幅
+            MAXIMUM: 10
         },
         // 敵人血量隨波次的倍率（每波在基礎上乘以此倍率）
         HEALTH_MULTIPLIER_PER_WAVE: 1.05,
