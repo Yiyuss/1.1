@@ -14,13 +14,19 @@ class Projectile extends Entity {
     }
     
     update(deltaTime) {
-        // 閃電追蹤：朝最近敵人方向逐步轉向
+        // 閃電追蹤：優先追蹤分配的唯一目標，避免全部鎖定同一敵人
         if (this.homing && Game.enemies && Game.enemies.length) {
             let target = null;
-            let minDist = Infinity;
-            for (const enemy of Game.enemies) {
-                const d = Utils.distance(this.x, this.y, enemy.x, enemy.y);
-                if (d < minDist) { minDist = d; target = enemy; }
+            if (this.assignedTargetId) {
+                target = Game.enemies.find(e => e.id === this.assignedTargetId) || null;
+            }
+            // 若分配目標不存在，退回最近敵人
+            if (!target) {
+                let minDist = Infinity;
+                for (const enemy of Game.enemies) {
+                    const d = Utils.distance(this.x, this.y, enemy.x, enemy.y);
+                    if (d < minDist) { minDist = d; target = enemy; }
+                }
             }
             if (target) {
                 const desired = Utils.angle(this.x, this.y, target.x, target.y);
