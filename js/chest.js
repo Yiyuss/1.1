@@ -1,7 +1,7 @@
 // 寶箱（拾取後觸發一次免費升級）
 class Chest extends Entity {
     constructor(x, y) {
-        const size = 32;
+        const size = 48;
         super(x, y, size, size);
         this.collisionRadius = size / 2;
         this.pulse = 0; // 視覺呼吸效果
