@@ -13,6 +13,10 @@ class Player extends Entity {
         this.isInvulnerable = false;
         this.invulnerabilityTime = 0;
         this.invulnerabilityDuration = 1000; // 受傷後1秒無敵時間
+
+        // 受傷紅閃效果
+        this.hitFlashTime = 0;
+        this.hitFlashDuration = 180; // 毫秒
         
         // 能量與大招狀態
         this.energy = 0;
@@ -96,6 +100,11 @@ class Player extends Entity {
                 this.invulnerabilityTime = 0;
             }
         }
+
+        // 更新受傷紅閃計時
+        if (this.hitFlashTime > 0) {
+            this.hitFlashTime = Math.max(0, this.hitFlashTime - deltaTime);
+        }
     }
     
     draw(ctx) {
@@ -126,6 +135,16 @@ class Player extends Entity {
             ctx.arc(this.x + this.width / 3, this.y - this.height / 3, 5, 0, Math.PI * 2);
             ctx.fill();
         }
+
+        // 受傷紅色覆蓋閃爍
+        if (this.hitFlashTime > 0) {
+            const alpha = 0.35;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2 + 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
         
         ctx.restore();
     }
@@ -142,6 +161,8 @@ class Player extends Entity {
             // 受傷後短暫無敵
             this.isInvulnerable = true;
             this.invulnerabilityTime = 0;
+            // 啟動紅閃
+            this.hitFlashTime = this.hitFlashDuration;
         }
         
         // 更新UI
