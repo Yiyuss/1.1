@@ -3,15 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>馬桶坐坐V1.1 - 測試版</title>
+    <title>馬桶坐坐V1.1 - 遊戲模板</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <div id="game-container">
         <!-- 開始畫面 -->
         <div id="start-screen" class="screen">
-            <h1>馬桶坐坐V1.1</h1>
-            <button id="start-button">開始遊戲</button>
+            <div class="start-bg"></div>
+            <div class="start-overlay"></div>
+            <div class="start-card">
+                <div class="start-header">
+                    <h1>馬桶坐坐 V1.1</h1>
+                    <p class="subtitle">生存動作 • 休閒升級 • 手機兼容</p>
+                </div>
+
+                <div class="start-actions">
+                    <button id="start-button" class="primary">開始遊戲</button>
+                </div>
+
+                <div class="settings">
+                    <h2>音量設置</h2>
+                    <div class="volume-row">
+                        <label for="music-volume">音樂</label>
+                        <input type="range" id="music-volume" min="0" max="1" step="0.01" value="0.5">
+                        <span id="music-volume-text">50%</span>
+                    </div>
+                    <div class="volume-row">
+                        <label for="sound-volume">音效</label>
+                        <input type="range" id="sound-volume" min="0" max="1" step="0.01" value="0.7">
+                        <span id="sound-volume-text">70%</span>
+                    </div>
+                    <div class="volume-row">
+                        <label for="mute-toggle">靜音</label>
+                        <button id="mute-toggle" class="ghost">切換</button>
+                        <span id="mute-status">關</span>
+                    </div>
+                </div>
+
+                <div class="info">
+                    <details open>
+                        <summary>遊戲玩法</summary>
+                        <div class="content">
+                            <p>PC：可點擊滑鼠移動，也可使用 WASD 或 ↑↓←→ 進行移動。</p>
+                            <p>左上方能量達到 100 可按 Q 放大招。手機介面會自動匹配，但手機暫時無法按大絕。</p>
+                            <p>打敗敵人會掉經驗，吃經驗可升級；升級會跳出隨機技能可選擇升級。</p>
+                        </div>
+                    </details>
+                    <details>
+                        <summary>Regarding</summary>
+                        <div class="content regarding">
+                            <p>所使用素材來源如下，版權皆屬原作者所有：</p>
+                            <ul>
+                                <li>BGM：<a href="https://dova-s.jp/" target="_blank" rel="noopener">https://dova-s.jp/</a></li>
+                                <li>背景圖：GPT 生成</li>
+                                <li>道具圖：illustAC</li>
+                                <li>影片：瑪格麗特、森森鈴蘭影片中擷取。</li>
+                                <li>角色設定、立繪、IP 皆為箱箱 THEBOX 所有。</li>
+                                <li>遊戲劇情皆為虛構二次創作，與原 IP 並無關聯。</li>
+                            </ul>
+                            <p>本作品為個人非商業性質之粉絲二次創作，僅用於展示與愛好分享，未進行任何營利行為，若任何權利人對本作品內容有疑慮，請來信告知，我將立即下架並停止使用。</p>
+                            <p>遊戲不得重製或者修改，若想參考或者做為遊戲基底，請先聯繫獲得同意。</p>
+                            <p>聯繫方式：<a href="https://x.com/Yi_yuss" target="_blank" rel="noopener">https://x.com/Yi_yuss</a></p>
+                        </div>
+                    </details>
+                </div>
+            </div>
         </div>
 
         <!-- 遊戲畫面 -->
@@ -92,4 +149,3 @@
     <script src="js/main.js"></script>
 </body>
 </html>
-
