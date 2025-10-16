@@ -145,6 +145,7 @@ function createDefaultImages() {
     // 定義需要加載的圖片
     const imagesToLoad = [
         { name: 'player', src: 'assets/images/player.png' },
+        { name: 'player1-2', src: 'assets/images/player1-2.png' },
         { name: 'playerN', src: 'assets/images/playerN.png' },
         { name: 'zombie', src: 'assets/images/zombie.png' },
         { name: 'skeleton', src: 'assets/images/skeleton.png' },
@@ -208,9 +209,14 @@ function setupCharacterSelection() {
 
     const showPreview = (ch) => {
         if (!ch) return;
-        previewImg.src = Game.images && Game.images.player ? Game.images.player.src : 'assets/images/player.png';
+        // 預覽使用自定義介紹圖 player1-2.png
+        previewImg.src = (Game.images && Game.images['player1-2']) ? Game.images['player1-2'].src : 'assets/images/player1-2.png';
         previewName.textContent = ch.name || '角色';
         previewDesc.textContent = ch.description || '角色介紹（範例文字）';
+        // 選角預覽音效
+        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+            AudioManager.playSound('button_click2');
+        }
         picked = ch;
     };
 
@@ -248,6 +254,10 @@ function setupCharacterSelection() {
         confirmBox.classList.add('hidden');
         // 套用選角並開始新遊戲
         Game.selectedCharacter = picked;
+        // 進入遊戲音效
+        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+            AudioManager.playSound('button_click');
+        }
         Game.startNewGame();
         // 切換畫面
         document.getElementById('character-select-screen').classList.add('hidden');
