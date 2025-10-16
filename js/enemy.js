@@ -19,6 +19,9 @@ class Enemy extends Entity {
         this.collisionRadius = enemyConfig.COLLISION_RADIUS;
         this.lastAttackTime = 0;
         this.attackCooldown = 1000; // 攻擊冷卻時間（毫秒）
+        // 受傷紅閃效果
+        this.hitFlashTime = 0;
+        this.hitFlashDuration = 150; // 毫秒
     }
     
     update(deltaTime) {
@@ -96,6 +99,11 @@ class Enemy extends Entity {
         if (this.isColliding(player)) {
             this.attackPlayer(deltaTime);
         }
+
+        // 更新受傷紅閃計時
+        if (this.hitFlashTime > 0) {
+            this.hitFlashTime = Math.max(0, this.hitFlashTime - deltaTime);
+        }
     }
     
     draw(ctx) {
@@ -143,6 +151,17 @@ class Enemy extends Entity {
             ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
             ctx.fill();
         }
+
+        // 受傷紅色覆蓋閃爍
+        if (this.hitFlashTime > 0) {
+            const alpha = 0.35;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2 + 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
         
         // 繪製血條
         const healthBarWidth = this.width;
@@ -172,6 +191,8 @@ class Enemy extends Entity {
     // 受到傷害
     takeDamage(amount) {
         this.health -= amount;
+        // 啟動紅閃
+        this.hitFlashTime = this.hitFlashDuration;
         
         if (this.health <= 0) {
             this.die();
