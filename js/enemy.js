@@ -8,9 +8,13 @@ class Enemy extends Entity {
         this.name = enemyConfig.NAME;
         // 基礎血量，後續依波次倍率提升
         this.maxHealth = enemyConfig.HEALTH;
-        // 依照目前波次提高血量（每波乘以倍率）
+        // 依照目前波次提高血量（每波乘以倍率），第5波後稍微提高倍率
         const wave = (typeof WaveSystem !== 'undefined' && WaveSystem.currentWave) ? WaveSystem.currentWave : 1;
-        const hpMult = Math.pow(CONFIG.WAVES.HEALTH_MULTIPLIER_PER_WAVE || 1, Math.max(0, wave - 1));
+        const earlyMult = CONFIG.WAVES.HEALTH_MULTIPLIER_PER_WAVE || 1;
+        const lateMult = CONFIG.WAVES.HEALTH_MULTIPLIER_PER_WAVE_LATE || earlyMult;
+        const earlyWaves = Math.min(Math.max(0, wave - 1), 4); // 前4波使用earlyMult
+        const lateWaves = Math.max(0, wave - 5);
+        const hpMult = Math.pow(earlyMult, earlyWaves) * Math.pow(lateMult, lateWaves);
         this.maxHealth = Math.floor(this.maxHealth * hpMult);
         this.health = this.maxHealth;
         this.damage = enemyConfig.DAMAGE;
@@ -204,6 +208,11 @@ class Enemy extends Entity {
         // 生成經驗寶石
         Game.spawnExperienceOrb(this.x, this.y, this.experienceValue);
         
+        // BOSS或小BOSS死亡掉落寶箱（觸發一次免費升級）
+        if (this.type === 'MINI_BOSS' || this.type === 'BOSS') {
+            Game.spawnChest(this.x, this.y);
+        }
+
         // 如果是大BOSS，觸發勝利
         if (this.type === 'BOSS') {
             Game.victory();
