@@ -159,7 +159,7 @@ function createDefaultImages() {
         { name: 'fireball', src: 'assets/images/fireball.png' },
         { name: 'lightning', src: 'assets/images/lightning.png' },
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
-        { name: 'box', src: 'assets/images/box.png' },
+        { name: 'box', src: 'assets/images/BOX.png' },
         // 障礙物素材
         { name: 'S1', src: 'assets/images/S1.png' },
         { name: 'S2', src: 'assets/images/S2.png' },
