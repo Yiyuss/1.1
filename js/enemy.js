@@ -26,41 +26,40 @@ class Enemy extends Entity {
         const player = Game.player;
         const angle = Utils.angle(this.x, this.y, player.x, player.y);
         
-        // 計算新位置
-        const newX = this.x + Math.cos(angle) * this.speed;
-        const newY = this.y + Math.sin(angle) * this.speed;
-        
-        // 檢查與其他敵人的碰撞
-        let canMove = true;
-        if (Game.enemies) {
-            for (const otherEnemy of Game.enemies) {
-                // 跳過自己
-                if (otherEnemy === this) continue;
-                
-                // 計算與其他敵人的距離
-                const dx = newX - otherEnemy.x;
-                const dy = newY - otherEnemy.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                // 如果距離小於兩者碰撞半徑之和，則不能移動
-                const minDistance = this.collisionRadius + otherEnemy.collisionRadius;
-                if (distance < minDistance) {
-                    canMove = false;
-                    
-                    // 嘗試繞開其他敵人
-                    const pushAngle = Utils.angle(otherEnemy.x, otherEnemy.y, this.x, this.y);
-                    const pushDistance = minDistance - distance;
-                    this.x += Math.cos(pushAngle) * pushDistance * 0.1;
-                    this.y += Math.sin(pushAngle) * pushDistance * 0.1;
-                    break;
+        // 計算候選位置（分軸移動）
+        const candX = this.x + Math.cos(angle) * this.speed;
+        const candY = this.y + Math.sin(angle) * this.speed;
+
+        const blockedByObs = (nx, ny) => {
+            for (const obs of Game.obstacles || []) {
+                if (Utils.circleRectCollision(nx, ny, this.collisionRadius, obs.x, obs.y, obs.width, obs.height)) {
+                    return true;
                 }
             }
+            return false;
+        };
+
+        const blockedByEnemies = (nx, ny) => {
+            for (const otherEnemy of Game.enemies || []) {
+                if (otherEnemy === this) continue;
+                const dx = nx - otherEnemy.x;
+                const dy = ny - otherEnemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const minDistance = this.collisionRadius + otherEnemy.collisionRadius;
+                if (distance < minDistance) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        // 嘗試X軸位移
+        if (!blockedByObs(candX, this.y) && !blockedByEnemies(candX, this.y)) {
+            this.x = candX;
         }
-        
-        // 如果沒有碰撞，則移動到新位置
-        if (canMove) {
-            this.x = newX;
-            this.y = newY;
+        // 嘗試Y軸位移
+        if (!blockedByObs(this.x, candY) && !blockedByEnemies(this.x, candY)) {
+            this.y = candY;
         }
 
         // 限制在世界範圍內（非循環邊界）
