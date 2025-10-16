@@ -4,6 +4,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const startButton = document.getElementById('start-button');
     startButton.addEventListener('click', function() {
         AudioManager.playSound && AudioManager.playSound('button_click');
+        // 以使用者點擊作為手勢觸發，開始播放遊戲BGM
+        if (AudioManager.playMusic) {
+            AudioManager.playMusic('game_music');
+        }
         Game.startNewGame();
     });
 
@@ -146,7 +150,8 @@ function createDefaultImages() {
         { name: 'fireball', src: 'assets/images/fireball.png' },
         { name: 'lightning', src: 'assets/images/lightning.png' },
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
-        { name: 'background', src: 'assets/images/background.jpeg' }
+        // 修正背景檔名為現有的 background.jpg
+        { name: 'background', src: 'assets/images/background.jpg' }
     ];
     
     // 加載所有圖片
