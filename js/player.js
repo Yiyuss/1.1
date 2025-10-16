@@ -33,9 +33,9 @@ class Player extends Entity {
         this.x += direction.x * this.speed;
         this.y += direction.y * this.speed;
         
-        // 限制玩家在畫布範圍內
-        this.x = Utils.clamp(this.x, this.width / 2, CONFIG.CANVAS_WIDTH - this.width / 2);
-        this.y = Utils.clamp(this.y, this.height / 2, CONFIG.CANVAS_HEIGHT - this.height / 2);
+        // 限制玩家在世界範圍內（不循環）
+        this.x = Utils.clamp(this.x, this.width / 2, (Game.worldWidth || CONFIG.CANVAS_WIDTH) - this.width / 2);
+        this.y = Utils.clamp(this.y, this.height / 2, (Game.worldHeight || CONFIG.CANVAS_HEIGHT) - this.height / 2);
         
         // 能量自然恢復（每秒+1，封頂100）
         this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegenRate * (deltaTime / 1000));
