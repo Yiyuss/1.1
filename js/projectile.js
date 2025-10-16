@@ -27,8 +27,8 @@ class Projectile extends Entity {
             return;
         }
         
-        // 檢查是否超出畫布範圍
-        if (Utils.isOutOfBounds(this.x, this.y, Game.canvas)) {
+        // 檢查是否超出世界範圍
+        if (Utils.isOutOfWorldBounds(this.x, this.y, (Game.worldWidth || Game.canvas.width), (Game.worldHeight || Game.canvas.height))) {
             this.destroy();
             return;
         }
