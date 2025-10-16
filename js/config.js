@@ -1,8 +1,16 @@
 // 遊戲配置
 const CONFIG = {
     // 遊戲畫布設置
-    CANVAS_WIDTH: 800,
-    CANVAS_HEIGHT: 600,
+    CANVAS_WIDTH: 1280,
+    CANVAS_HEIGHT: 720,
+
+    // 世界與背景配置（用於滾動背景與邊界）
+    WORLD: {
+        GRID_X: 3, // 水平方向3格（共9格）
+        GRID_Y: 3, // 垂直方向3格
+        BORDER_COLOR: '#000',
+        BORDER_ALPHA: 0.8
+    },
     
     // 玩家設置
     PLAYER: {
