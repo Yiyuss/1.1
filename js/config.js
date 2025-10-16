@@ -15,7 +15,7 @@ const CONFIG = {
     // 玩家設置
     PLAYER: {
         SPEED: 3, // 降低移動速度
-        MAX_HEALTH: 100,
+        MAX_HEALTH: 200,
         SIZE: 32,
         COLLISION_RADIUS: 16
     },
@@ -28,6 +28,7 @@ const CONFIG = {
             COOLDOWN: 1000, // 毫秒
             PROJECTILE_SPEED: 8,
             PROJECTILE_SIZE: 16,
+            PROJECTILE_SIZE_PER_LEVEL: 1,
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每秒發射1顆飛鏢" },
                 { COUNT: 2, DESCRIPTION: "每秒發射2顆飛鏢" },
@@ -47,6 +48,7 @@ const CONFIG = {
             COOLDOWN: 2000,
             PROJECTILE_SPEED: 6,
             PROJECTILE_SIZE: 24,
+            PROJECTILE_SIZE_PER_LEVEL: 2,
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每2秒發射1顆火球" },
                 { COUNT: 2, DESCRIPTION: "每2秒發射2顆火球" },
@@ -66,6 +68,7 @@ const CONFIG = {
             COOLDOWN: 1500,
             PROJECTILE_SPEED: 10,
             PROJECTILE_SIZE: 20,
+            PROJECTILE_SIZE_PER_LEVEL: 1,
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每1.5秒發射1道閃電" },
                 { COUNT: 2, DESCRIPTION: "每1.5秒發射2道閃電" },
@@ -85,6 +88,7 @@ const CONFIG = {
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 16,
+            PROJECTILE_SIZE_PER_LEVEL: 1,
             ORBIT_RADIUS: 60,
             ORBIT_RADIUS_PER_LEVEL: 10,
             DURATION: 3000, // 3秒持續
@@ -196,8 +200,8 @@ const CONFIG = {
     EXPERIENCE: {
         SIZE: 16,
         VALUE: 5,
-        LEVEL_UP_BASE: 100,
-        LEVEL_UP_MULTIPLIER: 1.2
+        LEVEL_UP_BASE: 80,
+        LEVEL_UP_MULTIPLIER: 1.12
     },
     
     // 波次設置
@@ -216,10 +220,14 @@ const CONFIG = {
             // 敵人數量翻倍（基於原規則），單次生成量提高
             INITIAL: 2,
             INCREASE_PER_WAVE: 0.52, // 約原本的兩倍增幅
-            MAXIMUM: 10
+            MAXIMUM: 10,
+            // 第5波後提升增幅與上限（5~30波）
+            INCREASE_PER_WAVE_LATE: 1.12,
+            MAXIMUM_LATE: 18
         },
         // 敵人血量隨波次的倍率（每波在基礎上乘以此倍率）
         HEALTH_MULTIPLIER_PER_WAVE: 1.05,
+        HEALTH_MULTIPLIER_PER_WAVE_LATE: 1.1,
         ENEMY_TYPES: [
             { WAVE: 1, TYPE: "ZOMBIE" },
             { WAVE: 2, TYPE: "SKELETON" },
