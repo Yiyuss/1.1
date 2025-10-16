@@ -62,6 +62,30 @@ class Enemy extends Entity {
             this.y = candY;
         }
 
+        // 與障礙物分離/滑動：若接觸則沿法線微推開，避免卡住
+        const slideStrength = (this.type === 'BOSS') ? 0.45 : 0.25;
+        for (const obs of Game.obstacles || []) {
+            const halfW = obs.width / 2;
+            const halfH = obs.height / 2;
+            const left = obs.x - halfW;
+            const right = obs.x + halfW;
+            const top = obs.y - halfH;
+            const bottom = obs.y + halfH;
+            const closestX = Utils.clamp(this.x, left, right);
+            const closestY = Utils.clamp(this.y, top, bottom);
+            let dx = this.x - closestX;
+            let dy = this.y - closestY;
+            const dist2 = dx * dx + dy * dy;
+            const r = this.collisionRadius;
+            if (dist2 < r * r) {
+                const dist = Math.max(0.0001, Math.sqrt(dist2));
+                dx /= dist; dy /= dist; // 法線方向（若在邊界上則為邊界法線）
+                const push = (r - dist) * slideStrength;
+                this.x += dx * push;
+                this.y += dy * push;
+            }
+        }
+
         // 限制在世界範圍內（非循環邊界）
         const maxX = (Game.worldWidth || Game.canvas.width) - this.width / 2;
         const maxY = (Game.worldHeight || Game.canvas.height) - this.height / 2;
