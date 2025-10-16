@@ -369,8 +369,11 @@ body {
     background:
         linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.65) 100%),
         url('../assets/images/background.jpg') center/cover no-repeat;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
 }
-.char-card-wrap { width: min(1100px, 92vw); padding: 20px; background: rgba(10,20,30,0.7); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.char-card-wrap { width: min(1100px, 92vw); max-height: 92vh; overflow: auto; padding: 20px; background: rgba(10,20,30,0.7); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
 .char-title { font-size: clamp(26px, 4vw, 40px); letter-spacing: 1px; margin-bottom: 6px; }
 .char-subtitle { color: #cfe7ff; margin-bottom: 16px; }
 /* 上方格子，固定10格置中 */
