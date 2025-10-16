@@ -351,6 +351,23 @@ const Game = {
         // 重置UI
         UI.init();
 
+        // 設定左上角玩家頭像（依選角顯示），預設為 player.png
+        const avatarEl = document.getElementById('player-avatar-img');
+        if (avatarEl) {
+            let key = 'player';
+            if (this.selectedCharacter && this.selectedCharacter.avatarImageKey) {
+                key = this.selectedCharacter.avatarImageKey;
+            }
+            const imgObj = (this.images || Game.images || {})[key];
+            if (imgObj && imgObj.src) {
+                avatarEl.src = imgObj.src;
+            } else {
+                // 後備路徑
+                avatarEl.src = key === 'player' ? 'assets/images/player.png' : 'assets/images/player1-2.png';
+            }
+            avatarEl.alt = this.selectedCharacter?.name || '玩家';
+        }
+
         // 生成障礙物（3個S1與3個S2）
         this.spawnObstacles();
         
