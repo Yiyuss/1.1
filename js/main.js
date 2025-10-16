@@ -1,13 +1,42 @@
 // 遊戲主入口
 document.addEventListener('DOMContentLoaded', function() {
-    // 獲取開始按鈕
+    // 開始按鈕
     const startButton = document.getElementById('start-button');
-    
-    // 添加開始按鈕點擊事件
     startButton.addEventListener('click', function() {
-        // 開始遊戲（移除不存在音效的觸發）
+        AudioManager.playSound && AudioManager.playSound('button_click');
         Game.startNewGame();
     });
+
+    // 音量設置
+    const musicSlider = document.getElementById('music-volume');
+    const soundSlider = document.getElementById('sound-volume');
+    const musicText = document.getElementById('music-volume-text');
+    const soundText = document.getElementById('sound-volume-text');
+    const muteToggle = document.getElementById('mute-toggle');
+    const muteStatus = document.getElementById('mute-status');
+
+    if (musicSlider && soundSlider) {
+        const updateLabels = () => {
+            musicText.textContent = Math.round(musicSlider.value * 100) + '%';
+            soundText.textContent = Math.round(soundSlider.value * 100) + '%';
+        };
+        updateLabels();
+        musicSlider.addEventListener('input', () => {
+            AudioManager.setMusicVolume && AudioManager.setMusicVolume(parseFloat(musicSlider.value));
+            updateLabels();
+        });
+        soundSlider.addEventListener('input', () => {
+            AudioManager.setSoundVolume && AudioManager.setSoundVolume(parseFloat(soundSlider.value));
+            updateLabels();
+        });
+    }
+
+    if (muteToggle) {
+        muteToggle.addEventListener('click', () => {
+            const muted = AudioManager.toggleMute ? AudioManager.toggleMute() : false;
+            muteStatus.textContent = muted ? '開' : '關';
+        });
+    }
     
     // 添加視頻結束事件處理
     const gameOverVideo = document.getElementById('game-over-video');
@@ -38,7 +67,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupResponsiveViewport();
     
     // （如需主選單音樂，請於assets/audio添加menu_music.mp3後再啟用）
-    // AudioManager.playMusic('menu_music');
+    // if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
     
     console.log('遊戲已初始化，等待開始...');
 });
@@ -86,6 +115,8 @@ function createDefaultVideo(videoId, text) {
     // 創建一個 img 元素
     const img = document.createElement('img');
     img.src = dataURL;
+    // 保留原有ID，讓UI可以找到此元素並綁定事件
+    img.id = videoId;
     
     // 替換視頻元素
     video.parentNode.replaceChild(img, video);
