@@ -187,6 +187,10 @@ const UI = {
     
     // 顯示遊戲結束畫面
     showGameOverScreen: function() {
+        // 停止BGM，避免與影片音訊重疊
+        if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) {
+            AudioManager.stopAllMusic();
+        }
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('game-over-screen').classList.remove('hidden');
         
