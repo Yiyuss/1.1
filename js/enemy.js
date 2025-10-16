@@ -62,6 +62,12 @@ class Enemy extends Entity {
             this.x = newX;
             this.y = newY;
         }
+
+        // 限制在世界範圍內（非循環邊界）
+        const maxX = (Game.worldWidth || Game.canvas.width) - this.width / 2;
+        const maxY = (Game.worldHeight || Game.canvas.height) - this.height / 2;
+        this.x = Utils.clamp(this.x, this.width / 2, maxX);
+        this.y = Utils.clamp(this.y, this.height / 2, maxY);
         
         // 檢查與玩家的碰撞
         if (this.isColliding(player)) {
