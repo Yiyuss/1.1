@@ -77,10 +77,15 @@ const WaveSystem = {
             return;
         }
 
-        // 計算本次生成數量隨波次增加
+        // 計算本次生成數量隨波次增加（第5波後顯著提高）
         const base = CONFIG.WAVES.SPAWN_COUNT.INITIAL;
-        const inc = CONFIG.WAVES.SPAWN_COUNT.INCREASE_PER_WAVE;
-        const max = CONFIG.WAVES.SPAWN_COUNT.MAXIMUM;
+        const earlyInc = CONFIG.WAVES.SPAWN_COUNT.INCREASE_PER_WAVE;
+        const earlyMax = CONFIG.WAVES.SPAWN_COUNT.MAXIMUM;
+        const lateInc = CONFIG.WAVES.SPAWN_COUNT.INCREASE_PER_WAVE_LATE || earlyInc;
+        const lateMax = CONFIG.WAVES.SPAWN_COUNT.MAXIMUM_LATE || earlyMax;
+        const useLate = this.currentWave >= 5;
+        const inc = useLate ? lateInc : earlyInc;
+        const max = useLate ? lateMax : earlyMax;
         const count = Math.min(Math.floor(base + (this.currentWave - 1) * inc), max);
 
         for (let i = 0; i < count; i++) {
