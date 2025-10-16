@@ -27,8 +27,8 @@ const CONFIG = {
             DAMAGE: 10,
             COOLDOWN: 1000, // 毫秒
             PROJECTILE_SPEED: 8,
-            PROJECTILE_SIZE: 16,
-            PROJECTILE_SIZE_PER_LEVEL: 1,
+            PROJECTILE_SIZE: 20,
+            PROJECTILE_SIZE_PER_LEVEL: 3,
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每秒發射1顆飛鏢" },
                 { COUNT: 2, DESCRIPTION: "每秒發射2顆飛鏢" },
@@ -47,8 +47,8 @@ const CONFIG = {
             DAMAGE: 20,
             COOLDOWN: 2000,
             PROJECTILE_SPEED: 6,
-            PROJECTILE_SIZE: 24,
-            PROJECTILE_SIZE_PER_LEVEL: 2,
+            PROJECTILE_SIZE: 28,
+            PROJECTILE_SIZE_PER_LEVEL: 4,
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每2秒發射1顆火球" },
                 { COUNT: 2, DESCRIPTION: "每2秒發射2顆火球" },
@@ -67,8 +67,8 @@ const CONFIG = {
             DAMAGE: 15,
             COOLDOWN: 1500,
             PROJECTILE_SPEED: 10,
-            PROJECTILE_SIZE: 20,
-            PROJECTILE_SIZE_PER_LEVEL: 1,
+            PROJECTILE_SIZE: 24,
+            PROJECTILE_SIZE_PER_LEVEL: 3,
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每1.5秒發射1道閃電" },
                 { COUNT: 2, DESCRIPTION: "每1.5秒發射2道閃電" },
@@ -87,8 +87,8 @@ const CONFIG = {
             DAMAGE: 10,
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
-            PROJECTILE_SIZE: 16,
-            PROJECTILE_SIZE_PER_LEVEL: 1,
+            PROJECTILE_SIZE: 20,
+            PROJECTILE_SIZE_PER_LEVEL: 2,
             ORBIT_RADIUS: 60,
             ORBIT_RADIUS_PER_LEVEL: 10,
             DURATION: 3000, // 3秒持續
@@ -213,17 +213,17 @@ const CONFIG = {
         ENEMY_SPAWN_RATE: {
             INITIAL: 2000, // 初始每2秒生成一個敵人
             DECREASE_PER_WAVE: 100, // 每波減少100毫秒
-            MINIMUM: 500 // 最低500毫秒
+            MINIMUM: 300 // 最低300毫秒，提升整體密度
         },
         // 每次生成的敵人數量隨波次增加
         SPAWN_COUNT: {
             // 敵人數量翻倍（基於原規則），單次生成量提高
-            INITIAL: 2,
-            INCREASE_PER_WAVE: 0.52, // 約原本的兩倍增幅
-            MAXIMUM: 10,
+            INITIAL: 3,
+            INCREASE_PER_WAVE: 0.9, // 前期增幅加大
+            MAXIMUM: 12,
             // 第5波後提升增幅與上限（5~30波）
-            INCREASE_PER_WAVE_LATE: 1.12,
-            MAXIMUM_LATE: 18
+            INCREASE_PER_WAVE_LATE: 1.5,
+            MAXIMUM_LATE: 28
         },
         // 敵人血量隨波次的倍率（每波在基礎上乘以此倍率）
         HEALTH_MULTIPLIER_PER_WAVE: 1.05,
@@ -237,7 +237,7 @@ const CONFIG = {
     
     // 優化設置
     OPTIMIZATION: {
-        MAX_ENEMIES: 100, // 最大敵人數量
+        MAX_ENEMIES: 250, // 最大敵人數量，提高密度
         MAX_PROJECTILES: 200, // 最大投射物數量
         MAX_EXPERIENCE_ORBS: 100, // 最大經驗球數量
         CLEANUP_INTERVAL: 1000 // 清理間隔（毫秒）
