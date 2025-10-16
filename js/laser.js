@@ -28,24 +28,37 @@ class LaserBeam extends Entity {
         const worldW = Game.worldWidth || Game.canvas.width;
         const worldH = Game.worldHeight || Game.canvas.height;
 
-        // 計算到四個邊界的 t，僅取正值（前方交點），最後選最小的正 t
-        const candidates = [];
+        // 邊界t（最近前向邊界）
+        const edgeCandidates = [];
         if (dx > 0) {
-            candidates.push((worldW - sx) / dx);
+            edgeCandidates.push((worldW - sx) / dx);
         } else if (dx < 0) {
-            candidates.push((0 - sx) / dx);
+            edgeCandidates.push((0 - sx) / dx);
         }
         if (dy > 0) {
-            candidates.push((worldH - sy) / dy);
+            edgeCandidates.push((worldH - sy) / dy);
         } else if (dy < 0) {
-            candidates.push((0 - sy) / dy);
+            edgeCandidates.push((0 - sy) / dy);
         }
-        // 過濾非正值，避免選到背後交點
-        const positive = candidates.filter(t => t > 0);
-        const t = positive.length ? Math.min(...positive) : 0;
-        const ex = sx + dx * t;
-        const ey = sy + dy * t;
+        const positiveEdges = edgeCandidates.filter(t => t > 0);
+        let closestT = positiveEdges.length ? Math.min(...positiveEdges) : 0;
 
+        // 障礙物阻擋：找出最小正交點t
+        for (const obs of Game.obstacles || []) {
+            const halfW = obs.width / 2;
+            const halfH = obs.height / 2;
+            const left = obs.x - halfW;
+            const right = obs.x + halfW;
+            const top = obs.y - halfH;
+            const bottom = obs.y + halfH;
+            const tHit = Utils.rayAABBIntersection(sx, sy, dx, dy, left, top, right, bottom);
+            if (tHit !== Infinity && tHit > 0 && tHit < closestT) {
+                closestT = tHit;
+            }
+        }
+
+        const ex = sx + dx * closestT;
+        const ey = sy + dy * closestT;
         return { startX: sx, startY: sy, endX: ex, endY: ey };
     }
 
@@ -91,19 +104,32 @@ class LaserBeam extends Entity {
 
     draw(ctx) {
         ctx.save();
-        // 主要雷射線
-        ctx.strokeStyle = '#0ff';
-        ctx.globalAlpha = 0.9;
+        // 線性漸層核心（不抖動，不造成暈眩）
+        const core = ctx.createLinearGradient(this.startX, this.startY, this.endX, this.endY);
+        core.addColorStop(0, '#0ff');
+        core.addColorStop(0.5, '#fff');
+        core.addColorStop(1, '#0ff');
+        ctx.strokeStyle = core;
+        ctx.globalAlpha = 0.95;
         ctx.lineWidth = this.width;
         ctx.beginPath();
         ctx.moveTo(this.startX, this.startY);
         ctx.lineTo(this.endX, this.endY);
         ctx.stroke();
 
-        // 外圈光暈
+        // 內層微光暈
+        ctx.strokeStyle = '#bff';
+        ctx.globalAlpha = 0.28;
+        ctx.lineWidth = this.width * 1.35;
+        ctx.beginPath();
+        ctx.moveTo(this.startX, this.startY);
+        ctx.lineTo(this.endX, this.endY);
+        ctx.stroke();
+
+        // 外層光暈
         ctx.strokeStyle = '#9ff';
-        ctx.globalAlpha = 0.25;
-        ctx.lineWidth = this.width * 1.6;
+        ctx.globalAlpha = 0.18;
+        ctx.lineWidth = this.width * 1.9;
         ctx.beginPath();
         ctx.moveTo(this.startX, this.startY);
         ctx.lineTo(this.endX, this.endY);
