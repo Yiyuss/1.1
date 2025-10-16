@@ -6,9 +6,9 @@ class OrbitBall extends Entity {
         this.angle = initialAngle;
         this.radius = radius;
         this.damage = damage;
-        // 調整為每顆球「每1秒」觸發一次傷害；數量升級則每顆獨立觸發
+        // 調整為更高頻率的持續傷害，提升命中感
         this.tickDamage = Math.max(1, Math.round(this.damage));
-        this.tickIntervalMs = 1000; // 每秒一次
+        this.tickIntervalMs = 120; // 每0.12秒一次，類似雷射頻率
         this.tickAccumulator = 0;
         this.duration = durationMs;
         this.angularSpeed = angularSpeedRadPerSec; // 弧度/秒
