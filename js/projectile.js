@@ -11,12 +11,23 @@ class Projectile extends Entity {
     }
     
     update(deltaTime) {
-        // 移動投射物
+        // 移動投射物（先檢查障礙物阻擋）
         const dx = Math.cos(this.angle) * this.speed;
         const dy = Math.sin(this.angle) * this.speed;
-        
-        this.x += dx;
-        this.y += dy;
+        const candX = this.x + dx;
+        const candY = this.y + dy;
+
+        // 與障礙物相交則銷毀投射物
+        for (const obs of Game.obstacles || []) {
+            if (Utils.circleRectCollision(candX, candY, this.collisionRadius, obs.x, obs.y, obs.width, obs.height)) {
+                this.destroy();
+                return;
+            }
+        }
+
+        // 套用位移
+        this.x = candX;
+        this.y = candY;
         
         // 計算已飛行距離
         this.distance += Math.sqrt(dx * dx + dy * dy);
