@@ -69,6 +69,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化遊戲（但不開始）
     Game.init();
 
+    // 自動暫停與音效抑制（分頁切換/失焦）
+    setupAutoPause();
+
     // 設定選角介面事件
     setupCharacterSelection();
 
@@ -156,6 +159,7 @@ function createDefaultImages() {
         { name: 'fireball', src: 'assets/images/fireball.png' },
         { name: 'lightning', src: 'assets/images/lightning.png' },
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
+        { name: 'box', src: 'assets/images/box.png' },
         // 障礙物素材
         { name: 'S1', src: 'assets/images/S1.png' },
         { name: 'S2', src: 'assets/images/S2.png' },
@@ -187,6 +191,38 @@ function createDefaultImages() {
             console.warn(`無法加載圖片: ${img.name}，使用預設圖形`);
             loadedCount++;
         };
+    });
+}
+
+// 自動暫停與音效抑制（分頁切換/縮小/失焦）
+function setupAutoPause() {
+    const isLevelUpOpen = () => {
+        const el = document.getElementById('level-up-menu');
+        return el && !el.classList.contains('hidden');
+    };
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            Game.pause();
+            AudioManager.setMuted && AudioManager.setMuted(true);
+        } else {
+            if (!Game.isGameOver && !isLevelUpOpen()) {
+                Game.resume();
+                AudioManager.setMuted && AudioManager.setMuted(false);
+            }
+        }
+    });
+
+    window.addEventListener('blur', () => {
+        Game.pause();
+        AudioManager.setMuted && AudioManager.setMuted(true);
+    });
+
+    window.addEventListener('focus', () => {
+        if (!Game.isGameOver && !isLevelUpOpen()) {
+            Game.resume();
+            AudioManager.setMuted && AudioManager.setMuted(false);
+        }
     });
 }
 
