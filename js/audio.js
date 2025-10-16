@@ -137,6 +137,25 @@ const AudioManager = {
         
         return this.isMuted;
     },
+
+    // 顯式設置靜音狀態（供自動暫停使用）
+    setMuted: function(flag) {
+        const prev = this.isMuted;
+        this.isMuted = !!flag;
+        if (this.isMuted) {
+            this.stopAllMusic();
+        } else if (prev !== this.isMuted) {
+            // 解除靜音時恢復當前場景音樂
+            if (Game.isGameOver) {
+                // 不播放音樂
+            } else if (Game.boss) {
+                this.playMusic('boss_music');
+            } else {
+                this.playMusic('game_music');
+            }
+        }
+        return this.isMuted;
+    },
     
     // 設置音效音量
     setSoundVolume: function(volume) {
