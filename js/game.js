@@ -11,6 +11,10 @@ const Game = {
     isPaused: false,
     isGameOver: false,
     boss: null,
+    // 世界與鏡頭
+    worldWidth: 0,
+    worldHeight: 0,
+    camera: { x: 0, y: 0 },
     
     init: function() {
         // 獲取畫布和上下文
@@ -20,6 +24,11 @@ const Game = {
         // 設置畫布大小
         this.canvas.width = CONFIG.CANVAS_WIDTH;
         this.canvas.height = CONFIG.CANVAS_HEIGHT;
+
+        // 計算世界大小：3x3畫面
+        this.worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3);
+        this.worldHeight = CONFIG.CANVAS_HEIGHT * (CONFIG.WORLD?.GRID_Y || 3);
+        this.camera = { x: 0, y: 0 };
         
         // 初始化輸入系統
         Input.init();
@@ -27,8 +36,8 @@ const Game = {
         // 初始化UI
         UI.init();
         
-        // 創建玩家
-        this.player = new Player(CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2);
+        // 創建玩家（世界中心）
+        this.player = new Player(this.worldWidth / 2, this.worldHeight / 2);
         
         // 初始化波次系統
         WaveSystem.init();
@@ -82,6 +91,10 @@ const Game = {
         
         // 更新玩家
         this.player.update(deltaTime);
+
+        // 更新鏡頭位置（跟隨玩家，並夾限在世界邊界）
+        this.camera.x = Utils.clamp(this.player.x - this.canvas.width / 2, 0, Math.max(0, this.worldWidth - this.canvas.width));
+        this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
         
         // 更新玩家武器
         for (const weapon of this.player.weapons) {
@@ -135,14 +148,21 @@ const Game = {
         // 清空畫布
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // 繪製背景
+        // 平移座標系，將世界座標轉為畫面座標
+        this.ctx.save();
+        this.ctx.translate(-this.camera.x, -this.camera.y);
+        
+        // 繪製背景（平鋪）
         this.drawBackground();
         
-        // 繪製網格（可選）
-        // this.drawGrid();
-        
-        // 繪製所有實體
+        // 繪製所有實體（使用世界座標）
         this.drawEntities();
+        
+        // 邊界提示（可選）：在世界邊界畫微弱遮罩
+        this.drawWorldBorders();
+        
+        // 還原座標系
+        this.ctx.restore();
     },
     
     // 繪製所有實體
@@ -169,14 +189,16 @@ const Game = {
     // 繪製背景
     drawBackground: function() {
         if (this.images && this.images.background) {
-            // 使用背景圖片
-            this.ctx.drawImage(this.images.background, 0, 0, this.canvas.width, this.canvas.height);
+            // 平鋪背景圖片，覆蓋目前可視區域（已平移座標）
+            const pattern = this.ctx.createPattern(this.images.background, 'repeat');
+            this.ctx.fillStyle = pattern || '#111';
+            this.ctx.fillRect(this.camera.x, this.camera.y, this.canvas.width, this.canvas.height);
         } else {
             // 備用：使用純色背景
             this.ctx.fillStyle = '#111';
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillRect(this.camera.x, this.camera.y, this.canvas.width, this.canvas.height);
             
-            // 繪製網格
+            // 可選：繪製網格以輔助定位
             this.drawGrid();
         }
     },
@@ -185,24 +207,31 @@ const Game = {
     drawGrid: function() {
         this.ctx.strokeStyle = '#222';
         this.ctx.lineWidth = 1;
-        
         const gridSize = 50;
-        
-        // 垂直線
-        for (let x = 0; x <= this.canvas.width; x += gridSize) {
+        // 在可視區域繪製網格（已平移座標）
+        for (let x = this.camera.x - (this.camera.x % gridSize); x <= this.camera.x + this.canvas.width; x += gridSize) {
             this.ctx.beginPath();
-            this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, this.canvas.height);
+            this.ctx.moveTo(x, this.camera.y);
+            this.ctx.lineTo(x, this.camera.y + this.canvas.height);
             this.ctx.stroke();
         }
-        
-        // 水平線
-        for (let y = 0; y <= this.canvas.height; y += gridSize) {
+        for (let y = this.camera.y - (this.camera.y % gridSize); y <= this.camera.y + this.canvas.height; y += gridSize) {
             this.ctx.beginPath();
-            this.ctx.moveTo(0, y);
-            this.ctx.lineTo(this.canvas.width, y);
+            this.ctx.moveTo(this.camera.x, y);
+            this.ctx.lineTo(this.camera.x + this.canvas.width, y);
             this.ctx.stroke();
         }
+    },
+
+    // 世界邊界提示（不循環）：在靠近邊界時畫暗角
+    drawWorldBorders: function() {
+        const borderColor = CONFIG.WORLD?.BORDER_COLOR || '#000';
+        const alpha = CONFIG.WORLD?.BORDER_ALPHA || 0.8;
+        this.ctx.save();
+        this.ctx.globalAlpha = 0.0;
+        // 如需明顯邊界提示，可將 globalAlpha 改成 alpha 並繪製遮罩。
+        // 預設不顯示，僅保留接口。
+        this.ctx.restore();
     },
     
     // 添加敵人
@@ -286,8 +315,11 @@ const Game = {
         this.isGameOver = false;
         this.boss = null;
         
-        // 創建新玩家
-        this.player = new Player(CONFIG.CANVAS_WIDTH / 2, CONFIG.CANVAS_HEIGHT / 2);
+        // 世界大小無需重算（保持init設定）。重新置中玩家
+        this.player = new Player(this.worldWidth / 2, this.worldHeight / 2);
+        // 重置鏡頭
+        this.camera.x = Utils.clamp(this.player.x - this.canvas.width / 2, 0, Math.max(0, this.worldWidth - this.canvas.width));
+        this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
         
         // 重置波次系統
         WaveSystem.init();
