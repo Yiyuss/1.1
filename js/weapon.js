@@ -21,6 +21,20 @@ class Weapon {
     
     // 發射投射物
     fire() {
+        // 特殊技能：唱歌（不造成傷害，恢復HP並產生音符特效）
+        if (this.type === 'SING') {
+            const heal = this.level;
+            this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+            if (typeof UI !== 'undefined') {
+                UI.updateHealthBar(this.player.health, this.player.maxHealth);
+            }
+            const effect = new SingEffect(this.player, this.config.DURATION || 1000);
+            Game.addProjectile(effect);
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('sing_cast');
+            }
+            return;
+        }
         // 特殊技能：旋球
         if (this.type === 'ORBIT') {
             const count = this.projectileCount;
