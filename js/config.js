@@ -132,7 +132,7 @@ const CONFIG = {
     },
     ULTIMATE: {
         DURATION_MS: 15000,
-        PLAYER_SIZE_MULTIPLIER: 2.0, // 變身體型變大
+        PLAYER_SIZE_MULTIPLIER: 2.5, // 變身體型再放大一些
         IMAGE_KEY: 'playerN',
         ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER'],
         ULTIMATE_LEVEL: 10
@@ -140,7 +140,7 @@ const CONFIG = {
 
     // 選角列表（目前僅1名角色）
     CHARACTERS: [
-        { id: 'margaret', name: '瑪格麗特·諾爾絲', hpMultiplier: 1.0, speedMultiplier: 1.0, description: '範例角色介紹：全方面平均，穩健新手選擇。' }
+        { id: 'margaret', name: '瑪格麗特·諾爾絲', hpMultiplier: 1.0, speedMultiplier: 1.0, description: '範例角色介紹：全方面平均，穩健新手選擇。', avatarImageKey: 'player1-2' }
     ],
     
     // 敵人設置
