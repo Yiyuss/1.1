@@ -23,13 +23,16 @@ const Input = {
             const rect = Game.canvas.getBoundingClientRect();
             const scaleX = Game.canvas.width / rect.width;
             const scaleY = Game.canvas.height / rect.height;
-            this.mousePosition.x = (e.clientX - rect.left) * scaleX;
-            this.mousePosition.y = (e.clientY - rect.top) * scaleY;
+            // 轉為世界座標（加上鏡頭偏移）
+            this.mousePosition.x = (e.clientX - rect.left) * scaleX + (Game.camera?.x || 0);
+            this.mousePosition.y = (e.clientY - rect.top) * scaleY + (Game.camera?.y || 0);
             // 將目標點夾限在可到達範圍內，避免卡在邊界
             const halfW = Game.player ? Game.player.width / 2 : 0;
             const halfH = Game.player ? Game.player.height / 2 : 0;
-            const clampedX = Utils.clamp(this.mousePosition.x, halfW, Game.canvas.width - halfW);
-            const clampedY = Utils.clamp(this.mousePosition.y, halfH, Game.canvas.height - halfH);
+            const worldW = Game.worldWidth || Game.canvas.width;
+            const worldH = Game.worldHeight || Game.canvas.height;
+            const clampedX = Utils.clamp(this.mousePosition.x, halfW, worldW - halfW);
+            const clampedY = Utils.clamp(this.mousePosition.y, halfH, worldH - halfH);
             this.mouseTarget = { x: clampedX, y: clampedY };
             this.isMouseMoving = true;
             console.log('滑鼠點擊目標(已夾限):', this.mouseTarget);
@@ -40,8 +43,9 @@ const Input = {
             const rect = Game.canvas.getBoundingClientRect();
             const scaleX = Game.canvas.width / rect.width;
             const scaleY = Game.canvas.height / rect.height;
-            this.mousePosition.x = (e.clientX - rect.left) * scaleX;
-            this.mousePosition.y = (e.clientY - rect.top) * scaleY;
+            // 轉為世界座標（加上鏡頭偏移）
+            this.mousePosition.x = (e.clientX - rect.left) * scaleX + (Game.camera?.x || 0);
+            this.mousePosition.y = (e.clientY - rect.top) * scaleY + (Game.camera?.y || 0);
         });
         
         console.log('輸入系統已初始化');
