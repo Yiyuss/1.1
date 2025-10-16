@@ -138,14 +138,9 @@ const CONFIG = {
         ULTIMATE_LEVEL: 10
     },
 
-    // 選角列表（僅影響基礎速度與最大HP）
+    // 選角列表（目前僅1名角色）
     CHARACTERS: [
-        { id: 'balanced', name: '平衡', hpMultiplier: 1.0, speedMultiplier: 1.0, description: '全方面平均，穩健新手選擇。' },
-        { id: 'sprinter', name: '疾風', hpMultiplier: 0.8, speedMultiplier: 1.35, description: '移動極快，但較脆弱，適合走位。' },
-        { id: 'guardian', name: '守護', hpMultiplier: 1.4, speedMultiplier: 0.85, description: '血量厚實，移動較沉穩。' },
-        { id: 'rogue', name: '游俠', hpMultiplier: 0.9, speedMultiplier: 1.15, description: '靈活機動，兼顧安全與速度。' },
-        { id: 'mystic', name: '秘術', hpMultiplier: 0.95, speedMultiplier: 1.05, description: '微幅提升機動，適合迴避。' },
-        { id: 'scholar', name: '學者', hpMultiplier: 1.1, speedMultiplier: 0.95, description: '耐打且穩定，入門首選。' }
+        { id: 'margaret', name: '瑪格麗特·諾爾絲', hpMultiplier: 1.0, speedMultiplier: 1.0, description: '範例角色介紹：全方面平均，穩健新手選擇。' }
     ],
     
     // 敵人設置
