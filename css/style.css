@@ -292,7 +292,7 @@ body {
     #health-bar-container { top: 10px; left: 66px; }
     #exp-bar-container { top: 26px; left: 66px; }
     #energy-bar-container { top: 42px; left: 66px; }
-    #player-avatar { width: 56px; height: 56px; }
+    #player-avatar { width: 56px; height: 56px; top: 6px; left: 6px; }
 }
 
 @media (max-width: 400px) {
