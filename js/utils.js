@@ -118,5 +118,56 @@ const Utils = {
                 break;
         }
         return { x, y };
+    },
+
+    // 圓形與AABB（以中心與寬高）碰撞檢測
+    circleRectCollision: function(cx, cy, r, rx, ry, rw, rh) {
+        const halfW = rw / 2;
+        const halfH = rh / 2;
+        const left = rx - halfW;
+        const right = rx + halfW;
+        const top = ry - halfH;
+        const bottom = ry + halfH;
+        // 取矩形內最接近圓心的點
+        const closestX = Utils.clamp(cx, left, right);
+        const closestY = Utils.clamp(cy, top, bottom);
+        const dx = cx - closestX;
+        const dy = cy - closestY;
+        return (dx * dx + dy * dy) <= r * r;
+    },
+
+    // 射線與AABB相交（傳回最小正t，如無交集回Infinity）
+    rayAABBIntersection: function(sx, sy, dx, dy, left, top, right, bottom) {
+        // 以slab方法計算
+        let tmin = -Infinity;
+        let tmax = Infinity;
+
+        // X軸
+        if (dx === 0) {
+            if (sx < left || sx > right) return Infinity;
+        } else {
+            const tx1 = (left - sx) / dx;
+            const tx2 = (right - sx) / dx;
+            const txmin = Math.min(tx1, tx2);
+            const txmax = Math.max(tx1, tx2);
+            tmin = Math.max(tmin, txmin);
+            tmax = Math.min(tmax, txmax);
+        }
+
+        // Y軸
+        if (dy === 0) {
+            if (sy < top || sy > bottom) return Infinity;
+        } else {
+            const ty1 = (top - sy) / dy;
+            const ty2 = (bottom - sy) / dy;
+            const tymin = Math.min(ty1, ty2);
+            const tymax = Math.max(ty1, ty2);
+            tmin = Math.max(tmin, tymin);
+            tmax = Math.min(tmax, tymax);
+        }
+
+        if (tmax < tmin) return Infinity; // 無交集
+        const tHit = tmin >= 0 ? tmin : (tmax >= 0 ? 0 : Infinity);
+        return tHit >= 0 ? tHit : Infinity;
     }
 };
