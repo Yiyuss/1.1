@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>馬桶坐坐V1.1 - 測試版</title>
+    <title>馬桶坐坐V1.1 - 測試板</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -75,41 +75,38 @@
         <div id="character-select-screen" class="screen hidden">
             <div class="char-card-wrap">
                 <h1 class="char-title">選擇角色</h1>
-                <p class="char-subtitle">風格參考卡片佈局，非完全照抄</p>
+                <p class="char-subtitle">提示：按空白鍵或在角色卡上雙擊選取</p>
+
+                <!-- 角色格子（置中上方，10格，僅一格有角色） -->
                 <div class="char-grid">
-                    <button class="char-card" data-char-id="balanced">
-                        <img src="assets/images/player.png" alt="平衡">
-                        <div class="char-name">平衡</div>
-                        <div class="char-stats">HP 100 • 速度 x1.0</div>
+                    <button class="char-card selectable" data-char-id="margaret">
+                        <img src="assets/images/player.png" alt="瑪格麗特·諾爾絲">
+                        <div class="char-name">瑪格麗特·諾爾絲</div>
                     </button>
-                    <button class="char-card" data-char-id="sprinter">
-                        <img src="assets/images/player.png" alt="疾風">
-                        <div class="char-name">疾風</div>
-                        <div class="char-stats">HP 80 • 速度 x1.35</div>
-                    </button>
-                    <button class="char-card" data-char-id="guardian">
-                        <img src="assets/images/player.png" alt="守護">
-                        <div class="char-name">守護</div>
-                        <div class="char-stats">HP 140 • 速度 x0.85</div>
-                    </button>
-                    <button class="char-card" data-char-id="rogue">
-                        <img src="assets/images/player.png" alt="游俠">
-                        <div class="char-name">游俠</div>
-                        <div class="char-stats">HP 90 • 速度 x1.15</div>
-                    </button>
-                    <button class="char-card" data-char-id="mystic">
-                        <img src="assets/images/player.png" alt="秘術">
-                        <div class="char-name">秘術</div>
-                        <div class="char-stats">HP 95 • 速度 x1.05</div>
-                    </button>
-                    <button class="char-card" data-char-id="scholar">
-                        <img src="assets/images/player.png" alt="學者">
-                        <div class="char-name">學者</div>
-                        <div class="char-stats">HP 110 • 速度 x0.95</div>
-                    </button>
+                    <div class="char-slot empty"></div>
+                    <div class="char-slot empty"></div>
+                    <div class="char-slot empty"></div>
+                    <div class="char-slot empty"></div>
+                    <div class="char-slot empty"></div>
+                    <div class="char-slot empty"></div>
+                    <div class="char-slot empty"></div>
+                    <div class="char-slot empty"></div>
+                    <div class="char-slot empty"></div>
                 </div>
 
-                <!-- 確認對話框 -->
+                <!-- 下方預覽區（左圖右文） -->
+                <div class="char-preview" id="char-preview" aria-live="polite">
+                    <div class="char-preview-image">
+                        <img id="char-preview-img" src="assets/images/player.png" alt="預覽" />
+                    </div>
+                    <div class="char-preview-info">
+                        <div class="char-preview-name" id="char-preview-name">請先在上方選擇角色</div>
+                        <div class="char-preview-desc" id="char-preview-desc">這裡會顯示角色介紹與特色（範例文字）。</div>
+                        <div class="char-hint">提示：按空白鍵或在角色卡上雙擊以選取</div>
+                    </div>
+                </div>
+
+                <!-- 選取確認彈窗（只在選取後顯示） -->
                 <div id="char-confirm" class="char-confirm hidden">
                     <div class="char-dialog">
                         <div class="char-dialog-title" id="char-confirm-name">角色</div>
