@@ -81,7 +81,7 @@ const CONFIG = {
         },
         ORBIT: {
             NAME: "旋球",
-            DAMAGE: 8,
+            DAMAGE: 10,
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 16,
@@ -104,7 +104,7 @@ const CONFIG = {
         },
         LASER: {
             NAME: "雷射",
-            DAMAGE: 15,
+            DAMAGE: 12,
             COOLDOWN: 5000, // 5秒一次（持續2秒，空檔3秒）
             DURATION: 2000,
             BEAM_WIDTH_BASE: 8,
