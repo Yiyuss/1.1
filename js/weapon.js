@@ -61,6 +61,10 @@ class Weapon {
                 this.config.TICK_INTERVAL_MS || 120
             );
             Game.addProjectile(beam);
+            // 播放雷射音效
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('laser_shoot');
+            }
             return;
         }
 
