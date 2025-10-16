@@ -87,8 +87,8 @@ const WaveSystem = {
             if (Game.enemies.length >= CONFIG.OPTIMIZATION.MAX_ENEMIES) break;
             // 隨機選擇敵人類型
             const enemyType = Utils.randomChoice(availableTypes);
-            // 在畫布邊緣生成敵人
-            const position = Utils.getRandomEdgePosition(Game.canvas);
+            // 在世界邊緣生成敵人
+            const position = Utils.getRandomEdgePositionInWorld((Game.worldWidth || Game.canvas.width), (Game.worldHeight || Game.canvas.height));
             const enemy = new Enemy(position.x, position.y, enemyType);
             Game.addEnemy(enemy);
         }
@@ -101,8 +101,8 @@ const WaveSystem = {
             return;
         }
         
-        // 在畫布邊緣生成小BOSS
-        const position = Utils.getRandomEdgePosition(Game.canvas);
+        // 在世界邊緣生成小BOSS
+        const position = Utils.getRandomEdgePositionInWorld((Game.worldWidth || Game.canvas.width), (Game.worldHeight || Game.canvas.height));
         const miniBoss = new Enemy(position.x, position.y, 'MINI_BOSS');
         
         Game.addEnemy(miniBoss);
@@ -111,10 +111,10 @@ const WaveSystem = {
     
     // 生成大BOSS
     spawnBoss: function() {
-        // 在畫布中央生成大BOSS
+        // 在世界中央生成大BOSS
         const boss = new Enemy(
-            CONFIG.CANVAS_WIDTH / 2,
-            CONFIG.CANVAS_HEIGHT / 2,
+            (Game.worldWidth || CONFIG.CANVAS_WIDTH) / 2,
+            (Game.worldHeight || CONFIG.CANVAS_HEIGHT) / 2,
             'BOSS'
         );
         
