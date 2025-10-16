@@ -135,7 +135,7 @@ const UI = {
         }
 
         // 新武器選項（基於來源狀態判定）
-        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT'];
+        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER'];
         const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
         for (const weaponType of availableWeapons) {
             if (!playerWeaponTypes.includes(weaponType)) {
