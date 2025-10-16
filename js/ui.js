@@ -190,15 +190,30 @@ const UI = {
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('game-over-screen').classList.remove('hidden');
         
-        // 播放失敗影片
-        const video = document.getElementById('game-over-video');
-        video.play();
+        // 播放失敗影片（若為回退圖片則不播放，改用ended事件或定時器）
+        const el = document.getElementById('game-over-video');
+        try {
+            if (el && typeof el.play === 'function') {
+                el.currentTime = 0;
+                el.play();
+            }
+        } catch (e) {
+            console.warn('播放遊戲結束影片失敗，將使用回退邏輯');
+        }
         
-        // 影片結束後返回開始畫面
-        video.addEventListener('ended', () => {
-            document.getElementById('game-over-screen').classList.add('hidden');
-            document.getElementById('start-screen').classList.remove('hidden');
-        });
+        // 結束後返回開始畫面（圖片回退會在main.js裡模擬ended事件）
+        if (el && typeof el.addEventListener === 'function') {
+            el.addEventListener('ended', () => {
+                document.getElementById('game-over-screen').classList.add('hidden');
+                document.getElementById('start-screen').classList.remove('hidden');
+            }, { once: true });
+        } else {
+            // 最保險的回退：3秒後返回開始畫面
+            setTimeout(() => {
+                document.getElementById('game-over-screen').classList.add('hidden');
+                document.getElementById('start-screen').classList.remove('hidden');
+            }, 3000);
+        }
     },
     
     // 顯示勝利畫面
@@ -206,15 +221,30 @@ const UI = {
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('victory-screen').classList.remove('hidden');
         
-        // 播放勝利影片
-        const video = document.getElementById('victory-video');
-        video.play();
+        // 播放勝利影片（若為回退圖片則不播放，改用ended事件或定時器）
+        const el = document.getElementById('victory-video');
+        try {
+            if (el && typeof el.play === 'function') {
+                el.currentTime = 0;
+                el.play();
+            }
+        } catch (e) {
+            console.warn('播放勝利影片失敗，將使用回退邏輯');
+        }
         
-        // 影片結束後返回開始畫面
-        video.addEventListener('ended', () => {
-            document.getElementById('victory-screen').classList.add('hidden');
-            document.getElementById('start-screen').classList.remove('hidden');
-        });
+        // 結束後返回開始畫面（圖片回退會在main.js裡模擬ended事件）
+        if (el && typeof el.addEventListener === 'function') {
+            el.addEventListener('ended', () => {
+                document.getElementById('victory-screen').classList.add('hidden');
+                document.getElementById('start-screen').classList.remove('hidden');
+            }, { once: true });
+        } else {
+            // 最保險的回退：3秒後返回開始畫面
+            setTimeout(() => {
+                document.getElementById('victory-screen').classList.add('hidden');
+                document.getElementById('start-screen').classList.remove('hidden');
+            }, 3000);
+        }
     }
 };
 
