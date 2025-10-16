@@ -29,12 +29,15 @@ class Weapon {
                 const baseRadius = this.config.ORBIT_RADIUS;
                 const perLevel = this.config.ORBIT_RADIUS_PER_LEVEL || 0;
                 const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+                const baseSize = this.config.PROJECTILE_SIZE;
+                const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
+                const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
                 const orb = new OrbitBall(
                     this.player,
                     angle,
                     dynamicRadius,
                     this.config.DAMAGE,
-                    this.config.PROJECTILE_SIZE,
+                    dynamicSize,
                     this.config.DURATION,
                     this.config.ANGULAR_SPEED
                 );
@@ -52,15 +55,27 @@ class Weapon {
             const baseWidth = this.config.BEAM_WIDTH_BASE || 8;
             const perLevel = this.config.BEAM_WIDTH_PER_LEVEL || 2;
             const widthPx = baseWidth + perLevel * (this.level - 1);
-            const beam = new LaserBeam(
-                this.player,
-                angle,
-                this.config.DAMAGE,
-                widthPx,
-                this.config.DURATION,
-                this.config.TICK_INTERVAL_MS || 120
-            );
-            Game.addProjectile(beam);
+            // LV5: 2條；LV10: 3條
+            let beamCount = 1;
+            if (this.level >= 10) {
+                beamCount = 3;
+            } else if (this.level >= 5) {
+                beamCount = 2;
+            }
+            const offsetStep = 0.12; // 約6.9度偏移，避免完全重疊
+            const startIndex = -(Math.floor((beamCount - 1) / 2));
+            for (let b = 0; b < beamCount; b++) {
+                const offset = (b + startIndex) * offsetStep;
+                const beam = new LaserBeam(
+                    this.player,
+                    angle + offset,
+                    this.config.DAMAGE,
+                    widthPx,
+                    this.config.DURATION,
+                    this.config.TICK_INTERVAL_MS || 120
+                );
+                Game.addProjectile(beam);
+            }
             // 播放雷射音效
             if (typeof AudioManager !== 'undefined') {
                 AudioManager.playSound('laser_shoot');
@@ -101,6 +116,9 @@ class Weapon {
             }
             
             // 創建投射物
+            const baseSize = this.config.PROJECTILE_SIZE;
+            const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
+            const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
             const projectile = new Projectile(
                 this.player.x,
                 this.player.y,
@@ -108,8 +126,14 @@ class Weapon {
                 this.type,
                 this.config.DAMAGE,
                 this.config.PROJECTILE_SPEED,
-                this.config.PROJECTILE_SIZE
+                dynamicSize
             );
+            // 閃電加入追蹤能力
+            if (this.type === 'LIGHTNING') {
+                projectile.homing = true;
+                // 低等級較慢、LV10更敏捷
+                projectile.turnRatePerSec = this.level >= 10 ? 6.0 : 3.5; // rad/s
+            }
             
             Game.addProjectile(projectile);
 
