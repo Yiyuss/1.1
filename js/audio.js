@@ -25,6 +25,7 @@ const AudioManager = {
             { name: 'dagger_shoot', src: 'assets/audio/dagger_shoot.mp3' },
             { name: 'fireball_shoot', src: 'assets/audio/fireball_shoot.mp3' },
             { name: 'lightning_shoot', src: 'assets/audio/lightning_shoot.mp3' },
+            { name: 'laser_shoot', src: 'assets/audio/laser_shoot.mp3' },
             { name: 'game_over', src: 'assets/audio/game_over.mp3' },
             { name: 'victory', src: 'assets/audio/victory.mp3' },
             { name: 'button_click', src: 'assets/audio/button_click.mp3' }
