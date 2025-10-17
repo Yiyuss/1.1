@@ -59,13 +59,21 @@ const Game = {
         const deltaTime = currentTime - this.lastUpdateTime;
         this.lastUpdateTime = currentTime;
         
-        // 如果遊戲未暫停，更新遊戲狀態
-        if (!this.isPaused && !this.isGameOver) {
-            this.update(deltaTime);
+        // 如果遊戲未暫停，更新遊戲狀態（加入防呆，避免單幀錯誤中斷迴圈）
+        try {
+            if (!this.isPaused && !this.isGameOver) {
+                this.update(deltaTime);
+            }
+        } catch (e) {
+            console.error('Game.update 發生錯誤，跳過本幀：', e);
         }
         
-        // 繪製遊戲
-        this.draw();
+        // 繪製遊戲（加入防呆）
+        try {
+            this.draw();
+        } catch (e) {
+            console.error('Game.draw 發生錯誤，跳過本幀：', e);
+        }
         
         // 繼續循環
         requestAnimationFrame(this.gameLoop.bind(this));
