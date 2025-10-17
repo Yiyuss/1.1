@@ -294,7 +294,11 @@ function setupCharacterSelection() {
         // 預覽使用自定義介紹圖 player1-2.png
         previewImg.src = (Game.images && Game.images['player1-2']) ? Game.images['player1-2'].src : 'assets/images/player1-2.png';
         previewName.textContent = ch.name || '角色';
-        previewDesc.textContent = ch.description || '角色介紹（範例文字）';
+        // 補充倍率介紹到右側描述
+        const fmt = (v) => (Math.abs(v % 1) < 1e-6) ? String(Math.round(v)) : String(Number(v.toFixed(2)));
+        const hpText = fmt(ch.hpMultiplier || 1);
+        const spText = fmt(ch.speedMultiplier || 1);
+        previewDesc.textContent = `${ch.description || '角色介紹'}\nHP倍率：x${hpText}，速度倍率：x${spText}`;
         // 選角預覽音效
         if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
             AudioManager.playSound('button_click2');
@@ -316,17 +320,29 @@ function setupCharacterSelection() {
         card.addEventListener('click', () => {
             showPreview(ch);
         });
-        // 雙擊：開啟確認
+        // 雙擊：直接跳到選地圖視窗，取消確認視窗
         card.addEventListener('dblclick', () => {
             showPreview(ch);
-            openConfirm();
+            Game.selectedCharacter = ch;
+            confirmBox.classList.add('hidden');
+            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                AudioManager.playSound('button_click');
+            }
+            const mapEl = document.getElementById('map-select-screen');
+            if (mapEl) mapEl.classList.remove('hidden');
         });
         // 觸控雙擊（兩次點擊間隔<=300ms）
         card.addEventListener('touchend', () => {
             const now = Date.now();
             if (now - lastTapTime <= 300) {
                 showPreview(ch);
-                openConfirm();
+                Game.selectedCharacter = ch;
+                confirmBox.classList.add('hidden');
+                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                    AudioManager.playSound('button_click');
+                }
+                const mapEl = document.getElementById('map-select-screen');
+                if (mapEl) mapEl.classList.remove('hidden');
             }
             lastTapTime = now;
         }, { passive: true });
@@ -348,13 +364,21 @@ function setupCharacterSelection() {
         picked = null;
     });
 
-    // 空白鍵：在選角頁面時開啟確認
+    // 空白鍵：在選角頁面時直接跳到選地圖視窗
     document.addEventListener('keydown', (e) => {
         const selectVisible = !document.getElementById('character-select-screen').classList.contains('hidden');
         if (!selectVisible) return;
         if (e.code === 'Space') {
             e.preventDefault();
-            openConfirm();
+            if (picked) {
+                Game.selectedCharacter = picked;
+                confirmBox.classList.add('hidden');
+                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                    AudioManager.playSound('button_click');
+                }
+                const mapEl = document.getElementById('map-select-screen');
+                if (mapEl) mapEl.classList.remove('hidden');
+            }
         }
     });
 }
