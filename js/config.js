@@ -167,6 +167,35 @@ const CONFIG = {
         { id: 'margaret', name: '瑪格麗特·諾爾絲', hpMultiplier: 1.0, speedMultiplier: 1.0, description: '範例角色介紹：全方面平均，穩健新手選擇。', avatarImageKey: 'player1-2' }
     ],
     
+    // 新增：地圖列表（背景鍵）
+    MAPS: [
+        { id: 'city', name: '城市', backgroundKey: 'background' },
+        { id: 'forest', name: '森林', backgroundKey: 'background2' },
+        { id: 'desert', name: '沙漠', backgroundKey: 'background3' }
+    ],
+
+    // 新增：難度模式倍率（影響血量、生成速度、生成數量）
+    DIFFICULTY: {
+        EASY: {
+            NAME: '簡單',
+            enemyHealthMultiplier: 0.85,
+            spawnIntervalMultiplier: 1.15,
+            spawnCountMultiplier: 0.9
+        },
+        NORMAL: {
+            NAME: '普通',
+            enemyHealthMultiplier: 1.0,
+            spawnIntervalMultiplier: 1.0,
+            spawnCountMultiplier: 1.0
+        },
+        HARD: {
+            NAME: '困難',
+            enemyHealthMultiplier: 1.3,
+            spawnIntervalMultiplier: 0.85,
+            spawnCountMultiplier: 1.2
+        }
+    },
+
     // 敵人設置
     ENEMIES: {
         ZOMBIE: {
@@ -212,7 +241,18 @@ const CONFIG = {
             SPEED: 0.7,
             SIZE: 128,
             EXPERIENCE: 500,
-            COLLISION_RADIUS: 64
+            COLLISION_RADIUS: 64,
+            // 新增：遠程攻擊參數
+            RANGED_ATTACK: {
+                ENABLED: true,
+                RANGE: 300, // 攻擊範圍
+                COOLDOWN: 2500, // 火彈冷卻時間（毫秒）
+                PROJECTILE_DAMAGE: 60, // 火彈傷害
+                PROJECTILE_SPEED: 4, // 火彈速度
+                PROJECTILE_SIZE: 24, // 火彈大小
+                HOMING: true, // 是否追蹤玩家
+                TURN_RATE: 2.5 // 追蹤轉向速率（弧度/秒）
+            }
         }
     },
     
