@@ -49,6 +49,8 @@ document.addEventListener('DOMContentLoaded', function() {
     gameOverVideo.addEventListener('ended', function() {
         document.getElementById('game-over-screen').classList.add('hidden');
         document.getElementById('start-screen').classList.remove('hidden');
+        // 重置遊戲狀態
+        Game.isGameOver = false;
         // 影片結束後恢復音樂與音效
         if (AudioManager.setMuted) AudioManager.setMuted(false);
         if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
@@ -58,6 +60,8 @@ document.addEventListener('DOMContentLoaded', function() {
     victoryVideo.addEventListener('ended', function() {
         document.getElementById('victory-screen').classList.add('hidden');
         document.getElementById('start-screen').classList.remove('hidden');
+        // 重置遊戲狀態
+        Game.isGameOver = false;
         // 影片結束後恢復音樂與音效
         if (AudioManager.setMuted) AudioManager.setMuted(false);
         if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
