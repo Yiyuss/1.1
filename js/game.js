@@ -317,10 +317,12 @@ const Game = {
     },
     
     // 暫停遊戲
-    pause: function() {
+    // 可選參數 muteAudio：是否同時靜音（預設true）；
+    // 例如升級選單或技能頁暫停時，傳入false保留BGM與音效。
+    pause: function(muteAudio = true) {
         this.isPaused = true;
         if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) {
-            AudioManager.setMuted(true);
+            if (muteAudio) AudioManager.setMuted(true);
         }
     },
     
