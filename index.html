@@ -169,6 +169,25 @@
                     <h2>升級!</h2>
                     <div id="upgrade-options"></div>
                 </div>
+
+                <!-- 技能頁（ESC觸發，顯示技能清單與音量調整） -->
+                <div id="skills-menu" class="hidden">
+                    <div class="skills-title">技能與音量</div>
+                    <div id="skills-list" class="skills-list" aria-live="polite"></div>
+                    <div class="skills-volume">
+                        <div class="volume-row">
+                            <label for="skills-music-volume">音樂</label>
+                            <input type="range" id="skills-music-volume" min="0" max="1" step="0.01" value="0.5">
+                            <span id="skills-music-volume-text">50%</span>
+                        </div>
+                        <div class="volume-row">
+                            <label for="skills-sound-volume">音效</label>
+                            <input type="range" id="skills-sound-volume" min="0" max="1" step="0.01" value="0.7">
+                            <span id="skills-sound-volume-text">70%</span>
+                        </div>
+                    </div>
+                    <div class="skills-hint">按 ESC 關閉</div>
+                </div>
             </div>
         </div>
         
