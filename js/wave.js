@@ -10,8 +10,8 @@ const WaveSystem = {
         this.currentWave = 1;
         this.waveStartTime = Date.now();
         this.lastEnemySpawnTime = 0;
-        // 初始生成間隔，套用難度倍率
-        const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.NORMAL) || {});
+        // 初始生成間隔，套用難度倍率（預設 EASY）
+        const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.EASY) || {});
         const baseInit = CONFIG.WAVES.ENEMY_SPAWN_RATE.INITIAL;
         const mult = diff.spawnIntervalMultiplier || 1;
         this.enemySpawnRate = Math.max(baseInit * mult, CONFIG.WAVES.ENEMY_SPAWN_RATE.MINIMUM);
@@ -50,8 +50,8 @@ const WaveSystem = {
         this.currentWave++;
         this.waveStartTime = Date.now();
         
-        // 增加敵人生成速率（套用難度間隔倍率）
-        const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.NORMAL) || {});
+        // 增加敵人生成速率（套用難度間隔倍率，預設 EASY）
+        const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.EASY) || {});
         const mult = diff.spawnIntervalMultiplier || 1;
         this.enemySpawnRate = Math.max(
             (CONFIG.WAVES.ENEMY_SPAWN_RATE.INITIAL - (this.currentWave - 1) * CONFIG.WAVES.ENEMY_SPAWN_RATE.DECREASE_PER_WAVE) * mult,
@@ -66,8 +66,9 @@ const WaveSystem = {
     
     // 生成普通敵人
     spawnEnemy: function() {
-        // 檢查是否達到最大敵人數量
-        if (Game.enemies.length >= CONFIG.OPTIMIZATION.MAX_ENEMIES) {
+        // 檢查是否達到最大敵人數量（套用困難加成）
+        const effectiveMax = CONFIG.OPTIMIZATION.MAX_ENEMIES + Math.max(0, (Game.maxEnemiesBonus || 0));
+        if (Game.enemies.length >= effectiveMax) {
             return;
         }
 
@@ -90,12 +91,12 @@ const WaveSystem = {
         const inc = useLate ? lateInc : earlyInc;
         const max = useLate ? lateMax : earlyMax;
         const countBase = Math.min(Math.floor(base + (this.currentWave - 1) * inc), max);
-        const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.NORMAL) || {});
+        const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.EASY) || {});
         const countMult = diff.spawnCountMultiplier || 1;
         const count = Math.max(1, Math.floor(countBase * countMult));
 
         for (let i = 0; i < count; i++) {
-            if (Game.enemies.length >= CONFIG.OPTIMIZATION.MAX_ENEMIES) break;
+            if (Game.enemies.length >= effectiveMax) break;
             // 隨機選擇敵人類型
             const enemyType = Utils.randomChoice(availableTypes);
             // 在世界邊緣生成敵人
@@ -107,8 +108,9 @@ const WaveSystem = {
     
     // 生成小BOSS
     spawnMiniBoss: function() {
-        // 檢查是否達到最大敵人數量
-        if (Game.enemies.length >= CONFIG.OPTIMIZATION.MAX_ENEMIES) {
+        // 檢查是否達到最大敵人數量（套用困難加成）
+        const effectiveMax = CONFIG.OPTIMIZATION.MAX_ENEMIES + Math.max(0, (Game.maxEnemiesBonus || 0));
+        if (Game.enemies.length >= effectiveMax) {
             return;
         }
         
