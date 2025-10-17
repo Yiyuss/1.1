@@ -365,6 +365,8 @@ function setupResponsiveViewport() {
         const displayH = Math.max(1, Math.floor(targetH * scale));
         viewport.style.width = displayW + 'px';
         viewport.style.height = displayH + 'px';
+        // 將縮放傳遞給CSS，便於UI元素（如玩家頭像）隨視窗縮放
+        document.documentElement.style.setProperty('--ui-scale', String(scale));
     };
     window.addEventListener('resize', resizeViewport);
     window.addEventListener('orientationchange', resizeViewport);
