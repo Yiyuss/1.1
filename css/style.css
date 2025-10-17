@@ -487,6 +487,8 @@ body {
 .select-title {
     font-size: 1.8rem;
     margin-bottom: 12px;
+    text-align: center;
+    color: #fff;
 }
 .map-grid {
     display: grid;
@@ -513,6 +515,7 @@ body {
     padding: 8px;
     text-align: center;
     font-weight: bold;
+    color: #fff;
 }
 .select-actions {
     margin-top: 12px;
@@ -534,6 +537,8 @@ body {
     pointer-events: auto;
     font-weight: bold;
     transition: all 0.15s;
+    color: #fff;
+    font-size: 2rem;
 }
 .diff-card:hover, .map-card:hover {
     filter: brightness(1.1);
