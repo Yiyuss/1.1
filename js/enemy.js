@@ -14,12 +14,13 @@ class Enemy extends Entity {
         const lateMult = CONFIG.WAVES.HEALTH_MULTIPLIER_PER_WAVE_LATE || earlyMult;
         const earlyWaves = Math.min(Math.max(0, wave - 1), 4); // 前4波使用earlyMult
         const lateWaves = Math.max(0, wave - 5);
-        const hpMult = Math.pow(earlyMult, earlyWaves) * Math.pow(lateMult, lateWaves);
+        const growthMult = (Game.difficulty && Game.difficulty.enemyHealthGrowthRateMultiplier) ? Game.difficulty.enemyHealthGrowthRateMultiplier : 1;
+        const hpMult = Math.pow(earlyMult, earlyWaves * growthMult) * Math.pow(lateMult, lateWaves * growthMult);
         const diffHp = (Game.difficulty && Game.difficulty.enemyHealthMultiplier) ? Game.difficulty.enemyHealthMultiplier : 1;
         this.maxHealth = Math.floor(this.maxHealth * hpMult * diffHp);
         this.health = this.maxHealth;
         this.damage = enemyConfig.DAMAGE;
-        this.speed = enemyConfig.SPEED;
+        this.speed = enemyConfig.SPEED * ((Game.difficulty && Game.difficulty.enemySpeedMultiplier) ? Game.difficulty.enemySpeedMultiplier : 1);
         this.experienceValue = enemyConfig.EXPERIENCE;
         this.collisionRadius = enemyConfig.COLLISION_RADIUS;
         this.lastAttackTime = 0;
@@ -29,9 +30,12 @@ class Enemy extends Entity {
         this.hitFlashDuration = 150; // 毫秒
         
         // 新增：BOSS 遠程攻擊相關屬性
-        if (this.type === 'BOSS' && enemyConfig.RANGED_ATTACK && enemyConfig.RANGED_ATTACK.ENABLED) {
-            this.rangedAttack = enemyConfig.RANGED_ATTACK;
-            this.lastRangedAttackTime = 0;
+        if (this.type === 'BOSS' && enemyConfig.RANGED_ATTACK) {
+            const enableRanged = enemyConfig.RANGED_ATTACK.ENABLED || (Game.difficulty && Game.difficulty.bossRangedEnabled);
+            if (enableRanged) {
+                this.rangedAttack = enemyConfig.RANGED_ATTACK;
+                this.lastRangedAttackTime = 0;
+            }
         }
     }
     
