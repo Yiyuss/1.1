@@ -75,6 +75,8 @@ const Game = {
     update: function(deltaTime) {
         // 更新遊戲時間
         this.gameTime += deltaTime;
+        // 正規化時間倍率，避免粒子/效果更新時發生未定義錯誤
+        const deltaMul = deltaTime / 16.67;
         
         // 更新玩家
         if (this.player) {
