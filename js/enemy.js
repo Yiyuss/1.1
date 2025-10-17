@@ -29,9 +29,9 @@ class Enemy extends Entity {
         this.hitFlashTime = 0;
         this.hitFlashDuration = 150; // 毫秒
         
-        // 新增：BOSS 遠程攻擊相關屬性
-        if (this.type === 'BOSS' && enemyConfig.RANGED_ATTACK) {
-            const enableRanged = enemyConfig.RANGED_ATTACK.ENABLED || (Game.difficulty && Game.difficulty.bossRangedEnabled);
+        // 新增：遠程攻擊相關屬性（小BOSS與大BOSS皆可）
+        if (enemyConfig.RANGED_ATTACK) {
+            const enableRanged = (enemyConfig.RANGED_ATTACK.ENABLED !== false) || (Game.difficulty && Game.difficulty.bossRangedEnabled);
             if (enableRanged) {
                 this.rangedAttack = enemyConfig.RANGED_ATTACK;
                 this.lastRangedAttackTime = 0;
