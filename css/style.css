@@ -292,7 +292,7 @@ body {
     #health-bar-container { top: 10px; left: 66px; }
     #exp-bar-container { top: 26px; left: 66px; }
     #energy-bar-container { top: 42px; left: 66px; }
-    #player-avatar { width: 56px; height: 56px; top: 6px; left: 6px; }
+    #player-avatar { width: 44px; height: 44px; top: 6px; left: 6px; }
 }
 
 @media (max-width: 400px) {
@@ -304,7 +304,7 @@ body {
     #health-bar-container { top: 8px; left: 58px; }
     #exp-bar-container { top: 22px; left: 58px; }
     #energy-bar-container { top: 36px; left: 58px; }
-    #player-avatar { width: 48px; height: 48px; top: 6px; left: 6px; }
+    #player-avatar { width: 38px; height: 38px; top: 6px; left: 6px; }
 }
 
 #level-up-menu {
