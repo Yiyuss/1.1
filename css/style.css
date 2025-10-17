@@ -49,7 +49,7 @@ body {
 .start-bg {
     position: absolute;
     inset: 0;
-    /* 最開始介面背景套用 background2.jpg */
+    /* 將開始介面背景改為 background2.jpg，暫時關閉 background2/3 通道 */
     background: url('../assets/images/background2.jpg') center/cover no-repeat;
     filter: blur(2px) brightness(0.9) saturate(1.1);
 }
@@ -544,3 +544,5 @@ body {
     .map-card img { height: 90px; }
     .select-card { padding: 16px; }
 }
+.map-desc { margin-top: 10px; color: #cfe7ff; text-align: center; }
+.map-card.disabled { cursor: not-allowed; opacity: 0.6; }
