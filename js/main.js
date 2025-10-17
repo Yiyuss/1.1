@@ -49,12 +49,18 @@ document.addEventListener('DOMContentLoaded', function() {
     gameOverVideo.addEventListener('ended', function() {
         document.getElementById('game-over-screen').classList.add('hidden');
         document.getElementById('start-screen').classList.remove('hidden');
+        // 影片結束後恢復音樂與音效
+        if (AudioManager.setMuted) AudioManager.setMuted(false);
+        if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
     });
     
     const victoryVideo = document.getElementById('victory-video');
     victoryVideo.addEventListener('ended', function() {
         document.getElementById('victory-screen').classList.add('hidden');
         document.getElementById('start-screen').classList.remove('hidden');
+        // 影片結束後恢復音樂與音效
+        if (AudioManager.setMuted) AudioManager.setMuted(false);
+        if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
     });
     
     // 創建預設的視頻文件
@@ -77,6 +83,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 設定視窗縮放（PC與手機皆可）
     setupResponsiveViewport();
+
+    // 設定 ESC 技能頁面切換
+    setupSkillsMenuToggle();
     
     // （如需主選單音樂，請於assets/audio添加menu_music.mp3後再啟用）
     // if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
@@ -201,9 +210,12 @@ function createDefaultImages() {
 
 // 自動暫停與音效抑制（分頁切換/縮小/失焦）
 function setupAutoPause() {
-    const isLevelUpOpen = () => {
-        const el = document.getElementById('level-up-menu');
-        return el && !el.classList.contains('hidden');
+    const isAnyMenuOpen = () => {
+        const levelEl = document.getElementById('level-up-menu');
+        const skillsEl = document.getElementById('skills-menu');
+        const levelOpen = levelEl && !levelEl.classList.contains('hidden');
+        const skillsOpen = skillsEl && !skillsEl.classList.contains('hidden');
+        return !!(levelOpen || skillsOpen);
     };
 
     document.addEventListener('visibilitychange', () => {
@@ -211,7 +223,7 @@ function setupAutoPause() {
             Game.pause();
             AudioManager.setMuted && AudioManager.setMuted(true);
         } else {
-            if (!Game.isGameOver && !isLevelUpOpen()) {
+            if (!Game.isGameOver && !isAnyMenuOpen()) {
                 Game.resume();
                 AudioManager.setMuted && AudioManager.setMuted(false);
             }
@@ -224,9 +236,29 @@ function setupAutoPause() {
     });
 
     window.addEventListener('focus', () => {
-        if (!Game.isGameOver && !isLevelUpOpen()) {
+        if (!Game.isGameOver && !isAnyMenuOpen()) {
             Game.resume();
             AudioManager.setMuted && AudioManager.setMuted(false);
+        }
+    });
+}
+
+// ESC 技能頁面切換
+function setupSkillsMenuToggle() {
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const gameVisible = !document.getElementById('game-screen').classList.contains('hidden');
+        const isGameOver = Game.isGameOver;
+        const levelUpOpen = (() => { const el = document.getElementById('level-up-menu'); return el && !el.classList.contains('hidden'); })();
+        if (!gameVisible || isGameOver || levelUpOpen) return;
+
+        const skillsEl = document.getElementById('skills-menu');
+        if (!skillsEl) return;
+        const open = !skillsEl.classList.contains('hidden');
+        if (open) {
+            UI.hideSkillsMenu();
+        } else {
+            UI.showSkillsMenu();
         }
     });
 }
