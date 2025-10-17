@@ -13,6 +13,32 @@ const UI = {
         this.waveInfo = document.getElementById('wave-info');
         this.levelUpMenu = document.getElementById('level-up-menu');
         this.upgradeOptions = document.getElementById('upgrade-options');
+
+        // 技能頁（ESC）元素
+        this.skillsMenu = document.getElementById('skills-menu');
+        this.skillsList = document.getElementById('skills-list');
+        this.skillsMusicSlider = document.getElementById('skills-music-volume');
+        this.skillsSoundSlider = document.getElementById('skills-sound-volume');
+        this.skillsMusicText = document.getElementById('skills-music-volume-text');
+        this.skillsSoundText = document.getElementById('skills-sound-volume-text');
+
+        // 綁定技能頁音量滑桿事件
+        if (this.skillsMusicSlider && this.skillsMusicText) {
+            this.skillsMusicSlider.addEventListener('input', () => {
+                if (typeof AudioManager !== 'undefined' && AudioManager.setMusicVolume) {
+                    AudioManager.setMusicVolume(parseFloat(this.skillsMusicSlider.value));
+                }
+                this.skillsMusicText.textContent = Math.round(this.skillsMusicSlider.value * 100) + '%';
+            });
+        }
+        if (this.skillsSoundSlider && this.skillsSoundText) {
+            this.skillsSoundSlider.addEventListener('input', () => {
+                if (typeof AudioManager !== 'undefined' && AudioManager.setSoundVolume) {
+                    AudioManager.setSoundVolume(parseFloat(this.skillsSoundSlider.value));
+                }
+                this.skillsSoundText.textContent = Math.round(this.skillsSoundSlider.value * 100) + '%';
+            });
+        }
         
         // 初始化UI
         this.updateHealthBar(CONFIG.PLAYER.MAX_HEALTH, CONFIG.PLAYER.MAX_HEALTH);
@@ -61,8 +87,8 @@ const UI = {
     
     // 顯示升級選單
     showLevelUpMenu: function() {
-        // 暫停遊戲
-        Game.pause();
+        // 暫停遊戲，但不靜音，避免升級音效與BGM被切斷
+        Game.pause(false);
         
         // 清空升級選項
         this.upgradeOptions.innerHTML = '';
@@ -108,6 +134,63 @@ const UI = {
         
         // 恢復遊戲
         Game.resume();
+    },
+
+    // 顯示技能頁（ESC），包含技能清單與音量調整
+    showSkillsMenu: function() {
+        if (!this.skillsMenu) return;
+        // 暫停但不靜音
+        Game.pause(false);
+        // 建構技能清單
+        this.updateSkillsList();
+        this.skillsMenu.classList.remove('hidden');
+        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+            AudioManager.playSound('button_click');
+        }
+    },
+    hideSkillsMenu: function() {
+        if (!this.skillsMenu) return;
+        this.skillsMenu.classList.add('hidden');
+        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+            AudioManager.playSound('button_click');
+        }
+        Game.resume();
+    },
+    isSkillsMenuOpen: function() {
+        const el = this.skillsMenu;
+        return el && !el.classList.contains('hidden');
+    },
+    updateSkillsList: function() {
+        if (!this.skillsList) return;
+        const player = Game.player;
+        const sourceWeaponsInfo = (player.isUltimateActive && player._ultimateBackup)
+            ? player._ultimateBackup.weapons
+            : player.weapons.map(w => ({ type: w.type, level: w.level }));
+        this.skillsList.innerHTML = '';
+        sourceWeaponsInfo.forEach(info => {
+            const cfg = CONFIG.WEAPONS[info.type];
+            const name = cfg ? cfg.NAME : info.type;
+            const div = document.createElement('div');
+            div.className = 'skill-item';
+            div.innerHTML = `<div class="skill-name">${name}</div><div class="skill-level">Lv.${info.level}</div>`;
+            this.skillsList.appendChild(div);
+        });
+        // 若沒有任何武器
+        if (sourceWeaponsInfo.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'skill-empty';
+            empty.textContent = '尚未獲得任何技能';
+            this.skillsList.appendChild(empty);
+        }
+        // 初始化技能頁音量滑桿（若存在）
+        if (this.skillsMusicSlider && this.skillsMusicText) {
+            this.skillsMusicSlider.value = (typeof AudioManager !== 'undefined' ? AudioManager.musicVolume : 0.5);
+            this.skillsMusicText.textContent = Math.round(this.skillsMusicSlider.value * 100) + '%';
+        }
+        if (this.skillsSoundSlider && this.skillsSoundText) {
+            this.skillsSoundSlider.value = (typeof AudioManager !== 'undefined' ? AudioManager.soundVolume : 0.7);
+            this.skillsSoundText.textContent = Math.round(this.skillsSoundSlider.value * 100) + '%';
+        }
     },
     
     // 獲取升級選項
@@ -222,6 +305,10 @@ const UI = {
     
     // 顯示勝利畫面
     showVictoryScreen: function() {
+        // 停止BGM，避免與影片音訊重疊
+        if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) {
+            AudioManager.stopAllMusic();
+        }
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('victory-screen').classList.remove('hidden');
         
