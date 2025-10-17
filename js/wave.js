@@ -10,35 +10,36 @@ const WaveSystem = {
         this.currentWave = 1;
         this.waveStartTime = Date.now();
         this.lastEnemySpawnTime = 0;
-        this.enemySpawnRate = CONFIG.WAVES.ENEMY_SPAWN_RATE.INITIAL;
+        // 初始生成間隔，套用難度倍率
+        const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.NORMAL) || {});
+        const baseInit = CONFIG.WAVES.ENEMY_SPAWN_RATE.INITIAL;
+        const mult = diff.spawnIntervalMultiplier || 1;
+        this.enemySpawnRate = Math.max(baseInit * mult, CONFIG.WAVES.ENEMY_SPAWN_RATE.MINIMUM);
         this.lastMiniBossTime = 0;
         
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
     },
     
+    // 更新波次系統：推進波次、生成敵人與Boss
     update: function(deltaTime) {
         const currentTime = Date.now();
-        
-        // 檢查是否需要進入下一波
+        // 進波判定
         const waveElapsedTime = currentTime - this.waveStartTime;
         if (waveElapsedTime >= CONFIG.WAVES.DURATION) {
             this.nextWave();
         }
-        
-        // 生成敵人
+        // 生成普通敵人
         if (currentTime - this.lastEnemySpawnTime >= this.enemySpawnRate) {
             this.spawnEnemy();
             this.lastEnemySpawnTime = currentTime;
         }
-        
-        // 檢查是否需要生成小BOSS
+        // 生成小BOSS
         if (currentTime - this.lastMiniBossTime >= CONFIG.WAVES.MINI_BOSS_INTERVAL) {
             this.spawnMiniBoss();
             this.lastMiniBossTime = currentTime;
         }
-        
-        // 檢查是否需要生成大BOSS
+        // 生成大BOSS
         if (this.currentWave === CONFIG.WAVES.BOSS_WAVE && Game.boss === null) {
             this.spawnBoss();
         }
@@ -49,9 +50,11 @@ const WaveSystem = {
         this.currentWave++;
         this.waveStartTime = Date.now();
         
-        // 增加敵人生成速率
+        // 增加敵人生成速率（套用難度間隔倍率）
+        const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.NORMAL) || {});
+        const mult = diff.spawnIntervalMultiplier || 1;
         this.enemySpawnRate = Math.max(
-            CONFIG.WAVES.ENEMY_SPAWN_RATE.INITIAL - (this.currentWave - 1) * CONFIG.WAVES.ENEMY_SPAWN_RATE.DECREASE_PER_WAVE,
+            (CONFIG.WAVES.ENEMY_SPAWN_RATE.INITIAL - (this.currentWave - 1) * CONFIG.WAVES.ENEMY_SPAWN_RATE.DECREASE_PER_WAVE) * mult,
             CONFIG.WAVES.ENEMY_SPAWN_RATE.MINIMUM
         );
         
@@ -77,7 +80,7 @@ const WaveSystem = {
             return;
         }
 
-        // 計算本次生成數量隨波次增加（第5波後顯著提高）
+        // 計算本次生成數量隨波次增加（第5波後顯著提高）並套用難度倍率
         const base = CONFIG.WAVES.SPAWN_COUNT.INITIAL;
         const earlyInc = CONFIG.WAVES.SPAWN_COUNT.INCREASE_PER_WAVE;
         const earlyMax = CONFIG.WAVES.SPAWN_COUNT.MAXIMUM;
@@ -86,7 +89,10 @@ const WaveSystem = {
         const useLate = this.currentWave >= 5;
         const inc = useLate ? lateInc : earlyInc;
         const max = useLate ? lateMax : earlyMax;
-        const count = Math.min(Math.floor(base + (this.currentWave - 1) * inc), max);
+        const countBase = Math.min(Math.floor(base + (this.currentWave - 1) * inc), max);
+        const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.NORMAL) || {});
+        const countMult = diff.spawnCountMultiplier || 1;
+        const count = Math.max(1, Math.floor(countBase * countMult));
 
         for (let i = 0; i < count; i++) {
             if (Game.enemies.length >= CONFIG.OPTIMIZATION.MAX_ENEMIES) break;
