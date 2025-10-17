@@ -126,6 +126,45 @@
             </div>
         </div>
 
+        <!-- 地圖選擇介面 -->
+        <div id="map-select-screen" class="screen hidden">
+            <div class="select-card">
+                <h1 class="select-title">選擇地圖</h1>
+                <div class="map-grid">
+                    <button class="map-card selectable" data-map-id="city">
+                        <img src="assets/images/background.jpg" alt="城市">
+                        <div class="map-name">城市</div>
+                    </button>
+                    <button class="map-card selectable" data-map-id="forest">
+                        <img src="assets/images/background2.jpg" alt="森林">
+                        <div class="map-name">森林</div>
+                    </button>
+                    <button class="map-card selectable" data-map-id="desert">
+                        <img src="assets/images/background3.jpg" alt="沙漠">
+                        <div class="map-name">沙漠</div>
+                    </button>
+                </div>
+                <div class="select-actions">
+                    <button id="map-cancel" class="ghost">返回</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 難度選擇介面 -->
+        <div id="difficulty-select-screen" class="screen hidden">
+            <div class="select-card">
+                <h1 class="select-title">選擇難度</h1>
+                <div class="diff-grid">
+                    <button class="diff-card selectable" data-diff-id="EASY">簡單</button>
+                    <button class="diff-card selectable" data-diff-id="NORMAL">普通</button>
+                    <button class="diff-card selectable" data-diff-id="HARD">困難</button>
+                </div>
+                <div class="select-actions">
+                    <button id="diff-back" class="ghost">返回</button>
+                </div>
+            </div>
+        </div>
+        
         <!-- 遊戲畫面 -->
         <div id="game-screen" class="screen hidden">
             <div id="viewport">
@@ -219,6 +258,7 @@
     <script src="js/sing.js"></script>
     <script src="js/weapon.js"></script>
     <script src="js/projectile.js"></script>
+    <script src="js/boss_projectile.js"></script>
     <script src="js/experience.js"></script>
     <script src="js/chest.js"></script>
     <script src="js/ui.js"></script>
