@@ -16,18 +16,18 @@ class ExperienceOrb extends Entity {
         
         // 如果玩家靠近，吸引經驗寶石
         if (distanceToPlayer < this.attractionRange) {
-            // 增加吸引速度
-            this.attractionSpeed = Math.min(this.attractionSpeed + this.attractionAcceleration, this.maxAttractionSpeed);
+            // 增加吸引速度（按時間縮放）
+            const deltaMul = deltaTime / 16.67;
+            this.attractionSpeed = Math.min(this.attractionSpeed + this.attractionAcceleration * deltaMul, this.maxAttractionSpeed);
             
             // 計算移動方向
             const angle = Utils.angle(this.x, this.y, player.x, player.y);
-            this.x += Math.cos(angle) * this.attractionSpeed;
-            this.y += Math.sin(angle) * this.attractionSpeed;
+            this.x += Math.cos(angle) * this.attractionSpeed * deltaMul;
+            this.y += Math.sin(angle) * this.attractionSpeed * deltaMul;
         }
         
         // 檢查是否被玩家收集
         if (this.isColliding(player)) {
-            // 播放收集音效
             if (typeof AudioManager !== 'undefined') {
                 AudioManager.playSound('collect_exp');
             }
