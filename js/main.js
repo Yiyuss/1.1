@@ -330,14 +330,13 @@ function setupCharacterSelection() {
 
     okBtn.addEventListener('click', () => {
         confirmBox.classList.add('hidden');
-        // 套用選角，進入地圖選擇而非直接開始
+        // 套用選角，改為彈出的方式顯示地圖選擇（保持選角介面不隱藏）
         Game.selectedCharacter = picked;
         if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
             AudioManager.playSound('button_click');
         }
-        // 切換到地圖選擇畫面
-        document.getElementById('character-select-screen').classList.add('hidden');
-        document.getElementById('map-select-screen').classList.remove('hidden');
+        const mapEl = document.getElementById('map-select-screen');
+        if (mapEl) mapEl.classList.remove('hidden');
     });
 
     cancelBtn.addEventListener('click', () => {
@@ -363,25 +362,80 @@ function setupMapAndDifficultySelection() {
     if (!mapScreen || !diffScreen) return;
 
     const mapCards = mapScreen.querySelectorAll('.map-card.selectable');
+    const mapDescEl = document.getElementById('map-desc');
     const mapCancel = document.getElementById('map-cancel');
+    let selectedMapCfg = null;
+    let lastTapTime = 0;
+
+    const showMapDesc = (cfg, card) => {
+        Game.selectedMap = cfg || null;
+        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+            AudioManager.playSound('button_click2');
+        }
+        if (mapDescEl) {
+            mapDescEl.textContent = '光滑平面的廁所，可利用馬桶障礙物躲避敵人';
+        }
+    };
+    const confirmMap = () => {
+        if (!selectedMapCfg) return;
+        mapScreen.classList.add('hidden');
+        diffScreen.classList.remove('hidden');
+        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+            AudioManager.playSound('button_click');
+        }
+    };
 
     mapCards.forEach(card => {
+        const id = card.getAttribute('data-map-id');
+        const cfg = (CONFIG.MAPS || []).find(m => m.id === id);
+        const disabled = card.classList.contains('disabled');
+
         card.addEventListener('click', () => {
-            const id = card.getAttribute('data-map-id');
-            const cfg = (CONFIG.MAPS || []).find(m => m.id === id);
-            Game.selectedMap = cfg || null;
-            if (typeof AudioManager !== 'undefined') {
-                AudioManager.playSound && AudioManager.playSound('button_click');
+            if (disabled) {
+                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                    AudioManager.playSound('button_click');
+                }
+                return;
             }
-            mapScreen.classList.add('hidden');
-            diffScreen.classList.remove('hidden');
+            selectedMapCfg = cfg;
+            showMapDesc(cfg, card);
         });
+        card.addEventListener('dblclick', () => {
+            if (disabled) return;
+            selectedMapCfg = cfg;
+            confirmMap();
+        });
+        card.addEventListener('touchend', () => {
+            const now = Date.now();
+            if (now - lastTapTime <= 300) {
+                if (!disabled) {
+                    selectedMapCfg = cfg;
+                    confirmMap();
+                }
+            } else {
+                if (!disabled) {
+                    selectedMapCfg = cfg;
+                    showMapDesc(cfg, card);
+                }
+            }
+            lastTapTime = now;
+        }, { passive: true });
+    });
+
+    // 空白鍵確認地圖（在地圖介面開啟時）
+    document.addEventListener('keydown', (e) => {
+        const mapVisible = !mapScreen.classList.contains('hidden');
+        if (!mapVisible) return;
+        if (e.code === 'Space') {
+            e.preventDefault();
+            confirmMap();
+        }
     });
 
     if (mapCancel) {
         mapCancel.addEventListener('click', () => {
             mapScreen.classList.add('hidden');
-            document.getElementById('character-select-screen').classList.remove('hidden');
+            // 保持選角介面可見，無需切換
         });
     }
 
@@ -390,7 +444,7 @@ function setupMapAndDifficultySelection() {
 
     diffCards.forEach(card => {
         card.addEventListener('click', () => {
-            const id = card.getAttribute('data-diff-id') || 'NORMAL';
+            const id = card.getAttribute('data-diff-id') || 'EASY';
             Game.selectedDifficultyId = id;
             if (typeof AudioManager !== 'undefined') {
                 AudioManager.playSound && AudioManager.playSound('button_click');
