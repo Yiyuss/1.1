@@ -288,19 +288,18 @@ const UI = {
             console.warn('播放遊戲結束影片失敗，將使用回退邏輯');
         }
         
-        // 結束後返回開始畫面（圖片回退會在main.js裡模擬ended事件）
-        if (el && typeof el.addEventListener === 'function') {
-            el.addEventListener('ended', () => {
+        // 設置自動返回開始畫面的定時器（3秒後）
+        setTimeout(() => {
+            if (document.getElementById('game-over-screen').classList.contains('hidden') === false) {
                 document.getElementById('game-over-screen').classList.add('hidden');
                 document.getElementById('start-screen').classList.remove('hidden');
-            }, { once: true });
-        } else {
-            // 最保險的回退：3秒後返回開始畫面
-            setTimeout(() => {
-                document.getElementById('game-over-screen').classList.add('hidden');
-                document.getElementById('start-screen').classList.remove('hidden');
-            }, 3000);
-        }
+                // 重置遊戲狀態
+                Game.isGameOver = false;
+                if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+                    AudioManager.playMusic('menu_music');
+                }
+            }
+        }, 3000);
     },
     
     // 顯示勝利畫面
