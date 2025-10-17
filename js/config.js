@@ -169,9 +169,9 @@ const CONFIG = {
     
     // 新增：地圖列表（背景鍵）
     MAPS: [
-        { id: 'city', name: '城市', backgroundKey: 'background' },
-        { id: 'forest', name: '森林', backgroundKey: 'background2' },
-        { id: 'desert', name: '沙漠', backgroundKey: 'background3' }
+        { id: 'city', name: '廁所', backgroundKey: 'background' },
+        { id: 'forest', name: '尚未開放', backgroundKey: 'background2' },
+        { id: 'desert', name: '尚未開放', backgroundKey: 'background2' }
     ],
 
     // 新增：難度模式倍率（影響血量、生成速度、生成數量）
@@ -180,19 +180,23 @@ const CONFIG = {
             NAME: '簡單',
             enemyHealthMultiplier: 0.85,
             spawnIntervalMultiplier: 1.15,
-            spawnCountMultiplier: 0.9
-        },
-        NORMAL: {
-            NAME: '普通',
-            enemyHealthMultiplier: 1.0,
-            spawnIntervalMultiplier: 1.0,
-            spawnCountMultiplier: 1.0
+            spawnCountMultiplier: 0.9,
+            enemySpeedMultiplier: 1.0,
+            bossRangedEnabled: false,
+            enemyHealthGrowthRateMultiplier: 1.0,
+            maxEnemiesBonusMin: 0,
+            maxEnemiesBonusMax: 0
         },
         HARD: {
             NAME: '困難',
-            enemyHealthMultiplier: 1.3,
+            enemyHealthMultiplier: 1.0,
             spawnIntervalMultiplier: 0.85,
-            spawnCountMultiplier: 1.2
+            spawnCountMultiplier: 1.2,
+            enemySpeedMultiplier: 1.2,
+            bossRangedEnabled: true,
+            enemyHealthGrowthRateMultiplier: 2.0, // 成長幅度+100%
+            maxEnemiesBonusMin: 50,   // 比簡單上限多50~100
+            maxEnemiesBonusMax: 100
         }
     },
 
@@ -244,7 +248,7 @@ const CONFIG = {
             COLLISION_RADIUS: 64,
             // 新增：遠程攻擊參數
             RANGED_ATTACK: {
-                ENABLED: true,
+                ENABLED: false,
                 RANGE: 300, // 攻擊範圍
                 COOLDOWN: 2500, // 火彈冷卻時間（毫秒）
                 PROJECTILE_DAMAGE: 60, // 火彈傷害
