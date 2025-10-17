@@ -450,6 +450,11 @@ function setupMapAndDifficultySelection() {
                 AudioManager.playSound && AudioManager.playSound('button_click');
             }
             diffScreen.classList.add('hidden');
+            // 新增：開始遊戲時隱藏選角與選圖介面，切換到遊戲畫面
+            const charSel = document.getElementById('character-select-screen');
+            const mapSel = document.getElementById('map-select-screen');
+            charSel && charSel.classList.add('hidden');
+            mapSel && mapSel.classList.add('hidden');
             Game.startNewGame();
             document.getElementById('game-screen').classList.remove('hidden');
         });
