@@ -108,8 +108,26 @@ class Enemy extends Entity {
         // 限制在世界範圍內（非循環邊界）
         const maxX = (Game.worldWidth || Game.canvas.width) - this.width / 2;
         const maxY = (Game.worldHeight || Game.canvas.height) - this.height / 2;
-        this.x = Utils.clamp(this.x, this.width / 2, maxX);
-        this.y = Utils.clamp(this.y, this.height / 2, maxY);
+        const minX = this.width / 2;
+        const minY = this.height / 2;
+        
+        // 檢查是否碰到邊界，如果是則稍微向內推
+        const borderPush = 5; // 向內推的距離
+        if (this.x <= minX) {
+            this.x = minX + borderPush;
+        } else if (this.x >= maxX) {
+            this.x = maxX - borderPush;
+        }
+        
+        if (this.y <= minY) {
+            this.y = minY + borderPush;
+        } else if (this.y >= maxY) {
+            this.y = maxY - borderPush;
+        }
+        
+        // 最終確保在範圍內
+        this.x = Utils.clamp(this.x, minX, maxX);
+        this.y = Utils.clamp(this.y, minY, maxY);
         
         // 檢查與玩家的碰撞
         if (this.isColliding(player)) {
