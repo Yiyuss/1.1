@@ -154,13 +154,13 @@ const CONFIG = {
         MAX: 100,
         REGEN_PER_SEC: 1
     },
-    ULTIMATE: {
-        DURATION_MS: 15000,
-        PLAYER_SIZE_MULTIPLIER: 2.5, // 變身體型再放大一些
-        IMAGE_KEY: 'playerN',
-        ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER'],
-        ULTIMATE_LEVEL: 10
-    },
+        ULTIMATE: {
+            DURATION_MS: 15000,
+            PLAYER_SIZE_MULTIPLIER: 2.5, // 變身體型再放大一些
+            IMAGE_KEY: 'playerN',
+            ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING'],
+            ULTIMATE_LEVEL: 10
+        },
 
     // 選角列表（目前僅1名角色）
     CHARACTERS: [
