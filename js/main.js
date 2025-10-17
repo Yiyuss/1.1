@@ -146,26 +146,31 @@ function createDefaultImages() {
     Game.images = {};
     
     // 定義需要加載的圖片
-    const imagesToLoad = [
-        { name: 'player', src: 'assets/images/player.png' },
-        { name: 'player1-2', src: 'assets/images/player1-2.png' },
-        { name: 'playerN', src: 'assets/images/playerN.png' },
-        { name: 'zombie', src: 'assets/images/zombie.png' },
-        { name: 'skeleton', src: 'assets/images/skeleton.png' },
-        { name: 'ghost', src: 'assets/images/ghost.png' },
-        { name: 'mini_boss', src: 'assets/images/mini_boss.png' },
-        { name: 'boss', src: 'assets/images/boss.png' },
-        { name: 'dagger', src: 'assets/images/dagger.png' },
-        { name: 'fireball', src: 'assets/images/fireball.png' },
-        { name: 'lightning', src: 'assets/images/lightning.png' },
-        { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
-        { name: 'box', src: 'assets/images/BOX.png' },
-        // 障礙物素材
-        { name: 'S1', src: 'assets/images/S1.png' },
-        { name: 'S2', src: 'assets/images/S2.png' },
-        // 修正背景檔名為現有的 background.jpg
-        { name: 'background', src: 'assets/images/background.jpg' }
-    ];
+        const imagesToLoad = [
+            { name: 'player', src: 'assets/images/player.png' },
+            { name: 'player1-2', src: 'assets/images/player1-2.png' },
+            { name: 'playerN', src: 'assets/images/playerN.png' },
+            { name: 'zombie', src: 'assets/images/zombie.png' },
+            { name: 'skeleton', src: 'assets/images/skeleton.png' },
+            { name: 'ghost', src: 'assets/images/ghost.png' },
+            { name: 'mini_boss', src: 'assets/images/mini_boss.png' },
+            { name: 'boss', src: 'assets/images/boss.png' },
+            { name: 'dagger', src: 'assets/images/dagger.png' },
+            { name: 'fireball', src: 'assets/images/fireball.png' },
+            { name: 'lightning', src: 'assets/images/lightning.png' },
+            { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
+            { name: 'box', src: 'assets/images/BOX.png' },
+            // 唱歌技能特效圖片（四張）
+            { name: 'LA', src: 'assets/images/LA.png' },
+            { name: 'LA2', src: 'assets/images/LA2.png' },
+            { name: 'LA3', src: 'assets/images/LA3.png' },
+            { name: 'LA4', src: 'assets/images/LA4.png' },
+            // 障礙物素材
+            { name: 'S1', src: 'assets/images/S1.png' },
+            { name: 'S2', src: 'assets/images/S2.png' },
+            // 修正背景檔名為現有的 background.jpg
+            { name: 'background', src: 'assets/images/background.jpg' }
+        ];
     
     // 加載所有圖片
     let loadedCount = 0;
