@@ -61,6 +61,9 @@ const WaveSystem = {
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
         
+        // 每一波固定生成一個小BOSS
+        this.spawnMiniBoss();
+        
         console.log(`Wave ${this.currentWave} started!`);
     },
     
