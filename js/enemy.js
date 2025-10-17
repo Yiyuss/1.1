@@ -15,7 +15,8 @@ class Enemy extends Entity {
         const earlyWaves = Math.min(Math.max(0, wave - 1), 4); // 前4波使用earlyMult
         const lateWaves = Math.max(0, wave - 5);
         const hpMult = Math.pow(earlyMult, earlyWaves) * Math.pow(lateMult, lateWaves);
-        this.maxHealth = Math.floor(this.maxHealth * hpMult);
+        const diffHp = (Game.difficulty && Game.difficulty.enemyHealthMultiplier) ? Game.difficulty.enemyHealthMultiplier : 1;
+        this.maxHealth = Math.floor(this.maxHealth * hpMult * diffHp);
         this.health = this.maxHealth;
         this.damage = enemyConfig.DAMAGE;
         this.speed = enemyConfig.SPEED;
@@ -26,16 +27,23 @@ class Enemy extends Entity {
         // 受傷紅閃效果
         this.hitFlashTime = 0;
         this.hitFlashDuration = 150; // 毫秒
+        
+        // 新增：BOSS 遠程攻擊相關屬性
+        if (this.type === 'BOSS' && enemyConfig.RANGED_ATTACK && enemyConfig.RANGED_ATTACK.ENABLED) {
+            this.rangedAttack = enemyConfig.RANGED_ATTACK;
+            this.lastRangedAttackTime = 0;
+        }
     }
     
     update(deltaTime) {
+        const deltaMul = deltaTime / 16.67;
         // 向玩家移動
         const player = Game.player;
         const angle = Utils.angle(this.x, this.y, player.x, player.y);
         
         // 計算候選位置（分軸移動）
-        const candX = this.x + Math.cos(angle) * this.speed;
-        const candY = this.y + Math.sin(angle) * this.speed;
+        const candX = this.x + Math.cos(angle) * this.speed * deltaMul;
+        const candY = this.y + Math.sin(angle) * this.speed * deltaMul;
 
         const blockedByObs = (nx, ny) => {
             for (const obs of Game.obstacles || []) {
@@ -102,6 +110,11 @@ class Enemy extends Entity {
         // 檢查與玩家的碰撞
         if (this.isColliding(player)) {
             this.attackPlayer(deltaTime);
+        }
+
+        // 新增：BOSS 遠程攻擊邏輯
+        if (this.rangedAttack) {
+            this.updateRangedAttack(deltaTime, player);
         }
 
         // 更新受傷紅閃計時
@@ -190,6 +203,49 @@ class Enemy extends Entity {
             Game.player.takeDamage(this.damage);
             this.lastAttackTime = currentTime;
         }
+    }
+    
+    // 新增：BOSS 遠程攻擊更新邏輯
+    updateRangedAttack(deltaTime, player) {
+        const currentTime = Date.now();
+        
+        // 計算與玩家的距離
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // 檢查是否在攻擊範圍內且冷卻時間已過
+        if (distance <= this.rangedAttack.RANGE && 
+            currentTime - this.lastRangedAttackTime >= this.rangedAttack.COOLDOWN) {
+            
+            // 發射火彈
+            this.fireProjectile(player);
+            this.lastRangedAttackTime = currentTime;
+        }
+    }
+    
+    // 新增：發射火彈投射物
+    fireProjectile(target) {
+        // 計算發射角度
+        const angle = Utils.angle(this.x, this.y, target.x, target.y);
+        
+        // 創建 BOSS 火彈投射物
+        const projectile = new BossProjectile(
+            this.x, 
+            this.y, 
+            angle,
+            this.rangedAttack.PROJECTILE_SPEED,
+            this.rangedAttack.PROJECTILE_DAMAGE,
+            this.rangedAttack.PROJECTILE_SIZE,
+            this.rangedAttack.HOMING,
+            this.rangedAttack.TURN_RATE
+        );
+        
+        // 添加到遊戲的投射物陣列
+        if (!Game.bossProjectiles) {
+            Game.bossProjectiles = [];
+        }
+        Game.bossProjectiles.push(projectile);
     }
     
     // 受到傷害
