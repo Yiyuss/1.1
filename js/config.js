@@ -243,7 +243,7 @@ const CONFIG = {
                 RANGE: 250,
                 COOLDOWN: 3500,
                 PROJECTILE_DAMAGE: 40,
-                PROJECTILE_SPEED: 3,
+                PROJECTILE_SPEED: 5,
                 PROJECTILE_SIZE: 18,
                 HOMING: true,
                 TURN_RATE: 2.0
@@ -263,7 +263,7 @@ const CONFIG = {
                 RANGE: 300, // 攻擊範圍
                 COOLDOWN: 2500, // 火彈冷卻時間（毫秒）
                 PROJECTILE_DAMAGE: 60, // 火彈傷害
-                PROJECTILE_SPEED: 4, // 火彈速度
+                PROJECTILE_SPEED: 6, // 火彈速度
                 PROJECTILE_SIZE: 24, // 火彈大小
                 HOMING: true, // 是否追蹤玩家
                 TURN_RATE: 2.5 // 追蹤轉向速率（弧度/秒）
