@@ -5,6 +5,8 @@ const Game = {
     player: null,
     enemies: [],
     projectiles: [],
+    bossProjectiles: [],
+    explosionParticles: [],
     experienceOrbs: [],
     chests: [],
     obstacles: [],
@@ -131,6 +133,60 @@ const Game = {
             }
         }
         
+        // 更新 BOSS 火彈投射物
+        if (this.bossProjectiles) {
+            for (let i = this.bossProjectiles.length - 1; i >= 0; i--) {
+                const bossProjectile = this.bossProjectiles[i];
+                bossProjectile.update(deltaTime);
+                
+                // 移除標記為刪除的 BOSS 投射物
+                if (bossProjectile.markedForDeletion) {
+                    this.bossProjectiles.splice(i, 1);
+                }
+            }
+        }
+        
+        // 更新爆炸粒子
+        for (let i = this.explosionParticles.length - 1; i >= 0; i--) {
+            const particle = this.explosionParticles[i];
+            
+            particle.x += particle.vx * deltaMul;
+            particle.y += particle.vy * deltaMul;
+            particle.life -= deltaTime;
+            
+            if (particle.life <= 0) {
+                this.explosionParticles.splice(i, 1);
+            }
+        }
+        
+        // 更新螢幕閃光效果
+        if (this.screenFlash && this.screenFlash.active) {
+            this.screenFlash.duration -= deltaTime;
+            if (this.screenFlash.duration <= 0) {
+                this.screenFlash.active = false;
+                this.screenFlash.intensity = 0;
+            } else {
+                // 閃光強度隨時間衰減
+                const progress = this.screenFlash.duration / 150; // 150ms 是初始持續時間
+                this.screenFlash.intensity = 0.3 * progress;
+            }
+        }
+        
+        // 更新鏡頭震動效果
+        if (this.cameraShake && this.cameraShake.active) {
+            this.cameraShake.duration -= deltaTime;
+            if (this.cameraShake.duration <= 0) {
+                this.cameraShake.active = false;
+                this.cameraShake.offsetX = 0;
+                this.cameraShake.offsetY = 0;
+            } else {
+                // 隨機震動偏移
+                const intensity = this.cameraShake.intensity * (this.cameraShake.duration / 200); // 200ms 是初始持續時間
+                this.cameraShake.offsetX = (Math.random() - 0.5) * intensity;
+                this.cameraShake.offsetY = (Math.random() - 0.5) * intensity;
+            }
+        }
+        
         // 更新經驗寶石
         for (let i = this.experienceOrbs.length - 1; i >= 0; i--) {
             const orb = this.experienceOrbs[i];
@@ -160,9 +216,18 @@ const Game = {
         // 清空畫布
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
+        // 應用鏡頭震動偏移
+        let cameraOffsetX = this.camera.x;
+        let cameraOffsetY = this.camera.y;
+        
+        if (this.cameraShake && this.cameraShake.active) {
+            cameraOffsetX += this.cameraShake.offsetX;
+            cameraOffsetY += this.cameraShake.offsetY;
+        }
+        
         // 平移座標系，將世界座標轉為畫面座標
         this.ctx.save();
-        this.ctx.translate(-this.camera.x, -this.camera.y);
+        this.ctx.translate(-cameraOffsetX, -cameraOffsetY);
         
         // 繪製背景（平鋪）
         this.drawBackground();
@@ -175,6 +240,15 @@ const Game = {
         
         // 還原座標系
         this.ctx.restore();
+        
+        // 繪製螢幕閃光效果（在最上層）
+        if (this.screenFlash && this.screenFlash.active) {
+            this.ctx.save();
+            this.ctx.globalAlpha = this.screenFlash.intensity;
+            this.ctx.fillStyle = '#ffffff';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.restore();
+        }
     },
     
     // 繪製所有實體
@@ -201,6 +275,26 @@ const Game = {
             projectile.draw(this.ctx);
         }
         
+        // 繪製 BOSS 火彈投射物
+        if (this.bossProjectiles) {
+            for (const bossProjectile of this.bossProjectiles) {
+                bossProjectile.draw(this.ctx);
+            }
+        }
+        
+        // 繪製爆炸粒子
+        if (this.explosionParticles) {
+            for (const particle of this.explosionParticles) {
+                this.ctx.save();
+                this.ctx.globalAlpha = particle.life / particle.maxLife;
+                this.ctx.fillStyle = particle.color;
+                this.ctx.beginPath();
+                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.restore();
+            }
+        }
+        
         // 繪製敵人
         for (const enemy of this.enemies) {
             enemy.draw(this.ctx);
@@ -212,16 +306,18 @@ const Game = {
     
     // 繪製背景
     drawBackground: function() {
-        if (this.images && this.images.background) {
+        // 根據選定地圖的背景鍵選擇對應圖片
+        const bgKey = (this.backgroundKey) || (this.selectedMap && this.selectedMap.backgroundKey) || 'background';
+        const imgObj = (this.images || Game.images || {})[bgKey];
+        if (imgObj) {
             // 平鋪背景圖片，覆蓋目前可視區域（已平移座標）
-            const pattern = this.ctx.createPattern(this.images.background, 'repeat');
+            const pattern = this.ctx.createPattern(imgObj, 'repeat');
             this.ctx.fillStyle = pattern || '#111';
             this.ctx.fillRect(this.camera.x, this.camera.y, this.canvas.width, this.canvas.height);
         } else {
             // 備用：使用純色背景
             this.ctx.fillStyle = '#111';
             this.ctx.fillRect(this.camera.x, this.camera.y, this.canvas.width, this.canvas.height);
-            
             // 可選：繪製網格以輔助定位
             this.drawGrid();
         }
@@ -355,6 +451,8 @@ const Game = {
         // 重置遊戲狀態
         this.enemies = [];
         this.projectiles = [];
+        this.bossProjectiles = [];
+        this.explosionParticles = [];
         this.experienceOrbs = [];
         this.chests = [];
         this.obstacles = [];
@@ -374,6 +472,15 @@ const Game = {
                 this.player.health = this.player.maxHealth;
             }
         }
+        
+        // 套用選定難度（若有），供敵人與波次使用
+        const diffId = this.selectedDifficultyId || 'NORMAL';
+        this.difficulty = (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY[diffId]) ? CONFIG.DIFFICULTY[diffId] : (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.NORMAL) || null;
+        
+        // 套用選定地圖的背景鍵（若有）
+        const mapCfg = this.selectedMap || null;
+        this.backgroundKey = (mapCfg && mapCfg.backgroundKey) ? mapCfg.backgroundKey : 'background';
+        
         // 重置鏡頭
         this.camera.x = Utils.clamp(this.player.x - this.canvas.width / 2, 0, Math.max(0, this.worldWidth - this.canvas.width));
         this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
