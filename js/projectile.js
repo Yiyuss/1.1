@@ -43,8 +43,9 @@ class Projectile extends Entity {
         }
 
         // 移動投射物（先檢查障礙物阻擋）
-        const dx = Math.cos(this.angle) * this.speed;
-        const dy = Math.sin(this.angle) * this.speed;
+        const deltaMul = deltaTime / 16.67;
+        const dx = Math.cos(this.angle) * this.speed * deltaMul;
+        const dy = Math.sin(this.angle) * this.speed * deltaMul;
         const candX = this.x + dx;
         const candY = this.y + dy;
 
