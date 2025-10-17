@@ -5,11 +5,12 @@ class SingEffect extends Entity {
         this.duration = durationMs || 1000;
         this.startTime = Date.now();
         this.weaponType = 'SING';
+        this.noteSize = 44; // 四張圖片相同尺寸
+        this.sprites = ['LA', 'LA2', 'LA3', 'LA4'];
         this.notes = this._generateNotes();
     }
 
     _generateNotes() {
-        const sizes = [14, 20, 26, 32];
         const spread = 46;
         const arr = [];
         for (let i = 0; i < 4; i++) {
@@ -17,7 +18,8 @@ class SingEffect extends Entity {
             const r = spread + (Math.random() * 10 - 5);
             const nx = Math.cos(angle) * r;
             const ny = Math.sin(angle) * r;
-            arr.push({ dx: nx, dy: ny, size: sizes[i] });
+            const spriteKey = this.sprites[i % this.sprites.length];
+            arr.push({ dx: nx, dy: ny, size: this.noteSize, sprite: spriteKey });
         }
         return arr;
     }
@@ -39,21 +41,26 @@ class SingEffect extends Entity {
             const py = this.y + n.dy;
             const s = n.size;
             ctx.globalAlpha = flicker;
-            ctx.fillStyle = '#ff66cc';
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = Math.max(1, s * 0.06);
-            // 音符形狀：圓 + 棒 + 旗
-            ctx.beginPath();
-            ctx.arc(px, py, s * 0.32, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.moveTo(px + s * 0.18, py - s * 0.05);
-            ctx.lineTo(px + s * 0.18, py - s * 0.75);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(px + s * 0.18, py - s * 0.75);
-            ctx.quadraticCurveTo(px + s * 0.55, py - s * 0.65, px + s * 0.18, py - s * 0.55);
-            ctx.stroke();
+            const imgObj = (Game.images || {})[n.sprite];
+            if (imgObj) {
+                ctx.drawImage(imgObj, px - s / 2, py - s / 2, s, s);
+            } else {
+                // 後備：簡單形狀
+                ctx.fillStyle = '#ff66cc';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = Math.max(1, s * 0.06);
+                ctx.beginPath();
+                ctx.arc(px, py, s * 0.32, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(px + s * 0.18, py - s * 0.05);
+                ctx.lineTo(px + s * 0.18, py - s * 0.75);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(px + s * 0.18, py - s * 0.75);
+                ctx.quadraticCurveTo(px + s * 0.55, py - s * 0.65, px + s * 0.18, py - s * 0.55);
+                ctx.stroke();
+            }
         }
         ctx.restore();
     }
