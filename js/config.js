@@ -164,7 +164,7 @@ const CONFIG = {
 
     // 選角列表（目前僅1名角色）
     CHARACTERS: [
-        { id: 'margaret', name: '瑪格麗特·諾爾絲', hpMultiplier: 1.0, speedMultiplier: 1.0, description: '範例角色介紹：全方面平均，穩健新手選擇。', avatarImageKey: 'player1-2' }
+        { id: 'margaret', name: '瑪格麗特·諾爾絲', hpMultiplier: 1.0, speedMultiplier: 1.0, description: '角色介紹：全方面平均，穩健新手選擇。', avatarImageKey: 'player1-2' }
     ],
     
     // 新增：地圖列表（背景鍵）
@@ -236,7 +236,18 @@ const CONFIG = {
             SPEED: 0.8,
             SIZE: 64,
             EXPERIENCE: 50,
-            COLLISION_RADIUS: 32
+            COLLISION_RADIUS: 32,
+            // 新增：遠程攻擊參數（小BOSS技能）
+            RANGED_ATTACK: {
+                ENABLED: true,
+                RANGE: 250,
+                COOLDOWN: 3500,
+                PROJECTILE_DAMAGE: 40,
+                PROJECTILE_SPEED: 3,
+                PROJECTILE_SIZE: 18,
+                HOMING: true,
+                TURN_RATE: 2.0
+            }
         },
         BOSS: {
             NAME: "大BOSS",
@@ -248,7 +259,7 @@ const CONFIG = {
             COLLISION_RADIUS: 64,
             // 新增：遠程攻擊參數
             RANGED_ATTACK: {
-                ENABLED: false,
+                ENABLED: true,
                 RANGE: 300, // 攻擊範圍
                 COOLDOWN: 2500, // 火彈冷卻時間（毫秒）
                 PROJECTILE_DAMAGE: 60, // 火彈傷害
