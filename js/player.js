@@ -36,7 +36,8 @@ class Player extends Entity {
     }
     
     update(deltaTime) {
-        // 處理移動
+        // 處理移動（套用deltaTime，以60FPS為基準）
+        const deltaMul = deltaTime / 16.67;
         const direction = Input.getMovementDirection();
         // 嘗試分軸移動，並以障礙物進行阻擋
         const tryMove = (newX, newY) => {
@@ -48,12 +49,12 @@ class Player extends Entity {
             return true;
         };
         // X軸
-        const candX = this.x + direction.x * this.speed;
+        const candX = this.x + direction.x * this.speed * deltaMul;
         if (tryMove(candX, this.y)) {
             this.x = candX;
         }
         // Y軸
-        const candY = this.y + direction.y * this.speed;
+        const candY = this.y + direction.y * this.speed * deltaMul;
         if (tryMove(this.x, candY)) {
             this.y = candY;
         }
