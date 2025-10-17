@@ -389,7 +389,10 @@ const Game = {
     // 優化實體數量
     optimizeEntities: function() {
         // 如果敵人數量超過限制，移除最遠的敵人
-        if (this.enemies.length > CONFIG.OPTIMIZATION.MAX_ENEMIES) {
+        const baseMax = CONFIG.OPTIMIZATION.MAX_ENEMIES;
+        const bonus = (typeof this.maxEnemiesBonus === 'number') ? this.maxEnemiesBonus : 0;
+        const effectiveMax = baseMax + Math.max(0, bonus);
+        if (this.enemies.length > effectiveMax) {
             // 按照與玩家的距離排序
             this.enemies.sort((a, b) => {
                 const distA = Utils.distance(a.x, a.y, this.player.x, this.player.y);
@@ -397,8 +400,8 @@ const Game = {
                 return distB - distA; // 降序排列，最遠的在前面
             });
             
-            // 移除多餘的敵人
-            this.enemies.splice(0, this.enemies.length - CONFIG.OPTIMIZATION.MAX_ENEMIES);
+            // 移除多餢的敵人（保留距離玩家最近的）
+            this.enemies.splice(0, this.enemies.length - effectiveMax);
         }
         
         // 如果投射物數量超過限制，移除最早的投射物
@@ -474,8 +477,13 @@ const Game = {
         }
         
         // 套用選定難度（若有），供敵人與波次使用
-        const diffId = this.selectedDifficultyId || 'NORMAL';
-        this.difficulty = (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY[diffId]) ? CONFIG.DIFFICULTY[diffId] : (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.NORMAL) || null;
+        const diffId = this.selectedDifficultyId || 'EASY';
+        this.difficulty = (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY[diffId]) ? CONFIG.DIFFICULTY[diffId] : (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.EASY) || null;
+        // 設定困難模式的敵人上限加成（50~100），簡單為0
+        const d = this.difficulty || {};
+        const minB = d.maxEnemiesBonusMin || 0;
+        const maxB = d.maxEnemiesBonusMax || 0;
+        this.maxEnemiesBonus = (maxB > 0) ? Utils.randomInt(minB, maxB) : 0;
         
         // 套用選定地圖的背景鍵（若有）
         const mapCfg = this.selectedMap || null;
