@@ -81,6 +81,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 設定選角介面事件
     setupCharacterSelection();
 
+    // 地圖與難度選擇事件
+    setupMapAndDifficultySelection();
+
     // 設定視窗縮放（PC與手機皆可）
     setupResponsiveViewport();
 
@@ -155,31 +158,33 @@ function createDefaultImages() {
     Game.images = {};
     
     // 定義需要加載的圖片
-        const imagesToLoad = [
-            { name: 'player', src: 'assets/images/player.png' },
-            { name: 'player1-2', src: 'assets/images/player1-2.png' },
-            { name: 'playerN', src: 'assets/images/playerN.png' },
-            { name: 'zombie', src: 'assets/images/zombie.png' },
-            { name: 'skeleton', src: 'assets/images/skeleton.png' },
-            { name: 'ghost', src: 'assets/images/ghost.png' },
-            { name: 'mini_boss', src: 'assets/images/mini_boss.png' },
-            { name: 'boss', src: 'assets/images/boss.png' },
-            { name: 'dagger', src: 'assets/images/dagger.png' },
-            { name: 'fireball', src: 'assets/images/fireball.png' },
-            { name: 'lightning', src: 'assets/images/lightning.png' },
-            { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
-            { name: 'box', src: 'assets/images/BOX.png' },
-            // 唱歌技能特效圖片（四張）
-            { name: 'LA', src: 'assets/images/LA.png' },
-            { name: 'LA2', src: 'assets/images/LA2.png' },
-            { name: 'LA3', src: 'assets/images/LA3.png' },
-            { name: 'LA4', src: 'assets/images/LA4.png' },
-            // 障礙物素材
-            { name: 'S1', src: 'assets/images/S1.png' },
-            { name: 'S2', src: 'assets/images/S2.png' },
-            // 修正背景檔名為現有的 background.jpg
-            { name: 'background', src: 'assets/images/background.jpg' }
-        ];
+    const imagesToLoad = [
+        { name: 'player', src: 'assets/images/player.png' },
+        { name: 'player1-2', src: 'assets/images/player1-2.png' },
+        { name: 'playerN', src: 'assets/images/playerN.png' },
+        { name: 'zombie', src: 'assets/images/zombie.png' },
+        { name: 'skeleton', src: 'assets/images/skeleton.png' },
+        { name: 'ghost', src: 'assets/images/ghost.png' },
+        { name: 'mini_boss', src: 'assets/images/mini_boss.png' },
+        { name: 'boss', src: 'assets/images/boss.png' },
+        { name: 'dagger', src: 'assets/images/dagger.png' },
+        { name: 'fireball', src: 'assets/images/fireball.png' },
+        { name: 'lightning', src: 'assets/images/lightning.png' },
+        { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
+        { name: 'box', src: 'assets/images/BOX.png' },
+        // 唱歌技能特效圖片（四張）
+        { name: 'LA', src: 'assets/images/LA.png' },
+        { name: 'LA2', src: 'assets/images/LA2.png' },
+        { name: 'LA3', src: 'assets/images/LA3.png' },
+        { name: 'LA4', src: 'assets/images/LA4.png' },
+        // 障礙物素材
+        { name: 'S1', src: 'assets/images/S1.png' },
+        { name: 'S2', src: 'assets/images/S2.png' },
+        // 背景素材（多地圖）
+        { name: 'background', src: 'assets/images/background.jpg' },
+        { name: 'background2', src: 'assets/images/background2.jpg' },
+        { name: 'background3', src: 'assets/images/background3.jpg' }
+    ];
     
     // 加載所有圖片
     let loadedCount = 0;
@@ -325,16 +330,14 @@ function setupCharacterSelection() {
 
     okBtn.addEventListener('click', () => {
         confirmBox.classList.add('hidden');
-        // 套用選角並開始新遊戲
+        // 套用選角，進入地圖選擇而非直接開始
         Game.selectedCharacter = picked;
-        // 進入遊戲音效
         if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
             AudioManager.playSound('button_click');
         }
-        Game.startNewGame();
-        // 切換畫面
+        // 切換到地圖選擇畫面
         document.getElementById('character-select-screen').classList.add('hidden');
-        document.getElementById('game-screen').classList.remove('hidden');
+        document.getElementById('map-select-screen').classList.remove('hidden');
     });
 
     cancelBtn.addEventListener('click', () => {
@@ -351,6 +354,59 @@ function setupCharacterSelection() {
             openConfirm();
         }
     });
+}
+
+// 地圖與難度選擇事件
+function setupMapAndDifficultySelection() {
+    const mapScreen = document.getElementById('map-select-screen');
+    const diffScreen = document.getElementById('difficulty-select-screen');
+    if (!mapScreen || !diffScreen) return;
+
+    const mapCards = mapScreen.querySelectorAll('.map-card.selectable');
+    const mapCancel = document.getElementById('map-cancel');
+
+    mapCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const id = card.getAttribute('data-map-id');
+            const cfg = (CONFIG.MAPS || []).find(m => m.id === id);
+            Game.selectedMap = cfg || null;
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound && AudioManager.playSound('button_click');
+            }
+            mapScreen.classList.add('hidden');
+            diffScreen.classList.remove('hidden');
+        });
+    });
+
+    if (mapCancel) {
+        mapCancel.addEventListener('click', () => {
+            mapScreen.classList.add('hidden');
+            document.getElementById('character-select-screen').classList.remove('hidden');
+        });
+    }
+
+    const diffCards = diffScreen.querySelectorAll('.diff-card.selectable');
+    const diffBack = document.getElementById('diff-back');
+
+    diffCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const id = card.getAttribute('data-diff-id') || 'NORMAL';
+            Game.selectedDifficultyId = id;
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound && AudioManager.playSound('button_click');
+            }
+            diffScreen.classList.add('hidden');
+            Game.startNewGame();
+            document.getElementById('game-screen').classList.remove('hidden');
+        });
+    });
+
+    if (diffBack) {
+        diffBack.addEventListener('click', () => {
+            diffScreen.classList.add('hidden');
+            mapScreen.classList.remove('hidden');
+        });
+    }
 }
 
 // 等比縮放遊戲視窗，避免變形
