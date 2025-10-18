@@ -294,6 +294,8 @@ const UI = {
             document.getElementById('map-select-screen').classList.add('hidden');
             document.getElementById('start-screen').classList.remove('hidden');
             Game.isGameOver = false;
+            // 解除靜音並播放選單音樂（避免回到選單仍靜音）
+            try { AudioManager.isMuted = false; } catch (e) {}
             try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (e) {}
         };
         el.addEventListener('ended', onEnded, { once: true });
@@ -352,6 +354,8 @@ const UI = {
             document.getElementById('map-select-screen').classList.add('hidden');
             document.getElementById('start-screen').classList.remove('hidden');
             Game.isGameOver = false;
+            // 解除靜音並播放選單音樂（避免回到選單仍靜音）
+            try { AudioManager.isMuted = false; } catch (e) {}
             try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (e) {}
         };
         el.addEventListener('ended', onEnded, { once: true });
