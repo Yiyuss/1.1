@@ -97,7 +97,21 @@ class Weapon {
             return;
         }
 
-        // 特殊技能：閃電（追蹤且分配唯一目標，避免重疊）
+        // 特殊技能：連鎖閃電（0.5秒內依序連鎖 N 次）
+        if (this.type === 'CHAIN_LIGHTNING') {
+            const chainCount = this.projectileCount; // 依照等級的 COUNT 當作連鎖次數
+            const effect = new ChainLightningEffect(
+                this.player,
+                this.config.DAMAGE,
+                this.config.DURATION || 500,
+                chainCount,
+                this.config.CHAIN_RADIUS || 220
+            );
+            Game.addProjectile(effect);
+            // 音效在效果物件中觸發一次（zaps）
+            return;
+        }
+        // 閃電（追蹤且分配唯一目標，避免重疊）
         if (this.type === 'LIGHTNING') {
             const count = this.projectileCount;
             const baseSize = this.config.PROJECTILE_SIZE;
