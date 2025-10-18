@@ -364,13 +364,31 @@ body {
 
 #game-over-screen, #victory-screen {
     background-color: #000;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 #game-over-video, #victory-video {
     width: 100%;
     height: 100%;
     object-fit: contain;
+    display: block;
 }
+
+/* 視頻覆蓋層：用於要求使用者手勢播放以恢復聲音 */
+.video-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+}
+.video-overlay.hidden { display: none; }
+.video-overlay-content { text-align: center; color: #fff; }
+.video-overlay .primary { padding: 10px 20px; }
 
 /* 選角介面 */
 #character-select-screen {
