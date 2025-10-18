@@ -13,6 +13,9 @@ const UI = {
         this.waveInfo = document.getElementById('wave-info');
         this.levelUpMenu = document.getElementById('level-up-menu');
         this.upgradeOptions = document.getElementById('upgrade-options');
+        
+        // 金幣顯示元素
+        this.coinsText = document.getElementById('coins-text');
 
         // 技能頁（ESC）元素
         this.skillsMenu = document.getElementById('skills-menu');
@@ -164,6 +167,13 @@ const UI = {
         const el = this.skillsMenu;
         return el && !el.classList.contains('hidden');
     },
+    // 更新金幣顯示
+    updateCoinsDisplay: function(coins) {
+        if (this.coinsText) {
+            this.coinsText.textContent = Math.max(0, Math.floor(coins || 0));
+        }
+    },
+
     // 金幣顯示：確保元素存在並更新內容
     ensureCoinsElement: function() {
         if (!this.skillsMenu) return;
