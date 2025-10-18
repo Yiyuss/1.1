@@ -133,6 +133,32 @@ class Enemy extends Entity {
         // 最終確保在範圍內
         this.x = Utils.clamp(this.x, minX, maxX);
         this.y = Utils.clamp(this.y, minY, maxY);
+
+        // 在邊界附近卡住時微調至內側（防止停滯）
+        if (!this.isSlowed) {
+            const now = Date.now();
+            if (this.lastMoveCheckTime === undefined) {
+                this.lastMoveCheckTime = now;
+                this.lastMoveX = this.x;
+                this.lastMoveY = this.y;
+            } else if (now - this.lastMoveCheckTime >= 500) {
+                const dxMove = this.x - this.lastMoveX;
+                const dyMove = this.y - this.lastMoveY;
+                const movedDist = Math.sqrt(dxMove * dxMove + dyMove * dyMove);
+                const nearBorder = (this.x <= minX + 2 || this.x >= maxX - 2 || this.y <= minY + 2 || this.y >= maxY - 2);
+                if (nearBorder && movedDist < 1.0) {
+                    const centerX = (Game.worldWidth || Game.canvas.width) / 2;
+                    const centerY = (Game.worldHeight || Game.canvas.height) / 2;
+                    const angleToCenter = Utils.angle(this.x, this.y, centerX, centerY);
+                    const nudge = (this.baseSpeed || this.speed) * (deltaMul) * 0.8;
+                    this.x = Utils.clamp(this.x + Math.cos(angleToCenter) * nudge, minX + 3, maxX - 3);
+                    this.y = Utils.clamp(this.y + Math.sin(angleToCenter) * nudge, minY + 3, maxY - 3);
+                }
+                this.lastMoveCheckTime = now;
+                this.lastMoveX = this.x;
+                this.lastMoveY = this.y;
+            }
+        }
         
         // 檢查與玩家的碰撞
         if (this.isColliding(player)) {
@@ -272,14 +298,18 @@ class Enemy extends Entity {
         // 計算發射角度
         const angle = Utils.angle(this.x, this.y, target.x, target.y);
         
-        // 創建 BOSS 火彈投射物（體積放大：僅大Boss）
+        // 創建 BOSS 火彈投射物（大Boss+50%，小Boss+35%）
         const projectile = new BossProjectile(
             this.x, 
             this.y, 
             angle,
             this.rangedAttack.PROJECTILE_SPEED,
             this.rangedAttack.PROJECTILE_DAMAGE,
-            (this.type === 'BOSS' ? this.rangedAttack.PROJECTILE_SIZE * 1.35 : this.rangedAttack.PROJECTILE_SIZE),
+            (this.type === 'BOSS' 
+                ? this.rangedAttack.PROJECTILE_SIZE * 1.5 
+                : (this.type === 'MINI_BOSS' 
+                    ? this.rangedAttack.PROJECTILE_SIZE * 1.35 
+                    : this.rangedAttack.PROJECTILE_SIZE)),
             this.rangedAttack.HOMING,
             this.rangedAttack.TURN_RATE
         );
