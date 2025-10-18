@@ -92,6 +92,10 @@
         <!-- 選角介面 -->
         <div id="character-select-screen" class="screen hidden">
             <div class="char-card-wrap">
+                <!-- 左上角：進入天賦介面按鈕（依參考圖移位與調整尺寸） -->
+                <button id="talent-open" class="top-left-icon-btn talent-open" aria-label="天賦">
+                    <img src="assets/images/talent.png" alt="天賦" />
+                </button>
                 <h1 class="char-title">選擇VTuber角色</h1>
                 <p class="char-subtitle">提示：按空白鍵或在角色卡上雙擊選取</p>
 
@@ -275,6 +279,77 @@
                 </div>
             </div>
         </div>
+        <!-- 天賦介面 -->
+        <div id="talent-select-screen" class="screen hidden">
+            <div class="char-card-wrap">
+                <!-- 左上角：返回選角介面按鈕（依參考圖移位與調整尺寸） -->
+                <button id="talent-back" class="top-left-icon-btn" aria-label="返回選角介面">
+                    <img src="assets/images/talent2.png" alt="返回選角" />
+                </button>
+                <h1 class="char-title">天賦</h1>
+                <p class="char-subtitle">提示：本頁為範例介面</p>
+                <div class="char-grid talent-grid">
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                </div>
+                <div class="char-preview" id="talent-preview" aria-live="polite">
+                    <div class="char-preview-image">
+                        <img id="talent-preview-img" src="assets/images/test.png" alt="預覽" />
+                    </div>
+                    <div class="char-preview-info">
+                        <div class="char-preview-name" id="talent-preview-name">範例天賦</div>
+                        <div class="char-preview-desc" id="talent-preview-desc">這裡會顯示天賦介紹（範例）。</div>
+                        <div class="char-hint">提示：右上角可返回選角</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- 遊戲腳本 -->
@@ -302,3 +377,75 @@
     <script src="js/main.js"></script>
 </body>
 </html>
+
+
+
+
+
+        <!-- 天賦介面 -->
+        <div id="talent-select-screen" class="screen hidden">
+            <div class="char-card-wrap">
+                <!-- 右上角返回選角按鈕（talent2.png） -->
+                <button id="talent-back" class="top-right-icon-btn" aria-label="返回選角介面">
+                    <img src="assets/images/talent2.png" alt="返回選角" />
+                </button>
+                <h1 class="char-title">天賦</h1>
+                <p class="char-subtitle">提示：本頁為範例介面</p>
+                <div class="char-grid talent-grid">
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                    <button class="char-card selectable">
+                        <img src="assets/images/test.png" alt="範例天賦" />
+                        <div class="char-name">範例</div>
+                    </button>
+                </div>
+                <div class="char-preview" id="talent-preview" aria-live="polite">
+                    <div class="char-preview-image">
+                        <img id="talent-preview-img" src="assets/images/test.png" alt="預覽" />
+                    </div>
+                    <div class="char-preview-info">
+                        <div class="char-preview-name" id="talent-preview-name">範例天賦</div>
+                        <div class="char-preview-desc" id="talent-preview-desc">這裡會顯示天賦介紹（範例）。</div>
+                        <div class="char-hint">提示：右上角可返回選角</div>
+                    </div>
+                </div>
+            </div>
+        </div>
