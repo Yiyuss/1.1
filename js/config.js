@@ -146,6 +146,25 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "雷射粗度提升（+16px）" },
                 { COUNT: 1, DESCRIPTION: "雷射粗度提升（+18px）" }
             ]
+        },
+        CHAIN_LIGHTNING: {
+            NAME: "連鎖閃電",
+            DAMAGE: 15, // 與追蹤綿羊相同
+            COOLDOWN: 1500, // 與追蹤綿羊相同
+            DURATION: 500, // 攻擊時間0.5秒
+            CHAIN_RADIUS: 220, // 連鎖搜尋半徑（像素）
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖1次（0.5秒）" },
+                { COUNT: 2, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖2次（0.5秒）" },
+                { COUNT: 3, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖3次（0.5秒）" },
+                { COUNT: 4, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖4次（0.5秒）" },
+                { COUNT: 5, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖5次（0.5秒）" },
+                { COUNT: 6, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖6次（0.5秒）" },
+                { COUNT: 7, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖7次（0.5秒）" },
+                { COUNT: 8, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖8次（0.5秒）" },
+                { COUNT: 9, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖9次（0.5秒）" },
+                { COUNT: 10, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖10次（0.5秒）" }
+            ]
         }
     },
 
@@ -158,7 +177,7 @@ const CONFIG = {
             DURATION_MS: 15000,
             PLAYER_SIZE_MULTIPLIER: 2.5, // 變身體型再放大一些
             IMAGE_KEY: 'playerN',
-            ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING'],
+            ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING'],
             ULTIMATE_LEVEL: 10
         },
 
