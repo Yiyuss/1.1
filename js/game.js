@@ -88,17 +88,17 @@ const Game = {
     
     // 更新遊戲狀態
     update: function(deltaTime) {
-        // 測試功能：按P鍵清除所有金幣
-        if (Input.isKeyDown('p') || Input.isKeyDown('P')) {
-            if (!this.pKeyPressed) {
-                this.coins = 0;
-                this.saveCoins();
-                UI.updateCoinsDisplay(this.coins);
-                console.log('測試功能：已清除所有金幣');
-                this.pKeyPressed = true;
+        // 測試功能：按Ctrl+P增加99999金幣
+        const ctrlDown = Input.isKeyDown('Control');
+        const pDown = Input.isKeyDown('p') || Input.isKeyDown('P');
+        if (ctrlDown && pDown) {
+            if (!this.ctrlPKeyPressed) {
+                this.addCoins(99999);
+                console.log('測試功能：Ctrl+P已增加99999金幣');
+                this.ctrlPKeyPressed = true;
             }
         } else {
-            this.pKeyPressed = false;
+            this.ctrlPKeyPressed = false;
         }
         
         // 更新遊戲時間
