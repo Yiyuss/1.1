@@ -21,6 +21,10 @@ class Enemy extends Entity {
         this.health = this.maxHealth;
         this.damage = enemyConfig.DAMAGE;
         this.speed = enemyConfig.SPEED * ((Game.difficulty && Game.difficulty.enemySpeedMultiplier) ? Game.difficulty.enemySpeedMultiplier : 1);
+        // 新增：基礎速度與暫時減速狀態
+        this.baseSpeed = this.speed;
+        this.isSlowed = false;
+        this.slowEndTime = 0;
         this.experienceValue = enemyConfig.EXPERIENCE;
         this.collisionRadius = enemyConfig.COLLISION_RADIUS;
         this.lastAttackTime = 0;
@@ -144,6 +148,11 @@ class Enemy extends Entity {
         if (this.hitFlashTime > 0) {
             this.hitFlashTime = Math.max(0, this.hitFlashTime - deltaTime);
         }
+        // 檢查暫時減速是否結束，恢復速度
+        if (this.isSlowed && Date.now() > this.slowEndTime) {
+            this.isSlowed = false;
+            this.speed = this.baseSpeed;
+        }
     }
     
     draw(ctx) {
@@ -190,6 +199,17 @@ class Enemy extends Entity {
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
             ctx.fill();
+        }
+
+        // 減速藍色覆蓋（持續顯示於減速期間）
+        if (this.isSlowed) {
+            const alpha = 0.3;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#3399ff';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2 + 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
         }
 
         // 受傷紅色覆蓋閃爍
@@ -252,14 +272,14 @@ class Enemy extends Entity {
         // 計算發射角度
         const angle = Utils.angle(this.x, this.y, target.x, target.y);
         
-        // 創建 BOSS 火彈投射物
+        // 創建 BOSS 火彈投射物（體積放大：僅大Boss）
         const projectile = new BossProjectile(
             this.x, 
             this.y, 
             angle,
             this.rangedAttack.PROJECTILE_SPEED,
             this.rangedAttack.PROJECTILE_DAMAGE,
-            this.rangedAttack.PROJECTILE_SIZE,
+            (this.type === 'BOSS' ? this.rangedAttack.PROJECTILE_SIZE * 1.35 : this.rangedAttack.PROJECTILE_SIZE),
             this.rangedAttack.HOMING,
             this.rangedAttack.TURN_RATE
         );
@@ -304,5 +324,13 @@ class Enemy extends Entity {
         if (typeof AudioManager !== 'undefined') {
             AudioManager.playSound('enemy_death');
         }
+    }
+    
+    // 新增：套用暫時減速效果（藍色並降速）
+    applySlow(durationMs, speedFactor) {
+        const factor = Math.max(0, speedFactor || 0.5);
+        this.isSlowed = true;
+        this.slowEndTime = Date.now() + (durationMs || 1000);
+        this.speed = this.baseSpeed * factor;
     }
 }
