@@ -66,7 +66,7 @@ body {
     max-height: 92vh;
     padding: 24px;
     border-radius: 12px;
-    background: linear-gradient(rgba(20,20,20,0.50), rgba(20,20,20,0.65)), url('../assets/images/background3.jpg') center/cover no-repeat;
+    background: linear-gradient(rgba(20,20,20,0.50), rgba(20,20,20,0.65)), url('../assets/images/Background3.jpg') center/cover no-repeat, url('../assets/images/background3.jpg') center/cover no-repeat;
     box-shadow: 0 12px 40px rgba(0,0,0,0.6);
     backdrop-filter: blur(6px);
     overflow: auto;
@@ -401,6 +401,7 @@ body {
 }
 .char-card-wrap { width: min(1100px, 92vw); max-height: 92vh; overflow: auto; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(6px); background:
   linear-gradient(180deg, rgba(10,20,30,0.75) 0%, rgba(10,20,30,0.7) 50%, rgba(10,20,30,0.75) 100%),
+  url('../assets/images/Background3.jpg') center bottom/cover no-repeat,
   url('../assets/images/background3.jpg') center bottom/cover no-repeat;
 }
 .char-title { font-size: clamp(26px, 4vw, 40px); letter-spacing: 1px; margin-bottom: 8px; text-align: center; background: rgba(128,128,128,0.35); border-radius: 10px; padding: 8px 12px; display: block; width: fit-content; margin: 0 auto 8px; }
