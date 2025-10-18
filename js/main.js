@@ -49,9 +49,8 @@ document.addEventListener('DOMContentLoaded', function() {
     gameOverVideo.addEventListener('ended', function() {
         document.getElementById('game-over-screen').classList.add('hidden');
         document.getElementById('start-screen').classList.remove('hidden');
-        // 重置遊戲狀態
         Game.isGameOver = false;
-        // 影片結束後恢復音樂與音效
+        Game.pause(false);
         if (AudioManager.setMuted) AudioManager.setMuted(false);
         if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
     });
@@ -60,9 +59,8 @@ document.addEventListener('DOMContentLoaded', function() {
     victoryVideo.addEventListener('ended', function() {
         document.getElementById('victory-screen').classList.add('hidden');
         document.getElementById('start-screen').classList.remove('hidden');
-        // 重置遊戲狀態
         Game.isGameOver = false;
-        // 影片結束後恢復音樂與音效
+        Game.pause(false);
         if (AudioManager.setMuted) AudioManager.setMuted(false);
         if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
     });
@@ -291,15 +289,14 @@ function setupCharacterSelection() {
 
     const showPreview = (ch) => {
         if (!ch) return;
-        // 預覽使用自定義介紹圖 player1-2.png
-        previewImg.src = (Game.images && Game.images['player1-2']) ? Game.images['player1-2'].src : 'assets/images/player1-2.png';
+        const key = ch.avatarImageKey || 'player';
+        const imgObj = (Game.images && Game.images[key]) ? Game.images[key] : null;
+        previewImg.src = imgObj ? imgObj.src : `assets/images/${key}.png`;
         previewName.textContent = ch.name || '角色';
-        // 補充倍率介紹到右側描述
         const fmt = (v) => (Math.abs(v % 1) < 1e-6) ? String(Math.round(v)) : String(Number(v.toFixed(2)));
         const hpText = fmt(ch.hpMultiplier || 1);
         const spText = fmt(ch.speedMultiplier || 1);
         previewDesc.textContent = `${ch.description || '角色介紹'}\nHP倍率：x${hpText}，速度倍率：x${spText}`;
-        // 選角預覽音效
         if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
             AudioManager.playSound('button_click2');
         }
