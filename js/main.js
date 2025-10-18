@@ -79,6 +79,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 新增：天賦介面切換事件
     setupTalentScreenToggle();
+
+    // 天賦選取音效（點擊天賦卡片時）
+    (function bindTalentClickSound(){
+        const talentGrid = document.querySelector('#talent-select-screen .talent-grid');
+        if (!talentGrid) return;
+        const cards = talentGrid.querySelectorAll('.char-card.selectable');
+        cards.forEach(card => {
+            card.addEventListener('click', () => {
+                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                    AudioManager.playSound('button_click2');
+                }
+            });
+        });
+    })();
     
     // （如需主選單音樂，請於assets/audio添加menu_music.mp3後再啟用）
     // if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
@@ -218,7 +232,8 @@ function setupAutoPause() {
         const charVisible = !document.getElementById('character-select-screen').classList.contains('hidden');
         const mapVisible = !document.getElementById('map-select-screen').classList.contains('hidden');
         const diffVisible = !document.getElementById('difficulty-select-screen').classList.contains('hidden');
-        return startVisible || charVisible || mapVisible || diffVisible;
+        const talentVisible = Array.from(document.querySelectorAll('#talent-select-screen')).some(el => !el.classList.contains('hidden'));
+        return startVisible || charVisible || mapVisible || diffVisible || talentVisible;
     };
 
     document.addEventListener('visibilitychange', () => {
