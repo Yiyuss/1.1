@@ -21,6 +21,8 @@ const UI = {
         this.skillsSoundSlider = document.getElementById('skills-sound-volume');
         this.skillsMusicText = document.getElementById('skills-music-volume-text');
         this.skillsSoundText = document.getElementById('skills-sound-volume-text');
+        // 金幣顯示元素（動態建立）
+        this.skillsCoinsEl = document.getElementById('skills-coins');
 
         // 綁定技能頁音量滑桿事件
         if (this.skillsMusicSlider && this.skillsMusicText) {
@@ -143,6 +145,8 @@ const UI = {
         Game.pause(false);
         // 建構技能清單
         this.updateSkillsList();
+        // 更新金幣顯示
+        this.updateCoins(Game.coins || 0);
         this.skillsMenu.classList.remove('hidden');
         if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
             AudioManager.playSound('button_click');
@@ -159,6 +163,31 @@ const UI = {
     isSkillsMenuOpen: function() {
         const el = this.skillsMenu;
         return el && !el.classList.contains('hidden');
+    },
+    // 金幣顯示：確保元素存在並更新內容
+    ensureCoinsElement: function() {
+        if (!this.skillsMenu) return;
+        if (this.skillsCoinsEl && this.skillsCoinsEl.parentElement) return;
+        const el = document.createElement('div');
+        el.id = 'skills-coins';
+        el.className = 'skills-coins';
+        el.textContent = '金幣: 0';
+        // 插入在標題之後，避免影響既有內容
+        const title = this.skillsMenu.querySelector('.skills-title');
+        if (title) {
+            title.insertAdjacentElement('afterend', el);
+        } else {
+            this.skillsMenu.insertBefore(el, this.skillsMenu.firstChild);
+        }
+        this.skillsCoinsEl = el;
+    },
+    updateCoins: function(total) {
+        try {
+            this.ensureCoinsElement();
+            if (this.skillsCoinsEl) {
+                this.skillsCoinsEl.textContent = `金幣: ${Math.max(0, Math.floor(total || 0))}`;
+            }
+        } catch (_) {}
     },
     updateSkillsList: function() {
         if (!this.skillsList) return;
