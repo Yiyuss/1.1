@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', function() {
         AudioManager.playSound && AudioManager.playSound('button_click');
         // 在選單/選角階段使用主選單音樂
         if (AudioManager.playMusic) {
+            // 確保選單介面不靜音
+            AudioManager.isMuted = false;
             AudioManager.playMusic('menu_music');
         }
         // 進入選角介面而非直接開始
@@ -57,8 +59,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 初始化遊戲（但不開始）
     Game.init();
-    // 預設暫停，避免未正式進入遊戲就開始更新/播放音效
-    Game.pause(true);
+    // 預設暫停，但不靜音，以保留選單音樂與音效
+    Game.pause(false);
 
     // 自動暫停與音效抑制（分頁切換/失焦）
     setupAutoPause();
@@ -208,6 +210,14 @@ function setupAutoPause() {
         return !!(levelOpen || skillsOpen);
     };
 
+    const isMenuVisible = () => {
+        const startVisible = !document.getElementById('start-screen').classList.contains('hidden');
+        const charVisible = !document.getElementById('character-select-screen').classList.contains('hidden');
+        const mapVisible = !document.getElementById('map-select-screen').classList.contains('hidden');
+        const diffVisible = !document.getElementById('difficulty-select-screen').classList.contains('hidden');
+        return startVisible || charVisible || mapVisible || diffVisible;
+    };
+
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             Game.pause();
@@ -217,6 +227,10 @@ function setupAutoPause() {
             if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
                 Game.resume();
                 AudioManager.setMuted && AudioManager.setMuted(false);
+            } else if (isMenuVisible()) {
+                // 解除靜音並恢復選單音樂（不觸發遊戲音樂）
+                AudioManager.isMuted = false;
+                if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
             }
         }
     });
@@ -231,6 +245,10 @@ function setupAutoPause() {
         if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
             Game.resume();
             AudioManager.setMuted && AudioManager.setMuted(false);
+        } else if (isMenuVisible()) {
+            // 解除靜音並恢復選單音樂（不觸發遊戲音樂）
+            AudioManager.isMuted = false;
+            if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
         }
     });
 }
