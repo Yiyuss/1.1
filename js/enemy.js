@@ -117,7 +117,7 @@ class Enemy extends Entity {
         const minY = this.height / 2;
         
         // 檢查是否碰到邊界，如果是則稍微向內推
-        const borderPush = 5; // 向內推的距離
+        const borderPush = 8; // 增加向內推的距離
         if (this.x <= minX) {
             this.x = minX + borderPush;
         } else if (this.x >= maxX) {
@@ -134,26 +134,47 @@ class Enemy extends Entity {
         this.x = Utils.clamp(this.x, minX, maxX);
         this.y = Utils.clamp(this.y, minY, maxY);
 
-        // 在邊界附近卡住時微調至內側（防止停滯）
+        // 改進的邊界防卡機制
         if (!this.isSlowed) {
             const now = Date.now();
             if (this.lastMoveCheckTime === undefined) {
                 this.lastMoveCheckTime = now;
                 this.lastMoveX = this.x;
                 this.lastMoveY = this.y;
-            } else if (now - this.lastMoveCheckTime >= 500) {
+                this.stuckCounter = 0;
+            } else if (now - this.lastMoveCheckTime >= 300) { // 縮短檢查間隔
                 const dxMove = this.x - this.lastMoveX;
                 const dyMove = this.y - this.lastMoveY;
                 const movedDist = Math.sqrt(dxMove * dxMove + dyMove * dyMove);
-                const nearBorder = (this.x <= minX + 2 || this.x >= maxX - 2 || this.y <= minY + 2 || this.y >= maxY - 2);
-                if (nearBorder && movedDist < 1.0) {
-                    const centerX = (Game.worldWidth || Game.canvas.width) / 2;
-                    const centerY = (Game.worldHeight || Game.canvas.height) / 2;
-                    const angleToCenter = Utils.angle(this.x, this.y, centerX, centerY);
-                    const nudge = (this.baseSpeed || this.speed) * (deltaMul) * 0.8;
-                    this.x = Utils.clamp(this.x + Math.cos(angleToCenter) * nudge, minX + 3, maxX - 3);
-                    this.y = Utils.clamp(this.y + Math.sin(angleToCenter) * nudge, minY + 3, maxY - 3);
+                const borderMargin = 15; // 增加邊界檢測範圍
+                const nearBorder = (this.x <= minX + borderMargin || this.x >= maxX - borderMargin || 
+                                  this.y <= minY + borderMargin || this.y >= maxY - borderMargin);
+                
+                if (nearBorder && movedDist < 2.0) { // 放寬移動距離判定
+                    this.stuckCounter = (this.stuckCounter || 0) + 1;
+                    
+                    // 如果連續卡住，採用更強力的脫離機制
+                    if (this.stuckCounter >= 2) {
+                        const centerX = (Game.worldWidth || Game.canvas.width) / 2;
+                        const centerY = (Game.worldHeight || Game.canvas.height) / 2;
+                        const angleToCenter = Utils.angle(this.x, this.y, centerX, centerY);
+                        
+                        // 增強推力，並添加隨機偏移避免多個敵人同時卡住
+                        const randomOffset = (Math.random() - 0.5) * Math.PI * 0.3; // ±27度隨機偏移
+                        const adjustedAngle = angleToCenter + randomOffset;
+                        const nudge = (this.baseSpeed || this.speed) * (deltaMul) * 1.5; // 增強推力
+                        
+                        this.x = Utils.clamp(this.x + Math.cos(adjustedAngle) * nudge, minX + borderMargin, maxX - borderMargin);
+                        this.y = Utils.clamp(this.y + Math.sin(adjustedAngle) * nudge, minY + borderMargin, maxY - borderMargin);
+                        
+                        // 重置卡住計數器
+                        this.stuckCounter = 0;
+                    }
+                } else {
+                    // 如果移動正常，重置卡住計數器
+                    this.stuckCounter = 0;
                 }
+                
                 this.lastMoveCheckTime = now;
                 this.lastMoveX = this.x;
                 this.lastMoveY = this.y;
