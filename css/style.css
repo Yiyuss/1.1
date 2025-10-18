@@ -267,6 +267,25 @@ body {
     font-size: 1.2rem;
 }
 
+/* 金幣顯示（右上角，在wave-info下方） */
+#coins-display {
+    position: absolute;
+    top: 70px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #ffd700;
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+}
+
+#coins-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 6px;
+}
+
 /* 左上角的HP與EXP條依序排列在Level下方 */
 #health-bar-container {
     position: absolute;
@@ -291,6 +310,8 @@ body {
     #level-info { font-size: 0.85rem; top: 6px; left: 58px; }
     #timer { font-size: 1rem; top: 6px; }
     #wave-info { font-size: 0.9rem; top: 24px; }
+    #coins-display { font-size: 0.9rem; top: 42px; }
+    #coins-icon { width: 18px; height: 18px; margin-right: 4px; }
     #health-bar, #exp-bar, #energy-bar { width: 100px; height: 9px; border-width: 1px; }
     #health-text, #exp-text, #energy-text { font-size: 0.78rem; margin-left: 4px; }
     .ui-label { display: none; }
@@ -304,6 +325,8 @@ body {
     #level-info { font-size: 0.75rem; top: 4px; left: 50px; }
     #timer { font-size: 0.9rem; top: 4px; }
     #wave-info { font-size: 0.8rem; top: 20px; }
+    #coins-display { font-size: 0.8rem; top: 36px; }
+    #coins-icon { width: 16px; height: 16px; margin-right: 3px; }
     #health-bar, #exp-bar, #energy-bar { width: 80px; height: 7px; }
     #health-text, #exp-text, #energy-text { font-size: 0.7rem; }
     #health-bar-container { top: 8px; left: 58px; }
