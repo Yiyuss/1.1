@@ -80,6 +80,10 @@ class Projectile extends Entity {
         for (const enemy of Game.enemies) {
             if (this.isColliding(enemy)) {
                 enemy.takeDamage(this.damage);
+                // 紳士綿羊（FIREBALL）命中未被消滅的敵人時施加暫時減速
+                if (this.weaponType === 'FIREBALL' && enemy.health > 0 && typeof enemy.applySlow === 'function') {
+                    enemy.applySlow(1000, 0.5);
+                }
                 this.destroy();
                 break;
             }
