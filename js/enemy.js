@@ -31,7 +31,8 @@ class Enemy extends Entity {
         
         // 新增：遠程攻擊相關屬性（小BOSS與大BOSS皆可）
         if (enemyConfig.RANGED_ATTACK) {
-            const enableRanged = (enemyConfig.RANGED_ATTACK.ENABLED !== false) || (Game.difficulty && Game.difficulty.bossRangedEnabled);
+            // 僅在困難模式且該敵人類型的遠程屬性啟用時才開啟技能
+            const enableRanged = (Game.difficulty && Game.difficulty.bossRangedEnabled) && (enemyConfig.RANGED_ATTACK.ENABLED !== false);
             if (enableRanged) {
                 this.rangedAttack = enemyConfig.RANGED_ATTACK;
                 this.lastRangedAttackTime = 0;
