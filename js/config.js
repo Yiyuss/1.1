@@ -43,67 +43,67 @@ const CONFIG = {
             ]
         },
         DAGGER: {
-            NAME: "飛鏢",
+            NAME: "應援棒",
             DAMAGE: 10,
             COOLDOWN: 1000, // 毫秒
             PROJECTILE_SPEED: 8,
             PROJECTILE_SIZE: 20,
             PROJECTILE_SIZE_PER_LEVEL: 3,
             LEVELS: [
-                { COUNT: 1, DESCRIPTION: "每秒發射1顆飛鏢" },
-                { COUNT: 2, DESCRIPTION: "每秒發射2顆飛鏢" },
-                { COUNT: 3, DESCRIPTION: "每秒發射3顆飛鏢" },
-                { COUNT: 4, DESCRIPTION: "每秒發射4顆飛鏢" },
-                { COUNT: 5, DESCRIPTION: "每秒發射5顆飛鏢" },
-                { COUNT: 6, DESCRIPTION: "每秒發射6顆飛鏢" },
-                { COUNT: 7, DESCRIPTION: "每秒發射7顆飛鏢" },
-                { COUNT: 8, DESCRIPTION: "每秒發射8顆飛鏢" },
-                { COUNT: 9, DESCRIPTION: "每秒發射9顆飛鏢" },
-                { COUNT: 10, DESCRIPTION: "每秒發射10顆飛鏢" }
+                { COUNT: 1, DESCRIPTION: "每秒發射1支應援棒" },
+                { COUNT: 2, DESCRIPTION: "每秒發射2支應援棒" },
+                { COUNT: 3, DESCRIPTION: "每秒發射3支應援棒" },
+                { COUNT: 4, DESCRIPTION: "每秒發射4支應援棒" },
+                { COUNT: 5, DESCRIPTION: "每秒發射5支應援棒" },
+                { COUNT: 6, DESCRIPTION: "每秒發射6支應援棒" },
+                { COUNT: 7, DESCRIPTION: "每秒發射7支應援棒" },
+                { COUNT: 8, DESCRIPTION: "每秒發射8支應援棒" },
+                { COUNT: 9, DESCRIPTION: "每秒發射9支應援棒" },
+                { COUNT: 10, DESCRIPTION: "每秒發射10支應援棒" }
             ]
         },
         FIREBALL: {
-            NAME: "火球",
+            NAME: "紳士綿羊",
             DAMAGE: 20,
             COOLDOWN: 2000,
             PROJECTILE_SPEED: 6,
             PROJECTILE_SIZE: 28,
             PROJECTILE_SIZE_PER_LEVEL: 4,
             LEVELS: [
-                { COUNT: 1, DESCRIPTION: "每2秒發射1顆火球" },
-                { COUNT: 2, DESCRIPTION: "每2秒發射2顆火球" },
-                { COUNT: 3, DESCRIPTION: "每2秒發射3顆火球" },
-                { COUNT: 4, DESCRIPTION: "每2秒發射4顆火球" },
-                { COUNT: 5, DESCRIPTION: "每2秒發射5顆火球" },
-                { COUNT: 6, DESCRIPTION: "每2秒發射6顆火球" },
-                { COUNT: 7, DESCRIPTION: "每2秒發射7顆火球" },
-                { COUNT: 8, DESCRIPTION: "每2秒發射8顆火球" },
-                { COUNT: 9, DESCRIPTION: "每2秒發射9顆火球" },
-                { COUNT: 10, DESCRIPTION: "每2秒發射10顆火球" }
+                { COUNT: 1, DESCRIPTION: "每2秒發射1隻紳士綿羊" },
+                { COUNT: 2, DESCRIPTION: "每2秒發射2隻紳士綿羊" },
+                { COUNT: 3, DESCRIPTION: "每2秒發射3隻紳士綿羊" },
+                { COUNT: 4, DESCRIPTION: "每2秒發射4隻紳士綿羊" },
+                { COUNT: 5, DESCRIPTION: "每2秒發射5隻紳士綿羊" },
+                { COUNT: 6, DESCRIPTION: "每2秒發射6隻紳士綿羊" },
+                { COUNT: 7, DESCRIPTION: "每2秒發射7隻紳士綿羊" },
+                { COUNT: 8, DESCRIPTION: "每2秒發射8隻紳士綿羊" },
+                { COUNT: 9, DESCRIPTION: "每2秒發射9隻紳士綿羊" },
+                { COUNT: 10, DESCRIPTION: "每2秒發射10隻紳士綿羊" }
             ]
         },
         LIGHTNING: {
-            NAME: "閃電",
+            NAME: "追蹤綿羊",
             DAMAGE: 15,
             COOLDOWN: 1500,
             PROJECTILE_SPEED: 10,
             PROJECTILE_SIZE: 24,
             PROJECTILE_SIZE_PER_LEVEL: 3,
             LEVELS: [
-                { COUNT: 1, DESCRIPTION: "每1.5秒發射1道閃電" },
-                { COUNT: 2, DESCRIPTION: "每1.5秒發射2道閃電" },
-                { COUNT: 3, DESCRIPTION: "每1.5秒發射3道閃電" },
-                { COUNT: 4, DESCRIPTION: "每1.5秒發射4道閃電" },
-                { COUNT: 5, DESCRIPTION: "每1.5秒發射5道閃電" },
-                { COUNT: 6, DESCRIPTION: "每1.5秒發射6道閃電" },
-                { COUNT: 7, DESCRIPTION: "每1.5秒發射7道閃電" },
-                { COUNT: 8, DESCRIPTION: "每1.5秒發射8道閃電" },
-                { COUNT: 9, DESCRIPTION: "每1.5秒發射9道閃電" },
-                { COUNT: 10, DESCRIPTION: "每1.5秒發射10道閃電" }
+                { COUNT: 1, DESCRIPTION: "每1.5秒發射1道追蹤綿羊" },
+                { COUNT: 2, DESCRIPTION: "每1.5秒發射2道追蹤綿羊" },
+                { COUNT: 3, DESCRIPTION: "每1.5秒發射3道追蹤綿羊" },
+                { COUNT: 4, DESCRIPTION: "每1.5秒發射4道追蹤綿羊" },
+                { COUNT: 5, DESCRIPTION: "每1.5秒發射5道追蹤綿羊" },
+                { COUNT: 6, DESCRIPTION: "每1.5秒發射6道追蹤綿羊" },
+                { COUNT: 7, DESCRIPTION: "每1.5秒發射7道追蹤綿羊" },
+                { COUNT: 8, DESCRIPTION: "每1.5秒發射8道追蹤綿羊" },
+                { COUNT: 9, DESCRIPTION: "每1.5秒發射9道追蹤綿羊" },
+                { COUNT: 10, DESCRIPTION: "每1.5秒發射10道追蹤綿羊" }
             ]
         },
         ORBIT: {
-            NAME: "旋球",
+            NAME: "綿羊護體",
             DAMAGE: 10,
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
@@ -114,16 +114,16 @@ const CONFIG = {
             DURATION: 3000, // 3秒持續
             ANGULAR_SPEED: 6.283, // 約1圈/秒
             LEVELS: [
-                { COUNT: 1, DESCRIPTION: "生成1個旋球環繞3秒" },
-                { COUNT: 2, DESCRIPTION: "生成2個旋球環繞3秒" },
-                { COUNT: 3, DESCRIPTION: "生成3個旋球環繞3秒" },
-                { COUNT: 4, DESCRIPTION: "生成4個旋球環繞3秒" },
-                { COUNT: 5, DESCRIPTION: "生成5個旋球環繞3秒" },
-                { COUNT: 6, DESCRIPTION: "生成6個旋球環繞3秒" },
-                { COUNT: 7, DESCRIPTION: "生成7個旋球環繞3秒" },
-                { COUNT: 8, DESCRIPTION: "生成8個旋球環繞3秒" },
-                { COUNT: 9, DESCRIPTION: "生成9個旋球環繞3秒" },
-                { COUNT: 10, DESCRIPTION: "生成10個旋球環繞3秒" }
+                { COUNT: 1, DESCRIPTION: "生成1個綿羊護體環繞3秒" },
+                { COUNT: 2, DESCRIPTION: "生成2個綿羊護體環繞3秒" },
+                { COUNT: 3, DESCRIPTION: "生成3個綿羊護體環繞3秒" },
+                { COUNT: 4, DESCRIPTION: "生成4個綿羊護體環繞3秒" },
+                { COUNT: 5, DESCRIPTION: "生成5個綿羊護體環繞3秒" },
+                { COUNT: 6, DESCRIPTION: "生成6個綿羊護體環繞3秒" },
+                { COUNT: 7, DESCRIPTION: "生成7個綿羊護體環繞3秒" },
+                { COUNT: 8, DESCRIPTION: "生成8個綿羊護體環繞3秒" },
+                { COUNT: 9, DESCRIPTION: "生成9個綿羊護體環繞3秒" },
+                { COUNT: 10, DESCRIPTION: "生成10個綿羊護體環繞3秒" }
             ]
         },
         LASER: {
