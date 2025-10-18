@@ -593,3 +593,59 @@ body {
 }
 .map-desc { margin-top: 10px; color: #cfe7ff; text-align: center; }
 .map-card.disabled { cursor: not-allowed; opacity: 0.6; }
+
+/* 左上角圖示按鈕（透明、與標題同高度靠左） */
+.top-left-icon-btn {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  width: 120px;
+  height: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 10;
+}
+.top-left-icon-btn img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+.top-left-icon-btn:hover { transform: scale(1.03); }
+
+/* 天賦介面：補上最底層背景 background2.jpg */
+#talent-select-screen {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.65) 100%),
+    url('../assets/images/background2.jpg') center/cover no-repeat;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* 天賦格子：每行 6 格（總 12 格 = 2 行） */
+.talent-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  grid-auto-rows: 120px;
+  gap: 14px;
+  justify-items: center;
+}
+.talent-grid .char-card img {
+  width: 80px;
+  height: 80px;
+}
+
+@media (max-width: 900px) {
+  .talent-grid { grid-template-columns: repeat(4, minmax(110px, 1fr)); grid-auto-rows: 110px; }
+}
+@media (max-width: 640px) {
+  .talent-grid { grid-template-columns: repeat(3, minmax(100px, 1fr)); grid-auto-rows: 100px; }
+}
+@media (max-width: 420px) {
+  .talent-grid { grid-template-columns: repeat(2, minmax(100px, 1fr)); grid-auto-rows: 100px; }
+}
+
