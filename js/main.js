@@ -76,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 設定 ESC 技能頁面切換
     setupSkillsMenuToggle();
+
+    // 新增：天賦介面切換事件
+    setupTalentScreenToggle();
     
     // （如需主選單音樂，請於assets/audio添加menu_music.mp3後再啟用）
     // if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
@@ -518,4 +521,32 @@ function setupResponsiveViewport() {
     window.addEventListener('resize', resizeViewport);
     window.addEventListener('orientationchange', resizeViewport);
     resizeViewport();
+}
+
+// 新增：天賦介面切換（選角 <-> 天賦）
+function setupTalentScreenToggle() {
+    const openBtn = document.getElementById('talent-open');
+    const backBtn = document.getElementById('talent-back');
+    const charScreen = document.getElementById('character-select-screen');
+    const talentScreen = document.getElementById('talent-select-screen');
+    if (!charScreen || !talentScreen) return;
+
+    if (openBtn) {
+        openBtn.addEventListener('click', () => {
+            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                AudioManager.playSound('button_click');
+            }
+            charScreen.classList.add('hidden');
+            talentScreen.classList.remove('hidden');
+        });
+    }
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                AudioManager.playSound('button_click');
+            }
+            talentScreen.classList.add('hidden');
+            charScreen.classList.remove('hidden');
+        });
+    }
 }
