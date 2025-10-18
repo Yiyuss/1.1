@@ -281,11 +281,28 @@ const UI = {
         const el = document.getElementById('game-over-video');
         try {
             if (el && typeof el.play === 'function') {
+                el.pause();
+                el.muted = false;
+                el.loop = false;
                 el.currentTime = 0;
                 el.play();
             }
         } catch (e) {
             console.warn('播放遊戲結束影片失敗，將使用回退邏輯');
+        }
+        
+        // 結束後返回開始畫面（圖片回退會在main.js裡模擬ended事件）
+        if (el && typeof el.addEventListener === 'function') {
+            el.addEventListener('ended', () => {
+                document.getElementById('game-over-screen').classList.add('hidden');
+                document.getElementById('start-screen').classList.remove('hidden');
+                Game.isGameOver = false;
+                // 確保影片完全停止
+                if (typeof el.pause === 'function') { el.pause(); el.currentTime = 0; }
+                if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+                    AudioManager.playMusic('menu_music');
+                }
+            }, { once: true });
         }
         
         // 設置自動返回開始畫面的定時器（3秒後）
@@ -315,6 +332,9 @@ const UI = {
         const el = document.getElementById('victory-video');
         try {
             if (el && typeof el.play === 'function') {
+                el.pause();
+                el.muted = false;
+                el.loop = false;
                 el.currentTime = 0;
                 el.play();
             }
@@ -327,6 +347,8 @@ const UI = {
             el.addEventListener('ended', () => {
                 document.getElementById('victory-screen').classList.add('hidden');
                 document.getElementById('start-screen').classList.remove('hidden');
+                Game.isGameOver = false;
+                if (typeof el.pause === 'function') { el.pause(); el.currentTime = 0; }
             }, { once: true });
         } else {
             // 最保險的回退：3秒後返回開始畫面
