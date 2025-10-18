@@ -313,8 +313,8 @@ const CONFIG = {
     // 優化設置
     OPTIMIZATION: {
         MAX_ENEMIES: 250, // 最大敵人數量，提高密度
-        MAX_PROJECTILES: 200, // 最大投射物數量
-        MAX_EXPERIENCE_ORBS: 100, // 最大經驗球數量
+        MAX_PROJECTILES: 300, // 最大投射物數量
+        MAX_EXPERIENCE_ORBS: 250, // 最大經驗球數量
         CLEANUP_INTERVAL: 1000 // 清理間隔（毫秒）
     }
 };
