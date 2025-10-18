@@ -4,9 +4,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const startButton = document.getElementById('start-button');
     startButton.addEventListener('click', function() {
         AudioManager.playSound && AudioManager.playSound('button_click');
-        // 以使用者點擊作為手勢觸發，開始播放遊戲BGM
+        // 在選單/選角階段使用主選單音樂
         if (AudioManager.playMusic) {
-            AudioManager.playMusic('game_music');
+            AudioManager.playMusic('menu_music');
         }
         // 進入選角介面而非直接開始
         document.getElementById('start-screen').classList.add('hidden');
@@ -57,6 +57,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 初始化遊戲（但不開始）
     Game.init();
+    // 預設暫停，避免未正式進入遊戲就開始更新/播放音效
+    Game.pause(true);
 
     // 自動暫停與音效抑制（分頁切換/失焦）
     setupAutoPause();
@@ -211,7 +213,8 @@ function setupAutoPause() {
             Game.pause();
             AudioManager.setMuted && AudioManager.setMuted(true);
         } else {
-            if (!Game.isGameOver && !isAnyMenuOpen()) {
+            const gameVisible = !document.getElementById('game-screen').classList.contains('hidden');
+            if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
                 Game.resume();
                 AudioManager.setMuted && AudioManager.setMuted(false);
             }
@@ -224,7 +227,8 @@ function setupAutoPause() {
     });
 
     window.addEventListener('focus', () => {
-        if (!Game.isGameOver && !isAnyMenuOpen()) {
+        const gameVisible = !document.getElementById('game-screen').classList.contains('hidden');
+        if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
             Game.resume();
             AudioManager.setMuted && AudioManager.setMuted(false);
         }
@@ -462,6 +466,10 @@ function setupMapAndDifficultySelection() {
             charSel && charSel.classList.add('hidden');
             mapSel && mapSel.classList.add('hidden');
             Game.startNewGame();
+            // 切換遊戲BGM
+            if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+                AudioManager.playMusic('game_music');
+            }
             document.getElementById('game-screen').classList.remove('hidden');
         });
     });
