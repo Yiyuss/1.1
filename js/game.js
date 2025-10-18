@@ -20,6 +20,7 @@ const Game = {
     worldWidth: 0,
     worldHeight: 0,
     camera: { x: 0, y: 0 },
+    coins: 0,
     
     init: function() {
         // 獲取畫布和上下文
@@ -40,6 +41,12 @@ const Game = {
         
         // 初始化UI
         UI.init();
+        
+        // 載入金幣並設定自動存檔
+        try { this.loadCoins(); } catch (_) {}
+        try {
+            window.addEventListener('beforeunload', () => { try { this.saveCoins(); } catch (_) {} });
+        } catch (_) {}
         
         // 創建玩家（世界中心）
         this.player = new Player(this.worldWidth / 2, this.worldHeight / 2);
@@ -581,5 +588,47 @@ const Game = {
                 tryPlace(t);
             }
         }
+    }
+    ,
+    // 金幣：載入
+    loadCoins: function() {
+        try {
+            const key = 'game_coins';
+            const stored = localStorage.getItem(key);
+            const n = parseInt(stored, 10);
+            if (Number.isFinite(n) && n >= 0) {
+                this.coins = n;
+            } else {
+                // 若無紀錄則維持現值（預設0）
+                this.coins = this.coins || 0;
+            }
+        } catch (_) {
+            // 讀取失敗時不影響遊戲
+            this.coins = this.coins || 0;
+        }
+    },
+
+    // 金幣：存檔
+    saveCoins: function() {
+        try {
+            const key = 'game_coins';
+            localStorage.setItem(key, String(Math.max(0, Math.floor(this.coins || 0))));
+        } catch (_) {
+            // 忽略存檔錯誤
+        }
+    },
+
+    // 金幣：增加並即時存檔
+    addCoins: function(amount) {
+        const inc = Math.max(0, Math.floor(amount || 0));
+        this.coins = (this.coins || 0) + inc;
+        // 立即存檔以符合自動存檔需求
+        try { this.saveCoins(); } catch (_) {}
+        // 若技能頁打開，更新顯示
+        try {
+            if (typeof UI !== 'undefined' && UI.isSkillsMenuOpen && UI.isSkillsMenuOpen()) {
+                if (UI.updateCoins) UI.updateCoins(this.coins);
+            }
+        } catch (_) {}
     }
 };
