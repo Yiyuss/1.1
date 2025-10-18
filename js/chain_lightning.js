@@ -173,9 +173,9 @@ class ChainLightningEffect extends Entity {
             const jitter = (Math.random() - 0.5) * jitterAmp;
             points.push({ x: bx + nx * jitter, y: by + ny * jitter });
         }
-        // 外層光暈
+        // 外層光暈（加粗）
         ctx.globalAlpha = 0.35;
-        ctx.lineWidth = 6;
+        ctx.lineWidth = 10;
         ctx.strokeStyle = '#66ccff';
         ctx.beginPath();
         for (let i = 0; i < points.length; i++) {
@@ -183,9 +183,9 @@ class ChainLightningEffect extends Entity {
             if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
         }
         ctx.stroke();
-        // 中層
+        // 中層（加粗）
         ctx.globalAlpha = 0.7;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 6;
         ctx.strokeStyle = '#aaddff';
         ctx.beginPath();
         for (let i = 0; i < points.length; i++) {
@@ -193,9 +193,9 @@ class ChainLightningEffect extends Entity {
             if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
         }
         ctx.stroke();
-        // 核心亮線
+        // 核心亮線（加粗）
         ctx.globalAlpha = 1.0;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 3;
         ctx.strokeStyle = '#ffffff';
         ctx.beginPath();
         for (let i = 0; i < points.length; i++) {
