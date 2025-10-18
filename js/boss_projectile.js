@@ -55,10 +55,12 @@ class BossProjectile extends Entity {
         if (Game.player && this.isColliding(Game.player)) {
             // 對玩家造成傷害
             Game.player.takeDamage(this.damage);
-            
+            // 新增：命中玩家時播放bo音效
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('bo');
+            }
             // 創建爆炸特效
             this.createExplosionEffect();
-            
             // 銷毀投射物
             this.destroy();
             return;
