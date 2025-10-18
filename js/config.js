@@ -250,7 +250,7 @@ const CONFIG = {
         },
         MINI_BOSS: {
             NAME: "小BOSS",
-            HEALTH: 200,
+            HEALTH: 600, // 原先200 * 3 = 600
             DAMAGE: 25,
             SPEED: 0.8,
             SIZE: 64,
@@ -270,7 +270,7 @@ const CONFIG = {
         },
         BOSS: {
             NAME: "大BOSS",
-            HEALTH: 1000,
+            HEALTH: 5000, // 原先1000 * 5 = 5000
             DAMAGE: 40,
             SPEED: 0.7,
             SIZE: 128,
