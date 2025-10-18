@@ -270,94 +270,114 @@ const UI = {
     
     // 顯示遊戲結束畫面
     showGameOverScreen: function() {
-        // 停止BGM，避免與影片音訊重疊
-        if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) {
-            AudioManager.stopAllMusic();
-        }
+        try { if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('game-over-screen').classList.remove('hidden');
-        
-        // 播放失敗影片（若為回退圖片則不播放，改用ended事件或定時器）
+    
         const el = document.getElementById('game-over-video');
+        const overlay = document.getElementById('game-over-overlay');
+        const playBtn = document.getElementById('game-over-play');
+    
+        if (!el) return;
+    
+        // 確保影片初始狀態
+        try { el.pause(); } catch (_) {}
+        el.muted = false;
+        el.loop = false;
+        el.currentTime = 0;
+    
+        // 結束事件：回到起始畫面並恢復選單音樂
+        const onEnded = () => {
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            Game.isGameOver = false;
+            try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (e) {}
+        };
+        el.addEventListener('ended', onEnded, { once: true });
+    
+        // 嘗試播放並處理瀏覽器手勢限制
         try {
-            if (el && typeof el.play === 'function') {
-                el.pause();
-                el.muted = false;
-                el.loop = false;
-                el.currentTime = 0;
-                el.play();
+            const p = el.play();
+            if (p && typeof p.then === 'function') {
+                p.then(() => {
+                    if (overlay) overlay.classList.add('hidden');
+                }).catch(() => {
+                    if (overlay) overlay.classList.remove('hidden');
+                });
             }
-        } catch (e) {
-            console.warn('播放遊戲結束影片失敗，將使用回退邏輯');
+        } catch (err) {
+            if (overlay) overlay.classList.remove('hidden');
         }
-        
-        // 結束後返回開始畫面（圖片回退會在main.js裡模擬ended事件）
-        if (el && typeof el.addEventListener === 'function') {
-            el.addEventListener('ended', () => {
-                document.getElementById('game-over-screen').classList.add('hidden');
-                document.getElementById('start-screen').classList.remove('hidden');
-                Game.isGameOver = false;
-                // 確保影片完全停止
-                if (typeof el.pause === 'function') { el.pause(); el.currentTime = 0; }
-                if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
-                    AudioManager.playMusic('menu_music');
-                }
-            }, { once: true });
+    
+        if (playBtn) {
+            playBtn.onclick = () => {
+                try {
+                    el.muted = false;
+                    el.loop = false;
+                    el.currentTime = 0;
+                    const p2 = el.play();
+                    if (overlay) overlay.classList.add('hidden');
+                    if (p2 && typeof p2.catch === 'function') {
+                        p2.catch(() => { if (overlay) overlay.classList.remove('hidden'); });
+                    }
+                } catch (_) { if (overlay) overlay.classList.remove('hidden'); }
+            };
         }
-        
-        // 設置自動返回開始畫面的定時器（3秒後）
-        setTimeout(() => {
-            if (document.getElementById('game-over-screen').classList.contains('hidden') === false) {
-                document.getElementById('game-over-screen').classList.add('hidden');
-                document.getElementById('start-screen').classList.remove('hidden');
-                // 重置遊戲狀態
-                Game.isGameOver = false;
-                if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
-                    AudioManager.playMusic('menu_music');
-                }
-            }
-        }, 3000);
     },
     
     // 顯示勝利畫面
     showVictoryScreen: function() {
-        // 停止BGM，避免與影片音訊重疊
-        if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) {
-            AudioManager.stopAllMusic();
-        }
+        try { if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('victory-screen').classList.remove('hidden');
-        
-        // 播放勝利影片（若為回退圖片則不播放，改用ended事件或定時器）
+    
         const el = document.getElementById('victory-video');
+        const overlay = document.getElementById('victory-overlay');
+        const playBtn = document.getElementById('victory-play');
+    
+        if (!el) return;
+    
+        try { el.pause(); } catch (_) {}
+        el.muted = false;
+        el.loop = false;
+        el.currentTime = 0;
+    
+        const onEnded = () => {
+            document.getElementById('victory-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            Game.isGameOver = false;
+            try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (e) {}
+        };
+        el.addEventListener('ended', onEnded, { once: true });
+    
         try {
-            if (el && typeof el.play === 'function') {
-                el.pause();
-                el.muted = false;
-                el.loop = false;
-                el.currentTime = 0;
-                el.play();
+            const p = el.play();
+            if (p && typeof p.then === 'function') {
+                p.then(() => {
+                    if (overlay) overlay.classList.add('hidden');
+                }).catch(() => {
+                    if (overlay) overlay.classList.remove('hidden');
+                });
             }
-        } catch (e) {
-            console.warn('播放勝利影片失敗，將使用回退邏輯');
+        } catch (err) {
+            if (overlay) overlay.classList.remove('hidden');
         }
-        
-        // 結束後返回開始畫面（圖片回退會在main.js裡模擬ended事件）
-        if (el && typeof el.addEventListener === 'function') {
-            el.addEventListener('ended', () => {
-                document.getElementById('victory-screen').classList.add('hidden');
-                document.getElementById('start-screen').classList.remove('hidden');
-                Game.isGameOver = false;
-                if (typeof el.pause === 'function') { el.pause(); el.currentTime = 0; }
-            }, { once: true });
-        } else {
-            // 最保險的回退：3秒後返回開始畫面
-            setTimeout(() => {
-                document.getElementById('victory-screen').classList.add('hidden');
-                document.getElementById('start-screen').classList.remove('hidden');
-            }, 3000);
+    
+        if (playBtn) {
+            playBtn.onclick = () => {
+                try {
+                    el.muted = false;
+                    el.loop = false;
+                    el.currentTime = 0;
+                    const p2 = el.play();
+                    if (overlay) overlay.classList.add('hidden');
+                    if (p2 && typeof p2.catch === 'function') {
+                        p2.catch(() => { if (overlay) overlay.classList.remove('hidden'); });
+                    }
+                } catch (_) { if (overlay) overlay.classList.remove('hidden'); }
+            };
         }
-    }
+    },
 };
 
 // 工具函數 - 洗牌數組
