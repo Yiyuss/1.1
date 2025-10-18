@@ -271,6 +271,7 @@ const UI = {
     // 顯示遊戲結束畫面
     showGameOverScreen: function() {
         try { if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
+        Game.pause(true);
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('game-over-screen').classList.remove('hidden');
     
@@ -289,6 +290,8 @@ const UI = {
         // 結束事件：回到起始畫面並恢復選單音樂
         const onEnded = () => {
             document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('character-select-screen').classList.add('hidden');
+            document.getElementById('map-select-screen').classList.add('hidden');
             document.getElementById('start-screen').classList.remove('hidden');
             Game.isGameOver = false;
             try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (e) {}
@@ -328,6 +331,7 @@ const UI = {
     // 顯示勝利畫面
     showVictoryScreen: function() {
         try { if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
+        Game.pause(true);
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('victory-screen').classList.remove('hidden');
     
@@ -344,6 +348,8 @@ const UI = {
     
         const onEnded = () => {
             document.getElementById('victory-screen').classList.add('hidden');
+            document.getElementById('character-select-screen').classList.add('hidden');
+            document.getElementById('map-select-screen').classList.add('hidden');
             document.getElementById('start-screen').classList.remove('hidden');
             Game.isGameOver = false;
             try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (e) {}
