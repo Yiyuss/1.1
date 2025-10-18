@@ -171,9 +171,11 @@ class Player extends Entity {
     }
     
     // 死亡
-    die() {
-        Game.gameOver();
-    }
+     die() {
+         if (Game.isGameOver || this._isDead) return;
+         this._isDead = true;
+         Game.gameOver();
+     }
     
     // 獲得經驗
     gainExperience(amount) {
