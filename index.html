@@ -237,11 +237,25 @@
         <div id="game-over-screen" class="screen hidden">
             <!-- 遊戲失敗影片 -->
             <video id="game-over-video" src="assets/videos/game_over.mp4" preload="auto" playsinline></video>
+            <!-- 覆蓋層：解決瀏覽器限制導致無聲/不播放的問題 -->
+            <div class="video-overlay hidden" id="game-over-overlay">
+                <div class="video-overlay-content">
+                    <div class="video-overlay-text">點擊播放影片</div>
+                    <button id="game-over-play" class="primary">播放</button>
+                </div>
+            </div>
         </div>
         
         <!-- 勝利畫面 -->
         <div id="victory-screen" class="screen hidden">
             <video id="victory-video" src="assets/videos/victory.mp4" preload="auto" playsinline></video>
+            <!-- 覆蓋層：解決瀏覽器限制導致無聲/不播放的問題 -->
+            <div class="video-overlay hidden" id="victory-overlay">
+                <div class="video-overlay-content">
+                    <div class="video-overlay-text">點擊播放影片</div>
+                    <button id="victory-play" class="primary">播放</button>
+                </div>
+            </div>
         </div>
     </div>
 
