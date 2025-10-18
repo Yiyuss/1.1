@@ -342,6 +342,14 @@ class Enemy extends Entity {
             Game.spawnChest(this.x, this.y);
         }
 
+        // 金幣獎勵（自動累積，不需撿取）
+        if (typeof Game !== 'undefined' && typeof Game.addCoins === 'function') {
+            let coinGain = 1;
+            if (this.type === 'MINI_BOSS') coinGain = 5;
+            else if (this.type === 'BOSS') coinGain = 15;
+            Game.addCoins(coinGain);
+        }
+
         // 如果是大BOSS，觸發勝利
         if (this.type === 'BOSS') {
             Game.victory();
