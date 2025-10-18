@@ -88,6 +88,19 @@ const Game = {
     
     // 更新遊戲狀態
     update: function(deltaTime) {
+        // 測試功能：按P鍵清除所有金幣
+        if (Input.isKeyDown('p') || Input.isKeyDown('P')) {
+            if (!this.pKeyPressed) {
+                this.coins = 0;
+                this.saveCoins();
+                UI.updateCoinsDisplay(this.coins);
+                console.log('測試功能：已清除所有金幣');
+                this.pKeyPressed = true;
+            }
+        } else {
+            this.pKeyPressed = false;
+        }
+        
         // 更新遊戲時間
         this.gameTime += deltaTime;
         // 正規化時間倍率，避免粒子/效果更新時發生未定義錯誤
@@ -545,6 +558,12 @@ const Game = {
         // 重置遊戲
         this.reset();
         
+        // 載入金幣並更新顯示
+        this.loadCoins();
+        if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
+            UI.updateCoinsDisplay(this.coins);
+        }
+        
         // 顯示遊戲畫面
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
@@ -624,6 +643,12 @@ const Game = {
         this.coins = (this.coins || 0) + inc;
         // 立即存檔以符合自動存檔需求
         try { this.saveCoins(); } catch (_) {}
+        // 更新遊戲介面金幣顯示
+        try {
+            if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
+                UI.updateCoinsDisplay(this.coins);
+            }
+        } catch (_) {}
         // 若技能頁打開，更新顯示
         try {
             if (typeof UI !== 'undefined' && UI.isSkillsMenuOpen && UI.isSkillsMenuOpen()) {
