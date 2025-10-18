@@ -44,26 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // 添加視頻結束事件處理
-    const gameOverVideo = document.getElementById('game-over-video');
-    gameOverVideo.addEventListener('ended', function() {
-        document.getElementById('game-over-screen').classList.add('hidden');
-        document.getElementById('start-screen').classList.remove('hidden');
-        Game.isGameOver = false;
-        Game.pause(false);
-        if (AudioManager.setMuted) AudioManager.setMuted(false);
-        if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
-    });
-    
-    const victoryVideo = document.getElementById('victory-video');
-    victoryVideo.addEventListener('ended', function() {
-        document.getElementById('victory-screen').classList.add('hidden');
-        document.getElementById('start-screen').classList.remove('hidden');
-        Game.isGameOver = false;
-        Game.pause(false);
-        if (AudioManager.setMuted) AudioManager.setMuted(false);
-        if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
-    });
+    // 影片結束事件改由 UI.showGameOverScreen / UI.showVictoryScreen 內管理，避免重複綁定與行為衝突
     
     // 創建預設的視頻文件
     createDefaultVideos();
