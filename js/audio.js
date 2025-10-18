@@ -30,7 +30,9 @@ const AudioManager = {
             { name: 'game_over', src: 'assets/audio/game_over.mp3' },
             { name: 'victory', src: 'assets/audio/victory.mp3' },
             { name: 'button_click', src: 'assets/audio/button_click.mp3' },
-            { name: 'button_click2', src: 'assets/audio/button_click2.mp3' }
+            { name: 'button_click2', src: 'assets/audio/button_click2.mp3' },
+            // 新增：Boss火彈命中玩家音效
+            { name: 'bo', src: 'assets/audio/bo.mp3' }
         ];
         
         // 音樂列表
