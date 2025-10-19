@@ -546,6 +546,9 @@ function setupTalentScreenToggle() {
     const talentScreen = document.getElementById('talent-select-screen');
     if (!charScreen || !talentScreen) return;
 
+    // 初始化天賦狀態
+    TalentSystem.init();
+
     if (openBtn) {
         openBtn.addEventListener('click', () => {
             if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
@@ -565,3 +568,275 @@ function setupTalentScreenToggle() {
         });
     }
 }
+
+// 天賦系統初始化
+function initTalentSystem() {
+    // 載入已解鎖的天賦
+    loadUnlockedTalents();
+    
+    // 綁定天賦卡點擊事件
+    const talentCards = document.querySelectorAll('#talent-select-screen .char-card.selectable');
+    talentCards.forEach(card => {
+        card.addEventListener('click', handleTalentCardClick);
+        card.addEventListener('dblclick', handleTalentCardDblClick);
+    });
+    
+    // 綁定天賦確認對話框按鈕
+    const confirmBtn = document.getElementById('talent-confirm-ok');
+    const cancelBtn = document.getElementById('talent-confirm-cancel');
+    
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', () => {
+            const activeCard = document.querySelector('#talent-select-screen .char-card.active');
+            if (activeCard) {
+                unlockTalent(activeCard.dataset.talentId);
+            }
+            hideTalentConfirm();
+        });
+    }
+    
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            hideTalentConfirm();
+        });
+    }
+    
+    // 空白鍵確認
+    document.addEventListener('keydown', (e) => {
+        if (e.key === ' ' && !document.getElementById('talent-confirm').classList.contains('hidden')) {
+            const activeCard = document.querySelector('#talent-select-screen .char-card.active');
+            if (activeCard) {
+                unlockTalent(activeCard.dataset.talentId);
+            }
+            hideTalentConfirm();
+        }
+    });
+}
+
+// 處理天賦卡點擊
+function handleTalentCardClick(e) {
+    const card = e.currentTarget;
+    
+    // 移除其他卡片的active狀態
+    document.querySelectorAll('#talent-select-screen .char-card.active').forEach(el => {
+        if (el !== card) el.classList.remove('active');
+    });
+    
+    // 切換當前卡片的active狀態
+    card.classList.toggle('active');
+    
+    // 更新預覽區
+    if (card.classList.contains('active')) {
+        updateTalentPreview(card);
+    }
+}
+
+// 處理天賦卡雙擊
+function handleTalentCardDblClick(e) {
+    const card = e.currentTarget;
+    
+    // 如果已解鎖，不需要確認
+    if (!card.classList.contains('locked')) return;
+    
+    // 顯示確認對話框
+    showTalentConfirm(card);
+}
+
+// 更新天賦預覽區
+function updateTalentPreview(card) {
+    const nameEl = document.getElementById('talent-preview-name');
+    const descEl = document.getElementById('talent-preview-desc');
+    const imgEl = document.getElementById('talent-preview-img');
+    
+    if (nameEl && card.querySelector('.char-name')) {
+        nameEl.textContent = card.querySelector('.char-name').textContent;
+    }
+    
+    if (descEl) {
+        if (card.dataset.talentId === 'hp_boost') {
+            descEl.textContent = '增加初始生命值20點，讓你在遊戲中更加耐久。';
+        } else {
+            descEl.textContent = '這是一個天賦描述。';
+        }
+    }
+    
+    if (imgEl && card.querySelector('img')) {
+        imgEl.src = card.querySelector('img').src;
+        // 如果卡片是鎖定狀態，預覽圖也應該是灰色
+        if (card.classList.contains('locked')) {
+            imgEl.classList.add('grayscale');
+        } else {
+            imgEl.classList.remove('grayscale');
+        }
+    }
+}
+
+// 顯示天賦確認對話框
+function showTalentConfirm(card) {
+    const confirmEl = document.getElementById('talent-confirm');
+    const titleEl = document.getElementById('talent-confirm-title');
+    const descEl = document.getElementById('talent-confirm-desc');
+    
+    if (!confirmEl) return;
+    
+    // 設置當前選中的卡片為active
+    document.querySelectorAll('#talent-select-screen .char-card.active').forEach(el => {
+        el.classList.remove('active');
+    });
+    card.classList.add('active');
+    
+    // 更新對話框內容
+    if (titleEl && card.querySelector('.char-name')) {
+        titleEl.textContent = `解鎖 ${card.querySelector('.char-name').textContent}`;
+    }
+    
+    if (descEl) {
+        descEl.textContent = '使用500金幣解鎖天賦？';
+    }
+    
+    // 顯示對話框
+    confirmEl.classList.remove('hidden');
+}
+
+// 隱藏天賦確認對話框
+function hideTalentConfirm() {
+    const confirmEl = document.getElementById('talent-confirm');
+    if (confirmEl) {
+        confirmEl.classList.add('hidden');
+    }
+}
+
+// 解鎖天賦
+function unlockTalent(talentId) {
+    // 檢查金幣是否足夠
+    if (Game.coins < 500) {
+        alert('金幣不足！');
+        AudioManager.playSound('button_click');
+        return;
+    }
+    
+    // 扣除金幣
+    Game.coins -= 500;
+    Game.saveCoins();
+    
+    // 播放音效
+    AudioManager.playSound('button_click');
+    
+    // 更新UI
+    if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
+        UI.updateCoinsDisplay(Game.coins);
+    }
+    
+    // 保存已解鎖的天賦
+    saveUnlockedTalent(talentId);
+    
+    // 更新天賦卡片外觀
+    updateTalentCardAppearance(talentId);
+    
+    // 更新預覽區
+    const card = document.querySelector(`#talent-select-screen .char-card[data-talent-id="${talentId}"]`);
+    if (card) {
+        updateTalentPreview(card);
+    }
+    
+    // 更新ESC選單中的天賦列表
+    if (typeof UI !== 'undefined' && UI.updateTalentsList) {
+        UI.updateTalentsList();
+    }
+    
+    // 提示玩家天賦已解鎖
+    alert(`天賦已解鎖！${talentId === 'hp_boost' ? '初始生命值+20' : ''}`);
+}
+
+// 保存已解鎖的天賦
+function saveUnlockedTalent(talentId) {
+    try {
+        const key = 'unlocked_talents';
+        let unlockedTalents = [];
+        
+        // 讀取已有的解鎖天賦
+        const stored = localStorage.getItem(key);
+        if (stored) {
+            try {
+                unlockedTalents = JSON.parse(stored);
+            } catch (e) {
+                unlockedTalents = [];
+            }
+        }
+        
+        // 添加新解鎖的天賦
+        if (!unlockedTalents.includes(talentId)) {
+            unlockedTalents.push(talentId);
+        }
+        
+        // 保存到本地存儲
+        localStorage.setItem(key, JSON.stringify(unlockedTalents));
+    } catch (e) {
+        console.error('保存天賦失敗:', e);
+    }
+}
+
+// 載入已解鎖的天賦
+function loadUnlockedTalents() {
+    try {
+        const key = 'unlocked_talents';
+        const stored = localStorage.getItem(key);
+        
+        if (stored) {
+            try {
+                const unlockedTalents = JSON.parse(stored);
+                console.log('載入已解鎖天賦:', unlockedTalents);
+                
+                // 更新每個已解鎖天賦的外觀
+                unlockedTalents.forEach(talentId => {
+                    updateTalentCardAppearance(talentId);
+                });
+                
+                // 確保天賦效果在遊戲開始時立即生效
+                if (typeof Game !== 'undefined' && Game.player) {
+                    applyTalentEffects(Game.player);
+                }
+            } catch (e) {
+                console.error('解析已解鎖天賦失敗:', e);
+            }
+        } else {
+            console.log('未找到已解鎖天賦數據');
+        }
+    } catch (e) {
+        console.error('載入天賦失敗:', e);
+    }
+}
+
+// 應用天賦效果到玩家身上
+function applyTalentEffects(player) {
+    if (!player) return;
+    
+    try {
+        const unlockedTalents = JSON.parse(localStorage.getItem('unlocked_talents') || '[]');
+        console.log('應用天賦效果:', unlockedTalents);
+        
+        // 應用生命強化天賦
+        if (unlockedTalents.includes('hp_boost')) {
+            const healthBoost = 20;
+            // 只有在玩家血量等於最大血量時才增加當前血量
+            // 這樣可以避免在遊戲中途重複增加血量
+            if (player.health === player.maxHealth) {
+                player.health += healthBoost;
+            }
+            player.maxHealth += healthBoost;
+            console.log(`已應用生命強化天賦，當前血量: ${player.health}/${player.maxHealth}`);
+            
+            // 更新UI
+            if (typeof UI !== 'undefined' && UI.updateHealthBar) {
+                UI.updateHealthBar(player.health, player.maxHealth);
+            }
+        }
+        
+        // 未來可以在這裡添加更多天賦效果
+        
+    } catch (e) {
+        console.error('應用天賦效果失敗:', e);
+    }
+}
+
+// 天賦卡片外觀更新功能已移至 TalentSystem 模塊
