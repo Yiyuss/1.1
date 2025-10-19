@@ -10,6 +10,7 @@ const Game = {
     experienceOrbs: [],
     chests: [],
     obstacles: [],
+    decorations: [],
     lastUpdateTime: 0,
     gameTime: 0,
     isPaused: false,
@@ -302,6 +303,21 @@ const Game = {
     
     // 繪製所有實體
     drawEntities: function() {
+        // 繪製地圖裝飾（非碰撞）
+        if (this.decorations && this.decorations.length) {
+            for (const deco of this.decorations) {
+                const img = (this.images || Game.images || {})[deco.imageKey];
+                const drawX = deco.x - deco.width / 2;
+                const drawY = deco.y - deco.height / 2;
+                if (img) {
+                    this.ctx.drawImage(img, drawX, drawY, deco.width, deco.height);
+                } else {
+                    this.ctx.fillStyle = '#666';
+                    this.ctx.fillRect(drawX, drawY, deco.width, deco.height);
+                }
+            }
+        }
+
         // 繪製障礙物
         if (this.obstacles && this.obstacles.length) {
             for (const obs of this.obstacles) {
@@ -508,6 +524,7 @@ const Game = {
         this.experienceOrbs = [];
         this.chests = [];
         this.obstacles = [];
+        this.decorations = [];
         this.gameTime = 0;
         this.isPaused = false;
         this.isGameOver = false;
@@ -579,6 +596,8 @@ const Game = {
 
         // 生成障礙物（3個S1與3個S2）
         this.spawnObstacles();
+        // 生成地圖裝飾（各1個S3–S8）
+        this.spawnDecorations();
         
         // 重置時間
         this.lastUpdateTime = Date.now();
@@ -638,6 +657,48 @@ const Game = {
                 tryPlace(t);
             }
         }
+    }
+    ,
+    // 生成地圖裝飾（各1個S3–S8，隨機不重疊）
+    spawnDecorations: function() {
+        const specs = {
+            S3: { w: 228, h: 70 },
+            S4: { w: 184, h: 80 },
+            S5: { w: 102, h: 70 },
+            S6: { w: 200, h: 156 },
+            S7: { w: 100, h: 78 },
+            S8: { w: 130, h: 101 }
+        };
+        const types = ['S3','S4','S5','S6','S7','S8'];
+        const margin = 12;
+        const minPlayerDist = 0;
+        const rectOverlap = (ax, ay, aw, ah, bx, by, bw, bh, m = 0) => {
+            const halfAw = aw / 2, halfAh = ah / 2, halfBw = bw / 2, halfBh = bh / 2;
+            return Math.abs(ax - bx) < (halfAw + halfBw + m) && Math.abs(ay - by) < (halfAh + halfBh + m);
+        };
+        const tryPlace = (key) => {
+            const spec = specs[key];
+            const halfW = spec.w / 2;
+            const halfH = spec.h / 2;
+            let attempts = 0;
+            while (attempts++ < 200) {
+                const x = Utils.randomInt(halfW, this.worldWidth - halfW);
+                const y = Utils.randomInt(halfH, this.worldHeight - halfH);
+                if (minPlayerDist > 0 && Utils.distance(x, y, this.player.x, this.player.y) < minPlayerDist) continue;
+                let overlap = false;
+                for (const d of this.decorations) {
+                    if (rectOverlap(x, y, spec.w, spec.h, d.x, d.y, d.width, d.height, margin)) { overlap = true; break; }
+                }
+                if (overlap) continue;
+                for (const o of this.obstacles) {
+                    if (rectOverlap(x, y, spec.w, spec.h, o.x, o.y, o.width, o.height, margin)) { overlap = true; break; }
+                }
+                if (overlap) continue;
+                this.decorations.push({ x, y, width: spec.w, height: spec.h, imageKey: key });
+                break;
+            }
+        };
+        for (const t of types) { tryPlace(t); }
     }
     ,
     // 金幣：載入
