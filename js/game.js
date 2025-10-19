@@ -51,6 +51,25 @@ const Game = {
         // 創建玩家（世界中心）
         this.player = new Player(this.worldWidth / 2, this.worldHeight / 2);
         
+        // 應用天賦效果 - 確保在玩家創建後立即應用
+        try {
+            console.log('玩家創建前血量:', this.player.health, '/', this.player.maxHealth);
+            
+            if (typeof TalentSystem !== 'undefined' && typeof TalentSystem.applyTalentEffects === 'function') {
+                console.log('正在應用天賦效果到玩家身上...');
+                TalentSystem.applyTalentEffects(this.player);
+            } else if (typeof applyTalentEffects === 'function') {
+                console.log('使用全局函數應用天賦效果...');
+                applyTalentEffects(this.player);
+            } else {
+                console.warn('找不到天賦系統或應用函數');
+            }
+            
+            console.log('玩家創建後血量:', this.player.health, '/', this.player.maxHealth);
+        } catch (e) {
+            console.error('應用天賦效果失敗:', e);
+        }
+        
         // 初始化波次系統
         WaveSystem.init();
         
