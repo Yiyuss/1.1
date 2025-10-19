@@ -547,6 +547,18 @@ const Game = {
         
         // 重置UI
         UI.init();
+        
+        // 應用天賦效果 - 確保在玩家創建後應用
+        try {
+            console.log('重置遊戲後應用天賦效果...');
+            if (typeof TalentSystem !== 'undefined' && typeof TalentSystem.applyTalentEffects === 'function') {
+                TalentSystem.applyTalentEffects(this.player);
+            } else if (typeof applyTalentEffects === 'function') {
+                applyTalentEffects(this.player);
+            }
+        } catch (e) {
+            console.error('應用天賦效果失敗:', e);
+        }
 
         // 設定左上角玩家頭像（依選角顯示），預設為 player.png
         const avatarEl = document.getElementById('player-avatar-img');
