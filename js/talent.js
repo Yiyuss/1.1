@@ -119,9 +119,10 @@ const TalentSystem = {
             }
         }
         
-        if (imgEl && card.querySelector('img')) {
-            imgEl.src = card.querySelector('img').src;
-            // 如果卡片是鎖定狀態，預覽圖也應該是灰色
+        if (imgEl) {
+            // 固定使用 GM.png 作為天賦預覽圖
+            imgEl.src = 'assets/images/GM.png';
+            // 若卡片為鎖定狀態，預覽圖維持灰階；否則恢復
             if (card.classList.contains('locked')) {
                 imgEl.classList.add('grayscale');
             } else {
