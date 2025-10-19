@@ -647,12 +647,18 @@ body {
 }
 .top-left-icon-btn:hover { transform: scale(1.03); }
 
-/* Mobile-only adjustments for top-left icon (no impact on PC) */
+/* Mobile-only adjustments for top-left icon (higher specificity, no PC impact) */
+@media (max-width: 900px) {
+  #character-select-screen .top-left-icon-btn,
+  #talent-select-screen .top-left-icon-btn { width: 80px; top: 8px; left: 8px; }
+}
 @media (max-width: 700px) {
-  .top-left-icon-btn { width: 80px; top: 12px; left: 12px; }
+  #character-select-screen .top-left-icon-btn,
+  #talent-select-screen .top-left-icon-btn { width: 72px; top: 6px; left: 6px; }
 }
 @media (max-width: 480px) {
-  .top-left-icon-btn { width: 64px; top: 8px; left: 8px; }
+  #character-select-screen .top-left-icon-btn,
+  #talent-select-screen .top-left-icon-btn { width: 60px; top: 4px; left: 4px; }
 }
 
 /* 天賦介面：補上最底層背景 background2.jpg */
