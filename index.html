@@ -289,9 +289,9 @@
                 <h1 class="char-title">天賦</h1>
                 <p class="char-subtitle">提示：本頁為範例介面</p>
                 <div class="char-grid talent-grid">
-                    <button class="char-card selectable">
-                        <img src="assets/images/test.png" alt="範例天賦" />
-                        <div class="char-name">範例</div>
+                    <button class="char-card selectable locked" data-talent-id="hp_boost">
+                        <img src="assets/images/test.png" alt="生命強化" class="grayscale" />
+                        <div class="char-name">生命強化</div>
                     </button>
                     <!-- 其他 11 個格子 -->
                     <div class="char-card"></div>
@@ -313,6 +313,18 @@
                         <div class="char-preview-name" id="talent-preview-name">範例天賦</div>
                         <div class="char-preview-desc" id="talent-preview-desc">這裡會顯示天賦介紹（範例）。</div>
                         <div class="char-hint">提示：右上角可返回選角</div>
+                    </div>
+                </div>
+                
+                <!-- 天賦解鎖確認彈窗 -->
+                <div id="talent-confirm" class="hidden">
+                    <div class="talent-dialog">
+                        <div class="talent-dialog-title" id="talent-confirm-title">解鎖天賦</div>
+                        <div class="talent-dialog-desc" id="talent-confirm-desc">使用500金幣解鎖天賦？</div>
+                        <div class="talent-dialog-actions">
+                            <button id="talent-confirm-ok" class="primary">確認</button>
+                            <button id="talent-confirm-cancel" class="ghost">取消</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -340,6 +352,7 @@
     <script src="js/ui.js"></script>
     <script src="js/level.js"></script>
     <script src="js/wave.js"></script>
+    <script src="js/talent.js"></script>
     <script src="js/game.js"></script>
     <script src="js/main.js"></script>
 </body>
@@ -382,7 +395,7 @@
                     <div class="char-preview-info">
                         <div class="char-preview-name" id="talent-preview-name">範例天賦</div>
                         <div class="char-preview-desc" id="talent-preview-desc">這裡會顯示天賦介紹（範例）。</div>
-                        <div class="char-hint">提示：右上角可返回選角</div>
+                        <div class="char-hint">提示：左上角可返回選角</div>
                     </div>
                 </div>
             </div>
