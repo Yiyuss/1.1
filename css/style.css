@@ -647,6 +647,14 @@ body {
 }
 .top-left-icon-btn:hover { transform: scale(1.03); }
 
+/* Mobile-only adjustments for top-left icon (no impact on PC) */
+@media (max-width: 700px) {
+  .top-left-icon-btn { width: 80px; top: 12px; left: 12px; }
+}
+@media (max-width: 480px) {
+  .top-left-icon-btn { width: 64px; top: 8px; left: 8px; }
+}
+
 /* 天賦介面：補上最底層背景 background2.jpg */
 #talent-select-screen {
   background:
