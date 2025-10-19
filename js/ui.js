@@ -148,6 +148,8 @@ const UI = {
         Game.pause(false);
         // 建構技能清單
         this.updateSkillsList();
+        // 更新天賦清單
+        this.updateTalentsList();
         // 更新金幣顯示
         this.updateCoins(Game.coins || 0);
         this.skillsMenu.classList.remove('hidden');
@@ -229,6 +231,84 @@ const UI = {
         if (this.skillsSoundSlider && this.skillsSoundText) {
             this.skillsSoundSlider.value = (typeof AudioManager !== 'undefined' ? AudioManager.soundVolume : 0.7);
             this.skillsSoundText.textContent = Math.round(this.skillsSoundSlider.value * 100) + '%';
+        }
+    },
+    
+    // 更新天賦列表
+    updateTalentsList: function() {
+        // 檢查天賦列表元素是否存在
+        if (!this.talentsList) {
+            // 如果不存在，創建天賦列表區域
+            const talentsSection = document.createElement('div');
+            talentsSection.className = 'talents-section';
+            
+            const talentsTitle = document.createElement('h3');
+            talentsTitle.className = 'talents-title';
+            talentsTitle.textContent = '已解鎖天賦';
+            talentsSection.appendChild(talentsTitle);
+            
+            this.talentsList = document.createElement('div');
+            this.talentsList.id = 'talents-list';
+            this.talentsList.className = 'talents-list';
+            talentsSection.appendChild(this.talentsList);
+            
+            // 將天賦區域添加到技能選單中
+            if (this.skillsMenu) {
+                // 找到音量控制區域，在其前面插入天賦區域
+                const volumeSection = this.skillsMenu.querySelector('.volume-section');
+                if (volumeSection) {
+                    this.skillsMenu.insertBefore(talentsSection, volumeSection);
+                } else {
+                    // 如果找不到音量區域，直接添加到選單末尾
+                    this.skillsMenu.appendChild(talentsSection);
+                }
+            }
+        }
+        
+        // 清空現有天賦列表
+        this.talentsList.innerHTML = '';
+        
+        try {
+            // 從本地存儲獲取已解鎖的天賦
+            const unlockedTalents = JSON.parse(localStorage.getItem('unlocked_talents') || '[]');
+            
+            if (unlockedTalents.length === 0) {
+                const emptyTalent = document.createElement('div');
+                emptyTalent.className = 'talent-empty';
+                emptyTalent.textContent = '尚未解鎖任何天賦';
+                this.talentsList.appendChild(emptyTalent);
+                return;
+            }
+            
+            // 添加每個已解鎖的天賦
+            unlockedTalents.forEach(talentId => {
+                const talentItem = document.createElement('div');
+                talentItem.className = 'talent-item';
+                
+                // 根據天賦ID設置顯示名稱和描述
+                let talentName = '未知天賦';
+                let talentDesc = '';
+                
+                if (talentId === 'hp_boost') {
+                    talentName = '生命強化';
+                    talentDesc = '增加初始生命值20點';
+                } else if (talentId === 'damage_boost') {
+                    talentName = '攻擊強化';
+                    talentDesc = '增加所有武器傷害10%';
+                } else if (talentId === 'speed_boost') {
+                    talentName = '速度強化';
+                    talentDesc = '增加移動速度15%';
+                }
+                
+                talentItem.innerHTML = `<div class="talent-name">${talentName}</div><div class="talent-desc">${talentDesc}</div>`;
+                this.talentsList.appendChild(talentItem);
+            });
+        } catch (e) {
+            console.error('載入天賦失敗:', e);
+            const errorItem = document.createElement('div');
+            errorItem.className = 'talent-error';
+            errorItem.textContent = '載入天賦失敗';
+            this.talentsList.appendChild(errorItem);
         }
     },
     
