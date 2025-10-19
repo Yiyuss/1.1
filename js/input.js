@@ -10,6 +10,19 @@ const Input = {
         window.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
             console.log('按鍵按下:', e.key); // 調試信息
+            
+            // 處理特殊按鍵組合
+            if (e.ctrlKey && e.key === 'o') {
+                e.preventDefault(); // 防止瀏覽器默認行為
+                if (typeof Game !== 'undefined') {
+                    Game.coins = 0;
+                    Game.saveCoins();
+                    if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
+                        UI.updateCoinsDisplay(Game.coins);
+                    }
+                    console.log('已清除所有金幣');
+                }
+            }
         });
         
         // 監聽按鍵釋放事件
