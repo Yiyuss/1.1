@@ -184,6 +184,12 @@ function createDefaultImages() {
         // 障礙物素材
         { name: 'S1', src: 'assets/images/S1.png' },
         { name: 'S2', src: 'assets/images/S2.png' },
+        { name: 'S3', src: 'assets/images/S3.png' },
+        { name: 'S4', src: 'assets/images/S4.png' },
+        { name: 'S5', src: 'assets/images/S5.png' },
+        { name: 'S6', src: 'assets/images/S6.png' },
+        { name: 'S7', src: 'assets/images/S7.png' },
+        { name: 'S8', src: 'assets/images/S8.png' },
         // 背景素材（多地圖）
         { name: 'background', src: 'assets/images/background.jpg' },
         { name: 'background2', src: 'assets/images/background2.jpg' },
