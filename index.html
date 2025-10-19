@@ -332,71 +332,45 @@
     </div>
 
     <!-- 遊戲腳本 -->
-    <script src="js/config.js"></script>
     <script src="js/utils.js"></script>
-    <script src="js/audio.js"></script>
+    <!-- 配置文件 -->
+    <script src="js/config-game.js"></script>
+    <script src="js/config-player.js"></script>
+    <script src="js/config-weapons.js"></script>
+    <script src="js/config-enemies.js"></script>
+    <script src="js/config-main.js"></script>
+    <script src="js/config.js"></script>
+    <!-- 系統模塊 -->
+    <script src="js/event-system.js"></script>
+    <script src="js/buff-system.js"></script>
     <script src="js/input.js"></script>
     <script src="js/entity.js"></script>
     <script src="js/obstacle.js"></script>
-    <script src="js/player.js"></script>
-    <script src="js/enemy.js"></script>
+    <script src="js/audio.js"></script>
     <script src="js/orbit.js"></script>
     <script src="js/laser.js"></script>
     <script src="js/sing.js"></script>
     <script src="js/chain_lightning.js"></script>
-    <script src="js/weapon.js"></script>
-    <script src="js/projectile.js"></script>
     <script src="js/boss_projectile.js"></script>
     <script src="js/experience.js"></script>
     <script src="js/chest.js"></script>
+    <!-- UI組件 -->
+    <script src="js/ui-health.js"></script>
+    <script src="js/ui-exp.js"></script>
+    <script src="js/ui-energy.js"></script>
+    <script src="js/ui-game.js"></script>
+    <script src="js/ui-menu.js"></script>
     <script src="js/ui.js"></script>
-    <script src="js/level.js"></script>
+    <script src="js/ui-main.js"></script>
     <script src="js/wave.js"></script>
+    <!-- 遊戲核心 -->
     <script src="js/talent.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/enemy.js"></script>
+    <script src="js/projectile.js"></script>
+    <script src="js/weapon.js"></script>
     <script src="js/game.js"></script>
+    <script src="js/integration.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>
-
-
-
-
-
-        <!-- 天賦介面 -->
-        <div id="talent-select-screen" class="screen hidden">
-            <div class="char-card-wrap">
-                <!-- 右上角返回選角按鈕（talent2.png） -->
-                <button id="talent-back" class="top-right-icon-btn" aria-label="返回選角介面">
-                    <img src="assets/images/talent2.png" alt="返回選角" />
-                </button>
-                <h1 class="char-title">天賦</h1>
-                <p class="char-subtitle">提示：本頁為範例介面</p>
-                <div class="char-grid talent-grid">
-                    <button class="char-card selectable">
-                        <img src="assets/images/test.png" alt="範例天賦" />
-                        <div class="char-name">範例</div>
-                    </button>
-                    <!-- 其他 11 個格子 -->
-                    <div class="char-card"></div>
-                    <div class="char-card"></div>
-                    <div class="char-card"></div>
-                    <div class="char-card"></div>
-                    <div class="char-card"></div>
-                    <div class="char-card"></div>
-                    <div class="char-card"></div>
-                    <div class="char-card"></div>
-                    <div class="char-card"></div>
-                    <div class="char-card"></div>
-                </div>
-                <div class="char-preview" id="talent-preview" aria-live="polite">
-                    <div class="char-preview-image">
-                        <img id="talent-preview-img" src="assets/images/test.png" alt="預覽" />
-                    </div>
-                    <div class="char-preview-info">
-                        <div class="char-preview-name" id="talent-preview-name">範例天賦</div>
-                        <div class="char-preview-desc" id="talent-preview-desc">這裡會顯示天賦介紹（範例）。</div>
-                        <div class="char-hint">提示：左上角可返回選角</div>
-                    </div>
-                </div>
-            </div>
-        </div>
