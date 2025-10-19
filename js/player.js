@@ -3,8 +3,11 @@ class Player extends Entity {
     constructor(x, y) {
         super(x, y, CONFIG.PLAYER.SIZE, CONFIG.PLAYER.SIZE);
         this.speed = CONFIG.PLAYER.SPEED;
+        
+        // 基礎屬性
         this.maxHealth = CONFIG.PLAYER.MAX_HEALTH;
         this.health = this.maxHealth;
+        console.log(`玩家初始血量: ${this.health}/${this.maxHealth}`);
         this.collisionRadius = CONFIG.PLAYER.COLLISION_RADIUS;
         this.level = 1;
         this.experience = 0;
@@ -13,6 +16,12 @@ class Player extends Entity {
         this.isInvulnerable = false;
         this.invulnerabilityTime = 0;
         this.invulnerabilityDuration = 1000; // 受傷後1秒無敵時間
+        
+        // 增益系統 - 存儲所有持續性增益效果
+        this.buffs = {
+            hp_boost: false,  // 生命強化
+            // 未來可以添加更多增益
+        };
 
         // 受傷紅閃效果
         this.hitFlashTime = 0;
