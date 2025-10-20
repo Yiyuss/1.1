@@ -1,4 +1,15 @@
 // 遊戲主引擎
+/**
+ * Game（遊戲主引擎）
+ * 職責：主迴圈、更新與繪製、資源管理、實體管理、遊戲狀態維護。
+ * 依賴：Input、UI、WaveSystem、Player、Enemy、Projectile、BossProjectile、Obstacle、Chest、Experience、Utils、CONFIG、Audio。
+ * 不變式與注意：
+ * - 玩家與武器在每幀會更新兩次（歷史節奏設計）；請勿移除或更改順序。
+ * - 相機夾限、世界邊界與格線、背景平鋪等尺寸與邏輯不可更動。
+ * - 金幣儲存鍵 `game_coins` 與即時 UI 更新流程不可更動。
+ * - 所有人眼可見文字與排版不可改（除非另行要求）。
+ * 版本：維持現行遊戲數值與行為；作者：原始專案作者 + 維護。
+ */
 const Game = {
     canvas: null,
     ctx: null,
@@ -107,6 +118,12 @@ const Game = {
     },
     
     // 更新遊戲狀態
+    /**
+     * 更新邏輯（每幀）
+     * - 不變式：玩家與武器更新各執行兩次，順序不可更動。
+     * - 依賴：Input（熱鍵）、UI（計時器）、WaveSystem（波次）、Utils（相機夾限）。
+     * - 提醒：任何看似重複的更新皆為設計需要，請勿合併或刪除。
+     */
     update: function(deltaTime) {
         // 測試功能：按Ctrl+P增加99999金幣
         const ctrlDown = Input.isKeyDown('Control');
@@ -126,17 +143,9 @@ const Game = {
         // 正規化時間倍率，避免粒子/效果更新時發生未定義錯誤
         const deltaMul = deltaTime / 16.67;
         
-        // 更新玩家
-        if (this.player) {
-            this.player.update(deltaTime);
-        }
-        
-        // 更新所有武器
-        if (this.player && this.player.weapons) {
-            for (const weapon of this.player.weapons) {
-                weapon.update(deltaTime);
-            }
-        }
+        // 更新玩家與武器（第一次，保留歷史節奏）
+        this._updatePlayer(deltaTime);
+        this._updateWeapons(deltaTime);
         
         // 更新UI計時器
         UI.updateTimer(this.gameTime);
@@ -144,17 +153,15 @@ const Game = {
         // 更新波次系統
         WaveSystem.update(deltaTime);
         
-        // 更新玩家
-        this.player.update(deltaTime);
+        // 更新玩家（第二次，保留歷史節奏）
+        this._updatePlayer(deltaTime);
 
         // 更新鏡頭位置（跟隨玩家，並夾限在世界邊界）
         this.camera.x = Utils.clamp(this.player.x - this.canvas.width / 2, 0, Math.max(0, this.worldWidth - this.canvas.width));
         this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
         
-        // 更新玩家武器
-        for (const weapon of this.player.weapons) {
-            weapon.update(deltaTime);
-        }
+        // 更新武器（第二次，保留歷史節奏）
+        this._updateWeapons(deltaTime);
         
         // 更新敵人
         for (let i = this.enemies.length - 1; i >= 0; i--) {
@@ -261,6 +268,22 @@ const Game = {
         this.optimizeEntities();
     },
     
+    /** 私有：更新玩家（保留雙次更新的歷史節奏；請勿更改） */
+    _updatePlayer: function(deltaTime) {
+        if (this.player) {
+            this.player.update(deltaTime);
+        }
+    },
+
+    /** 私有：更新武器（保留雙次更新的歷史節奏；請勿更改） */
+    _updateWeapons: function(deltaTime) {
+        if (this.player && this.player.weapons) {
+            for (const weapon of this.player.weapons) {
+                weapon.update(deltaTime);
+            }
+        }
+    },
+
     // 繪製遊戲
     draw: function() {
         // 清空畫布
@@ -620,6 +643,12 @@ const Game = {
     }
     ,
     // 生成障礙物：3x3世界中隨機位置，不重疊也不卡住玩家
+    /**
+     * 生成障礙物
+     * 依賴：Obstacle、Utils、圖片鍵 'S1','S2'。
+     * 不變式：size=150、clearance=95、minPlayerDist=220、counts={S1:3,S2:3}；請勿更改。
+     * 設計：避免與玩家過近、避免與既有障礙重疊。
+     */
     spawnObstacles: function() {
         const size = 150;
         const half = size / 2;
@@ -660,6 +689,12 @@ const Game = {
     }
     ,
     // 生成地圖裝飾（各1個S3–S8，隨機不重疊）
+    /**
+     * 生成地圖裝飾（S3–S8各1）
+     * 依賴：圖片鍵 'S3'..'S8' 尺寸規格（specs）、Utils。
+     * 不變式：specs 尺寸、margin=12、types=['S3','S4','S5','S6','S7','S8']；請勿更改。
+     * 設計：避免與障礙與既有裝飾矩形重疊；允許靠近玩家。
+     */
     spawnDecorations: function() {
         const specs = {
             S3: { w: 228, h: 70 },
@@ -702,6 +737,11 @@ const Game = {
     }
     ,
     // 金幣：載入
+    /**
+     * 載入金幣
+     * 依賴：localStorage 鍵 'game_coins'。
+     * 不變式：鍵名與容錯策略不可更動（失敗時保留現值）。
+     */
     loadCoins: function() {
         try {
             const key = 'game_coins';
@@ -720,6 +760,11 @@ const Game = {
     },
 
     // 金幣：存檔
+    /**
+     * 存檔金幣
+     * 依賴：localStorage 鍵 'game_coins'。
+     * 不變式：鍵名、整數化與非負處理不可更動；忽略存檔錯誤。
+     */
     saveCoins: function() {
         try {
             const key = 'game_coins';
@@ -730,6 +775,11 @@ const Game = {
     },
 
     // 金幣：增加並即時存檔
+    /**
+     * 增加金幣並立即存檔
+     * 不變式：僅接受非負整數增量；立即呼叫 saveCoins；更新 UI（若提供）。
+     * 依賴：UI.updateCoinsDisplay（存在時）。
+     */
     addCoins: function(amount) {
         const inc = Math.max(0, Math.floor(amount || 0));
         this.coins = (this.coins || 0) + inc;
