@@ -562,6 +562,11 @@ function setupTalentScreenToggle() {
             }
             charScreen.classList.add('hidden');
             talentScreen.classList.remove('hidden');
+            // 使 UI.updateCoinsDisplay 指向天賦頁的金幣數字
+            UI.coinsText = document.getElementById('talent-coins-text');
+            if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
+                UI.updateCoinsDisplay(Game.coins || 0);
+            }
         });
     }
     if (backBtn) {
@@ -571,6 +576,11 @@ function setupTalentScreenToggle() {
             }
             talentScreen.classList.add('hidden');
             charScreen.classList.remove('hidden');
+            // 復原 UI.updateCoinsDisplay 指向遊戲頁金幣數字
+            UI.coinsText = document.getElementById('coins-text');
+            if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
+                UI.updateCoinsDisplay(Game.coins || 0);
+            }
         });
     }
 }
