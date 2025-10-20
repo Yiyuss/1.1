@@ -7,6 +7,25 @@
 :root {
     /* 遊戲UI縮放（由JS設置），用於在手機上自適應元素尺寸 */
     --ui-scale: 1;
+
+    /*
+     維護指南（CSS變數與基礎樣式）
+     - 目的：以共用變數抽象重覆的背景、邊框與陰影，避免樣式膨脹與覆蓋錯誤。
+     - 使用範例：
+       • 背景遮罩：使用 `var(--overlay-grad)` 套在整頁背景（start/character/talent）。
+       • 面板背景：使用 `var(--panel-bg)`（或 `var(--panel-grad)` 作卡片漸層），搭配 `var(--border-soft)` 與 `var(--shadow-lg)`。
+       • 霧化：統一使用 `backdrop-filter: blur(var(--blur-6))`。
+     - 新增頁面時：先選擇對應「基礎面板」類型（dialog/panel/card），再以小範圍覆蓋，不要複製整段樣式。
+     - RWD：盡量沿用既有斷點（900/700/480px），同一模組的RWD集中於一處，避免跨檔重覆。
+     */
+    /* 共用色彩/材質變數：避免重複定義導致樣式膨脹 */
+    --overlay-grad: linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.65) 100%);
+    --panel-grad: linear-gradient(180deg, rgba(10,20,30,0.75) 0%, rgba(10,20,30,0.7) 50%, rgba(10,20,30,0.75) 100%);
+    --panel-bg: rgba(20, 30, 40, 0.92);
+    --border-soft: 1px solid rgba(255,255,255,0.12);
+    --card-border: 1px solid rgba(255,255,255,0.15);
+    --shadow-lg: 0 12px 30px rgba(0,0,0,0.5);
+    --blur-6: 6px;
 }
 
 body {
@@ -36,8 +55,9 @@ body {
     z-index: 10;
 }
 
+/* 全域隱藏規則：任何元素套用 .hidden 皆強制不顯示 */
 .hidden {
-    display: none;
+    display: none !important;
 }
 
 #start-screen {
@@ -54,10 +74,11 @@ body {
     filter: blur(2px) brightness(0.9) saturate(1.1);
 }
 
+/* 開始畫面遮罩：共用漸層避免重複定義 */
 .start-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.65) 100%);
+    background: var(--overlay-grad);
 }
 
 .start-card {
@@ -445,16 +466,18 @@ body {
 @media (max-width: 480px) {
   #character-select-screen .char-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* 角色選擇畫面背景：使用共用遮罩漸層搭配 background2.jpg */
 #character-select-screen {
     background:
-        linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.65) 100%),
+        var(--overlay-grad),
         url('../assets/images/background2.jpg') center/cover no-repeat;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
 }
+/* 內框（char-card-wrap）：半透明面板疊加兩層底圖，含陰影與模糊 */
 .char-card-wrap { width: min(1100px, 92vw); max-height: 92vh; overflow: auto; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(6px); background:
-  linear-gradient(180deg, rgba(10,20,30,0.75) 0%, rgba(10,20,30,0.7) 50%, rgba(10,20,30,0.75) 100%),
+  var(--panel-grad),
   url('../assets/images/Background3.jpg') center bottom/cover no-repeat,
   url('../assets/images/background3.jpg') center bottom/cover no-repeat;
 }
@@ -470,27 +493,8 @@ body {
 .char-slot.empty { opacity: 0.25; border-style: dashed; }
 
 /* 下方預覽區 */
-.char-preview { margin-top: 18px; display: grid; grid-template-columns: 220px 1fr; gap: 16px; align-items: center; }
-.char-preview-image img { width: 100%; height: auto; image-rendering: pixelated; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); }
-.char-preview-name { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
-.char-preview-desc { color: #cfe7ff; margin-bottom: 8px; }
-.char-hint { color: #9ed0ff; font-size: .95rem; }
-
-/* 響應式：調整選角介面在窄螢幕下的排版 */
-@media (max-width: 900px) {
-  .char-grid { grid-template-columns: repeat(4, minmax(140px, 1fr)); grid-auto-rows: 140px; }
-  .char-card img { width: 88px; height: 88px; }
-  .char-preview { grid-template-columns: 200px 1fr; }
-}
-@media (max-width: 700px) {
-  .char-grid { grid-template-columns: repeat(3, minmax(120px, 1fr)); grid-auto-rows: 120px; }
-  .char-card img { width: 80px; height: 80px; }
-  .char-preview { grid-template-columns: 1fr; }
-}
-@media (max-width: 480px) {
-  .char-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); grid-auto-rows: 120px; }
-  .char-card-wrap { width: 95vw; padding: 14px; }
-}
+/* 下方預覽區 */
+/* 重複定義移除：選角預覽與其RWD尾段版本，保留前段唯一版本 */
 
 /* 左上角玩家頭像 */
 #player-avatar {
@@ -512,15 +516,15 @@ body {
 }
 
 .char-confirm { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); z-index: 50; }
-.char-dialog { width: min(480px, 92vw); background: rgba(20,30,40,0.92); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
+/* 角色確認對話框：共用面板背景/邊框/陰影，維持原尺寸 */
+.char-dialog { width: min(480px, 92vw); background: var(--panel-bg); border: var(--border-soft); border-radius: 12px; padding: 16px; box-shadow: var(--shadow-lg); }
 .char-dialog-title { font-size: 1.4rem; margin-bottom: 6px; }
 .char-dialog-desc { color: #cfe7ff; margin-bottom: 12px; }
 .char-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
-/* 保證 hidden 能隱藏 */
-.hidden { display: none !important; }
 
 /* 技能頁（ESC） */
+/* 技能頁面面板：採用共用面板背景/邊框/陰影，維持原尺寸 */
 #skills-menu {
     position: absolute;
     top: 50%;
@@ -529,10 +533,10 @@ body {
     width: min(600px, 92vw);
     max-height: 70vh;
     padding: 16px;
-    background: rgba(20, 30, 40, 0.92);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: var(--panel-bg);
+    border: var(--border-soft);
     border-radius: 12px;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+    box-shadow: var(--shadow-lg);
     backdrop-filter: blur(6px);
     z-index: 120;
 }
@@ -545,107 +549,9 @@ body {
 .skills-volume { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
 .skills-hint { margin-top: 8px; text-align: center; color: #aaa; font-size: 0.9rem; }
 
-/* 選圖/難度選擇 */
-.select-card {
-    position: relative;
-    width: min(900px, 92vw);
-    max-height: 92vh;
-    padding: 24px;
-    border-radius: 12px;
-    background: rgba(20, 20, 20, 0.85);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-    backdrop-filter: blur(6px);
-    overflow: auto;
-}
-.select-title {
-    font-size: 1.8rem;
-    margin-bottom: 12px;
-    text-align: center;
-    color: #fff;
-}
-.map-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-    width: 100%;
-}
-.map-card {
-    background: #222;
-    border: 2px solid #555;
-    border-radius: 8px;
-    overflow: hidden;
-    cursor: pointer;
-    pointer-events: auto;
-    transition: all 0.15s;
-}
-.map-card img {
-    width: 100%;
-    height: 120px;
-    object-fit: cover;
-    display: block;
-}
-.map-name {
-    padding: 8px;
-    text-align: center;
-    font-weight: bold;
-    color: #fff;
-}
-.select-actions {
-    margin-top: 12px;
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-}
-.diff-grid {
-    display: flex;
-    gap: 12px;
-    justify-content: center;
-}
-.diff-card {
-    background: #222;
-    border: 2px solid #ff0000;
-    border-radius: 8px;
-    padding: 12px 16px;
-    cursor: pointer;
-    pointer-events: auto;
-    font-weight: bold;
-    transition: all 0.15s;
-    color: #fff;
-    font-size: 2rem;
-}
-.diff-card:hover, .map-card:hover {
-    filter: brightness(1.1);
-    transform: translateY(-1px);
-}
+/* 重複定義移除：選圖/難度選擇區塊尾段版本（保留前段唯一版本） */
 
-@media (max-width: 640px) {
-    .map-card img { height: 90px; }
-    .select-card { padding: 16px; }
-}
-.map-desc { margin-top: 10px; color: #cfe7ff; text-align: center; }
-.map-card.disabled { cursor: not-allowed; opacity: 0.6; }
-
-/* 左上角圖示按鈕（透明、與標題同高度靠左） */
-.top-left-icon-btn {
-  position: absolute;
-  top: 24px;
-  left: 24px;
-  width: 120px;
-  height: auto;
-  padding: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  pointer-events: auto;
-  z-index: 10;
-}
-.top-left-icon-btn img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  image-rendering: pixelated;
-}
-.top-left-icon-btn:hover { transform: scale(1.03); }
+/* 重複定義移除：.top-left-icon-btn 已在前段合併 */
 
 /* Mobile-only adjustments for top-left icon (higher specificity, no PC impact) */
 @media (max-width: 900px) {
@@ -662,37 +568,17 @@ body {
 }
 
 /* 天賦介面：補上最底層背景 background2.jpg */
+/* 天賦選擇畫面背景：與角色畫面一致的遮罩漸層與背景圖 */
 #talent-select-screen {
   background:
-    linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.65) 100%),
+    var(--overlay-grad),
     url('../assets/images/background2.jpg') center/cover no-repeat;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
 }
 
-/* 天賦格子：每行 6 格（總 12 格 = 2 行） */
-.talent-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(120px, 1fr));
-  grid-auto-rows: 120px;
-  gap: 14px;
-  justify-items: center;
-}
-.talent-grid .char-card img {
-  width: 80px;
-  height: 80px;
-}
-
-@media (max-width: 900px) {
-  .talent-grid { grid-template-columns: repeat(4, minmax(110px, 1fr)); grid-auto-rows: 110px; }
-}
-@media (max-width: 640px) {
-  .talent-grid { grid-template-columns: repeat(3, minmax(100px, 1fr)); grid-auto-rows: 100px; }
-}
-@media (max-width: 420px) {
-  .talent-grid { grid-template-columns: repeat(2, minmax(100px, 1fr)); grid-auto-rows: 100px; }
-}
+/* 重複定義移除：.talent-grid（含 RWD）已在前段統一保留 */
 
 /* 天賦鎖定狀態 */
 .char-card.locked {
@@ -702,45 +588,7 @@ body {
   filter: grayscale(100%);
 }
 
-/* 天賦解鎖確認彈窗 */
-#talent-confirm {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-#talent-confirm.hidden {
-  display: none;
-}
-.talent-dialog {
-  background: #1a2a3a;
-  border: 2px solid #4a90e2;
-  border-radius: 8px;
-  padding: 20px;
-  width: 80%;
-  max-width: 400px;
-  text-align: center;
-}
-.talent-dialog-title {
-  font-size: 1.5rem;
-  margin-bottom: 10px;
-  color: #fff;
-}
-.talent-dialog-desc {
-  margin-bottom: 20px;
-  color: #ccc;
-}
-.talent-dialog-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-}
+/* 重複定義移除：#talent-confirm 與 .talent-dialog 已在前段保留唯一版本 */
 
 /* 天賦介面金幣顯示：移到內框右上 */
 #talent-select-screen .char-card-wrap { position: relative; }
@@ -823,58 +671,10 @@ body {
   .char-card-wrap { width: 95vw; padding: 14px; }
 }
 
-/* 左上角玩家頭像 */
-#player-avatar {
-    position: absolute;
-    top: clamp(6px, calc(10px * var(--ui-scale)), 10px);
-    left: clamp(6px, calc(10px * var(--ui-scale)), 10px);
-    width: clamp(32px, calc(96px * var(--ui-scale)), 96px);
-    height: clamp(32px, calc(96px * var(--ui-scale)), 96px);
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.35);
-    background: rgba(0,0,0,0.35);
-}
-#player-avatar img {
-    width: 100%;
-    height: 100%;
-    display: block;
-    image-rendering: pixelated;
-}
+/* 重複定義移除：#player-avatar 與 .char-dialog 尾段版本 */
 
-.char-confirm { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); z-index: 50; }
-.char-dialog { width: min(480px, 92vw); background: rgba(20,30,40,0.92); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: 16px; box-shadow: 0 12px 30px rgba(0,0,0,0.5); }
-.char-dialog-title { font-size: 1.4rem; margin-bottom: 6px; }
-.char-dialog-desc { color: #cfe7ff; margin-bottom: 12px; }
-.char-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
-/* 保證 hidden 能隱藏 */
-.hidden { display: none !important; }
-
-/* 技能頁（ESC） */
-#skills-menu {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: min(600px, 92vw);
-    max-height: 70vh;
-    padding: 16px;
-    background: rgba(20, 30, 40, 0.92);
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 12px;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.5);
-    backdrop-filter: blur(6px);
-    z-index: 120;
-}
-.skills-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; text-align: center; }
-.skills-list { display: grid; grid-template-columns: 1fr 60px; row-gap: 6px; column-gap: 12px; align-items: center; margin-bottom: 12px; }
-.skill-item { display: contents; }
-.skill-name { color: #fff; }
-.skill-level { color: #9ed0ff; text-align: right; }
-.skill-empty { text-align: center; color: #cfe7ff; padding: 6px 0; }
-.skills-volume { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
-.skills-hint { margin-top: 8px; text-align: center; color: #aaa; font-size: 0.9rem; }
+/* 重複定義移除：#skills-menu 與其子項已在前段以共用變數合併 */
 
 /* 選圖/難度選擇 */
 .select-card {
@@ -978,15 +778,7 @@ body {
 }
 .top-left-icon-btn:hover { transform: scale(1.03); }
 
-/* 天賦介面：補上最底層背景 background2.jpg */
-#talent-select-screen {
-  background:
-    linear-gradient(180deg, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.65) 100%),
-    url('../assets/images/background2.jpg') center/cover no-repeat;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
-}
+/* 重複定義移除：#talent-select-screen 背景已在前段以 var(--overlay-grad) 合併 */
 
 /* 天賦格子：每行 6 格（總 12 格 = 2 行） */
 .talent-grid {
