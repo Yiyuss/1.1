@@ -59,16 +59,7 @@ const TalentSystem = {
             });
         }
         
-        // 空白鍵確認
-        document.addEventListener('keydown', (e) => {
-            if (e.key === ' ' && !document.getElementById('talent-confirm').classList.contains('hidden')) {
-                const activeCard = document.querySelector('#talent-select-screen .char-card.active');
-                if (activeCard) {
-                    this.unlockTalent(activeCard.dataset.talentId);
-                }
-                this.hideTalentConfirm();
-            }
-        });
+        // 空白鍵確認已移至 KeyboardRouter 中央處理器
     },
     
     // 處理天賦卡點擊
