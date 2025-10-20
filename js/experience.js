@@ -51,12 +51,16 @@ class ExperienceOrb extends Entity {
             ctx.fill();
         }
         
-        // 閃爍效果
-        const pulseSize = Math.sin(Date.now() / 200) * 2;
-        ctx.globalAlpha = 0.3;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.width / 2 + pulseSize, 0, Math.PI * 2);
-        ctx.fill();
+        // 閃爍效果（在經驗球數量少於閾值時才顯示）
+        const orbCount = (Game.experienceOrbs && Game.experienceOrbs.length) || 0;
+        const threshold = (CONFIG.OPTIMIZATION && CONFIG.OPTIMIZATION.ORB_PULSE_DISABLE_THRESHOLD) || 100;
+        if (orbCount < threshold) {
+            const pulseSize = Math.sin(Date.now() / 200) * 2;
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.width / 2 + pulseSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
         
         ctx.restore();
     }
