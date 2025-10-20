@@ -742,6 +742,33 @@ body {
   gap: 10px;
 }
 
+/* 天賦介面金幣顯示：移到內框右上 */
+#talent-select-screen .char-card-wrap { position: relative; }
+#talent-coins {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10;
+}
+#talent-coins-icon {
+  width: 28px;
+  height: 28px;
+  image-rendering: pixelated;
+  display: block;
+}
+#talent-coins-text {
+  padding: 4px 8px;
+  border: 2px solid #fff;
+  border-radius: 6px;
+  color: #fff;
+  background: transparent;
+  font-weight: 700;
+  line-height: 1;
+}
+
 
 /* Talent select screen overrides */
 #talent-select-screen .talent-grid {
