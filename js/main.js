@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 開始按鈕
     const startButton = document.getElementById('start-button');
     startButton.addEventListener('click', function() {
-        AudioManager.playSound && AudioManager.playSound('button_click');
+        playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
         // 在選單/選角階段使用主選單音樂
         if (AudioManager.playMusic) {
             // 確保選單介面不靜音
@@ -11,8 +11,8 @@ document.addEventListener('DOMContentLoaded', function() {
             AudioManager.playMusic('menu_music');
         }
         // 進入選角介面而非直接開始
-        document.getElementById('start-screen').classList.add('hidden');
-        document.getElementById('character-select-screen').classList.remove('hidden');
+        hide(DOMCache.get('start-screen')); // 使用輔助函數替換 classList.add('hidden')
+        show(DOMCache.get('character-select-screen')); // 使用輔助函數替換 classList.remove('hidden')
     });
 
     // 音量設置
@@ -87,9 +87,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const cards = talentGrid.querySelectorAll('.char-card.selectable');
         cards.forEach(card => {
             card.addEventListener('click', () => {
-                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-                    AudioManager.playSound('button_click2');
-                }
+                playClick2(); // 使用輔助函數替換 AudioManager.playSound('button_click2')
             });
         });
     })();
@@ -279,8 +277,8 @@ function setupAutoPause() {
 
 // ESC 技能頁面切換
 function setupSkillsMenuToggle() {
-    document.addEventListener('keydown', (e) => {
-        if (e.key !== 'Escape') return;
+    // 註冊 ESC 鍵處理器到 KeyboardRouter
+    KeyboardRouter.register('game', 'Escape', (e) => {
         const gameVisible = !document.getElementById('game-screen').classList.contains('hidden');
         const isGameOver = Game.isGameOver;
         const levelUpOpen = (() => { const el = document.getElementById('level-up-menu'); return el && !el.classList.contains('hidden'); })();
@@ -300,41 +298,18 @@ function setupSkillsMenuToggle() {
 // 選角介面事件與確認流程
 function setupCharacterSelection() {
     const screen = document.getElementById('character-select-screen');
-    if (!screen) return;
     const cards = screen.querySelectorAll('.char-card.selectable');
-    const confirmBox = document.getElementById('char-confirm');
-    const nameEl = document.getElementById('char-confirm-name');
-    const descEl = document.getElementById('char-confirm-desc');
-    const okBtn = document.getElementById('char-confirm-ok');
-    const cancelBtn = document.getElementById('char-confirm-cancel');
-    const previewBox = document.getElementById('char-preview');
-    const previewImg = document.getElementById('char-preview-img');
-    const previewName = document.getElementById('char-preview-name');
-    const previewDesc = document.getElementById('char-preview-desc');
+    const confirmBox = document.getElementById('character-confirm');
+    const okBtn = document.getElementById('character-confirm-ok');
+    const cancelBtn = document.getElementById('character-confirm-cancel');
     let picked = null;
     let lastTapTime = 0;
 
     const showPreview = (ch) => {
-        if (!ch) return;
-        const key = ch.avatarImageKey || 'player';
-        const imgObj = (Game.images && Game.images[key]) ? Game.images[key] : null;
-        previewImg.src = imgObj ? imgObj.src : `assets/images/${key}.png`;
-        previewName.textContent = ch.name || '角色';
-        const fmt = (v) => (Math.abs(v % 1) < 1e-6) ? String(Math.round(v)) : String(Number(v.toFixed(2)));
-        const hpText = fmt(ch.hpMultiplier || 1);
-        const spText = fmt(ch.speedMultiplier || 1);
-        previewDesc.textContent = `${ch.description || '角色介紹'}\nHP倍率：x${hpText}，速度倍率：x${spText}`;
-        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-            AudioManager.playSound('button_click2');
-        }
         picked = ch;
-    };
-
-    const openConfirm = () => {
-        if (!picked) return;
-        nameEl.textContent = picked.name;
-        descEl.textContent = `${picked.description}\nHP倍率：x${picked.hpMultiplier}，速度倍率：x${picked.speedMultiplier}`;
-        confirmBox.classList.remove('hidden');
+        if (confirmBox) {
+            show(confirmBox); // 使用輔助函數替換 confirmBox.classList.remove('hidden')
+        }
     };
 
     cards.forEach(card => {
@@ -342,18 +317,16 @@ function setupCharacterSelection() {
         const ch = (CONFIG.CHARACTERS || []).find(c => c.id === id);
         // 單擊：僅更新預覽
         card.addEventListener('click', () => {
+            playClick2(); // 添加選角音效
             showPreview(ch);
         });
         // 雙擊：直接跳到選地圖視窗，取消確認視窗
         card.addEventListener('dblclick', () => {
             showPreview(ch);
             Game.selectedCharacter = ch;
-            confirmBox.classList.add('hidden');
-            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-                AudioManager.playSound('button_click');
-            }
-            const mapEl = document.getElementById('map-select-screen');
-            if (mapEl) mapEl.classList.remove('hidden');
+            hide(confirmBox); // 使用輔助函數替換 classList.add('hidden')
+            playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
+            show(DOMCache.get('map-select-screen')); // 使用輔助函數替換 mapEl.classList.remove('hidden')
         });
         // 觸控雙擊（兩次點擊間隔<=300ms）
         card.addEventListener('touchend', () => {
@@ -361,48 +334,35 @@ function setupCharacterSelection() {
             if (now - lastTapTime <= 300) {
                 showPreview(ch);
                 Game.selectedCharacter = ch;
-                confirmBox.classList.add('hidden');
-                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-                    AudioManager.playSound('button_click');
-                }
-                const mapEl = document.getElementById('map-select-screen');
-                if (mapEl) mapEl.classList.remove('hidden');
+                hide(confirmBox); // 使用輔助函數替換 classList.add('hidden')
+                playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
+                show(DOMCache.get('map-select-screen')); // 使用輔助函數替換 mapEl.classList.remove('hidden')
             }
             lastTapTime = now;
         }, { passive: true });
     });
 
-    okBtn.addEventListener('click', () => {
-        confirmBox.classList.add('hidden');
+    okBtn?.addEventListener('click', () => {
+        hide(confirmBox); // 使用輔助函數替換 classList.add('hidden')
         // 套用選角，改為彈出的方式顯示地圖選擇（保持選角介面不隱藏）
         Game.selectedCharacter = picked;
-        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-            AudioManager.playSound('button_click');
-        }
-        const mapEl = document.getElementById('map-select-screen');
-        if (mapEl) mapEl.classList.remove('hidden');
+        playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
+        show(DOMCache.get('map-select-screen')); // 使用輔助函數替換 mapEl.classList.remove('hidden')
     });
 
-    cancelBtn.addEventListener('click', () => {
-        confirmBox.classList.add('hidden');
+    cancelBtn?.addEventListener('click', () => {
+        hide(confirmBox); // 使用輔助函數替換 classList.add('hidden')
         picked = null;
     });
 
-    // 空白鍵：在選角頁面時直接跳到選地圖視窗
-    document.addEventListener('keydown', (e) => {
-        const selectVisible = !document.getElementById('character-select-screen').classList.contains('hidden');
-        if (!selectVisible) return;
-        if (e.code === 'Space') {
-            e.preventDefault();
-            if (picked) {
-                Game.selectedCharacter = picked;
-                confirmBox.classList.add('hidden');
-                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-                    AudioManager.playSound('button_click');
-                }
-                const mapEl = document.getElementById('map-select-screen');
-                if (mapEl) mapEl.classList.remove('hidden');
-            }
+    // 註冊空白鍵處理器到 KeyboardRouter
+    KeyboardRouter.register('character-select', 'Space', (e) => {
+        e.preventDefault();
+        if (picked) {
+            Game.selectedCharacter = picked;
+            hide(confirmBox); // 使用輔助函數替換 classList.add('hidden')
+            playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
+            show(DOMCache.get('map-select-screen')); // 使用輔助函數替換 mapEl.classList.remove('hidden')
         }
     });
 }
@@ -411,30 +371,23 @@ function setupCharacterSelection() {
 function setupMapAndDifficultySelection() {
     const mapScreen = document.getElementById('map-select-screen');
     const diffScreen = document.getElementById('difficulty-select-screen');
-    if (!mapScreen || !diffScreen) return;
-
     const mapCards = mapScreen.querySelectorAll('.map-card.selectable');
-    const mapDescEl = document.getElementById('map-desc');
+    const mapDescEl = document.getElementById('map-description');
     const mapCancel = document.getElementById('map-cancel');
+    const diffCancel = document.getElementById('diff-cancel');
     let selectedMapCfg = null;
     let lastTapTime = 0;
 
     const showMapDesc = (cfg, card) => {
         Game.selectedMap = cfg || null;
-        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-            AudioManager.playSound('button_click2');
-        }
+        playClick2(); // 使用輔助函數替換 AudioManager.playSound('button_click2')
         if (mapDescEl) {
             mapDescEl.textContent = '光滑平面的廁所，可利用馬桶障礙物躲避敵人';
         }
     };
     const confirmMap = () => {
         if (!selectedMapCfg) return;
-        mapScreen.classList.add('hidden');
-        diffScreen.classList.remove('hidden');
-        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-            AudioManager.playSound('button_click');
-        }
+        switchScreen(mapScreen, diffScreen); // 使用輔助函數替換 classList.add/remove('hidden')
     };
 
     mapCards.forEach(card => {
@@ -444,9 +397,7 @@ function setupMapAndDifficultySelection() {
 
         card.addEventListener('click', () => {
             if (disabled) {
-                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-                    AudioManager.playSound('button_click');
-                }
+                playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
                 return;
             }
             selectedMapCfg = cfg;
@@ -474,19 +425,15 @@ function setupMapAndDifficultySelection() {
         }, { passive: true });
     });
 
-    // 空白鍵確認地圖（在地圖介面開啟時）
-    document.addEventListener('keydown', (e) => {
-        const mapVisible = !mapScreen.classList.contains('hidden');
-        if (!mapVisible) return;
-        if (e.code === 'Space') {
-            e.preventDefault();
-            confirmMap();
-        }
+    // 註冊空白鍵處理器到 KeyboardRouter
+    KeyboardRouter.register('map-select', 'Space', (e) => {
+        e.preventDefault();
+        confirmMap();
     });
 
     if (mapCancel) {
         mapCancel.addEventListener('click', () => {
-            mapScreen.classList.add('hidden');
+            hide(mapScreen); // 使用輔助函數替換 classList.add('hidden')
             // 保持選角介面可見，無需切換
         });
     }
@@ -498,28 +445,23 @@ function setupMapAndDifficultySelection() {
         card.addEventListener('click', () => {
             const id = card.getAttribute('data-diff-id') || 'EASY';
             Game.selectedDifficultyId = id;
-            if (typeof AudioManager !== 'undefined') {
-                AudioManager.playSound && AudioManager.playSound('button_click');
-            }
-            diffScreen.classList.add('hidden');
+            playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
+            hide(diffScreen); // 使用輔助函數替換 classList.add('hidden')
             // 新增：開始遊戲時隱藏選角與選圖介面，切換到遊戲畫面
-            const charSel = document.getElementById('character-select-screen');
-            const mapSel = document.getElementById('map-select-screen');
-            charSel && charSel.classList.add('hidden');
-            mapSel && mapSel.classList.add('hidden');
+            hide(DOMCache.get('character-select-screen')); // 使用輔助函數替換 classList.add('hidden')
+            hide(DOMCache.get('map-select-screen')); // 使用輔助函數替換 classList.add('hidden')
             Game.startNewGame();
             // 切換遊戲BGM
             if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
                 AudioManager.playMusic('game_music');
             }
-            document.getElementById('game-screen').classList.remove('hidden');
+            show(DOMCache.get('game-screen')); // 使用輔助函數替換 classList.remove('hidden')
         });
     });
 
     if (diffBack) {
         diffBack.addEventListener('click', () => {
-            diffScreen.classList.add('hidden');
-            mapScreen.classList.remove('hidden');
+            switchScreen(diffScreen, mapScreen); // 使用輔助函數替換 classList.add/remove('hidden')
         });
     }
 }
@@ -555,13 +497,23 @@ function setupTalentScreenToggle() {
     // 初始化天賦狀態
     TalentSystem.init();
 
+    // 註冊天賦畫面的空白鍵處理器到 KeyboardRouter
+    KeyboardRouter.register('talent-select', 'Space', (e) => {
+        e.preventDefault();
+        const confirmDialog = document.getElementById('talent-confirm');
+        if (!confirmDialog || confirmDialog.classList.contains('hidden')) return;
+        
+        const activeCard = document.querySelector('#talent-select-screen .char-card.active');
+        if (activeCard) {
+            TalentSystem.unlockTalent(activeCard.dataset.talentId);
+        }
+        TalentSystem.hideTalentConfirm();
+    });
+
     if (openBtn) {
         openBtn.addEventListener('click', () => {
-            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-                AudioManager.playSound('button_click');
-            }
-            charScreen.classList.add('hidden');
-            talentScreen.classList.remove('hidden');
+            playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
+            switchScreen(charScreen, talentScreen); // 使用輔助函數替換 classList.add/remove('hidden')
             // 使 UI.updateCoinsDisplay 指向天賦頁的金幣數字
             UI.coinsText = document.getElementById('talent-coins-text');
             if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
@@ -571,11 +523,8 @@ function setupTalentScreenToggle() {
     }
     if (backBtn) {
         backBtn.addEventListener('click', () => {
-            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-                AudioManager.playSound('button_click');
-            }
-            talentScreen.classList.add('hidden');
-            charScreen.classList.remove('hidden');
+            playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
+            switchScreen(talentScreen, charScreen); // 使用輔助函數替換 classList.add/remove('hidden')
             // 復原 UI.updateCoinsDisplay 指向遊戲頁金幣數字
             UI.coinsText = document.getElementById('coins-text');
             if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
@@ -585,274 +534,258 @@ function setupTalentScreenToggle() {
     }
 }
 
-// 天賦系統初始化
-function initTalentSystem() {
-    // 載入已解鎖的天賦
-    loadUnlockedTalents();
-    
-    // 綁定天賦卡點擊事件
-    const talentCards = document.querySelectorAll('#talent-select-screen .char-card.selectable');
-    talentCards.forEach(card => {
-        card.addEventListener('click', handleTalentCardClick);
-        card.addEventListener('dblclick', handleTalentCardDblClick);
-    });
-    
-    // 綁定天賦確認對話框按鈕
-    const confirmBtn = document.getElementById('talent-confirm-ok');
-    const cancelBtn = document.getElementById('talent-confirm-cancel');
-    
-    if (confirmBtn) {
-        confirmBtn.addEventListener('click', () => {
-            const activeCard = document.querySelector('#talent-select-screen .char-card.active');
-            if (activeCard) {
-                unlockTalent(activeCard.dataset.talentId);
-            }
-            hideTalentConfirm();
-        });
-    }
-    
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => {
-            hideTalentConfirm();
-        });
-    }
-    
-    // 空白鍵確認
-    document.addEventListener('keydown', (e) => {
-        if (e.key === ' ' && !document.getElementById('talent-confirm').classList.contains('hidden')) {
-            const activeCard = document.querySelector('#talent-select-screen .char-card.active');
-            if (activeCard) {
-                unlockTalent(activeCard.dataset.talentId);
-            }
-            hideTalentConfirm();
-        }
-    });
-}
+/**
+ * ========================================
+ * 輔助函數區塊 - Helper Functions Section
+ * ========================================
+ * 
+ * 此區塊包含用於減少代碼重複的輔助函數，提升維護性和一致性。
+ * 
+ * 設計原則：
+ * 1. 統一音效播放 - 避免重複的 AudioManager.playSound 調用
+ * 2. 統一畫面切換 - 標準化 DOM 元素的顯示/隱藏操作
+ * 3. 抽象化事件綁定 - 簡化雙擊/雙觸檢測邏輯
+ * 4. 緩存 DOM 元素 - 減少重複的 getElementById 調用
+ * 
+ * 維護指南：
+ * - 新增音效時，優先使用 playClick() 系列函數
+ * - 畫面切換時，使用 show()/hide()/switchScreen() 函數
+ * - 需要雙擊檢測時，使用 bindDoubleTap() 工具函數
+ * - 頻繁訪問的 DOM 元素應加入 DOMCache 緩存
+ */
 
-// 處理天賦卡點擊
-function handleTalentCardClick(e) {
-    const card = e.currentTarget;
-    
-    // 移除其他卡片的active狀態
-    document.querySelectorAll('#talent-select-screen .char-card.active').forEach(el => {
-        if (el !== card) el.classList.remove('active');
-    });
-    
-    // 切換當前卡片的active狀態
-    card.classList.toggle('active');
-    
-    // 更新預覽區
-    if (card.classList.contains('active')) {
-        updateTalentPreview(card);
-    }
-}
+// ========================================
+// 音效輔助函數 - Audio Helper Functions
+// ========================================
 
-// 處理天賦卡雙擊
-function handleTalentCardDblClick(e) {
-    const card = e.currentTarget;
-    
-    // 如果已解鎖，不需要確認
-    if (!card.classList.contains('locked')) return;
-    
-    // 顯示確認對話框
-    showTalentConfirm(card);
-}
-
-// 更新天賦預覽區
-function updateTalentPreview(card) {
-    const nameEl = document.getElementById('talent-preview-name');
-    const descEl = document.getElementById('talent-preview-desc');
-    const imgEl = document.getElementById('talent-preview-img');
-    
-    if (nameEl && card.querySelector('.char-name')) {
-        nameEl.textContent = card.querySelector('.char-name').textContent;
-    }
-    
-    if (descEl) {
-        if (card.dataset.talentId === 'hp_boost') {
-            descEl.textContent = '增加初始生命值20點，讓你在遊戲中更加耐久。';
-        } else {
-            descEl.textContent = '這是一個天賦描述。';
-        }
-    }
-    
-    if (imgEl && card.querySelector('img')) {
-        imgEl.src = card.querySelector('img').src;
-        // 如果卡片是鎖定狀態，預覽圖也應該是灰色
-        if (card.classList.contains('locked')) {
-            imgEl.classList.add('grayscale');
-        } else {
-            imgEl.classList.remove('grayscale');
-        }
-    }
-}
-
-// 顯示天賦確認對話框
-function showTalentConfirm(card) {
-    const confirmEl = document.getElementById('talent-confirm');
-    const titleEl = document.getElementById('talent-confirm-title');
-    const descEl = document.getElementById('talent-confirm-desc');
-    
-    if (!confirmEl) return;
-    
-    // 設置當前選中的卡片為active
-    document.querySelectorAll('#talent-select-screen .char-card.active').forEach(el => {
-        el.classList.remove('active');
-    });
-    card.classList.add('active');
-    
-    // 更新對話框內容
-    if (titleEl && card.querySelector('.char-name')) {
-        titleEl.textContent = `解鎖 ${card.querySelector('.char-name').textContent}`;
-    }
-    
-    if (descEl) {
-        descEl.textContent = '使用500金幣解鎖天賦？';
-    }
-    
-    // 顯示對話框
-    confirmEl.classList.remove('hidden');
-}
-
-// 隱藏天賦確認對話框
-function hideTalentConfirm() {
-    const confirmEl = document.getElementById('talent-confirm');
-    if (confirmEl) {
-        confirmEl.classList.add('hidden');
-    }
-}
-
-// 解鎖天賦
-function unlockTalent(talentId) {
-    // 檢查金幣是否足夠
-    if (Game.coins < 500) {
-        alert('金幣不足！');
+/**
+ * 播放按鈕點擊音效 (button_click)
+ * 統一處理所有標準按鈕點擊音效，確保一致性
+ */
+function playClick() {
+    if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
         AudioManager.playSound('button_click');
-        return;
-    }
-    
-    // 扣除金幣
-    Game.coins -= 500;
-    Game.saveCoins();
-    
-    // 播放音效
-    AudioManager.playSound('button_click');
-    
-    // 更新UI
-    if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
-        UI.updateCoinsDisplay(Game.coins);
-    }
-    
-    // 保存已解鎖的天賦
-    saveUnlockedTalent(talentId);
-    
-    // 更新天賦卡片外觀
-    updateTalentCardAppearance(talentId);
-    
-    // 更新預覽區
-    const card = document.querySelector(`#talent-select-screen .char-card[data-talent-id="${talentId}"]`);
-    if (card) {
-        updateTalentPreview(card);
-    }
-    
-    // 更新ESC選單中的天賦列表
-    if (typeof UI !== 'undefined' && UI.updateTalentsList) {
-        UI.updateTalentsList();
-    }
-    
-    // 提示玩家天賦已解鎖
-    alert(`天賦已解鎖！${talentId === 'hp_boost' ? '初始生命值+20' : ''}`);
-}
-
-// 保存已解鎖的天賦
-function saveUnlockedTalent(talentId) {
-    try {
-        const key = 'unlocked_talents';
-        let unlockedTalents = [];
-        
-        // 讀取已有的解鎖天賦
-        const stored = localStorage.getItem(key);
-        if (stored) {
-            try {
-                unlockedTalents = JSON.parse(stored);
-            } catch (e) {
-                unlockedTalents = [];
-            }
-        }
-        
-        // 添加新解鎖的天賦
-        if (!unlockedTalents.includes(talentId)) {
-            unlockedTalents.push(talentId);
-        }
-        
-        // 保存到本地存儲
-        localStorage.setItem(key, JSON.stringify(unlockedTalents));
-    } catch (e) {
-        console.error('保存天賦失敗:', e);
     }
 }
 
-// 載入已解鎖的天賦
-function loadUnlockedTalents() {
-    try {
-        const key = 'unlocked_talents';
-        const stored = localStorage.getItem(key);
-        
-        if (stored) {
-            try {
-                const unlockedTalents = JSON.parse(stored);
-                console.log('載入已解鎖天賦:', unlockedTalents);
-                
-                // 更新每個已解鎖天賦的外觀
-                unlockedTalents.forEach(talentId => {
-                    updateTalentCardAppearance(talentId);
-                });
-                
-                // 確保天賦效果在遊戲開始時立即生效
-                if (typeof Game !== 'undefined' && Game.player) {
-                    applyTalentEffects(Game.player);
-                }
-            } catch (e) {
-                console.error('解析已解鎖天賦失敗:', e);
-            }
-        } else {
-            console.log('未找到已解鎖天賦數據');
-        }
-    } catch (e) {
-        console.error('載入天賦失敗:', e);
+/**
+ * 播放次要按鈕點擊音效 (button_click2)
+ * 用於卡片選擇、預覽等次要交互音效
+ */
+function playClick2() {
+    if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+        AudioManager.playSound('button_click2');
     }
 }
 
-// 應用天賦效果到玩家身上
-function applyTalentEffects(player) {
-    if (!player) return;
+// ========================================
+// DOM 緩存系統 - DOM Cache System
+// ========================================
+
+/**
+ * DOM 元素緩存對象
+ * 緩存頻繁訪問的 DOM 元素，提升性能並減少重複查詢
+ */
+const DOMCache = {
+    // 主要畫面元素
+    startScreen: null,
+    characterSelectScreen: null,
+    mapSelectScreen: null,
+    difficultySelectScreen: null,
+    talentSelectScreen: null,
+    gameScreen: null,
     
-    try {
-        const unlockedTalents = JSON.parse(localStorage.getItem('unlocked_talents') || '[]');
-        console.log('應用天賦效果:', unlockedTalents);
+    // 角色選擇相關元素
+    characterConfirm: null,
+    characterConfirmOk: null,
+    characterConfirmCancel: null,
+    
+    // 天賦系統相關元素
+    talentScreen: null,
+    talentConfirm: null,
+    talentConfirmOk: null,
+    talentConfirmCancel: null,
+    
+    // 技能選單相關元素
+    skillsMenu: null,
+    
+    // 初始化緩存
+    init() {
+        // 主要畫面元素
+        this.startScreen = document.getElementById('start-screen');
+        this.characterSelectScreen = document.getElementById('character-select-screen');
+        this.mapSelectScreen = document.getElementById('map-select-screen');
+        this.difficultySelectScreen = document.getElementById('difficulty-select-screen');
+        this.talentSelectScreen = document.getElementById('talent-select-screen');
+        this.gameScreen = document.getElementById('game-screen');
         
-        // 應用生命強化天賦
-        if (unlockedTalents.includes('hp_boost')) {
-            const healthBoost = 20;
-            // 只有在玩家血量等於最大血量時才增加當前血量
-            // 這樣可以避免在遊戲中途重複增加血量
-            if (player.health === player.maxHealth) {
-                player.health += healthBoost;
-            }
-            player.maxHealth += healthBoost;
-            console.log(`已應用生命強化天賦，當前血量: ${player.health}/${player.maxHealth}`);
-            
-            // 更新UI
-            if (typeof UI !== 'undefined' && UI.updateHealthBar) {
-                UI.updateHealthBar(player.health, player.maxHealth);
-            }
+        // 角色選擇相關元素
+        this.characterConfirm = document.getElementById('character-confirm');
+        this.characterConfirmOk = document.getElementById('character-confirm-ok');
+        this.characterConfirmCancel = document.getElementById('character-confirm-cancel');
+        
+        // 天賦系統相關元素
+        this.talentScreen = document.getElementById('talent-screen');
+        this.talentConfirm = document.getElementById('talent-confirm');
+        this.talentConfirmOk = document.getElementById('talent-confirm-ok');
+        this.talentConfirmCancel = document.getElementById('talent-confirm-cancel');
+        
+        // 技能選單相關元素
+        this.skillsMenu = document.getElementById('skills-menu');
+    },
+    
+    // 獲取緩存元素，如果不存在則查詢並緩存
+    get(id) {
+        if (!this[id]) {
+            this[id] = document.getElementById(id);
         }
-        
-        // 未來可以在這裡添加更多天賦效果
-        
-    } catch (e) {
-        console.error('應用天賦效果失敗:', e);
+        return this[id];
+    }
+};
+
+// ========================================
+// 畫面切換輔助函數 - Screen Switching Helpers
+// ========================================
+
+/**
+ * 顯示指定元素
+ * @param {HTMLElement|string} element - DOM 元素或元素 ID
+ */
+function show(element) {
+    const el = typeof element === 'string' ? DOMCache.get(element) || document.getElementById(element) : element;
+    if (el) {
+        el.classList.remove('hidden');
     }
 }
 
-// 天賦卡片外觀更新功能已移至 TalentSystem 模塊
+/**
+ * 隱藏指定元素
+ * @param {HTMLElement|string} element - DOM 元素或元素 ID
+ */
+function hide(element) {
+    const el = typeof element === 'string' ? DOMCache.get(element) || document.getElementById(element) : element;
+    if (el) {
+        el.classList.add('hidden');
+    }
+}
+
+/**
+ * 畫面切換函數
+ * 隱藏當前畫面並顯示目標畫面，同時播放切換音效
+ * @param {HTMLElement|string} fromElement - 要隱藏的元素
+ * @param {HTMLElement|string} toElement - 要顯示的元素
+ * @param {boolean} playSound - 是否播放切換音效，預設為 false
+ */
+function switchScreen(fromElement, toElement, playSound = false) {
+    hide(fromElement);
+    show(toElement);
+    if (playSound) {
+        playClick();
+    }
+}
+
+// ========================================
+// 雙擊/雙觸檢測輔助函數 - Double Tap Helper
+// ========================================
+
+/**
+ * 為元素綁定雙擊/雙觸檢測
+ * 統一處理桌面雙擊和移動端雙觸邏輯
+ * @param {HTMLElement} element - 要綁定的元素
+ * @param {Function} callback - 雙擊/雙觸時的回調函數
+ * @param {number} delay - 雙擊間隔時間限制（毫秒），預設 300ms
+ */
+function bindDoubleTap(element, callback, delay = 300) {
+    if (!element || typeof callback !== 'function') return;
+    
+    // 使用 WeakMap 存儲每個元素的最後點擊時間
+    if (!bindDoubleTap.lastTapTimes) {
+        bindDoubleTap.lastTapTimes = new WeakMap();
+    }
+    
+    // 桌面雙擊事件
+    element.addEventListener('dblclick', callback);
+    
+    // 移動端雙觸事件
+    element.addEventListener('touchend', (e) => {
+        const currentTime = Date.now();
+        const lastTapTime = bindDoubleTap.lastTapTimes.get(element) || 0;
+        const timeDiff = currentTime - lastTapTime;
+        
+        if (timeDiff < delay && timeDiff > 0) {
+            e.preventDefault(); // 防止觸發其他事件
+            callback(e);
+        }
+        
+        bindDoubleTap.lastTapTimes.set(element, currentTime);
+    });
+}
+
+// ========================================
+// 鍵盤事件中央處理器 - Centralized Keyboard Handler
+// ========================================
+
+/**
+ * 鍵盤事件路由表
+ * 根據當前畫面狀態路由不同的按鍵處理邏輯
+ */
+const KeyboardRouter = {
+    handlers: new Map(),
+    
+    /**
+     * 註冊按鍵處理器
+     * @param {string} context - 上下文名稱（如 'character-select', 'talent-screen'）
+     * @param {string} key - 按鍵代碼（如 'Space', 'Escape'）
+     * @param {Function} handler - 處理函數
+     */
+    register(context, key, handler) {
+        const contextKey = `${context}:${key}`;
+        this.handlers.set(contextKey, handler);
+    },
+    
+    /**
+     * 獲取當前上下文
+     * @returns {string} 當前畫面的上下文名稱
+     */
+    getCurrentContext() {
+        // 檢查各個畫面的可見性，返回對應的上下文
+        if (!document.getElementById('character-select-screen').classList.contains('hidden')) {
+            return 'character-select';
+        }
+        if (!document.getElementById('map-select-screen').classList.contains('hidden')) {
+            return 'map-select';
+        }
+        if (!document.getElementById('talent-select-screen').classList.contains('hidden')) {
+            return 'talent-select';
+        }
+        if (!document.getElementById('game-screen').classList.contains('hidden')) {
+            return 'game';
+        }
+        return 'default';
+    },
+    
+    /**
+     * 處理按鍵事件
+     * @param {KeyboardEvent} event - 鍵盤事件
+     */
+    handle(event) {
+        const context = this.getCurrentContext();
+        const contextKey = `${context}:${event.code}`;
+        const handler = this.handlers.get(contextKey);
+        
+        if (handler) {
+            handler(event);
+        }
+    }
+};
+
+// 初始化 DOM 緩存
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化 DOM 緩存
+    DOMCache.init();
+    
+    // 綁定中央鍵盤事件處理器
+    document.addEventListener('keydown', (e) => {
+        KeyboardRouter.handle(e);
+    });
+});
