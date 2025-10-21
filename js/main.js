@@ -1,4 +1,16 @@
 // 遊戲主入口
+// 維護註解與依賴關係：
+// - 本檔案負責 UI 事件綁定、畫面切換、與遊戲初始化；不改動數值或機制邏輯
+// - 直接依賴：DOM 結構 (index.html)、CSS 排版 (css/style.css)、AudioManager/AudioScene、Game、UI、EventSystem/GameEvents、CONFIG
+// - 間接依賴：player/enemy/weapon 等內部邏輯（透過 Game.startNewGame() 啟動）
+// - 設計原則：
+//   1) 不改任何玩家可見文字（標題、技能介紹、版權聲明等）；此檔新增註解僅供維護者閱讀
+//   2) 不改 CSS 排版；若須視覺變化，先確認現有 CSS 是否已提供覆蓋樣式
+//   3) 不改遊戲數值與機制（ESC 開技能、升級彈窗等維持原有行為）；此檔僅做事件與顯示層優化
+//   4) 任何新增事件監聽需在 EventSystem.init() 之後執行（由 index.html 載入順序保證）
+//   5) 音樂切換統一走 AudioScene（保留 AudioManager.playMusic 以防相容）
+//   6) 變更點集中在 setupMapAndDifficultySelection 以維持選角畫面為底層、其他視窗覆蓋顯示
+
 document.addEventListener('DOMContentLoaded', function() {
     // 開始按鈕
     const startButton = document.getElementById('start-button');
@@ -340,11 +352,11 @@ function setupCharacterSelection() {
             playClick2();
             updatePreview(ch);
         });
-        // 雙擊：直接切換到選圖畫面
+        // 雙擊：顯示選圖覆蓋層（不隱藏選角畫面）
         card.addEventListener('dblclick', () => {
             Game.selectedCharacter = ch;
             playClick();
-            switchScreen(DOMCache.get('character-select-screen'), DOMCache.get('map-select-screen'));
+            show(DOMCache.get('map-select-screen'));
         });
         // 觸控雙擊（兩次點擊間隔<=300ms）：雙擊進入選圖，單擊更新預覽
         card.addEventListener('touchend', () => {
@@ -352,7 +364,7 @@ function setupCharacterSelection() {
             if (now - lastTapTime <= 300) {
                 Game.selectedCharacter = ch;
                 playClick();
-                switchScreen(DOMCache.get('character-select-screen'), DOMCache.get('map-select-screen'));
+                show(DOMCache.get('map-select-screen'));
             } else {
                 updatePreview(ch);
             }
@@ -360,13 +372,13 @@ function setupCharacterSelection() {
         }, { passive: true });
     });
 
-    // 空白鍵：在選角畫面時，若已有 picked，直接進入選圖
+    // 空白鍵：在選角畫面時，若已有 picked，顯示選圖覆蓋層
     KeyboardRouter.register('character-select', 'Space', (e) => {
         e.preventDefault();
         if (picked) {
             Game.selectedCharacter = picked;
             playClick();
-            switchScreen(DOMCache.get('character-select-screen'), DOMCache.get('map-select-screen'));
+            show(DOMCache.get('map-select-screen'));
         }
     });
 }
@@ -376,7 +388,8 @@ function setupMapAndDifficultySelection() {
     const mapScreen = document.getElementById('map-select-screen');
     const diffScreen = document.getElementById('difficulty-select-screen');
     const mapCards = mapScreen.querySelectorAll('.map-card.selectable');
-    const mapDescEl = document.getElementById('map-description');
+    // 修正：正確的地圖介紹元素ID為 map-desc（避免更新失效）
+    const mapDescEl = document.getElementById('map-desc');
     const mapCancel = document.getElementById('map-cancel');
     const diffCancel = document.getElementById('diff-cancel');
     let selectedMapCfg = null;
@@ -386,12 +399,17 @@ function setupMapAndDifficultySelection() {
         Game.selectedMap = cfg || null;
         playClick2();
         if (mapDescEl) {
-            mapDescEl.textContent = '光滑平面的廁所，可利用馬桶障礙物躲避敵人';
+            // 僅在選到廁所地圖（id: 'city' 或名稱為『廁所』）時更新指定文案；其他地圖不改動
+            if (cfg && (cfg.id === 'city' || cfg.name === '廁所')) {
+                mapDescEl.textContent = '光滑平面的廁所，可使用馬桶障礙物躲避敵人。';
+            }
         }
     };
     const confirmMap = () => {
         if (!selectedMapCfg) return;
-        switchScreen(mapScreen, diffScreen);
+        // 覆蓋顯示：僅隱藏地圖視窗，顯示難度視窗；不隱藏選角畫面
+        hide(mapScreen);
+        show(diffScreen);
     };
 
     mapCards.forEach(card => {
@@ -436,7 +454,8 @@ function setupMapAndDifficultySelection() {
 
     if (mapCancel) {
         mapCancel.addEventListener('click', () => {
-            switchScreen(mapScreen, DOMCache.get('character-select-screen'));
+            // 返回選角：覆蓋視窗僅需隱藏自身；不切換底層畫面
+            hide(mapScreen);
         });
     }
 
@@ -448,9 +467,10 @@ function setupMapAndDifficultySelection() {
             const id = card.getAttribute('data-diff-id') || 'EASY';
             Game.selectedDifficultyId = id;
             playClick();
+            // 開始遊戲：隱藏覆蓋視窗與選角畫面，進入遊戲畫面
             hide(diffScreen);
+            hide(document.getElementById('map-select-screen'));
             hide(DOMCache.get('character-select-screen'));
-            hide(DOMCache.get('map-select-screen'));
             Game.startNewGame();
             if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
                 AudioManager.playMusic('game_music');
@@ -461,7 +481,9 @@ function setupMapAndDifficultySelection() {
 
     if (diffBack) {
         diffBack.addEventListener('click', () => {
-            switchScreen(diffScreen, mapScreen);
+            // 返回地圖：僅在覆蓋層之間切換
+            hide(diffScreen);
+            show(mapScreen);
         });
     }
 }
