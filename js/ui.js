@@ -72,9 +72,7 @@ const UI = {
     
     // 更新血量條
     updateHealthBar: function(current, max) {
-        const percentage = Math.max(0, current / max * 100);
-        this.healthBar.style.width = percentage + '%';
-        this.healthText.textContent = `${Math.floor(current)}/${max}`;
+        this._updateBar(this.healthBar, this.healthText, current, max);
     },
     
     // 更新等級
@@ -84,16 +82,12 @@ const UI = {
     
     // 更新經驗條
     updateExpBar: function(current, max) {
-        const percentage = Math.max(0, current / max * 100);
-        this.expBar.style.width = percentage + '%';
-        this.expText.textContent = `${Math.floor(current)}/${max}`;
+        this._updateBar(this.expBar, this.expText, current, max);
     },
 
     // 更新能量條
     updateEnergyBar: function(current, max) {
-        const percentage = Math.max(0, current / max * 100);
-        this.energyBar.style.width = percentage + '%';
-        this.energyText.textContent = `${Math.floor(current)}/${max}`;
+        this._updateBar(this.energyBar, this.energyText, current, max);
     },
     
     // 更新計時器
@@ -105,81 +99,52 @@ const UI = {
     updateWaveInfo: function(wave) {
         this.waveInfo.textContent = `波次: ${wave}`;
     },
-    
-    // 顯示升級選單
-    showLevelUpMenu: function() {
-        // 暫停遊戲，但不靜音，避免升級音效與BGM被切斷
-        Game.pause(false);
-        
-        // 清空升級選項
-        this.upgradeOptions.innerHTML = '';
-        
-        // 獲取可用的升級選項
-        const options = this.getUpgradeOptions();
-
-        // 若無任何選項（所有技能已滿級且無新武器），直接略過並恢復遊戲
-        if (options.length === 0) {
-            this.hideLevelUpMenu();
-            return;
-        }
-        
-        // 添加升級選項
-        options.forEach(option => {
-            const optionElement = document.createElement('div');
-            optionElement.className = 'upgrade-option';
-            
-            const nameElement = document.createElement('h3');
-            nameElement.textContent = `${option.name} Lv.${option.level}`;
-            
-            const descElement = document.createElement('p');
-            descElement.textContent = option.description;
-            
-            optionElement.appendChild(nameElement);
-            optionElement.appendChild(descElement);
-            
-            // 添加點擊事件
-            optionElement.addEventListener('click', () => {
-                this.selectUpgrade(option.type);
-            });
-            
-            this.upgradeOptions.appendChild(optionElement);
-        });
-        
-        // 顯示選單
-        this.levelUpMenu.classList.remove('hidden');
+    /**
+     * 私有：統一更新進度條
+     * 依賴：HTML元素 fillEl、textEl；數值 current、max。
+     * 不變式：文字格式 `${Math.floor(current)}/${max}` 與寬度百分比計算不可更動。
+     */
+    _updateBar: function(fillEl, textEl, current, max) {
+        try {
+            const c = Number(current) || 0;
+            const m = Number(max) || 0;
+            const percentage = m > 0 ? Math.max(0, (c / m) * 100) : 0;
+            if (fillEl) fillEl.style.width = percentage + '%';
+            if (textEl) textEl.textContent = `${Math.floor(c)}/${m}`;
+        } catch (_) {}
     },
-    
-    // 隱藏升級選單
-    hideLevelUpMenu: function() {
-        this.levelUpMenu.classList.add('hidden');
-        
-        // 恢復遊戲
-        Game.resume();
+    /**
+     * 私有：統一按鈕點擊音效
+     * 依賴：AudioManager.playSound('button_click')
+     * 不變式：音效鍵名與播放條件不可更動。
+     */
+    _playClick: function() {
+        try {
+            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                AudioManager.playSound('button_click');
+            }
+        } catch (_) {}
     },
-
-    // 顯示技能頁（ESC），包含技能清單與音量調整
-    showSkillsMenu: function() {
-        if (!this.skillsMenu) return;
-        // 暫停但不靜音
-        Game.pause(false);
-        // 建構技能清單
-        this.updateSkillsList();
-        // 更新天賦清單
-        this.updateTalentsList();
-        // 更新金幣顯示
-        this.updateCoins(Game.coins || 0);
-        this.skillsMenu.classList.remove('hidden');
-        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-            AudioManager.playSound('button_click');
-        }
-    },
-    hideSkillsMenu: function() {
-        if (!this.skillsMenu) return;
-        this.skillsMenu.classList.add('hidden');
-        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-            AudioManager.playSound('button_click');
-        }
-        Game.resume();
+    /**
+     * 私有：DOM 取用包裝
+     * 依賴：document.getElementById
+     * 不變式：僅作包裝，不更動行為。
+     */
+    _get: function(id) { return document.getElementById(id); },
+    /**
+     * 私有：從結束/勝利畫面返回起始畫面
+     * 依賴：既定 DOM id；AudioManager、Game。
+     * 不變式：DOM 隱藏/顯示順序與狀態更新不可更動。
+     */
+    _returnToStartFrom: function(screenId) {
+        const screen = this._get(screenId);
+        if (screen) screen.classList.add('hidden');
+        const charSel = this._get('character-select-screen'); if (charSel) charSel.classList.add('hidden');
+        const mapSel = this._get('map-select-screen'); if (mapSel) mapSel.classList.add('hidden');
+        const start = this._get('start-screen'); if (start) start.classList.remove('hidden');
+        Game.isGameOver = false;
+        try { AudioManager.isMuted = false; } catch (_) {}
+        try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (_) {}
     },
     isSkillsMenuOpen: function() {
         const el = this.skillsMenu;
@@ -473,20 +438,12 @@ const UI = {
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('game-over-screen').classList.remove('hidden');
     
-        const onEnded = function() {
-            document.getElementById('game-over-screen').classList.add('hidden');
-            document.getElementById('character-select-screen').classList.add('hidden');
-            document.getElementById('map-select-screen').classList.add('hidden');
-            document.getElementById('start-screen').classList.remove('hidden');
-            Game.isGameOver = false;
-            try { AudioManager.isMuted = false; } catch (e) {}
-            try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (e) {}
-        };
+        const onEnded = () => this._returnToStartFrom('game-over-screen');
     
         this._setupAndPlayVideo(
-            document.getElementById('game-over-video'),
-            document.getElementById('game-over-overlay'),
-            document.getElementById('game-over-play'),
+            this._get('game-over-video'),
+            this._get('game-over-overlay'),
+            this._get('game-over-play'),
             onEnded
         );
     },
@@ -503,31 +460,83 @@ const UI = {
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('victory-screen').classList.remove('hidden');
     
-        const onEnded = function() {
-            document.getElementById('victory-screen').classList.add('hidden');
-            document.getElementById('character-select-screen').classList.add('hidden');
-            document.getElementById('map-select-screen').classList.add('hidden');
-            document.getElementById('start-screen').classList.remove('hidden');
-            Game.isGameOver = false;
-            try { AudioManager.isMuted = false; } catch (e) {}
-            try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (e) {}
-        };
+        const onEnded = () => this._returnToStartFrom('victory-screen');
     
         this._setupAndPlayVideo(
-            document.getElementById('victory-video'),
-            document.getElementById('victory-overlay'),
-            document.getElementById('victory-play'),
+            this._get('victory-video'),
+            this._get('victory-overlay'),
+            this._get('victory-play'),
             onEnded
         );
     },
-};
 
-// 工具函數 - 洗牌數組
-Utils.shuffleArray = function(array) {
-    const newArray = [...array];
-    for (let i = newArray.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-    }
-    return newArray;
+    // 顯示升級選單
+    showLevelUpMenu: function() {
+        // 暫停遊戲，但不靜音，避免升級音效與BGM被切斷
+        if (typeof Game !== 'undefined' && Game.pause) {
+            Game.pause(false);
+        }
+        // 清空升級選項
+        if (this.upgradeOptions) this.upgradeOptions.innerHTML = '';
+        // 獲取可用的升級選項
+        const options = this.getUpgradeOptions();
+        // 若無任何選項（所有技能已滿級且無新武器），直接略過並恢復遊戲
+        if (!options || options.length === 0) {
+            this.hideLevelUpMenu();
+            return;
+        }
+        // 添加升級選項
+        options.forEach(option => {
+            const optionElement = document.createElement('div');
+            optionElement.className = 'upgrade-option';
+            const nameElement = document.createElement('h3');
+            nameElement.textContent = `${option.name} Lv.${option.level}`;
+            const descElement = document.createElement('p');
+            descElement.textContent = option.description;
+            optionElement.appendChild(nameElement);
+            optionElement.appendChild(descElement);
+            // 點擊事件：套用升級
+            optionElement.addEventListener('click', () => {
+                this.selectUpgrade(option.type);
+            });
+            this.upgradeOptions.appendChild(optionElement);
+        });
+        // 顯示選單（使用 .hidden 切換，與既有邏輯一致）
+        if (this.levelUpMenu) this.levelUpMenu.classList.remove('hidden');
+    },
+    // 隱藏升級選單
+    hideLevelUpMenu: function() {
+        if (this.levelUpMenu) this.levelUpMenu.classList.add('hidden');
+        // 恢復遊戲
+        if (typeof Game !== 'undefined' && Game.resume) {
+            Game.resume();
+        }
+    },
+
+    // 顯示技能頁（ESC）
+    showSkillsMenu: function() {
+        if (!this.skillsMenu) return;
+        // 暫停但不靜音
+        if (typeof Game !== 'undefined' && Game.pause) {
+            Game.pause(false);
+        }
+        // 更新技能、天賦與金幣顯示
+        try { this.updateSkillsList(); } catch (_) {}
+        try { this.updateTalentsList(); } catch (_) {}
+        try { this.updateCoins(Game.coins || 0); } catch (_) {}
+        this.skillsMenu.classList.remove('hidden');
+        // 按鈕點擊音效
+        this._playClick();
+    },
+    // 隱藏技能頁（ESC）
+    hideSkillsMenu: function() {
+        if (!this.skillsMenu) return;
+        this.skillsMenu.classList.add('hidden');
+        // 按鈕點擊音效
+        this._playClick();
+        // 恢復遊戲
+        if (typeof Game !== 'undefined' && Game.resume) {
+            Game.resume();
+        }
+    },
 };
