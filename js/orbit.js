@@ -28,7 +28,16 @@ class OrbitBall extends Entity {
         while (this.tickAccumulator >= this.tickIntervalMs) {
             for (const enemy of Game.enemies) {
                 if (this.isColliding(enemy)) {
-                    enemy.takeDamage(this.tickDamage);
+                    if (typeof DamageSystem !== 'undefined') {
+                        const result = DamageSystem.computeHit(this.tickDamage, enemy, { weaponType: this.weaponType });
+                        enemy.takeDamage(result.amount);
+                        if (typeof DamageNumbers !== 'undefined') {
+                            // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
+                            DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height||0)/2, result.isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemy.id });
+                        }
+                    } else {
+                        enemy.takeDamage(this.tickDamage);
+                    }
                 }
             }
             this.tickAccumulator -= this.tickIntervalMs;
