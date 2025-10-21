@@ -284,6 +284,20 @@ class Player extends Entity {
         // 消耗能量
         this.energy = 0;
         UI.updateEnergyBar(this.energy, this.maxEnergy);
+
+        // 維護註解：大招啟動瞬間觸發鏡頭震動（沿用既有機制）
+        // 依賴與安全性：
+        // - 使用 Game.cameraShake 既有結構（boss_projectile.js 中已使用並由 Game.update/draw 處理）。
+        // - 僅新增視覺效果，不改動數值、武器、能量、UI 文案與排版。
+        // - 若 cameraShake 尚未初始化，按既有格式建立。
+        try {
+            if (!Game.cameraShake) {
+                Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+            }
+            Game.cameraShake.active = true;
+            Game.cameraShake.intensity = 8; // 與 BOSS 爆炸一致的強度
+            Game.cameraShake.duration = 200; // 毫秒
+        } catch (_) {}
     }
 
     // 結束大招：恢復原始狀態與武器、能量歸零
