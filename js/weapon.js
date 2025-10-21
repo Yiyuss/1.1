@@ -21,6 +21,7 @@ class Weapon {
     
     // 發射投射物
     fire() {
+        const damageMul = (this.player && this.player.damageMultiplier) ? this.player.damageMultiplier : 1;
         // 特殊技能：唱歌（不造成傷害，恢復HP並產生音符特效）
         if (this.type === 'SING') {
             const heal = this.level;
@@ -50,7 +51,7 @@ class Weapon {
                     this.player,
                     angle,
                     dynamicRadius,
-                    this.config.DAMAGE,
+                    this.config.DAMAGE * damageMul,
                     dynamicSize,
                     this.config.DURATION,
                     this.config.ANGULAR_SPEED
@@ -83,7 +84,7 @@ class Weapon {
                 const beam = new LaserBeam(
                     this.player,
                     angle + offset,
-                    this.config.DAMAGE,
+                    this.config.DAMAGE * damageMul,
                     widthPx,
                     this.config.DURATION,
                     this.config.TICK_INTERVAL_MS || 120
@@ -102,7 +103,7 @@ class Weapon {
             const chainCount = this.projectileCount; // 依照等級的 COUNT 當作連鎖次數
             const effect = new ChainLightningEffect(
                 this.player,
-                this.config.DAMAGE,
+                this.config.DAMAGE * damageMul,
                 this.config.DURATION || 500,
                 chainCount,
                 this.config.CHAIN_RADIUS || 220
@@ -148,7 +149,7 @@ class Weapon {
                     sy,
                     angle,
                     this.type,
-                    this.config.DAMAGE,
+                    this.config.DAMAGE * damageMul,
                     this.config.PROJECTILE_SPEED,
                     dynamicSize
                 );
@@ -212,7 +213,7 @@ class Weapon {
                 sy,
                 angle,
                 this.type,
-                this.config.DAMAGE,
+                this.config.DAMAGE * damageMul,
                 this.config.PROJECTILE_SPEED,
                 dynamicSize
             );
