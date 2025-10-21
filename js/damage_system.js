@@ -77,15 +77,23 @@
     async ensureFont(){
       if (this._fontLoaded) return true;
       try {
-        // 僅載入一次字體；若失敗則回退至系統字體
-        const ff = new FontFace('GenSenRounded-H', 'url(assets/fonts/GenSenRounded-H.ttf)');
+        // 僅載入一次字體；優先使用 woff2；若失敗回退至 ttf；仍失敗則回退系統字體
+        const ff = new FontFace('GenSenRounded-H', 'url(assets/fonts/GenSenRounded-H.woff2) format("woff2")');
         const loaded = await ff.load();
         document.fonts.add(loaded);
         this._fontLoaded = true;
         return true;
       } catch (e) {
-        this._fontLoaded = false;
-        return false;
+        try {
+          const ff2 = new FontFace('GenSenRounded-H', 'url(assets/fonts/GenSenRounded-H.ttf)');
+          const loaded2 = await ff2.load();
+          document.fonts.add(loaded2);
+          this._fontLoaded = true;
+          return true;
+        } catch (e2) {
+          this._fontLoaded = false;
+          return false;
+        }
       }
     },
 
@@ -154,14 +162,23 @@
       el.style.transform = 'translate(-50%, -50%)';
       el.style.fontFamily = this._fontLoaded ? 'GenSenRounded-H, sans-serif' : 'sans-serif';
       el.style.fontWeight = isCrit ? '800' : '600';
-      // 字放大：一般 26px、爆擊 32px
-      el.style.fontSize = isCrit ? '32px' : '26px';
+      // 字放大：一般 26px、爆擊 32px（手機視覺適度縮小，不影響 PC）
+      try {
+        const isMobile = (typeof window !== 'undefined') && (
+          (window.matchMedia && (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches))
+        );
+        const baseSize = isCrit ? 32 : 26;
+        const size = isMobile ? Math.round(baseSize * 0.85) : baseSize;
+        el.style.fontSize = size + 'px';
+      } catch (_) {
+        el.style.fontSize = isCrit ? '32px' : '26px';
+      }
       el.style.color = isCrit ? '#ffeb3b' : '#ffffff';
-      // 維護註解：為傷害數字添加「細黑框」以提高可讀性
+      // 維護註解：傷害數字邊框強化 — 先以白色較粗外框提升字重，外層保留原有「黑色細邊框」以維持對比度與可讀性
       // 依賴與安全性：
-      // - 優先使用 `-webkit-text-stroke` 以提供清晰外框；若瀏覽器不支援，保留 textShadow 並附加極輕量多方向陰影模擬外框。
-      // - 僅修改視覺呈現，不改動字體、尺寸、內容文字與動畫行為，避免影響排版與任何既有功能。
-      el.style.webkitTextStroke = isCrit ? '0.5px #000000' : '0.5px #000000';
+      // - 使用 `-webkit-text-stroke` 實作白色粗邊；以 `textShadow` 多方向陰影模擬外層黑色細邊框（跨瀏覽器回退）。
+      // - 僅更動視覺，不改動文字內容、動畫、計算邏輯與任何數值。
+      el.style.webkitTextStroke = isCrit ? '1.4px #ffffff' : '1.2px #ffffff';
       const baseShadow = isCrit
         ? '0 0 12px rgba(255, 235, 59, 0.85), 0 0 5px rgba(255, 255, 255, 0.7)'
         : '0 0 9px rgba(255, 255, 255, 0.65)';
