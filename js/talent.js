@@ -497,3 +497,115 @@ if (!TalentSystem.migrateLegacyTalentData) {
         }
     };
 }
+
+// 全局同步閃爍控制器：僅用於最高級(>=3)天賦卡的圖片閃爍
+if (!TalentSystem._flickerSync) {
+  TalentSystem._flickerSync = (function(){
+    const targets = new Set();
+    let rafId = null;
+    let periodMs = 1200; // 同步節奏：1.2秒一輪
+    let lastPhaseHigh = false;
+
+    function applyStyle(img, high){
+      // 高光/常態兩種樣式，避免修改既有版面
+      if (high) {
+        img.style.filter = 'saturate(1.25) brightness(1.05)';
+        img.style.boxShadow = '0 0 12px 4px rgba(255, 215, 0, 0.8)';
+      } else {
+        img.style.filter = 'saturate(1.1) brightness(1.0)';
+        img.style.boxShadow = '0 0 8px 2px rgba(255, 215, 0, 0.5)';
+      }
+    }
+
+    function tick(){
+      const now = performance.now();
+      const phase = (now % periodMs) / periodMs; // 0..1
+      const high = phase < 0.5; // 前半段高光，後半段常態
+      if (high !== lastPhaseHigh) {
+        lastPhaseHigh = high;
+        targets.forEach(img => applyStyle(img, high));
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function start(){
+      if (rafId == null) rafId = requestAnimationFrame(tick);
+    }
+    function stop(){
+      if (rafId != null) cancelAnimationFrame(rafId);
+      rafId = null;
+    }
+
+    return {
+      register(img){
+        if (!targets.has(img)) {
+          // 清除可能存在的舊動畫，統一由同步器管理
+          if (img._talentAnim && typeof img._talentAnim.cancel === 'function') {
+            try { img._talentAnim.cancel(); } catch(e) {}
+          }
+          targets.add(img);
+          applyStyle(img, true);
+          start();
+        }
+      },
+      unregister(img){
+        if (targets.has(img)) {
+          targets.delete(img);
+          // 回到非最高級的基本樣式，由 updateTalentCardAppearance 再設置
+          img.style.boxShadow = '';
+          img.style.filter = '';
+          if (targets.size === 0) stop();
+        }
+      },
+      setPeriod(ms){
+        periodMs = Math.max(600, ms|0);
+      }
+    };
+  })();
+}
+
+function updateTalentCardAppearance(card, level){
+  const img = card.querySelector('img');
+  // 先清除舊動畫引用，避免重複
+  if (img && img._talentAnim && typeof img._talentAnim.cancel === 'function') {
+    try { img._talentAnim.cancel(); } catch(e) {}
+    img._talentAnim = null;
+  }
+
+  if (level <= 0) {
+    if (img) {
+      TalentSystem._flickerSync.unregister(img);
+      img.classList.add('grayscale');
+      img.style.filter = 'grayscale(100%)';
+      img.style.boxShadow = '';
+    }
+    card.classList.add('locked');
+    card.classList.remove('selectable');
+  } else if (level === 1) {
+    if (img) {
+      TalentSystem._flickerSync.unregister(img);
+      img.classList.remove('grayscale');
+      img.style.filter = 'none';
+      img.style.boxShadow = '';
+    }
+    card.classList.remove('locked');
+    card.classList.add('selectable');
+  } else if (level === 2) {
+    if (img) {
+      TalentSystem._flickerSync.unregister(img);
+      img.classList.remove('grayscale');
+      img.style.filter = 'saturate(1.1)';
+      img.style.boxShadow = '0 0 8px 2px rgba(255, 215, 0, 0.4)';
+    }
+    card.classList.remove('locked');
+    card.classList.add('selectable');
+  } else {
+    // >=3 最高級：加入同步閃爍
+    card.classList.remove('locked');
+    card.classList.add('selectable');
+    if (img) {
+      img.classList.remove('grayscale');
+      TalentSystem._flickerSync.register(img);
+    }
+  }
+}
