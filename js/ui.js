@@ -307,11 +307,6 @@ const UI = {
     },
     
     // 更新天賦列表
-    /**
-     * 更新天賦清單（從 localStorage 讀取）
-     * 依賴：localStorage 'unlocked_talents'；DOM 結構；JSON.parse。
-     * 不變式：鍵名與顯示文案不可更動；若讀取失敗 Mantain 空清單或錯誤提示；動態建立容器邏輯不可更動。
-     */
     updateTalentsList: function() {
         // 檢查天賦列表元素是否存在
         if (!this.talentsList) {
@@ -330,12 +325,10 @@ const UI = {
             
             // 將天賦區域添加到技能選單中
             if (this.skillsMenu) {
-                // 找到音量控制區域，在其前面插入天賦區域
                 const volumeSection = this.skillsMenu.querySelector('.volume-section');
                 if (volumeSection) {
                     this.skillsMenu.insertBefore(talentsSection, volumeSection);
                 } else {
-                    // 如果找不到音量區域，直接添加到選單末尾
                     this.skillsMenu.appendChild(talentsSection);
                 }
             }
@@ -345,40 +338,38 @@ const UI = {
         this.talentsList.innerHTML = '';
         
         try {
-            // 從本地存儲獲取已解鎖的天賦
-            const unlockedTalents = JSON.parse(localStorage.getItem('unlocked_talents') || '[]');
-            
-            if (unlockedTalents.length === 0) {
+            // 以階梯系統為主：只顯示每個天賦的最高階描述
+            // 新增 pickup_range_boost、damage_boost 兩項：維持同樣渲染流程
+            const ids = ['hp_boost','defense_boost','speed_boost','pickup_range_boost','damage_boost'];
+            const items = [];
+            ids.forEach(id => {
+                const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) ? TalentSystem.getTalentLevel(id) : 0;
+                if (lv > 0) {
+                    const nameMap = {
+                        hp_boost: '生命強化',
+                        defense_boost: '防禦強化',
+                        speed_boost: '移動加速',
+                        pickup_range_boost: '拾取範圍增加',
+                        damage_boost: '傷害強化'
+                    };
+                    const talentItem = document.createElement('div');
+                    talentItem.className = 'talent-item';
+                    const desc = (typeof TalentSystem !== 'undefined' && TalentSystem.getHighestTierDescription) ? TalentSystem.getHighestTierDescription(id) : '';
+                    // 只顯示天賦效果（左對齊），顏色不變；不更動全局CSS。
+                    talentItem.innerHTML = `<div class="talent-row">`+
+                        `<span class="talent-desc" style="color:#9ed0ff;">${desc}</span>`+
+                    `</div>`;
+                    items.push(talentItem);
+                }
+            });
+            if (items.length === 0) {
                 const emptyTalent = document.createElement('div');
                 emptyTalent.className = 'talent-empty';
                 emptyTalent.textContent = '尚未解鎖任何天賦';
                 this.talentsList.appendChild(emptyTalent);
                 return;
             }
-            
-            // 添加每個已解鎖的天賦
-            unlockedTalents.forEach(talentId => {
-                const talentItem = document.createElement('div');
-                talentItem.className = 'talent-item';
-                
-                // 根據天賦ID設置顯示名稱和描述
-                let talentName = '未知天賦';
-                let talentDesc = '';
-                
-                if (talentId === 'hp_boost') {
-                    talentName = '生命強化';
-                    talentDesc = '增加初始生命值20點';
-                } else if (talentId === 'damage_boost') {
-                    talentName = '攻擊強化';
-                    talentDesc = '增加所有武器傷害10%';
-                } else if (talentId === 'speed_boost') {
-                    talentName = '速度強化';
-                    talentDesc = '增加移動速度15%';
-                }
-                
-                talentItem.innerHTML = `<div class="talent-name">${talentName}</div><div class="talent-desc">${talentDesc}</div>`;
-                this.talentsList.appendChild(talentItem);
-            });
+            items.forEach(el => this.talentsList.appendChild(el));
         } catch (e) {
             console.error('載入天賦失敗:', e);
             const errorItem = document.createElement('div');
@@ -449,71 +440,45 @@ const UI = {
         if (player.isUltimateActive && player._ultimateBackup) {
             const idx = player._ultimateBackup.weapons.findIndex(w => w.type === weaponType);
             if (idx >= 0) {
-                const info = player._ultimateBackup.weapons[idx];
-                const cfg = CONFIG.WEAPONS[info.type];
-                if (cfg && info.level < cfg.LEVELS.length) {
-                    info.level++;
-                }
+                player._ultimateBackup.weapons[idx].level += 1;
             } else {
-                // 添加新武器到備份狀態（LV1）
                 player._ultimateBackup.weapons.push({ type: weaponType, level: 1 });
             }
         } else {
-            // 平常狀態：直接升級/新增到當前玩家武器
-            const existingWeapon = player.weapons.find(w => w.type === weaponType);
-            if (existingWeapon) {
-                player.upgradeWeapon(weaponType);
+            const idx = player.weapons.findIndex(w => w.type === weaponType);
+            if (idx >= 0) {
+                player.weapons[idx].level += 1;
             } else {
-                player.addWeapon(weaponType);
+                player.weapons.push({ type: weaponType, level: 1 });
             }
         }
 
-        // 隱藏升級選單
+        // 更新技能列表與音量滑桿
+        this.updateSkillsList();
+        this._playClick();
+        // 選擇完成後關閉升級選單並恢復遊戲（維持原流程）
         this.hideLevelUpMenu();
     },
     
     /**
-     * 私有：初始化並安全播放影片
-     * 依賴：HTMLVideoElement、overlay、playBtn；回調 onEnded。
-     * 不變式：播放流程與 overlay 顯示/隱藏策略不可更動；不要改參數名稱或順序。
+     * 影片播放輔助：解決自動播放限制
+     * 依賴：HTMLVideoElement、AudioManager（可選，僅播放音效）。
+     * 不變式：不更動影片與文字；僅處理點擊播放行為。
      */
     _setupAndPlayVideo: function(el, overlay, playBtn, onEnded) {
-        if (!el) return;
-        try { el.pause(); } catch (_) {}
-        el.muted = false;
-        el.loop = false;
-        el.currentTime = 0;
-        if (typeof onEnded === 'function') {
-            el.addEventListener('ended', onEnded, { once: true });
-        }
-        try {
-            const p = el.play();
-            if (p && typeof p.then === 'function') {
-                p.then(function() { if (overlay) overlay.classList.add('hidden'); })
-                 .catch(function() { if (overlay) overlay.classList.remove('hidden'); });
-            }
-        } catch (err) {
-            if (overlay) overlay.classList.remove('hidden');
-        }
-        if (playBtn) {
-            playBtn.onclick = function() {
-                try {
-                    el.muted = false;
-                    el.loop = false;
-                    el.currentTime = 0;
-                    const p2 = el.play();
-                    if (overlay) overlay.classList.add('hidden');
-                    if (p2 && typeof p2.catch === 'function') {
-                        p2.catch(function() { if (overlay) overlay.classList.remove('hidden'); });
-                    }
-                } catch (_) { if (overlay) overlay.classList.remove('hidden'); }
-            };
-        }
+        if (!el || !overlay || !playBtn) return;
+        overlay.classList.remove('hidden');
+        playBtn.addEventListener('click', () => {
+            overlay.classList.add('hidden');
+            try { el.play(); } catch (_) {}
+            this._playClick();
+        });
+        el.addEventListener('ended', () => { if (onEnded) onEnded(); });
     },
     
     // 顯示遊戲結束畫面
     /**
-     * 顯示遊戲結束畫面
+     * 顯示遊戲結束畫面（恢復：自動播放與自動返回起始介面）
      * 依賴：DOM id 'game-screen','game-over-screen','game-over-video','game-over-overlay','game-over-play'；AudioManager；Game。
      * 不變式：流程與顯示文字不可更動；僅抽出重複邏輯至私有方法。
      */
@@ -523,19 +488,22 @@ const UI = {
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('game-over-screen').classList.remove('hidden');
     
-        const onEnded = () => this._returnToStartFrom('game-over-screen');
+        const el = this._get('game-over-video');
+        if (!el) return;
+        try { el.pause(); } catch (_) {}
+        el.muted = false;
+        el.loop = false;
+        el.currentTime = 0;
     
-        this._setupAndPlayVideo(
-            this._get('game-over-video'),
-            this._get('game-over-overlay'),
-            this._get('game-over-play'),
-            onEnded
-        );
+        const onEnded = () => this._returnToStartFrom('game-over-screen');
+        el.addEventListener('ended', onEnded, { once: true });
+    
+        try { el.play(); } catch (_) {}
     },
     
     // 顯示勝利畫面
     /**
-     * 顯示勝利畫面
+     * 顯示勝利畫面（恢復：自動播放與自動返回起始介面）
      * 依賴：DOM id 'game-screen','victory-screen','victory-video','victory-overlay','victory-play'；AudioManager；Game。
      * 不變式：流程與顯示文字不可更動；僅抽出重複邏輯至私有方法。
      */
@@ -545,14 +513,17 @@ const UI = {
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('victory-screen').classList.remove('hidden');
     
-        const onEnded = () => this._returnToStartFrom('victory-screen');
+        const el = this._get('victory-video');
+        if (!el) return;
+        try { el.pause(); } catch (_) {}
+        el.muted = false;
+        el.loop = false;
+        el.currentTime = 0;
     
-        this._setupAndPlayVideo(
-            this._get('victory-video'),
-            this._get('victory-overlay'),
-            this._get('victory-play'),
-            onEnded
-        );
+        const onEnded = () => this._returnToStartFrom('victory-screen');
+        el.addEventListener('ended', onEnded, { once: true });
+    
+        try { el.play(); } catch (_) {}
     },
 
     // 顯示升級選單
