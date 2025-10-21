@@ -564,6 +564,8 @@ const UI = {
         });
         // 顯示選單（使用 .hidden 切換，與既有邏輯一致）
         if (this.levelUpMenu) this.levelUpMenu.classList.remove('hidden');
+        // 手機自適應：僅在手機套用 sizing，不改 PC
+        this._applyMobileLevelUpSizing();
     },
     // 隱藏升級選單
     hideLevelUpMenu: function() {
@@ -600,4 +602,49 @@ const UI = {
             Game.resume();
         }
     },
-};
+
+    // 私有：手機升級視窗尺寸自適應（不影響 PC）
+    _applyMobileLevelUpSizing: function() {
+        const menu = this.levelUpMenu;
+        if (!menu) return;
+        try {
+            const isMobile = (typeof window !== 'undefined') && (
+                (window.matchMedia && (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches))
+            );
+            // PC：移除可能殘留的手機內聯樣式
+            if (!isMobile) {
+                menu.style.maxWidth = '';
+                menu.style.maxHeight = '';
+                menu.style.overflowY = '';
+                if (menu.style.transform) {
+                    // 保留原本 CSS translate(-50%,-50%)，移除內聯 scale
+                    menu.style.transform = 'translate(-50%, -50%)';
+                }
+                menu.style.transformOrigin = '';
+                return;
+            }
+
+            // 手機：限制寬高並允許滾動
+            menu.style.maxWidth = '95vw';
+            menu.style.maxHeight = '90vh';
+            menu.style.overflowY = 'auto';
+
+            // 量測並視需要縮放（保留置中位移）
+            const rect = menu.getBoundingClientRect();
+            const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+            const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+            const scaleW = rect.width > 0 ? (vw * 0.95) / rect.width : 1;
+            const scaleH = rect.height > 0 ? (vh * 0.90) / rect.height : 1;
+            let scale = Math.min(scaleW, scaleH);
+            // 下限 0.72，避免過度縮小影響閱讀；上限 1 不放大
+            scale = Math.max(0.72, Math.min(1, scale));
+            if (scale < 1) {
+                menu.style.transformOrigin = 'center top';
+                menu.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            } else {
+                menu.style.transformOrigin = '';
+                menu.style.transform = 'translate(-50%, -50%)';
+            }
+        } catch (_) {}
+    },
+ };
