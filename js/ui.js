@@ -43,23 +43,8 @@ const UI = {
         // 金幣顯示元素（動態建立）
         this.skillsCoinsEl = document.getElementById('skills-coins');
 
-        // 綁定技能頁音量滑桿事件
-        if (this.skillsMusicSlider && this.skillsMusicText) {
-            this.skillsMusicSlider.addEventListener('input', () => {
-                if (typeof AudioManager !== 'undefined' && AudioManager.setMusicVolume) {
-                    AudioManager.setMusicVolume(parseFloat(this.skillsMusicSlider.value));
-                }
-                this.skillsMusicText.textContent = Math.round(this.skillsMusicSlider.value * 100) + '%';
-            });
-        }
-        if (this.skillsSoundSlider && this.skillsSoundText) {
-            this.skillsSoundSlider.addEventListener('input', () => {
-                if (typeof AudioManager !== 'undefined' && AudioManager.setSoundVolume) {
-                    AudioManager.setSoundVolume(parseFloat(this.skillsSoundSlider.value));
-                }
-                this.skillsSoundText.textContent = Math.round(this.skillsSoundSlider.value * 100) + '%';
-            });
-        }
+        // 統一綁定技能頁音量滑桿（不改文案與行為）
+        try { this.bindVolumeSliders(this.skillsMenu); } catch (_) {}
         
         // 初始化UI
         this.updateHealthBar(CONFIG.PLAYER.MAX_HEALTH, CONFIG.PLAYER.MAX_HEALTH);
@@ -131,6 +116,100 @@ const UI = {
      * 不變式：僅作包裝，不更動行為。
      */
     _get: function(id) { return document.getElementById(id); },
+
+    /**
+     * 判斷畫面是否可見（依 .hidden class）
+     * 依賴：既定 DOM id；.hidden 隱藏規則。
+     * 不變式：回傳布林值，不改任何顯示狀態。
+     */
+    isScreenVisible: function(id) {
+        const el = this._get(id);
+        return !!(el && !el.classList.contains('hidden'));
+    },
+
+    /**
+     * 判斷是否有覆蓋層選單開啟（升級/技能）
+     * 依賴：#level-up-menu、#skills-menu；.hidden 隱藏規則。
+     * 不變式：僅檢查兩者是否可見；不影響其他畫面判斷。
+     */
+    isAnyOverlayOpen: function() {
+        const levelMenu = this._get('level-up-menu');
+        const skillsMenu = this._get('skills-menu');
+        const levelOpen = !!(levelMenu && !levelMenu.classList.contains('hidden'));
+        const skillsOpen = !!(skillsMenu && !skillsMenu.classList.contains('hidden'));
+        return levelOpen || skillsOpen;
+    },
+
+    /**
+     * 綁定音量滑桿（技能頁或起始頁）
+     * 依賴：AudioManager.setMusicVolume/setSoundVolume/toggleMute；既定 id 與文案。
+     * 不變式：不改動文案與 id；滑桿行為維持原有「即時更新數值與文字」。
+     */
+    bindVolumeSliders: function(container) {
+        if (!container) return;
+        // 技能頁滑桿
+        const skillsMusic = container.querySelector('#skills-music-volume');
+        const skillsSound = container.querySelector('#skills-sound-volume');
+        const skillsMusicText = container.querySelector('#skills-music-volume-text');
+        const skillsSoundText = container.querySelector('#skills-sound-volume-text');
+        if (skillsMusic && skillsMusicText) {
+            const initVal = (typeof AudioManager !== 'undefined' ? AudioManager.musicVolume : parseFloat(skillsMusic.value) || 0.5);
+            skillsMusic.value = initVal;
+            skillsMusicText.textContent = Math.round(initVal * 100) + '%';
+            skillsMusic.addEventListener('input', function() {
+                const v = parseFloat(skillsMusic.value) || 0;
+                if (AudioManager.setMusicVolume) AudioManager.setMusicVolume(v);
+                skillsMusicText.textContent = Math.round(v * 100) + '%';
+            });
+        }
+        if (skillsSound && skillsSoundText) {
+            const initVal = (typeof AudioManager !== 'undefined' ? AudioManager.soundVolume : parseFloat(skillsSound.value) || 0.7);
+            skillsSound.value = initVal;
+            skillsSoundText.textContent = Math.round(initVal * 100) + '%';
+            skillsSound.addEventListener('input', function() {
+                const v = parseFloat(skillsSound.value) || 0;
+                if (AudioManager.setSoundVolume) AudioManager.setSoundVolume(v);
+                skillsSoundText.textContent = Math.round(v * 100) + '%';
+            });
+        }
+        
+        // 起始頁滑桿與靜音切換
+        const startMusic = container.querySelector('#music-volume');
+        const startSound = container.querySelector('#sound-volume');
+        const startMusicText = container.querySelector('#music-volume-text');
+        const startSoundText = container.querySelector('#sound-volume-text');
+        const muteToggle = container.querySelector('#mute-toggle');
+        const muteStatus = container.querySelector('#mute-status');
+        if (startMusic && startMusicText) {
+            const initVal = (typeof AudioManager !== 'undefined' ? AudioManager.musicVolume : parseFloat(startMusic.value) || 0.5);
+            startMusic.value = initVal;
+            startMusicText.textContent = Math.round(initVal * 100) + '%';
+            startMusic.addEventListener('input', function() {
+                const v = parseFloat(startMusic.value) || 0;
+                if (AudioManager.setMusicVolume) AudioManager.setMusicVolume(v);
+                startMusicText.textContent = Math.round(v * 100) + '%';
+            });
+        }
+        if (startSound && startSoundText) {
+            const initVal = (typeof AudioManager !== 'undefined' ? AudioManager.soundVolume : parseFloat(startSound.value) || 0.7);
+            startSound.value = initVal;
+            startSoundText.textContent = Math.round(initVal * 100) + '%';
+            startSound.addEventListener('input', function() {
+                const v = parseFloat(startSound.value) || 0;
+                if (AudioManager.setSoundVolume) AudioManager.setSoundVolume(v);
+                startSoundText.textContent = Math.round(v * 100) + '%';
+            });
+        }
+        if (muteToggle && muteStatus) {
+            // 初始化文案
+            const isMuted = !!(typeof AudioManager !== 'undefined' && AudioManager.isMuted);
+            muteStatus.textContent = isMuted ? '開' : '關';
+            muteToggle.addEventListener('click', function() {
+                const muted = AudioManager.toggleMute ? AudioManager.toggleMute() : false;
+                muteStatus.textContent = muted ? '開' : '關';
+            });
+        }
+    },
     /**
      * 私有：從結束/勝利畫面返回起始畫面
      * 依賴：既定 DOM id；AudioManager、Game。
@@ -144,7 +223,14 @@ const UI = {
         const start = this._get('start-screen'); if (start) start.classList.remove('hidden');
         Game.isGameOver = false;
         try { AudioManager.isMuted = false; } catch (_) {}
-        try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (_) {}
+        // 若有 AudioScene，使用選單場景；否則保留原行為
+        try {
+            if (typeof AudioScene !== 'undefined' && AudioScene.enterMenu) {
+                AudioScene.enterMenu();
+            } else if (AudioManager.playMusic) {
+                AudioManager.playMusic('menu_music');
+            }
+        } catch (_) {}
     },
     isSkillsMenuOpen: function() {
         const el = this.skillsMenu;
@@ -224,7 +310,7 @@ const UI = {
     /**
      * 更新天賦清單（從 localStorage 讀取）
      * 依賴：localStorage 'unlocked_talents'；DOM 結構；JSON.parse。
-     * 不變式：鍵名與顯示文案不可更動；若讀取失敗維持空清單或錯誤提示；動態建立容器邏輯不可更動。
+     * 不變式：鍵名與顯示文案不可更動；若讀取失敗 Mantain 空清單或錯誤提示；動態建立容器邏輯不可更動。
      */
     updateTalentsList: function() {
         // 檢查天賦列表元素是否存在
@@ -232,7 +318,6 @@ const UI = {
             // 如果不存在，創建天賦列表區域
             const talentsSection = document.createElement('div');
             talentsSection.className = 'talents-section';
-            
             const talentsTitle = document.createElement('h3');
             talentsTitle.className = 'talents-title';
             talentsTitle.textContent = '已解鎖天賦';
