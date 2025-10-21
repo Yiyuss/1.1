@@ -14,8 +14,10 @@ class ExperienceOrb extends Entity {
         const player = Game.player;
         const distanceToPlayer = Utils.distance(this.x, this.y, player.x, player.y);
         
-        // 如果玩家靠近，吸引經驗寶石
-        if (distanceToPlayer < this.attractionRange) {
+        // 如果玩家靠近，吸引經驗寶石（支援拾取範圍乘算）
+        const prMul = (player && player.pickupRangeMultiplier) ? player.pickupRangeMultiplier : 1;
+        const effectiveRange = this.attractionRange * prMul;
+        if (distanceToPlayer < effectiveRange) {
             // 增加吸引速度（按時間縮放）
             const deltaMul = deltaTime / 16.67;
             this.attractionSpeed = Math.min(this.attractionSpeed + this.attractionAcceleration * deltaMul, this.maxAttractionSpeed);
