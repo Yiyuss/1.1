@@ -90,7 +90,16 @@ class LaserBeam extends Entity {
             for (const enemy of Game.enemies) {
                 const d = this.pointSegmentDistance(enemy.x, enemy.y, this.startX, this.startY, this.endX, this.endY);
                 if (d <= half + enemy.collisionRadius) {
-                    enemy.takeDamage(this.damage);
+                    if (typeof DamageSystem !== 'undefined') {
+                        const result = DamageSystem.computeHit(this.damage, enemy, { weaponType: this.weaponType });
+                        enemy.takeDamage(result.amount);
+                        if (typeof DamageNumbers !== 'undefined') {
+                            // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
+                            DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height||0)/2, result.isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
+                        }
+                    } else {
+                        enemy.takeDamage(this.damage);
+                    }
                 }
             }
             this.tickAccumulator = 0;
