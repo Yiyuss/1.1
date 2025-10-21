@@ -295,21 +295,24 @@ function setupSkillsMenuToggle() {
     });
 }
 
-// 選角介面事件與確認流程
+// 選角介面事件與確認流程（回復原行為：單擊僅更新預覽，雙擊/空白鍵進入選圖）
 function setupCharacterSelection() {
     const screen = document.getElementById('character-select-screen');
     const cards = screen.querySelectorAll('.char-card.selectable');
-    const confirmBox = document.getElementById('character-confirm');
-    const okBtn = document.getElementById('character-confirm-ok');
-    const cancelBtn = document.getElementById('character-confirm-cancel');
+    const previewImg = document.getElementById('char-preview-img');
+    const previewName = document.getElementById('char-preview-name');
+    const previewDesc = document.getElementById('char-preview-desc');
     let picked = null;
     let lastTapTime = 0;
 
-    const showPreview = (ch) => {
+    const updatePreview = (ch) => {
+        if (!ch) return;
         picked = ch;
-        if (confirmBox) {
-            show(confirmBox); // 使用輔助函數替換 confirmBox.classList.remove('hidden')
-        }
+        const key = ch.avatarImageKey || 'player';
+        const imgObj = (Game.images && Game.images[key]) ? Game.images[key] : null;
+        if (previewImg) previewImg.src = imgObj ? imgObj.src : `assets/images/${key}.png`;
+        if (previewName) previewName.textContent = ch.name || '角色';
+        if (previewDesc) previewDesc.textContent = ch.description || '角色介紹';
     };
 
     cards.forEach(card => {
@@ -317,52 +320,36 @@ function setupCharacterSelection() {
         const ch = (CONFIG.CHARACTERS || []).find(c => c.id === id);
         // 單擊：僅更新預覽
         card.addEventListener('click', () => {
-            playClick2(); // 添加選角音效
-            showPreview(ch);
+            playClick2();
+            updatePreview(ch);
         });
-        // 雙擊：直接跳到選地圖視窗，取消確認視窗
+        // 雙擊：直接切換到選圖畫面
         card.addEventListener('dblclick', () => {
-            showPreview(ch);
             Game.selectedCharacter = ch;
-            hide(confirmBox); // 使用輔助函數替換 classList.add('hidden')
-            playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
-            show(DOMCache.get('map-select-screen')); // 使用輔助函數替換 mapEl.classList.remove('hidden')
+            playClick();
+            switchScreen(DOMCache.get('character-select-screen'), DOMCache.get('map-select-screen'));
         });
-        // 觸控雙擊（兩次點擊間隔<=300ms）
+        // 觸控雙擊（兩次點擊間隔<=300ms）：雙擊進入選圖，單擊更新預覽
         card.addEventListener('touchend', () => {
             const now = Date.now();
             if (now - lastTapTime <= 300) {
-                showPreview(ch);
                 Game.selectedCharacter = ch;
-                hide(confirmBox); // 使用輔助函數替換 classList.add('hidden')
-                playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
-                show(DOMCache.get('map-select-screen')); // 使用輔助函數替換 mapEl.classList.remove('hidden')
+                playClick();
+                switchScreen(DOMCache.get('character-select-screen'), DOMCache.get('map-select-screen'));
+            } else {
+                updatePreview(ch);
             }
             lastTapTime = now;
         }, { passive: true });
     });
 
-    okBtn?.addEventListener('click', () => {
-        hide(confirmBox); // 使用輔助函數替換 classList.add('hidden')
-        // 套用選角，改為彈出的方式顯示地圖選擇（保持選角介面不隱藏）
-        Game.selectedCharacter = picked;
-        playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
-        show(DOMCache.get('map-select-screen')); // 使用輔助函數替換 mapEl.classList.remove('hidden')
-    });
-
-    cancelBtn?.addEventListener('click', () => {
-        hide(confirmBox); // 使用輔助函數替換 classList.add('hidden')
-        picked = null;
-    });
-
-    // 註冊空白鍵處理器到 KeyboardRouter
+    // 空白鍵：在選角畫面時，若已有 picked，直接進入選圖
     KeyboardRouter.register('character-select', 'Space', (e) => {
         e.preventDefault();
         if (picked) {
             Game.selectedCharacter = picked;
-            hide(confirmBox); // 使用輔助函數替換 classList.add('hidden')
-            playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
-            show(DOMCache.get('map-select-screen')); // 使用輔助函數替換 mapEl.classList.remove('hidden')
+            playClick();
+            switchScreen(DOMCache.get('character-select-screen'), DOMCache.get('map-select-screen'));
         }
     });
 }
@@ -380,14 +367,14 @@ function setupMapAndDifficultySelection() {
 
     const showMapDesc = (cfg, card) => {
         Game.selectedMap = cfg || null;
-        playClick2(); // 使用輔助函數替換 AudioManager.playSound('button_click2')
+        playClick2();
         if (mapDescEl) {
             mapDescEl.textContent = '光滑平面的廁所，可利用馬桶障礙物躲避敵人';
         }
     };
     const confirmMap = () => {
         if (!selectedMapCfg) return;
-        switchScreen(mapScreen, diffScreen); // 使用輔助函數替換 classList.add/remove('hidden')
+        switchScreen(mapScreen, diffScreen);
     };
 
     mapCards.forEach(card => {
@@ -397,7 +384,7 @@ function setupMapAndDifficultySelection() {
 
         card.addEventListener('click', () => {
             if (disabled) {
-                playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
+                playClick();
                 return;
             }
             selectedMapCfg = cfg;
@@ -425,7 +412,6 @@ function setupMapAndDifficultySelection() {
         }, { passive: true });
     });
 
-    // 註冊空白鍵處理器到 KeyboardRouter
     KeyboardRouter.register('map-select', 'Space', (e) => {
         e.preventDefault();
         confirmMap();
@@ -433,8 +419,7 @@ function setupMapAndDifficultySelection() {
 
     if (mapCancel) {
         mapCancel.addEventListener('click', () => {
-            hide(mapScreen); // 使用輔助函數替換 classList.add('hidden')
-            // 保持選角介面可見，無需切換
+            switchScreen(mapScreen, DOMCache.get('character-select-screen'));
         });
     }
 
@@ -445,23 +430,21 @@ function setupMapAndDifficultySelection() {
         card.addEventListener('click', () => {
             const id = card.getAttribute('data-diff-id') || 'EASY';
             Game.selectedDifficultyId = id;
-            playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
-            hide(diffScreen); // 使用輔助函數替換 classList.add('hidden')
-            // 新增：開始遊戲時隱藏選角與選圖介面，切換到遊戲畫面
-            hide(DOMCache.get('character-select-screen')); // 使用輔助函數替換 classList.add('hidden')
-            hide(DOMCache.get('map-select-screen')); // 使用輔助函數替換 classList.add('hidden')
+            playClick();
+            hide(diffScreen);
+            hide(DOMCache.get('character-select-screen'));
+            hide(DOMCache.get('map-select-screen'));
             Game.startNewGame();
-            // 切換遊戲BGM
             if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
                 AudioManager.playMusic('game_music');
             }
-            show(DOMCache.get('game-screen')); // 使用輔助函數替換 classList.remove('hidden')
+            show(DOMCache.get('game-screen'));
         });
     });
 
     if (diffBack) {
         diffBack.addEventListener('click', () => {
-            switchScreen(diffScreen, mapScreen); // 使用輔助函數替換 classList.add/remove('hidden')
+            switchScreen(diffScreen, mapScreen);
         });
     }
 }
@@ -731,29 +714,17 @@ function bindDoubleTap(element, callback, delay = 300) {
  */
 const KeyboardRouter = {
     handlers: new Map(),
-    
-    /**
-     * 註冊按鍵處理器
-     * @param {string} context - 上下文名稱（如 'character-select', 'talent-screen'）
-     * @param {string} key - 按鍵代碼（如 'Space', 'Escape'）
-     * @param {Function} handler - 處理函數
-     */
     register(context, key, handler) {
         const contextKey = `${context}:${key}`;
         this.handlers.set(contextKey, handler);
     },
-    
-    /**
-     * 獲取當前上下文
-     * @returns {string} 當前畫面的上下文名稱
-     */
     getCurrentContext() {
-        // 檢查各個畫面的可見性，返回對應的上下文
-        if (!document.getElementById('character-select-screen').classList.contains('hidden')) {
-            return 'character-select';
-        }
+        // 讓可見的選圖畫面優先於選角畫面
         if (!document.getElementById('map-select-screen').classList.contains('hidden')) {
             return 'map-select';
+        }
+        if (!document.getElementById('character-select-screen').classList.contains('hidden')) {
+            return 'character-select';
         }
         if (!document.getElementById('talent-select-screen').classList.contains('hidden')) {
             return 'talent-select';
@@ -763,16 +734,10 @@ const KeyboardRouter = {
         }
         return 'default';
     },
-    
-    /**
-     * 處理按鍵事件
-     * @param {KeyboardEvent} event - 鍵盤事件
-     */
     handle(event) {
         const context = this.getCurrentContext();
         const contextKey = `${context}:${event.code}`;
         const handler = this.handlers.get(contextKey);
-        
         if (handler) {
             handler(event);
         }
