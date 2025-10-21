@@ -1,5 +1,21 @@
 // UI系統
+/**
+ * UI 模組（全域 UI 物件）
+ * 職責：畫面元素更新（血量/經驗/能量/計時/波次/金幣）、升級選單、技能頁（ESC）、天賦清單、結束/勝利畫面展示。
+ * 依賴：DOM（index.html 既定 id 與 .hidden class）、Game、AudioManager、CONFIG、Utils、localStorage。
+ * 不變式：
+ * - 任一 DOM id 與 CSS 類名不可更動（避免跨檔壞連結）。
+ * - 所有人眼可見文字與排版不可更動（除非另行要求）。
+ * - 金幣/天賦等資料鍵（如 'unlocked_talents'）不可更動；流程與數值格式不可更動。
+ * - 僅允許結構性抽取重複邏輯；不得改變行為順序或數值。
+ * 維護提示：請於新增功能時先補JSDoc註解與依賴備註，再實作，避免不同AI造成行為偏移。
+ */
 const UI = {
+    /**
+     * 初始化 UI 元素與事件綁定
+     * 依賴：既定 DOM id；AudioManager（可選）；Game、CONFIG。
+     * 不變式：id 與 class 名不可變；事件綁定與初始顯示狀態不可改；不可改動文字與數值格式。
+     */
     init: function() {
         // 獲取UI元素
         this.healthBar = document.getElementById('health-fill');
@@ -201,6 +217,11 @@ const UI = {
             }
         } catch (_) {}
     },
+    /**
+     * 更新技能列表（武器清單）
+     * 依賴：Game.player.weapons、CONFIG、AudioManager（可選，僅處理滑桿綁定）。
+     * 不變式：DOM id 與文案不可更動；列表結構與排序不可更動；處理「尚未獲得任何技能」文案。
+     */
     updateSkillsList: function() {
         if (!this.skillsList) return;
         const player = Game.player;
@@ -235,6 +256,11 @@ const UI = {
     },
     
     // 更新天賦列表
+    /**
+     * 更新天賦清單（從 localStorage 讀取）
+     * 依賴：localStorage 'unlocked_talents'；DOM 結構；JSON.parse。
+     * 不變式：鍵名與顯示文案不可更動；若讀取失敗維持空清單或錯誤提示；動態建立容器邏輯不可更動。
+     */
     updateTalentsList: function() {
         // 檢查天賦列表元素是否存在
         if (!this.talentsList) {
@@ -313,6 +339,11 @@ const UI = {
     },
     
     // 獲取升級選項
+    /**
+     * 取得升級選項（含現有武器升級與新武器）
+     * 依賴：Game.player、CONFIG.WEAPONS、Utils.shuffleArray。
+     * 不變式：選項數量、格式、文字不可更動；必須處理 ultimate 狀態備份邏輯不變。
+     */
     getUpgradeOptions: function() {
         const options = [];
         const player = Game.player;
@@ -356,7 +387,11 @@ const UI = {
         return shuffled.slice(0, 3);
     },
     
-    // 選擇升級
+    /**
+     * 套用選擇的升級（升級現有武器或新增武器）
+     * 依賴：Game.player 武器 API；CONFIG.WEAPONS；ultimate 備份狀態。
+     * 不變式：所有數值與流程不可更動；需維持對 ultimate 狀態的備份/恢復處理；UI 更新流程不可更動。
+     */
     selectUpgrade: function(weaponType) {
         const player = Game.player;
 
@@ -387,54 +422,31 @@ const UI = {
         this.hideLevelUpMenu();
     },
     
-    // 顯示遊戲結束畫面
-    showGameOverScreen: function() {
-        try { if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
-        Game.pause(true);
-        document.getElementById('game-screen').classList.add('hidden');
-        document.getElementById('game-over-screen').classList.remove('hidden');
-    
-        const el = document.getElementById('game-over-video');
-        const overlay = document.getElementById('game-over-overlay');
-        const playBtn = document.getElementById('game-over-play');
-    
+    /**
+     * 私有：初始化並安全播放影片
+     * 依賴：HTMLVideoElement、overlay、playBtn；回調 onEnded。
+     * 不變式：播放流程與 overlay 顯示/隱藏策略不可更動；不要改參數名稱或順序。
+     */
+    _setupAndPlayVideo: function(el, overlay, playBtn, onEnded) {
         if (!el) return;
-    
-        // 確保影片初始狀態
         try { el.pause(); } catch (_) {}
         el.muted = false;
         el.loop = false;
         el.currentTime = 0;
-    
-        // 結束事件：回到起始畫面並恢復選單音樂
-        const onEnded = () => {
-            document.getElementById('game-over-screen').classList.add('hidden');
-            document.getElementById('character-select-screen').classList.add('hidden');
-            document.getElementById('map-select-screen').classList.add('hidden');
-            document.getElementById('start-screen').classList.remove('hidden');
-            Game.isGameOver = false;
-            // 解除靜音並播放選單音樂（避免回到選單仍靜音）
-            try { AudioManager.isMuted = false; } catch (e) {}
-            try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (e) {}
-        };
-        el.addEventListener('ended', onEnded, { once: true });
-    
-        // 嘗試播放並處理瀏覽器手勢限制
+        if (typeof onEnded === 'function') {
+            el.addEventListener('ended', onEnded, { once: true });
+        }
         try {
             const p = el.play();
             if (p && typeof p.then === 'function') {
-                p.then(() => {
-                    if (overlay) overlay.classList.add('hidden');
-                }).catch(() => {
-                    if (overlay) overlay.classList.remove('hidden');
-                });
+                p.then(function() { if (overlay) overlay.classList.add('hidden'); })
+                 .catch(function() { if (overlay) overlay.classList.remove('hidden'); });
             }
         } catch (err) {
             if (overlay) overlay.classList.remove('hidden');
         }
-    
         if (playBtn) {
-            playBtn.onclick = () => {
+            playBtn.onclick = function() {
                 try {
                     el.muted = false;
                     el.loop = false;
@@ -442,70 +454,71 @@ const UI = {
                     const p2 = el.play();
                     if (overlay) overlay.classList.add('hidden');
                     if (p2 && typeof p2.catch === 'function') {
-                        p2.catch(() => { if (overlay) overlay.classList.remove('hidden'); });
+                        p2.catch(function() { if (overlay) overlay.classList.remove('hidden'); });
                     }
                 } catch (_) { if (overlay) overlay.classList.remove('hidden'); }
             };
         }
     },
     
+    // 顯示遊戲結束畫面
+    /**
+     * 顯示遊戲結束畫面
+     * 依賴：DOM id 'game-screen','game-over-screen','game-over-video','game-over-overlay','game-over-play'；AudioManager；Game。
+     * 不變式：流程與顯示文字不可更動；僅抽出重複邏輯至私有方法。
+     */
+    showGameOverScreen: function() {
+        try { if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
+        Game.pause(true);
+        document.getElementById('game-screen').classList.add('hidden');
+        document.getElementById('game-over-screen').classList.remove('hidden');
+    
+        const onEnded = function() {
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('character-select-screen').classList.add('hidden');
+            document.getElementById('map-select-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            Game.isGameOver = false;
+            try { AudioManager.isMuted = false; } catch (e) {}
+            try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (e) {}
+        };
+    
+        this._setupAndPlayVideo(
+            document.getElementById('game-over-video'),
+            document.getElementById('game-over-overlay'),
+            document.getElementById('game-over-play'),
+            onEnded
+        );
+    },
+    
     // 顯示勝利畫面
+    /**
+     * 顯示勝利畫面
+     * 依賴：DOM id 'game-screen','victory-screen','victory-video','victory-overlay','victory-play'；AudioManager；Game。
+     * 不變式：流程與顯示文字不可更動；僅抽出重複邏輯至私有方法。
+     */
     showVictoryScreen: function() {
         try { if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
         Game.pause(true);
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('victory-screen').classList.remove('hidden');
     
-        const el = document.getElementById('victory-video');
-        const overlay = document.getElementById('victory-overlay');
-        const playBtn = document.getElementById('victory-play');
-    
-        if (!el) return;
-    
-        try { el.pause(); } catch (_) {}
-        el.muted = false;
-        el.loop = false;
-        el.currentTime = 0;
-    
-        const onEnded = () => {
+        const onEnded = function() {
             document.getElementById('victory-screen').classList.add('hidden');
             document.getElementById('character-select-screen').classList.add('hidden');
             document.getElementById('map-select-screen').classList.add('hidden');
             document.getElementById('start-screen').classList.remove('hidden');
             Game.isGameOver = false;
-            // 解除靜音並播放選單音樂（避免回到選單仍靜音）
             try { AudioManager.isMuted = false; } catch (e) {}
             try { if (AudioManager.playMusic) AudioManager.playMusic('menu_music'); } catch (e) {}
         };
-        el.addEventListener('ended', onEnded, { once: true });
     
-        try {
-            const p = el.play();
-            if (p && typeof p.then === 'function') {
-                p.then(() => {
-                    if (overlay) overlay.classList.add('hidden');
-                }).catch(() => {
-                    if (overlay) overlay.classList.remove('hidden');
-                });
-            }
-        } catch (err) {
-            if (overlay) overlay.classList.remove('hidden');
-        }
-    
-        if (playBtn) {
-            playBtn.onclick = () => {
-                try {
-                    el.muted = false;
-                    el.loop = false;
-                    el.currentTime = 0;
-                    const p2 = el.play();
-                    if (overlay) overlay.classList.add('hidden');
-                    if (p2 && typeof p2.catch === 'function') {
-                        p2.catch(() => { if (overlay) overlay.classList.remove('hidden'); });
-                    }
-                } catch (_) { if (overlay) overlay.classList.remove('hidden'); }
-            };
-        }
+        this._setupAndPlayVideo(
+            document.getElementById('victory-video'),
+            document.getElementById('victory-overlay'),
+            document.getElementById('victory-play'),
+            onEnded
+        );
     },
 };
 
