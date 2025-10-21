@@ -22,6 +22,9 @@ class Weapon {
     // 發射投射物
     fire() {
         const damageMul = (this.player && this.player.damageMultiplier) ? this.player.damageMultiplier : 1;
+        const levelMul = (typeof DamageSystem !== 'undefined')
+            ? DamageSystem.levelMultiplier(this.level)
+            : (1 + 0.05 * Math.max(0, this.level - 1));
         // 特殊技能：唱歌（不造成傷害，恢復HP並產生音符特效）
         if (this.type === 'SING') {
             const heal = this.level;
@@ -51,7 +54,7 @@ class Weapon {
                     this.player,
                     angle,
                     dynamicRadius,
-                    this.config.DAMAGE * damageMul,
+                    this.config.DAMAGE * damageMul * levelMul,
                     dynamicSize,
                     this.config.DURATION,
                     this.config.ANGULAR_SPEED
@@ -84,7 +87,7 @@ class Weapon {
                 const beam = new LaserBeam(
                     this.player,
                     angle + offset,
-                    this.config.DAMAGE * damageMul,
+                    this.config.DAMAGE * damageMul * levelMul,
                     widthPx,
                     this.config.DURATION,
                     this.config.TICK_INTERVAL_MS || 120
@@ -103,7 +106,7 @@ class Weapon {
             const chainCount = this.projectileCount; // 依照等級的 COUNT 當作連鎖次數
             const effect = new ChainLightningEffect(
                 this.player,
-                this.config.DAMAGE * damageMul,
+                this.config.DAMAGE * damageMul * levelMul,
                 this.config.DURATION || 500,
                 chainCount,
                 this.config.CHAIN_RADIUS || 220
@@ -149,7 +152,7 @@ class Weapon {
                     sy,
                     angle,
                     this.type,
-                    this.config.DAMAGE * damageMul,
+                    this.config.DAMAGE * damageMul * levelMul,
                     this.config.PROJECTILE_SPEED,
                     dynamicSize
                 );
@@ -213,7 +216,7 @@ class Weapon {
                 sy,
                 angle,
                 this.type,
-                this.config.DAMAGE * damageMul,
+                this.config.DAMAGE * damageMul * levelMul,
                 this.config.PROJECTILE_SPEED,
                 dynamicSize
             );
