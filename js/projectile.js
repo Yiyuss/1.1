@@ -100,6 +100,35 @@ class Projectile extends Entity {
                 if (this.weaponType === 'FIREBALL' && enemy.health > 0 && typeof enemy.applySlow === 'function') {
                     enemy.applySlow(1000, 0.5);
                 }
+                // 維護註解：追蹤綿羊（LIGHTNING）命中時的爆炸特效與音效
+                // 依賴與安全性：
+                // - 使用 Game.explosionParticles 現有更新/繪製管線，不新增新型別。
+                // - 僅添加視覺粒子與播放 bo.mp3，不更動任何傷害/冷卻/數量等數值。
+                // - 若 AudioManager 不存在，靜默跳過；若 explosionParticles 未初始化，按既有格式建立。
+                if (this.weaponType === 'LIGHTNING') {
+                    try {
+                        const particleCount = 14; // 輕量爆炸粒子數量，避免性能負擔
+                        for (let i = 0; i < particleCount; i++) {
+                            const ang = Math.random() * Math.PI * 2;
+                            const speed = 2 + Math.random() * 4;
+                            const p = {
+                                x: enemy.x,
+                                y: enemy.y,
+                                vx: Math.cos(ang) * speed,
+                                vy: Math.sin(ang) * speed,
+                                life: 260 + Math.random() * 240,
+                                maxLife: 260 + Math.random() * 240,
+                                size: 2 + Math.random() * 4,
+                                color: '#ffcc00'
+                            };
+                            if (!Game.explosionParticles) Game.explosionParticles = [];
+                            Game.explosionParticles.push(p);
+                        }
+                        if (typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('bo');
+                        }
+                    } catch (_) {}
+                }
                 this.destroy();
                 break;
             }
