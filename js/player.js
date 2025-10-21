@@ -131,14 +131,16 @@ class Player extends Entity {
         // 使用玩家圖片（大招期間使用playerN）
         const imgKey = (this.isUltimateActive && Game.images && Game.images[CONFIG.ULTIMATE.IMAGE_KEY]) ? CONFIG.ULTIMATE.IMAGE_KEY : 'player';
         if (Game.images && Game.images[imgKey]) {
-            // 確保圖片以1:1比例繪製
-            const size = Math.max(this.width, this.height);
-            ctx.drawImage(Game.images[imgKey], this.x - size / 2, this.y - size / 2, size, size);
+            // 純視覺放大：大招期間在 draw 階段微幅放大，不更改碰撞半徑與邏輯尺寸
+            const baseSize = Math.max(this.width, this.height);
+            const renderSize = this.isUltimateActive ? Math.floor(baseSize * 1.08) : baseSize; // +8% 視覺增量
+            ctx.drawImage(Game.images[imgKey], this.x - renderSize / 2, this.y - renderSize / 2, renderSize, renderSize);
         } else {
-            // 備用：使用純色球體
+            // 備用：使用純色球體（同樣僅視覺放大）
+            const radius = (this.width / 2) * (this.isUltimateActive ? 1.08 : 1.0);
             ctx.fillStyle = '#00f';
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
             ctx.fill();
             
             // 繪製方向指示器
