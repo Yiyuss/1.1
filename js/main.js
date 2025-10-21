@@ -8,7 +8,13 @@ document.addEventListener('DOMContentLoaded', function() {
         if (AudioManager.playMusic) {
             // 確保選單介面不靜音
             AudioManager.isMuted = false;
-            AudioManager.playMusic('menu_music');
+            try {
+                if (typeof AudioScene !== 'undefined' && AudioScene.enterMenu) {
+                    AudioScene.enterMenu();
+                } else {
+                    AudioManager.playMusic('menu_music');
+                }
+            } catch (_) {}
         }
         // 進入選角介面而非直接開始
         hide(DOMCache.get('start-screen')); // 使用輔助函數替換 classList.add('hidden')
@@ -223,19 +229,18 @@ function createDefaultImages() {
 
 // 自動暫停與音效抑制（分頁切換/縮小/失焦）
 function setupAutoPause() {
+    // 使用 UI 輔助方法統一判斷，避免重複邏輯
     const isAnyMenuOpen = () => {
-        const levelEl = document.getElementById('level-up-menu');
-        const skillsEl = document.getElementById('skills-menu');
-        const levelOpen = levelEl && !levelEl.classList.contains('hidden');
-        const skillsOpen = skillsEl && !skillsEl.classList.contains('hidden');
-        return !!(levelOpen || skillsOpen);
+        try { return typeof UI !== 'undefined' && UI.isAnyOverlayOpen ? UI.isAnyOverlayOpen() : false; } catch (_) { return false; }
     };
 
     const isMenuVisible = () => {
-        const startVisible = !document.getElementById('start-screen').classList.contains('hidden');
-        const charVisible = !document.getElementById('character-select-screen').classList.contains('hidden');
-        const mapVisible = !document.getElementById('map-select-screen').classList.contains('hidden');
-        const diffVisible = !document.getElementById('difficulty-select-screen').classList.contains('hidden');
+        // 起始、選角、選地圖、選難度、天賦畫面是否可見
+        const startVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('start-screen') : !document.getElementById('start-screen').classList.contains('hidden'));
+        const charVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('character-select-screen') : !document.getElementById('character-select-screen').classList.contains('hidden'));
+        const mapVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('map-select-screen') : !document.getElementById('map-select-screen').classList.contains('hidden'));
+        const diffVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('difficulty-select-screen') : !document.getElementById('difficulty-select-screen').classList.contains('hidden'));
+        // talents 畫面可能有多個容器，沿用原查詢邏輯
         const talentVisible = Array.from(document.querySelectorAll('#talent-select-screen')).some(el => !el.classList.contains('hidden'));
         return startVisible || charVisible || mapVisible || diffVisible || talentVisible;
     };
@@ -245,14 +250,20 @@ function setupAutoPause() {
             Game.pause();
             AudioManager.setMuted && AudioManager.setMuted(true);
         } else {
-            const gameVisible = !document.getElementById('game-screen').classList.contains('hidden');
+            const gameVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-screen') : !document.getElementById('game-screen').classList.contains('hidden'));
             if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
                 Game.resume();
                 AudioManager.setMuted && AudioManager.setMuted(false);
             } else if (isMenuVisible()) {
                 // 解除靜音並恢復選單音樂（不觸發遊戲音樂）
                 AudioManager.isMuted = false;
-                if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
+                try {
+                    if (typeof AudioScene !== 'undefined' && AudioScene.enterMenu) {
+                        AudioScene.enterMenu();
+                    } else if (AudioManager.playMusic) {
+                        AudioManager.playMusic('menu_music');
+                    }
+                } catch (_) {}
             }
         }
     });
@@ -263,14 +274,20 @@ function setupAutoPause() {
     });
 
     window.addEventListener('focus', () => {
-        const gameVisible = !document.getElementById('game-screen').classList.contains('hidden');
+        const gameVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-screen') : !document.getElementById('game-screen').classList.contains('hidden'));
         if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
             Game.resume();
             AudioManager.setMuted && AudioManager.setMuted(false);
         } else if (isMenuVisible()) {
             // 解除靜音並恢復選單音樂（不觸發遊戲音樂）
             AudioManager.isMuted = false;
-            if (AudioManager.playMusic) AudioManager.playMusic('menu_music');
+            try {
+                if (typeof AudioScene !== 'undefined' && AudioScene.enterMenu) {
+                    AudioScene.enterMenu();
+                } else if (AudioManager.playMusic) {
+                    AudioManager.playMusic('menu_music');
+                }
+            } catch (_) {}
         }
     });
 }
