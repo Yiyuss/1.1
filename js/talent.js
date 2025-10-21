@@ -1,32 +1,81 @@
 // 天賦系統
 const TalentSystem = {
-    // 天賦配置
+    // 天賦配置（基礎描述；實際效果由 tieredTalents 與等級決定）
     talents: {
         hp_boost: {
             name: '生命強化',
-            description: '增加初始生命值20點，讓你在遊戲中更加耐久。',
-            cost: 500,
-            effect: function(player) {
-                if (!player) return;
-                const healthBoost = 20;
-                
-                // 強制設置最大生命值和當前生命值
-                player.maxHealth = CONFIG.PLAYER.MAX_HEALTH + healthBoost;
-                player.health = player.maxHealth;
-                
-                console.log(`已應用生命強化天賦，當前血量: ${player.health}/${player.maxHealth}`);
-                
-                // 更新UI
-                if (typeof UI !== 'undefined' && UI.updateHealthBar) {
-                    UI.updateHealthBar(player.health, player.maxHealth);
-                }
-            }
+            description: '升級可提升初始生命值（最高+100）。',
+            cost: 500
+        },
+        defense_boost: {
+            name: '防禦強化',
+            description: '升級可減免所受傷害（最高-8）。',
+            cost: 5000
+        },
+        speed_boost: {
+            name: '移動加速',
+            description: '升級可提升移動速度（最高+50%）。',
+            cost: 1000
+        },
+        // 新增：拾取範圍增加
+        pickup_range_boost: {
+            name: '拾取範圍增加',
+            description: '升級可增加拾取範圍（最高+100%）。',
+            cost: 500
+        },
+        // 新增：傷害強化
+        damage_boost: {
+            name: '傷害強化',
+            description: '升級可提升攻擊傷害（最高+15%）。',
+            cost: 3000
         }
-        // 未來可以在這裡添加更多天賦
+    },
+
+    // 階梯天賦設定：每級效果與花費
+    tieredTalents: {
+        hp_boost: {
+            levels: [
+                { hp: 20, cost: 500 },
+                { hp: 50, cost: 3000 },
+                { hp: 100, cost: 20000 }
+            ]
+        },
+        defense_boost: {
+            levels: [
+                { reduction: 2, cost: 5000 },
+                { reduction: 5, cost: 10000 },
+                { reduction: 8, cost: 30000 }
+            ]
+        },
+        speed_boost: {
+            levels: [
+                { multiplier: 1.1, cost: 1000 },
+                { multiplier: 1.3, cost: 3000 },
+                { multiplier: 1.5, cost: 5000 }
+            ]
+        },
+        // 新增：拾取範圍增加（30%、50%、100% 對應 1.3/1.5/2.0）
+        pickup_range_boost: {
+            levels: [
+                { multiplier: 1.3, cost: 500 },
+                { multiplier: 1.5, cost: 1500 },
+                { multiplier: 2.0, cost: 3000 }
+            ]
+        },
+        // 新增：傷害強化（5%、10%、15% 對應 1.05/1.10/1.15）
+        damage_boost: {
+            levels: [
+                { multiplier: 1.05, cost: 3000 },
+                { multiplier: 1.10, cost: 6000 },
+                { multiplier: 1.15, cost: 20000 }
+            ]
+        }
     },
     
     // 初始化天賦系統
     init: function() {
+        // 先進行舊資料遷移（hp_boost_50 / hp_boost_100 轉換為等級）
+        this.migrateLegacyTalentData();
         this.loadUnlockedTalents();
         this.bindEvents();
     },
@@ -38,7 +87,6 @@ const TalentSystem = {
             card.addEventListener('click', this.handleTalentCardClick);
             card.addEventListener('dblclick', this.handleTalentCardDblClick);
         });
-        
         // 綁定確認按鈕
         const confirmBtn = document.getElementById('talent-confirm-ok');
         if (confirmBtn) {
@@ -50,7 +98,6 @@ const TalentSystem = {
                 this.hideTalentConfirm();
             });
         }
-        
         // 綁定取消按鈕
         const cancelBtn = document.getElementById('talent-confirm-cancel');
         if (cancelBtn) {
@@ -58,7 +105,6 @@ const TalentSystem = {
                 this.hideTalentConfirm();
             });
         }
-        
         // 空白鍵確認已移至 KeyboardRouter 中央處理器
     },
     
@@ -96,24 +142,15 @@ const TalentSystem = {
         const nameEl = document.getElementById('talent-preview-name');
         const descEl = document.getElementById('talent-preview-desc');
         const imgEl = document.getElementById('talent-preview-img');
-        
         if (nameEl && card.querySelector('.char-name')) {
             nameEl.textContent = card.querySelector('.char-name').textContent;
         }
-        
         if (descEl) {
             const talentId = card.dataset.talentId;
-            if (this.talents[talentId]) {
-                descEl.textContent = this.talents[talentId].description;
-            } else {
-                descEl.textContent = '這是一個天賦描述。';
-            }
+            descEl.textContent = this.getHighestTierDescription(talentId);
         }
-        
         if (imgEl) {
-            // 固定使用 GM.png 作為天賦預覽圖
             imgEl.src = 'assets/images/GM.png';
-            // 若卡片為鎖定狀態，預覽圖維持灰階；否則恢復
             if (card.classList.contains('locked')) {
                 imgEl.classList.add('grayscale');
             } else {
@@ -127,28 +164,17 @@ const TalentSystem = {
         const confirmEl = document.getElementById('talent-confirm');
         const titleEl = document.getElementById('talent-confirm-title');
         const descEl = document.getElementById('talent-confirm-desc');
-        
         if (!confirmEl) return;
-        
-        // 設置當前選中的卡片為active
-        document.querySelectorAll('#talent-select-screen .char-card.active').forEach(el => {
-            el.classList.remove('active');
-        });
+        document.querySelectorAll('#talent-select-screen .char-card.active').forEach(el => { el.classList.remove('active'); });
         card.classList.add('active');
-        
-        // 更新對話框內容
         if (titleEl && card.querySelector('.char-name')) {
             titleEl.textContent = `解鎖 ${card.querySelector('.char-name').textContent}`;
         }
-        
         const talentId = card.dataset.talentId;
-        const talent = this.talents[talentId];
-        
+        const nextCost = this.getNextLevelCost(talentId);
         if (descEl) {
-            descEl.textContent = `使用${talent ? talent.cost : 500}金幣解鎖天賦？`;
+            descEl.textContent = nextCost ? `使用${nextCost}金幣解鎖天賦？` : '已達最高等級';
         }
-        
-        // 顯示對話框
         confirmEl.classList.remove('hidden');
     },
     
@@ -162,58 +188,41 @@ const TalentSystem = {
     
     // 解鎖天賦
     unlockTalent: function(talentId) {
-        const talent = this.talents[talentId];
-        const cost = talent ? talent.cost : 500;
-        
-        // 檢查金幣是否足夠
-        if (Game.coins < cost) {
+        const nextCost = this.getNextLevelCost(talentId);
+        if (!nextCost) {
+            AudioManager.playSound('button_click');
+            alert('已達最高等級');
+            return;
+        }
+        // 金幣檢查
+        if (Game.coins < nextCost) {
             alert('金幣不足！');
             AudioManager.playSound('button_click');
             return;
         }
-        
-        // 扣除金幣
-        Game.coins -= cost;
+        // 扣款
+        Game.coins -= nextCost;
         Game.saveCoins();
-        
-        // 播放音效
         AudioManager.playSound('button_click');
-        
-        // 更新UI
         if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
             UI.updateCoinsDisplay(Game.coins);
         }
-        
-        // 保存已解鎖的天賦
-        this.saveUnlockedTalent(talentId);
-        
-        // 更新天賦卡片外觀
+        // 提升等級
+        const current = this.getTalentLevel(talentId);
+        this.setTalentLevel(talentId, current + 1);
+        // 更新卡片外觀（未達上限保持 locked 以便繼續升級）
         this.updateTalentCardAppearance(talentId);
-        
-        // 如果玩家存在，立即應用天賦效果
+        // 應用效果
         if (Game.player) {
-            this.applyTalentToPlayer(talentId, Game.player);
+            this.applyTalentEffects(Game.player);
         }
-        
-        // 更新預覽區
+        // 更新預覽與ESC清單
         const card = document.querySelector(`#talent-select-screen .char-card[data-talent-id="${talentId}"]`);
-        if (card) {
-            this.updateTalentPreview(card);
-        }
-        
-        // 更新ESC選單中的天賦列表
+        if (card) this.updateTalentPreview(card);
         if (typeof UI !== 'undefined' && UI.updateTalentsList) {
             UI.updateTalentsList();
         }
-        
-        // 應用天賦效果到玩家身上
-        if (Game.player && talent && typeof talent.effect === 'function') {
-            talent.effect(Game.player);
-        }
-        
-        // 提示玩家天賦已解鎖
-        const talentName = talent ? talent.name : talentId;
-        alert(`天賦已解鎖！${talentId === 'hp_boost' ? '初始生命值+20' : ''}`);
+        alert('天賦已解鎖！');
     },
     
     // 保存已解鎖的天賦
@@ -248,24 +257,13 @@ const TalentSystem = {
     // 載入已解鎖的天賦
     loadUnlockedTalents: function() {
         try {
-            const key = 'unlocked_talents';
-            const stored = localStorage.getItem(key);
-            
-            if (stored) {
-                try {
-                    const unlockedTalents = JSON.parse(stored);
-                    console.log('載入已解鎖天賦:', unlockedTalents);
-                    
-                    // 更新每個已解鎖天賦的外觀
-                    unlockedTalents.forEach(talentId => {
-                        this.updateTalentCardAppearance(talentId);
-                    });
-                } catch (e) {
-                    console.error('解析已解鎖天賦失敗:', e);
-                }
-            } else {
-                console.log('未找到已解鎖天賦數據');
-            }
+            // 確保遷移完成後，再根據等級更新外觀
+            const ids = (this.tieredTalents && typeof this.tieredTalents === 'object')
+                ? Object.keys(this.tieredTalents)
+                : ['hp_boost','defense_boost','speed_boost'];
+            ids.forEach(id => {
+                this.updateTalentCardAppearance(id);
+            });
         } catch (e) {
             console.error('載入天賦失敗:', e);
         }
@@ -274,65 +272,74 @@ const TalentSystem = {
     // 更新天賦卡片外觀
     updateTalentCardAppearance: function(talentId) {
         const card = document.querySelector(`#talent-select-screen .char-card[data-talent-id="${talentId}"]`);
-        if (card) {
+        const cfg = this.tieredTalents[talentId];
+        if (!card || !cfg) return;
+        const lv = this.getTalentLevel(talentId);
+        const max = cfg.levels.length;
+
+        // 升級邏輯：lv < max 保持 locked 以允許繼續升級；不再用 locked 控制灰階
+        if (lv >= max) {
             card.classList.remove('locked');
-            const img = card.querySelector('img');
-            if (img) {
-                img.classList.remove('grayscale');
+        } else {
+            card.classList.add('locked');
+        }
+
+        // 視覺效果：依等級切換
+        const img = card.querySelector('img');
+        if (!img) return;
+
+        // 重置樣式與先前動畫，避免累加造成樣式腐敗
+        img.classList.remove('grayscale');
+        img.style.filter = '';
+        img.style.boxShadow = '';
+        img.style.transition = 'box-shadow 240ms ease, filter 240ms ease';
+        if (img._talentAnim) {
+            try { img._talentAnim.cancel(); } catch (_) {}
+            img._talentAnim = null;
+        }
+
+        // 等級對應效果：
+        // lv=0: 灰階；lv=1: 取消灰階；lv=2: 適度發光；lv>=3: 增強閃光（WAAPI）
+        if (lv <= 0) {
+            img.classList.add('grayscale');
+        } else if (lv === 1) {
+            // 僅恢復顏色，不更動文案與版面
+        } else if (lv === 2) {
+            img.style.filter = 'saturate(1.15)';
+            img.style.boxShadow = '0 0 8px rgba(0,255,255,0.75), 0 0 16px rgba(0,128,255,0.6)';
+        } else { // lv >= 3
+            img.style.filter = 'saturate(1.25) brightness(1.05)';
+            img.style.boxShadow = '0 0 10px rgba(255,0,255,0.85), 0 0 22px rgba(255,255,0,0.75), 0 0 34px rgba(255,255,255,0.65)';
+            try {
+                img._talentAnim = img.animate([
+                    { 'box-shadow': '0 0 6px rgba(255,255,255,0.4), 0 0 14px rgba(0,255,255,0.4)', filter: 'saturate(1.25) brightness(1.0)' },
+                    { 'box-shadow': '0 0 12px rgba(255,0,255,0.85), 0 0 24px rgba(255,255,0,0.8), 0 0 36px rgba(255,255,255,0.75)', filter: 'saturate(1.35) brightness(1.1)' },
+                    { 'box-shadow': '0 0 6px rgba(255,255,255,0.4), 0 0 14px rgba(0,255,255,0.4)', filter: 'saturate(1.25) brightness(1.0)' }
+                ], { duration: 1200, iterations: Infinity, easing: 'ease-in-out' });
+            } catch (_) {
+                // 若瀏覽器不支持 WAAPI，保留靜態強光效果即可
             }
         }
     },
     
     // 將單個天賦應用到玩家身上（作為持續性道具）
     applyTalentToPlayer: function(talentId, player) {
-        if (!player) return;
-        
-        console.log(`將天賦 ${talentId} 作為道具應用到玩家身上`);
-        
-        // 特殊處理生命強化天賦
-        if (talentId === 'hp_boost') {
-            // 標記玩家已擁有此增益
-            player.buffs.hp_boost = true;
-            
-            // 直接應用效果
-            const healthBoost = 20;
-            player.maxHealth = CONFIG.PLAYER.MAX_HEALTH + healthBoost;
-            player.health = player.maxHealth;
-            
-            console.log(`已應用生命強化天賦，當前血量: ${player.health}/${player.maxHealth}`);
-            
-            // 立即更新UI
-            if (typeof UI !== 'undefined' && UI.updateHealthBar) {
-                UI.updateHealthBar(player.health, player.maxHealth);
-            }
-        } else {
-            // 處理其他天賦
-            const talent = this.talents[talentId];
-            if (talent && typeof talent.effect === 'function') {
-                talent.effect(player);
-            }
-        }
+        // 階梯版改為統一由 BuffSystem 計算，不在此直接改屬性
+        return;
     },
     
     // 應用所有已解鎖天賦效果到玩家身上
     applyTalentEffects: function(player) {
         if (!player) return;
-        
         try {
-            const unlockedTalents = JSON.parse(localStorage.getItem('unlocked_talents') || '[]');
-            console.log('應用天賦效果:', unlockedTalents);
-            
-            // 重置所有增益狀態
-            for (const buff in player.buffs) {
-                player.buffs[buff] = false;
+            // 重置並由 BuffSystem 依天賦等級套用最高效果
+            if (player.buffs) {
+                for (const k in player.buffs) player.buffs[k] = false;
             }
-            
-            // 應用所有已解鎖天賦
-            unlockedTalents.forEach(talentId => {
-                this.applyTalentToPlayer(talentId, player);
-            });
-            
-            console.log('玩家當前增益狀態:', player.buffs);
+            if (typeof BuffSystem !== 'undefined' && BuffSystem.applyBuffsFromTalents) {
+                BuffSystem.resetAllBuffs(player);
+                BuffSystem.applyBuffsFromTalents(player);
+            }
         } catch (e) {
             console.error('應用天賦效果失敗:', e);
         }
@@ -340,15 +347,15 @@ const TalentSystem = {
     
     // 獲取已解鎖的天賦列表
     getUnlockedTalents: function() {
+        // 以等級為主；同時兼容舊 unlocked_talents
+        const result = [];
         try {
-            const stored = localStorage.getItem('unlocked_talents');
-            if (stored) {
-                return JSON.parse(stored);
-            }
-        } catch (e) {
-            console.error('獲取已解鎖天賦失敗:', e);
-        }
-        return [];
+            const levels = this.getTalentLevels();
+            Object.keys(levels).forEach(id => { if (levels[id] > 0) result.push(id); });
+            const legacy = JSON.parse(localStorage.getItem('unlocked_talents') || '[]');
+            legacy.forEach(id => { if (!result.includes(id)) result.push(id); });
+        } catch(e) {}
+        return result;
     }
 };
 
@@ -360,12 +367,133 @@ function applyTalentEffects(player) {
 // 添加一個全局函數用於清除天賦數據（測試用）
 function clearTalentData() {
     try {
+        // 同時清除舊制與新制儲存：unlocked_talents 與 talent_levels
         localStorage.removeItem('unlocked_talents');
+        localStorage.removeItem('talent_levels');
         console.log('已清除天賦數據');
+        
+        // 立即重置卡片外觀與 ESC 清單（不改任何文字）
+        try {
+            if (typeof TalentSystem !== 'undefined') {
+                if (TalentSystem.tieredTalents) {
+                    Object.keys(TalentSystem.tieredTalents).forEach(id => {
+                        TalentSystem.updateTalentCardAppearance(id);
+                    });
+                }
+                // 清除玩家身上 Buff 並重新套用（回到0級）
+                if (typeof Game !== 'undefined' && Game.player && typeof BuffSystem !== 'undefined') {
+                    BuffSystem.resetAllBuffs(Game.player);
+                    TalentSystem.applyTalentEffects(Game.player);
+                }
+            }
+            if (typeof UI !== 'undefined' && UI.updateTalentsList) {
+                UI.updateTalentsList();
+            }
+        } catch (_) {}
+        
         alert('天賦數據已清除，請重新啟動遊戲以應用更改');
         return true;
     } catch (e) {
         console.error('清除天賦數據失敗:', e);
         return false;
     }
+}
+
+// 階梯天賦輔助方法（若缺則掛載到 TalentSystem）
+if (!TalentSystem.getTalentLevels) {
+    TalentSystem.getTalentLevels = function() {
+        try {
+            const raw = localStorage.getItem('talent_levels');
+            const obj = raw ? JSON.parse(raw) : {};
+            return (obj && typeof obj === 'object') ? obj : {};
+        } catch (e) {
+            return {};
+        }
+    };
+}
+if (!TalentSystem.getTalentLevel) {
+    TalentSystem.getTalentLevel = function(id) {
+        const levels = this.getTalentLevels();
+        const cfg = this.tieredTalents[id];
+        const val = parseInt(levels[id] || 0, 10) || 0;
+        if (!cfg) return 0;
+        return Math.max(0, Math.min(val, cfg.levels.length));
+    };
+}
+if (!TalentSystem.setTalentLevel) {
+    TalentSystem.setTalentLevel = function(id, newLevel) {
+        const cfg = this.tieredTalents[id];
+        if (!cfg) return;
+        const clamped = Math.max(0, Math.min(parseInt(newLevel || 0, 10), cfg.levels.length));
+        const levels = this.getTalentLevels();
+        levels[id] = clamped;
+        try { localStorage.setItem('talent_levels', JSON.stringify(levels)); } catch (_) {}
+        // 兼容舊制：確保 unlocked_talents 內有此鍵（僅作展示用途）
+        if (clamped > 0) {
+            try {
+                const key = 'unlocked_talents';
+                const arr = JSON.parse(localStorage.getItem(key) || '[]');
+                if (!arr.includes(id)) {
+                    arr.push(id);
+                    localStorage.setItem(key, JSON.stringify(arr));
+                }
+            } catch (_) {}
+        }
+    };
+}
+if (!TalentSystem.getNextLevelCost) {
+    TalentSystem.getNextLevelCost = function(id) {
+        const cfg = this.tieredTalents[id];
+        if (!cfg) return null;
+        const lv = this.getTalentLevel(id);
+        if (lv >= cfg.levels.length) return null;
+        return cfg.levels[lv].cost;
+    };
+}
+if (!TalentSystem.getHighestTierDescription) {
+    TalentSystem.getHighestTierDescription = function(id) {
+        const lv = this.getTalentLevel(id);
+        const base = (this.talents[id] && this.talents[id].description) || '';
+        const cfg = this.tieredTalents[id];
+        if (!cfg || lv <= 0) return base;
+        const eff = cfg.levels[lv - 1];
+        if (id === 'hp_boost') {
+            return `增加初始生命值${eff.hp}點`;
+        } else if (id === 'defense_boost') {
+            return `每次受傷減免${eff.reduction}點`;
+        } else if (id === 'speed_boost') {
+            const pct = Math.round((eff.multiplier - 1) * 100);
+            return `移動速度+${pct}%`;
+        } else if (id === 'pickup_range_boost') {
+            const pct = Math.round((eff.multiplier - 1) * 100);
+            return `拾取範圍+${pct}%`;
+        } else if (id === 'damage_boost') {
+            const pct = Math.round((eff.multiplier - 1) * 100);
+            return `攻擊傷害+${pct}%`;
+        }
+        return base;
+    };
+}
+if (!TalentSystem.migrateLegacyTalentData) {
+    TalentSystem.migrateLegacyTalentData = function() {
+        try {
+            const levels = this.getTalentLevels();
+            const legacy = JSON.parse(localStorage.getItem('unlocked_talents') || '[]');
+            // 生命：取最高一個
+            let hpLv = levels.hp_boost || 0;
+            if (Array.isArray(legacy)) {
+                if (legacy.includes('hp_boost_100')) hpLv = Math.max(hpLv, 3);
+                if (legacy.includes('hp_boost_50')) hpLv = Math.max(hpLv, 2);
+                if (legacy.includes('hp_boost')) hpLv = Math.max(hpLv, 1);
+                // 速度：舊制只有一級
+                if ((levels.speed_boost || 0) < 1 && legacy.includes('speed_boost')) {
+                    levels.speed_boost = 1;
+                }
+            }
+            if ((levels.hp_boost || 0) < hpLv) levels.hp_boost = hpLv;
+            localStorage.setItem('talent_levels', JSON.stringify(levels));
+        } catch (e) {
+            console.warn('遷移舊版天賦資料失敗', e);
+        }
+    };
 }
