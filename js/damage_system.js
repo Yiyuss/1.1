@@ -157,11 +157,18 @@
       // 字放大：一般 26px、爆擊 32px
       el.style.fontSize = isCrit ? '32px' : '26px';
       el.style.color = isCrit ? '#ffeb3b' : '#ffffff';
-      el.style.textShadow = isCrit
+      // 維護註解：為傷害數字添加「細黑框」以提高可讀性
+      // 依賴與安全性：
+      // - 優先使用 `-webkit-text-stroke` 以提供清晰外框；若瀏覽器不支援，保留 textShadow 並附加極輕量多方向陰影模擬外框。
+      // - 僅修改視覺呈現，不改動字體、尺寸、內容文字與動畫行為，避免影響排版與任何既有功能。
+      el.style.webkitTextStroke = isCrit ? '0.8px #000000' : '0.6px #000000';
+      const baseShadow = isCrit
         ? '0 0 12px rgba(255, 235, 59, 0.85), 0 0 5px rgba(255, 255, 255, 0.7)'
         : '0 0 9px rgba(255, 255, 255, 0.65)';
+      const borderShadow = ', 0 0 1px #000, 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000';
+      el.style.textShadow = baseShadow + borderShadow;
       el.style.willChange = 'transform, opacity';
-
+      
       layer.appendChild(el);
 
       // 方向：依照攻擊向量移動；若未提供則向上
