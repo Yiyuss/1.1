@@ -119,7 +119,7 @@ class Projectile extends Entity {
                                 life: 260 + Math.random() * 240,
                                 maxLife: 260 + Math.random() * 240,
                                 size: 2 + Math.random() * 4,
-                                color: '#ffcc00'
+                                color: '#ffffff' // 維護：追蹤綿羊命中爆炸粒子改為白色（純視覺，不影響數值與機制）
                             };
                             if (!Game.explosionParticles) Game.explosionParticles = [];
                             Game.explosionParticles.push(p);
