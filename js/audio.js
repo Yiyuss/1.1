@@ -203,7 +203,9 @@ const AudioScene = {
     current: null, // 'menu' | 'game' | 'boss' | null
     enterMenu: function() {
         if (AudioManager.isMuted) return;
-        if (this.current === 'menu') return;
+        const track = AudioManager.music && AudioManager.music['menu_music'];
+        const isPlaying = track && track.paused === false;
+        if (this.current === 'menu' && isPlaying) return;
         this.current = 'menu';
         try {
             if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
