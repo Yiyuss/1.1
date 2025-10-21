@@ -48,6 +48,16 @@ const Utils = {
         return array[Math.floor(Math.random() * array.length)];
     },
     
+    // 洗牌數組
+    shuffleArray: function(array) {
+        const newArray = [...array];
+        for (let i = newArray.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+        }
+        return newArray;
+    },
+    
     // 限制值在指定範圍內
     clamp: function(value, min, max) {
         return Math.min(Math.max(value, min), max);
