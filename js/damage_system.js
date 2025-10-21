@@ -161,7 +161,7 @@
       // 依賴與安全性：
       // - 優先使用 `-webkit-text-stroke` 以提供清晰外框；若瀏覽器不支援，保留 textShadow 並附加極輕量多方向陰影模擬外框。
       // - 僅修改視覺呈現，不改動字體、尺寸、內容文字與動畫行為，避免影響排版與任何既有功能。
-      el.style.webkitTextStroke = isCrit ? '0.8px #000000' : '0.6px #000000';
+      el.style.webkitTextStroke = isCrit ? '0.5px #000000' : '0.5px #000000';
       const baseShadow = isCrit
         ? '0 0 12px rgba(255, 235, 59, 0.85), 0 0 5px rgba(255, 255, 255, 0.7)'
         : '0 0 9px rgba(255, 255, 255, 0.65)';
