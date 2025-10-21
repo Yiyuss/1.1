@@ -86,5 +86,11 @@ const GameEvents = {
     WAVE_START: 'wave_start',               // 波次開始
     WAVE_COMPLETE: 'wave_complete',         // 波次完成
     BOSS_SPAWN: 'boss_spawn',               // Boss生成
-    BOSS_DEATH: 'boss_death'                // Boss死亡
+    BOSS_DEATH: 'boss_death',               // Boss死亡
+
+    // UI/音訊
+    AUDIO_MUTED_CHANGED: 'audio_muted_changed', // 靜音狀態變更（更新 UI 文案）
+
+    // 玩家資源
+    COINS_CHANGED: 'coins_changed'           // 金幣數量變更（更新 UI 顯示）
 };
