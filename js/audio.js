@@ -138,6 +138,12 @@ const AudioManager = {
                 this.playMusic('game_music');
             }
         }
+        // 觸發靜音狀態變更事件
+        try {
+            if (typeof EventSystem !== 'undefined' && typeof GameEvents !== 'undefined' && EventSystem.trigger) {
+                EventSystem.trigger(GameEvents.AUDIO_MUTED_CHANGED, { isMuted: this.isMuted });
+            }
+        } catch (_) {}
         
         return this.isMuted;
     },
@@ -158,6 +164,12 @@ const AudioManager = {
                 this.playMusic('game_music');
             }
         }
+        // 觸發靜音狀態變更事件
+        try {
+            if (typeof EventSystem !== 'undefined' && typeof GameEvents !== 'undefined' && EventSystem.trigger) {
+                EventSystem.trigger(GameEvents.AUDIO_MUTED_CHANGED, { isMuted: this.isMuted });
+            }
+        } catch (_) {}
         return this.isMuted;
     },
     
@@ -183,5 +195,57 @@ const AudioManager = {
                 this.music[key].volume = volume;
             }
         }
+    }
+};
+
+// 新增：音訊場景管理器（集中切換與同步）
+const AudioScene = {
+    current: null, // 'menu' | 'game' | 'boss' | null
+    enterMenu: function() {
+        if (AudioManager.isMuted) return;
+        if (this.current === 'menu') return;
+        this.current = 'menu';
+        try {
+            if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+                AudioManager.playMusic('menu_music');
+            }
+        } catch (_) {}
+    },
+    enterGame: function() {
+        if (AudioManager.isMuted) return;
+        if (this.current === 'game') return;
+        this.current = 'game';
+        try {
+            if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+                AudioManager.playMusic('game_music');
+            }
+        } catch (_) {}
+    },
+    enterBoss: function() {
+        if (AudioManager.isMuted) return;
+        if (this.current === 'boss') return;
+        this.current = 'boss';
+        try {
+            if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+                AudioManager.playMusic('boss_music');
+            }
+        } catch (_) {}
+    },
+    // 根據遊戲狀態同步場景音樂
+    sync: function() {
+        try {
+            if (typeof Game === 'undefined') return;
+            if (AudioManager.isMuted) return;
+            if (Game.isGameOver) {
+                this.current = null; // 不播放任何音樂
+                return;
+            }
+            if (Game.boss) {
+                this.enterBoss();
+            } else {
+                // 有選單開啟時也可能需要選單音樂，由外部明確呼叫 enterMenu
+                this.enterGame();
+            }
+        } catch (_) {}
     }
 };
