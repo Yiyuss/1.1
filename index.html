@@ -117,7 +117,6 @@
                     <div class="char-slot empty"></div>
                     <div class="char-slot empty"></div>
                     <div class="char-slot empty"></div>
-                    <div class="char-slot empty"></div>
                 </div>
 
                 <!-- 下方預覽區（左圖右文） -->
@@ -263,25 +262,13 @@
         <div id="game-over-screen" class="screen hidden">
             <!-- 遊戲失敗影片 -->
             <video id="game-over-video" src="assets/videos/game_over.mp4" preload="auto" playsinline></video>
-            <!-- 覆蓋層：解決瀏覽器限制導致無聲/不播放的問題 -->
-            <div class="video-overlay hidden" id="game-over-overlay">
-                <div class="video-overlay-content">
-                    <div class="video-overlay-text">點擊播放影片</div>
-                    <button id="game-over-play" class="primary">播放</button>
-                </div>
-            </div>
+
         </div>
         
         <!-- 勝利畫面 -->
         <div id="victory-screen" class="screen hidden">
             <video id="victory-video" src="assets/videos/victory.mp4" preload="auto" playsinline></video>
-            <!-- 覆蓋層：解決瀏覽器限制導致無聲/不播放的問題 -->
-            <div class="video-overlay hidden" id="victory-overlay">
-                <div class="video-overlay-content">
-                    <div class="video-overlay-text">點擊播放影片</div>
-                    <button id="victory-play" class="primary">播放</button>
-                </div>
-            </div>
+
         </div>
         <!-- 天賦介面 -->
         <div id="talent-select-screen" class="screen hidden">
@@ -302,10 +289,22 @@
                         <div class="char-name">生命強化</div>
                     </button>
                     <!-- 其他 11 個格子 -->
-                    <div class="char-slot empty"></div>
-                    <div class="char-slot empty"></div>
-                    <div class="char-slot empty"></div>
-                    <div class="char-slot empty"></div>
+                    <button class="char-card selectable locked" data-talent-id="defense_boost">
+                        <img src="assets/images/test2.png" alt="防禦強化" class="grayscale" />
+                        <div class="char-name">防禦強化</div>
+                    </button>
+                    <button class="char-card selectable locked" data-talent-id="speed_boost">
+                        <img src="assets/images/test3.png" alt="移動加速" class="grayscale" />
+                        <div class="char-name">移動加速</div>
+                    </button>
+                    <button class="char-card selectable locked" data-talent-id="pickup_range_boost">
+                        <img src="assets/images/test4.png" alt="拾取範圍增加" class="grayscale" />
+                        <div class="char-name">拾取範圍增加</div>
+                    </button>
+                    <button class="char-card selectable locked" data-talent-id="damage_boost">
+                        <img src="assets/images/test5.png" alt="傷害強化" class="grayscale" />
+                        <div class="char-name">傷害強化</div>
+                    </button>
                     <div class="char-slot empty"></div>
                     <div class="char-slot empty"></div>
                     <div class="char-slot empty"></div>
@@ -321,7 +320,7 @@
                     <div class="char-preview-info">
                         <div class="char-preview-name" id="talent-preview-name">天賦系統</div>
                         <div class="char-preview-desc" id="talent-preview-desc">這裡會顯示天賦介紹。</div>
-                        <div class="char-hint">提示：左上角可返回選角。</div>
+                        <div class="char-hint">提示：同一個天賦可以透過重複解鎖來升級，請不斷雙擊天賦進行解鎖。</div>
                     </div>
                 </div>
                 
@@ -372,4 +371,3 @@
     <script src="js/main.js"></script>
 </body>
 </html>
-
