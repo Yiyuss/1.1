@@ -432,6 +432,10 @@ const UI = {
      * 套用選擇的升級（升級現有武器或新增武器）
      * 依賴：Game.player 武器 API；CONFIG.WEAPONS；ultimate 備份狀態。
      * 不變式：所有數值與流程不可更動；需維持對 ultimate 狀態的備份/恢復處理；UI 更新流程不可更動。
+     * 維護備註：
+     * - 非大招期間，必須使用 Player.addWeapon / Player.upgradeWeapon，保持 player.weapons 為 Weapon 實例陣列；
+     *   避免以純物件覆蓋導致 Game._updateWeapons 調用 weapon.update 時拋錯（造成敵人/武器停滯、玩家仍可移動的假凍結）。
+     * - 大招期間（isUltimateActive），只更新 _ultimateBackup（純資料），以保證大招結束後恢復正確的武器等級與新增武器。
      */
     selectUpgrade: function(weaponType) {
         const player = Game.player;
@@ -445,11 +449,12 @@ const UI = {
                 player._ultimateBackup.weapons.push({ type: weaponType, level: 1 });
             }
         } else {
-            const idx = player.weapons.findIndex(w => w.type === weaponType);
-            if (idx >= 0) {
-                player.weapons[idx].level += 1;
+            // 非大招期間：改用 Player API，保持 Weapon 實例不被破壞
+            const existing = player.weapons.find(w => w.type === weaponType);
+            if (existing) {
+                player.upgradeWeapon(weaponType);
             } else {
-                player.weapons.push({ type: weaponType, level: 1 });
+                player.addWeapon(weaponType);
             }
         }
 
