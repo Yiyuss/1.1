@@ -113,20 +113,22 @@ class ChainLightningEffect extends Entity {
         const len = Math.sqrt(dx * dx + dy * dy);
         const dirX = dx / (len || 1);
         const dirY = dy / (len || 1);
-        const count = 12;
+        const count = 16; // 純視覺增強：適度提高粒子數量
         for (let i = 0; i < count; i++) {
             const t = Math.random();
             const px = fx + dx * t + (Math.random() - 0.5) * 8;
             const py = fy + dy * t + (Math.random() - 0.5) * 8;
             const speed = 1 + Math.random() * 3;
             const angle = Math.random() * Math.PI * 2;
+            const life = 200 + Math.random() * 250; // 保持原生命區間（純視覺）
             this.particles.push({
                 x: px,
                 y: py,
                 vx: Math.cos(angle) * speed + dirX * 0.5,
                 vy: Math.sin(angle) * speed + dirY * 0.5,
-                life: 200 + Math.random() * 250,
-                size: 2 + Math.random() * 2,
+                life,
+                maxLife: life, // 新增：用於透明度計算，不影響邏輯
+                size: 3 + Math.random() * 2.5, // 純視覺：放大粒子
                 color: '#66ccff'
             });
         }
@@ -155,10 +157,19 @@ class ChainLightningEffect extends Entity {
             const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
             this._drawElectricArc(ctx, fx, fy, tx, ty);
         }
-        // 繪製粒子
+        // 使用加色混合提升火花的亮度與震撼感（僅此效果範圍內）
+        ctx.globalCompositeOperation = 'lighter';
+        // 繪製粒子（雙層：外層光暈 + 核心）
         for (const p of this.particles) {
-            ctx.globalAlpha = Math.max(0.05, Math.min(1, p.life / 250));
+            const alpha = Math.max(0.04, Math.min(1, p.life / (p.maxLife || 250)));
             ctx.fillStyle = p.color || '#66ccff';
+            // 外層光暈（柔和擴散）
+            ctx.globalAlpha = alpha * 0.25;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * 1.8, 0, Math.PI * 2);
+            ctx.fill();
+            // 核心亮點
+            ctx.globalAlpha = alpha;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fill();
