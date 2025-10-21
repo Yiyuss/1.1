@@ -22,6 +22,8 @@ class Player extends Entity {
             hp_boost: false,  // 生命強化
             // 未來可以添加更多增益
         };
+        // 防禦平減（由防禦強化天賦設定）
+        this.damageReductionFlat = 0;
 
         // 受傷紅閃效果
         this.hitFlashTime = 0;
@@ -163,7 +165,11 @@ class Player extends Entity {
     takeDamage(amount) {
         if (this.isInvulnerable) return;
         
-        this.health -= amount;
+        // 防禦平減：每次受傷減免固定值（不為負）
+        const reduction = this.damageReductionFlat || 0;
+        const effective = Math.max(0, amount - reduction);
+        
+        this.health -= effective;
         if (this.health <= 0) {
             this.health = 0;
             this.die();
