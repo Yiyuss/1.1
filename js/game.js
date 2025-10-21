@@ -785,6 +785,12 @@ const Game = {
         this.coins = (this.coins || 0) + inc;
         // 立即存檔以符合自動存檔需求
         try { this.saveCoins(); } catch (_) {}
+        // 觸發金幣變更事件
+        try {
+            if (typeof EventSystem !== 'undefined' && typeof GameEvents !== 'undefined' && EventSystem.trigger) {
+                EventSystem.trigger(GameEvents.COINS_CHANGED, { coins: this.coins });
+            }
+        } catch (_) {}
         // 更新遊戲介面金幣顯示
         try {
             if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
