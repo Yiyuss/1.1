@@ -79,7 +79,23 @@ class Projectile extends Entity {
         // 檢查與敵人的碰撞
         for (const enemy of Game.enemies) {
             if (this.isColliding(enemy)) {
-                enemy.takeDamage(this.damage);
+                // 使用 DamageSystem 計算浮動與爆擊；若不可用則維持原邏輯
+                if (typeof DamageSystem !== 'undefined') {
+                    const result = DamageSystem.computeHit(this.damage, enemy, { weaponType: this.weaponType });
+                    enemy.takeDamage(result.amount);
+                    if (typeof DamageNumbers !== 'undefined') {
+                        // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
+                        DamageNumbers.show(
+                          result.amount,
+                          enemy.x,
+                          enemy.y - (enemy.height||0)/2,
+                          result.isCrit,
+                          { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id }
+                        );
+                    }
+                } else {
+                    enemy.takeDamage(this.damage);
+                }
                 // 紳士綿羊（FIREBALL）命中未被消滅的敵人時施加暫時減速
                 if (this.weaponType === 'FIREBALL' && enemy.health > 0 && typeof enemy.applySlow === 'function') {
                     enemy.applySlow(1000, 0.5);
