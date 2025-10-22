@@ -81,7 +81,12 @@ class Projectile extends Entity {
             if (this.isColliding(enemy)) {
                 // 使用 DamageSystem 計算浮動與爆擊；若不可用則維持原邏輯
                 if (typeof DamageSystem !== 'undefined') {
-                    const result = DamageSystem.computeHit(this.damage, enemy, { weaponType: this.weaponType });
+                    // 維護：加入爆擊加成（基礎10% + 天賦加成），不改畫面文字
+                    const result = DamageSystem.computeHit(
+                        this.damage,
+                        enemy,
+                        { weaponType: this.weaponType, critChanceBonusPct: (this.critChanceBonusPct || 0) }
+                    );
                     enemy.takeDamage(result.amount);
                     if (typeof DamageNumbers !== 'undefined') {
                         // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
