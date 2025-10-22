@@ -75,11 +75,10 @@ class ChainLightningEffect extends Entity {
                 const target = seg.to;
                 if (target && !target.markedForDeletion && target.health > 0) {
                     if (typeof DamageSystem !== 'undefined') {
-                        const result = DamageSystem.computeHit(this.damage, target, { weaponType: this.weaponType });
+                        const result = DamageSystem.computeHit(this.damage, target, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
                         target.takeDamage(result.amount);
                         if (typeof DamageNumbers !== 'undefined') {
                             const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
-                            // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
                             DamageNumbers.show(result.amount, target.x, target.y - (target.height||0)/2, result.isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
                         }
                     } else {
