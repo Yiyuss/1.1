@@ -289,8 +289,8 @@ class Enemy extends Entity {
             ctx.globalAlpha = 1;
         }
 
-        // 受傷紅色覆蓋閃爍
-        if (this.hitFlashTime > 0) {
+        // 受傷紅色覆蓋閃爍（死亡期間停用）
+        if (!this.isDying && this.hitFlashTime > 0) {
             const alpha = 0.35;
             ctx.globalAlpha = alpha;
             ctx.fillStyle = '#ff0000';
@@ -392,6 +392,8 @@ class Enemy extends Entity {
     die() {
         // 防重入：已在死亡流程中則不再觸發一次
         if (this.isDying) return;
+        // 即刻停用受傷紅閃（避免淡出期間殘留紅色特效）
+        this.hitFlashTime = 0;
         // 生成經驗寶石與獎勵等（維持事件順序與文字/數值不變）
         Game.spawnExperienceOrb(this.x, this.y, this.experienceValue);
         if (this.type === 'MINI_BOSS' || this.type === 'BOSS') {
@@ -409,17 +411,15 @@ class Enemy extends Entity {
         
         // 啟動後退+淡出動畫，延後刪除 0.3 秒
         const angleToPlayer = Utils.angle(this.x, this.y, Game.player.x, Game.player.y);
-        const pushDist = 20; // 一小格（約 20px）
-        const frames = this.deathDuration / 16.67; // 以 60fps 為基準
-        const pushSpeed = pushDist / frames; // 每 frame 推進距離（乘 deltaMul）
+        const pushDist = 20;
+        const frames = this.deathDuration / 16.67;
+        const pushSpeed = pushDist / frames;
         this.deathVelX = -Math.cos(angleToPlayer) * pushSpeed;
         this.deathVelY = -Math.sin(angleToPlayer) * pushSpeed;
         this.isDying = true;
         this.deathElapsed = 0;
-        // 取消碰撞影響（避免死亡期間誤觸）
         this.collisionRadius = 0;
         
-        // 播放死亡音效（保持既有鍵名與資源）
         if (typeof AudioManager !== 'undefined') {
             AudioManager.playSound('enemy_death');
         }
