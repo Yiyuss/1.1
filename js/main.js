@@ -812,7 +812,6 @@ function setupBackupInterface() {
     }
     if (backBtn && backupScreen && startScreen) {
         backBtn.addEventListener('click', () => {
-            playClick();
             hide(backupScreen);
             show(startScreen);
         });
@@ -883,4 +882,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 綁定引繼碼介面事件
     setupBackupInterface();
+
+    // ESC 返回：備份/選圖/選難度（不更動既有返回按鈕）
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const isVisible = (el) => el && !el.classList.contains('hidden');
+        try {
+            const backupScreen = document.getElementById('backup-screen');
+            const mapScreen = document.getElementById('map-select-screen');
+            const diffScreen = document.getElementById('difficulty-select-screen');
+
+            if (isVisible(backupScreen)) {
+                const backBtn = document.getElementById('backup-back');
+                if (backBtn) backBtn.click();
+                e.preventDefault();
+                return;
+            }
+            if (isVisible(mapScreen)) {
+                const backBtn = document.getElementById('map-cancel');
+                if (backBtn) backBtn.click();
+                e.preventDefault();
+                return;
+            }
+            if (isVisible(diffScreen)) {
+                const backBtn = document.getElementById('diff-back');
+                if (backBtn) backBtn.click();
+                e.preventDefault();
+                return;
+            }
+        } catch (_) {}
+    });
 });
