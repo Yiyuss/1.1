@@ -40,6 +40,12 @@ const TalentSystem = {
             name: '爆擊強化',
             description: '升級可提升爆擊率（最高+15%）。',
             cost: 3000
+        },
+        // 新增：回血強化（提升回血速度）
+        regen_speed_boost: {
+            name: '回血強化',
+            description: '升級可提升回血速度（最高+100%）。',
+            cost: 3000
         }
     },
 
@@ -96,6 +102,14 @@ const TalentSystem = {
                 { chancePct: 0.05, cost: 3000 },
                 { chancePct: 0.10, cost: 8000 },
                 { chancePct: 0.15, cost: 25000 }
+            ]
+        },
+        // 新增：回血強化（+30%/+60%/+100% 對應 1.3/1.6/2.0）
+        regen_speed_boost: {
+            levels: [
+                { multiplier: 1.30, cost: 3000 },
+                { multiplier: 1.60, cost: 6000 },
+                { multiplier: 2.00, cost: 12000 }
             ]
         }
     },
@@ -504,6 +518,9 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'crit_enhance') {
             const pct = Math.round((eff.chancePct || 0) * 100);
             return `爆擊率+${pct}%`;
+        } else if (id === 'regen_speed_boost') {
+            const pct = Math.round((eff.multiplier - 1) * 100);
+            return `回血速度+${pct}%`;
         }
         return base;
     };
