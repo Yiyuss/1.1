@@ -28,6 +28,18 @@ const TalentSystem = {
             name: '傷害強化',
             description: '升級可提升攻擊傷害（最高+15%）。',
             cost: 3000
+        },
+        // 新增：傷害特化（追加固定傷害）
+        damage_specialization: {
+            name: '傷害特化',
+            description: '升級可追加固定傷害（最高+6）。',
+            cost: 3000
+        },
+        // 新增：爆擊強化（提升爆擊率）
+        crit_enhance: {
+            name: '爆擊強化',
+            description: '升級可提升爆擊率（最高+15%）。',
+            cost: 3000
         }
     },
 
@@ -68,6 +80,22 @@ const TalentSystem = {
                 { multiplier: 1.05, cost: 3000 },
                 { multiplier: 1.10, cost: 6000 },
                 { multiplier: 1.15, cost: 20000 }
+            ]
+        },
+        // 新增：傷害特化（每次攻擊追加固定傷害+2/+4/+6）
+        damage_specialization: {
+            levels: [
+                { flat: 2, cost: 3000 },
+                { flat: 4, cost: 6000 },
+                { flat: 6, cost: 20000 }
+            ]
+        },
+        // 新增：爆擊強化（爆擊率+5%/+10%/+15%）
+        crit_enhance: {
+            levels: [
+                { chancePct: 0.05, cost: 3000 },
+                { chancePct: 0.10, cost: 8000 },
+                { chancePct: 0.15, cost: 25000 }
             ]
         }
     },
@@ -470,6 +498,12 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'damage_boost') {
             const pct = Math.round((eff.multiplier - 1) * 100);
             return `攻擊傷害+${pct}%`;
+        } else if (id === 'damage_specialization') {
+            const flat = eff.flat || 0;
+            return `每次攻擊追加傷害+${flat}`;
+        } else if (id === 'crit_enhance') {
+            const pct = Math.round((eff.chancePct || 0) * 100);
+            return `爆擊率+${pct}%`;
         }
         return base;
     };
