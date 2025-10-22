@@ -29,7 +29,7 @@ class OrbitBall extends Entity {
             for (const enemy of Game.enemies) {
                 if (this.isColliding(enemy)) {
                     if (typeof DamageSystem !== 'undefined') {
-                        const result = DamageSystem.computeHit(this.tickDamage, enemy, { weaponType: this.weaponType });
+                        const result = DamageSystem.computeHit(this.tickDamage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
                         enemy.takeDamage(result.amount);
                         if (typeof DamageNumbers !== 'undefined') {
                             // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
