@@ -256,6 +256,12 @@ class Enemy extends Entity {
             ctx.beginPath();
             ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2 + 2, 0, Math.PI * 2);
             ctx.fill();
+            // 視覺優化：為減速覆蓋添加細環，提升辨識
+            ctx.strokeStyle = '#66ccff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2 + 3, 0, Math.PI * 2);
+            ctx.stroke();
             ctx.globalAlpha = 1;
         }
 
