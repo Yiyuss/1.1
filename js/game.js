@@ -702,9 +702,11 @@ const Game = {
             S5: { w: 102, h: 70 },
             S6: { w: 200, h: 156 },
             S7: { w: 100, h: 78 },
-            S8: { w: 130, h: 101 }
+            S8: { w: 130, h: 101 },
+            // 新增：S9（67x80），與 S3~S8 相同邏輯作為地圖背景裝飾
+            S9: { w: 67, h: 80 }
         };
-        const types = ['S3','S4','S5','S6','S7','S8'];
+        const types = ['S3','S4','S5','S6','S7','S8','S9'];
         const margin = 12;
         const minPlayerDist = 0;
         const rectOverlap = (ax, ay, aw, ah, bx, by, bw, bh, m = 0) => {
