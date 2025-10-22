@@ -14,6 +14,9 @@ class OrbitBall extends Entity {
         this.angularSpeed = angularSpeedRadPerSec; // 弧度/秒
         this.startTime = Date.now();
         this.weaponType = 'ORBIT';
+        // 視覺：輕量拖尾緩存（不影響傷害或判定）
+        this.trail = [];
+        this.trailMax = 12;
     }
 
     update(deltaTime) {
@@ -22,6 +25,10 @@ class OrbitBall extends Entity {
         // 跟隨玩家位置旋轉
         this.x = this.player.x + Math.cos(this.angle) * this.radius;
         this.y = this.player.y + Math.sin(this.angle) * this.radius;
+
+        // 視覺：更新拖尾記錄
+        this.trail.push({ x: this.x, y: this.y, size: this.width });
+        if (this.trail.length > this.trailMax) this.trail.shift();
 
         // 對碰到的敵人造成傷害（每球每秒一次）。若延遲較大，逐步補齊間隔。
         this.tickAccumulator += deltaTime;
@@ -52,6 +59,25 @@ class OrbitBall extends Entity {
     draw(ctx) {
         ctx.save();
         const size = Math.max(this.width, this.height);
+
+        // 視覺：拖尾繪製（輕量、僅顯示）
+        if (this.trail && this.trail.length) {
+            for (let i = 0; i < this.trail.length; i++) {
+                const t = this.trail[i];
+                const alpha = 0.08 + (i / this.trail.length) * 0.18;
+                ctx.globalAlpha = alpha;
+                if (Game.images && Game.images.lightning) {
+                    ctx.drawImage(Game.images.lightning, t.x - size / 2, t.y - size / 2, size * (0.9 - i * 0.02), size * (0.9 - i * 0.02));
+                } else {
+                    ctx.fillStyle = '#fff59d';
+                    ctx.beginPath();
+                    ctx.arc(t.x, t.y, (t.size / 2) * (0.9 - i * 0.02), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+
         if (Game.images && Game.images.lightning) {
             ctx.drawImage(Game.images.lightning, this.x - size / 2, this.y - size / 2, size, size);
         } else {
