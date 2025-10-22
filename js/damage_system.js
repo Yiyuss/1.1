@@ -36,7 +36,11 @@
 
       let final = baseDamage * rand;
       let isCrit = false;
-      if (allowCrit && Math.random() < this.critChanceBase) {
+      // 新增：支援玩家天賦提供的爆擊加成或覆蓋
+      const bonusCrit = options && typeof options.critChanceBonusPct === 'number' ? options.critChanceBonusPct : 0;
+      const overrideCrit = options && typeof options.critChancePctOverride === 'number' ? options.critChancePctOverride : null;
+      const critChance = overrideCrit != null ? overrideCrit : (this.critChanceBase + bonusCrit);
+      if (allowCrit && Math.random() < Math.max(0, Math.min(1, critChance))) {
         isCrit = true;
         final *= this.critMultiplier;
       }
