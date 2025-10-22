@@ -65,20 +65,7 @@ const BuffSystem = {
                 player.pickupRangeMultiplier = 1.0;
             }
         },
-        // 新增：傷害強化
-        damage_boost: {
-            name: '傷害強化',
-            apply: function(player) {
-                const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
-                    ? TalentSystem.getTalentLevel('damage_boost') : 0;
-                const multipliers = [1.0, 1.05, 1.10, 1.15];
-                const mul = multipliers[Math.min(lv, 3)] || 1.0;
-                player.damageMultiplier = mul;
-            },
-            remove: function(player) {
-                player.damageMultiplier = 1.0;
-            }
-        },
+        // 已移除 damage_boost：邏輯整合於統一傷害公式
         // 可以這裡添加更多buff類型
     },
     
@@ -89,9 +76,12 @@ const BuffSystem = {
             player.buffs = {};
         }
         // 基礎屬性預設值（避免未套用buff時取值為undefined）
-        if (player.damageMultiplier == null) player.damageMultiplier = 1.0;
         if (player.pickupRangeMultiplier == null) player.pickupRangeMultiplier = 1.0;
         if (player.damageReductionFlat == null) player.damageReductionFlat = 0;
+        // 新增：傷害與爆擊相關屬性（不影響UI與數值，僅初始化）
+        if (player.damageTalentBaseBonusPct == null) player.damageTalentBaseBonusPct = 0;
+        if (player.damageSpecializationFlat == null) player.damageSpecializationFlat = 0;
+        if (player.critChanceBonusPct == null) player.critChanceBonusPct = 0;
         
         // 初始化所有buff為未激活狀態
         for (const buffId in this.buffTypes) {
@@ -168,7 +158,19 @@ const BuffSystem = {
             if (defLv > 0) this.applyBuff(player, 'defense_boost');
             if (spdLv > 0) this.applyBuff(player, 'speed_boost');
             if (prLv > 0) this.applyBuff(player, 'pickup_range_boost');
-            if (dmgLv > 0) this.applyBuff(player, 'damage_boost');
+            
+            // 新增：根據天賦等級設定「基礎傷害加成（只加LV1基礎值）」、「傷害特化（+2/+4/+6）」、「爆擊加成（+5/10/15%）」
+            // 不新增卡片與UI：若對應天賦未定義，getTalentLevel 回傳0，保持預設0/不加成
+            const dmgTalentPctTable = [0, 0.05, 0.10, 0.15];
+            player.damageTalentBaseBonusPct = dmgTalentPctTable[Math.min(dmgLv, 3)] || 0;
+            const specLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('damage_specialization') : 0;
+            const specFlatTable = [0, 2, 4, 6];
+            player.damageSpecializationFlat = specFlatTable[Math.min(specLv, 3)] || 0;
+            const critLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('crit_enhance') : 0;
+            const critPctTable = [0, 0.05, 0.10, 0.15];
+            player.critChanceBonusPct = critPctTable[Math.min(critLv, 3)] || 0;
         } catch (e) {
             console.error('從天賦系統應用buff失敗:', e);
         }
