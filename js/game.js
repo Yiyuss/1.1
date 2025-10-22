@@ -735,7 +735,12 @@ const Game = {
                 break;
             }
         };
-        for (const t of types) { tryPlace(t); }
+        for (const t of types) {
+            const count = (t === 'S9') ? 3 : 1; // S9 單獨改為 3 個，其餘維持 1 個
+            for (let i = 0; i < count; i++) {
+                tryPlace(t);
+            }
+        }
     }
     ,
     // 金幣：載入
