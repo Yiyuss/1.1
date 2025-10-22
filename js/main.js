@@ -206,6 +206,7 @@ function createDefaultImages() {
         { name: 'S6', src: 'assets/images/S6.png' },
         { name: 'S7', src: 'assets/images/S7.png' },
         { name: 'S8', src: 'assets/images/S8.png' },
+        { name: 'S9', src: 'assets/images/S9.png' },
         // 背景素材（多地圖）
         { name: 'background', src: 'assets/images/background.jpg' },
         { name: 'background2', src: 'assets/images/background2.jpg' },
@@ -381,6 +382,22 @@ function setupCharacterSelection() {
             show(DOMCache.get('map-select-screen'));
         }
     });
+    
+    // ESC：返回開始畫面（不影響雙擊/空白鍵）
+    KeyboardRouter.register('character-select', 'Escape', (e) => {
+        e.preventDefault();
+        const isVisible = (el) => el && !el.classList.contains('hidden');
+        const mapScreen = document.getElementById('map-select-screen');
+        const diffScreen = document.getElementById('difficulty-select-screen');
+        // 若覆蓋層已開啟，交由全域 ESC 回退處理，不在此攔截
+        if (isVisible(mapScreen) || isVisible(diffScreen)) return;
+        const startScreen = document.getElementById('start-screen');
+        const charScreen = document.getElementById('character-select-screen');
+        if (startScreen && charScreen) {
+            playClick();
+            switchScreen(charScreen, startScreen);
+        }
+    });
 }
 
 // 地圖與難度選擇事件
@@ -531,7 +548,20 @@ function setupTalentScreenToggle() {
         }
         TalentSystem.hideTalentConfirm();
     });
-
+    
+    // ESC：返回至選角（優先關閉天賦確認彈窗）
+    KeyboardRouter.register('talent-select', 'Escape', (e) => {
+        e.preventDefault();
+        const confirmDialog = document.getElementById('talent-confirm');
+        if (confirmDialog && !confirmDialog.classList.contains('hidden')) {
+            // 若彈窗開啟，先關閉彈窗，維持既有文案與流程
+            TalentSystem.hideTalentConfirm();
+            return;
+        }
+        // 走既有返回按鈕邏輯，避免改動文案/流程
+        const backBtn = document.getElementById('talent-back');
+        if (backBtn) backBtn.click();
+    });
     if (openBtn) {
         openBtn.addEventListener('click', () => {
             playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
