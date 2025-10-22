@@ -783,13 +783,104 @@ const KeyboardRouter = {
     }
 };
 
+// 新增：引繼碼介面事件綁定（開始畫面 -> 引繼碼畫面）
+function setupBackupInterface() {
+    const backupBtn = document.getElementById('backup-button');
+    const backupScreen = document.getElementById('backup-screen');
+    const startScreen = document.getElementById('start-screen');
+    const backBtn = document.getElementById('backup-back');
+    const genBtn = document.getElementById('backup-generate');
+    const outputInput = document.getElementById('backup-code-output');
+    const copyBtn = document.getElementById('backup-copy');
+    const applyBtn = document.getElementById('backup-apply');
+    const inputField = document.getElementById('backup-code-input');
+
+    if (backupBtn && backupScreen && startScreen) {
+        backupBtn.addEventListener('click', () => {
+            playClick();
+            hide(startScreen);
+            show(backupScreen);
+            // 保持選單音樂
+            try {
+                if (typeof AudioScene !== 'undefined' && AudioScene.enterMenu) {
+                    AudioScene.enterMenu();
+                } else if (AudioManager.playMusic) {
+                    AudioManager.playMusic('menu_music');
+                }
+            } catch (_) {}
+        });
+    }
+    if (backBtn && backupScreen && startScreen) {
+        backBtn.addEventListener('click', () => {
+            playClick();
+            hide(backupScreen);
+            show(startScreen);
+        });
+    }
+    if (genBtn && outputInput) {
+        genBtn.addEventListener('click', async () => {
+            playClick();
+            try {
+                if (typeof SaveCode !== 'undefined' && SaveCode.generate) {
+                    const code = await SaveCode.generate();
+                    outputInput.value = code || '';
+                }
+            } catch (e) {
+                console.error('生成引繼碼失敗', e);
+                alert('生成引繼碼失敗');
+            }
+        });
+    }
+    if (copyBtn && outputInput) {
+        copyBtn.addEventListener('click', async () => {
+            playClick2();
+            const text = outputInput.value || '';
+            if (!text) return;
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                    alert('已複製到剪貼簿');
+                } else {
+                    // 後備方案：選取輸入框內容，提示使用者手動複製
+                    outputInput.focus();
+                    outputInput.select();
+                    alert('請按 Ctrl+C 進行複製');
+                }
+            } catch (e) {
+                alert('複製失敗，請手動選取後 Ctrl+C');
+            }
+        });
+    }
+    if (applyBtn && inputField) {
+        applyBtn.addEventListener('click', async () => {
+            playClick();
+            const code = (inputField.value || '').trim();
+            if (!code) {
+                alert('請先輸入引繼碼');
+                return;
+            }
+            try {
+                if (typeof SaveCode !== 'undefined' && SaveCode.apply) {
+                    await SaveCode.apply(code);
+                }
+            } catch (e) {
+                console.error('套用引繼碼失敗', e);
+                alert('套用引繼碼失敗');
+            }
+        });
+    }
+}
+
 // 初始化 DOM 緩存
 document.addEventListener('DOMContentLoaded', function() {
     // 初始化 DOM 緩存
     DOMCache.init();
-    
+
     // 綁定中央鍵盤事件處理器
     document.addEventListener('keydown', (e) => {
         KeyboardRouter.handle(e);
     });
+
+    // 綁定引繼碼介面事件
+    setupBackupInterface();
 });
