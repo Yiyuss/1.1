@@ -81,9 +81,11 @@ class Player extends Entity {
         // 生命自然恢復：每5秒+1（上限100）
         if (this.health < this.maxHealth) {
             this.healthRegenAccumulator += deltaTime;
-            if (this.healthRegenAccumulator >= this.healthRegenIntervalMs) {
-                const ticks = Math.floor(this.healthRegenAccumulator / this.healthRegenIntervalMs);
-                this.healthRegenAccumulator -= ticks * this.healthRegenIntervalMs;
+            const regenMul = this.healthRegenSpeedMultiplier || 1.0;
+            const effectiveInterval = this.healthRegenIntervalMs / Math.max(1.0, regenMul);
+            if (this.healthRegenAccumulator >= effectiveInterval) {
+                const ticks = Math.floor(this.healthRegenAccumulator / effectiveInterval);
+                this.healthRegenAccumulator -= ticks * effectiveInterval;
                 this.health = Math.min(this.maxHealth, this.health + ticks);
                 UI.updateHealthBar(this.health, this.maxHealth);
             }
