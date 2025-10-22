@@ -18,6 +18,8 @@ class LaserBeam extends Entity {
         this.startY = pts.startY;
         this.endX = pts.endX;
         this.endY = pts.endY;
+        // 視覺用脈動相位（不影響碰撞與傷害）
+        this.pulsePhase = 0;
     }
 
     computeEndpoints() {
@@ -85,6 +87,8 @@ class LaserBeam extends Entity {
 
         // 固定時間間隔對穿過的敵人造成傷害（不衰減，使用原傷害）
         this.tickAccumulator += deltaTime;
+        // 視覺脈動相位推進
+        this.pulsePhase += deltaTime;
         if (this.tickAccumulator >= this.tickIntervalMs) {
             const half = this.width / 2;
             for (const enemy of Game.enemies) {
@@ -113,36 +117,59 @@ class LaserBeam extends Entity {
 
     draw(ctx) {
         ctx.save();
-        // 線性漸層核心（不抖動，不造成暈眩）
+        // 脈動寬度（僅視覺），不影響碰撞與傷害半徑
+        const t = (this.pulsePhase || 0) / 1000;
+        const pulse = 1 + 0.2 * Math.sin(t * 10);
+        const drawWidth = this.width * pulse;
+
+        // 使用線性漸層作為核心
         const core = ctx.createLinearGradient(this.startX, this.startY, this.endX, this.endY);
         core.addColorStop(0, '#0ff');
         core.addColorStop(0.5, '#fff');
         core.addColorStop(1, '#0ff');
+        ctx.globalCompositeOperation = 'source-over';
         ctx.strokeStyle = core;
         ctx.globalAlpha = 0.95;
-        ctx.lineWidth = this.width;
+        ctx.lineWidth = drawWidth;
         ctx.beginPath();
         ctx.moveTo(this.startX, this.startY);
         ctx.lineTo(this.endX, this.endY);
         ctx.stroke();
 
-        // 內層微光暈
+        // 疊加光暈層（疊加模式）
+        ctx.globalCompositeOperation = 'lighter';
+        // 內層光暈
         ctx.strokeStyle = '#bff';
         ctx.globalAlpha = 0.28;
-        ctx.lineWidth = this.width * 1.35;
+        ctx.lineWidth = drawWidth * 1.35;
         ctx.beginPath();
         ctx.moveTo(this.startX, this.startY);
         ctx.lineTo(this.endX, this.endY);
         ctx.stroke();
-
         // 外層光暈
         ctx.strokeStyle = '#9ff';
         ctx.globalAlpha = 0.18;
-        ctx.lineWidth = this.width * 1.9;
+        ctx.lineWidth = drawWidth * 1.9;
         ctx.beginPath();
         ctx.moveTo(this.startX, this.startY);
         ctx.lineTo(this.endX, this.endY);
         ctx.stroke();
+
+        // 端點閃光（半徑隨脈動）
+        const radius = Math.max(6, drawWidth * 0.6);
+        const drawGlow = (x, y) => {
+            const rg = ctx.createRadialGradient(x, y, 0, x, y, radius);
+            rg.addColorStop(0, 'rgba(255,255,255,0.9)');
+            rg.addColorStop(0.3, 'rgba(0,255,255,0.6)');
+            rg.addColorStop(1, 'rgba(0,255,255,0)');
+            ctx.fillStyle = rg;
+            ctx.globalAlpha = 1.0;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+        };
+        drawGlow(this.startX, this.startY);
+        drawGlow(this.endX, this.endY);
 
         ctx.restore();
     }
