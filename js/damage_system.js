@@ -187,7 +187,7 @@
       const baseShadow = isCrit
         ? '0 0 12px rgba(255, 235, 59, 0.85), 0 0 5px rgba(255, 255, 255, 0.7)'
         : '0 0 9px rgba(255, 255, 255, 0.65)';
-      const borderShadow = ', 0 0 1px #000, 1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000';
+      const borderShadow = ', 0 0 2px #000, 1.5px 0 0 #000, -1.5px 0 0 #000, 0 1.5px 0 #000, 0 -1.5px 0 #000';
       el.style.textShadow = baseShadow + borderShadow;
       el.style.willChange = 'transform, opacity';
       
@@ -204,7 +204,7 @@
       const dx = nx * mag;
       const dy = ny * mag;
       // 顯示時間加長：一般 1200ms、爆擊 1600ms
-      const duration = isCrit ? 1600 : 1200;
+      const duration = isCrit ? 1750 : 1400;
       const easing = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
       const anim = el.animate([
