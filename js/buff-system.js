@@ -65,6 +65,20 @@ const BuffSystem = {
                 player.pickupRangeMultiplier = 1.0;
             }
         },
+        // 新增：回血強化（階梯，乘算速度）
+        regen_speed_boost: {
+            name: '回血強化',
+            apply: function(player) {
+                const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                    ? TalentSystem.getTalentLevel('regen_speed_boost') : 0;
+                const multipliers = [1.0, 1.30, 1.60, 2.00];
+                const mul = multipliers[Math.min(lv, 3)] || 1.0;
+                player.healthRegenSpeedMultiplier = mul;
+            },
+            remove: function(player) {
+                player.healthRegenSpeedMultiplier = 1.0;
+            }
+        },
         // 已移除 damage_boost：邏輯整合於統一傷害公式
         // 可以這裡添加更多buff類型
     },
@@ -78,6 +92,7 @@ const BuffSystem = {
         // 基礎屬性預設值（避免未套用buff時取值為undefined）
         if (player.pickupRangeMultiplier == null) player.pickupRangeMultiplier = 1.0;
         if (player.damageReductionFlat == null) player.damageReductionFlat = 0;
+        if (player.healthRegenSpeedMultiplier == null) player.healthRegenSpeedMultiplier = 1.0;
         // 新增：傷害與爆擊相關屬性（不影響UI與數值，僅初始化）
         if (player.damageTalentBaseBonusPct == null) player.damageTalentBaseBonusPct = 0;
         if (player.damageSpecializationFlat == null) player.damageSpecializationFlat = 0;
@@ -153,11 +168,14 @@ const BuffSystem = {
                 ? TalentSystem.getTalentLevel('pickup_range_boost') : 0;
             const dmgLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                 ? TalentSystem.getTalentLevel('damage_boost') : 0;
+            const regenLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('regen_speed_boost') : 0;
             // 依序套用存在的階梯效果
             if (hpLv > 0) this.applyBuff(player, 'hp_boost');
             if (defLv > 0) this.applyBuff(player, 'defense_boost');
             if (spdLv > 0) this.applyBuff(player, 'speed_boost');
             if (prLv > 0) this.applyBuff(player, 'pickup_range_boost');
+            if (regenLv > 0) this.applyBuff(player, 'regen_speed_boost');
             
             // 新增：根據天賦等級設定「基礎傷害加成（只加LV1基礎值）」、「傷害特化（+2/+4/+6）」、「爆擊加成（+5/10/15%）」
             // 不新增卡片與UI：若對應天賦未定義，getTalentLevel 回傳0，保持預設0/不加成
