@@ -172,7 +172,8 @@
           (window.matchMedia && (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches))
         );
         const baseSize = isCrit ? 32 : 26;
-        const size = isMobile ? Math.round(baseSize * 0.85) : baseSize;
+        // 手機字級再縮小：0.85 -> 0.75（僅影響手機，不動PC）
+        const size = isMobile ? Math.round(baseSize * 0.75) : baseSize;
         el.style.fontSize = size + 'px';
       } catch (_) {
         el.style.fontSize = isCrit ? '32px' : '26px';
