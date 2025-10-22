@@ -21,7 +21,6 @@ class Weapon {
     
     // 發射投射物
     fire() {
-        const damageMul = (this.player && this.player.damageMultiplier) ? this.player.damageMultiplier : 1;
         const levelMul = (typeof DamageSystem !== 'undefined')
             ? DamageSystem.levelMultiplier(this.level)
             : (1 + 0.05 * Math.max(0, this.level - 1));
@@ -54,7 +53,7 @@ class Weapon {
                     this.player,
                     angle,
                     dynamicRadius,
-                    this.config.DAMAGE * damageMul * levelMul,
+                    this._computeFinalDamage(levelMul),
                     dynamicSize,
                     this.config.DURATION,
                     this.config.ANGULAR_SPEED
@@ -87,7 +86,7 @@ class Weapon {
                 const beam = new LaserBeam(
                     this.player,
                     angle + offset,
-                    this.config.DAMAGE * damageMul * levelMul,
+                    this._computeFinalDamage(levelMul),
                     widthPx,
                     this.config.DURATION,
                     this.config.TICK_INTERVAL_MS || 120
@@ -106,7 +105,7 @@ class Weapon {
             const chainCount = this.projectileCount; // 依照等級的 COUNT 當作連鎖次數
             const effect = new ChainLightningEffect(
                 this.player,
-                this.config.DAMAGE * damageMul * levelMul,
+                this._computeFinalDamage(levelMul),
                 this.config.DURATION || 500,
                 chainCount,
                 this.config.CHAIN_RADIUS || 220
@@ -152,7 +151,7 @@ class Weapon {
                     sy,
                     angle,
                     this.type,
-                    this.config.DAMAGE * damageMul * levelMul,
+                    this._computeFinalDamage(levelMul),
                     this.config.PROJECTILE_SPEED,
                     dynamicSize
                 );
@@ -216,11 +215,12 @@ class Weapon {
                 sy,
                 angle,
                 this.type,
-                this.config.DAMAGE * damageMul * levelMul,
+                this._computeFinalDamage(levelMul),
                 this.config.PROJECTILE_SPEED,
                 dynamicSize
             );
-            
+            // 新增：把玩家的爆擊加成帶到投射物，避免在計算時拿不到玩家
+            projectile.critChanceBonusPct = ((this.player && this.player.critChanceBonusPct) || 0);
             Game.addProjectile(projectile);
 
             // 觸發音效（每次發射只播放一次即可）
@@ -288,3 +288,15 @@ class Weapon {
         return null;
     }
 }
+
+// 在類內新增：根據「基礎值 +（等級5%）+（天賦基礎%）+（特化+2/4/6）」計算最終基礎傷害
+Weapon.prototype._computeFinalDamage = function(levelMul){
+    const base = (this.config && this.config.DAMAGE) ? this.config.DAMAGE : 0;
+    const specFlat = (this.player && this.player.damageSpecializationFlat) ? this.player.damageSpecializationFlat : 0;
+    const talentPct = (this.player && this.player.damageTalentBaseBonusPct) ? this.player.damageTalentBaseBonusPct : 0;
+    const lvPct = Math.max(0, (levelMul || 1) - 1);
+    const percentSum = lvPct + talentPct;
+    const baseFlat = base + specFlat;
+    const value = baseFlat * (1 + percentSum);
+    return value;
+};
