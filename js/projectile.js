@@ -109,7 +109,7 @@ class Projectile extends Entity {
                 // 紳士綿羊（FIREBALL）命中時觸發小範圍擴散傷害（不爆擊）
                 if (this.weaponType === 'FIREBALL' && typeof Game !== 'undefined' && Array.isArray(Game.enemies)) {
                     try {
-                        const splashRadius = Math.max(30, (this.collisionRadius || 12) * 2.2);
+                        const splashRadius = Math.max(34, (this.collisionRadius || 12) * 2.6);
                         for (const e of Game.enemies) {
                             if (!e || e.id === enemy.id) continue;
                             const dist = Utils.distance(enemy.x, enemy.y, e.x, e.y);
@@ -119,6 +119,7 @@ class Projectile extends Entity {
                                     ? DamageSystem.computeHit(splashBase, e, { weaponType: this.weaponType, allowCrit: false })
                                     : { amount: splashBase, isCrit: false };
                                 e.takeDamage(splash.amount);
+                                if (typeof e.applySlow === 'function') { e.applySlow(1000, 0.5); }
                                 if (typeof DamageNumbers !== 'undefined') {
                                     const dirX = (e.x - enemy.x) || 1;
                                     const dirY = (e.y - enemy.y) || 0;
