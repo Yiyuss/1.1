@@ -23,6 +23,8 @@
 
                 <div class="start-actions">
                     <button id="start-button" class="primary">開始遊戲</button>
+                    <!-- 新增：手動備份按鈕（不改動既有文字與排版） -->
+                    <button id="backup-button" class="primary">手動備份</button>
                 </div>
 
                 <div class="settings">
@@ -70,9 +72,9 @@
                         <div class="content regarding">
                             <p>所使用素材來源如下，版權皆屬原作者所有：</p>
                             <ul>
-                                <li>瑪格麗特頻道：<a href="https://www.youtube.com/@%E7%91%AA%E6%A0%BC%E9%BA%97%E7%89%B9margaretnorth" target="_blank" rel="noopener">點我前往</a></li>
-                                <li>森森鈴蘭頻道：<a href="https://www.youtube.com/@%E6%A3%AE%E6%A3%AE%E9%88%B4%E8%98%ADLilyLinglan" target="_blank" rel="noopener">點我前往</a></li>
-                                <li>BGM：<a href="https://dova-s.jp/" target="_blank" rel="noopener">https://dova-s.jp/</a></li>
+                                <li>瑪格麗特頻道：<a href="https://www.youtube.com/@%E7%91%AA%E6%A0%BC%E9%BA%97%E7%89%B9margaretnorth" target="blank" rel="noopener">點我前往</a></li>
+                                <li>森森鈴蘭頻道：<a href="https://www.youtube.com/@%E6%A3%AE%E6%A3%AE%E9%88%B4%E8%98%ADLilyLinglan" target="blank" rel="noopener">點我前往</a></li>
+                                <li>BGM：<a href="https://dova-s.jp/" target="blank" rel="noopener">https://dova-s.jp/</a></li>
                                 <li>背景圖：GPT 生成</li>
                                 <li>道具圖：illustAC</li>
                                 <li>其他素材：pixabay</li>
@@ -84,9 +86,50 @@
                             <p>本作品為個人非商業性質之粉絲二次創作，僅用於展示與愛好分享，未進行任何營利行為，若任何權利人對本作品內容有疑慮，請來信告知，我將立即修改或下架。</p>
 <br />
                             <p>未經同意遊戲不得重製或修改，若想參考或者做為遊戲基底，請先聯繫獲得同意。</p>
-                            <p>聯繫方式：<a href="https://x.com/Yi_yuss" target="_blank" rel="noopener">https://x.com/Yi_yuss</a></p>
+                            <p>聯繫方式：<a href="https://x.com/Yi_yuss" target="blank" rel="noopener">https://x.com/Yi_yuss</a></p>
                         </div>
                     </details>
+                </div>
+            </div>
+        </div>
+
+        <!-- 新增：引繼碼介面（生成/輸入/教學），保持既有版型 -->
+        <div id="backup-screen" class="screen hidden">
+            <div class="select-card">
+                <h1 class="select-title">引繼碼</h1>
+                <div class="map-desc" style="margin-bottom:12px;">此介面用於跨裝置備份與還原您的進度。</div>
+                <div class="map-grid" style="display:block;">
+                    <div class="content" style="margin-bottom:12px;">
+                        <h2 style="margin:0 0 6px;">生成引繼碼</h2>
+                        <p>說明：基於目前存檔（金幣、天賦）生成安全碼。</p>
+                        <button id="backup-generate" class="primary">生成引繼碼</button>
+                        <div style="margin-top:8px;">
+                            <label for="backup-code-output">引繼碼</label>
+                            <input id="backup-code-output" type="text" readonly placeholder="點擊生成後顯示" style="width:100%;">
+                            <button id="backup-copy" class="ghost" style="margin-top:6px;">複製</button>
+                        </div>
+                    </div>
+                    <div class="content" style="margin-top:16px;">
+                        <h2 style="margin:0 0 6px;">輸入引繼碼</h2>
+                        <p>說明：貼上於其他裝置生成的引繼碼以還原存檔。</p>
+                        <label for="backup-code-input">引繼碼</label>
+                        <input id="backup-code-input" type="text" placeholder="請貼上引繼碼" style="width:100%;">
+                        <button id="backup-apply" class="primary" style="margin-top:6px;">套用引繼碼</button>
+                    </div>
+                    <div class="content" style="margin-top:16px;">
+                        <h2 style="margin:0 0 6px;">教學與注意事項</h2>
+                        <ul style="padding-left:18px;">
+                            <li>生成後請妥善保存，不要公開分享。</li>
+                            <li>跨裝置時，在首頁點「手動備份」→貼上引繼碼→套用。</li>
+                            <li>引繼碼會覆蓋本機的金幣與天賦存檔。</li>
+                            <li>請避免多餘空白或換行，確保完整貼上。</li>
+                            <li>若瀏覽器或外掛阻擋剪貼簿，請手動選取複製。</li>
+                            <li>若版本更新造成資料欄位調整，系統會嘗試相容或提示失敗。</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="select-actions" style="margin-top:12px;">
+                    <button id="backup-back" class="ghost">返回</button>
                 </div>
             </div>
         </div>
@@ -377,6 +420,8 @@
     <script src="js/weapon.js"></script>
     <script src="js/game.js"></script>
     <script src="js/integration.js"></script>
+    <!-- 新增：引繼碼核心（需在 main.js 之前載入） -->
+    <script src="js/save_code.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>
