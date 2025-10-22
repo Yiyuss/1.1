@@ -42,9 +42,29 @@ class Enemy extends Entity {
                 this.lastRangedAttackTime = 0;
             }
         }
+        // 死亡特效狀態（0.3 秒後退 + 淡出）
+        this.isDying = false;
+        this.deathElapsed = 0;
+        this.deathDuration = 300; // ms
+        this.deathAlpha = 1;
+        this.deathVelX = 0;
+        this.deathVelY = 0;
     }
     
     update(deltaTime) {
+        // 若進入死亡特效，僅處理後退與淡出，完成後再刪除
+        if (this.isDying) {
+            const deltaMul = deltaTime / 16.67;
+            this.deathElapsed = Math.min(this.deathDuration, this.deathElapsed + deltaTime);
+            this.x += this.deathVelX * deltaMul;
+            this.y += this.deathVelY * deltaMul;
+            this.deathAlpha = Math.max(0, 1 - (this.deathElapsed / this.deathDuration));
+            if (this.deathElapsed >= this.deathDuration) {
+                this.destroy();
+            }
+            return; // 停止其他行為（不再攻擊/移動）
+        }
+        
         const deltaMul = deltaTime / 16.67;
         // 向玩家移動
         const player = Game.player;
@@ -204,6 +224,10 @@ class Enemy extends Entity {
     
     draw(ctx) {
         ctx.save();
+        // 死亡淡出時套用透明度
+        if (this.isDying) {
+            ctx.globalAlpha = this.deathAlpha;
+        }
         
         // 根據敵人類型選擇圖片或顏色
         let imageName;
@@ -276,16 +300,18 @@ class Enemy extends Entity {
             ctx.globalAlpha = 1;
         }
         
-        // 繪製血條
+        // 繪製血條（視覺夾限已回退；死亡期間仍隱藏）
         const healthBarWidth = this.width;
         const healthBarHeight = 5;
-        const healthPercentage = this.health / this.maxHealth;
+        const healthPercentage = this.maxHealth > 0 ? (this.health / this.maxHealth) : 0;
         
-        ctx.fillStyle = '#333';
-        ctx.fillRect(this.x - healthBarWidth / 2, this.y - this.height / 2 - 10, healthBarWidth, healthBarHeight);
-        
-        ctx.fillStyle = '#f00';
-        ctx.fillRect(this.x - healthBarWidth / 2, this.y - this.height / 2 - 10, healthBarWidth * healthPercentage, healthBarHeight);
+        if (!this.isDying) {
+            ctx.fillStyle = '#333';
+            ctx.fillRect(this.x - healthBarWidth / 2, this.y - this.height / 2 - 10, healthBarWidth, healthBarHeight);
+            
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(this.x - healthBarWidth / 2, this.y - this.height / 2 - 10, healthBarWidth * healthPercentage, healthBarHeight);
+        }
         
         ctx.restore();
     }
@@ -350,45 +376,55 @@ class Enemy extends Entity {
     
     // 受到傷害
     takeDamage(amount) {
+        // 死亡淡出期間不再受傷，避免重複死亡觸發
+        if (this.isDying) return;
         this.health -= amount;
         // 啟動紅閃
         this.hitFlashTime = this.hitFlashDuration;
         
         if (this.health <= 0) {
+            this.health = 0;
             this.die();
         }
     }
     
     // 死亡
     die() {
-        // 生成經驗寶石
+        // 防重入：已在死亡流程中則不再觸發一次
+        if (this.isDying) return;
+        // 生成經驗寶石與獎勵等（維持事件順序與文字/數值不變）
         Game.spawnExperienceOrb(this.x, this.y, this.experienceValue);
-        
-        // BOSS或小BOSS死亡掉落寶箱（觸發一次免費升級）
         if (this.type === 'MINI_BOSS' || this.type === 'BOSS') {
             Game.spawnChest(this.x, this.y);
         }
-
-        // 金幣獎勵（自動累積，不需撿取）
         if (typeof Game !== 'undefined' && typeof Game.addCoins === 'function') {
             let coinGain = 1;
             if (this.type === 'MINI_BOSS') coinGain = 5;
             else if (this.type === 'BOSS') coinGain = 15;
             Game.addCoins(coinGain);
         }
-
-        // 如果是大BOSS，觸發勝利
         if (this.type === 'BOSS') {
             Game.victory();
         }
         
-        // 標記為刪除
-        this.destroy();
-
-        // 播放死亡音效
+        // 啟動後退+淡出動畫，延後刪除 0.3 秒
+        const angleToPlayer = Utils.angle(this.x, this.y, Game.player.x, Game.player.y);
+        const pushDist = 20; // 一小格（約 20px）
+        const frames = this.deathDuration / 16.67; // 以 60fps 為基準
+        const pushSpeed = pushDist / frames; // 每 frame 推進距離（乘 deltaMul）
+        this.deathVelX = -Math.cos(angleToPlayer) * pushSpeed;
+        this.deathVelY = -Math.sin(angleToPlayer) * pushSpeed;
+        this.isDying = true;
+        this.deathElapsed = 0;
+        // 取消碰撞影響（避免死亡期間誤觸）
+        this.collisionRadius = 0;
+        
+        // 播放死亡音效（保持既有鍵名與資源）
         if (typeof AudioManager !== 'undefined') {
             AudioManager.playSound('enemy_death');
         }
+        
+        // 不立即 destroy，交由 update() 在 0.3 秒後刪除
     }
     
     // 新增：套用暫時減速效果（藍色並降速）
