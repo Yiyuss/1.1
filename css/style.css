@@ -577,7 +577,15 @@ body {
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
 }
+#talent-select-screen::-webkit-scrollbar { width: 0; height: 0; }
+#talent-select-screen .char-card-wrap {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+#talent-select-screen .char-card-wrap::-webkit-scrollbar { width: 0; height: 0; }
 
 /* 引繼碼介面背景：與開始/選角/天賦一致的遮罩與底圖 */
 #backup-screen {
