@@ -579,6 +579,23 @@ body {
   touch-action: pan-y;
 }
 
+/* 引繼碼介面背景：與開始/選角/天賦一致的遮罩與底圖 */
+#backup-screen {
+  background:
+    var(--overlay-grad),
+    url('../assets/images/background2.jpg') center/cover no-repeat;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+/* 引繼碼內框：半透明面板疊加 Background3/background3 */
+#backup-screen .select-card {
+  background:
+    var(--panel-grad),
+    url('../assets/images/Background3.jpg') center/cover no-repeat,
+    url('../assets/images/background3.jpg') center/cover no-repeat;
+}
+
 /* 重複定義移除：.talent-grid（含 RWD）已在前段統一保留 */
 
 /* 天賦鎖定狀態 */
