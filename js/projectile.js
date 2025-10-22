@@ -105,6 +105,37 @@ class Projectile extends Entity {
                 if (this.weaponType === 'FIREBALL' && enemy.health > 0 && typeof enemy.applySlow === 'function') {
                     enemy.applySlow(1000, 0.5);
                 }
+
+                // 紳士綿羊（FIREBALL）命中時觸發小範圍擴散傷害（不爆擊）
+                if (this.weaponType === 'FIREBALL' && typeof Game !== 'undefined' && Array.isArray(Game.enemies)) {
+                    try {
+                        const splashRadius = Math.max(30, (this.collisionRadius || 12) * 2.2);
+                        for (const e of Game.enemies) {
+                            if (!e || e.id === enemy.id) continue;
+                            const dist = Utils.distance(enemy.x, enemy.y, e.x, e.y);
+                            if (dist <= splashRadius) {
+                                const splashBase = (this.damage || 0) * 0.6;
+                                const splash = (typeof DamageSystem !== 'undefined')
+                                    ? DamageSystem.computeHit(splashBase, e, { weaponType: this.weaponType, allowCrit: false })
+                                    : { amount: splashBase, isCrit: false };
+                                e.takeDamage(splash.amount);
+                                if (typeof DamageNumbers !== 'undefined') {
+                                    const dirX = (e.x - enemy.x) || 1;
+                                    const dirY = (e.y - enemy.y) || 0;
+                                    const mag = Math.hypot(dirX, dirY) || 1;
+                                    DamageNumbers.show(
+                                        splash.amount,
+                                        e.x,
+                                        e.y - (e.height||0)/2,
+                                        false,
+                                        { dirX: dirX/mag, dirY: dirY/mag, enemyId: e.id }
+                                    );
+                                }
+                            }
+                        }
+                    } catch (_) {}
+                }
+
                 // 維護註解：追蹤綿羊（LIGHTNING）命中時的爆炸特效與音效
                 // 依賴與安全性：
                 // - 使用 Game.explosionParticles 現有更新/繪製管線，不新增新型別。
