@@ -117,10 +117,10 @@ class LaserBeam extends Entity {
 
     draw(ctx) {
         ctx.save();
-        // 脈動寬度（僅視覺），不影響碰撞與傷害半徑
+        // 固定線寬（取消縮放動作感）；改用亮度微閃爍提升震撼
         const t = (this.pulsePhase || 0) / 1000;
-        const pulse = 1 + 0.2 * Math.sin(t * 10);
-        const drawWidth = this.width * pulse;
+        const drawWidth = this.width;
+        const flickerAlpha = 0.85 + 0.15 * Math.sin(t * 12);
 
         // 使用線性漸層作為核心
         const core = ctx.createLinearGradient(this.startX, this.startY, this.endX, this.endY);
@@ -129,11 +129,31 @@ class LaserBeam extends Entity {
         core.addColorStop(1, '#0ff');
         ctx.globalCompositeOperation = 'source-over';
         ctx.strokeStyle = core;
-        ctx.globalAlpha = 0.95;
+        ctx.globalAlpha = flickerAlpha;
         ctx.lineWidth = drawWidth;
         ctx.beginPath();
         ctx.moveTo(this.startX, this.startY);
         ctx.lineTo(this.endX, this.endY);
+        ctx.stroke();
+
+        // 顏色邊緣-雙重散射，營造震撼但無縮放
+        const nx = -Math.sin(this.angle);
+        const ny = Math.cos(this.angle);
+        const edgeOffset = 2.0;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.32;
+        ctx.strokeStyle = 'rgba(0,255,255,0.7)';
+        ctx.lineWidth = drawWidth * 1.1;
+        ctx.beginPath();
+        ctx.moveTo(this.startX + nx * edgeOffset, this.startY + ny * edgeOffset);
+        ctx.lineTo(this.endX + nx * edgeOffset, this.endY + ny * edgeOffset);
+        ctx.stroke();
+        ctx.globalAlpha = 0.26;
+        ctx.strokeStyle = 'rgba(255,0,255,0.6)';
+        ctx.lineWidth = drawWidth * 1.1;
+        ctx.beginPath();
+        ctx.moveTo(this.startX - nx * edgeOffset, this.startY - ny * edgeOffset);
+        ctx.lineTo(this.endX - nx * edgeOffset, this.endY - ny * edgeOffset);
         ctx.stroke();
 
         // 疊加光暈層（疊加模式）
