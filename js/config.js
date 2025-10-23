@@ -17,7 +17,8 @@ const CONFIG = {
         SPEED: 3, // 降低移動速度
         MAX_HEALTH: 200,
         SIZE: 32,
-        COLLISION_RADIUS: 16
+        COLLISION_RADIUS: 16,
+        BORDER_MARGIN: 120 // 玩家與世界邊界的透明牆距離（像素）
     },
     
     // 武器設置
