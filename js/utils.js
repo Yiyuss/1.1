@@ -179,5 +179,141 @@ const Utils = {
         if (tmax < tmin) return Infinity; // 無交集
         const tHit = tmin >= 0 ? tmin : (tmax >= 0 ? 0 : Infinity);
         return tHit >= 0 ? tHit : Infinity;
-    }
+    },
+    
+    // 多邊形：點是否在多邊形內（射線法）
+    polygonContainsPoint: function(polygon, px, py) {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i][0], yi = polygon[i][1];
+            const xj = polygon[j][0], yj = polygon[j][1];
+            const intersect = ((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi + 0.0000001) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    },
+
+    // 多邊形：矩形（中心+寬高）轉四邊形點集
+    rectToPolygon: function(cx, cy, w, h) {
+        const halfW = w / 2, halfH = h / 2;
+        return [
+            [cx - halfW, cy - halfH],
+            [cx + halfW, cy - halfH],
+            [cx + halfW, cy + halfH],
+            [cx - halfW, cy + halfH]
+        ];
+    },
+
+    // 分離軸定理：多邊形-多邊形相交判斷（凸多邊形適用）
+    SATPolygonOverlap: function(polyA, polyB) {
+        if (!polyA || !polyB || polyA.length < 3 || polyB.length < 3) return false;
+        const testAxes = (poly) => {
+            const axes = [];
+            for (let i = 0; i < poly.length; i++) {
+                const x1 = poly[i][0], y1 = poly[i][1];
+                const x2 = poly[(i + 1) % poly.length][0], y2 = poly[(i + 1) % poly.length][1];
+                const ex = x2 - x1, ey = y2 - y1; // 邊向量
+                const ax = -ey, ay = ex; // 法線軸
+                // 避免零長度
+                if (ax !== 0 || ay !== 0) axes.push([ax, ay]);
+            }
+            return axes;
+        };
+        const project = (poly, axis) => {
+            let min = Infinity, max = -Infinity;
+            for (let i = 0; i < poly.length; i++) {
+                const dot = poly[i][0] * axis[0] + poly[i][1] * axis[1];
+                if (dot < min) min = dot;
+                if (dot > max) max = dot;
+            }
+            return [min, max];
+        };
+        const axes = testAxes(polyA).concat(testAxes(polyB));
+        for (const axis of axes) {
+            const [minA, maxA] = project(polyA, axis);
+            const [minB, maxB] = project(polyB, axis);
+            if (maxA < minB || maxB < minA) return false; // 在此軸上分離
+        }
+        return true;
+    },
+
+    // 公用：點到線段距離
+    pointSegmentDistance: function(px, py, x1, y1, x2, y2) {
+        const vx = x2 - x1;
+        const vy = y2 - y1;
+        const len2 = vx * vx + vy * vy;
+        if (len2 === 0) return Math.hypot(px - x1, py - y1);
+        let t = ((px - x1) * vx + (py - y1) * vy) / len2;
+        t = Math.max(0, Math.min(1, t));
+        const projX = x1 + t * vx;
+        const projY = y1 + t * vy;
+        return Math.hypot(px - projX, py - projY);
+    },
+
+    // 圓-多邊形碰撞：中心在多邊形內或邊距離小於半徑
+    circlePolygonCollision: function(cx, cy, r, polygon) {
+        if (!polygon || polygon.length < 3) return false;
+        if (this.polygonContainsPoint(polygon, cx, cy)) return true;
+        for (let i = 0; i < polygon.length; i++) {
+            const x1 = polygon[i][0], y1 = polygon[i][1];
+            const x2 = polygon[(i + 1) % polygon.length][0], y2 = polygon[(i + 1) % polygon.length][1];
+            const d = this.pointSegmentDistance(cx, cy, x1, y1, x2, y2);
+            if (d <= r) return true;
+        }
+        return false;
+    },
+
+    // 多邊形-矩形碰撞（矩形轉多邊形後做SAT）
+    polygonRectCollision: function(polygon, rx, ry, rw, rh) {
+        const rectPoly = this.rectToPolygon(rx, ry, rw, rh);
+        return this.SATPolygonOverlap(polygon, rectPoly);
+    },
+    // 基於 PNG 透明度的輕量多邊形生成（徑向取樣）
+    // 備註：僅用於覆蓋與近似碰撞；避免複雜影像處理與代碼膨脹。
+    // 回傳中心相對座標點陣列，並按目標寬高縮放。
+    generateAlphaMaskPolygon: function(image, targetW, targetH, samples = 28, alphaThreshold = 40, step = 2) {
+        try {
+            if (!image || !image.width || !image.height) return null;
+            const w = image.width, h = image.height;
+            const cx = w / 2, cy = h / 2;
+            // 快取（避免重複計算）
+            const key = `${image.src}|${targetW}x${targetH}|${samples}|${alphaThreshold}|${step}`;
+            this._alphaPolyCache = this._alphaPolyCache || new Map();
+            if (this._alphaPolyCache.has(key)) return this._alphaPolyCache.get(key);
+            // 讀取像素
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(image, 0, 0);
+            const imgData = ctx.getImageData(0, 0, w, h).data;
+            const alphaAt = (x, y) => {
+                const ix = Math.floor(x), iy = Math.floor(y);
+                if (ix < 0 || iy < 0 || ix >= w || iy >= h) return 0;
+                return imgData[(iy * w + ix) * 4 + 3];
+            };
+            const points = [];
+            const maxR = Math.max(w, h) / 2;
+            for (let i = 0; i < samples; i++) {
+                const theta = (i / samples) * Math.PI * 2;
+                const dx = Math.cos(theta), dy = Math.sin(theta);
+                let lastOpaqueX = cx, lastOpaqueY = cy, seenOpaque = false;
+                for (let r = step; r <= maxR; r += step) {
+                    const x = cx + dx * r;
+                    const y = cy + dy * r;
+                    const a = alphaAt(x, y);
+                    if (a >= alphaThreshold) { seenOpaque = true; lastOpaqueX = x; lastOpaqueY = y; }
+                    else if (seenOpaque) { break; }
+                }
+                // 相對中心並按目標寬高縮放
+                const sx = targetW / w, sy = targetH / h;
+                points.push([ (lastOpaqueX - cx) * sx, (lastOpaqueY - cy) * sy ]);
+            }
+            // 末端去噪：若樣本<3則放棄
+            if (points.length < 3) return null;
+            this._alphaPolyCache.set(key, points);
+            return points;
+        } catch (_) {
+            return null;
+        }
+    },
 };
