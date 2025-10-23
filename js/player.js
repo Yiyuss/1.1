@@ -70,9 +70,18 @@ class Player extends Entity {
             this.y = candY;
         }
         
-        // 限制玩家在世界範圍內（不循環）
-        this.x = Utils.clamp(this.x, this.width / 2, (Game.worldWidth || CONFIG.CANVAS_WIDTH) - this.width / 2);
-        this.y = Utils.clamp(this.y, this.height / 2, (Game.worldHeight || CONFIG.CANVAS_HEIGHT) - this.height / 2);
+        // 限制玩家在世界範圍內（透明牆：距離邊界一定距離）
+        {
+            const worldW = (Game.worldWidth || CONFIG.CANVAS_WIDTH);
+            const worldH = (Game.worldHeight || CONFIG.CANVAS_HEIGHT);
+            const margin = CONFIG.PLAYER.BORDER_MARGIN || 0;
+            const minX = this.width / 2 + margin;
+            const maxX = worldW - this.width / 2 - margin;
+            const minY = this.height / 2 + margin;
+            const maxY = worldH - this.height / 2 - margin;
+            this.x = Utils.clamp(this.x, minX, Math.max(minX, maxX));
+            this.y = Utils.clamp(this.y, minY, Math.max(minY, maxY));
+        }
         
         // 能量自然恢復（每秒+1，封頂100）
         this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegenRate * (deltaTime / 1000));
