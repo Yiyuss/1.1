@@ -318,7 +318,11 @@ const TalentSystem = {
         if (!card || !cfg) return;
         const lv = this.getTalentLevel(talentId);
         const max = cfg.levels.length;
-
+        // 注入LV徽章（僅UI，不更動數據）
+        if (TalentSystem._updateLevelBadge) {
+          TalentSystem._updateLevelBadge(card, lv, max);
+        }
+        
         // 升級邏輯：lv < max 保持 locked 以允許繼續升級；不再用 locked 控制灰階
         if (lv >= max) {
             card.classList.remove('locked');
@@ -615,6 +619,58 @@ if (!TalentSystem._flickerSync) {
   })();
 }
 
+// 最小依賴：LV徽章注入器（僅UI覆蓋，不動存檔與文案）
+if (!TalentSystem._updateLevelBadge) {
+  TalentSystem._updateLevelBadge = function(card, lv, max) {
+    try {
+      const clamped = Math.max(0, Math.min(lv|0, max|0));
+      let badge = card.querySelector('.talent-level-badge');
+      if (clamped <= 0) {
+        if (badge && badge.parentNode) badge.parentNode.removeChild(badge);
+        if (card._hadPositionInjected) {
+          card.style.position = '';
+          delete card._hadPositionInjected;
+        }
+        return;
+      }
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'talent-level-badge';
+        card.appendChild(badge);
+      }
+      const lvText = Math.min(clamped, 3);
+      badge.textContent = 'LV' + lvText;
+      badge.className = 'talent-level-badge lv' + lvText;
+      const style = badge.style;
+      style.position = 'absolute';
+      style.top = '8px';
+      style.left = '8px';
+      style.padding = '2px 6px';
+      style.border = '2px solid #fff';
+      style.borderRadius = '6px';
+      style.color = '#fff';
+      style.background = 'rgba(0,0,0,0.35)';
+      style.fontWeight = '800';
+      style.fontSize = '12px';
+      style.lineHeight = '1';
+      style.zIndex = '5';
+      style.pointerEvents = 'none';
+      if (lvText === 1) {
+        style.boxShadow = 'none';
+      } else if (lvText === 2) {
+        style.boxShadow = '0 0 8px rgba(0, 255, 255, 0.6)';
+      } else {
+        style.boxShadow = '0 0 10px rgba(255, 215, 0, 0.8)';
+      }
+      const compPos = getComputedStyle(card).position;
+      if (compPos === 'static') {
+        card.style.position = 'relative';
+        card._hadPositionInjected = true;
+      }
+    } catch(_) {}
+  };
+}
+
 function updateTalentCardAppearance(card, level){
   const img = card.querySelector('img');
   // 先清除舊動畫引用，避免重複
@@ -658,5 +714,9 @@ function updateTalentCardAppearance(card, level){
       img.classList.remove('grayscale');
       TalentSystem._flickerSync.register(img);
     }
+  }
+  // 注入LV徽章（共用，僅UI）
+  if (typeof TalentSystem !== 'undefined' && TalentSystem._updateLevelBadge) {
+    TalentSystem._updateLevelBadge(card, level, 3);
   }
 }
