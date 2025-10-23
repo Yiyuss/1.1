@@ -253,9 +253,9 @@ const CONFIG = {
             HEALTH: 600, // 原先200 * 3 = 600
             DAMAGE: 25,
             SPEED: 0.8,
-            SIZE: 64,
+            SIZE: 160,
             EXPERIENCE: 50,
-            COLLISION_RADIUS: 32,
+            COLLISION_RADIUS: 80,
             // 新增：遠程攻擊參數（小BOSS技能）
             RANGED_ATTACK: {
                 ENABLED: true,
@@ -273,9 +273,9 @@ const CONFIG = {
             HEALTH: 5000, // 原先1000 * 5 = 5000
             DAMAGE: 40,
             SPEED: 0.7,
-            SIZE: 128,
+            SIZE: 300,
             EXPERIENCE: 500,
-            COLLISION_RADIUS: 64,
+            COLLISION_RADIUS: 150,
             // 新增：遠程攻擊參數
             RANGED_ATTACK: {
                 ENABLED: true,
