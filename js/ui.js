@@ -423,6 +423,28 @@ const UI = {
             }
         }
 
+        // 新增：屬性升級選項（每局生效，不寫入localStorage）
+        try {
+            const atkLv = Math.max(0, Math.min(10, player.attackUpgradeLevel || 0));
+            if (atkLv < 10) {
+                options.push({
+                    type: 'ATTR_ATTACK',
+                    name: '攻擊力強化',
+                    level: atkLv + 1,
+                    description: '每級+5%傷害'
+                });
+            }
+            const crtLv = Math.max(0, Math.min(10, player.critUpgradeLevel || 0));
+            if (crtLv < 10) {
+                options.push({
+                    type: 'ATTR_CRIT',
+                    name: '爆擊率強化',
+                    level: crtLv + 1,
+                    description: '每級+2%爆擊率'
+                });
+            }
+        } catch (_) {}
+
         // 每次升級隨機挑選3個（不足3則返回全部）
         const shuffled = Utils.shuffleArray(options);
         return shuffled.slice(0, 3);
@@ -439,6 +461,29 @@ const UI = {
      */
     selectUpgrade: function(weaponType) {
         const player = Game.player;
+
+        // 屬性升級：直接作用於玩家（不受大招備份影響）
+        if (weaponType === 'ATTR_ATTACK') {
+            if (player.attackUpgradeLevel < 10) player.attackUpgradeLevel += 1;
+            if (typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
+                BuffSystem.applyAttributeUpgrades(player);
+            }
+            // 更新技能列表與音效/關閉選單
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+        if (weaponType === 'ATTR_CRIT') {
+            if (player.critUpgradeLevel < 10) player.critUpgradeLevel += 1;
+            if (typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
+                BuffSystem.applyAttributeUpgrades(player);
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
 
         // 大招期間：將升級作用在「大招前的武器狀態」上，避免臨時LV10武器干擾
         if (player.isUltimateActive && player._ultimateBackup) {
