@@ -35,14 +35,22 @@ class Enemy extends Entity {
         
         // 視覺與邏輯尺寸同步：MINI_BOSS 與 BOSS 使用非正方形大小
         if (this.type === 'MINI_BOSS') {
-            this.width = 123;
-            this.height = 160;
-            this.collisionRadius = Math.max(this.width, this.height) / 2;
-        } else if (this.type === 'BOSS') {
-            this.width = 212;
-            this.height = 300;
-            this.collisionRadius = Math.max(this.width, this.height) / 2;
+            this.width = 123; this.height = 160;
+            const img = Game && Game.images ? Game.images['mini_boss'] : null;
+            if (img && img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
+                const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, 32, 72, 2);
+                if (poly && poly.length >= 3) this.setCollisionPolygon(poly);
+            }
         }
+        if (this.type === 'BOSS') {
+            this.width = 212; this.height = 300;
+            const img = Game && Game.images ? Game.images['boss'] : null;
+            if (img && img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
+                const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, 36, 80, 2);
+                if (poly && poly.length >= 3) this.setCollisionPolygon(poly);
+            }
+        }
+        this.collisionRadius = Math.max(this.width, this.height) / 2;
         // 新增：遠程攻擊相關屬性（小BOSS與大BOSS皆可）
         if (enemyConfig.RANGED_ATTACK) {
             // 僅在困難模式且該敵人類型的遠程屬性啟用時才開啟技能
@@ -75,6 +83,20 @@ class Enemy extends Entity {
             return; // 停止其他行為（不再攻擊/移動）
         }
         
+        if (typeof this.hasCollisionPolygon === 'function' && !this.hasCollisionPolygon()) {
+            let imageName = null;
+            if (this.type === 'MINI_BOSS') imageName = 'mini_boss';
+            else if (this.type === 'BOSS') imageName = 'boss';
+            if (imageName && Game && Game.images && Game.images[imageName]) {
+                const img = Game.images[imageName];
+                if (img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
+                    const params = this.type === 'BOSS' ? [36, 80, 2] : [32, 72, 2];
+                    const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, ...params);
+                    if (poly && poly.length >= 3) this.setCollisionPolygon(poly);
+                }
+            }
+        }
+        
         const deltaMul = deltaTime / 16.67;
         // 向玩家移動
         const player = Game.player;
@@ -85,6 +107,14 @@ class Enemy extends Entity {
         const candY = this.y + Math.sin(angle) * this.speed * deltaMul;
 
         const blockedByObs = (nx, ny) => {
+            // 若有多邊形，採用多邊形-矩形碰撞；否則維持既有圓-矩形邏輯
+            if (this.hasCollisionPolygon && this.hasCollisionPolygon()) {
+                const poly = this.collisionPolygon.map(p => [nx + p[0], ny + p[1]]);
+                for (const obs of (Game.obstacles || [])) {
+                    if (Utils.polygonRectCollision(poly, obs.x, obs.y, obs.width, obs.height)) return true;
+                }
+                return false;
+            }
             for (const obs of Game.obstacles || []) {
                 if (Utils.circleRectCollision(nx, ny, this.collisionRadius, obs.x, obs.y, obs.width, obs.height)) {
                     return true;
@@ -242,6 +272,7 @@ class Enemy extends Entity {
         // 根據敵人類型選擇圖片或顏色
         let imageName;
         let color;
+        let drawW, drawH;
         
         switch(this.type) {
             case 'ZOMBIE':
@@ -273,8 +304,7 @@ class Enemy extends Entity {
         if (Game.images && Game.images[imageName]) {
             // 迷你頭目與頭目使用邏輯尺寸（非正方形），其他維持既有正方形 size
             if (this.type === 'MINI_BOSS' || this.type === 'BOSS') {
-                const drawW = this.width;
-                const drawH = this.height;
+                drawW = this.width; drawH = this.height;
                 ctx.drawImage(
                     Game.images[imageName],
                     this.x - drawW / 2,
@@ -285,42 +315,106 @@ class Enemy extends Entity {
             } else {
                 // 其他敵人維持以實體 size（正方形）繪製
                 const size = Math.max(this.width, this.height);
+                drawW = size; drawH = size;
                 ctx.drawImage(Game.images[imageName], this.x - size / 2, this.y - size / 2, size, size);
             }
         } else {
             // 備用：使用純色圓形
+            drawW = Math.max(this.width, this.height);
+            drawH = Math.max(this.width, this.height);
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2, 0, Math.PI * 2);
             ctx.fill();
         }
         
-        // 減速藍色覆蓋（持續顯示於減速期間）
+        // 私有：建立並快取貼圖顏色遮罩（使用PNG alpha裁切）
+        // 避免代碼膨脹：僅在需要覆蓋時初次生成，並依 image+尺寸 快取於實例
+        const ensureTint = (imgName, w, h) => {
+            const key = `${imgName}|${w}x${h}`;
+            if (this._tintKey === key && this._tintRed && this._tintBlue) return;
+            const img = Game.images && Game.images[imgName];
+            if (!img || !img.complete || !(img.naturalWidth > 0)) { this._tintKey = null; this._tintRed = null; this._tintBlue = null; return; }
+            const make = (color) => {
+                const c = document.createElement('canvas');
+                c.width = w; c.height = h;
+                const cctx = c.getContext('2d');
+                cctx.clearRect(0, 0, w, h);
+                cctx.drawImage(img, 0, 0, w, h);
+                cctx.globalCompositeOperation = 'source-in';
+                cctx.fillStyle = color;
+                cctx.fillRect(0, 0, w, h);
+                cctx.globalCompositeOperation = 'source-over';
+                return c;
+            };
+            this._tintKey = key;
+            this._tintRed = make('#ff0000');
+            this._tintBlue = make('#3399ff');
+        };
+        
+        // 減速藍色覆蓋（持續顯示於減速期間），沿PNG透明度裁切；若無圖或尚未載入則回退原邏輯
         if (this.isSlowed) {
             const alpha = 0.3;
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = '#3399ff';
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2 + 2, 0, Math.PI * 2);
-            ctx.fill();
-            // 細環提升辨識度
-            ctx.strokeStyle = '#66ccff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2 + 3, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.globalAlpha = 1;
+            ensureTint(imageName, drawW, drawH);
+            if (this._tintBlue) {
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.drawImage(this._tintBlue, this.x - drawW / 2, this.y - drawH / 2, drawW, drawH);
+                ctx.restore();
+            } else {
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#3399ff';
+                ctx.beginPath();
+                let poly = null;
+                if (typeof this.hasCollisionPolygon === 'function' && this.hasCollisionPolygon() && typeof this.getWorldPolygon === 'function') {
+                    poly = this.getWorldPolygon();
+                }
+                if (poly && Array.isArray(poly) && poly.length >= 3) {
+                    ctx.moveTo(poly[0][0], poly[0][1]);
+                    for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
+                    ctx.closePath();
+                } else {
+                    // 回退以圓形遮罩，避免矩形誤覆蓋到透明背景
+                    ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2, 0, Math.PI * 2);
+                }
+                ctx.fill();
+                ctx.strokeStyle = '#66ccff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+            }
         }
         
-        // 受傷紅色覆蓋閃爍（死亡期間停用）
+        // 受傷紅色覆蓋閃爍（死亡期間停用），沿PNG透明度裁切；若無圖或尚未載入則回退原邏輯
         if (!this.isDying && this.hitFlashTime > 0) {
             const alpha = 0.35;
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = '#ff0000';
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2 + 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalAlpha = 1;
+            ensureTint(imageName, drawW, drawH);
+            if (this._tintRed) {
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.drawImage(this._tintRed, this.x - drawW / 2, this.y - drawH / 2, drawW, drawH);
+                ctx.restore();
+            } else {
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                let poly = null;
+                if (typeof this.hasCollisionPolygon === 'function' && this.hasCollisionPolygon() && typeof this.getWorldPolygon === 'function') {
+                    poly = this.getWorldPolygon();
+                }
+                if (poly && Array.isArray(poly) && poly.length >= 3) {
+                    ctx.moveTo(poly[0][0], poly[0][1]);
+                    for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
+                    ctx.closePath();
+                } else {
+                    // 回退以圓形遮罩，避免矩形誤覆蓋到透明背景
+                    ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2, 0, Math.PI * 2);
+                }
+                ctx.fill();
+                ctx.restore();
+            }
         }
         
         // 繪製血條（死亡期間隱藏）
