@@ -44,8 +44,9 @@ const Input = {
             const halfH = Game.player ? Game.player.height / 2 : 0;
             const worldW = Game.worldWidth || Game.canvas.width;
             const worldH = Game.worldHeight || Game.canvas.height;
-            const clampedX = Utils.clamp(this.mousePosition.x, halfW, worldW - halfW);
-            const clampedY = Utils.clamp(this.mousePosition.y, halfH, worldH - halfH);
+            const margin = CONFIG.PLAYER?.BORDER_MARGIN || 0;
+            const clampedX = Utils.clamp(this.mousePosition.x, halfW + margin, Math.max(halfW + margin, worldW - halfW - margin));
+            const clampedY = Utils.clamp(this.mousePosition.y, halfH + margin, Math.max(halfH + margin, worldH - halfH - margin));
             this.mouseTarget = { x: clampedX, y: clampedY };
             this.isMouseMoving = true;
             console.log('滑鼠點擊目標(已夾限):', this.mouseTarget);
