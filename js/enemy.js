@@ -33,6 +33,16 @@ class Enemy extends Entity {
         this.hitFlashTime = 0;
         this.hitFlashDuration = 150; // 毫秒
         
+        // 視覺與邏輯尺寸同步：MINI_BOSS 與 BOSS 使用非正方形大小
+        if (this.type === 'MINI_BOSS') {
+            this.width = 123;
+            this.height = 160;
+            this.collisionRadius = Math.max(this.width, this.height) / 2;
+        } else if (this.type === 'BOSS') {
+            this.width = 212;
+            this.height = 300;
+            this.collisionRadius = Math.max(this.width, this.height) / 2;
+        }
         // 新增：遠程攻擊相關屬性（小BOSS與大BOSS皆可）
         if (enemyConfig.RANGED_ATTACK) {
             // 僅在困難模式且該敵人類型的遠程屬性啟用時才開啟技能
@@ -261,17 +271,30 @@ class Enemy extends Entity {
         
         // 繪製敵人 - 優先使用圖片
         if (Game.images && Game.images[imageName]) {
-            // 確保圖片以1:1比例繪製
-            const size = Math.max(this.width, this.height);
-            ctx.drawImage(Game.images[imageName], this.x - size / 2, this.y - size / 2, size, size);
+            // 迷你頭目與頭目使用邏輯尺寸（非正方形），其他維持既有正方形 size
+            if (this.type === 'MINI_BOSS' || this.type === 'BOSS') {
+                const drawW = this.width;
+                const drawH = this.height;
+                ctx.drawImage(
+                    Game.images[imageName],
+                    this.x - drawW / 2,
+                    this.y - drawH / 2,
+                    drawW,
+                    drawH
+                );
+            } else {
+                // 其他敵人維持以實體 size（正方形）繪製
+                const size = Math.max(this.width, this.height);
+                ctx.drawImage(Game.images[imageName], this.x - size / 2, this.y - size / 2, size, size);
+            }
         } else {
             // 備用：使用純色圓形
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2, 0, Math.PI * 2);
             ctx.fill();
         }
-
+        
         // 減速藍色覆蓋（持續顯示於減速期間）
         if (this.isSlowed) {
             const alpha = 0.3;
@@ -280,7 +303,7 @@ class Enemy extends Entity {
             ctx.beginPath();
             ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2 + 2, 0, Math.PI * 2);
             ctx.fill();
-            // 視覺優化：為減速覆蓋添加細環，提升辨識
+            // 細環提升辨識度
             ctx.strokeStyle = '#66ccff';
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -288,7 +311,7 @@ class Enemy extends Entity {
             ctx.stroke();
             ctx.globalAlpha = 1;
         }
-
+        
         // 受傷紅色覆蓋閃爍（死亡期間停用）
         if (!this.isDying && this.hitFlashTime > 0) {
             const alpha = 0.35;
@@ -300,15 +323,13 @@ class Enemy extends Entity {
             ctx.globalAlpha = 1;
         }
         
-        // 繪製血條（視覺夾限已回退；死亡期間仍隱藏）
+        // 繪製血條（死亡期間隱藏）
         const healthBarWidth = this.width;
         const healthBarHeight = 5;
         const healthPercentage = this.maxHealth > 0 ? (this.health / this.maxHealth) : 0;
-        
         if (!this.isDying) {
             ctx.fillStyle = '#333';
             ctx.fillRect(this.x - healthBarWidth / 2, this.y - this.height / 2 - 10, healthBarWidth, healthBarHeight);
-            
             ctx.fillStyle = '#f00';
             ctx.fillRect(this.x - healthBarWidth / 2, this.y - this.height / 2 - 10, healthBarWidth * healthPercentage, healthBarHeight);
         }
