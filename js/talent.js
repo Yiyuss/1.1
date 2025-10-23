@@ -653,8 +653,24 @@ if (!TalentSystem._updateLevelBadge) {
       style.fontWeight = '800';
       style.fontSize = '12px';
       style.lineHeight = '1';
-      style.zIndex = '5';
+      style.zIndex = '99';
       style.pointerEvents = 'none';
+      style.textShadow = '0 1px 2px rgba(0,0,0,0.9)';
+      // 手機視窗：改用字級與間距避免 transform 模糊，並提高對比
+      try {
+        const isMobile = (typeof window !== 'undefined') && (
+          (window.matchMedia && (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches))
+        );
+        if (isMobile) {
+          style.fontSize = '14px';
+          style.padding = '3px 8px';
+          style.top = '6px';
+          style.left = '6px';
+          style.background = 'rgba(0,0,0,0.55)';
+          style.transform = '';
+          style.transformOrigin = '';
+        }
+      } catch(_) {}
       if (lvText === 1) {
         style.boxShadow = 'none';
       } else if (lvText === 2) {
