@@ -379,11 +379,11 @@ body {
 #level-up-menu .lum-bg {
   position: absolute;
   top: 8px; bottom: 8px; left: 8px;
-  width: 360px; /* 背景靠左，覆蓋屬性欄寬度 */
-  background-position: left center;
+  width: 520px; /* 原360px → 放大，避免屬性欄遮到臉 */
+  background-position: -40px calc(50% - 13px); /* 垂直上移10px；調整此值可微調上下與左右 */
   background-repeat: no-repeat;
-  background-size: contain; /* 角色立繪採用 contain，避免裁切 */
-  opacity: 0.80; /* 數字越低升級視窗的底圖會越透明 */
+  background-size: contain; /* 立繪以等比縮放，避免裁切 */
+  opacity: 0.90; /* 立繪調整透明度 */
   filter: brightness(1.05) saturate(1.1);
   pointer-events: none;
 }
@@ -391,7 +391,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to right, rgba(0,0,0,0) 65%, rgba(0,0,0,0.35) 100%); /* 右側淡出遮罩，避免干擾選項可讀性 */
+  background: linear-gradient(to right, rgba(0,0,0,0) 65%, rgba(0,0,0,0.35) 100%);
   pointer-events: none;
 }
 #level-up-menu h2, #level-up-menu .lum-columns { position: relative; z-index: 1; }
@@ -657,7 +657,7 @@ body {
 
 /* 下方預覽區 */
 /* 下方預覽區 */
-/* 重複定義移除：選角預覽與其RWD尾段版本，保留前段唯一版本 */
+/* 重複定義移除：選角預覽與其RWD尾端版本，保留前段唯一版本 */
 
 /* 左上角玩家頭像 */
 #player-avatar {
