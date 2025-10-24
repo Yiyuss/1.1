@@ -402,11 +402,13 @@ body {
   align-items: start;
 }
 #level-up-menu .lum-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  margin-top: 148px; /* 數字越低升級視窗的屬性欄會越高 */
+  /* 保持位置與寬度不變；改為兩欄網格以降低高度與空洞感 */
+  display: grid; /* 原為 flex-column */
+  grid-template-columns: 1fr 1fr; /* 兩欄分佈 */
+  column-gap: 16px;
+  row-gap: 6px;
+  padding: 9px 12px; /* 輕度壓縮內距 */
+  margin-top: 148px; /* 位置不變 */
   background: rgba(15, 20, 28, 0.70);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 8px;
@@ -415,12 +417,26 @@ body {
 #level-up-menu .lum-sidebar .stat-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-between; /* 每格內維持「標籤左、數值右」 */
   color: #cfe7ff;
-  font-size: 1.12rem; /* 屬性文字再放大 */
+  font-size: 1.04rem; /* 字級微降，縮短整體高度 */
+  line-height: 1.16; /* 降低行高，避免過多空白 */
+  padding: 2px 0; /* 每列上下縮2px */
 }
-#level-up-menu .lum-sidebar .stat-label { color: #9ed0ff; letter-spacing: 0.5px; }
+/* 讓 HP 與 DEF 置頂且橫跨兩欄，避免被擠出容器 */
+#level-up-menu .lum-sidebar .stat-row:nth-child(1),
+#level-up-menu .lum-sidebar .stat-row:nth-child(2) {
+  grid-column: 1 / -1;
+}
+#level-up-menu .lum-sidebar .stat-label { color: #9ed0ff; letter-spacing: 0.4px; }
 #level-up-menu .lum-sidebar .stat-value { color: #fff; font-weight: 700; }
+
+/* 手機版：維持單欄堆疊，避免擠壓字型與行距 */
+@media (max-width: 700px) {
+  #level-up-menu .lum-sidebar { display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; }
+  #level-up-menu .lum-sidebar .stat-row:nth-child(1),
+  #level-up-menu .lum-sidebar .stat-row:nth-child(2) { grid-column: auto; }
+}
 #level-up-menu .lum-options { position: relative; }
 @media (max-width: 700px) {
   #level-up-menu .lum-columns { grid-template-columns: 1fr; gap: 10px; }
