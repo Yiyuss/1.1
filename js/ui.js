@@ -960,9 +960,6 @@ _createOptionCard: function(option, index) {
   });
   optionElement.addEventListener('dblclick', (e) => {
     e.stopPropagation();
-    if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-      AudioManager.playSound('button_click');
-    }
     this.selectUpgrade(option.type);
   });
   if (this._heldOptionIndex === index) {
