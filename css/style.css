@@ -1087,9 +1087,9 @@ body {
     max-height: 92vh;
     padding: 24px;
     border-radius: 12px;
-    background: rgba(20, 20, 20, 0.85);
+    background: rgba(20, 20, 20, 0.50);
     box-shadow: 0 12px 40px rgba(0,0,0,0.6);
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(0px);
     overflow: auto;
 }
 .select-title {
@@ -1159,6 +1159,242 @@ body {
 .diff-card:hover, .map-card:hover {
     filter: brightness(1.1);
     transform: translateY(-1px);
+}
+
+/* === Difficulty Screen visual polish (split-panel with GM/HARD, visual-only) === */
+#difficulty-select-screen .select-card {
+  position: relative;
+  overflow: hidden;
+  width: min(900px, 92vw);
+  max-height: 92vh;
+  min-height: 560px;
+  padding: 28px 24px 24px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(16,18,26,0.50), rgba(12,14,22,0.50));
+  box-shadow: 0 14px 44px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+/* 停用 select-card 的介紹偽元素（介紹改由按鈕內文呈現） */
+#difficulty-select-screen .select-card::before,
+#difficulty-select-screen .select-card::after {
+  content: none !important;
+  display: none;
+}
+
+#difficulty-select-screen .select-title {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-align: center;
+  color: #fff7d1;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.55), 0 0 8px rgba(255,245,215,0.25);
+  margin-bottom: 12px;
+}
+#difficulty-select-screen .select-title::after {
+  content: '建議新手選簡單';
+  display: block;
+  margin-top: 4px;
+  font-size: .95rem;
+  color: #cfe7ff;
+  opacity: .9;
+}
+
+/* 左右雙欄版面與中央分隔線 */
+#difficulty-select-screen .diff-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  align-items: stretch;
+  justify-items: stretch;
+  padding: 4px;
+}
+#difficulty-select-screen .diff-grid::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02));
+  transform: translateX(-0.5px);
+  pointer-events: none;
+}
+
+/* 面板基礎樣式 */
+#difficulty-select-screen .diff-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: center;
+  overflow: hidden;
+  border-radius: 12px;
+  min-height: 360px;
+  padding: 20px 24px 64px;
+  font-size: 1.8rem;
+  font-weight: 900;
+  letter-spacing: .6px;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+  transition: transform .15s ease, filter .15s ease, box-shadow .15s ease, border-color .15s ease;
+  pointer-events: auto;
+  z-index: 2;
+}
+/* 卡片內標題與介紹文字 */
+#difficulty-select-screen .diff-card .diff-label {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 2px;
+  margin-bottom: 8px;
+}
+#difficulty-select-screen .diff-card .diff-intro {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  top: 92px;
+  z-index: 1;
+  pointer-events: none;
+  white-space: pre-line;
+  line-height: 1.55;
+  font-size: .98rem;
+  text-align: left;
+}
+#difficulty-select-screen .diff-card[data-diff-id="EASY"] .diff-intro { color: #cfe7ff; }
+#difficulty-select-screen .diff-card[data-diff-id="HARD"] .diff-intro { color: #ffd6d6; }
+
+/* EASY：淡藍色調 + GM.png */
+#difficulty-select-screen .diff-card[data-diff-id="EASY"] {
+  background:
+    radial-gradient(120% 120% at 10% 90%, rgba(120,180,255,0.18) 0%, rgba(22,30,48,0.8) 40%, rgba(16,22,36,0.88) 100%),
+    linear-gradient(180deg, rgba(30,36,52,0.85), rgba(18,22,34,0.9));
+  border-color: rgba(120,180,255,0.35);
+  box-shadow: inset 0 0 0 1px rgba(120,180,255,0.2), 0 10px 24px rgba(60,120,200,0.25);
+}
+#difficulty-select-screen .diff-card[data-diff-id="EASY"]::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 62%;
+  height: 62%;
+  transform: translate(-50%, -50%);
+  background: url('../assets/images/GM.png') no-repeat center;
+  background-size: contain;
+  opacity: .22;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,0.4));
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* HARD：淡紅色調 + HARD.png */
+#difficulty-select-screen .diff-card[data-diff-id="HARD"] {
+  background:
+    radial-gradient(120% 120% at 90% 90%, rgba(255,140,140,0.18) 0%, rgba(48,24,24,0.82) 40%, rgba(34,16,16,0.9) 100%),
+    linear-gradient(180deg, rgba(52,26,26,0.85), rgba(28,14,14,0.9));
+  border-color: rgba(255,140,140,0.35);
+  box-shadow: inset 0 0 0 1px rgba(255,140,140,0.2), 0 10px 24px rgba(200,60,60,0.25);
+}
+#difficulty-select-screen .diff-card[data-diff-id="HARD"]::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 62%;
+  height: 62%;
+  transform: translate(-50%, -50%);
+  background: url('../assets/images/HARD.png') no-repeat center;
+  background-size: contain;
+  opacity: .22;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,0.4));
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 底部框框顯示「選擇」文字並置中 */
+#difficulty-select-screen .diff-card::after {
+  content: '選擇';
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  width: 42%;
+  max-width: 240px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0.06));
+  box-shadow: 0 6px 14px rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  letter-spacing: .5px;
+  font-size: 1.05rem;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  pointer-events: none;
+}
+#difficulty-select-screen .diff-card[data-diff-id="EASY"]::after {
+  border: 1px solid rgba(120,180,255,0.45);
+  box-shadow: 0 0 24px rgba(120,180,255,0.35), 0 6px 14px rgba(0,0,0,0.35);
+  color: #eaf4ff;
+}
+#difficulty-select-screen .diff-card[data-diff-id="HARD"]::after {
+  border: 1px solid rgba(255,140,140,0.45);
+  box-shadow: 0 0 24px rgba(255,140,140,0.35), 0 6px 14px rgba(0,0,0,0.35);
+  color: #ffe5e5;
+}
+
+/* 懸停/聚焦 */
+#difficulty-select-screen .diff-card:hover {
+  filter: brightness(1.06);
+  transform: translateY(-2px);
+}
+#difficulty-select-screen .diff-card:focus-visible {
+  outline: none;
+  border-color: #fff1a8;
+  box-shadow: 0 0 0 3px rgba(255,241,168,0.35);
+}
+
+/* 返回按鈕維持一致視覺（移到右上角） */
+#difficulty-select-screen .select-actions {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  margin-top: 0;
+}
+#difficulty-select-screen .select-actions #diff-back {
+  border: 1px solid rgba(160,190,240,0.45);
+  color: #cfe7ff;
+  background: rgba(25,28,36,0.65);
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: filter .15s ease;
+}
+#difficulty-select-screen .select-actions #diff-back:hover { filter: brightness(1.08); }
+
+/* 行動版：改為直向堆疊並調整圖片比例 */
+@media (max-width: 640px) {
+  #difficulty-select-screen .diff-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 4px 0;
+  }
+  #difficulty-select-screen .diff-grid::before { content: none; }
+  #difficulty-select-screen .diff-card {
+    min-height: 220px;
+    padding: 20px 16px 56px;
+    font-size: 1.6rem;
+  }
+  #difficulty-select-screen .diff-card[data-diff-id="EASY"]::before,
+  #difficulty-select-screen .diff-card[data-diff-id="HARD"]::before {
+    width: 72%;
+    height: 82%;
+    opacity: .8;
+  }
+  #difficulty-select-screen .select-card { padding: 22px 16px; }
 }
 
 @media (max-width: 640px) {
