@@ -394,21 +394,39 @@ body {
     /* Sidebar offset var：往下移避免擋臉，之後可自行微調 */
     --lum-sidebar-offset-top: 248px; /* 原 148px → 下移 100px */
     /* Header & layout offsets：允許微調標題位置與上邊距，避免壓到右側卡片 */
-    --lum-header-left: 340px;
-    --lum-header-top: 6px;
+    --lum-header-left: 100px; /* 再往左微調 */
+    --lum-header-top: 34px;  /* 再往下微調 */
     --lum-columns-top: 8px;
 }
 
 #level-up-menu h2 {
-    /* 改為絕對定位，往左靠齊，釋放右側空間讓選項上移 */
+    /* 絕對定位：移至立繪髮頂區域（參考圖） */
     position: absolute;
-    top: var(--lum-header-top, 6px);
-    left: var(--lum-header-left, 340px);
+    top: var(--lum-header-top, 34px);
+    left: var(--lum-header-left, 100px);
     margin: 0;
-    font-size: 2rem;
-    color: #ff0000;
+    font-size: 2.15rem;
+    letter-spacing: 0.6px;
     text-align: left;
-    z-index: 2;
+    z-index: 3;
+    /* 金光特效：金色漸層 + 柔和光暈 */
+    background-image: linear-gradient(180deg, #ffe28a, #ffd15a 60%, #f7a53e);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    /* 黑框描邊（主要瀏覽器支援） */
+    -webkit-text-stroke: 1.5px rgba(0, 0, 0, 0.85);
+    /* 金光陰影 */
+    text-shadow: 0 0 8px rgba(255, 208, 80, 0.55), 0 0 16px rgba(255, 180, 60, 0.35);
+    animation: lumGoldPulse 2.8s ease-in-out infinite;
+}
+@keyframes lumGoldPulse {
+  0%, 100% {
+    text-shadow: 0 0 6px rgba(255, 208, 80, 0.45), 0 0 12px rgba(255, 180, 60, 0.25);
+  }
+  50% {
+    text-shadow: 0 0 10px rgba(255, 228, 120, 0.70), 0 0 20px rgba(255, 200, 90, 0.45);
+  }
 }
 
 /* === Upgrade Menu: Sidebar & Background (namespaced under #level-up-menu) === */
