@@ -364,7 +364,6 @@ function setupCharacterSelection() {
         // 雙擊：顯示選圖覆蓋層（不隱藏選角畫面）
         card.addEventListener('dblclick', () => {
             Game.selectedCharacter = ch;
-            playClick();
             show(DOMCache.get('map-select-screen'));
         });
         // 觸控雙擊（兩次點擊間隔<=300ms）：雙擊進入選圖，單擊更新預覽
@@ -372,7 +371,6 @@ function setupCharacterSelection() {
             const now = Date.now();
             if (now - lastTapTime <= 300) {
                 Game.selectedCharacter = ch;
-                playClick();
                 show(DOMCache.get('map-select-screen'));
             } else {
                 updatePreview(ch);
