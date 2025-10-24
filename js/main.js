@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 預設暫停，但不靜音，以保留選單音樂與音效
     Game.pause(false);
 
-    // 自動暫停與音效抑制（分頁切換/失焦）
+    // 自動暫停與音效抑制（分頁切換/縮小/失焦）
     setupAutoPause();
 
     // 設定選角介面事件
@@ -253,11 +253,11 @@ function setupAutoPause() {
         const charVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('character-select-screen') : !document.getElementById('character-select-screen').classList.contains('hidden'));
         const mapVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('map-select-screen') : !document.getElementById('map-select-screen').classList.contains('hidden'));
         const diffVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('difficulty-select-screen') : !document.getElementById('difficulty-select-screen').classList.contains('hidden'));
-        // talents 畫面可能有多個容器，沿用原查詢邏輯
         const talentVisible = Array.from(document.querySelectorAll('#talent-select-screen')).some(el => !el.classList.contains('hidden'));
         return startVisible || charVisible || mapVisible || diffVisible || talentVisible;
     };
 
+    // 可見性變更：當回到可見時，若覆蓋層（升級/技能）開啟，保持暫停但解除靜音以恢復 BGM 與音效
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             Game.pause();
@@ -266,6 +266,10 @@ function setupAutoPause() {
             const gameVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-screen') : !document.getElementById('game-screen').classList.contains('hidden'));
             if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
                 Game.resume();
+                AudioManager.setMuted && AudioManager.setMuted(false);
+            } else if (isAnyMenuOpen()) {
+                // 升級/技能覆蓋層開啟：不恢復遊戲邏輯，但解除靜音讓 BGM 與選項音效可用
+                Game.pause(false);
                 AudioManager.setMuted && AudioManager.setMuted(false);
             } else if (isMenuVisible()) {
                 // 解除靜音並恢復選單音樂（不觸發遊戲音樂）
@@ -290,6 +294,10 @@ function setupAutoPause() {
         const gameVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-screen') : !document.getElementById('game-screen').classList.contains('hidden'));
         if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
             Game.resume();
+            AudioManager.setMuted && AudioManager.setMuted(false);
+        } else if (isAnyMenuOpen()) {
+            // 升級/技能覆蓋層開啟：保持暫停但解除靜音，確保 BGM 與音效恢復
+            Game.pause(false);
             AudioManager.setMuted && AudioManager.setMuted(false);
         } else if (isMenuVisible()) {
             // 解除靜音並恢復選單音樂（不觸發遊戲音樂）
