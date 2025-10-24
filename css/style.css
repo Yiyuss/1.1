@@ -361,7 +361,7 @@ body {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background-color: rgba(0, 0, 0, 0.9);
+    background-color: rgba(0, 0, 0, 0.6); /* 底層更透明（原0.9） */
     padding: 20px;
     border-radius: 10px;
     border: 2px solid #ff0000;
@@ -375,12 +375,118 @@ body {
     color: #ff0000;
 }
 
-#upgrade-options {
-    display: flex;
-    justify-content: center;
-    gap: 10px;
+/* === Upgrade Menu: Card layout & icons (visual-only; override, no text changes) === */
+/*
+ * 維護備註：
+ * 此區樣式僅針對 `#level-up-menu` 內的升級選項，使用更高優先度選擇器覆蓋原`.upgrade-option`樣式。
+ * 目標：實現卡片式排版與圖示視覺，但不影響遊戲內任何文字、行為與數值。
+ * 任何修改應限定在此命名空間內，避免影響其他遊戲介面（例如天賦、選角、選地圖等）。
+ * 若要調整卡片間距、尺寸、顏色，請直接修改此處屬性，確保排版與功能「結果一致」。
+ */
+#level-up-menu #upgrade-options {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px; /* 微調間距 */
+  width: min(760px, 92vw);
+  margin: 0 auto;
 }
 
+#level-up-menu .upgrade-option {
+  position: relative; /* 確保標籤絕對定位以卡片為參考 */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 760px;
+  padding: 8px 10px; /* 微調內距 */
+  border-radius: 6px; /* 微調圓角 */
+  background: linear-gradient(180deg, rgba(30,30,30,0.88), rgba(24,24,24,0.88)); /* 卡片更透明 */
+  border: 2px solid #a0bff2; /* 主色邊框 */
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+
+/* 分類標籤：右上角顯示 >> StatUp/Skill/Weapon（純視覺，不影響文案） */
+#level-up-menu .upgrade-option .uop-tag {
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  font-size: 0.85rem;
+  color: #a0bff2; /* 主色 */
+  opacity: 0.9; /* 稍微提高不透明度 */
+  letter-spacing: 0.5px;
+  white-space: nowrap; /* 避免換行重疊 */
+  z-index: 1;
+  pointer-events: none;
+}
+#level-up-menu .upgrade-option:hover {
+  background-color: rgba(50,50,50,0.9); /* 懸停背景微調 */
+  border-color: #cfe3ff; /* 懸停邊框亮度 */
+  transform: scale(1.01); /* 將縮放幅度調小，覆蓋全域 1.05 */
+}
+
+/* 單擊高亮（待確認）：箭頭 + 亮框 */
+#level-up-menu .upgrade-option.uop-pending {
+  border-color: #a0bff2;
+  box-shadow: 0 0 0 2px rgba(160,191,242,0.45) inset, 0 0 10px rgba(160,191,242,0.35);
+  transform: scale(1.005);
+}
+#level-up-menu .upgrade-option.uop-pending::before {
+  content: '';
+  position: absolute;
+  left: -18px; /* 箭頭在卡片左外側 */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0; height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 16px solid #a0bff2; /* 箭頭顏色 */
+}
+
+#level-up-menu .upgrade-option .uop-icon {
+  flex: 0 0 auto;
+  width: 56px; /* 圖示尺寸微調 */
+  height: 56px; /* 圖示尺寸微調 */
+  border: 1px solid rgba(255,255,255,0.2); /* 圖示邊框微調 */
+  border-radius: 4px; /* 圖示圓角微調 */
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(0,0,0,0.65); /* 圖示背景微調 */
+}
+#level-up-menu .upgrade-option .uop-icon img {
+  width: 90%; /* 圖示圖片微縮 */
+  height: 90%; /* 圖示圖片微縮 */
+  object-fit: contain;
+  image-rendering: pixelated;
+  display:block;
+}
+
+#level-up-menu .upgrade-option .uop-text {
+  flex: 1 1 auto;
+  text-align: left;
+  padding-right: 56px; /* 預留右上標籤空間，避免文字重疊 */
+}
+#level-up-menu .upgrade-option .uop-text h3 {
+  margin: 0 0 4px; /* 標題間距微調 */
+  font-size: 1.05rem;
+  color: #a0bff2; /* 套用主色 */
+  line-height: 1.2;
+}
+#level-up-menu .upgrade-option .uop-text p {
+  margin: 0;
+  font-size: 0.9rem; /* 描述文字尺寸微調 */
+  line-height: 1.3;
+  color: #a0a0a0; /* 描述文字顏色微調 */
+}
+
+@media (max-width: 520px) {
+  #level-up-menu .upgrade-option { padding: 6px 8px; gap: 8px; }
+  #level-up-menu .upgrade-option .uop-icon { width: 48px; height: 48px; }
+  #level-up-menu .upgrade-option .uop-text h3 { font-size: 0.95rem; }
+  #level-up-menu .upgrade-option .uop-text p { font-size: 0.85rem; }
+}
 .upgrade-option {
     background-color: #333;
     border: 2px solid #ff0000;
@@ -479,8 +585,8 @@ body {
 /* 內框（char-card-wrap）：半透明面板疊加兩層底圖，含陰影與模糊 */
 .char-card-wrap { width: min(1100px, 92vw); max-height: 92vh; overflow: auto; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(6px); background:
   var(--panel-grad),
-  url('../assets/images/Background3.jpg') center bottom/cover no-repeat,
-  url('../assets/images/background3.jpg') center bottom/cover no-repeat;
+  url('../assets/images/Background3.jpg') center/cover no-repeat,
+  url('../assets/images/background3.jpg') center/cover no-repeat;
 }
 .char-title { font-size: clamp(26px, 4vw, 40px); letter-spacing: 1px; margin-bottom: 8px; text-align: center; background: rgba(128,128,128,0.35); border-radius: 10px; padding: 8px 12px; display: block; width: fit-content; margin: 0 auto 8px; }
 .char-subtitle { color: #cfe7ff; margin-bottom: 16px; text-align: center; background: rgba(128,128,128,0.25); border-radius: 8px; padding: 6px 10px; display: block; width: fit-content; margin: 0 auto 16px; }
@@ -550,7 +656,7 @@ body {
 .skills-volume { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
 .skills-hint { margin-top: 8px; text-align: center; color: #aaa; font-size: 0.9rem; }
 
-/* 重複定義移除：選圖/難度選擇區塊尾段版本（保留前段唯一版本） */
+/* 重複定義移除：選圖/難度選擇區塊尾端版本（保留前段唯一版本） */
 
 /* 重複定義移除：.top-left-icon-btn 已在前段合併 */
 
