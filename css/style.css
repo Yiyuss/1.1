@@ -1261,7 +1261,7 @@ body {
   white-space: pre-line;
   line-height: 1.55;
   font-size: .98rem;
-  text-align: left;
+  text-align: center;
 }
 #difficulty-select-screen .diff-card[data-diff-id="EASY"] .diff-intro { color: #cfe7ff; }
 #difficulty-select-screen .diff-card[data-diff-id="HARD"] .diff-intro { color: #ffd6d6; }
