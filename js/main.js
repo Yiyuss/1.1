@@ -486,22 +486,46 @@ function setupMapAndDifficultySelection() {
 
     const diffCards = diffScreen.querySelectorAll('.diff-card.selectable');
     const diffBack = document.getElementById('diff-back');
+    let selectedDiffId = null;
+
+    const startGameWithDifficulty = (id) => {
+        const useId = id || 'EASY';
+        Game.selectedDifficultyId = useId;
+        playClick();
+        // 開始遊戲：隱藏覆蓋視窗與選角畫面，進入遊戲畫面
+        hide(diffScreen);
+        hide(document.getElementById('map-select-screen'));
+        hide(DOMCache.get('character-select-screen'));
+        Game.startNewGame();
+        if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+            AudioManager.playMusic('game_music');
+        }
+        show(DOMCache.get('game-screen'));
+    };
 
     diffCards.forEach(card => {
+        const id = card.getAttribute('data-diff-id') || 'EASY';
+        // 單擊：僅選擇並播放次要音效
         card.addEventListener('click', () => {
-            const id = card.getAttribute('data-diff-id') || 'EASY';
+            selectedDiffId = id;
             Game.selectedDifficultyId = id;
-            playClick();
-            // 開始遊戲：隱藏覆蓋視窗與選角畫面，進入遊戲畫面
-            hide(diffScreen);
-            hide(document.getElementById('map-select-screen'));
-            hide(DOMCache.get('character-select-screen'));
-            Game.startNewGame();
-            if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
-                AudioManager.playMusic('game_music');
-            }
-            show(DOMCache.get('game-screen'));
+            playClick2();
         });
+        // 雙擊：直接確認並開始遊戲
+        card.addEventListener('dblclick', () => {
+            selectedDiffId = id;
+            startGameWithDifficulty(id);
+        });
+        // 觸控雙擊：使用共用輔助
+        bindDoubleTap(card, () => {
+            selectedDiffId = id;
+            startGameWithDifficulty(id);
+        });
+    });
+
+    KeyboardRouter.register('diff-select', 'Space', (e) => {
+        e.preventDefault();
+        startGameWithDifficulty(selectedDiffId || 'EASY');
     });
 
     if (diffBack) {
@@ -799,6 +823,9 @@ const KeyboardRouter = {
         // 讓可見的選圖畫面優先於選角畫面
         if (!document.getElementById('map-select-screen').classList.contains('hidden')) {
             return 'map-select';
+        }
+        if (!document.getElementById('difficulty-select-screen').classList.contains('hidden')) {
+            return 'diff-select';
         }
         if (!document.getElementById('character-select-screen').classList.contains('hidden')) {
             return 'character-select';
