@@ -392,13 +392,23 @@ body {
     z-index: 100;
     text-align: center;
     /* Sidebar offset var：往下移避免擋臉，之後可自行微調 */
-    --lum-sidebar-offset-top: 188px; /* 原 148px → 下移 40px */
+    --lum-sidebar-offset-top: 248px; /* 原 148px → 下移 100px */
+    /* Header & layout offsets：允許微調標題位置與上邊距，避免壓到右側卡片 */
+    --lum-header-left: 340px;
+    --lum-header-top: 6px;
+    --lum-columns-top: 8px;
 }
 
 #level-up-menu h2 {
+    /* 改為絕對定位，往左靠齊，釋放右側空間讓選項上移 */
+    position: absolute;
+    top: var(--lum-header-top, 6px);
+    left: var(--lum-header-left, 340px);
+    margin: 0;
     font-size: 2rem;
-    margin-bottom: 1rem;
     color: #ff0000;
+    text-align: left;
+    z-index: 2;
 }
 
 /* === Upgrade Menu: Sidebar & Background (namespaced under #level-up-menu) === */
@@ -420,12 +430,14 @@ body {
   background: linear-gradient(to right, rgba(0,0,0,0) 65%, rgba(0,0,0,0.35) 100%);
   pointer-events: none;
 }
-#level-up-menu h2, #level-up-menu .lum-columns { position: relative; z-index: 1; }
+/* 只保留 .lum-columns 相對定位；h2 改為絕對定位 */
+#level-up-menu .lum-columns { position: relative; z-index: 1; }
 #level-up-menu .lum-columns {
   display: grid;
   grid-template-columns: 300px 1fr; /* 左側屬性欄 300px */
   gap: 20px; /* 左右距離再加大 */
   align-items: start;
+  margin-top: var(--lum-columns-top, 8px); /* 選項上移（減少標題占位） */
 }
 #level-up-menu .lum-sidebar {
   /* 保持位置與寬度不變；改為兩欄網格以降低高度與空洞感 */
@@ -502,6 +514,40 @@ body {
   #level-up-menu .lum-sidebar .stat-row:nth-child(2) { grid-column: auto; }
 }
 #level-up-menu .lum-options { position: relative; }
+
+/* 底部動作列：重抽 / 換一個 / 保留（純UI；不更動數值與存檔） */
+#level-up-menu .lum-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+#level-up-menu .lum-actions .action-btn {
+  flex: 1 1 auto;
+  padding: 8px 12px;
+  font-size: 0.95rem;
+  letter-spacing: 0.4px;
+  color: #dfe9ff;
+  background: rgba(25,28,36,0.75);
+  border: 1px solid rgba(160,191,242,0.55);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: filter .15s ease, border-color .15s ease, transform .15s ease;
+}
+#level-up-menu .lum-actions .action-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+#level-up-menu .lum-actions .action-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: none;
+}
+/* 色系 */
+#level-up-menu .lum-actions .action-btn--reroll { border-color: #a0bff2; }
+#level-up-menu .lum-actions .action-btn--replace { border-color: #e5b65e; }
+#level-up-menu .lum-actions .action-btn--hold { border-color: #9ed0ff; }
+
 @media (max-width: 700px) {
   #level-up-menu .lum-columns { grid-template-columns: 1fr; gap: 10px; }
   #level-up-menu .lum-bg { left: 0; width: 45%; opacity: 0.18; } /* 手機保留偏左效果 */
@@ -574,6 +620,18 @@ body {
   border-top: 8px solid transparent;
   border-bottom: 8px solid transparent;
   border-right: 16px solid #a0bff2; /* 箭頭顏色 */
+}
+/* 保留標記（不影響文案與行為）：在卡片左上角顯示標籤 */
+#level-up-menu .upgrade-option.uop-held::after {
+  content: '保留';
+  position: absolute;
+  left: 8px; top: 8px;
+  font-size: 0.75rem;
+  color: #ffd8a0;
+  background: rgba(40,30,15,0.6);
+  border: 1px solid rgba(255,216,160,0.65);
+  border-radius: 3px;
+  padding: 1px 6px;
 }
 
 #level-up-menu .upgrade-option .uop-icon {
