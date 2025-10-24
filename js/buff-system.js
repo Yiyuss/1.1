@@ -30,7 +30,7 @@ const BuffSystem = {
             apply: function(player) {
                 const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                     ? TalentSystem.getTalentLevel('defense_boost') : 0;
-                const amounts = [0, 1, 2, 3];
+                const amounts = [0, 2, 5, 8];
                 const reduction = amounts[Math.min(lv, 3)] || 0;
                 player.damageReductionFlat = reduction;
             },
