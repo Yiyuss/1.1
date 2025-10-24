@@ -384,8 +384,9 @@ body {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
-    background-color: rgba(0, 0, 0, 0.6); /* 底層更透明（原0.9） */
+    transform: translate(-50%, -50%) scale(var(--lum-scale, 1.5));
+    transform-origin: center;
+    background-color: rgba(0, 0, 0, 0.8); /* 底層更透明（原0.9） */
     padding: 20px;
     border-radius: 10px;
     border: 2px solid #ff0000;
@@ -397,6 +398,8 @@ body {
     --lum-header-left: 100px; /* 再往左微調 */
     --lum-header-top: 34px;  /* 再往下微調 */
     --lum-columns-top: 8px;
+    /* 全域縮放係數：可依需求在此微調 */
+    --lum-scale: 1.5;
 }
 
 #level-up-menu h2 {
