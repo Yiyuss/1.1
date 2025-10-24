@@ -643,7 +643,7 @@ const UI = {
     },
 
     /**
-     * 更新左側屬性欄（HP/ATK/SPD/CRT/Pickup/Haste）
+     * 更新左側屬性欄（HP/DEF/ATK/SPD/CRT/Pickup/Haste）
      * 依賴：Game.player 與 BuffSystem 設定之屬性
      * 不變式：只渲染左欄，不更動升級選項文案與行為
      */
@@ -659,10 +659,12 @@ const UI = {
         const crtPct = Math.round(((player.critChanceBonusPct || 0) * 100));
         const pickupPct = Math.round(((player.pickupRangeMultiplier || 1) - 1) * 100);
         const hastePct = Math.round(((player.healthRegenSpeedMultiplier || 1) - 1) * 100);
+        const defFlat = Math.max(0, ((player.baseDefense || 0) + (player.damageReductionFlat || 0)));
         // 渲染（純文字，不改語系/文案來源）
         sidebar.innerHTML = '';
         const rows = [
             { label: 'HP', value: hpText },
+            { label: 'DEF', value: `+${defFlat}` },
             { label: 'ATK', value: `+${Math.max(0, atkPct)}%` },
             { label: 'SPD', value: `+${Math.max(0, spdPct)}%` },
             { label: 'CRT', value: `+${Math.max(0, crtPct)}%` },
