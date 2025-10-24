@@ -31,16 +31,16 @@ const CONFIG = {
             PROJECTILE_SIZE: 0,
             DURATION: 1000,
             LEVELS: [
-                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復1HP並展示音符特效1秒" },
-                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復2HP並展示音符特效1秒" },
-                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復3HP並展示音符特效1秒" },
-                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復4HP並展示音符特效1秒" },
-                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復5HP並展示音符特效1秒" },
-                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復6HP並展示音符特效1秒" },
-                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復7HP並展示音符特效1秒" },
-                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復8HP並展示音符特效1秒" },
-                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復9HP並展示音符特效1秒" },
-                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復10HP並展示音符特效1秒" }
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復1HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復2HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復3HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復4HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復5HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復6HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復7HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復8HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復9HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復10HP" }
             ]
         },
         DAGGER: {
@@ -136,16 +136,16 @@ const CONFIG = {
             BEAM_WIDTH_PER_LEVEL: 2,
             TICK_INTERVAL_MS: 120, // 參考旋球的持續傷害間隔
             LEVELS: [
-                { COUNT: 1, DESCRIPTION: "每5秒釋放雷射，持續2秒（粗度+0px）" },
-                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+2px）" },
-                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+4px）" },
-                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+6px）" },
-                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+8px）" },
-                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+10px）" },
-                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+12px）" },
-                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+14px）" },
-                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+16px）" },
-                { COUNT: 1, DESCRIPTION: "雷射粗度提升（+18px）" }
+                { COUNT: 1, DESCRIPTION: "每5秒釋放雷射，持續2秒（範圍+0px）" },
+                { COUNT: 1, DESCRIPTION: "雷射範圍提升（+2px）" },
+                { COUNT: 1, DESCRIPTION: "雷射範圍提升（+4px）" },
+                { COUNT: 1, DESCRIPTION: "雷射範圍提升（+6px）" },
+                { COUNT: 1, DESCRIPTION: "雷射範圍提升（+8px）" },
+                { COUNT: 1, DESCRIPTION: "雷射範圍提升（+10px）" },
+                { COUNT: 1, DESCRIPTION: "雷射範圍提升（+12px）" },
+                { COUNT: 1, DESCRIPTION: "雷射範圍提升（+14px）" },
+                { COUNT: 1, DESCRIPTION: "雷射範圍提升（+16px）" },
+                { COUNT: 1, DESCRIPTION: "雷射範圍提升（+18px）" }
             ]
         },
         CHAIN_LIGHTNING: {
