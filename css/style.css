@@ -530,6 +530,10 @@ body {
 
 /* 手機版：維持單欄堆疊，避免擠壓字型與行距 */
 @media (max-width: 700px) {
+  #level-up-menu .lum-columns { grid-template-columns: 1fr; gap: 10px; }
+  #level-up-menu .lum-bg { left: 0; width: 45%; opacity: 0.18; }
+}
+@media (max-width: 700px) {
   #level-up-menu .lum-sidebar { display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; }
   #level-up-menu .lum-sidebar .stat-row:nth-child(1),
   #level-up-menu .lum-sidebar .stat-row:nth-child(2) { grid-column: auto; }
@@ -570,10 +574,17 @@ body {
 #level-up-menu .lum-actions .action-btn--hold { border-color: #9ed0ff; }
 
 @media (max-width: 700px) {
-  #level-up-menu .lum-columns { grid-template-columns: 1fr; gap: 10px; }
-  #level-up-menu .lum-bg { left: 0; width: 45%; opacity: 0.18; } /* 手機保留偏左效果 */
+  #level-up-menu { --lum-mobile-scale: 1.10; }
+  #level-up-menu h2 { font-size: 2.25rem; top: 30px; left: 24px; }
+  #level-up-menu .lum-actions .action-btn { padding: 10px 12px; font-size: 1.0rem; }
 }
-
+@media (max-width: 520px) {
+  #level-up-menu { --lum-mobile-scale: 1.12; }
+  #level-up-menu .upgrade-option { padding: 8px 10px; }
+  #level-up-menu .upgrade-option .uop-text h3 { font-size: 1.02rem; }
+  #level-up-menu .upgrade-option .uop-text p { font-size: 0.9rem; }
+  #level-up-menu .lum-actions .action-btn { padding: 11px 12px; font-size: 1.02rem; }
+}
 /* === Upgrade Menu: Card layout & icons (visual-only; override, no text changes) === */
 /*
  * 維護備註：
@@ -587,7 +598,7 @@ body {
   flex-direction: column;
   align-items: stretch;
   gap: 10px; /* 卡片間距微調 */
-  width: 100%; /* 跟隨右欄寬度（540px） */
+  width: 100%; /* 跟隨右欄寬度 */
   margin: 0; /* 右側改為靠左對齊 */
 }
 
@@ -606,7 +617,6 @@ body {
   transition: background-color .15s ease, border-color .15s ease;
 }
 
-/* 分類標籤：右上角顯示 >> StatUp/Skill/Weapon（純視覺，不影響文案） */
 #level-up-menu .upgrade-option .uop-tag {
   position: absolute;
   top: 6px;
@@ -624,8 +634,6 @@ body {
   border-color: #cfe3ff; /* 懸停邊框亮度 */
   transform: scale(1.01); /* 將縮放幅度調小，覆蓋全域 1.05 */
 }
-
-/* 單擊高亮（待確認）：箭頭 + 亮框 */
 #level-up-menu .upgrade-option.uop-pending {
   border-color: #a0bff2;
   box-shadow: 0 0 0 2px rgba(160,191,242,0.45) inset, 0 0 10px rgba(160,191,242,0.35);
@@ -642,7 +650,6 @@ body {
   border-bottom: 8px solid transparent;
   border-right: 16px solid #a0bff2; /* 箭頭顏色 */
 }
-/* 保留標記（不影響文案與行為）：在卡片左上角顯示標籤 */
 #level-up-menu .upgrade-option.uop-held::after {
   content: '保留';
   position: absolute;
@@ -654,7 +661,6 @@ body {
   border-radius: 3px;
   padding: 1px 6px;
 }
-
 #level-up-menu .upgrade-option .uop-icon {
   flex: 0 0 auto;
   width: 56px; /* 圖示尺寸微調 */
@@ -673,7 +679,6 @@ body {
   image-rendering: pixelated;
   display:block;
 }
-
 #level-up-menu .upgrade-option .uop-text {
   flex: 1 1 auto;
   text-align: left;
@@ -694,13 +699,6 @@ body {
   -webkit-line-clamp: 2; /* 限制為兩行 */
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-@media (max-width: 520px) {
-  #level-up-menu .upgrade-option { padding: 6px 8px; gap: 8px; }
-  #level-up-menu .upgrade-option .uop-icon { width: 48px; height: 48px; }
-  #level-up-menu .upgrade-option .uop-text h3 { font-size: 0.95rem; }
-  #level-up-menu .upgrade-option .uop-text p { font-size: 0.85rem; }
 }
 .upgrade-option {
     background-color: #333;
