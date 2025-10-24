@@ -1,3 +1,21 @@
+/* === AI 維護總則（Read-first, Do-not-delete） ===
+ * 目的：杜絕「跨畫面誤刪/誤改」與樣式膨脹，確保結果一致。
+ * 通用守則：
+ * - 追加式覆蓋：只在對應畫面命名空間內（例如 `#talent-select-screen`）追加樣式；禁止改動/刪除既有區塊。
+ * - 嚴禁刪除：切勿刪除天賦介面任何樣式（`#talent-select-screen`、`.talent-grid`、`.char-card`、`.char-card-wrap`）。
+ * - 嚴禁全域覆蓋：避免直接更動通用類（如 `.char-grid`、`.talent-grid`、`.select-card`、`.top-left-icon-btn`），若需變更請於父畫面選擇器命名空間下覆蓋。
+ * - 不改文字/文案：本檔僅限視覺；任何文字、鍵名、資料結構、加密簽章（SaveCode）均不得更動。
+ * - SaveCode 安全：CSS 不涉存檔邏輯；若需求可能影響存檔呈現，請先設計升版與向下相容，並由 JS 處理，CSS 僅視覺跟隨。
+ * - 高風險清單：
+ *   • 天賦：`#talent-select-screen`、`.talent-grid`、`.char-card`、`.char-card-wrap`
+ *   • 選角：`#character-select-screen`、`.char-grid`
+ *   • 升級：`#level-up-menu`、`.upgrade-option`（僅覆蓋 `#level-up-menu .upgrade-option`）
+ *   • 選圖/難度：`.select-card`、`.map-grid`、`.diff-grid`
+ *   • 通用圖示：`.top-left-icon-btn`
+ * - 變更策略：優先在命名空間中新增小範圍覆蓋，禁止搬移/合併跨區塊樣式。
+ * - 自檢流程：改動後需自我檢查是否可能影響其他畫面；若有疑慮，立即回退並改用更高優先度、較小範圍的覆蓋。
+ * - 註解不可移除：以下各區塊的「ANCHOR」註解為防誤刪護欄，請保留。
+ */
 * {
     margin: 0;
     padding: 0;
@@ -356,6 +374,12 @@ body {
     #player-avatar { width: 38px; height: 38px; top: 6px; left: 6px; }
 }
 
+/* ANCHOR: LEVEL-UP-MENU — 僅限升級視窗（不要動全域 `.upgrade-option`）
+ * - 視覺覆蓋策略：若調整卡片樣式，請使用 `#level-up-menu .upgrade-option` 以免影響其他介面。
+ * - 保持行為一致：欄位大小與位置不變，僅修改內部視覺；禁止改動 `lum-` 相關容器結構。
+ * - 不改文字/數值：升級選項文案、數值展示不可更動；本區僅視覺優化。
+ * - SaveCode 不動：升級視窗僅UI；不得影響存檔的鍵名、結構或簽章。
+ */
 #level-up-menu {
     position: absolute;
     top: 50%;
@@ -367,6 +391,8 @@ body {
     border: 2px solid #ff0000;
     z-index: 100;
     text-align: center;
+    /* Sidebar offset var：往下移避免擋臉，之後可自行微調 */
+    --lum-sidebar-offset-top: 188px; /* 原 148px → 下移 40px */
 }
 
 #level-up-menu h2 {
@@ -380,7 +406,7 @@ body {
   position: absolute;
   top: 8px; bottom: 8px; left: 8px;
   width: 520px; /* 原360px → 放大，避免屬性欄遮到臉 */
-  background-position: -40px calc(50% - 13px); /* 垂直上移10px；調整此值可微調上下與左右 */
+  background-position: -33px calc(50% - 13px); /* 垂直上移10px；調整此值可微調上下與左右 */
   background-repeat: no-repeat;
   background-size: contain; /* 立繪以等比縮放，避免裁切 */
   opacity: 0.90; /* 立繪調整透明度 */
@@ -408,7 +434,7 @@ body {
   column-gap: 16px;
   row-gap: 6px;
   padding: 9px 12px; /* 輕度壓縮內距 */
-  margin-top: 148px; /* 位置不變 */
+  margin-top: var(--lum-sidebar-offset-top); /* 由變數控制，可微調 */
   background: rgba(15, 20, 28, 0.70);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 8px;
@@ -423,13 +449,51 @@ body {
   line-height: 1.16; /* 降低行高，避免過多空白 */
   padding: 2px 0; /* 每列上下縮2px */
 }
-/* 讓 HP 與 DEF 置頂且橫跨兩欄，避免被擠出容器 */
-#level-up-menu .lum-sidebar .stat-row:nth-child(1),
-#level-up-menu .lum-sidebar .stat-row:nth-child(2) {
-  grid-column: 1 / -1;
-}
+/* 置頂：HP 橫跨兩欄；DEF 移到右下角（row 4, col 2），以填滿最後一行、縮短整體高度 */
+#level-up-menu .lum-sidebar .stat-row:nth-child(1) { grid-column: 1 / -1; }
+#level-up-menu .lum-sidebar .stat-row:nth-child(2) { grid-column: 2; grid-row: 4; }
 #level-up-menu .lum-sidebar .stat-label { color: #9ed0ff; letter-spacing: 0.4px; }
 #level-up-menu .lum-sidebar .stat-value { color: #fff; font-weight: 700; }
+
+/* Visual-only: Left stats panel row styling (no size/position changes) */
+#level-up-menu .lum-sidebar .stat-row { position: relative; --accent: #a0bff2; }
+#level-up-menu .lum-sidebar .stat-row::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  pointer-events: none;
+}
+#level-up-menu .lum-sidebar .stat-row:hover::before { filter: brightness(1.05); }
+#level-up-menu .lum-sidebar .stat-row::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  opacity: 0.85;
+}
+#level-up-menu .lum-sidebar .stat-label { margin-left: 16px; }
+#level-up-menu .lum-sidebar .stat-value {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.04);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+/* Row accent colors by order (HP, DEF, ATK, SPD, CRT, Pickup, Haste) */
+#level-up-menu .lum-sidebar .stat-row:nth-child(1) { --accent: #ff5b5b; }
+#level-up-menu .lum-sidebar .stat-row:nth-child(2) { --accent: #5cc8ff; }
+#level-up-menu .lum-sidebar .stat-row:nth-child(3) { --accent: #ffb25c; }
+#level-up-menu .lum-sidebar .stat-row:nth-child(4) { --accent: #ffd166; }
+#level-up-menu .lum-sidebar .stat-row:nth-child(5) { --accent: #c07cff; }
+#level-up-menu .lum-sidebar .stat-row:nth-child(6) { --accent: #73d58f; }
+#level-up-menu .lum-sidebar .stat-row:nth-child(7) { --accent: #6fb7ff; }
 
 /* 手機版：維持單欄堆疊，避免擠壓字型與行距 */
 @media (max-width: 700px) {
@@ -646,6 +710,11 @@ body {
   #character-select-screen .char-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 /* 角色選擇畫面背景：使用共用遮罩漸層搭配 background2.jpg */
+/* ANCHOR: CHARACTER-SELECT — 命名空間限定（禁止跨畫面覆蓋）
+ * - 僅於 `#character-select-screen` 內調整；通用 `.char-grid` 變更請以父選擇器覆蓋，不得全域改動。
+ * - 不改文字：角色名稱、提示、確認對話文案不可更動。
+ * - RWD 一致：維持既有斷點（900/700/480px）；如需微調，請在本命名空間內覆蓋。
+ */
 #character-select-screen {
     background:
         var(--overlay-grad),
@@ -662,6 +731,10 @@ body {
 }
 .char-title { font-size: clamp(26px, 4vw, 40px); letter-spacing: 1px; margin-bottom: 8px; text-align: center; background: rgba(128,128,128,0.35); border-radius: 10px; padding: 8px 12px; display: block; width: fit-content; margin: 0 auto 8px; }
 .char-subtitle { color: #cfe7ff; margin-bottom: 16px; text-align: center; background: rgba(128,128,128,0.25); border-radius: 8px; padding: 6px 10px; display: block; width: fit-content; margin: 0 auto 16px; }
+/* ANCHOR: CHAR-GRID — 通用角色網格（命名空間覆蓋，少改通用）
+ * - 僅於 `#character-select-screen .char-grid` 或父命名空間做差異覆蓋。
+ * - 不改文字：角色名稱與相關文案不可更動。
+ */
 /* 上方格子，固定10格置中 */
 .char-grid { display: grid; grid-template-columns: repeat(5, minmax(160px, 1fr)); grid-auto-rows: 160px; gap: 14px; justify-items: center; }
 .char-card, .char-slot { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 12px; color: #fff; }
@@ -748,6 +821,13 @@ body {
 
 /* 天賦介面：補上最底層背景 background2.jpg */
 /* 天賦選擇畫面背景：與角色畫面一致的遮罩漸層與背景圖 */
+/* ANCHOR: TALENT-SELECT — 極高風險區塊（禁止刪除/搬移/重構）
+ * - 僅於 `#talent-select-screen` 命名空間內覆蓋；禁止改動或刪除既有樣式。
+ * - 高風險選擇器：`.talent-grid`、`.char-card`、`.char-card-wrap`、`.top-left-icon-btn`（RWD限定）。
+ * - 不改文字/文案：卡片名稱、描述、提示不可更動；本區僅視覺。
+ * - 行為一致：不得更動排版結構（格數、定位、RWD斷點）；若需調整，請以子選擇器覆蓋小範圍。
+ * - SaveCode 提醒：CSS不得影響存檔；任何涉及資料呈現的變動應交由 JS，CSS 僅跟隨。
+ */
 #talent-select-screen {
   background:
     var(--overlay-grad),
@@ -766,6 +846,11 @@ body {
 #talent-select-screen .char-card-wrap::-webkit-scrollbar { width: 0; height: 0; }
 
 /* 引繼碼介面背景：與開始/選角/天賦一致的遮罩與底圖 */
+/* ANCHOR: BACKUP-SCREEN — SaveCode 介面視覺（禁止改動存檔邏輯）
+ * - 僅視覺：不得更動輸入框/文字內容/按鈕文案；避免影響使用者引繼操作。
+ * - SaveCode 安全守門：CSS 不得牽動 `localStorage` 鍵名、資料結構或簽章；任何更動由 JS 另行升版並保持向下相容。
+ * - 視覺調整請在本命名空間內覆蓋，避免跨畫面污染。
+ */
 #backup-screen {
   background:
     var(--overlay-grad),
@@ -775,6 +860,10 @@ body {
   touch-action: pan-y;
 }
 /* 引繼碼內框：半透明面板疊加 Background3/background3 */
+/* ANCHOR: SELECT-CARD — 覆蓋視窗通用卡片（選圖/難度/引繼碼）
+ * - 通用樣式，易誤觸：避免全域大改；如需差異樣式，請用父畫面命名空間覆蓋（例如 `#map-select-screen .select-card`）。
+ * - 不改文字：標題、副文案、按鈕文案不可更動。
+ */
 #backup-screen .select-card {
   background:
     var(--panel-grad),
@@ -881,6 +970,12 @@ body {
 /* 重複定義移除：#skills-menu 與其子項已在前段以共用變數合併 */
 
 /* 選圖/難度選擇 */
+/* ANCHOR: SELECT-CARD — 通用選擇卡片（避免全域覆蓋）
+ * - 此為選圖/難度等通用卡片容器，少改動全域樣式。
+ * - 需差異時，僅在父命名空間覆蓋：
+ *   `#map-select-screen .select-card`、`#difficulty-select-screen .select-card`。
+ * - 不改文字：標題、副標、描述文案不可更動。
+ */
 .select-card {
     position: relative;
     width: min(900px, 92vw);
@@ -898,6 +993,10 @@ body {
     text-align: center;
     color: #fff;
 }
+/* ANCHOR: MAP-GRID — 地圖選擇版面（避免全域覆蓋）
+ * - 僅於 `#map-select-screen` 命名空間覆蓋需要的差異；本通用格子請少改。
+ * - 不改文字：地圖名稱/介紹不可更動。
+ */
 .map-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -931,6 +1030,10 @@ body {
     justify-content: flex-end;
     gap: 8px;
 }
+/* ANCHOR: DIFF-GRID — 難度選擇版面（避免全域覆蓋）
+ * - 僅於 `#difficulty-select-screen` 命名空間覆蓋需要的差異；本通用格子請少改。
+ * - 不改文字：難度按鈕文案不可更動。
+ */
 .diff-grid {
     display: flex;
     gap: 12px;
@@ -961,6 +1064,11 @@ body {
 .map-card.disabled { cursor: not-allowed; opacity: 0.6; }
 
 /* 左上角圖示按鈕（透明、與標題同高度靠左） */
+/* ANCHOR: TOP-LEFT-ICON-BTN — 通用角落圖示（RWD限定調整）
+ * - 僅針對手機版RWD調整尺寸與位置；避免PC全域覆蓋。
+ * - 若需畫面差異，請使用父命名空間覆蓋，例如 `#talent-select-screen .top-left-icon-btn`。
+ * - 不改文字與行為：此區僅視覺，不改動文字/功能。
+ */
 .top-left-icon-btn {
   position: absolute;
   top: 24px;
@@ -984,6 +1092,10 @@ body {
 
 /* 重複定義移除：#talent-select-screen 背景已在前段以 var(--overlay-grad) 合併 */
 
+/* ANCHOR: TALENT-GRID — 天賦通用網格（極高風險，命名空間覆蓋）
+ * - 僅於 `#talent-select-screen .talent-grid` 或父命名空間做差異覆蓋；通用樣式請少改。
+ * - 不改文字/圖示代號：避免影響天賦文案與視覺標識。
+ */
 /* 天賦格子：每行 6 格（總 12 格 = 2 行） */
 .talent-grid {
   display: grid;
