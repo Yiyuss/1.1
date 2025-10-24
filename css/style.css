@@ -452,7 +452,7 @@ body {
 #level-up-menu .lum-columns { position: relative; z-index: 1; }
 #level-up-menu .lum-columns {
   display: grid;
-  grid-template-columns: 300px 1fr; /* 左側屬性欄 300px */
+  grid-template-columns: 300px 500px; /* 左側固定300px，右側固定 540px */
   gap: 20px; /* 左右距離再加大 */
   align-items: start;
   margin-top: var(--lum-columns-top, 8px); /* 選項上移（減少標題占位） */
@@ -584,7 +584,7 @@ body {
   flex-direction: column;
   align-items: stretch;
   gap: 10px; /* 卡片間距微調 */
-  width: min(580px, 88vw); /* 選項區域再縮短 */
+  width: 100%; /* 跟隨右欄寬度（540px） */
   margin: 0; /* 右側改為靠左對齊 */
 }
 
