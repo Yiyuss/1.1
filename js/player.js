@@ -24,6 +24,8 @@ class Player extends Entity {
         };
         // 防禦平減（由防禦強化天賦設定）
         this.damageReductionFlat = 0;
+        // 新增：基礎防禦（常駐，不納入 SaveCode；維持相容）
+        this.baseDefense = 1;
 
         // 受傷紅閃效果
         this.hitFlashTime = 0;
@@ -178,8 +180,10 @@ class Player extends Entity {
     takeDamage(amount) {
         if (this.isInvulnerable) return;
         
-        // 防禦平減：每次受傷減免固定值（不為負）
-        const reduction = this.damageReductionFlat || 0;
+        // 防禦：基礎防禦 + 天賦平減（不為負）
+        const baseDef = this.baseDefense || 0;
+        const talentDef = this.damageReductionFlat || 0;
+        const reduction = baseDef + talentDef;
         const effective = Math.max(0, amount - reduction);
         
         this.health -= effective;
