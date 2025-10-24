@@ -53,6 +53,13 @@ const UI = {
         this.updateEnergyBar(0, CONFIG.ENERGY.MAX);
         this.updateTimer(0);
         this.updateWaveInfo(1);
+
+        // 初始化每場動作次數（未來由天賦擴充；不寫入存檔）
+        this._actionCharges = { reroll: 1, replace: 1, hold: 1 };
+        this._currentUpgradeOptions = [];
+        this._heldOptionIndex = null;
+        this._pendingOptionIndex = null;
+        this._actionsBound = false;
     },
     
     // 更新血量條
@@ -258,7 +265,7 @@ const UI = {
         } else {
             this.skillsMenu.insertBefore(el, this.skillsMenu.firstChild);
         }
-        this.skillsCoinsEl = el;
+        this.skillsCoinsEl = document.getElementById('skills-coins');
     },
     updateCoins: function(total) {
         try {
@@ -622,6 +629,25 @@ const UI = {
         this._lumSidebar = menu.querySelector('.lum-sidebar');
         this._lumBg = menu.querySelector('.lum-bg');
         this._lumOptionsWrap = menu.querySelector('.lum-options');
+        // 建立底部動作列（與選項同欄，僅建立一次）
+        if (this._lumOptionsWrap) {
+            let actions = this._lumOptionsWrap.querySelector('.lum-actions');
+            if (!actions) {
+                actions = document.createElement('div');
+                actions.className = 'lum-actions';
+                actions.innerHTML = `
+                    <button class="action-btn action-btn--reroll" type="button">重抽 (1)</button>
+                    <button class="action-btn action-btn--replace" type="button">換一個 (1)</button>
+                    <button class="action-btn action-btn--hold" type="button">保留 (1)</button>
+                `;
+                this._lumOptionsWrap.appendChild(actions);
+            }
+            this._lumActionsWrap = actions;
+            this._btnReroll = actions.querySelector('.action-btn--reroll');
+            this._btnReplace = actions.querySelector('.action-btn--replace');
+            this._btnHold = actions.querySelector('.action-btn--hold');
+            if (!this._actionsBound) { try { this._bindLevelUpActionEvents(); } catch (_) {} }
+        }
     },
 
     /**
@@ -714,102 +740,9 @@ const UI = {
             this.hideLevelUpMenu();
             return;
         }
-        // 添加升級選項（卡片式：左圖示、右文字；不改文案與點擊行為）
-        options.forEach(option => {
-            const optionElement = document.createElement('div');
-            optionElement.className = 'upgrade-option';
-
-            /*
-             * 圖示映射（iconMap）
-             * - 目的：將 getUpgradeOptions() 產生的 option.type 映射到 A1~A9.png 靜態資產。
-             * - 範圍：僅在升級選單使用此映射，避免把常數拉到全域造成依賴擴散。
-             * - 擴充：新增武器/屬性時在此補一行即可；若缺少則自動回退到 A1。
-             * - 檔案：請保持 assets/images/A1~A9.png 檔名不變，替換美術時直接覆蓋檔案即可。
-             * - 無存檔影響：此映射與 SaveCode 無關，請勿在此處寫入任何 localStorage。
-             */
-            const iconMap = {
-                SING: 'assets/images/A1.png',              // 唱歌
-                DAGGER: 'assets/images/A2.png',            // 應援棒
-                LASER: 'assets/images/A3.png',             // 雷射
-                CHAIN_LIGHTNING: 'assets/images/A4.png',   // 連鎖閃電
-                FIREBALL: 'assets/images/A5.png',          // 紳士綿羊
-                LIGHTNING: 'assets/images/A6.png',         // 追蹤綿羊
-                ORBIT: 'assets/images/A7.png',             // 綿羊護體
-                ATTR_ATTACK: 'assets/images/A8.png',       // 攻擊力強化
-                ATTR_CRIT: 'assets/images/A9.png'          // 爆擊率強化
-            };
-            const iconSrc = iconMap[option.type] || 'assets/images/A1.png';
-
-            // 左：圖示
-            const iconWrap = document.createElement('div');
-            iconWrap.className = 'uop-icon';
-            const img = document.createElement('img');
-            img.src = iconSrc;
-            img.alt = option.name;
-            iconWrap.appendChild(img);
-
-            // 右：文字（原標題/描述）
-            const textWrap = document.createElement('div');
-            textWrap.className = 'uop-text';
-            const nameElement = document.createElement('h3');
-            nameElement.textContent = `${option.name} Lv.${option.level}`;
-            const descElement = document.createElement('p');
-            descElement.textContent = option.description;
-            textWrap.appendChild(nameElement);
-            textWrap.appendChild(descElement);
-
-            optionElement.appendChild(iconWrap);
-            optionElement.appendChild(textWrap);
-            
-            /*
-             * 類別標籤（純裝飾，不影響文字與行為）
-             * 規則：ATTR_ATTACK/ATTR_CRIT -> StatUp；SING -> Skill；其餘 -> Weapon。
-             * 注意：此標籤不參與存檔邏輯，僅顯示用。
-             */
-            const category = (option.type === 'ATTR_ATTACK' || option.type === 'ATTR_CRIT')
-              ? 'StatUp'
-              : (option.type === 'SING' ? 'Skill' : 'Weapon');
-            const tagEl = document.createElement('div');
-            tagEl.className = 'uop-tag';
-            tagEl.textContent = `>> ${category}`;
-            optionElement.appendChild(tagEl);
-            
-            // 在升級選項的單擊高亮動作中，確保解除靜音以避免分頁返回後音效被抑制
-            function _ensureAudioUnmutedForOverlay() {
-                try {
-                    if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) {
-                        AudioManager.setMuted(false);
-                    }
-                } catch (_) {}
-            }
-            // 單擊：進入待確認狀態並播放次要音效；雙擊/空白鍵：確認升級
-            optionElement.addEventListener('click', (e) => {
-                e.stopPropagation();
-                // 解除靜音，確保返回頁面後能聽到點擊音
-                _ensureAudioUnmutedForOverlay();
-                this._pendingOptionType = option.type;
-                this._highlightPending(optionElement, option.type);
-                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-                    AudioManager.playSound('button_click2');
-                }
-            });
-            optionElement.addEventListener('dblclick', (e) => {
-                e.stopPropagation();
-                if (this._pendingOptionType === option.type) {
-                    if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-                        AudioManager.playSound('button_click');
-                    }
-                    this.selectUpgrade(option.type);
-                } else {
-                    // 若未先單擊，允許直接雙擊確認
-                    if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-                        AudioManager.playSound('button_click');
-                    }
-                    this.selectUpgrade(option.type);
-                }
-            });
-            this.upgradeOptions.appendChild(optionElement);
-        });
+        // 添加升級選項（抽出渲染以避免重複程式碼；不更動文案與行為）
+        this._currentUpgradeOptions = options;
+        this._renderUpgradeOptions(options);
         // 顯示選單（使用 .hidden 切換，與既有邏輯一致）
         if (this.levelUpMenu) this.levelUpMenu.classList.remove('hidden');
         
@@ -842,6 +775,8 @@ const UI = {
             }
             this._pendingOptionEl = null;
             this._pendingOptionType = null;
+            this._pendingOptionIndex = null;
+            this._heldOptionIndex = null;
         } catch (_) {}
         if (this.levelUpMenu) this.levelUpMenu.classList.add('hidden');
         // 恢復遊戲
@@ -860,6 +795,8 @@ const UI = {
         try { if (el) { el.classList.add('uop-pending'); } } catch (_) {}
         this._pendingOptionEl = el || null;
         this._pendingOptionType = optionType || null;
+        // 同步索引（渲染時掛在 data-index）
+        try { this._pendingOptionIndex = el ? parseInt(el.dataset.index, 10) : null; } catch (_) {}
     },
 
     // 顯示技能頁（ESC）
@@ -933,4 +870,153 @@ const UI = {
             }
         } catch (_) {}
     },
- };
+
+
+// 綁定底部動作列事件（僅一次）
+_bindLevelUpActionEvents: function() {
+  if (this._actionsBound) return;
+  if (!this._btnReroll || !this._btnReplace || !this._btnHold) return;
+  this._btnReroll.addEventListener('click', () => this._actionReroll());
+  this._btnReplace.addEventListener('click', () => this._actionReplace());
+  this._btnHold.addEventListener('click', () => this._actionHold());
+  this._actionsBound = true;
+},
+// 依目前剩餘次數與待確認狀態更新按鈕
+_renderLevelUpActions: function() {
+  const ch = this._actionCharges || { reroll: 0, replace: 0, hold: 0 };
+  if (this._btnReroll) {
+    this._btnReroll.textContent = `重抽 (${ch.reroll})`;
+    this._btnReroll.disabled = ch.reroll <= 0;
+  }
+  const hasPending = (this._pendingOptionIndex !== null && this._pendingOptionIndex !== undefined);
+  if (this._btnReplace) {
+    this._btnReplace.textContent = `換一個 (${ch.replace})`;
+    this._btnReplace.disabled = (ch.replace <= 0 || !hasPending);
+  }
+  if (this._btnHold) {
+    this._btnHold.textContent = `保留 (${ch.hold})`;
+    this._btnHold.disabled = (ch.hold <= 0 || !hasPending || this._heldOptionIndex !== null);
+  }
+},
+// 產生單一卡片（抽象渲染，避免重複碼）
+_createOptionCard: function(option, index) {
+  const optionElement = document.createElement('div');
+  optionElement.className = 'upgrade-option';
+  optionElement.dataset.index = index;
+  const iconMap = {
+    SING: 'assets/images/A1.png',
+    DAGGER: 'assets/images/A2.png',
+    LASER: 'assets/images/A3.png',
+    CHAIN_LIGHTNING: 'assets/images/A4.png',
+    FIREBALL: 'assets/images/A5.png',
+    LIGHTNING: 'assets/images/A6.png',
+    ORBIT: 'assets/images/A7.png',
+    ATTR_ATTACK: 'assets/images/A8.png',
+    ATTR_CRIT: 'assets/images/A9.png'
+  };
+  const iconSrc = iconMap[option.type] || 'assets/images/A1.png';
+  const iconWrap = document.createElement('div');
+  iconWrap.className = 'uop-icon';
+  const img = document.createElement('img');
+  img.src = iconSrc;
+  img.alt = option.name;
+  iconWrap.appendChild(img);
+  const textWrap = document.createElement('div');
+  textWrap.className = 'uop-text';
+  const nameElement = document.createElement('h3');
+  nameElement.textContent = `${option.name} Lv.${option.level}`;
+  const descElement = document.createElement('p');
+  descElement.textContent = option.description;
+  textWrap.appendChild(nameElement);
+  textWrap.appendChild(descElement);
+  optionElement.appendChild(iconWrap);
+  optionElement.appendChild(textWrap);
+  const category = (option.type === 'ATTR_ATTACK' || option.type === 'ATTR_CRIT')
+    ? 'StatUp'
+    : (option.type === 'SING' ? 'Skill' : 'Weapon');
+  const tagEl = document.createElement('div');
+  tagEl.className = 'uop-tag';
+  tagEl.textContent = `>> ${category}`;
+  optionElement.appendChild(tagEl);
+  function _ensureAudioUnmutedForOverlay() {
+    try {
+      if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) {
+        AudioManager.setMuted(false);
+      }
+    } catch (_) {}
+  }
+  optionElement.addEventListener('click', (e) => {
+    e.stopPropagation();
+    _ensureAudioUnmutedForOverlay();
+    this._pendingOptionType = option.type;
+    this._highlightPending(optionElement, option.type);
+    if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+      AudioManager.playSound('button_click2');
+    }
+    this._renderLevelUpActions();
+  });
+  optionElement.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+      AudioManager.playSound('button_click');
+    }
+    this.selectUpgrade(option.type);
+  });
+  if (this._heldOptionIndex === index) {
+    optionElement.classList.add('uop-held');
+  }
+  return optionElement;
+},
+// 渲染整組選項（供首次顯示與重抽/換一個使用）
+_renderUpgradeOptions: function(options) {
+  if (!this.upgradeOptions) return;
+  this.upgradeOptions.innerHTML = '';
+  options.forEach((opt, i) => {
+    const el = this._createOptionCard(opt, i);
+    this.upgradeOptions.appendChild(el);
+  });
+  this._renderLevelUpActions();
+},
+// 動作：重抽（保留已保留的卡，其他重抽）
+_actionReroll: function() {
+  if (!this._actionCharges || this._actionCharges.reroll <= 0) return;
+  const fresh = this.getUpgradeOptions();
+  // 保留 held
+  if (this._heldOptionIndex !== null && this._currentUpgradeOptions[this._heldOptionIndex]) {
+    const held = this._currentUpgradeOptions[this._heldOptionIndex];
+    const next = fresh.slice(0, 4);
+    next[this._heldOptionIndex] = held;
+    this._currentUpgradeOptions = next;
+  } else {
+    this._currentUpgradeOptions = fresh.slice(0, 4);
+  }
+  this._pendingOptionEl = null; this._pendingOptionType = null; this._pendingOptionIndex = null;
+  this._actionCharges.reroll -= 1;
+  this._renderUpgradeOptions(this._currentUpgradeOptions);
+},
+// 動作：換一個（需要先選定待確認的卡）
+_actionReplace: function() {
+  if (!this._actionCharges || this._actionCharges.replace <= 0) return;
+  const idx = this._pendingOptionIndex;
+  if (idx === null || idx === undefined) return;
+  const currentTypes = (this._currentUpgradeOptions || []).map(o => o.type);
+  const pool = this.getUpgradeOptions();
+  let candidate = pool.find(o => o.type !== this._currentUpgradeOptions[idx].type && !currentTypes.includes(o.type));
+  if (!candidate) candidate = pool.find(o => o.type !== this._currentUpgradeOptions[idx].type) || this._currentUpgradeOptions[idx];
+  this._currentUpgradeOptions[idx] = candidate;
+  this._actionCharges.replace -= 1;
+  this._pendingOptionEl = null; this._pendingOptionType = null; this._pendingOptionIndex = null;
+  this._renderUpgradeOptions(this._currentUpgradeOptions);
+},
+// 動作：保留（鎖住目前卡，重抽時不被替換）
+_actionHold: function() {
+  if (!this._actionCharges || this._actionCharges.hold <= 0) return;
+  const idx = this._pendingOptionIndex;
+  if (idx === null || idx === undefined) return;
+  this._heldOptionIndex = idx;
+  this._actionCharges.hold -= 1;
+  // 標記視覺
+  try { const card = this.upgradeOptions.children[idx]; if (card) card.classList.add('uop-held'); } catch (_) {}
+  this._renderLevelUpActions();
+},
+};
