@@ -839,6 +839,7 @@ const UI = {
                 menu.style.maxWidth = '';
                 menu.style.maxHeight = '';
                 menu.style.overflowY = '';
+                menu.style.overflowX = '';
                 if (menu.style.transform) {
                     // 保留原本 CSS translate(-50%,-50%)，移除內聯 scale
                     menu.style.transform = 'translate(-50%, -50%)';
@@ -847,26 +848,42 @@ const UI = {
                 return;
             }
 
-            // 手機：限制寬高並允許滾動
+            // 手機：限制寬高並允許滾動（橫向禁用以免被裁切）
             menu.style.maxWidth = '95vw';
             menu.style.maxHeight = '90vh';
             menu.style.overflowY = 'auto';
+            menu.style.overflowX = 'hidden';
 
-            // 量測並視需要縮放（保留置中位移）
+            // 量測並視需要縮放（保留置中位移），允許適度放大但不超出視窗
             const rect = menu.getBoundingClientRect();
             const vw = window.innerWidth || document.documentElement.clientWidth || 0;
             const vh = window.innerHeight || document.documentElement.clientHeight || 0;
-            const scaleW = rect.width > 0 ? (vw * 0.95) / rect.width : 1;
-            const scaleH = rect.height > 0 ? (vh * 0.90) / rect.height : 1;
-            let scale = Math.min(scaleW, scaleH);
-            // 下限 0.72，避免過度縮小影響閱讀；上限 1 不放大
-            scale = Math.max(0.72, Math.min(1, scale));
-            if (scale < 1) {
-                menu.style.transformOrigin = 'center top';
+            // 從 CSS 變數讀取想要的行動版縮放倍率，預設 1.08
+            let desired = 1.08;
+            try {
+                const val = getComputedStyle(menu).getPropertyValue('--lum-mobile-scale');
+                const num = parseFloat(val);
+                if (!isNaN(num) && num > 0) desired = num;
+            } catch (_) {}
+            const scaleW = rect.width > 0 ? (vw * 0.95) / rect.width : desired;
+            const scaleH = rect.height > 0 ? (vh * 0.90) / rect.height : desired;
+            // clamp：最小 0.55（允許更小以適配窄螢幕），最大不超過視窗安全比例
+            let scale = Math.min(desired, scaleW, scaleH);
+            scale = Math.max(0.55, scale);
+
+            menu.style.transformOrigin = 'center';
+            if (Math.abs(scale - 1) > 0.001) {
                 menu.style.transform = `translate(-50%, -50%) scale(${scale})`;
             } else {
-                menu.style.transformOrigin = '';
                 menu.style.transform = 'translate(-50%, -50%)';
+            }
+
+            // 安全再次檢查：若仍超出視窗，二次下修避免水平裁切
+            const after = menu.getBoundingClientRect();
+            if (after.width > vw * 0.96 || after.height > vh * 0.92) {
+                const adjust = Math.min((vw * 0.96) / after.width, (vh * 0.92) / after.height);
+                const finalScale = Math.max(0.45, scale * adjust);
+                menu.style.transform = `translate(-50%, -50%) scale(${finalScale})`;
             }
         } catch (_) {}
     },
