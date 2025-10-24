@@ -375,6 +375,58 @@ body {
     color: #ff0000;
 }
 
+/* === Upgrade Menu: Sidebar & Background (namespaced under #level-up-menu) === */
+#level-up-menu .lum-bg {
+  position: absolute;
+  top: 8px; bottom: 8px; left: 8px;
+  width: 360px; /* 背景靠左，覆蓋屬性欄寬度 */
+  background-position: left center;
+  background-repeat: no-repeat;
+  background-size: contain; /* 角色立繪採用 contain，避免裁切 */
+  opacity: 0.80; /* 數字越低升級視窗的底圖會越透明 */
+  filter: brightness(1.05) saturate(1.1);
+  pointer-events: none;
+}
+#level-up-menu .lum-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(0,0,0,0) 65%, rgba(0,0,0,0.35) 100%); /* 右側淡出遮罩，避免干擾選項可讀性 */
+  pointer-events: none;
+}
+#level-up-menu h2, #level-up-menu .lum-columns { position: relative; z-index: 1; }
+#level-up-menu .lum-columns {
+  display: grid;
+  grid-template-columns: 300px 1fr; /* 左側屬性欄 300px */
+  gap: 20px; /* 左右距離再加大 */
+  align-items: start;
+}
+#level-up-menu .lum-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  margin-top: 148px; /* 數字越低升級視窗的屬性欄會越高 */
+  background: rgba(15, 20, 28, 0.70);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  backdrop-filter: blur(3px);
+}
+#level-up-menu .lum-sidebar .stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #cfe7ff;
+  font-size: 1.12rem; /* 屬性文字再放大 */
+}
+#level-up-menu .lum-sidebar .stat-label { color: #9ed0ff; letter-spacing: 0.5px; }
+#level-up-menu .lum-sidebar .stat-value { color: #fff; font-weight: 700; }
+#level-up-menu .lum-options { position: relative; }
+@media (max-width: 700px) {
+  #level-up-menu .lum-columns { grid-template-columns: 1fr; gap: 10px; }
+  #level-up-menu .lum-bg { left: 0; width: 45%; opacity: 0.18; } /* 手機保留偏左效果 */
+}
+
 /* === Upgrade Menu: Card layout & icons (visual-only; override, no text changes) === */
 /*
  * 維護備註：
@@ -387,9 +439,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 8px; /* 微調間距 */
-  width: min(760px, 92vw);
-  margin: 0 auto;
+  gap: 10px; /* 卡片間距微調 */
+  width: min(580px, 88vw); /* 選項區域再縮短 */
+  margin: 0; /* 右側改為靠左對齊 */
 }
 
 #level-up-menu .upgrade-option {
@@ -479,6 +531,10 @@ body {
   font-size: 0.9rem; /* 描述文字尺寸微調 */
   line-height: 1.3;
   color: #a0a0a0; /* 描述文字顏色微調 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* 限制為兩行 */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 @media (max-width: 520px) {
