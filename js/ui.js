@@ -576,6 +576,114 @@ const UI = {
         try { el.play(); } catch (_) {}
     },
 
+    /**
+     * 確保升級選單佈局（左右分欄）與背景容器存在
+     * 依賴：this.levelUpMenu, this.upgradeOptions
+     * 不變式：不更動任何既有文字節點（如 LEVEL UP! 標題與選項內容），僅調整 DOM 包裝層級
+     * SaveCode：不涉及 localStorage，嚴禁在此寫入存檔
+     */
+    ensureLevelUpLayout: function() {
+        const menu = this.levelUpMenu || document.getElementById('level-up-menu');
+        const options = this.upgradeOptions || document.getElementById('upgrade-options');
+        if (!menu || !options) return;
+        // 背景容器（置於最底層，僅視覺）
+        let bg = menu.querySelector('.lum-bg');
+        if (!bg) {
+            bg = document.createElement('div');
+            bg.className = 'lum-bg';
+            bg.setAttribute('aria-hidden', 'true');
+            menu.insertBefore(bg, menu.firstChild);
+        }
+        // 兩欄容器（左側屬性、右側選項）
+        let columns = menu.querySelector('.lum-columns');
+        if (!columns) {
+            columns = document.createElement('div');
+            columns.className = 'lum-columns';
+            // 左欄：屬性
+            const sidebar = document.createElement('div');
+            sidebar.className = 'lum-sidebar';
+            // 右欄：包住原 #upgrade-options
+            const optWrap = document.createElement('div');
+            optWrap.className = 'lum-options';
+            // 將既有選項容器移入右欄（不改其內容）
+            optWrap.appendChild(options);
+            // 插入兩欄
+            columns.appendChild(sidebar);
+            columns.appendChild(optWrap);
+            // 置於標題之後（保留原標題）
+            const header = menu.querySelector('h2');
+            if (header && header.nextSibling) {
+                menu.insertBefore(columns, header.nextSibling);
+            } else {
+                menu.appendChild(columns);
+            }
+        }
+        // 暫存參考以供更新
+        this._lumSidebar = menu.querySelector('.lum-sidebar');
+        this._lumBg = menu.querySelector('.lum-bg');
+        this._lumOptionsWrap = menu.querySelector('.lum-options');
+    },
+
+    /**
+     * 綁定升級視窗背景圖到當前角色（預設 player -> player1-2.png）
+     * 依賴：Game.selectedCharacter.avatarImageKey；若缺失則回退到 'player'
+     * 不變式：不更動任何文字顯示；僅設定背景圖片樣式
+     */
+    setLevelUpBackgroundForCharacter: function() {
+        const bgEl = this._lumBg || (this.levelUpMenu ? this.levelUpMenu.querySelector('.lum-bg') : null);
+        if (!bgEl) return;
+        const ch = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+        const key = (ch && ch.avatarImageKey) ? ch.avatarImageKey : 'player';
+        const map = {
+            // 現有唯一角色：使用指定底圖
+            player: 'assets/images/player1-2.png'
+        };
+        const url = map[key] || map['player'];
+        bgEl.style.backgroundImage = `url('${url}')`;
+    },
+
+    /**
+     * 更新左側屬性欄（HP/ATK/SPD/CRT/Pickup/Haste）
+     * 依賴：Game.player 與 BuffSystem 設定之屬性
+     * 不變式：只渲染左欄，不更動升級選項文案與行為
+     */
+    updateLevelUpSidebar: function() {
+        const sidebar = this._lumSidebar || (this.levelUpMenu ? this.levelUpMenu.querySelector('.lum-sidebar') : null);
+        const player = (typeof Game !== 'undefined') ? Game.player : null;
+        if (!sidebar || !player) return;
+        // 計算屬性值（百分比以整數顯示）
+        const hpText = `${player.health} / ${player.maxHealth}`;
+        const atkPct = Math.round(((player.damageTalentBaseBonusPct || 0) + (player.damageAttributeBonusPct || 0)) * 100);
+        const spdBase = (CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.SPEED) ? CONFIG.PLAYER.SPEED : (player.speed || 1);
+        const spdPct = Math.round(((player.speed / spdBase) - 1) * 100);
+        const crtPct = Math.round(((player.critChanceBonusPct || 0) * 100));
+        const pickupPct = Math.round(((player.pickupRangeMultiplier || 1) - 1) * 100);
+        const hastePct = Math.round(((player.healthRegenSpeedMultiplier || 1) - 1) * 100);
+        // 渲染（純文字，不改語系/文案來源）
+        sidebar.innerHTML = '';
+        const rows = [
+            { label: 'HP', value: hpText },
+            { label: 'ATK', value: `+${Math.max(0, atkPct)}%` },
+            { label: 'SPD', value: `+${Math.max(0, spdPct)}%` },
+            { label: 'CRT', value: `+${Math.max(0, crtPct)}%` },
+            { label: 'Pickup', value: `+${Math.max(0, pickupPct)}%` },
+            { label: 'Haste', value: `+${Math.max(0, hastePct)}%` }
+        ];
+        rows.forEach(r => {
+            const row = document.createElement('div');
+            row.className = 'stat-row';
+            const l = document.createElement('span');
+            l.className = 'stat-label';
+            l.textContent = r.label;
+            const v = document.createElement('span');
+            v.className = 'stat-value';
+            v.textContent = r.value;
+            row.appendChild(l);
+            row.appendChild(v);
+            sidebar.appendChild(row);
+        });
+    },
+
     // 顯示升級選單
     /*
      * 維護備註（升級選單）
@@ -591,6 +699,10 @@ const UI = {
         if (typeof Game !== 'undefined' && Game.pause) {
             Game.pause(false);
         }
+        // 新增：確保佈局與背景綁定，再更新左側屬性欄
+        try { this.ensureLevelUpLayout(); } catch (_) {}
+        try { this.setLevelUpBackgroundForCharacter(); } catch (_) {}
+        try { this.updateLevelUpSidebar(); } catch (_) {}
         // 清空升級選項
         if (this.upgradeOptions) this.upgradeOptions.innerHTML = '';
         // 獲取可用的升級選項
