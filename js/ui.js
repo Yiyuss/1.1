@@ -383,7 +383,7 @@ const UI = {
     /**
      * 取得升級選項（含現有武器升級與新武器）
      * 依賴：Game.player、CONFIG.WEAPONS、Utils.shuffleArray。
-     * 不變式：選項數量、格式、文字不可更動；必須處理 ultimate 狀態備份邏輯不變。
+     * 不變式：格式與文字不可更動；目前選項數量為 4；必須處理 ultimate 狀態備份邏輯不變。
      */
     getUpgradeOptions: function() {
         const options = [];
@@ -445,9 +445,9 @@ const UI = {
             }
         } catch (_) {}
 
-        // 每次升級隨機挑選3個（不足3則返回全部）
+        // 每次升級隨機挑選4個（不足4則返回全部）
         const shuffled = Utils.shuffleArray(options);
-        return shuffled.slice(0, 3);
+        return shuffled.slice(0, 4);
     },
     
     /**
@@ -577,6 +577,15 @@ const UI = {
     },
 
     // 顯示升級選單
+    /*
+     * 維護備註（升級選單）
+     * - 僅改視覺與 DOM 結構（卡片：左圖示、右文字）。
+     * - 不更動文字內容、順序、數值與點擊行為；事件仍呼叫 selectUpgrade。
+     * - SaveCode 相容性：本畫面不寫入 localStorage，不可於此地新增/改動任何存檔鍵名、資料結構或簽章。
+     * - 新增武器類型或屬性時：請在本函式內的 iconMap 中補上圖示映射；未映射會使用預設 A1。
+     * - 資料來源：getUpgradeOptions() 決定可選項目；請勿在此地做額外的規則判斷，以避免重複邏輯。
+     * - UI 微調：僅調整 css/style.css 內 #level-up-menu 命名空間樣式；避免影響其他畫面（天賦/選角/選地圖等）。
+     */
     showLevelUpMenu: function() {
         // 暫停遊戲，但不靜音，避免升級音效與BGM被切斷
         if (typeof Game !== 'undefined' && Game.pause) {
@@ -591,34 +600,152 @@ const UI = {
             this.hideLevelUpMenu();
             return;
         }
-        // 添加升級選項
+        // 添加升級選項（卡片式：左圖示、右文字；不改文案與點擊行為）
         options.forEach(option => {
             const optionElement = document.createElement('div');
             optionElement.className = 'upgrade-option';
+
+            /*
+             * 圖示映射（iconMap）
+             * - 目的：將 getUpgradeOptions() 產生的 option.type 映射到 A1~A9.png 靜態資產。
+             * - 範圍：僅在升級選單使用此映射，避免把常數拉到全域造成依賴擴散。
+             * - 擴充：新增武器/屬性時在此補一行即可；若缺少則自動回退到 A1。
+             * - 檔案：請保持 assets/images/A1~A9.png 檔名不變，替換美術時直接覆蓋檔案即可。
+             * - 無存檔影響：此映射與 SaveCode 無關，請勿在此處寫入任何 localStorage。
+             */
+            const iconMap = {
+                SING: 'assets/images/A1.png',              // 唱歌
+                DAGGER: 'assets/images/A2.png',            // 應援棒
+                LASER: 'assets/images/A3.png',             // 雷射
+                CHAIN_LIGHTNING: 'assets/images/A4.png',   // 連鎖閃電
+                FIREBALL: 'assets/images/A5.png',          // 紳士綿羊
+                LIGHTNING: 'assets/images/A6.png',         // 追蹤綿羊
+                ORBIT: 'assets/images/A7.png',             // 綿羊護體
+                ATTR_ATTACK: 'assets/images/A8.png',       // 攻擊力強化
+                ATTR_CRIT: 'assets/images/A9.png'          // 爆擊率強化
+            };
+            const iconSrc = iconMap[option.type] || 'assets/images/A1.png';
+
+            // 左：圖示
+            const iconWrap = document.createElement('div');
+            iconWrap.className = 'uop-icon';
+            const img = document.createElement('img');
+            img.src = iconSrc;
+            img.alt = option.name;
+            iconWrap.appendChild(img);
+
+            // 右：文字（原標題/描述）
+            const textWrap = document.createElement('div');
+            textWrap.className = 'uop-text';
             const nameElement = document.createElement('h3');
             nameElement.textContent = `${option.name} Lv.${option.level}`;
             const descElement = document.createElement('p');
             descElement.textContent = option.description;
-            optionElement.appendChild(nameElement);
-            optionElement.appendChild(descElement);
-            // 點擊事件：套用升級
-            optionElement.addEventListener('click', () => {
-                this.selectUpgrade(option.type);
+            textWrap.appendChild(nameElement);
+            textWrap.appendChild(descElement);
+
+            optionElement.appendChild(iconWrap);
+            optionElement.appendChild(textWrap);
+            
+            /*
+             * 類別標籤（純裝飾，不影響文字與行為）
+             * 規則：ATTR_ATTACK/ATTR_CRIT -> StatUp；SING -> Skill；其餘 -> Weapon。
+             * 注意：此標籤不參與存檔邏輯，僅顯示用。
+             */
+            const category = (option.type === 'ATTR_ATTACK' || option.type === 'ATTR_CRIT')
+              ? 'StatUp'
+              : (option.type === 'SING' ? 'Skill' : 'Weapon');
+            const tagEl = document.createElement('div');
+            tagEl.className = 'uop-tag';
+            tagEl.textContent = `>> ${category}`;
+            optionElement.appendChild(tagEl);
+            
+            // 在升級選項的單擊高亮動作中，確保解除靜音以避免分頁返回後音效被抑制
+            function _ensureAudioUnmutedForOverlay() {
+                try {
+                    if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) {
+                        AudioManager.setMuted(false);
+                    }
+                } catch (_) {}
+            }
+            // 單擊：進入待確認狀態並播放次要音效；雙擊/空白鍵：確認升級
+            optionElement.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // 解除靜音，確保返回頁面後能聽到點擊音
+                _ensureAudioUnmutedForOverlay();
+                this._pendingOptionType = option.type;
+                this._highlightPending(optionElement, option.type);
+                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                    AudioManager.playSound('button_click2');
+                }
+            });
+            optionElement.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                if (this._pendingOptionType === option.type) {
+                    if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                        AudioManager.playSound('button_click');
+                    }
+                    this.selectUpgrade(option.type);
+                } else {
+                    // 若未先單擊，允許直接雙擊確認
+                    if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                        AudioManager.playSound('button_click');
+                    }
+                    this.selectUpgrade(option.type);
+                }
             });
             this.upgradeOptions.appendChild(optionElement);
         });
         // 顯示選單（使用 .hidden 切換，與既有邏輯一致）
         if (this.levelUpMenu) this.levelUpMenu.classList.remove('hidden');
+        
+        // 空白鍵確認：若已有待確認項目，按下空白鍵執行升級
+        this._levelUpKeyHandler = (e) => {
+            try {
+                if (e.code === 'Space' || e.key === ' ') {
+                    e.preventDefault();
+                    if (this._pendingOptionType) {
+                        this.selectUpgrade(this._pendingOptionType);
+                    }
+                }
+            } catch (_) {}
+        };
+        document.addEventListener('keydown', this._levelUpKeyHandler);
+        
         // 手機自適應：僅在手機套用 sizing，不改 PC
         this._applyMobileLevelUpSizing();
     },
     // 隱藏升級選單
     hideLevelUpMenu: function() {
+        // 清理選擇暫存與鍵盤事件
+        try {
+            if (this._levelUpKeyHandler) {
+                document.removeEventListener('keydown', this._levelUpKeyHandler);
+                this._levelUpKeyHandler = null;
+            }
+            if (this._pendingOptionEl) {
+                this._pendingOptionEl.classList.remove('uop-pending');
+            }
+            this._pendingOptionEl = null;
+            this._pendingOptionType = null;
+        } catch (_) {}
         if (this.levelUpMenu) this.levelUpMenu.classList.add('hidden');
         // 恢復遊戲
         if (typeof Game !== 'undefined' && Game.resume) {
             Game.resume();
         }
+    },
+
+    // 私有：標記升級卡片待確認高亮
+    _highlightPending: function(el, optionType) {
+        try {
+            if (this._pendingOptionEl) {
+                this._pendingOptionEl.classList.remove('uop-pending');
+            }
+        } catch (_) {}
+        try { if (el) { el.classList.add('uop-pending'); } } catch (_) {}
+        this._pendingOptionEl = el || null;
+        this._pendingOptionType = optionType || null;
     },
 
     // 顯示技能頁（ESC）
