@@ -488,10 +488,10 @@ function setupMapAndDifficultySelection() {
     const diffBack = document.getElementById('diff-back');
     let selectedDiffId = null;
 
-    const startGameWithDifficulty = (id) => {
+    const startGameWithDifficulty = (id, playSound = true) => {
         const useId = id || 'EASY';
         Game.selectedDifficultyId = useId;
-        playClick();
+        if (playSound) playClick();
         // 開始遊戲：隱藏覆蓋視窗與選角畫面，進入遊戲畫面
         hide(diffScreen);
         hide(document.getElementById('map-select-screen'));
@@ -514,12 +514,12 @@ function setupMapAndDifficultySelection() {
         // 雙擊：直接確認並開始遊戲
         card.addEventListener('dblclick', () => {
             selectedDiffId = id;
-            startGameWithDifficulty(id);
+            startGameWithDifficulty(id, false);
         });
         // 觸控雙擊：使用共用輔助
         bindDoubleTap(card, () => {
             selectedDiffId = id;
-            startGameWithDifficulty(id);
+            startGameWithDifficulty(id, false);
         });
     });
 
