@@ -351,6 +351,45 @@ function setupCharacterSelection() {
         if (previewImg) previewImg.src = imgObj ? imgObj.src : `assets/images/${key}.png`;
         if (previewName) previewName.textContent = ch.name || '角色';
         if (previewDesc) previewDesc.textContent = ch.description || '角色介紹';
+
+        // 渲染專屬技能圖示（依介紹文字解析）
+        const skillsBox = document.getElementById('char-preview-skills');
+        if (skillsBox) {
+            skillsBox.innerHTML = '';
+            const descText = ch.description || '';
+            const m = descText.match(/專屬技能：(.+?)(?:，|。|$)/);
+            let names = [];
+            if (m && m[1]) {
+                names = m[1].split(/[、，\s]+/).map(s => s.trim()).filter(Boolean);
+            }
+            // 以 CONFIG.WEAPONS 的中文名稱比對對應 type
+            const nameToType = {};
+            try {
+                Object.keys(CONFIG.WEAPONS || {}).forEach(t => {
+                    const cfg = CONFIG.WEAPONS[t];
+                    if (cfg && cfg.NAME) nameToType[cfg.NAME] = t;
+                });
+            } catch (_) {}
+            const iconMap = {
+                SING: 'assets/images/A1.png',
+                DAGGER: 'assets/images/A2.png',
+                LASER: 'assets/images/A3.png',
+                CHAIN_LIGHTNING: 'assets/images/A4.png',
+                FIREBALL: 'assets/images/A5.png',
+                LIGHTNING: 'assets/images/A6.png',
+                ORBIT: 'assets/images/A7.png',
+                ATTR_ATTACK: 'assets/images/A8.png',
+                ATTR_CRIT: 'assets/images/A9.png'
+            };
+            names.filter(n => nameToType[n]).forEach(n => {
+                const type = nameToType[n];
+                const iconSrc = iconMap[type] || 'assets/images/A1.png';
+                const chip = document.createElement('div');
+                chip.className = 'skill-chip';
+                chip.innerHTML = `<div class="chip-icon"><img src="${iconSrc}" alt="${n}" /></div><div class="chip-name">${n}</div>`;
+                skillsBox.appendChild(chip);
+            });
+        }
     };
 
     cards.forEach(card => {
