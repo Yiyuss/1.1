@@ -767,6 +767,75 @@ body {
     display: block;
 }
 
+/* 結算視窗樣式 */
+.victory-summary, .game-over-summary {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    max-width: 500px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+    padding: 20px;
+    color: white;
+    z-index: 10;
+}
+
+.victory-summary {
+    border-color: rgba(255, 204, 0, 0.3);
+    box-shadow: 0 12px 30px rgba(255, 204, 0, 0.2);
+}
+
+.game-over-summary {
+    border-color: rgba(255, 51, 51, 0.3);
+    box-shadow: 0 12px 30px rgba(255, 51, 51, 0.2);
+}
+
+.victory-summary-content, .game-over-summary-content {
+    text-align: center;
+}
+
+.victory-summary h2, .game-over-summary h2 {
+    font-size: 28px;
+    margin-bottom: 20px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.victory-summary h2 {
+    color: #ffcc00;
+}
+
+.game-over-summary h2 {
+    color: #ff3333;
+}
+
+.summary-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.summary-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 15px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 5px;
+}
+
+.stat-label {
+    font-weight: bold;
+    color: #aaccff;
+}
+
+.stat-value {
+    font-weight: bold;
+    color: white;
+}
+
 /* 視頻覆蓋層：用於要求使用者手勢播放以恢復聲音 */
 .video-overlay {
     position: absolute;
