@@ -530,6 +530,9 @@ const UI = {
         Game.pause(true);
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('game-over-screen').classList.remove('hidden');
+        
+        // 更新失敗結算視窗
+        this.updateGameOverSummary();
     
         const el = this._get('game-over-video');
         if (!el) return;
@@ -537,11 +540,65 @@ const UI = {
         el.muted = false;
         el.loop = false;
         el.currentTime = 0;
+        
+        // 確保影片顯示
+        el.style.display = 'block';
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
     
         const onEnded = () => this._returnToStartFrom('game-over-screen');
         el.addEventListener('ended', onEnded, { once: true });
     
-        try { el.play(); } catch (_) {}
+        // 確保影片播放
+        setTimeout(() => {
+            try { 
+                const playPromise = el.play(); 
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.error("播放失敗影片時出錯:", error);
+                        // 如果自動播放失敗，嘗試添加用戶交互後再播放
+                        document.addEventListener('click', function playOnClick() {
+                            el.play();
+                            document.removeEventListener('click', playOnClick);
+                        }, { once: true });
+                    });
+                }
+            } catch (err) {
+                console.error("播放失敗影片時出錯:", err);
+            }
+        }, 100);
+    },
+    
+    // 更新失敗結算視窗
+    updateGameOverSummary: function() {
+        try {
+            // 遊戲時間（秒）
+            const gameTimeInSeconds = Math.floor(Game.gameTime / 1000) || 0;
+            document.getElementById('game-over-time').textContent = gameTimeInSeconds;
+            
+            // 玩家等級
+            const playerLevel = Game.player ? Game.player.level : 1;
+            document.getElementById('game-over-level').textContent = playerLevel;
+            
+            // 獲得金幣（當場遊戲）
+            const coinsCollected = Game.coinsCollected || 0;
+            document.getElementById('game-over-coins').textContent = coinsCollected;
+            
+            // 最終波數（替代經驗）
+            let currentWave = WaveSystem.currentWave || 0;
+            console.log("WaveSystem.currentWave:", WaveSystem.currentWave);
+            document.getElementById('game-over-exp').textContent = currentWave + "/30";
+            
+            console.log("遊戲結算數據:", {
+                gameTimeInSeconds,
+                playerLevel,
+                enemiesKilled,
+                coinsCollected,
+                currentWave
+            });
+        } catch (err) {
+            console.error("更新失敗結算視窗時出錯:", err);
+        }
     },
     
     // 顯示勝利畫面
@@ -549,12 +606,16 @@ const UI = {
      * 顯示勝利畫面（恢復：自動播放與自動返回起始介面）
      * 依賴：DOM id 'game-screen','victory-screen','victory-video','victory-overlay','victory-play'；AudioManager；Game。
      * 不變式：流程與顯示文字不可更動；僅抽出重複邏輯至私有方法。
+     * 新增：結算視窗顯示遊戲數據
      */
     showVictoryScreen: function() {
         try { if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
         Game.pause(true);
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('victory-screen').classList.remove('hidden');
+    
+        // 更新結算數據
+        this.updateVictorySummary();
     
         const el = this._get('victory-video');
         if (!el) return;
@@ -567,6 +628,42 @@ const UI = {
         el.addEventListener('ended', onEnded, { once: true });
     
         try { el.play(); } catch (_) {}
+    },
+    
+    /**
+     * 更新勝利結算視窗的數據
+     * 依賴：Game對象的統計數據；DOM id 'summary-time','summary-level','summary-kills','summary-coins','summary-exp'
+     * 不變式：不影響引繼碼系統；僅顯示數據，不修改任何存檔內容
+     */
+    updateVictorySummary: function() {
+        try {
+            // 獲取遊戲數據
+            // 遊戲時間（秒）
+            const gameTimeInSeconds = Math.floor(Game.gameTime / 1000) || 0;
+            const playerLevel = Game.player ? Game.player.level : 1;
+            
+            const coins = Game.coinsCollected || 0;
+            
+            // 最終波數（替代經驗）
+            let currentWave = WaveSystem.currentWave || 0;
+            console.log("WaveSystem.currentWave (Victory):", WaveSystem.currentWave);
+            
+            // 更新DOM
+            document.getElementById('summary-time').textContent = gameTimeInSeconds;
+            document.getElementById('summary-level').textContent = playerLevel;
+            document.getElementById('summary-coins').textContent = coins;
+            document.getElementById('summary-exp').textContent = currentWave + "/30";
+            
+            console.log("勝利結算數據:", {
+                gameTimeInSeconds,
+                playerLevel,
+                kills,
+                coins,
+                currentWave
+            });
+        } catch (err) {
+            console.error("更新勝利結算視窗時出錯:", err);
+        }
     },
 
     /**
