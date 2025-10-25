@@ -33,6 +33,10 @@ const Game = {
     worldHeight: 0,
     camera: { x: 0, y: 0 },
     coins: 0,
+    // 統計數據
+    enemiesKilled: 0,
+    coinsCollected: 0,
+    expCollected: 0,
     
     init: function() {
         // 獲取畫布和上下文
@@ -96,6 +100,22 @@ const Game = {
         const currentTime = Date.now();
         const deltaTime = currentTime - this.lastUpdateTime;
         this.lastUpdateTime = currentTime;
+        
+        // 檢測CTRL+M快捷鍵觸發勝利條件
+        const ctrlDown = Input.isKeyDown('Control');
+        const mDown = Input.isKeyDown('m') || Input.isKeyDown('M');
+        
+        // Ctrl+M: 觸發勝利條件（用於測試）
+        if (ctrlDown && mDown) {
+            if (!this.ctrlMKeyPressed) {
+                if (!this.isGameOver && !this.isPaused) {
+                    this.victory();
+                }
+                this.ctrlMKeyPressed = true;
+            }
+        } else {
+            this.ctrlMKeyPressed = false;
+        }
         
         // 如果遊戲未暫停，更新遊戲狀態（加入防呆，避免單幀錯誤中斷迴圈）
         try {
@@ -790,6 +810,8 @@ const Game = {
     addCoins: function(amount) {
         const inc = Math.max(0, Math.floor(amount || 0));
         this.coins = (this.coins || 0) + inc;
+        // 更新金幣收集統計
+        this.coinsCollected += inc;
         // 立即存檔以符合自動存檔需求
         try { this.saveCoins(); } catch (_) {}
         // 觸發金幣變更事件
