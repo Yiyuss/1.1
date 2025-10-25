@@ -312,13 +312,62 @@
         <div id="game-over-screen" class="screen hidden">
             <!-- 遊戲失敗影片 -->
             <video id="game-over-video" src="assets/videos/game_over.mp4" preload="auto" playsinline></video>
+            
+            <!-- 失敗結算視窗 -->
+            <div class="game-over-summary">
+                <div class="game-over-summary-content">
+                    <h2>遊戲結算</h2>
+                    <div class="summary-stats">
+                        <div class="summary-stat">
+                            <span class="stat-label">遊戲時間(秒):</span>
+                            <span class="stat-value" id="game-over-time">00:00</span>
+                        </div>
+                        <div class="summary-stat">
+                            <span class="stat-label">最終等級:</span>
+                            <span class="stat-value" id="game-over-level">0</span>
+                        </div>
 
+                        <div class="summary-stat">
+                            <span class="stat-label">獲得金幣:</span>
+                            <span class="stat-value" id="game-over-coins">0</span>
+                        </div>
+                        <div class="summary-stat">
+                            <span class="stat-label">最終波數:</span>
+                            <span class="stat-value" id="game-over-exp">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- 勝利畫面 -->
         <div id="victory-screen" class="screen hidden">
             <video id="victory-video" src="assets/videos/victory.mp4" preload="auto" playsinline></video>
+            <!-- 結算視窗 -->
+            <div id="victory-summary" class="victory-summary">
+                <div class="victory-summary-content">
+                    <h2>遊戲勝利</h2>
+                    <div class="summary-stats">
+                        <div class="summary-stat">
+                            <span class="stat-label">遊戲時間(秒):</span>
+                            <span class="stat-value" id="summary-time">00:00</span>
+                        </div>
+                        <div class="summary-stat">
+                            <span class="stat-label">最終等級:</span>
+                            <span class="stat-value" id="summary-level">0</span>
+                        </div>
 
+                        <div class="summary-stat">
+                            <span class="stat-label">獲得金幣:</span>
+                            <span class="stat-value" id="summary-coins">0</span>
+                        </div>
+                        <div class="summary-stat">
+                            <span class="stat-label">最終波數:</span>
+                            <span class="stat-value" id="summary-exp">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         <!-- 天賦介面 -->
         <div id="talent-select-screen" class="screen hidden">
