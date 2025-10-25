@@ -250,31 +250,9 @@ const UI = {
         }
     },
 
-    // 金幣顯示：確保元素存在並更新內容
-    ensureCoinsElement: function() {
-        if (!this.skillsMenu) return;
-        if (this.skillsCoinsEl && this.skillsCoinsEl.parentElement) return;
-        const el = document.createElement('div');
-        el.id = 'skills-coins';
-        el.className = 'skills-coins';
-        el.textContent = '金幣: 0';
-        // 插入在標題之後，避免影響既有內容
-        const title = this.skillsMenu.querySelector('.skills-title');
-        if (title) {
-            title.insertAdjacentElement('afterend', el);
-        } else {
-            this.skillsMenu.insertBefore(el, this.skillsMenu.firstChild);
-        }
-        this.skillsCoinsEl = document.getElementById('skills-coins');
-    },
-    updateCoins: function(total) {
-        try {
-            this.ensureCoinsElement();
-            if (this.skillsCoinsEl) {
-                this.skillsCoinsEl.textContent = `金幣: ${Math.max(0, Math.floor(total || 0))}`;
-            }
-        } catch (_) {}
-    },
+    // 金幣顯示：ESC選單不再顯示金幣（右上角已有），此函數改為空操作
+    ensureCoinsElement: function() { return; },
+    updateCoins: function(total) { return; },
     /**
      * 更新技能列表（武器清單）
      * 依賴：Game.player.weapons、CONFIG、AudioManager（可選，僅處理滑桿綁定）。
@@ -292,7 +270,19 @@ const UI = {
             const name = cfg ? cfg.NAME : info.type;
             const div = document.createElement('div');
             div.className = 'skill-item';
-            div.innerHTML = `<div class="skill-name">${name}</div><div class="skill-level">Lv.${info.level}</div>`;
+            const skillIcons = {
+                SING: 'assets/images/A1.png',
+                DAGGER: 'assets/images/A2.png',
+                LASER: 'assets/images/A3.png',
+                CHAIN_LIGHTNING: 'assets/images/A4.png',
+                FIREBALL: 'assets/images/A5.png',
+                LIGHTNING: 'assets/images/A6.png',
+                ORBIT: 'assets/images/A7.png',
+                ATTR_ATTACK: 'assets/images/A8.png',
+                ATTR_CRIT: 'assets/images/A9.png'
+            };
+            const iconSrc = skillIcons[info.type] || 'assets/images/A1.png';
+            div.innerHTML = `<div class="skill-icon"><img src="${iconSrc}" alt="${name}"></div><div class="skill-name">${name}</div><div class="skill-level">Lv.${info.level}</div>`;
             this.skillsList.appendChild(div);
         });
         // 若沒有任何武器
@@ -332,12 +322,8 @@ const UI = {
             
             // 將天賦區域添加到技能選單中
             if (this.skillsMenu) {
-                const volumeSection = this.skillsMenu.querySelector('.volume-section');
-                if (volumeSection) {
-                    this.skillsMenu.insertBefore(talentsSection, volumeSection);
-                } else {
-                    this.skillsMenu.appendChild(talentsSection);
-                }
+                // 一律置於技能選單的最後，確保順序為：音量 -> 技能 -> 天賦
+                this.skillsMenu.appendChild(talentsSection);
             }
         }
         
