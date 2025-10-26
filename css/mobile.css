@@ -1,0 +1,9 @@
+/* 手機專用覆蓋樣式：引繼碼返回鍵移至右上角（PC 不變） */
+@media (pointer: coarse), (max-width: 768px) {
+  #backup-screen #backup-back {
+    position: absolute; /* 保持既有定位方式 */
+    top: 12px;
+    right: 12px;
+    bottom: auto; /* 取消底部定位 */
+  }
+}
