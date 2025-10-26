@@ -42,10 +42,15 @@ const UI = {
         this.skillsSoundText = document.getElementById('skills-sound-volume-text');
         // 金幣顯示元素（動態建立）
         this.skillsCoinsEl = document.getElementById('skills-coins');
+        // 新增：EXP 音效切換按鈕
+        this.expSoundToggle = document.getElementById('exp-sound-toggle');
+        this.expSoundToggleText = document.getElementById('exp-sound-toggle-text');
 
         // 統一綁定技能頁音量滑桿（不改文案與行為）
         try { this.bindVolumeSliders(this.skillsMenu); } catch (_) {}
-        
+        // 新增：綁定 EXP 音效切換
+        try { this.bindExpSoundToggle(); } catch (_) {}
+
         // 初始化UI
         this.updateHealthBar(CONFIG.PLAYER.MAX_HEALTH, CONFIG.PLAYER.MAX_HEALTH);
         this.updateLevel(1);
@@ -229,13 +234,30 @@ const UI = {
         const mapSel = this._get('map-select-screen'); if (mapSel) mapSel.classList.add('hidden');
         const start = this._get('start-screen'); if (start) start.classList.remove('hidden');
         Game.isGameOver = false;
-        try { AudioManager.isMuted = false; } catch (_) {}
-        // 若有 AudioScene，使用選單場景；否則保留原行為
+        try { if (AudioManager && AudioManager.setMuted) { AudioManager.setMuted(false); } else { AudioManager.isMuted = false; } } catch (_) {}
+        // 先確保停止殘留的音樂，再切入選單場景
+        try { if (AudioManager && AudioManager.stopAllMusic) { AudioManager.stopAllMusic(); } } catch (_) {}
         try {
             if (typeof AudioScene !== 'undefined' && AudioScene.enterMenu) {
                 AudioScene.enterMenu();
             } else if (AudioManager.playMusic) {
                 AudioManager.playMusic('menu_music');
+            }
+        } catch (_) {}
+        // 若因瀏覽器策略未能自動播放，提供一次點擊恢復
+        try {
+            const track = (AudioManager && AudioManager.music) ? AudioManager.music['menu_music'] : null;
+            if (track && track.paused) {
+                document.addEventListener('click', function _restoreMenuMusicOnce(){
+                    try {
+                        if (typeof AudioScene !== 'undefined' && AudioScene.enterMenu) {
+                            AudioScene.enterMenu();
+                        } else if (AudioManager.playMusic) {
+                            AudioManager.playMusic('menu_music');
+                        }
+                    } catch (_) {}
+                    document.removeEventListener('click', _restoreMenuMusicOnce);
+                }, { once: true });
             }
         } catch (_) {}
     },
@@ -526,7 +548,7 @@ const UI = {
      * 不變式：流程與顯示文字不可更動；僅抽出重複邏輯至私有方法。
      */
     showGameOverScreen: function() {
-        try { if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
+        try { if (AudioManager.stopAllMusic) AudioManager.stopAllMusic(); } catch (e) {}
         Game.pause(true);
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('game-over-screen').classList.remove('hidden');
@@ -829,14 +851,56 @@ const UI = {
         // 顯示選單（使用 .hidden 切換，與既有邏輯一致）
         if (this.levelUpMenu) this.levelUpMenu.classList.remove('hidden');
         
-        // 空白鍵確認：若已有待確認項目，按下空白鍵執行升級
+        // 空白鍵/Enter 確認；上下方向鍵導航高亮
         this._levelUpKeyHandler = (e) => {
             try {
+                const children = this.upgradeOptions ? Array.from(this.upgradeOptions.children) : [];
+                const count = children.length;
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    let next = (this._pendingOptionIndex == null) ? 0 : Math.min(this._pendingOptionIndex + 1, count - 1);
+                    const card = children[next];
+                    if (card) {
+                        const type = this._currentUpgradeOptions[next] && this._currentUpgradeOptions[next].type;
+                        this._highlightPending(card, type);
+                        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                            AudioManager.playSound('button_click2');
+                        }
+                    }
+                    return;
+                }
+                if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    let next = (this._pendingOptionIndex == null) ? (count - 1) : Math.max(this._pendingOptionIndex - 1, 0);
+                    const card = children[next];
+                    if (card) {
+                        const type = this._currentUpgradeOptions[next] && this._currentUpgradeOptions[next].type;
+                        this._highlightPending(card, type);
+                        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                            AudioManager.playSound('button_click2');
+                        }
+                    }
+                    return;
+                }
                 if (e.code === 'Space' || e.key === ' ') {
                     e.preventDefault();
                     if (this._pendingOptionType) {
+                        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                            AudioManager.playSound('button_click');
+                        }
                         this.selectUpgrade(this._pendingOptionType);
                     }
+                    return;
+                }
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (this._pendingOptionType) {
+                        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                            AudioManager.playSound('button_click');
+                        }
+                        this.selectUpgrade(this._pendingOptionType);
+                    }
+                    return;
                 }
             } catch (_) {}
         };
@@ -1102,4 +1166,26 @@ _actionHold: function() {
   try { const card = this.upgradeOptions.children[idx]; if (card) card.classList.add('uop-held'); } catch (_) {}
   this._renderLevelUpActions();
 },
+    bindExpSoundToggle: function() {
+        const btn = this.expSoundToggle;
+        const label = this.expSoundToggleText;
+        if (!btn || !label) return;
+        const refresh = () => {
+            const enabled = (typeof AudioManager !== 'undefined') ? (AudioManager.expSoundEnabled !== false) : true;
+            label.textContent = enabled ? 'EXP音效：開' : 'EXP音效：關';
+        };
+        refresh();
+        btn.addEventListener('click', () => {
+            try {
+                if (typeof AudioManager !== 'undefined') {
+                    // 修正：真正反轉開關狀態
+                    AudioManager.expSoundEnabled = !AudioManager.expSoundEnabled;
+                }
+                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                    AudioManager.playSound('button_click2');
+                }
+            } catch (_) {}
+            refresh();
+        });
+    }
 };
