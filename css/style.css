@@ -1217,6 +1217,10 @@ body {
 .skills-volume input[type="range"] { width: 100%; }
 .skills-volume span { color: #9ed0ff; text-align: right; }
 .skills-hint { position: absolute; top: 8px; right: 12px; color: #cfe7ff; font-size: 0.9rem; }
+/* 技能頁專用：左上角 EXP 切換按鈕覆寫（避免通用樣式影響） */
+#skills-menu .top-left-icon-btn { top: 8px; left: 12px; width: auto; height: auto; padding: 2px 8px; border: none; background: transparent; z-index: 121; }
+#skills-menu .top-left-icon-btn:hover { transform: none; }
+#skills-menu #exp-sound-toggle-text { color: #cfe7ff; white-space: nowrap; font-weight: 600; }
 
 /* Talents section styling */
 .talents-section { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 12px; }
