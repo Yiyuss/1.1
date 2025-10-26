@@ -170,31 +170,31 @@ const UI = {
         try {
             const viewport = document.getElementById('viewport');
             if (!viewport) return;
-            // 僅在手機且遊戲畫面顯示時處理
             const inGame = this.isScreenVisible('game-screen');
             const isMobile = this._isMobile();
             if (!isMobile || !inGame || !this._mobileRotationActive) {
+                // 還原預設定位與樣式
+                viewport.style.position = 'relative';
+                viewport.style.left = '';
+                viewport.style.top = '';
                 viewport.style.transform = '';
                 viewport.style.transformOrigin = '';
                 return;
             }
-            // 橫向偵測：優先使用 Screen Orientation，退回寬>高
+            // 直接在手機進入遊戲時旋轉 90 度（不再依賴裝置橫向），並以 cover 方式填滿
             const winW = window.innerWidth;
             const winH = window.innerHeight;
-            const hasAPI = !!(window.screen && window.screen.orientation && window.screen.orientation.type);
-            const isLandscape = hasAPI ? window.screen.orientation.type.startsWith('landscape') : (winW > winH);
-            if (!isLandscape) {
-                viewport.style.transform = '';
-                viewport.style.transformOrigin = '';
-                return;
-            }
-            // 基準尺寸：CSS 中 #viewport 設為 1280x720
-            const baseW = 1280;
-            const baseH = 720;
-            // 以「填滿寬度」為優先，允許高度裁切以換取更大畫面
-            const scale = winW / baseH;
+            const baseW = 1280; // 原始寬度
+            const baseH = 720;  // 原始高度
+            const scaleW = winW / baseH; // 旋轉後寬度對應 baseH
+            const scaleH = winH / baseW; // 旋轉後高度對應 baseW
+            const scale = Math.max(scaleW, scaleH); // cover：以較大比例填滿視窗
+            // 置中 + 旋轉 + 縮放
+            viewport.style.position = 'absolute';
+            viewport.style.left = '50%';
+            viewport.style.top = '50%';
             viewport.style.transformOrigin = 'center center';
-            viewport.style.transform = `rotate(90deg) scale(${scale})`;
+            viewport.style.transform = `translate(-50%, -50%) rotate(90deg) scale(${scale})`;
         } catch (e) {
             console.error('更新手機橫向旋轉時發生錯誤:', e);
         }
@@ -212,6 +212,9 @@ const UI = {
             }
             const viewport = document.getElementById('viewport');
             if (viewport) {
+                viewport.style.position = 'relative';
+                viewport.style.left = '';
+                viewport.style.top = '';
                 viewport.style.transform = '';
                 viewport.style.transformOrigin = '';
             }
