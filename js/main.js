@@ -583,6 +583,13 @@ function setupResponsiveViewport() {
         if (!viewport) return;
         const targetW = CONFIG.CANVAS_WIDTH;
         const targetH = CONFIG.CANVAS_HEIGHT;
+        // 當手機旋轉模式啟用且在遊戲畫面，避免與 transform 併用造成縮到 50%
+        if (typeof UI !== 'undefined' && UI._mobileRotationActive && UI.isScreenVisible && UI.isScreenVisible('game-screen')) {
+            viewport.style.width = targetW + 'px';
+            viewport.style.height = targetH + 'px';
+            document.documentElement.style.setProperty('--ui-scale', '1');
+            return;
+        }
         const scale = Math.min(window.innerWidth / targetW, window.innerHeight / targetH);
         const displayW = Math.max(1, Math.floor(targetW * scale));
         const displayH = Math.max(1, Math.floor(targetH * scale));
