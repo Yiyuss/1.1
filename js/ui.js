@@ -181,16 +181,25 @@ const UI = {
                 viewport.style.transformOrigin = '';
                 return;
             }
-            // 直接在手機進入遊戲時旋轉 90 度（不再依賴裝置橫向），並以 cover 方式填滿
-            const winW = window.innerWidth;
-            const winH = window.innerHeight;
+            // 使用 visualViewport（可用時），提高在行動瀏覽器的穩定性
+            const vw = (window.visualViewport && window.visualViewport.width) ? window.visualViewport.width : window.innerWidth;
+            const vh = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
             const baseW = 1280; // 原始寬度
             const baseH = 720;  // 原始高度
-            const scaleW = winW / baseH; // 旋轉後寬度對應 baseH
-            const scaleH = winH / baseW; // 旋轉後高度對應 baseW
-            // 強制滿版（偏向放大）：以螢幕較長邊/720 作為縮放基準
-            const scale = Math.max(winW, winH) / baseH;
-            // 置中 + 旋轉 + 縮放
+            // 方向偵測：優先 Screen Orientation，退為寬高比較（portrait => 旋轉）
+            const hasAPI = !!(window.screen && window.screen.orientation && window.screen.orientation.type);
+            const isPortrait = hasAPI ? window.screen.orientation.type.startsWith('portrait') : (vh >= vw);
+            if (!isPortrait) {
+                // 實體為橫向：不旋轉，維持原始 16:9 畫面
+                viewport.style.position = 'relative';
+                viewport.style.left = '';
+                viewport.style.top = '';
+                viewport.style.transformOrigin = '';
+                viewport.style.transform = '';
+                return;
+            }
+            // portrait：旋轉 90 度並以 cover 填滿
+            const scale = Math.max(vw / baseH, vh / baseW);
             viewport.style.position = 'absolute';
             viewport.style.left = '50%';
             viewport.style.top = '50%';
