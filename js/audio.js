@@ -5,6 +5,8 @@ const AudioManager = {
     isMuted: false,
     musicVolume: 0.5,
     soundVolume: 0.7,
+    // 新增：經驗音效開關（預設開）
+    expSoundEnabled: true,
     
     init: function() {
         // 初始化音效
@@ -82,6 +84,8 @@ const AudioManager = {
     // 播放音效
     playSound: function(name) {
         if (this.isMuted || !this.sounds[name]) return;
+        // 關閉 EXP 音效時略過 collect_exp
+        if (name === 'collect_exp' && this.expSoundEnabled === false) return;
         
         try {
             // 克隆音效以允許重疊播放
