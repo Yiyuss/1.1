@@ -101,23 +101,41 @@ body {
 
 .start-card {
     position: relative;
-    width: min(900px, 92vw);
-    max-height: 92vh;
+    width: 1280px;
+    height: 720px;
     padding: 24px;
     border-radius: 12px;
     background: linear-gradient(rgba(20,20,20,0.50), rgba(20,20,20,0.65)), url('../assets/images/Background3.jpg') center/cover no-repeat, url('../assets/images/background3.jpg') center/cover no-repeat;
     box-shadow: 0 12px 40px rgba(0,0,0,0.6);
     backdrop-filter: blur(6px);
-    overflow: auto;
+    overflow: hidden; /* 隱藏整個開始介面的捲軸 */
+}
+@media (max-width: 900px) {
+    /* 手機/窄視窗例外：保持彈性寬高 */
+    .start-card { width: 95vw; height: auto; }
 }
 
 .start-header h1 {
-    font-size: clamp(28px, 5vw, 42px);
-    margin-bottom: 8px;
+    font-size: clamp(34px, 5.8vw, 52px);
+    margin-bottom: 6px;
     color: #ff4757;
-    text-shadow: 0 0 10px rgba(255,71,87,0.4);
+    font-weight: 800;
+    letter-spacing: 0.6px;
+    text-shadow: 0 0 12px rgba(255,71,87,0.45);
 }
 
+#start-screen .start-header {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 12px 16px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+}
 .start-header .subtitle {
     font-size: clamp(14px, 2.5vw, 18px);
     color: #ddd;
@@ -141,6 +159,161 @@ body {
 .start-actions .primary:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(255,107,129,0.4);
+}
+
+/* Start screen: two-column grid + right-bottom menu + overlay */
+#start-screen .start-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 18px;
+    align-items: start;
+}
+#start-screen .start-main { 
+    min-width: 0; 
+    display: grid; 
+    grid-template-rows: auto 1fr; /* 白框(標題) / 單一左側視窗 */
+    gap: 12px;
+}
+#start-screen .start-menu {
+    position: relative; /* 作為網格第二欄項目，避免與左側重疊 */
+    top: auto;
+    right: auto;
+    justify-self: end;
+    margin-top: 240px; /* 下移至紅色參考位置 */
+    width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px; /* 增加選項間距 */
+    transform: translateX(-18px); /* 整體向左微移 */
+}
+/* 右側選單頂部示意背景圖（不改其他視覺） */
+#start-screen .start-menu .start-illustration {
+    position: absolute;
+    top: -220px; /* 圖片顯示在選單上方區域 */
+    left: 0;
+    width: 100%;
+    height: 220px;
+    background: url('../assets/images/start.png') center/contain no-repeat;
+    pointer-events: none; /* 視覺用，避免干擾點擊 */
+}
+#start-screen .menu-btn {
+    display: block; /* 讓 a 與 button 一致寬度 */
+    width: 100%;
+    padding: 10px 16px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fff;
+    text-decoration: none; /* 去除連結底線 */
+    text-align: center; /* 文字置中一致 */
+    font-size: 16px; /* 統一所有選項字級（含 BUG回報） */
+    background: rgba(255,255,255,0.06);
+    border: var(--card-border);
+    border-radius: 10px;
+    backdrop-filter: blur(var(--blur-6));
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .2s ease, background .2s ease;
+}
+#start-screen .menu-btn:hover {
+    transform: translateY(-1px);
+    background: rgba(255,255,255,0.12);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+}
+#start-screen .menu-btn.primary {
+    background: rgba(255,255,255,0.82);
+    color: #14202b;
+    border: 2px solid rgba(255,255,255,0.88);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+}
+#start-screen .content-window {
+    margin: 60px auto 0; /* 置中以對齊上方標題 */
+    padding: 0;
+    background: rgba(20,30,40,0.55);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    width: 780px; /* 縮小至接近紅框參考 */
+    height: 420px; /* 縮小高度以避免過大 */
+    overflow: auto; /* 保留滾動功能 */
+    scrollbar-width: none;   /* Firefox 隱藏捲軸 */
+    -ms-overflow-style: none; /* IE/Edge 隱藏捲軸 */
+    position: relative; /* 作為底圖定位的參考容器 */
+}
+/* 左側視窗底圖：start2.png（半透明，置於下方中央） */
+#start-screen .content-window .content-illustration {
+    position: absolute;
+    bottom: 18px;
+    left: 78%; /* 往右移，貼近紅框位置 */
+    transform: translateX(-50%);
+    width: 320px;
+    height: 180px;
+    background: url('../assets/images/start2.png') center/contain no-repeat;
+    opacity: 0.45; /* 透明感，與視窗相呼應 */
+    pointer-events: none;
+    z-index: 0;
+}
+/* 確保文字在底圖之上 */
+#start-screen .content-window .content { position: relative; z-index: 1; }
+/* WebKit 隱藏捲軸（仍可滾動） */
+#content-window::-webkit-scrollbar { width: 0; height: 0; }
+#start-screen .content-window h2 {
+    font-size: 18px; /* 固定字級，對齊原視覺 */
+    margin-bottom: 0;
+    background: rgba(255,255,255,0.06);
+    padding: 10px 12px;
+    border-radius: 8px 8px 0 0;
+}
+#start-screen .content-window h2::before { content: '▼ '; font-weight: 700; }
+#start-screen .content-window .content {
+    padding: 12px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    border-radius: 0 0 8px 8px;
+    font-size: 16px; /* 固定字級以避免視窗變動 */
+    line-height: 1.65;
+    color: #ddd;
+}
+/* 說明面板（黑色框） */
+#start-screen .desc-panel {
+    padding: 12px;
+    background: rgba(0,0,0,0.28);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    height: 320px;
+    overflow: auto;
+}
+
+#start-screen .modal {
+    position: absolute;
+    inset: 0;
+    background: transparent; /* 移除外層透明遮罩 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+}
+#start-screen .modal-card {
+    width: min(420px, 92vw);
+    padding: 16px;
+    background: var(--panel-bg);
+    border: var(--border-soft);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(var(--blur-6));
+}
+#start-screen .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+    #start-screen .start-grid { grid-template-columns: 1fr; }
+    #start-screen .start-menu { flex-direction: row; flex-wrap: wrap; gap: 10px; align-self: auto; justify-self: auto; }
+    #start-screen .menu-btn { flex: 1 1 calc(50% - 10px); }
+}
+@media (max-width: 640px) {
+    #start-screen .start-menu { flex-direction: column; }
+    #start-screen .menu-btn { flex: none; width: 100%; }
 }
 
 .settings {
@@ -1064,10 +1237,16 @@ body {
  * - 不改文字：標題、副文案、按鈕文案不可更動。
  */
 #backup-screen .select-card {
+  position: relative;
   background:
     var(--panel-grad),
     url('../assets/images/Background3.jpg') center/cover no-repeat,
     url('../assets/images/background3.jpg') center/cover no-repeat;
+}
+#backup-screen #backup-back {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
 }
 
 /* 重複定義移除：.talent-grid（含 RWD）已在前段統一保留 */
