@@ -186,9 +186,23 @@ const UI = {
             const vh = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
             const baseW = 1280; // 原始寬度
             const baseH = 720;  // 原始高度
-            // 方向偵測：優先 Screen Orientation，退為寬高比較（portrait => 旋轉）
-            const hasAPI = !!(window.screen && window.screen.orientation && window.screen.orientation.type);
-            const isPortrait = hasAPI ? window.screen.orientation.type.startsWith('portrait') : (vh >= vw);
+            // 方向偵測優先級：matchMedia -> Screen Orientation -> iOS window.orientation -> 寬高比較
+            let isPortrait = null;
+            try {
+                if (window.matchMedia) {
+                    isPortrait = window.matchMedia('(orientation: portrait)').matches;
+                }
+            } catch (_) {}
+            if (isPortrait === null) {
+                const hasAPI = !!(window.screen && window.screen.orientation && window.screen.orientation.type);
+                if (hasAPI) isPortrait = window.screen.orientation.type.startsWith('portrait');
+            }
+            if (isPortrait === null && typeof window.orientation === 'number') {
+                isPortrait = Math.abs(window.orientation) !== 90; // iOS Safari fallback
+            }
+            if (isPortrait === null) {
+                isPortrait = vh >= vw;
+            }
             if (!isPortrait) {
                 // 實體為橫向：不旋轉，維持原始 16:9 畫面
                 viewport.style.position = 'relative';
@@ -198,9 +212,11 @@ const UI = {
                 viewport.style.transform = '';
                 return;
             }
-            // portrait：旋轉 90 度並以 cover 填滿
-            const scale = Math.max(vw / baseH, vh / baseW);
-            viewport.style.position = 'absolute';
+            // portrait：旋轉 90 度並以 cover 填滿（以寬/高兩者取最大）
+            const scaleW = vw / baseH;
+            const scaleH = vh / baseW;
+            const scale = Math.max(scaleW, scaleH);
+            viewport.style.position = 'fixed';
             viewport.style.left = '50%';
             viewport.style.top = '50%';
             viewport.style.transformOrigin = 'center center';
