@@ -534,6 +534,8 @@ function setupMapAndDifficultySelection() {
         hide(document.getElementById('map-select-screen'));
         hide(DOMCache.get('character-select-screen'));
         Game.startNewGame();
+        // 手機橫向時啟用旋轉與縮放（僅進入遊戲後）
+        try { if (typeof UI !== 'undefined' && UI.enableMobileLandscapeRotation) { UI.enableMobileLandscapeRotation(); } } catch (_) {}
         if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
             AudioManager.playMusic('game_music');
         }
