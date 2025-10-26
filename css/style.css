@@ -272,6 +272,41 @@ body {
     line-height: 1.65;
     color: #ddd;
 }
+/* 小型點綴：徽章與按鍵，不新增大範圍底框 */
+#start-screen .content-window .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 12px;
+    color: #fff;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 999px;
+    margin-right: 6px;
+}
+#start-screen .content-window kbd {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: Consolas, Menlo, Monaco, monospace;
+    color: #e6f2ff;
+    background: rgba(20,30,40,0.60);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 6px;
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.06);
+}
+/* 精簡列表樣式（小圓點） */
+#start-screen .content-window .list { list-style: none; padding-left: 0; margin: 8px 0; }
+#start-screen .content-window .list li { position: relative; padding-left: 18px; margin: 6px 0; }
+#start-screen .content-window .list li::before {
+    content: '';
+    position: absolute; left: 6px; top: 0.65em;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.6);
+}
+/* 左欄通用細節 */
+#start-screen .content-window .content p { margin: 8px 0; }
+#start-screen .content-window .content a { color: #9bd0ff; }
 /* 說明面板（黑色框） */
 #start-screen .desc-panel {
     padding: 12px;
