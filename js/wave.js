@@ -16,9 +16,13 @@ const WaveSystem = {
         const mult = diff.spawnIntervalMultiplier || 1;
         this.enemySpawnRate = Math.max(baseInit * mult, CONFIG.WAVES.ENEMY_SPAWN_RATE.MINIMUM);
         this.lastMiniBossTime = 0;
+        this.lastMiniBossWave = 0; // 追蹤本波是否已生成小BOSS
         
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
+        
+        // 第一波固定生成一支小BOSS
+        this.spawnMiniBoss();
     },
     
     // 更新波次系統：推進波次、生成敵人與Boss
@@ -34,11 +38,11 @@ const WaveSystem = {
             this.spawnEnemy();
             this.lastEnemySpawnTime = currentTime;
         }
-        // 生成小BOSS
-        if (currentTime - this.lastMiniBossTime >= CONFIG.WAVES.MINI_BOSS_INTERVAL) {
-            this.spawnMiniBoss();
-            this.lastMiniBossTime = currentTime;
-        }
+        // 移除：時間間隔生成小BOSS，改為每波一次由 nextWave 觸發
+        // if (currentTime - this.lastMiniBossTime >= CONFIG.WAVES.MINI_BOSS_INTERVAL) {
+        //     this.spawnMiniBoss();
+        //     this.lastMiniBossTime = currentTime;
+        // }
         // 生成大BOSS
         if (this.currentWave === CONFIG.WAVES.BOSS_WAVE && Game.boss === null) {
             this.spawnBoss();
@@ -61,7 +65,7 @@ const WaveSystem = {
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
         
-        // 每一波固定生成一個小BOSS
+        // 每一波固定生成一個小BOSS（避免重複生成）
         this.spawnMiniBoss();
         
         console.log(`Wave ${this.currentWave} started!`);
@@ -155,11 +159,12 @@ const WaveSystem = {
     
     // 生成小BOSS
     spawnMiniBoss: function() {
-        // 檢查是否達到最大敵人數量（套用困難加成）
-        const effectiveMax = CONFIG.OPTIMIZATION.MAX_ENEMIES + Math.max(0, (Game.maxEnemiesBonus || 0));
-        if (Game.enemies.length >= effectiveMax) {
+        // 每波僅生成一次
+        if (this.lastMiniBossWave === this.currentWave) {
             return;
         }
+        this.lastMiniBossWave = this.currentWave;
+        this.lastMiniBossTime = Date.now();
         
         // 在世界邊緣生成小BOSS（加入內縮與分散避免重疊）
         const worldW = (Game.worldWidth || Game.canvas.width);
