@@ -1466,22 +1466,22 @@ body {
 
 /* RWD: Mobile-only font size tweaks for difficulty screen (keep PC unchanged) */
 @media (max-width: 900px) {
-  /* 手機：隱藏標題與介紹 */
-  #difficulty-select-screen .select-title { display: none; }
+  /* 手機：主標恢復顯示，提示隱藏 */
+  #difficulty-select-screen .select-title { display: block; }
   #difficulty-select-screen .select-title::after { display: none; }
+  /* 隱藏卡片介紹段落 */
   #difficulty-select-screen .diff-card .diff-intro { display: none; }
-  /* 底部「選擇」恢復原始字級 */
+  /* 底部「選擇」維持原始字級 */
   #difficulty-select-screen .diff-card::after { font-size: 1.05rem; }
-  /* 副標「簡單／困難」維持目前設定（不覆蓋 .diff-card 字級） */
 }
 @media (max-width: 700px) {
-  #difficulty-select-screen .select-title { display: none; }
+  #difficulty-select-screen .select-title { display: block; }
   #difficulty-select-screen .select-title::after { display: none; }
   #difficulty-select-screen .diff-card .diff-intro { display: none; }
   #difficulty-select-screen .diff-card::after { font-size: 1.05rem; }
 }
 @media (max-width: 480px) {
-  #difficulty-select-screen .select-title { display: none; }
+  #difficulty-select-screen .select-title { display: block; }
   #difficulty-select-screen .select-title::after { display: none; }
   #difficulty-select-screen .diff-card .diff-intro { display: none; }
   #difficulty-select-screen .diff-card::after { font-size: 1.05rem; }
