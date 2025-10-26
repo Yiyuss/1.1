@@ -508,8 +508,17 @@ const Game = {
                 return distB - distA; // 降序排列，最遠的在前面
             });
             
-            // 移除多餢的敵人（保留距離玩家最近的）
-            this.enemies.splice(0, this.enemies.length - effectiveMax);
+            // 只移除非小BOSS/大BOSS，保留BOSS類型免受上限影響
+            let toRemove = this.enemies.length - effectiveMax;
+            for (let i = 0; i < this.enemies.length && toRemove > 0;) {
+                const e = this.enemies[i];
+                if (e && (e.type === 'BOSS' || e.type === 'MINI_BOSS')) {
+                    i++; // 跳過BOSS類型
+                } else {
+                    this.enemies.splice(i, 1);
+                    toRemove--;
+                }
+            }
         }
         
         // 如果投射物數量超過限制，移除最早的投射物
