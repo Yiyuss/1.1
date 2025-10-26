@@ -415,6 +415,24 @@ body {
     }
 }
 
+/* 手機優化：僅限開始介面（不影響PC與其他畫面） */
+@media (max-width: 540px) {
+  #start-screen { overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+  #start-screen .start-card { width: 100vw; height: auto; max-height: 100vh; padding: 12px; border-radius: 8px; overflow: auto; }
+  #start-screen .start-grid { grid-template-columns: 1fr; gap: 12px; align-items: start; }
+  #start-screen .start-menu { margin-top: 12px; width: 100%; transform: none; justify-self: auto; }
+  #start-screen .start-menu .start-illustration { display: none; }
+  #start-screen .content-window { width: 100%; height: auto; max-height: 52vh; margin: 8px 0 0; }
+  #start-screen .content-window h2 { font-size: 16px; padding: 8px 10px; }
+  #start-screen .content-window .content { font-size: 15px; line-height: 1.7; padding: 10px; }
+  #start-screen .menu-btn { font-size: 15px; padding: 12px 14px; min-height: 42px; -webkit-tap-highlight-color: transparent; }
+  #start-screen .menu-btn.primary { font-size: 16px; min-height: 44px; }
+}
+@media (max-width: 480px) {
+  #start-screen .start-card { border-radius: 6px; }
+  #start-screen .menu-btn { padding: 12px 14px; font-size: 15px; }
+}
+
 /* 視窗內的等比縮放容器 */
 #viewport {
     position: relative;
