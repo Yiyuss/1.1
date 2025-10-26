@@ -188,7 +188,8 @@ const UI = {
             const baseH = 720;  // 原始高度
             const scaleW = winW / baseH; // 旋轉後寬度對應 baseH
             const scaleH = winH / baseW; // 旋轉後高度對應 baseW
-            const scale = Math.max(scaleW, scaleH); // cover：以較大比例填滿視窗
+            // 強制滿版（偏向放大）：以螢幕較長邊/720 作為縮放基準
+            const scale = Math.max(winW, winH) / baseH;
             // 置中 + 旋轉 + 縮放
             viewport.style.position = 'absolute';
             viewport.style.left = '50%';
