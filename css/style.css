@@ -420,13 +420,14 @@ body {
   #start-screen { overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
   #start-screen .start-card { width: 100vw; height: auto; max-height: 100vh; padding: 12px; border-radius: 8px; overflow: auto; }
   #start-screen .start-grid { grid-template-columns: 1fr; gap: 12px; align-items: start; }
-  /* 交換順序：先看到選項欄，再往下是說明欄 */
-  #start-screen .start-menu { grid-row: 1; margin-top: 12px; width: 100%; transform: none; justify-self: auto; }
-  #start-screen .start-main { grid-row: 2; }
+  /* 修正順序：標題 → 選項 → 說明欄 */
+  #start-screen .start-main { display: contents; }
+  #start-screen .start-header { grid-row: 1; }
+  #start-screen .start-menu { grid-row: 2; margin-top: 12px; width: 100%; transform: none; justify-self: auto; }
+  #start-screen .content-window { grid-row: 3; width: 100%; height: auto; max-height: 52vh; margin: 8px 0 0; }
   /* 手機隱藏開始介面兩張裝飾底圖 */
   #start-screen .start-menu .start-illustration { display: none; }
   #start-screen .content-window .content-illustration { display: none; }
-  #start-screen .content-window { width: 100%; height: auto; max-height: 52vh; margin: 8px 0 0; }
   #start-screen .content-window h2 { font-size: 16px; padding: 8px 10px; }
   #start-screen .content-window .content { font-size: 15px; line-height: 1.7; padding: 10px; }
   #start-screen .menu-btn { font-size: 15px; padding: 12px 14px; min-height: 42px; -webkit-tap-highlight-color: transparent; }
