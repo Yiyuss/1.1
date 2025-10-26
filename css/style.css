@@ -1466,25 +1466,25 @@ body {
 
 /* RWD: Mobile-only font size tweaks for difficulty screen (keep PC unchanged) */
 @media (max-width: 900px) {
-  #difficulty-select-screen .select-title { font-size: 1.9rem; }
-  #difficulty-select-screen .select-title::after { font-size: 0.90rem; }
-  #difficulty-select-screen .diff-card { font-size: 1.7rem; }
-  #difficulty-select-screen .diff-card .diff-intro { font-size: 0.95rem; }
-  #difficulty-select-screen .diff-card::after { font-size: 1.00rem; }
+  /* 手機：隱藏標題與介紹 */
+  #difficulty-select-screen .select-title { display: none; }
+  #difficulty-select-screen .select-title::after { display: none; }
+  #difficulty-select-screen .diff-card .diff-intro { display: none; }
+  /* 底部「選擇」恢復原始字級 */
+  #difficulty-select-screen .diff-card::after { font-size: 1.05rem; }
+  /* 副標「簡單／困難」維持目前設定（不覆蓋 .diff-card 字級） */
 }
 @media (max-width: 700px) {
-  #difficulty-select-screen .select-title { font-size: 1.75rem; }
-  #difficulty-select-screen .select-title::after { font-size: 0.86rem; }
-  #difficulty-select-screen .diff-card { font-size: 1.6rem; }
-  #difficulty-select-screen .diff-card .diff-intro { font-size: 0.92rem; }
-  #difficulty-select-screen .diff-card::after { font-size: 0.98rem; }
+  #difficulty-select-screen .select-title { display: none; }
+  #difficulty-select-screen .select-title::after { display: none; }
+  #difficulty-select-screen .diff-card .diff-intro { display: none; }
+  #difficulty-select-screen .diff-card::after { font-size: 1.05rem; }
 }
 @media (max-width: 480px) {
-  #difficulty-select-screen .select-title { font-size: 1.6rem; }
-  #difficulty-select-screen .select-title::after { font-size: 0.84rem; }
-  #difficulty-select-screen .diff-card { font-size: 1.5rem; }
-  #difficulty-select-screen .diff-card .diff-intro { font-size: 0.90rem; }
-  #difficulty-select-screen .diff-card::after { font-size: 0.95rem; }
+  #difficulty-select-screen .select-title { display: none; }
+  #difficulty-select-screen .select-title::after { display: none; }
+  #difficulty-select-screen .diff-card .diff-intro { display: none; }
+  #difficulty-select-screen .diff-card::after { font-size: 1.05rem; }
 }
 
 /* 返回按鈕維持一致視覺（移到右上角） */
