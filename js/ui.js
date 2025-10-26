@@ -172,12 +172,17 @@ const UI = {
             if (!viewport) return;
             // 僅在手機且遊戲畫面顯示時處理
             const inGame = this.isScreenVisible('game-screen');
-            if (!this._isMobile() || !inGame || !this._mobileRotationActive) {
+            const isMobile = this._isMobile();
+            if (!isMobile || !inGame || !this._mobileRotationActive) {
                 viewport.style.transform = '';
                 viewport.style.transformOrigin = '';
                 return;
             }
-            const isLandscape = window.matchMedia('(orientation: landscape)').matches;
+            // 橫向偵測：優先使用 Screen Orientation，退回寬>高
+            const winW = window.innerWidth;
+            const winH = window.innerHeight;
+            const hasAPI = !!(window.screen && window.screen.orientation && window.screen.orientation.type);
+            const isLandscape = hasAPI ? window.screen.orientation.type.startsWith('landscape') : (winW > winH);
             if (!isLandscape) {
                 viewport.style.transform = '';
                 viewport.style.transformOrigin = '';
@@ -186,10 +191,8 @@ const UI = {
             // 基準尺寸：CSS 中 #viewport 設為 1280x720
             const baseW = 1280;
             const baseH = 720;
-            const winW = window.innerWidth;
-            const winH = window.innerHeight;
-            // 旋轉 90 度後，寬度取 baseH，高度取 baseW
-            const scale = Math.min(winW / baseH, winH / baseW);
+            // 以「填滿寬度」為優先，允許高度裁切以換取更大畫面
+            const scale = winW / baseH;
             viewport.style.transformOrigin = 'center center';
             viewport.style.transform = `rotate(90deg) scale(${scale})`;
         } catch (e) {
