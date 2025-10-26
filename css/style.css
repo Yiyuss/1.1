@@ -420,8 +420,12 @@ body {
   #start-screen { overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
   #start-screen .start-card { width: 100vw; height: auto; max-height: 100vh; padding: 12px; border-radius: 8px; overflow: auto; }
   #start-screen .start-grid { grid-template-columns: 1fr; gap: 12px; align-items: start; }
-  #start-screen .start-menu { margin-top: 12px; width: 100%; transform: none; justify-self: auto; }
+  /* 交換順序：先看到選項欄，再往下是說明欄 */
+  #start-screen .start-menu { grid-row: 1; margin-top: 12px; width: 100%; transform: none; justify-self: auto; }
+  #start-screen .start-main { grid-row: 2; }
+  /* 手機隱藏開始介面兩張裝飾底圖 */
   #start-screen .start-menu .start-illustration { display: none; }
+  #start-screen .content-window .content-illustration { display: none; }
   #start-screen .content-window { width: 100%; height: auto; max-height: 52vh; margin: 8px 0 0; }
   #start-screen .content-window h2 { font-size: 16px; padding: 8px 10px; }
   #start-screen .content-window .content { font-size: 15px; line-height: 1.7; padding: 10px; }
