@@ -985,6 +985,61 @@ document.addEventListener('DOMContentLoaded', function() {
     // 綁定引繼碼介面事件
     setupBackupInterface();
 
+    // 開始畫面右側選單：切換左側視窗內容 + 顯示音量疊蓋
+    (function setupStartMenuNav(){
+        const menu = document.querySelector('#start-screen .start-menu');
+        if (!menu) return;
+        const items = menu.querySelectorAll('.menu-btn[data-target]');
+        const titleEl = document.getElementById('content-title');
+        const bodyEl = document.getElementById('content-body');
+        const templates = {
+            gameplay: document.getElementById('tpl-gameplay'),
+            announce: document.getElementById('tpl-announce'),
+            regarding: document.getElementById('tpl-regarding')
+        };
+        const render = (key) => {
+            const tpl = templates[key];
+            if (!tpl || !titleEl || !bodyEl) return;
+            const h2 = tpl.querySelector('h2');
+            const content = tpl.querySelector('.content');
+            titleEl.textContent = h2 ? h2.textContent : '';
+            bodyEl.innerHTML = content ? content.innerHTML : '';
+        };
+        // 預設顯示「遊戲玩法」
+        render('gameplay');
+
+        items.forEach(btn => {
+            const target = btn.getAttribute('data-target');
+            btn.addEventListener('click', () => {
+                if (target === 'settings') {
+                    playClick();
+                    const overlay = document.getElementById('settings-overlay');
+                    overlay && overlay.classList.remove('hidden');
+                } else {
+                    playClick2();
+                    render(target);
+                }
+            });
+        });
+
+        // 關閉音量疊蓋
+        const closeBtn = document.getElementById('settings-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                const overlay = document.getElementById('settings-overlay');
+                overlay && overlay.classList.add('hidden');
+            });
+        }
+        const overlay = document.getElementById('settings-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', (e) => {
+                if (e.target && e.target.id === 'settings-overlay') {
+                    overlay.classList.add('hidden');
+                }
+            });
+        }
+    })();
+
     // ESC 返回：備份/選圖/選難度（不更動既有返回按鈕）
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
