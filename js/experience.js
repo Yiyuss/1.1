@@ -31,7 +31,10 @@ class ExperienceOrb extends Entity {
         // 檢查是否被玩家收集
         if (this.isColliding(player)) {
             if (typeof AudioManager !== 'undefined') {
-                AudioManager.playSound('collect_exp');
+                // 尊重 EXP 音效開關
+                if (AudioManager.expSoundEnabled !== false) {
+                    AudioManager.playSound('collect_exp');
+                }
             }
             player.gainExperience(this.value);
             this.destroy();
