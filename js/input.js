@@ -63,9 +63,10 @@ const Input = {
             console.log('滑鼠點擊目標(已夾限):', this.mouseTarget);
         });
         
-        // 監聽滑鼠移動事件（拖曳）
+        // 監聽滑鼠移動事件（僅在按住左鍵時拖曳）
         Game.canvas.addEventListener('mousemove', (e) => {
-            if (!this.isMouseMoving) return;
+            // 僅在按住左鍵（拖曳）時才更新目標，避免快速點擊後持續跟隨
+            if (!this.isMouseMoving || !(e.buttons & 1)) return;
             const rect = Game.canvas.getBoundingClientRect();
             const camX = Game.camera?.x || 0;
             const camY = Game.camera?.y || 0;
