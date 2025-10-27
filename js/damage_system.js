@@ -144,13 +144,11 @@
         const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
         if (rotatedPortrait) {
           // 直立旋轉90°：世界→螢幕座標（與 input.js 的CW映射相反變換）
-          const W = canvas.width;
-          const H = canvas.height;
           const xPrime = x - camX;
           const yPrime = y - camY;
-          // u = 1 - (y'/H), v = x'/W; left = u * rect.width; top = v * rect.height
-          sx = (1 - (yPrime / H)) * rect.width;
-          sy = (xPrime / W) * rect.height;
+          // 直立旋轉：使用畫布原座標，交由 viewport 的 transform 處理縮放/旋轉
+          sx = xPrime;
+          sy = yPrime;
         } else {
           // 未旋轉：標準座標換算
           sx = (x - camX) * scaleX;
