@@ -29,7 +29,7 @@ const CONFIG = {
             COOLDOWN: 5000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 0,
-            DURATION: 1000,
+            DURATION: 2000,
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復1HP" },
                 { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復2HP" },
