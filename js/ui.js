@@ -1237,6 +1237,8 @@ _actionHold: function() {
                 // 使用基準尺寸，避免 main.js 的寬高縮放與旋轉互相抵觸
                 viewport.style.width = baseW + 'px';
                 viewport.style.height = baseH + 'px';
+                // 標記：手機直立旋轉中，避免 main.js 再次縮放
+                document.documentElement.classList.add('mobile-rotation-active');
                 document.documentElement.style.setProperty('--ui-scale', String(scale));
             } else {
                 // 橫向：移除旋轉，交由既有等比縮放邏輯處理
@@ -1247,6 +1249,8 @@ _actionHold: function() {
                 viewport.style.transform = '';
                 viewport.style.width = '';
                 viewport.style.height = '';
+                // 取消標記：不在直立旋轉狀態
+                document.documentElement.classList.remove('mobile-rotation-active');
                 const scale = Math.max(0.1, Math.min(w / baseW, h / baseH));
                 document.documentElement.style.setProperty('--ui-scale', String(scale));
             }
