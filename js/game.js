@@ -387,18 +387,20 @@ const Game = {
             projectile.draw(this.ctx);
         }
         
-        // 繪製 BOSS 火彈投射物
-        if (this.bossProjectiles) {
-            for (const bossProjectile of this.bossProjectiles) {
-                bossProjectile.draw(this.ctx);
-            }
-        }
+        // （移至前景）BOSS 火彈投射物原本在敵人之前繪製，改為敵人之上
         
         // （移至前景）爆炸粒子原本在敵人之前繪製，改為敵人之上
         
         // 繪製敵人
         for (const enemy of this.enemies) {
             enemy.draw(this.ctx);
+        }
+        
+        // 前景層：BOSS 火彈投射物（提高可見度，避免被怪物遮擋）
+        if (this.bossProjectiles) {
+            for (const bossProjectile of this.bossProjectiles) {
+                bossProjectile.draw(this.ctx);
+            }
         }
         
         // 前景層：爆炸粒子（例如追蹤綿羊命中效果）
