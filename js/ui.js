@@ -1193,53 +1193,6 @@ _actionHold: function() {
                 // 標記：手機直立旋轉中，避免 main.js 再次縮放
                 document.documentElement.classList.add('mobile-rotation-active');
                 document.documentElement.style.setProperty('--ui-scale', String(scale));
-                // 在旋轉狀態下強制使用桌面 HUD 佈局（覆蓋手機媒體查詢）
-                try {
-                    const gameUI = document.getElementById('game-ui');
-                    if (gameUI) {
-                        const set = (el, prop, value) => { if (el) el.style.setProperty(prop, value, 'important'); };
-                        const avatar = document.getElementById('player-avatar');
-                        const levelInfo = document.getElementById('level-info');
-                        const timerEl = document.getElementById('timer');
-                        const waveEl = document.getElementById('wave-info');
-                        const coinsEl = document.getElementById('coins-display');
-                        const hbC = document.getElementById('health-bar-container');
-                        const ebC = document.getElementById('exp-bar-container');
-                        const enC = document.getElementById('energy-bar-container');
-                        const hb = document.getElementById('health-bar');
-                        const eb = document.getElementById('exp-bar');
-                        const en = document.getElementById('energy-bar');
-                        set(avatar, 'width', '96px');
-                        set(avatar, 'height', '96px');
-                        set(avatar, 'top', '10px');
-                        set(avatar, 'left', '10px');
-                        set(levelInfo, 'top', '10px');
-                        set(levelInfo, 'left', '120px');
-                        set(levelInfo, 'font-size', '1rem');
-                        set(timerEl, 'top', '10px');
-                        set(timerEl, 'right', '10px');
-                        set(timerEl, 'font-size', '1.4rem');
-                        set(waveEl, 'top', '42px');
-                        set(waveEl, 'right', '10px');
-                        set(waveEl, 'font-size', '1.2rem');
-                        set(coinsEl, 'top', '74px');
-                        set(coinsEl, 'right', '10px');
-                        set(coinsEl, 'font-size', '1.1rem');
-                        set(hbC, 'top', '40px');
-                        set(hbC, 'left', '120px');
-                        set(ebC, 'top', '70px');
-                        set(ebC, 'left', '120px');
-                        set(enC, 'top', '100px');
-                        set(enC, 'left', '120px');
-                        set(hb, 'width', '200px');
-                        set(hb, 'height', '20px');
-                        set(eb, 'width', '200px');
-                        set(eb, 'height', '20px');
-                        set(en, 'width', '200px');
-                        set(en, 'height', '20px');
-                        gameUI.querySelectorAll('.ui-label').forEach(l => l && l.style.setProperty('display', 'inline', 'important'));
-                    }
-                } catch(_) {}
             } else {
                 // 橫向：移除旋轉，交由既有等比縮放邏輯處理
                 viewport.style.position = '';
@@ -1251,30 +1204,6 @@ _actionHold: function() {
                 viewport.style.height = '';
                 // 取消標記：不在直立旋轉狀態
                 document.documentElement.classList.remove('mobile-rotation-active');
-                // 撤銷旋轉時套用的 HUD 內聯覆蓋
-                try {
-                    const gameUI = document.getElementById('game-ui');
-                    if (gameUI) {
-                        const unset = (el, prop) => { if (el) el.style.removeProperty(prop); };
-                        const avatar = document.getElementById('player-avatar');
-                        const levelInfo = document.getElementById('level-info');
-                        const timerEl = document.getElementById('timer');
-                        const waveEl = document.getElementById('wave-info');
-                        const coinsEl = document.getElementById('coins-display');
-                        const hbC = document.getElementById('health-bar-container');
-                        const ebC = document.getElementById('exp-bar-container');
-                        const enC = document.getElementById('energy-bar-container');
-                        const hb = document.getElementById('health-bar');
-                        const eb = document.getElementById('exp-bar');
-                        const en = document.getElementById('energy-bar');
-                        ['width','height','top','left','right','font-size'].forEach(p => {
-                            unset(avatar, p); unset(levelInfo, p); unset(timerEl, p); unset(waveEl, p); unset(coinsEl, p);
-                            unset(hbC, p); unset(ebC, p); unset(enC, p);
-                            unset(hb, p); unset(eb, p); unset(en, p);
-                        });
-                        gameUI.querySelectorAll('.ui-label').forEach(l => l && l.style.removeProperty('display'));
-                    }
-                } catch(_) {}
                 const scale = Math.max(0.1, Math.min(w / baseW, h / baseH));
                 document.documentElement.style.setProperty('--ui-scale', String(scale));
             }
