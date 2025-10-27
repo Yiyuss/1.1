@@ -34,11 +34,22 @@ const Input = {
         // 監聽滑鼠點擊事件
         Game.canvas.addEventListener('click', (e) => {
             const rect = Game.canvas.getBoundingClientRect();
-            const scaleX = Game.canvas.width / rect.width;
-            const scaleY = Game.canvas.height / rect.height;
-            // 轉為世界座標（加上鏡頭偏移）
-            this.mousePosition.x = (e.clientX - rect.left) * scaleX + (Game.camera?.x || 0);
-            this.mousePosition.y = (e.clientY - rect.top) * scaleY + (Game.camera?.y || 0);
+            const camX = Game.camera?.x || 0;
+            const camY = Game.camera?.y || 0;
+            const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+            if (rotatedPortrait) {
+                // 父容器已旋轉90度：交換軸並以可視寬高計算比例
+                const scaleX = Game.canvas.width / rect.height;   // 對應螢幕縱向
+                const scaleY = Game.canvas.height / rect.width;   // 對應螢幕橫向
+                this.mousePosition.x = (e.clientY - rect.top) * scaleX + camX;
+                this.mousePosition.y = (e.clientX - rect.left) * scaleY + camY;
+            } else {
+                const scaleX = Game.canvas.width / rect.width;
+                const scaleY = Game.canvas.height / rect.height;
+                // 轉為世界座標（加上鏡頭偏移）
+                this.mousePosition.x = (e.clientX - rect.left) * scaleX + camX;
+                this.mousePosition.y = (e.clientY - rect.top) * scaleY + camY;
+            }
             // 將目標點夾限在可到達範圍內，避免卡在邊界
             const halfW = Game.player ? Game.player.width / 2 : 0;
             const halfH = Game.player ? Game.player.height / 2 : 0;
@@ -55,11 +66,21 @@ const Input = {
         // 監聽滑鼠移動事件以更新位置
         Game.canvas.addEventListener('mousemove', (e) => {
             const rect = Game.canvas.getBoundingClientRect();
-            const scaleX = Game.canvas.width / rect.width;
-            const scaleY = Game.canvas.height / rect.height;
-            // 轉為世界座標（加上鏡頭偏移）
-            this.mousePosition.x = (e.clientX - rect.left) * scaleX + (Game.camera?.x || 0);
-            this.mousePosition.y = (e.clientY - rect.top) * scaleY + (Game.camera?.y || 0);
+            const camX = Game.camera?.x || 0;
+            const camY = Game.camera?.y || 0;
+            const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+            if (rotatedPortrait) {
+                const scaleX = Game.canvas.width / rect.height;   // 對應螢幕縱向
+                const scaleY = Game.canvas.height / rect.width;   // 對應螢幕橫向
+                this.mousePosition.x = (e.clientY - rect.top) * scaleX + camX;
+                this.mousePosition.y = (e.clientX - rect.left) * scaleY + camY;
+            } else {
+                const scaleX = Game.canvas.width / rect.width;
+                const scaleY = Game.canvas.height / rect.height;
+                // 轉為世界座標（加上鏡頭偏移）
+                this.mousePosition.x = (e.clientX - rect.left) * scaleX + camX;
+                this.mousePosition.y = (e.clientY - rect.top) * scaleY + camY;
+            }
         });
         
         console.log('輸入系統已初始化');
