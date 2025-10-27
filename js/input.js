@@ -38,15 +38,15 @@ const Input = {
             const camY = Game.camera?.y || 0;
             const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
             if (rotatedPortrait) {
-                // 父容器已旋轉90度：交換軸並以可視寬高計算比例
-                const scaleX = Game.canvas.width / rect.height;   // 對應螢幕縱向
-                const scaleY = Game.canvas.height / rect.width;   // 對應螢幕橫向
-                this.mousePosition.x = (e.clientY - rect.top) * scaleX + camX;
-                this.mousePosition.y = (e.clientX - rect.left) * scaleY + camY;
+                // 直立旋轉90°：畫面座標→原始畫布座標（CW 映射）
+                const u = (e.clientX - rect.left) / rect.width;   // [0,1]
+                const v = (e.clientY - rect.top) / rect.height;   // [0,1]
+                this.mousePosition.x = v * Game.canvas.width + camX;          // x = v * W
+                this.mousePosition.y = (1 - u) * Game.canvas.height + camY;   // y = (1-u) * H
             } else {
                 const scaleX = Game.canvas.width / rect.width;
                 const scaleY = Game.canvas.height / rect.height;
-                // 轉為世界座標（加上鏡頭偏移）
+                // 未旋轉：標準座標換算
                 this.mousePosition.x = (e.clientX - rect.left) * scaleX + camX;
                 this.mousePosition.y = (e.clientY - rect.top) * scaleY + camY;
             }
@@ -63,17 +63,19 @@ const Input = {
             console.log('滑鼠點擊目標(已夾限):', this.mouseTarget);
         });
         
-        // 監聽滑鼠移動事件以更新位置
+        // 監聽滑鼠移動事件（拖曳）
         Game.canvas.addEventListener('mousemove', (e) => {
+            if (!this.isMouseMoving) return;
             const rect = Game.canvas.getBoundingClientRect();
             const camX = Game.camera?.x || 0;
             const camY = Game.camera?.y || 0;
             const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
             if (rotatedPortrait) {
-                const scaleX = Game.canvas.width / rect.height;   // 對應螢幕縱向
-                const scaleY = Game.canvas.height / rect.width;   // 對應螢幕橫向
-                this.mousePosition.x = (e.clientY - rect.top) * scaleX + camX;
-                this.mousePosition.y = (e.clientX - rect.left) * scaleY + camY;
+                // 與點擊一致：CW 旋轉的逆映射
+                const u = (e.clientX - rect.left) / rect.width;   // [0,1]
+                const v = (e.clientY - rect.top) / rect.height;   // [0,1]
+                this.mousePosition.x = v * Game.canvas.width + camX;
+                this.mousePosition.y = (1 - u) * Game.canvas.height + camY;
             } else {
                 const scaleX = Game.canvas.width / rect.width;
                 const scaleY = Game.canvas.height / rect.height;
@@ -81,6 +83,15 @@ const Input = {
                 this.mousePosition.x = (e.clientX - rect.left) * scaleX + camX;
                 this.mousePosition.y = (e.clientY - rect.top) * scaleY + camY;
             }
+            // 夾限更新
+            const halfW = Game.player ? Game.player.width / 2 : 0;
+            const halfH = Game.player ? Game.player.height / 2 : 0;
+            const worldW = Game.worldWidth || Game.canvas.width;
+            const worldH = Game.worldHeight || Game.canvas.height;
+            const margin = CONFIG.PLAYER?.BORDER_MARGIN || 0;
+            const clampedX = Utils.clamp(this.mousePosition.x, halfW + margin, Math.max(halfW + margin, worldW - halfW - margin));
+            const clampedY = Utils.clamp(this.mousePosition.y, halfH + margin, Math.max(halfH + margin, worldH - halfH - margin));
+            this.mouseTarget = { x: clampedX, y: clampedY };
         });
         
         console.log('輸入系統已初始化');
