@@ -141,8 +141,21 @@
         const scaleY = rect.height / canvas.height;
         const camX = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0;
         const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
-        sx = (x - camX) * scaleX;
-        sy = (y - camY) * scaleY;
+        const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+        if (rotatedPortrait) {
+          // 直立旋轉90°：世界→螢幕座標（與 input.js 的CW映射相反變換）
+          const W = canvas.width;
+          const H = canvas.height;
+          const xPrime = x - camX;
+          const yPrime = y - camY;
+          // u = 1 - (y'/H), v = x'/W; left = u * rect.width; top = v * rect.height
+          sx = (1 - (yPrime / H)) * rect.width;
+          sy = (xPrime / W) * rect.height;
+        } else {
+          // 未旋轉：標準座標換算
+          sx = (x - camX) * scaleX;
+          sy = (y - camY) * scaleY;
+        }
         // 若位於可視範圍之外，略過渲染（避免邊界外跳動）
         const vw = layer.clientWidth || rect.width;
         const vh = layer.clientHeight || rect.height;
