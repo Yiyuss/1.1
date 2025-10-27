@@ -1192,7 +1192,8 @@ _actionHold: function() {
                 viewport.style.height = baseH + 'px';
                 // 標記：手機直立旋轉中，避免 main.js 再次縮放
                 document.documentElement.classList.add('mobile-rotation-active');
-                document.documentElement.style.setProperty('--ui-scale', String(scale));
+                // 直立旋轉時由 viewport 的 transform 控制縮放，避免 UI 變數再次縮放
+                document.documentElement.style.setProperty('--ui-scale', '1');
             } else {
                 // 橫向：移除旋轉，交由既有等比縮放邏輯處理
                 viewport.style.position = '';
