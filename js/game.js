@@ -378,8 +378,12 @@ const Game = {
             chest.draw(this.ctx);
         }
         
-        // 繪製投射物
+        // 繪製投射物（除連鎖閃電，連鎖閃電延後至敵人之上）
         for (const projectile of this.projectiles) {
+            if (projectile && projectile.weaponType === 'CHAIN_LIGHTNING') {
+                // 延後到前景層（敵人之上）再繪製
+                continue;
+            }
             projectile.draw(this.ctx);
         }
         
@@ -390,7 +394,14 @@ const Game = {
             }
         }
         
-        // 繪製爆炸粒子
+        // （移至前景）爆炸粒子原本在敵人之前繪製，改為敵人之上
+        
+        // 繪製敵人
+        for (const enemy of this.enemies) {
+            enemy.draw(this.ctx);
+        }
+        
+        // 前景層：爆炸粒子（例如追蹤綿羊命中效果）
         if (this.explosionParticles) {
             for (const particle of this.explosionParticles) {
                 this.ctx.save();
@@ -403,9 +414,11 @@ const Game = {
             }
         }
         
-        // 繪製敵人
-        for (const enemy of this.enemies) {
-            enemy.draw(this.ctx);
+        // 前景層：連鎖閃電效果（電弧與火花）
+        for (const projectile of this.projectiles) {
+            if (projectile && projectile.weaponType === 'CHAIN_LIGHTNING') {
+                projectile.draw(this.ctx);
+            }
         }
         
         // 繪製玩家
