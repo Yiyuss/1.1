@@ -579,6 +579,13 @@ function setupResponsiveViewport() {
     const resizeViewport = () => {
         const viewport = document.getElementById('viewport');
         if (!viewport) return;
+        // 手機直立旋轉時交由 UI 處理，避免雙重縮放
+        const isMobile = (window.matchMedia && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 768px)').matches))
+            || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const mobileRotationActive = document.documentElement.classList.contains('mobile-rotation-active');
+        if (isMobile && mobileRotationActive) {
+            return; // 讓 UI 的旋轉/縮放生效，不覆蓋寬高與變數
+        }
         const targetW = CONFIG.CANVAS_WIDTH;
         const targetH = CONFIG.CANVAS_HEIGHT;
         const scale = Math.min(window.innerWidth / targetW, window.innerHeight / targetH);
