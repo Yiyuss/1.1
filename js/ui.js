@@ -140,6 +140,120 @@ const UI = {
     },
 
     /**
+     * 手機偵測（與既有 RWD 邏輯一致）：指標粗糙或窄螢幕
+     */
+    _isMobile: function() {
+        const coarse = window.matchMedia('(pointer: coarse)').matches;
+        const narrow = window.matchMedia('(max-width: 768px)').matches;
+        return coarse || narrow;
+    },
+
+    /**
+     * 啟用：手機橫向時旋轉並縮放遊戲畫面（僅在 #game-screen 顯示時生效）
+     */
+    enableMobileLandscapeRotation: function() {
+        this._mobileRotationActive = true;
+        // 綁定一次更新函式
+        if (!this._boundMobileRotationUpdate) {
+            this._boundMobileRotationUpdate = this._updateMobileRotation.bind(this);
+        }
+        window.addEventListener('resize', this._boundMobileRotationUpdate);
+        window.addEventListener('orientationchange', this._boundMobileRotationUpdate);
+        // 立即執行一次
+        this._updateMobileRotation();
+    },
+
+    /**
+     * 實作：依螢幕方向與可見狀態，對 #viewport 套用 transform
+     */
+    _updateMobileRotation: function() {
+        try {
+            const viewport = document.getElementById('viewport');
+            if (!viewport) return;
+            const inGame = this.isScreenVisible('game-screen');
+            const isMobile = this._isMobile();
+            if (!isMobile || !inGame || !this._mobileRotationActive) {
+                // 還原預設定位與樣式
+                viewport.style.position = 'relative';
+                viewport.style.left = '';
+                viewport.style.top = '';
+                viewport.style.transform = '';
+                viewport.style.transformOrigin = '';
+                return;
+            }
+            // 使用 visualViewport（可用時），提高在行動瀏覽器的穩定性
+            const vw = (window.visualViewport && window.visualViewport.width) ? window.visualViewport.width : window.innerWidth;
+            const vh = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
+            const baseW = 1280; // 原始寬度
+            const baseH = 720;  // 原始高度
+            // 方向偵測優先級：matchMedia -> Screen Orientation -> iOS window.orientation -> 寬高比較
+            let isPortrait = null;
+            try {
+                if (window.matchMedia) {
+                    isPortrait = window.matchMedia('(orientation: portrait)').matches;
+                }
+            } catch (_) {}
+            if (isPortrait === null) {
+                const hasAPI = !!(window.screen && window.screen.orientation && window.screen.orientation.type);
+                if (hasAPI) isPortrait = window.screen.orientation.type.startsWith('portrait');
+            }
+            if (isPortrait === null && typeof window.orientation === 'number') {
+                isPortrait = Math.abs(window.orientation) !== 90; // iOS Safari fallback
+            }
+            if (isPortrait === null) {
+                isPortrait = vh >= vw;
+            }
+            if (!isPortrait) {
+                // 實體為橫向：不旋轉，但調整縮放以適應螢幕大小
+                viewport.style.position = 'fixed';
+                viewport.style.left = '50%';
+                viewport.style.top = '50%';
+                viewport.style.transformOrigin = 'center center';
+                
+                // 計算適合橫向螢幕的縮放比例
+                const scaleW = vw / baseW;
+                const scaleH = vh / baseH;
+                const scale = Math.min(scaleW, scaleH); // 使用最小值確保畫面完全可見
+                
+                viewport.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                return;
+            }
+            // portrait：旋轉 90 度並以 cover 填滿（以寬/高兩者取最大）
+            const scaleW = vw / baseH;
+            const scaleH = vh / baseW;
+            const scale = Math.max(scaleW, scaleH);
+            viewport.style.position = 'fixed';
+            viewport.style.left = '50%';
+            viewport.style.top = '50%';
+            viewport.style.transformOrigin = 'center center';
+            viewport.style.transform = `translate(-50%, -50%) rotate(90deg) scale(${scale})`;
+        } catch (e) {
+            console.error('更新手機橫向旋轉時發生錯誤:', e);
+        }
+    },
+
+    /**
+     * 停用：移除監聽並還原樣式
+     */
+    disableMobileLandscapeRotation: function() {
+        this._mobileRotationActive = false;
+        try {
+            if (this._boundMobileRotationUpdate) {
+                window.removeEventListener('resize', this._boundMobileRotationUpdate);
+                window.removeEventListener('orientationchange', this._boundMobileRotationUpdate);
+            }
+            const viewport = document.getElementById('viewport');
+            if (viewport) {
+                viewport.style.position = 'relative';
+                viewport.style.left = '';
+                viewport.style.top = '';
+                viewport.style.transform = '';
+                viewport.style.transformOrigin = '';
+            }
+        } catch (_) {}
+    },
+
+    /**
      * 判斷是否有覆蓋層選單開啟（升級/技能）
      * 依賴：#level-up-menu、#skills-menu；.hidden 隱藏規則。
      * 不變式：僅檢查兩者是否可見；不影響其他畫面判斷。
@@ -233,6 +347,8 @@ const UI = {
         const charSel = this._get('character-select-screen'); if (charSel) charSel.classList.add('hidden');
         const mapSel = this._get('map-select-screen'); if (mapSel) mapSel.classList.add('hidden');
         const start = this._get('start-screen'); if (start) start.classList.remove('hidden');
+        // 返回開始畫面時停用手機橫向旋轉
+        try { if (this.disableMobileLandscapeRotation) this.disableMobileLandscapeRotation(); } catch (_) {}
         Game.isGameOver = false;
         try { if (AudioManager && AudioManager.setMuted) { AudioManager.setMuted(false); } else { AudioManager.isMuted = false; } } catch (_) {}
         // 先確保停止殘留的音樂，再切入選單場景
