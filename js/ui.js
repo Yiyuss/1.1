@@ -65,6 +65,8 @@ const UI = {
         this._heldOptionIndex = null;
         this._pendingOptionIndex = null;
         this._actionsBound = false;
+        // 啟用：手機螢幕旋轉適應（僅行動裝置；不影響PC）
+        try { this.initMobileViewportRotation(); } catch (_) {}
     },
     
     // 更新血量條
@@ -1187,5 +1189,67 @@ _actionHold: function() {
             } catch (_) {}
             refresh();
         });
+    },
+
+    /**
+     * 初始化：手機螢幕旋轉適應（僅行動裝置）
+     * 依賴：#viewport、CONFIG.CANVAS_WIDTH/HEIGHT、window.matchMedia、window.addEventListener
+     * 不變式：不改動任何既有文字/流程；PC不受影響。
+     * 維護提示：此功能只調整 #viewport 的定位與變形；不動 SaveCode。
+     */
+    initMobileViewportRotation: function() {
+        try {
+            const isMobile = (window.matchMedia && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 768px)').matches))
+                || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (!isMobile) return;
+            if (this._mobileRotationBound) return;
+            this._mobileRotationHandler = this.applyMobileViewportRotation.bind(this);
+            window.addEventListener('resize', this._mobileRotationHandler);
+            window.addEventListener('orientationchange', this._mobileRotationHandler);
+            this._mobileRotationBound = true;
+            this.applyMobileViewportRotation();
+        } catch(_) {}
+    },
+
+    /**
+     * 執行：手機直立時旋轉 90 度並縮放；橫向時僅縮放
+     * 依賴：#viewport、CONFIG.CANVAS_WIDTH/HEIGHT、document.documentElement.style --ui-scale
+     * 不變式：不更改任何文案與UI排列；PC不觸發。
+     */
+    applyMobileViewportRotation: function() {
+        try {
+            const viewport = document.getElementById('viewport');
+            if (!viewport) return;
+            const w = window.innerWidth || document.documentElement.clientWidth;
+            const h = window.innerHeight || document.documentElement.clientHeight;
+            const baseW = (typeof CONFIG !== 'undefined' && CONFIG.CANVAS_WIDTH) ? CONFIG.CANVAS_WIDTH : 1280;
+            const baseH = (typeof CONFIG !== 'undefined' && CONFIG.CANVAS_HEIGHT) ? CONFIG.CANVAS_HEIGHT : 720;
+            const isPortrait = window.matchMedia ? window.matchMedia('(orientation: portrait)').matches : (h >= w);
+
+            if (isPortrait) {
+                // 直立：旋轉90度並居中。以旋轉後寬高（baseH, baseW）計算縮放
+                const scale = Math.max(0.1, Math.min(w / baseH, h / baseW));
+                viewport.style.position = 'fixed';
+                viewport.style.top = '50%';
+                viewport.style.left = '50%';
+                viewport.style.transformOrigin = 'center center';
+                viewport.style.transform = `translate(-50%, -50%) rotate(90deg) scale(${scale})`;
+                // 使用基準尺寸，避免 main.js 的寬高縮放與旋轉互相抵觸
+                viewport.style.width = baseW + 'px';
+                viewport.style.height = baseH + 'px';
+                document.documentElement.style.setProperty('--ui-scale', String(scale));
+            } else {
+                // 橫向：移除旋轉，交由既有等比縮放邏輯處理
+                viewport.style.position = '';
+                viewport.style.top = '';
+                viewport.style.left = '';
+                viewport.style.transformOrigin = '';
+                viewport.style.transform = '';
+                viewport.style.width = '';
+                viewport.style.height = '';
+                const scale = Math.max(0.1, Math.min(w / baseW, h / baseH));
+                document.documentElement.style.setProperty('--ui-scale', String(scale));
+            }
+        } catch(_) {}
     }
 };
