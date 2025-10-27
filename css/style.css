@@ -576,34 +576,7 @@ body {
 }
 
 /* 手機響應式調整：縮小字體與血條尺寸，避免遮擋 */
-@media (max-width: 600px) {
-    #level-info { font-size: 0.85rem; top: 6px; left: 58px; }
-    #timer { font-size: 1rem; top: 6px; }
-    #wave-info { font-size: 0.9rem; top: 24px; }
-    #coins-display { font-size: 0.9rem; top: 42px; }
-    #coins-icon { width: 18px; height: 18px; margin-right: 4px; }
-    #health-bar, #exp-bar, #energy-bar { width: 100px; height: 9px; border-width: 1px; }
-    #health-text, #exp-text, #energy-text { font-size: 0.78rem; margin-left: 4px; }
-    .ui-label { display: none; }
-    #health-bar-container { top: 10px; left: 58px; }
-    #exp-bar-container { top: 24px; left: 58px; }
-    #energy-bar-container { top: 38px; left: 58px; }
-    #player-avatar { width: 44px; height: 44px; top: 6px; left: 6px; }
-}
 
-@media (max-width: 400px) {
-    #level-info { font-size: 0.75rem; top: 4px; left: 50px; }
-    #timer { font-size: 0.9rem; top: 4px; }
-    #wave-info { font-size: 0.8rem; top: 20px; }
-    #coins-display { font-size: 0.8rem; top: 36px; }
-    #coins-icon { width: 16px; height: 16px; margin-right: 3px; }
-    #health-bar, #exp-bar, #energy-bar { width: 80px; height: 7px; }
-    #health-text, #exp-text, #energy-text { font-size: 0.7rem; }
-    #health-bar-container { top: 8px; left: 58px; }
-    #exp-bar-container { top: 20px; left: 50px; }
-    #energy-bar-container { top: 32px; left: 50px; }
-    #player-avatar { width: 38px; height: 38px; top: 6px; left: 6px; }
-}
 
 /* ANCHOR: LEVEL-UP-MENU — 僅限升級視窗（不要動全域 `.upgrade-option`）
  * - 視覺覆蓋策略：若調整卡片樣式，請使用 `#level-up-menu .upgrade-option` 以免影響其他介面。
@@ -759,44 +732,6 @@ body {
 #level-up-menu .lum-sidebar .stat-row:nth-child(6) { --accent: #73d58f; }
 #level-up-menu .lum-sidebar .stat-row:nth-child(7) { --accent: #6fb7ff; }
 
-/* 手機版：維持單欄堆疊，避免擠壓字型與行距 */
-@media (max-width: 700px) {
-  /* 手機版：全螢幕覆蓋 + 垂直捲動（不影響PC） */
-  #level-up-menu {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    width: 100vw; height: 100vh;
-    max-width: 100vw; max-height: 100vh;
-    transform: none !important;
-    padding: 16px;
-    border: none;
-    overflow-y: auto; overflow-x: hidden;
-    box-sizing: border-box;
-    background-color: rgba(0,0,0,0.75);
-  }
-  /* 隱藏底圖與升級標題（僅手機） */
-  #level-up-menu .lum-bg, #level-up-menu h2 { display: none !important; }
-  /* 單欄堆疊；右欄在前、左欄在後 */
-  #level-up-menu .lum-columns {
-    display: grid;
-    grid-template-columns: 1fr;
-    grid-auto-rows: auto;
-    gap: 16px;
-    align-items: start;
-    justify-items: stretch;
-    margin-top: 0;
-  }
-  #level-up-menu .lum-options { width: 100%; grid-row: 1; }
-  #level-up-menu .lum-sidebar { width: 100%; grid-row: 2; }
-  #level-up-menu #upgrade-options { width: 100%; }
-  /* 卡片取消最大寬度，跟隨容器 */
-  #level-up-menu .upgrade-option { max-width: none; }
-}
-@media (max-width: 700px) {
-  #level-up-menu .lum-sidebar { display: flex; flex-direction: column; gap: 6px; padding: 9px 12px; }
-  #level-up-menu .lum-sidebar .stat-row:nth-child(1),
-  #level-up-menu .lum-sidebar .stat-row:nth-child(2) { grid-column: auto; }
-}
 #level-up-menu .lum-options { position: relative; }
 
 /* 底部動作列：重抽 / 換一個 / 保留（純UI；不更動數值與存檔） */
