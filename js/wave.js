@@ -105,7 +105,13 @@ const WaveSystem = {
         for (let i = 0; i < count; i++) {
             if (Game.enemies.length >= effectiveMax) break;
             // 隨機選擇敵人類型
-            const enemyType = Utils.randomChoice(availableTypes);
+            let enemyType = Utils.randomChoice(availableTypes);
+            // 第二張地圖（forest）將普通敵人替換為 *_2 變體（基礎數值相同但初始HP+10/ATK+5）
+            if (Game.selectedMap && Game.selectedMap.id === 'forest') {
+                if (enemyType === 'ZOMBIE') enemyType = 'ZOMBIE2';
+                else if (enemyType === 'SKELETON') enemyType = 'SKELETON2';
+                else if (enemyType === 'GHOST') enemyType = 'GHOST2';
+            }
             // 在世界邊緣生成敵人（加入內縮與分散避免重疊）
             const worldW = (Game.worldWidth || Game.canvas.width);
             const worldH = (Game.worldHeight || Game.canvas.height);
@@ -165,54 +171,56 @@ const WaveSystem = {
         }
         this.lastMiniBossWave = this.currentWave;
         this.lastMiniBossTime = Date.now();
-        
-        // 在世界邊緣生成小BOSS（加入內縮與分散避免重疊）
-        const worldW = (Game.worldWidth || Game.canvas.width);
-        const worldH = (Game.worldHeight || Game.canvas.height);
-        const rad = (CONFIG.ENEMIES['MINI_BOSS'] && CONFIG.ENEMIES['MINI_BOSS'].COLLISION_RADIUS) ? CONFIG.ENEMIES['MINI_BOSS'].COLLISION_RADIUS : 32;
-        const inner = rad + 12;
-        const rawPos = Utils.getRandomEdgePositionInWorld(worldW, worldH);
-        let sx = rawPos.x;
-        let sy = rawPos.y;
-        let edge;
-        if (sx < 0) edge = 'left';
-        else if (sx > worldW) edge = 'right';
-        else if (sy < 0) edge = 'top';
-        else edge = 'bottom';
-        if (edge === 'left') {
-            sx = inner; sy = Utils.randomInt(inner, worldH - inner);
-        } else if (edge === 'right') {
-            sx = worldW - inner; sy = Utils.randomInt(inner, worldH - inner);
-        } else if (edge === 'top') {
-            sy = inner; sx = Utils.randomInt(inner, worldW - inner);
-        } else {
-            sy = worldH - inner; sx = Utils.randomInt(inner, worldW - inner);
-        }
-        let attempts = 0;
-        const sep = 6;
-        while (attempts++ < 25) {
-            let overlap = false;
-            for (const e of Game.enemies) {
-                const minDist = rad + (e.collisionRadius || 16) + sep;
-                if (Utils.distance(sx, sy, e.x, e.y) < minDist) { overlap = true; break; }
+        // 第二張地圖（forest）：每波生成 2 隻小BOSS；其餘維持 1 隻。
+        const count = (Game.selectedMap && Game.selectedMap.id === 'forest') ? 2 : 1;
+        for (let idx = 0; idx < count; idx++) {
+            // 在世界邊緣生成小BOSS（加入內縮與分散避免重疊）
+            const worldW = (Game.worldWidth || Game.canvas.width);
+            const worldH = (Game.worldHeight || Game.canvas.height);
+            const rad = (CONFIG.ENEMIES['MINI_BOSS'] && CONFIG.ENEMIES['MINI_BOSS'].COLLISION_RADIUS) ? CONFIG.ENEMIES['MINI_BOSS'].COLLISION_RADIUS : 32;
+            const inner = rad + 12;
+            const rawPos = Utils.getRandomEdgePositionInWorld(worldW, worldH);
+            let sx = rawPos.x;
+            let sy = rawPos.y;
+            let edge;
+            if (sx < 0) edge = 'left';
+            else if (sx > worldW) edge = 'right';
+            else if (sy < 0) edge = 'top';
+            else edge = 'bottom';
+            if (edge === 'left') {
+                sx = inner; sy = Utils.randomInt(inner, worldH - inner);
+            } else if (edge === 'right') {
+                sx = worldW - inner; sy = Utils.randomInt(inner, worldH - inner);
+            } else if (edge === 'top') {
+                sy = inner; sx = Utils.randomInt(inner, worldW - inner);
+            } else {
+                sy = worldH - inner; sx = Utils.randomInt(inner, worldW - inner);
             }
-            if (!overlap) {
-                let blocked = false;
-                for (const o of Game.obstacles) {
-                    if (Utils.circleRectCollision(sx, sy, rad, o.x, o.y, o.width, o.height)) { blocked = true; break; }
+            let attempts = 0;
+            const sep = 6;
+            while (attempts++ < 25) {
+                let overlap = false;
+                for (const e of Game.enemies) {
+                    const minDist = rad + (e.collisionRadius || 16) + sep;
+                    if (Utils.distance(sx, sy, e.x, e.y) < minDist) { overlap = true; break; }
                 }
-                if (!blocked) break;
-                overlap = true;
+                if (!overlap) {
+                    let blocked = false;
+                    for (const o of Game.obstacles) {
+                        if (Utils.circleRectCollision(sx, sy, rad, o.x, o.y, o.width, o.height)) { blocked = true; break; }
+                    }
+                    if (!blocked) break;
+                    overlap = true;
+                }
+                if (edge === 'left') sy = Utils.randomInt(inner, worldH - inner);
+                else if (edge === 'right') sy = Utils.randomInt(inner, worldH - inner);
+                else if (edge === 'top') sx = Utils.randomInt(inner, worldW - inner);
+                else sx = Utils.randomInt(inner, worldW - inner);
             }
-            if (edge === 'left') sy = Utils.randomInt(inner, worldH - inner);
-            else if (edge === 'right') sy = Utils.randomInt(inner, worldH - inner);
-            else if (edge === 'top') sx = Utils.randomInt(inner, worldW - inner);
-            else sx = Utils.randomInt(inner, worldW - inner);
+            const miniBoss = new Enemy(sx, sy, 'MINI_BOSS');
+            Game.addEnemy(miniBoss);
+            console.log('Mini Boss spawned!');
         }
-        const miniBoss = new Enemy(sx, sy, 'MINI_BOSS');
-        
-        Game.addEnemy(miniBoss);
-        console.log('Mini Boss spawned!');
     },
     
     // 生成大BOSS
