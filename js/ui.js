@@ -460,6 +460,25 @@ const UI = {
                     description: '每級+2%爆擊率'
                 });
             }
+            // 新增：生命加成與防禦加成（最高LV10）
+            const hpLv = Math.max(0, Math.min(10, player.healthUpgradeLevel || 0));
+            if (hpLv < 10) {
+                options.push({
+                    type: 'ATTR_HEALTH',
+                    name: '生命加成',
+                    level: hpLv + 1,
+                    description: '每級+20基礎血量'
+                });
+            }
+            const defLv = Math.max(0, Math.min(10, player.defenseUpgradeLevel || 0));
+            if (defLv < 10) {
+                options.push({
+                    type: 'ATTR_DEFENSE',
+                    name: '防禦加成',
+                    level: defLv + 1,
+                    description: '每級+1基礎防禦'
+                });
+            }
         } catch (_) {}
 
         // 每次升級隨機挑選4個（不足4則返回全部）
@@ -493,6 +512,35 @@ const UI = {
         }
         if (weaponType === 'ATTR_CRIT') {
             if (player.critUpgradeLevel < 10) player.critUpgradeLevel += 1;
+            if (typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
+                BuffSystem.applyAttributeUpgrades(player);
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+        if (weaponType === 'ATTR_HEALTH') {
+            if (player.healthUpgradeLevel == null) player.healthUpgradeLevel = 0;
+            // 升級前記錄上限，用於計算補血量
+            const prevMax = player.maxHealth || (CONFIG && CONFIG.PLAYER ? CONFIG.PLAYER.MAX_HEALTH : 200);
+            if (player.healthUpgradeLevel < 10) player.healthUpgradeLevel += 1;
+            if (typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
+                BuffSystem.applyAttributeUpgrades(player);
+            }
+            // 按上限增加量補血（每級+20，但以差值計算更穩健）
+            const deltaMax = Math.max(0, (player.maxHealth || prevMax) - prevMax);
+            player.health = Math.min(player.maxHealth, (player.health || 0) + deltaMax);
+            // 更新血量條
+            try { UI.updateHealthBar(player.health, player.maxHealth); } catch (_) {}
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+        if (weaponType === 'ATTR_DEFENSE') {
+            if (player.defenseUpgradeLevel == null) player.defenseUpgradeLevel = 0;
+            if (player.defenseUpgradeLevel < 10) player.defenseUpgradeLevel += 1;
             if (typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
                 BuffSystem.applyAttributeUpgrades(player);
             }
@@ -1017,7 +1065,9 @@ _createOptionCard: function(option, index) {
     LIGHTNING: 'assets/images/A6.png',
     ORBIT: 'assets/images/A7.png',
     ATTR_ATTACK: 'assets/images/A8.png',
-    ATTR_CRIT: 'assets/images/A9.png'
+    ATTR_CRIT: 'assets/images/A9.png',
+    ATTR_HEALTH: 'assets/images/A10.png',
+    ATTR_DEFENSE: 'assets/images/A11.png'
   };
   const iconSrc = iconMap[option.type] || 'assets/images/A1.png';
   const iconWrap = document.createElement('div');
@@ -1036,7 +1086,7 @@ _createOptionCard: function(option, index) {
   textWrap.appendChild(descElement);
   optionElement.appendChild(iconWrap);
   optionElement.appendChild(textWrap);
-  const category = (option.type === 'ATTR_ATTACK' || option.type === 'ATTR_CRIT')
+  const category = (option.type === 'ATTR_ATTACK' || option.type === 'ATTR_CRIT' || option.type === 'ATTR_HEALTH' || option.type === 'ATTR_DEFENSE')
     ? 'StatUp'
     : (option.type === 'SING' ? 'Skill' : 'Weapon');
   const tagEl = document.createElement('div');
