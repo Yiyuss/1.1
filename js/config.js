@@ -280,7 +280,7 @@ const CONFIG = {
             // 新增：遠程攻擊參數
             RANGED_ATTACK: {
                 ENABLED: true,
-                RANGE: 300, // 攻擊範圍
+                RANGE: 500, // 攻擊範圍
                 COOLDOWN: 2500, // 火彈冷卻時間（毫秒）
                 PROJECTILE_DAMAGE: 60, // 火彈傷害
                 PROJECTILE_SPEED: 6, // 火彈速度
