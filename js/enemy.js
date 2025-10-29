@@ -279,12 +279,24 @@ class Enemy extends Entity {
                 imageName = 'zombie';
                 color = '#0a0';
                 break;
+            case 'ZOMBIE2':
+                imageName = 'zombie2';
+                color = '#0a0';
+                break;
             case 'SKELETON':
                 imageName = 'skeleton';
                 color = '#aaa';
                 break;
+            case 'SKELETON2':
+                imageName = 'skeleton2';
+                color = '#aaa';
+                break;
             case 'GHOST':
                 imageName = 'ghost';
+                color = '#aaf';
+                break;
+            case 'GHOST2':
+                imageName = 'ghost2';
                 color = '#aaf';
                 break;
             case 'MINI_BOSS':
