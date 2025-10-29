@@ -144,7 +144,7 @@ class Projectile extends Entity {
                 // - 若 AudioManager 不存在，靜默跳過；若 explosionParticles 未初始化，按既有格式建立。
                 if (this.weaponType === 'LIGHTNING') {
                     try {
-                        const particleCount = 14; // 輕量爆炸粒子數量，避免性能負擔
+                        const particleCount = 18; // 更顯眼，性能仍安全
                         for (let i = 0; i < particleCount; i++) {
                             const ang = Math.random() * Math.PI * 2;
                             const speed = 2 + Math.random() * 4;
@@ -153,11 +153,13 @@ class Projectile extends Entity {
                                 y: enemy.y,
                                 vx: Math.cos(ang) * speed,
                                 vy: Math.sin(ang) * speed,
-                                life: 260 + Math.random() * 240,
-                                maxLife: 260 + Math.random() * 240,
-                                size: 2 + Math.random() * 4,
+                                life: 520 + Math.random() * 280,
+                                maxLife: 520 + Math.random() * 280,
+                                size: 5 + Math.random() * 3,
                                 color: '#ffffff' // 維護：追蹤綿羊命中爆炸粒子改為白色（純視覺，不影響數值與機制）
                             };
+                            // 用於繪製階段提高不透明度與尺寸
+                            p.source = 'LIGHTNING';
                             if (!Game.explosionParticles) Game.explosionParticles = [];
                             Game.explosionParticles.push(p);
                         }
@@ -203,11 +205,18 @@ class Projectile extends Entity {
             ctx.fill();
         }
         
-        // 繪製尾跡效果
-        ctx.globalAlpha = 0.5;
-        ctx.beginPath();
-        ctx.arc(this.x - Math.cos(this.angle) * 10, this.y - Math.sin(this.angle) * 10, this.width / 3, 0, Math.PI * 2);
-        ctx.fill();
+        // 繪製尾跡效果（避免蓋在圖片上：LIGHTNING/紳士綿羊(FIREBALL)/應援棒(DAGGER)不畫尾跡）
+        const shouldDrawTail = !(
+            this.weaponType === 'LIGHTNING' ||
+            this.weaponType === 'FIREBALL' ||
+            this.weaponType === 'DAGGER'
+        );
+        if (shouldDrawTail) {
+            ctx.globalAlpha = 0.5;
+            ctx.beginPath();
+            ctx.arc(this.x - Math.cos(this.angle) * 10, this.y - Math.sin(this.angle) * 10, this.width / 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
         
         ctx.restore();
     }
