@@ -177,17 +177,17 @@
       el.style.transform = 'translate(-50%, -50%)';
       el.style.fontFamily = this._fontLoaded ? 'GenSenRounded-H, sans-serif' : 'sans-serif';
       el.style.fontWeight = isCrit ? '800' : '600';
-      // 字放大：一般 26px、爆擊 32px（手機視覺適度縮小，不影響 PC）
+      // 字放大：一般 28px、爆擊 34px（手機視覺適度縮小，不影響 PC）
       try {
         const isMobile = (typeof window !== 'undefined') && (
           (window.matchMedia && (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches))
         );
-        const baseSize = isCrit ? 32 : 26;
+        const baseSize = isCrit ? 34 : 28;
         // 手機字級再縮小：0.85 -> 0.75（僅影響手機，不動PC）
         const size = isMobile ? Math.round(baseSize * 0.75) : baseSize;
         el.style.fontSize = size + 'px';
       } catch (_) {
-        el.style.fontSize = isCrit ? '32px' : '26px';
+        el.style.fontSize = isCrit ? '34px' : '28px';
       }
       el.style.color = isCrit ? '#ffeb3b' : '#ffffff';
       // 維護註解：傷害數字邊框強化 — 先以白色較粗外框提升字重，外層保留原有「黑色細邊框」以維持對比度與可讀性
@@ -214,8 +214,8 @@
       const mag = isCrit ? 46 : 36;
       const dx = nx * mag;
       const dy = ny * mag;
-      // 顯示時間加長：一般 1200ms、爆擊 1600ms
-      const duration = isCrit ? 1750 : 1400;
+      // 顯示時間加長：一般 1700ms、爆擊 2100ms
+      const duration = isCrit ? 2100 : 1700;
       const easing = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
       const anim = el.animate([
