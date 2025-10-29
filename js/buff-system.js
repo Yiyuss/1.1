@@ -101,6 +101,8 @@ const BuffSystem = {
         // 新增：等級升級屬性（會在每局內累加，不寫入 localStorage）
         if (player.attackUpgradeLevel == null) player.attackUpgradeLevel = 0;
         if (player.critUpgradeLevel == null) player.critUpgradeLevel = 0;
+        if (player.healthUpgradeLevel == null) player.healthUpgradeLevel = 0;
+        if (player.defenseUpgradeLevel == null) player.defenseUpgradeLevel = 0;
         if (player.damageAttributeBonusPct == null) player.damageAttributeBonusPct = 0; // 由升級：每級+5%
         if (player.critChanceUpgradeBonusPct == null) player.critChanceUpgradeBonusPct = 0; // 由升級：每級+2%
         
@@ -119,6 +121,8 @@ const BuffSystem = {
         if (!player) return;
         const atkLv = Math.max(0, Math.min(10, player.attackUpgradeLevel || 0));
         const crtLv = Math.max(0, Math.min(10, player.critUpgradeLevel || 0));
+        const hpLv = Math.max(0, Math.min(10, player.healthUpgradeLevel || 0));
+        const defLv = Math.max(0, Math.min(10, player.defenseUpgradeLevel || 0));
         player.damageAttributeBonusPct = 0.05 * atkLv;
         player.critChanceUpgradeBonusPct = 0.02 * crtLv;
         // 與天賦相加（若天賦稍後重算，也會覆寫為一致的值）
@@ -127,6 +131,23 @@ const BuffSystem = {
         const critPctTable = [0, 0.05, 0.10, 0.15];
         const critTalentPct = critPctTable[Math.min(critLv, 3)] || 0;
         player.critChanceBonusPct = critTalentPct + player.critChanceUpgradeBonusPct;
+
+        // 新增：生命與防禦升級疊加（與天賦相加，單純加法）
+        try {
+            const hpTalentLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('hp_boost') : 0;
+            const hpTalentAmounts = [0, 20, 50, 100];
+            const hpTalentFlat = hpTalentAmounts[Math.min(hpTalentLv, 3)] || 0;
+            const hpUpgradeFlat = 20 * hpLv; // 每級+20
+            player.maxHealth = (CONFIG && CONFIG.PLAYER ? CONFIG.PLAYER.MAX_HEALTH : (player.maxHealth || 100)) + hpTalentFlat + hpUpgradeFlat;
+            player.health = Math.min(player.health, player.maxHealth);
+            if (typeof UI !== 'undefined' && UI.updateHealthBar) {
+                UI.updateHealthBar(player.health, player.maxHealth);
+            }
+        } catch (_) {}
+
+        // 基礎防禦：1 + 升級等級；與天賦平減相加在 takeDamage 中生效
+        player.baseDefense = 1 + defLv;
     },
     
     // 應用指定的buff到玩家身上
