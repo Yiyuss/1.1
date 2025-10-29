@@ -183,8 +183,11 @@ function createDefaultImages() {
         { name: 'player1-2', src: 'assets/images/player1-2.png' },
         { name: 'playerN', src: 'assets/images/playerN.png' },
         { name: 'zombie', src: 'assets/images/zombie.png' },
+        { name: 'zombie2', src: 'assets/images/zombie2.png' },
         { name: 'skeleton', src: 'assets/images/skeleton.png' },
+        { name: 'skeleton2', src: 'assets/images/skeleton2.png' },
         { name: 'ghost', src: 'assets/images/ghost.png' },
+        { name: 'ghost2', src: 'assets/images/ghost2.png' },
         { name: 'mini_boss', src: 'assets/images/mini_boss.png' },
         { name: 'boss', src: 'assets/images/boss.png' },
         { name: 'dagger', src: 'assets/images/dagger.png' },
@@ -210,7 +213,8 @@ function createDefaultImages() {
         // 背景素材（多地圖）
         { name: 'background', src: 'assets/images/background.jpg' },
         { name: 'background2', src: 'assets/images/background2.jpg' },
-        { name: 'background3', src: 'assets/images/background3.jpg' }
+        { name: 'background3', src: 'assets/images/background3.jpg' },
+        { name: 'background1-2', src: 'assets/images/background1-2.png' }
     ];
     
     // 加載所有圖片
@@ -461,9 +465,11 @@ function setupMapAndDifficultySelection() {
         Game.selectedMap = cfg || null;
         playClick2();
         if (mapDescEl) {
-            // 僅在選到廁所地圖（id: 'city' 或名稱為『廁所』）時更新指定文案；其他地圖不改動
+            // 選到廁所或草原時更新指定文案；其他地圖維持提示
             if (cfg && (cfg.id === 'city' || cfg.name === '廁所')) {
                 mapDescEl.textContent = '光滑平面的廁所，可使用馬桶障礙物躲避敵人。';
+            } else if (cfg && (cfg.id === 'forest' || cfg.name === '草原')) {
+                mapDescEl.textContent = '綠意盎然的草原，卻出現了許多馬桶。';
             }
         }
     };
