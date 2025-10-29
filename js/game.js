@@ -745,6 +745,11 @@ const Game = {
      * 設計：避免與障礙與既有裝飾矩形重疊；允許靠近玩家。
      */
     spawnDecorations: function() {
+        // 第二張地圖（forest）不生成裝飾物，僅保留 S1/S2 障礙物。
+        // 注意：不更改任何顯示文字與其他地圖行為；維持第一張地圖邏輯。
+        if (this.selectedMap && this.selectedMap.id === 'forest') {
+            return; // 跳過裝飾生成
+        }
         const specs = {
             S3: { w: 228, h: 70 },
             S4: { w: 184, h: 80 },
