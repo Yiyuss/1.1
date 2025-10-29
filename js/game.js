@@ -407,10 +407,15 @@ const Game = {
         if (this.explosionParticles) {
             for (const particle of this.explosionParticles) {
                 this.ctx.save();
-                this.ctx.globalAlpha = particle.life / particle.maxLife;
+                const baseAlpha = particle.life / particle.maxLife;
+                const isLightning = particle && particle.source === 'LIGHTNING';
+                // 追蹤綿羊命中粒子更不透明，且稍微放大
+                const alpha = isLightning ? Math.min(1, 0.5 + baseAlpha * 0.6) : baseAlpha;
+                const drawSize = isLightning ? particle.size * 1.3 : particle.size;
+                this.ctx.globalAlpha = alpha;
                 this.ctx.fillStyle = particle.color;
                 this.ctx.beginPath();
-                this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                this.ctx.arc(particle.x, particle.y, drawSize, 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.restore();
             }
