@@ -190,7 +190,7 @@ const CONFIG = {
     // 新增：地圖列表（背景鍵）
     MAPS: [
         { id: 'city', name: '廁所', backgroundKey: 'background' },
-        { id: 'forest', name: '尚未開放', backgroundKey: 'background2' },
+        { id: 'forest', name: '草原', backgroundKey: 'background1-2' },
         { id: 'desert', name: '尚未開放', backgroundKey: 'background2' }
     ],
 
@@ -231,6 +231,16 @@ const CONFIG = {
             EXPERIENCE: 5,
             COLLISION_RADIUS: 16
         },
+        // 第二張地圖專用：殭屍2（僅初始血量+10、初始傷害+5，其餘相同）
+        ZOMBIE2: {
+            NAME: "殭屍",
+            HEALTH: 40,
+            DAMAGE: 15,
+            SPEED: 1,
+            SIZE: 32,
+            EXPERIENCE: 5,
+            COLLISION_RADIUS: 16
+        },
         SKELETON: {
             NAME: "骷髏",
             HEALTH: 20,
@@ -240,10 +250,30 @@ const CONFIG = {
             EXPERIENCE: 8,
             COLLISION_RADIUS: 16
         },
+        // 第二張地圖專用：骷髏2（僅初始血量+10、初始傷害+5，其餘相同）
+        SKELETON2: {
+            NAME: "骷髏",
+            HEALTH: 30,
+            DAMAGE: 20,
+            SPEED: 1.5,
+            SIZE: 32,
+            EXPERIENCE: 8,
+            COLLISION_RADIUS: 16
+        },
         GHOST: {
             NAME: "幽靈",
             HEALTH: 15,
             DAMAGE: 20,
+            SPEED: 2,
+            SIZE: 32,
+            EXPERIENCE: 10,
+            COLLISION_RADIUS: 16
+        },
+        // 第二張地圖專用：幽靈2（僅初始血量+10、初始傷害+5，其餘相同）
+        GHOST2: {
+            NAME: "幽靈",
+            HEALTH: 25,
+            DAMAGE: 25,
             SPEED: 2,
             SIZE: 32,
             EXPERIENCE: 10,
