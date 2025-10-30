@@ -82,7 +82,6 @@
                                         <li><span class="badge">福利</span> 若為代表角色之 VTuber 本人遊玩，可來信領取「無限金幣」體驗。</li>
                                         <li><span class="badge">徵稿</span> 歡迎有興趣的繪師一起參與二創，本作不涉及任何營利。</li>
                                         <li><span class="badge">版本</span> 將在V1.2版加入更多的角色、技能、天賦、地圖，以及嘗試角色像素動態化。</li>
-                                        <li><span class="badge">BUG</span> 暫時關閉修羅模式，此模式是倖存者與東方彈幕結合的玩法，修復中。</li>
                                         <li><span class="badge">託管</span> 使用 GitHub 免費空間，偶爾出現 1–2 小時延遲屬正常。</li>
                                         <li><span class="badge">存檔</span> 遊戲提供自動存檔，若主動清除瀏覽器資料，存檔會丟失，可善用手動備份。</li>
                                     </ul>
@@ -226,9 +225,9 @@
                 <img src="assets/images/background1-2.png" alt="草原LV.2">
                 <div class="map-name">草原LV.2</div>
               </button>
-              <button class="map-card disabled" data-map-id="desert">
-                <img src="assets/images/background2.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
+              <button class="map-card selectable" data-map-id="desert">
+                <img src="assets/images/background1-3.png" alt="宇宙LV.3">
+                <div class="map-name">宇宙LV.3</div>
               </button>
             </div>
             <div id="map-desc" class="map-desc">提示：點擊地圖顯示介紹，雙擊或空白鍵確認</div>
@@ -238,10 +237,10 @@
           </div>
         </div>
 
-        <!-- 難度選擇介面 -->
-        <div id="difficulty-select-screen" class="screen hidden">
-          <div class="select-card">
-            <h1 class="select-title">選擇難度</h1>
+    <!-- 難度選擇介面 -->
+    <div id="difficulty-select-screen" class="screen hidden">
+      <div class="select-card">
+        <h1 class="select-title">選擇難度</h1>
             <div class="diff-grid">
               <button class="diff-card selectable" data-diff-id="EASY">
                 <span class="diff-label">簡單</span>
@@ -257,6 +256,28 @@
             </div>
           </div>
         </div>
+
+    <!-- 第三張地圖專用：難度選擇介面（困難 / 修羅） -->
+    <div id="desert-difficulty-select-screen" class="screen hidden">
+      <div class="select-card">
+        <h1 class="select-title">選擇難度</h1>
+        <div class="diff-grid">
+          <!-- 左：困難（樣式同原本） -->
+          <button class="diff-card selectable" data-diff-id="HARD">
+            <span class="diff-label">困難</span>
+            <div class="diff-intro">不斷傳來的詭異聲響，你以為只是廁所鬧鬼？<br>來自深淵的「未知信號」<br>都是在引導你走向那個終極馬桶！<br><br>在這裡，水花會奪命、歌聲會迷惑、<br>每一秒的遲疑，都是墜入「坐下」的開始。</div>
+          </button>
+          <!-- 右：修羅（金色底色與指定介紹文案） -->
+          <button class="diff-card selectable" data-diff-id="ASURA">
+            <span class="diff-label">修羅</span>
+            <div class="diff-intro">這不是為了生存，而是為了證明。<br>每一個「信號」都將襲來、<br>每一秒的遲疑都是坐下。<br><br>若你能在此地存活，你將不再是玩家，<br>——而是「信號」的支配者！</div>
+          </button>
+        </div>
+        <div class="select-actions">
+          <button id="diff-back-desert" class="ghost">返回</button>
+        </div>
+      </div>
+    </div>
         
         <!-- 遊戲畫面 -->
         <div id="game-screen" class="screen hidden">
@@ -500,6 +521,8 @@
         <script src="js/enemy.js"></script>
         <script src="js/projectile.js"></script>
         <script src="js/weapon.js"></script>
+        <!-- 可選彈幕系統骨架（需在 game.js 之前載入） -->
+        <script src="js/bullet-system.js"></script>
         <script src="js/game.js"></script>
         <script src="js/integration.js"></script>
         <script src="js/save_code.js"></script>
