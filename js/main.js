@@ -184,10 +184,13 @@ function createDefaultImages() {
         { name: 'playerN', src: 'assets/images/playerN.png' },
         { name: 'zombie', src: 'assets/images/zombie.png' },
         { name: 'zombie2', src: 'assets/images/zombie2.png' },
+        { name: 'zombie3', src: 'assets/images/zombie3.png' },
         { name: 'skeleton', src: 'assets/images/skeleton.png' },
         { name: 'skeleton2', src: 'assets/images/skeleton2.png' },
+        { name: 'skeleton3', src: 'assets/images/skeleton3.png' },
         { name: 'ghost', src: 'assets/images/ghost.png' },
         { name: 'ghost2', src: 'assets/images/ghost2.png' },
+        { name: 'ghost3', src: 'assets/images/ghost3.png' },
         { name: 'mini_boss', src: 'assets/images/mini_boss.png' },
         { name: 'boss', src: 'assets/images/boss.png' },
         { name: 'dagger', src: 'assets/images/dagger.png' },
@@ -214,7 +217,8 @@ function createDefaultImages() {
         { name: 'background', src: 'assets/images/background.jpg' },
         { name: 'background2', src: 'assets/images/background2.jpg' },
         { name: 'background3', src: 'assets/images/background3.jpg' },
-        { name: 'background1-2', src: 'assets/images/background1-2.png' }
+        { name: 'background1-2', src: 'assets/images/background1-2.png' },
+        { name: 'background1-3', src: 'assets/images/background1-3.png' }
     ];
     
     // 加載所有圖片
@@ -438,8 +442,9 @@ function setupCharacterSelection() {
         const isVisible = (el) => el && !el.classList.contains('hidden');
         const mapScreen = document.getElementById('map-select-screen');
         const diffScreen = document.getElementById('difficulty-select-screen');
+        const desertDiffScreen = document.getElementById('desert-difficulty-select-screen');
         // 若覆蓋層已開啟，交由全域 ESC 回退處理，不在此攔截
-        if (isVisible(mapScreen) || isVisible(diffScreen)) return;
+        if (isVisible(mapScreen) || isVisible(diffScreen) || isVisible(desertDiffScreen)) return;
         const startScreen = document.getElementById('start-screen');
         const charScreen = document.getElementById('character-select-screen');
         if (startScreen && charScreen) {
@@ -453,6 +458,7 @@ function setupCharacterSelection() {
 function setupMapAndDifficultySelection() {
     const mapScreen = document.getElementById('map-select-screen');
     const diffScreen = document.getElementById('difficulty-select-screen');
+    const desertDiffScreen = document.getElementById('desert-difficulty-select-screen');
     const mapCards = mapScreen.querySelectorAll('.map-card.selectable');
     // 修正：正確的地圖介紹元素ID為 map-desc（避免更新失效）
     const mapDescEl = document.getElementById('map-desc');
@@ -460,6 +466,8 @@ function setupMapAndDifficultySelection() {
     const diffCancel = document.getElementById('diff-cancel');
     let selectedMapCfg = null;
     let lastTapTime = 0;
+    // 將 selectedDiffId 的宣告提前，避免在 confirmMap 中賦值時落入 TDZ（暫時性死區）導致錯誤
+    let selectedDiffId = null;
 
     const showMapDesc = (cfg, card) => {
         Game.selectedMap = cfg || null;
@@ -470,14 +478,40 @@ function setupMapAndDifficultySelection() {
                 mapDescEl.textContent = '光滑平面的廁所，可使用馬桶障礙物躲避敵人。';
             } else if (cfg && (cfg.id === 'forest' || cfg.name === '草原')) {
                 mapDescEl.textContent = '綠意盎然的草原，卻出現了許多馬桶。';
+            } else if (cfg && (cfg.id === 'desert' || cfg.name === '宇宙' || cfg.name === '宇宙LV.3')) {
+                mapDescEl.textContent = '無盡的宇宙星空中，漂浮著許多馬桶。';
             }
         }
     };
     const confirmMap = () => {
         if (!selectedMapCfg) return;
-        // 覆蓋顯示：僅隱藏地圖視窗，顯示難度視窗；不隱藏選角畫面
-        hide(mapScreen);
-        show(diffScreen);
+        // 維護備註：
+        // - 僅允許一個難度視窗同時顯示；先隱藏所有難度視窗，避免互相覆蓋造成殘留或誤判。
+        // - 不更動任何玩家可見文案（保持結果一致）。
+        // - SaveCode（引繼碼）未涉入此流程，不更動其鍵名/結構/簽章。
+
+        // 明確設置選定地圖（避免僅在單擊時更新 selectedMap）
+        Game.selectedMap = selectedMapCfg;
+
+        // 先關閉所有難度覆蓋層，防止交疊
+        hide(diffScreen);
+        if (desertDiffScreen) hide(desertDiffScreen);
+
+        // 顯示正確的難度視窗；第三張地圖改為與其他地圖一致，隱藏地圖視窗以避免上下文混淆
+        if (selectedMapCfg && selectedMapCfg.id === 'desert' && desertDiffScreen) {
+            // 宇宙地圖：僅困難/修羅；預設困難，避免沿用上一輪的 ASURA
+            selectedDiffId = 'HARD';
+            Game.selectedDifficultyId = 'HARD';
+            hide(mapScreen);
+            show(desertDiffScreen);
+        } else {
+            // 其他地圖的難度視窗為獨立層，隱藏地圖畫面
+            hide(mapScreen);
+            // 其他地圖：維持簡單/困難；預設簡單
+            selectedDiffId = 'EASY';
+            Game.selectedDifficultyId = 'EASY';
+            show(diffScreen);
+        }
     };
 
     mapCards.forEach(card => {
@@ -491,6 +525,7 @@ function setupMapAndDifficultySelection() {
                 return;
             }
             selectedMapCfg = cfg;
+            // 單擊：僅顯示地圖介紹（不進入難度視窗）
             showMapDesc(cfg, card);
         });
         card.addEventListener('dblclick', () => {
@@ -528,8 +563,9 @@ function setupMapAndDifficultySelection() {
     }
 
     const diffCards = diffScreen.querySelectorAll('.diff-card.selectable');
+    const desertDiffCards = desertDiffScreen ? desertDiffScreen.querySelectorAll('.diff-card.selectable') : [];
     const diffBack = document.getElementById('diff-back');
-    let selectedDiffId = null;
+    const diffBackDesert = document.getElementById('diff-back-desert');
 
     const startGameWithDifficulty = (id, playSound = true) => {
         const useId = id || 'EASY';
@@ -537,11 +573,13 @@ function setupMapAndDifficultySelection() {
         if (playSound) playClick();
         // 開始遊戲：隱藏覆蓋視窗與選角畫面，進入遊戲畫面
         hide(diffScreen);
+        if (desertDiffScreen) hide(desertDiffScreen);
         hide(document.getElementById('map-select-screen'));
         hide(DOMCache.get('character-select-screen'));
         Game.startNewGame();
         if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
-            AudioManager.playMusic('game_music');
+            const track = (useId === 'ASURA') ? 'shura_music' : 'game_music';
+            AudioManager.playMusic(track);
         }
         show(DOMCache.get('game-screen'));
     };
@@ -566,14 +604,46 @@ function setupMapAndDifficultySelection() {
         });
     });
 
+    // Desert 專用難度卡片：支援 HARD / ASURA
+    desertDiffCards.forEach(card => {
+        const id = card.getAttribute('data-diff-id') || 'HARD';
+        card.addEventListener('click', () => {
+            selectedDiffId = id;
+            Game.selectedDifficultyId = id;
+            playClick2();
+        });
+        card.addEventListener('dblclick', () => {
+            selectedDiffId = id;
+            startGameWithDifficulty(id, false);
+        });
+        bindDoubleTap(card, () => {
+            selectedDiffId = id;
+            startGameWithDifficulty(id, false);
+        });
+    });
+
     KeyboardRouter.register('diff-select', 'Space', (e) => {
         e.preventDefault();
-        startGameWithDifficulty(selectedDiffId || 'EASY');
+        const desertVisible = (() => {
+            const el = document.getElementById('desert-difficulty-select-screen');
+            return !!(el && !el.classList.contains('hidden'));
+        })();
+        const fallback = desertVisible ? 'HARD' : 'EASY';
+        startGameWithDifficulty(selectedDiffId || fallback);
     });
 
     if (diffBack) {
         diffBack.addEventListener('click', () => {
-            // 返回地圖：僅在覆蓋層之間切換
+            // 返回地圖：僅在覆蓋層之間切換；確保關閉宇宙難度視窗殘留
+            hide(diffScreen);
+            if (desertDiffScreen) hide(desertDiffScreen);
+            show(mapScreen);
+        });
+    }
+    if (diffBackDesert) {
+        diffBackDesert.addEventListener('click', () => {
+            hide(desertDiffScreen);
+            // 防禦性隱藏一般難度視窗，避免交疊殘留
             hide(diffScreen);
             show(mapScreen);
         });
@@ -870,12 +940,16 @@ const KeyboardRouter = {
         this.handlers.set(contextKey, handler);
     },
     getCurrentContext() {
-        // 讓可見的選圖畫面優先於選角畫面
-        if (!document.getElementById('map-select-screen').classList.contains('hidden')) {
-            return 'map-select';
+        // 讓可見的難度視窗（包含第三張地圖專用）優先於選圖畫面，避免上下文錯誤
+        const desertDiff = document.getElementById('desert-difficulty-select-screen');
+        if (desertDiff && !desertDiff.classList.contains('hidden')) {
+            return 'diff-select';
         }
         if (!document.getElementById('difficulty-select-screen').classList.contains('hidden')) {
             return 'diff-select';
+        }
+        if (!document.getElementById('map-select-screen').classList.contains('hidden')) {
+            return 'map-select';
         }
         if (!document.getElementById('character-select-screen').classList.contains('hidden')) {
             return 'character-select';
@@ -1076,6 +1150,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (isVisible(diffScreen)) {
                 const backBtn = document.getElementById('diff-back');
+                if (backBtn) backBtn.click();
+                e.preventDefault();
+                return;
+            }
+            const desertDiffScreen = document.getElementById('desert-difficulty-select-screen');
+            if (isVisible(desertDiffScreen)) {
+                const backBtn = document.getElementById('diff-back-desert') || document.getElementById('diff-back');
                 if (backBtn) backBtn.click();
                 e.preventDefault();
                 return;
