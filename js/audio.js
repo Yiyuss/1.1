@@ -42,7 +42,9 @@ const AudioManager = {
         const musicToLoad = [
             { name: 'menu_music', src: 'assets/audio/menu_music.mp3' },
             { name: 'game_music', src: 'assets/audio/game_music.mp3' },
-            { name: 'boss_music', src: 'assets/audio/boss_music.mp3' }
+            { name: 'boss_music', src: 'assets/audio/boss_music.mp3' },
+            // 修羅模式專用 BGM
+            { name: 'shura_music', src: 'assets/audio/Shura.mp3' }
         ];
         
         // 加載音效
@@ -139,7 +141,8 @@ const AudioManager = {
             } else if (Game.boss) {
                 this.playMusic('boss_music');
             } else {
-                this.playMusic('game_music');
+                const bgmName = (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') ? 'shura_music' : 'game_music';
+                this.playMusic(bgmName);
             }
         }
         // 觸發靜音狀態變更事件
@@ -165,7 +168,8 @@ const AudioManager = {
             } else if (Game.boss) {
                 this.playMusic('boss_music');
             } else {
-                this.playMusic('game_music');
+                const bgmName = (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') ? 'shura_music' : 'game_music';
+                this.playMusic(bgmName);
             }
         }
         // 觸發靜音狀態變更事件
@@ -223,7 +227,8 @@ const AudioScene = {
         this.current = 'game';
         try {
             if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
-                AudioManager.playMusic('game_music');
+                const bgmName = (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') ? 'shura_music' : 'game_music';
+                AudioManager.playMusic(bgmName);
             }
         } catch (_) {}
     },
