@@ -58,6 +58,15 @@ const Game = {
         // 初始化UI
         UI.init();
         
+        // 可選：初始化彈幕系統（預設停用，不影響現有行為）
+        try {
+            if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.init === 'function') {
+                BulletSystem.init();
+            }
+        } catch (e) {
+            console.warn('BulletSystem.init 失敗：', e);
+        }
+        
         // 載入金幣並設定自動存檔
         try { this.loadCoins(); } catch (_) {}
         try {
@@ -223,6 +232,15 @@ const Game = {
             }
         }
         
+        // 可選：更新彈幕系統（停用時不執行）
+        try {
+            if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.update === 'function') {
+                BulletSystem.update(deltaTime);
+            }
+        } catch (e) {
+            console.warn('BulletSystem.update 失敗：', e);
+        }
+        
         // 更新爆炸粒子
         for (let i = this.explosionParticles.length - 1; i >= 0; i--) {
             const particle = this.explosionParticles[i];
@@ -327,6 +345,15 @@ const Game = {
         
         // 繪製所有實體（使用世界座標）
         this.drawEntities();
+        
+        // 可選：繪製彈幕（停用時無輸出）
+        try {
+            if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.draw === 'function') {
+                BulletSystem.draw(this.ctx);
+            }
+        } catch (e) {
+            console.warn('BulletSystem.draw 失敗：', e);
+        }
         
         // 邊界提示（可選）：在世界邊界畫微弱遮罩
         this.drawWorldBorders();
@@ -622,6 +649,15 @@ const Game = {
         const minB = d.maxEnemiesBonusMin || 0;
         const maxB = d.maxEnemiesBonusMax || 0;
         this.maxEnemiesBonus = (maxB > 0) ? Utils.randomInt(minB, maxB) : 0;
+
+        // 根據難度控制彈幕系統開關：僅在修羅（ASURA）開啟
+        try {
+            if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.setEnabled === 'function') {
+                BulletSystem.setEnabled(diffId === 'ASURA');
+            }
+        } catch (e) {
+            console.warn('BulletSystem.setEnabled 失敗：', e);
+        }
         
         // 套用選定地圖的背景鍵（若有）
         const mapCfg = this.selectedMap || null;
@@ -631,6 +667,15 @@ const Game = {
         this.camera.x = Utils.clamp(this.player.x - this.canvas.width / 2, 0, Math.max(0, this.worldWidth - this.canvas.width));
         this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
         
+        // 先重置彈幕系統緩存，避免之後初始化波次時掛載的發射器被清空
+        try {
+            if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.reset === 'function') {
+                BulletSystem.reset();
+            }
+        } catch (e) {
+            console.warn('BulletSystem.reset 失敗：', e);
+        }
+
         // 重置波次系統
         WaveSystem.init();
         
@@ -745,9 +790,9 @@ const Game = {
      * 設計：避免與障礙與既有裝飾矩形重疊；允許靠近玩家。
      */
     spawnDecorations: function() {
-        // 第二張地圖（forest）不生成裝飾物，僅保留 S1/S2 障礙物。
+        // 第二、第三張地圖（forest、desert）不生成裝飾物，僅保留 S1/S2 障礙物。
         // 注意：不更改任何顯示文字與其他地圖行為；維持第一張地圖邏輯。
-        if (this.selectedMap && this.selectedMap.id === 'forest') {
+        if (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert')) {
             return; // 跳過裝飾生成
         }
         const specs = {
