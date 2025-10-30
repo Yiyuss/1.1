@@ -191,7 +191,7 @@ const CONFIG = {
     MAPS: [
         { id: 'city', name: '廁所', backgroundKey: 'background' },
         { id: 'forest', name: '草原', backgroundKey: 'background1-2' },
-        { id: 'desert', name: '尚未開放', backgroundKey: 'background2' }
+        { id: 'desert', name: '宇宙', backgroundKey: 'background1-3' }
     ],
 
     // 新增：難度模式倍率（影響血量、生成速度、生成數量）
@@ -216,6 +216,17 @@ const CONFIG = {
             bossRangedEnabled: true,
             enemyHealthGrowthRateMultiplier: 2.0, // 成長幅度+100%
             maxEnemiesBonusMin: 50,   // 比簡單上限多50~100
+            maxEnemiesBonusMax: 100
+        },
+        ASURA: {
+            NAME: '修羅',
+            enemyHealthMultiplier: 1.0,
+            spawnIntervalMultiplier: 0.85,
+            spawnCountMultiplier: 1.2,
+            enemySpeedMultiplier: 1.7,
+            bossRangedEnabled: true,
+            enemyHealthGrowthRateMultiplier: 3.0, // 血量成長為3
+            maxEnemiesBonusMin: 50,
             maxEnemiesBonusMax: 100
         }
     },
@@ -274,6 +285,33 @@ const CONFIG = {
             NAME: "幽靈",
             HEALTH: 25,
             DAMAGE: 25,
+            SPEED: 2,
+            SIZE: 32,
+            EXPERIENCE: 10,
+            COLLISION_RADIUS: 16
+        },
+        ZOMBIE3: {
+            NAME: "殭屍",
+            HEALTH: 50,
+            DAMAGE: 20,
+            SPEED: 1,
+            SIZE: 32,
+            EXPERIENCE: 5,
+            COLLISION_RADIUS: 16
+        },
+        SKELETON3: {
+            NAME: "骷髏",
+            HEALTH: 40,
+            DAMAGE: 25,
+            SPEED: 1.5,
+            SIZE: 32,
+            EXPERIENCE: 8,
+            COLLISION_RADIUS: 16
+        },
+        GHOST3: {
+            NAME: "幽靈",
+            HEALTH: 35,
+            DAMAGE: 30,
             SPEED: 2,
             SIZE: 32,
             EXPERIENCE: 10,
@@ -367,5 +405,10 @@ const CONFIG = {
         MAX_EXPERIENCE_ORBS: 250, // 最大經驗球數量
         ORB_PULSE_DISABLE_THRESHOLD: 100, // 經驗球超過此數量關閉呼吸閃爍
         CLEANUP_INTERVAL: 1000 // 清理間隔（毫秒）
+    },
+    
+    // 彈幕系統（骨架開關）：預設關閉，不影響現有遊戲
+    BULLET_SYSTEM: {
+        ENABLED: true
     }
 };
