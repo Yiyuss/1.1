@@ -112,6 +112,12 @@ const WaveSystem = {
                 else if (enemyType === 'SKELETON') enemyType = 'SKELETON2';
                 else if (enemyType === 'GHOST') enemyType = 'GHOST2';
             }
+            // 第三張地圖（desert）將普通敵人替換為 *_3 變體（相對 *_2 再提升）
+            else if (Game.selectedMap && Game.selectedMap.id === 'desert') {
+                if (enemyType === 'ZOMBIE') enemyType = 'ZOMBIE3';
+                else if (enemyType === 'SKELETON') enemyType = 'SKELETON3';
+                else if (enemyType === 'GHOST') enemyType = 'GHOST3';
+            }
             // 在世界邊緣生成敵人（加入內縮與分散避免重疊）
             const worldW = (Game.worldWidth || Game.canvas.width);
             const worldH = (Game.worldHeight || Game.canvas.height);
@@ -171,8 +177,8 @@ const WaveSystem = {
         }
         this.lastMiniBossWave = this.currentWave;
         this.lastMiniBossTime = Date.now();
-        // 第二張地圖（forest）：每波生成 2 隻小BOSS；其餘維持 1 隻。
-        const count = (Game.selectedMap && Game.selectedMap.id === 'forest') ? 2 : 1;
+        // 第二、第三張地圖（forest、desert）：每波生成 2 隻小BOSS；其餘維持 1 隻。
+        const count = (Game.selectedMap && (Game.selectedMap.id === 'forest' || Game.selectedMap.id === 'desert')) ? 2 : 1;
         for (let idx = 0; idx < count; idx++) {
             // 在世界邊緣生成小BOSS（加入內縮與分散避免重疊）
             const worldW = (Game.worldWidth || Game.canvas.width);
@@ -220,6 +226,39 @@ const WaveSystem = {
             const miniBoss = new Enemy(sx, sy, 'MINI_BOSS');
             Game.addEnemy(miniBoss);
             console.log('Mini Boss spawned!');
+
+            // 修羅難度：為每隻小Boss掛載彈幕發射器（僅在彈幕系統啟用時）
+            try {
+                if (typeof BulletSystem !== 'undefined' && BulletSystem.enabled && typeof BulletSystem.createEmitter === 'function') {
+                    BulletSystem.createEmitter({
+                        x: miniBoss.x,
+                        y: miniBoss.y,
+                        rateMs: 600,
+                        lifeMs: 90000,
+                        patternFn: (e, sys) => {
+                            // 追隨小Boss；死亡則停止
+                            const anchor = miniBoss;
+                            if (!anchor || (anchor.health !== undefined && anchor.health <= 0)) { sys.stopEmitter(e); return; }
+                            e.x = anchor.x; e.y = anchor.y;
+
+                            const count = 12;
+                            const speed = 3.2;
+                            const life = 3200;
+                            const baseColor = '#ffdd77';
+                            const phase = e._phase || 0;
+                            for (let i = 0; i < count; i++) {
+                                const ang = phase + (i / count) * Math.PI * 2;
+                                const vx = Math.cos(ang) * speed;
+                                const vy = Math.sin(ang) * speed;
+                                sys.addBullet(e.x, e.y, vx, vy, life, 14, baseColor);
+                            }
+                            e._phase = phase + 0.22;
+                        }
+                    });
+                }
+            } catch (_) {
+                // 任何錯誤不影響既有流程
+            }
         }
     },
     
@@ -235,5 +274,41 @@ const WaveSystem = {
         Game.addEnemy(boss);
         Game.boss = boss;
         console.log('Boss spawned!');
+
+        // 示例彈幕：Boss 出現後啟動環狀旋轉彈幕（僅在 BulletSystem 啟用時生效）
+        try {
+            if (typeof BulletSystem !== 'undefined' && BulletSystem.enabled && typeof BulletSystem.createEmitter === 'function') {
+                BulletSystem.createEmitter({
+                    x: boss.x,
+                    y: boss.y,
+                    rateMs: 450,       // 每 450ms 觸發一次
+                    lifeMs: 120000,    // 彈幕持續 120 秒（可依需要調整）
+                    patternFn: (e, sys) => {
+                        // 跟隨 Boss 位置；Boss 死亡時停止發射器
+                        const anchor = (Game && Game.boss) ? Game.boss : null;
+                        if (!anchor || (anchor.health !== undefined && anchor.health <= 0)) { sys.stopEmitter(e); return; }
+                        e.x = anchor.x; e.y = anchor.y;
+
+                        const count = 18;       // 每次環狀生成的子彈數
+                        const speed = 3.5;      // 子彈速度
+                        const life = 3500;      // 子彈存活時間
+                        const baseColor = '#ffcc66';
+                        const phase = e._phase || 0; // 旋轉相位，保存在發射器狀態中
+
+                        for (let i = 0; i < count; i++) {
+                            const ang = phase + (i / count) * Math.PI * 2;
+                            const vx = Math.cos(ang) * speed;
+                            const vy = Math.sin(ang) * speed;
+                            sys.addBullet(e.x, e.y, vx, vy, life, 16, baseColor);
+                        }
+
+                        // 相位推進，產生旋轉效果
+                        e._phase = phase + 0.25;
+                    }
+                });
+            }
+        } catch (_) {
+            // 任何錯誤都不影響既有 Boss 流程
+        }
     }
 };
