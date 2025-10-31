@@ -55,29 +55,41 @@ const TalentSystem = {
             levels: [
                 { hp: 20, cost: 500 },
                 { hp: 50, cost: 3000 },
-                { hp: 100, cost: 20000 }
+                { hp: 100, cost: 20000 },
+                { hp: 150, cost: 30000 },
+                { hp: 200, cost: 40000 },
+                { hp: 250, cost: 50000 }
             ]
         },
         defense_boost: {
             levels: [
                 { reduction: 2, cost: 5000 },
                 { reduction: 5, cost: 10000 },
-                { reduction: 8, cost: 30000 }
+                { reduction: 8, cost: 30000 },
+                { reduction: 11, cost: 40000 },
+                { reduction: 14, cost: 50000 },
+                { reduction: 17, cost: 60000 }
             ]
         },
         speed_boost: {
             levels: [
-                { multiplier: 1.1, cost: 1000 },
-                { multiplier: 1.3, cost: 3000 },
-                { multiplier: 1.5, cost: 5000 }
+                { multiplier: 1.10, cost: 1000 },
+                { multiplier: 1.20, cost: 2000 },
+                { multiplier: 1.30, cost: 3000 },
+                { multiplier: 1.40, cost: 4000 },
+                { multiplier: 1.50, cost: 5000 },
+                { multiplier: 1.60, cost: 6000 }
             ]
         },
         // 新增：拾取範圍增加（30%、50%、100% 對應 1.3/1.5/2.0）
         pickup_range_boost: {
             levels: [
-                { multiplier: 1.3, cost: 500 },
-                { multiplier: 1.5, cost: 1500 },
-                { multiplier: 2.0, cost: 3000 }
+                { multiplier: 1.30, cost: 500 },
+                { multiplier: 1.50, cost: 1500 },
+                { multiplier: 2.00, cost: 3000 },
+                { multiplier: 3.00, cost: 6000 },
+                { multiplier: 4.00, cost: 12000 },
+                { multiplier: 5.00, cost: 24000 }
             ]
         },
         // 新增：傷害強化（5%、10%、15% 對應 1.05/1.10/1.15）
@@ -85,31 +97,43 @@ const TalentSystem = {
             levels: [
                 { multiplier: 1.05, cost: 3000 },
                 { multiplier: 1.10, cost: 6000 },
-                { multiplier: 1.15, cost: 20000 }
+                { multiplier: 1.15, cost: 12000 },
+                { multiplier: 1.25, cost: 24000 },
+                { multiplier: 1.35, cost: 35000 },
+                { multiplier: 1.45, cost: 45000 }
             ]
         },
         // 新增：傷害特化（每次攻擊追加固定傷害+2/+4/+6）
         damage_specialization: {
             levels: [
                 { flat: 2, cost: 3000 },
-                { flat: 4, cost: 6000 },
-                { flat: 6, cost: 20000 }
+                { flat: 5, cost: 6000 },
+                { flat: 8, cost: 12000 },
+                { flat: 13, cost: 24000 },
+                { flat: 18, cost: 35000 },
+                { flat: 23, cost: 45000 }
             ]
         },
         // 新增：爆擊強化（爆擊率+5%/+10%/+15%）
         crit_enhance: {
             levels: [
                 { chancePct: 0.05, cost: 3000 },
-                { chancePct: 0.10, cost: 8000 },
-                { chancePct: 0.15, cost: 25000 }
+                { chancePct: 0.10, cost: 6000 },
+                { chancePct: 0.15, cost: 12000 },
+                { chancePct: 0.20, cost: 24000 },
+                { chancePct: 0.25, cost: 35000 },
+                { chancePct: 0.30, cost: 45000 }
             ]
         },
         // 新增：回血強化（+30%/+60%/+100% 對應 1.3/1.6/2.0）
         regen_speed_boost: {
             levels: [
                 { multiplier: 1.30, cost: 3000 },
-                { multiplier: 1.60, cost: 6000 },
-                { multiplier: 2.00, cost: 12000 }
+                { multiplier: 1.50, cost: 6000 },
+                { multiplier: 1.70, cost: 12000 },
+                { multiplier: 1.90, cost: 24000 },
+                { multiplier: 2.10, cost: 35000 },
+                { multiplier: 2.30, cost: 45000 }
             ]
         }
     },
@@ -631,6 +655,7 @@ if (!TalentSystem._updateLevelBadge) {
           card.style.position = '';
           delete card._hadPositionInjected;
         }
+        card.classList.remove('lv-max');
         return;
       }
       if (!badge) {
@@ -638,7 +663,7 @@ if (!TalentSystem._updateLevelBadge) {
         badge.className = 'talent-level-badge';
         card.appendChild(badge);
       }
-      const lvText = Math.min(clamped, 3);
+      const lvText = clamped;
       badge.textContent = 'LV' + lvText;
       badge.className = 'talent-level-badge lv' + lvText;
       const style = badge.style;
@@ -682,6 +707,13 @@ if (!TalentSystem._updateLevelBadge) {
       if (compPos === 'static') {
         card.style.position = 'relative';
         card._hadPositionInjected = true;
+      }
+
+      // 滿級標記：加上金色背景class（供CSS動畫使用）
+      if (clamped >= max) {
+        card.classList.add('lv-max');
+      } else {
+        card.classList.remove('lv-max');
       }
     } catch(_) {}
   };
@@ -731,8 +763,15 @@ function updateTalentCardAppearance(card, level){
       TalentSystem._flickerSync.register(img);
     }
   }
-  // 注入LV徽章（共用，僅UI）
+  // 注入LV徽章（共用，僅UI，最大值動態）
   if (typeof TalentSystem !== 'undefined' && TalentSystem._updateLevelBadge) {
-    TalentSystem._updateLevelBadge(card, level, 3);
+    try {
+      const id = card && card.getAttribute('data-talent-id');
+      const cfg = id && TalentSystem.tieredTalents ? TalentSystem.tieredTalents[id] : null;
+      const max = (cfg && Array.isArray(cfg.levels)) ? cfg.levels.length : 3;
+      TalentSystem._updateLevelBadge(card, level, max);
+    } catch(_) {
+      TalentSystem._updateLevelBadge(card, level, 3);
+    }
   }
 }
