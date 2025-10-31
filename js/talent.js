@@ -4,47 +4,47 @@ const TalentSystem = {
     talents: {
         hp_boost: {
             name: '生命強化',
-            description: '升級可提升初始生命值（最高+100）。',
+            description: '升級可提升初始生命值。',
             cost: 500
         },
         defense_boost: {
             name: '防禦強化',
-            description: '升級可減免所受傷害（最高-8）。',
+            description: '升級可減免所受傷害。',
             cost: 5000
         },
         speed_boost: {
             name: '移動加速',
-            description: '升級可提升移動速度（最高+50%）。',
+            description: '升級可提升移動速度。',
             cost: 1000
         },
         // 新增：拾取範圍增加
         pickup_range_boost: {
             name: '拾取範圍增加',
-            description: '升級可增加拾取範圍（最高+100%）。',
+            description: '升級可增加拾取範圍。',
             cost: 500
         },
         // 新增：傷害強化
         damage_boost: {
             name: '傷害強化',
-            description: '升級可提升攻擊傷害（最高+15%）。',
+            description: '升級可提升攻擊傷害。',
             cost: 3000
         },
         // 新增：傷害特化（追加固定傷害）
         damage_specialization: {
             name: '傷害特化',
-            description: '升級可追加固定傷害（最高+6）。',
+            description: '升級可追加固定傷害。',
             cost: 3000
         },
         // 新增：爆擊強化（提升爆擊率）
         crit_enhance: {
             name: '爆擊強化',
-            description: '升級可提升爆擊率（最高+15%）。',
+            description: '升級可提升爆擊率。',
             cost: 3000
         },
         // 新增：回血強化（提升回血速度）
         regen_speed_boost: {
             name: '回血強化',
-            description: '升級可提升回血速度（最高+100%）。',
+            description: '升級可提升回血速度。',
             cost: 3000
         }
     },
