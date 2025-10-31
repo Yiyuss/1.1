@@ -100,13 +100,13 @@ class Weapon {
             return;
         }
 
-        // 特殊技能：連鎖閃電（0.5秒內依序連鎖 N 次）
+        // 特殊技能：連鎖閃電（1秒內依序連鎖 N 次）
         if (this.type === 'CHAIN_LIGHTNING') {
             const chainCount = this.projectileCount; // 依照等級的 COUNT 當作連鎖次數
             const effect = new ChainLightningEffect(
                 this.player,
                 this._computeFinalDamage(levelMul),
-                this.config.DURATION || 500,
+                this.config.DURATION || 1000,
                 chainCount,
                 this.config.CHAIN_RADIUS || 220
             );
@@ -294,10 +294,11 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     const base = (this.config && this.config.DAMAGE) ? this.config.DAMAGE : 0;
     const specFlat = (this.player && this.player.damageSpecializationFlat) ? this.player.damageSpecializationFlat : 0;
     const talentPct = (this.player && this.player.damageTalentBaseBonusPct) ? this.player.damageTalentBaseBonusPct : 0;
-    const attrPct = (this.player && this.player.damageAttributeBonusPct) ? this.player.damageAttributeBonusPct : 0; // 新增：升級屬性加成（每級+5%）
+    const attrPct = (this.player && this.player.damageAttributeBonusPct) ? this.player.damageAttributeBonusPct : 0; // 升級屬性加成（每級+10%）
+    const attrFlat = (this.player && this.player.attackPowerUpgradeFlat) ? this.player.attackPowerUpgradeFlat : 0; // 新增：攻擊力上升（每級+2，單純加法）
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + specFlat;
+    const baseFlat = base + specFlat + attrFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
