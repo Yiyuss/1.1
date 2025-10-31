@@ -121,10 +121,10 @@
             const distSq = dx * dx + dy * dy;
             const rad = pr + br;
             if (distSq <= rad * rad) {
-              // 以既有管線扣血（含無敵/紅閃/UI更新）
+              // 以既有管線扣血；彈幕屬於重擊來源，忽略無敵判定
               if (typeof player.takeDamage === 'function') {
                 const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(30);
-                player.takeDamage(hitDamage);
+                player.takeDamage(hitDamage, { ignoreInvulnerability: true, source: 'bullet_system' });
               } else if (typeof Game !== 'undefined' && Game.player) {
                 // 後備：直接扣血
                 const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(30);
