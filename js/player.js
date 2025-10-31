@@ -177,8 +177,10 @@ class Player extends Entity {
     }
     
     // 受到傷害
-    takeDamage(amount) {
-        if (this.isInvulnerable) return;
+    takeDamage(amount, options = {}) {
+        // options.ignoreInvulnerability: 略過無敵判定（彈幕/火焰彈等重擊）
+        const ignoreInvulnerability = !!(options && options.ignoreInvulnerability);
+        if (this.isInvulnerable && !ignoreInvulnerability) return;
         
         // 防禦：基礎防禦 + 天賦平減（不為負）
         const baseDef = this.baseDefense || 0;
@@ -191,7 +193,7 @@ class Player extends Entity {
             this.health = 0;
             this.die();
         } else {
-            // 受傷後短暫無敵
+            // 受傷後短暫無敵（即便忽略無敵判定，仍啟動受傷視覺與短暫保護，避免連擊過度懲罰）
             this.isInvulnerable = true;
             this.invulnerabilityTime = 0;
             // 啟動紅閃
