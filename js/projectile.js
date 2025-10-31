@@ -101,15 +101,21 @@ class Projectile extends Entity {
                 } else {
                     enemy.takeDamage(this.damage);
                 }
-                // 紳士綿羊（FIREBALL）命中未被消滅的敵人時施加暫時減速
+                // 紳士綿羊（FIREBALL）命中未被消滅的敵人時施加暫時減速（使用設定值）
                 if (this.weaponType === 'FIREBALL' && enemy.health > 0 && typeof enemy.applySlow === 'function') {
-                    enemy.applySlow(1000, 0.5);
+                    const cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.FIREBALL) || {};
+                    const slowMs = (typeof cfg.SLOW_DURATION_MS === 'number') ? cfg.SLOW_DURATION_MS : 1000;
+                    const slowFactor = (typeof cfg.SLOW_FACTOR === 'number') ? cfg.SLOW_FACTOR : 0.5;
+                    enemy.applySlow(slowMs, slowFactor);
                 }
 
                 // 紳士綿羊（FIREBALL）命中時觸發小範圍擴散傷害（不爆擊）
                 if (this.weaponType === 'FIREBALL' && typeof Game !== 'undefined' && Array.isArray(Game.enemies)) {
                     try {
-                        const splashRadius = Math.max(34, (this.collisionRadius || 12) * 2.6);
+                        const cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.FIREBALL) || {};
+                        const mul = (typeof cfg.SPLASH_RADIUS_MULTIPLIER === 'number') ? cfg.SPLASH_RADIUS_MULTIPLIER : 2.6;
+                        const minR = (typeof cfg.SPLASH_MIN_RADIUS === 'number') ? cfg.SPLASH_MIN_RADIUS : 34;
+                        const splashRadius = Math.max(minR, (this.collisionRadius || 12) * mul);
                         for (const e of Game.enemies) {
                             if (!e || e.id === enemy.id) continue;
                             const dist = Utils.distance(enemy.x, enemy.y, e.x, e.y);
@@ -119,7 +125,11 @@ class Projectile extends Entity {
                                     ? DamageSystem.computeHit(splashBase, e, { weaponType: this.weaponType, allowCrit: false })
                                     : { amount: splashBase, isCrit: false };
                                 e.takeDamage(splash.amount);
-                                if (typeof e.applySlow === 'function') { e.applySlow(1000, 0.5); }
+                                if (typeof e.applySlow === 'function') {
+                                    const slowMs = (typeof cfg.SLOW_DURATION_MS === 'number') ? cfg.SLOW_DURATION_MS : 1000;
+                                    const slowFactor = (typeof cfg.SLOW_FACTOR === 'number') ? cfg.SLOW_FACTOR : 0.5;
+                                    e.applySlow(slowMs, slowFactor);
+                                }
                                 if (typeof DamageNumbers !== 'undefined') {
                                     const dirX = (e.x - enemy.x) || 1;
                                     const dirY = (e.y - enemy.y) || 0;
