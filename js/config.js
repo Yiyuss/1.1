@@ -157,19 +157,19 @@ const CONFIG = {
             NAME: "連鎖閃電",
             DAMAGE: 15, // 與追蹤綿羊相同
             COOLDOWN: 1500, // 與追蹤綿羊相同
-            DURATION: 500, // 攻擊時間0.5秒
+            DURATION: 1000, // 攻擊時間1秒
             CHAIN_RADIUS: 220, // 連鎖搜尋半徑（像素）
             LEVELS: [
-                { COUNT: 1, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖1次（0.5秒）" },
-                { COUNT: 2, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖2次（0.5秒）" },
-                { COUNT: 3, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖3次（0.5秒）" },
-                { COUNT: 4, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖4次（0.5秒）" },
-                { COUNT: 5, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖5次（0.5秒）" },
-                { COUNT: 6, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖6次（0.5秒）" },
-                { COUNT: 7, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖7次（0.5秒）" },
-                { COUNT: 8, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖8次（0.5秒）" },
-                { COUNT: 9, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖9次（0.5秒）" },
-                { COUNT: 10, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖10次（0.5秒）" }
+                { COUNT: 1, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖1次（1秒）" },
+                { COUNT: 2, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖2次（1秒）" },
+                { COUNT: 3, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖3次（1秒）" },
+                { COUNT: 4, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖4次（1秒）" },
+                { COUNT: 5, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖5次（1秒）" },
+                { COUNT: 6, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖6次（1秒）" },
+                { COUNT: 7, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖7次（1秒）" },
+                { COUNT: 8, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖8次（1秒）" },
+                { COUNT: 9, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖9次（1秒）" },
+                { COUNT: 10, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖10次（1秒）" }
             ]
         }
     },
