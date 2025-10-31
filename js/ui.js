@@ -294,17 +294,18 @@ const UI = {
             const name = cfg ? cfg.NAME : info.type;
             const div = document.createElement('div');
             div.className = 'skill-item';
-            const skillIcons = {
-                SING: 'assets/images/A1.png',
-                DAGGER: 'assets/images/A2.png',
-                LASER: 'assets/images/A3.png',
-                CHAIN_LIGHTNING: 'assets/images/A4.png',
-                FIREBALL: 'assets/images/A5.png',
-                LIGHTNING: 'assets/images/A6.png',
-                ORBIT: 'assets/images/A7.png',
-                ATTR_ATTACK: 'assets/images/A8.png',
-                ATTR_CRIT: 'assets/images/A9.png'
-            };
+const skillIcons = {
+    SING: 'assets/images/A1.png',
+    DAGGER: 'assets/images/A2.png',
+    LASER: 'assets/images/A3.png',
+    CHAIN_LIGHTNING: 'assets/images/A4.png',
+    FIREBALL: 'assets/images/A5.png',
+    LIGHTNING: 'assets/images/A6.png',
+    ORBIT: 'assets/images/A7.png',
+    ATTR_ATTACK: 'assets/images/A8.png',
+    ATTR_CRIT: 'assets/images/A9.png',
+    ATTR_ATTACK_POWER: 'assets/images/A12.png'
+};
             const iconSrc = skillIcons[info.type] || 'assets/images/A1.png';
             div.innerHTML = `<div class="skill-icon"><img src="${iconSrc}" alt="${name}"></div><div class="skill-name">${name}</div><div class="skill-level">Lv.${info.level}</div>`;
             this.skillsList.appendChild(div);
@@ -448,7 +449,17 @@ const UI = {
                     type: 'ATTR_ATTACK',
                     name: '攻擊力強化',
                     level: atkLv + 1,
-                    description: '每級+5%傷害'
+                    description: '每級+10%傷害'
+                });
+            }
+            // 新增：攻擊力上升（每級+2基礎攻擊力，單純加法）
+            const atkFlatLv = Math.max(0, Math.min(10, player.attackPowerUpgradeLevel || 0));
+            if (atkFlatLv < 10) {
+                options.push({
+                    type: 'ATTR_ATTACK_POWER',
+                    name: '攻擊力上升',
+                    level: atkFlatLv + 1,
+                    description: '每級+2基礎攻擊力'
                 });
             }
             const crtLv = Math.max(0, Math.min(10, player.critUpgradeLevel || 0));
@@ -512,6 +523,16 @@ const UI = {
         }
         if (weaponType === 'ATTR_CRIT') {
             if (player.critUpgradeLevel < 10) player.critUpgradeLevel += 1;
+            if (typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
+                BuffSystem.applyAttributeUpgrades(player);
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+        if (weaponType === 'ATTR_ATTACK_POWER') {
+            if (player.attackPowerUpgradeLevel < 10) player.attackPowerUpgradeLevel += 1;
             if (typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
                 BuffSystem.applyAttributeUpgrades(player);
             }
@@ -1056,7 +1077,7 @@ _createOptionCard: function(option, index) {
   const optionElement = document.createElement('div');
   optionElement.className = 'upgrade-option';
   optionElement.dataset.index = index;
-  const iconMap = {
+const iconMap = {
     SING: 'assets/images/A1.png',
     DAGGER: 'assets/images/A2.png',
     LASER: 'assets/images/A3.png',
@@ -1067,8 +1088,9 @@ _createOptionCard: function(option, index) {
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_HEALTH: 'assets/images/A10.png',
-    ATTR_DEFENSE: 'assets/images/A11.png'
-  };
+    ATTR_DEFENSE: 'assets/images/A11.png',
+    ATTR_ATTACK_POWER: 'assets/images/A12.png'
+};
   const iconSrc = iconMap[option.type] || 'assets/images/A1.png';
   const iconWrap = document.createElement('div');
   iconWrap.className = 'uop-icon';
@@ -1086,7 +1108,7 @@ _createOptionCard: function(option, index) {
   textWrap.appendChild(descElement);
   optionElement.appendChild(iconWrap);
   optionElement.appendChild(textWrap);
-  const category = (option.type === 'ATTR_ATTACK' || option.type === 'ATTR_CRIT' || option.type === 'ATTR_HEALTH' || option.type === 'ATTR_DEFENSE')
+const category = (option.type === 'ATTR_ATTACK' || option.type === 'ATTR_ATTACK_POWER' || option.type === 'ATTR_CRIT' || option.type === 'ATTR_HEALTH' || option.type === 'ATTR_DEFENSE')
     ? 'StatUp'
     : (option.type === 'SING' ? 'Skill' : 'Weapon');
   const tagEl = document.createElement('div');
