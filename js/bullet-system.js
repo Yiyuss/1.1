@@ -123,10 +123,12 @@
             if (distSq <= rad * rad) {
               // 以既有管線扣血（含無敵/紅閃/UI更新）
               if (typeof player.takeDamage === 'function') {
-                player.takeDamage(b.damage || 25);
+                const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(30);
+                player.takeDamage(hitDamage);
               } else if (typeof Game !== 'undefined' && Game.player) {
                 // 後備：直接扣血
-                Game.player.health = Math.max(0, (Game.player.health || 0) - (b.damage || 25));
+                const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(30);
+                Game.player.health = Math.max(0, (Game.player.health || 0) - hitDamage);
                 if (typeof UI !== 'undefined' && UI.updateHealthBar) {
                   try { UI.updateHealthBar(Game.player.health, Game.player.maxHealth || Game.player.health); } catch (_) {}
                 }
@@ -213,10 +215,21 @@
       }
     },
 
+    // 依波次計算傷害：基礎30 + 每波+1（例：第30波=60）
+    _computeWaveDamage(base = 30) {
+      try {
+        const w = (typeof WaveSystem !== 'undefined' && WaveSystem && typeof WaveSystem.currentWave === 'number')
+          ? WaveSystem.currentWave
+          : (typeof Game !== 'undefined' && typeof Game.currentWave === 'number' ? Game.currentWave : 1);
+        return base + w;
+      } catch (_) { return base + 1; }
+    },
+
     /** 加入單一彈幕（供未來使用） */
-    addBullet(x, y, vx, vy, lifeMs, size = 4, color = '#fff', damage = 25) {
+    addBullet(x, y, vx, vy, lifeMs, size = 4, color = '#fff', damage) {
       if (!this.enabled) return;
-      this.bullets.push({ x, y, vx, vy, life: lifeMs, maxLife: lifeMs, size, color, damage });
+      const dmg = (typeof damage === 'number') ? damage : this._computeWaveDamage(30);
+      this.bullets.push({ x, y, vx, vy, life: lifeMs, maxLife: lifeMs, size, color, damage: dmg });
     },
   };
 
