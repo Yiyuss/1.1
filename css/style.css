@@ -1322,6 +1322,28 @@ body {
   #talent-select-screen .talent-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+/* LV6 最高階金色背景效果（僅視覺，命名空間限定） */
+#talent-select-screen .char-card.lv-max { position: relative; }
+#talent-select-screen .char-card.lv-max::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    radial-gradient(closest-side, rgba(255, 215, 0, 0.35), rgba(255, 215, 0, 0.1) 60%, transparent 100%),
+    conic-gradient(from 0deg, rgba(255, 235, 140, 0.25), rgba(255, 215, 0, 0.15), rgba(255, 235, 140, 0.25));
+  mix-blend-mode: screen;
+  opacity: 0.75;
+  animation: lv6GoldenDrift 1800ms ease-in-out infinite;
+}
+#talent-select-screen .char-card.lv-max { box-shadow: 0 0 12px rgba(255, 215, 0, 0.6), 0 0 24px rgba(255, 215, 0, 0.35); }
+@keyframes lv6GoldenDrift {
+  0%   { transform: translateY(0) scale(1); opacity: 0.7; filter: hue-rotate(0deg); }
+  50%  { transform: translateY(-1.5%) scale(1.02); opacity: 0.9; filter: hue-rotate(18deg); }
+  100% { transform: translateY(0) scale(1); opacity: 0.7; filter: hue-rotate(0deg); }
+}
+
 .char-preview { margin-top: 18px; display: grid; grid-template-columns: 220px 1fr; gap: 16px; align-items: center; }
 .char-preview-image img { width: 100%; height: auto; image-rendering: pixelated; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15); }
 .char-preview-name { font-size: 1.2rem; font-weight: 700; margin-bottom: 8px; }
