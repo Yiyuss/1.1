@@ -4,7 +4,7 @@ class ChainLightningEffect extends Entity {
         super(player.x, player.y, 2, 2);
         this.player = player;
         this.damage = damage;
-        this.durationMs = durationMs || 500;
+        this.durationMs = durationMs || 1000;
         this.chainRadius = chainRadius || 220;
         this.maxChains = Math.max(0, maxChains || 0); // 次數：1代表主目標後再連1次
         this.startTime = Date.now();
