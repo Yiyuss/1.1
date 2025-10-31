@@ -92,15 +92,15 @@ const TalentSystem = {
                 { multiplier: 5.00, cost: 24000 }
             ]
         },
-        // 新增：傷害強化（5%、10%、15% 對應 1.05/1.10/1.15）
+        // 新增：傷害強化（10%、20%、30%、50%、70%、100% 對應 1.10/1.20/1.30/1.50/1.70/2.00）
         damage_boost: {
             levels: [
-                { multiplier: 1.05, cost: 3000 },
-                { multiplier: 1.10, cost: 6000 },
-                { multiplier: 1.15, cost: 12000 },
-                { multiplier: 1.25, cost: 24000 },
-                { multiplier: 1.35, cost: 35000 },
-                { multiplier: 1.45, cost: 45000 }
+                { multiplier: 1.10, cost: 3000 },
+                { multiplier: 1.20, cost: 6000 },
+                { multiplier: 1.30, cost: 12000 },
+                { multiplier: 1.50, cost: 24000 },
+                { multiplier: 1.70, cost: 35000 },
+                { multiplier: 2.00, cost: 45000 }
             ]
         },
         // 新增：傷害特化（每次攻擊追加固定傷害+2/+4/+6）
