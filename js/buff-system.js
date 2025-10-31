@@ -1,5 +1,19 @@
 // 狀態管理系統 - 統一管理玩家的buff、debuff和臨時效果
 const BuffSystem = {
+    // 工具：從天賦表讀取對應等級的效果鍵值
+    _getTierEffect(talentId, level, key, fallback) {
+        try {
+            if (!TalentSystem || !TalentSystem.tieredTalents) return fallback;
+            if (level <= 0) return fallback;
+            const conf = TalentSystem.tieredTalents[talentId];
+            if (!conf || !Array.isArray(conf.levels) || conf.levels.length === 0) return fallback;
+            const idx = Math.min(level - 1, conf.levels.length - 1);
+            const eff = conf.levels[idx] || {};
+            return key in eff ? eff[key] : fallback;
+        } catch (_) {
+            return fallback;
+        }
+    },
     // 所有可用的buff類型及其效果
     buffTypes: {
         // 生命強化 - 增加最大生命值（階梯）
@@ -8,8 +22,7 @@ const BuffSystem = {
             apply: function(player) {
                 const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                     ? TalentSystem.getTalentLevel('hp_boost') : 0;
-                const amounts = [0, 20, 50, 100];
-                const healthBoost = amounts[Math.min(lv, 3)] || 0;
+                const healthBoost = BuffSystem._getTierEffect('hp_boost', lv, 'hp', 0) || 0;
                 player.maxHealth = CONFIG.PLAYER.MAX_HEALTH + healthBoost;
                 player.health = player.maxHealth;
                 if (typeof UI !== 'undefined' && UI.updateHealthBar) {
@@ -30,8 +43,7 @@ const BuffSystem = {
             apply: function(player) {
                 const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                     ? TalentSystem.getTalentLevel('defense_boost') : 0;
-                const amounts = [0, 2, 5, 8];
-                const reduction = amounts[Math.min(lv, 3)] || 0;
+                const reduction = BuffSystem._getTierEffect('defense_boost', lv, 'reduction', 0) || 0;
                 player.damageReductionFlat = reduction;
             },
             remove: function(player) {
@@ -44,8 +56,7 @@ const BuffSystem = {
             apply: function(player) {
                 const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                     ? TalentSystem.getTalentLevel('speed_boost') : 0;
-                const multipliers = [1.0, 1.10, 1.20, 1.35];
-                const mul = multipliers[Math.min(lv, 3)] || 1.0;
+                const mul = BuffSystem._getTierEffect('speed_boost', lv, 'multiplier', 1.0) || 1.0;
                 player.speed = CONFIG.PLAYER.SPEED * mul;
             },
             remove: function(player) {
@@ -58,8 +69,7 @@ const BuffSystem = {
             apply: function(player) {
                 const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                     ? TalentSystem.getTalentLevel('pickup_range_boost') : 0;
-                const multipliers = [1.0, 1.25, 1.5, 1.8];
-                const mul = multipliers[Math.min(lv, 3)] || 1.0;
+                const mul = BuffSystem._getTierEffect('pickup_range_boost', lv, 'multiplier', 1.0) || 1.0;
                 player.pickupRangeMultiplier = mul;
             },
             remove: function(player) {
@@ -72,8 +82,7 @@ const BuffSystem = {
             apply: function(player) {
                 const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                     ? TalentSystem.getTalentLevel('regen_speed_boost') : 0;
-                const multipliers = [1.0, 1.30, 1.60, 2.00];
-                const mul = multipliers[Math.min(lv, 3)] || 1.0;
+                const mul = BuffSystem._getTierEffect('regen_speed_boost', lv, 'multiplier', 1.0) || 1.0;
                 player.healthRegenSpeedMultiplier = mul;
             },
             remove: function(player) {
@@ -103,8 +112,11 @@ const BuffSystem = {
         if (player.critUpgradeLevel == null) player.critUpgradeLevel = 0;
         if (player.healthUpgradeLevel == null) player.healthUpgradeLevel = 0;
         if (player.defenseUpgradeLevel == null) player.defenseUpgradeLevel = 0;
-        if (player.damageAttributeBonusPct == null) player.damageAttributeBonusPct = 0; // 由升級：每級+5%
+        if (player.damageAttributeBonusPct == null) player.damageAttributeBonusPct = 0; // 由升級：每級+10%
         if (player.critChanceUpgradeBonusPct == null) player.critChanceUpgradeBonusPct = 0; // 由升級：每級+2%
+        // 新增：基礎攻擊力上升（每級+2，單純加法，不影響公式百分比）
+        if (player.attackPowerUpgradeLevel == null) player.attackPowerUpgradeLevel = 0;
+        if (player.attackPowerUpgradeFlat == null) player.attackPowerUpgradeFlat = 0;
         
         // 初始化所有buff為未激活狀態
         for (const buffId in this.buffTypes) {
@@ -114,7 +126,7 @@ const BuffSystem = {
 
     // 根據局內屬性等級，計算對應的加成值（不寫入 localStorage）
     // 維護備註：
-    // - attackUpgradeLevel: 0..10 -> damageAttributeBonusPct = 0.05 * 等級
+    // - attackUpgradeLevel: 0..10 -> damageAttributeBonusPct = 0.10 * 等級
     // - critUpgradeLevel:   0..10 -> critChanceUpgradeBonusPct = 0.02 * 等級
     // - 與天賦相加：player.critChanceBonusPct = 天賦爆擊率% + 升級爆擊率%
     applyAttributeUpgrades: function(player) {
@@ -123,21 +135,21 @@ const BuffSystem = {
         const crtLv = Math.max(0, Math.min(10, player.critUpgradeLevel || 0));
         const hpLv = Math.max(0, Math.min(10, player.healthUpgradeLevel || 0));
         const defLv = Math.max(0, Math.min(10, player.defenseUpgradeLevel || 0));
-        player.damageAttributeBonusPct = 0.05 * atkLv;
+        const atkFlatLv = Math.max(0, Math.min(10, player.attackPowerUpgradeLevel || 0));
+        player.damageAttributeBonusPct = 0.10 * atkLv;
         player.critChanceUpgradeBonusPct = 0.02 * crtLv;
+        player.attackPowerUpgradeFlat = 2 * atkFlatLv; // 單純加法：每級+2
         // 與天賦相加（若天賦稍後重算，也會覆寫為一致的值）
         const critLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
             ? TalentSystem.getTalentLevel('crit_enhance') : 0;
-        const critPctTable = [0, 0.05, 0.10, 0.15];
-        const critTalentPct = critPctTable[Math.min(critLv, 3)] || 0;
+        const critTalentPct = BuffSystem._getTierEffect('crit_enhance', critLv, 'chancePct', 0) || 0;
         player.critChanceBonusPct = critTalentPct + player.critChanceUpgradeBonusPct;
 
         // 新增：生命與防禦升級疊加（與天賦相加，單純加法）
         try {
             const hpTalentLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                 ? TalentSystem.getTalentLevel('hp_boost') : 0;
-            const hpTalentAmounts = [0, 20, 50, 100];
-            const hpTalentFlat = hpTalentAmounts[Math.min(hpTalentLv, 3)] || 0;
+            const hpTalentFlat = BuffSystem._getTierEffect('hp_boost', hpTalentLv, 'hp', 0) || 0;
             const hpUpgradeFlat = 20 * hpLv; // 每級+20
             player.maxHealth = (CONFIG && CONFIG.PLAYER ? CONFIG.PLAYER.MAX_HEALTH : (player.maxHealth || 100)) + hpTalentFlat + hpUpgradeFlat;
             player.health = Math.min(player.health, player.maxHealth);
@@ -223,18 +235,14 @@ const BuffSystem = {
             if (prLv > 0) this.applyBuff(player, 'pickup_range_boost');
             if (regenLv > 0) this.applyBuff(player, 'regen_speed_boost');
             
-            // 新增：根據天賦等級設定「基礎傷害加成（只加LV1基礎值）」、「傷害特化（+2/+4/+6）」、「爆擊加成（+5/10/15%）」
-            const dmgTalentPctTable = [0, 0.05, 0.10, 0.15];
-            const dmgTalentPct = dmgTalentPctTable[Math.min(dmgLv, 3)] || 0;
-            player.damageTalentBaseBonusPct = dmgTalentPct;
+            // 統一讀取六階：基礎傷害%、傷害特化平值、爆擊率%
+            player.damageTalentBaseBonusPct = BuffSystem._getTierEffect('damage_boost', dmgLv, 'multiplier', 1.0) - 1.0 || 0;
             const specLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                 ? TalentSystem.getTalentLevel('damage_specialization') : 0;
-            const specFlatTable = [0, 2, 4, 6];
-            player.damageSpecializationFlat = specFlatTable[Math.min(specLv, 3)] || 0;
+            player.damageSpecializationFlat = BuffSystem._getTierEffect('damage_specialization', specLv, 'flat', 0) || 0;
             const critLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                 ? TalentSystem.getTalentLevel('crit_enhance') : 0;
-            const critPctTable = [0, 0.05, 0.10, 0.15];
-            const critTalentPct = critPctTable[Math.min(critLv, 3)] || 0;
+            const critTalentPct = BuffSystem._getTierEffect('crit_enhance', critLv, 'chancePct', 0) || 0;
             // 先依當前局內等級重算升級加成，再合併
             this.applyAttributeUpgrades(player);
             const upgradeCritPct = player.critChanceUpgradeBonusPct || 0;
