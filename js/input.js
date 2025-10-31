@@ -31,6 +31,33 @@ const Input = {
             console.log('按鍵釋放:', e.key); // 調試信息
         });
         
+        // 禁止右鍵與非左鍵點擊（避免觸發瀏覽器選單或異常行為）
+        try {
+            // 全域關閉右鍵選單（包含遊戲內外）
+            window.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
+            // 畫布層再保險一次關閉右鍵選單與非主鍵點擊
+            if (Game && Game.canvas) {
+                Game.canvas.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+                Game.canvas.addEventListener('mousedown', (e) => {
+                    // 只允許左鍵（button === 0），中鍵(1)/右鍵(2)一律阻止
+                    if (e.button !== 0) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                });
+                // 輔助：阻止非主鍵 click（Chrome/firefox 的 auxclick）
+                Game.canvas.addEventListener('auxclick', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            }
+        } catch (_) {}
+
         // 監聽滑鼠點擊事件
         Game.canvas.addEventListener('click', (e) => {
             const rect = Game.canvas.getBoundingClientRect();
