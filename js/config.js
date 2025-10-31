@@ -70,6 +70,11 @@ const CONFIG = {
             PROJECTILE_SPEED: 6,
             PROJECTILE_SIZE: 28,
             PROJECTILE_SIZE_PER_LEVEL: 4,
+            // 新增：命中擴散與緩速效果設定（可自行調整）
+            SPLASH_RADIUS_MULTIPLIER: 3.8,   // 擴散半徑倍率（基於投射物半徑）
+            SPLASH_MIN_RADIUS: 52,           // 擴散半徑下限（像素）
+            SLOW_DURATION_MS: 1000,          // 緩速持續時間（毫秒）
+            SLOW_FACTOR: 0.5,                // 緩速係數（0.5 = 50% 速度）
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每2秒發射1隻紳士綿羊" },
                 { COUNT: 2, DESCRIPTION: "每2秒發射2隻紳士綿羊" },
