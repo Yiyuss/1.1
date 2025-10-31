@@ -378,17 +378,18 @@ function setupCharacterSelection() {
                     if (cfg && cfg.NAME) nameToType[cfg.NAME] = t;
                 });
             } catch (_) {}
-            const iconMap = {
-                SING: 'assets/images/A1.png',
-                DAGGER: 'assets/images/A2.png',
-                LASER: 'assets/images/A3.png',
-                CHAIN_LIGHTNING: 'assets/images/A4.png',
-                FIREBALL: 'assets/images/A5.png',
-                LIGHTNING: 'assets/images/A6.png',
-                ORBIT: 'assets/images/A7.png',
-                ATTR_ATTACK: 'assets/images/A8.png',
-                ATTR_CRIT: 'assets/images/A9.png'
-            };
+const iconMap = {
+    SING: 'assets/images/A1.png',
+    DAGGER: 'assets/images/A2.png',
+    LASER: 'assets/images/A3.png',
+    CHAIN_LIGHTNING: 'assets/images/A4.png',
+    FIREBALL: 'assets/images/A5.png',
+    LIGHTNING: 'assets/images/A6.png',
+    ORBIT: 'assets/images/A7.png',
+    ATTR_ATTACK: 'assets/images/A8.png',
+    ATTR_CRIT: 'assets/images/A9.png',
+    ATTR_ATTACK_POWER: 'assets/images/A12.png'
+};
             names.filter(n => nameToType[n]).forEach(n => {
                 const type = nameToType[n];
                 const iconSrc = iconMap[type] || 'assets/images/A1.png';
