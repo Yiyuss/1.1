@@ -18,6 +18,31 @@ class Enemy extends Entity {
         const hpMult = Math.pow(earlyMult, earlyWaves * growthMult) * Math.pow(lateMult, lateWaves * growthMult);
         const diffHp = (Game.difficulty && Game.difficulty.enemyHealthMultiplier) ? Game.difficulty.enemyHealthMultiplier : 1;
         this.maxHealth = Math.floor(this.maxHealth * hpMult * diffHp);
+        // 迷你BOSS/大BOSS：依地圖與難度覆蓋血量（不影響普通敵人）
+        try {
+            const mapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : 'city';
+            const diffId = (Game.selectedDifficultyId) ? Game.selectedDifficultyId : 'EASY';
+            const tuning = (CONFIG.TUNING || {});
+            if (this.type === 'MINI_BOSS') {
+                const t = (((tuning.MINI_BOSS || {})[mapId] || {})[diffId]) || null;
+                if (t && t.startWave1 && t.endWave30) {
+                    const total = (CONFIG.WAVES && CONFIG.WAVES.TOTAL_WAVES) ? CONFIG.WAVES.TOTAL_WAVES : 30;
+                    const start = t.startWave1;
+                    const end = t.endWave30;
+                    const perWave = Math.pow(end / start, 1 / Math.max(1, (total - 1)));
+                    const steps = Math.max(0, wave - 1);
+                    this.maxHealth = Math.floor(start * Math.pow(perWave, steps));
+                }
+            } else if (this.type === 'BOSS') {
+                const t = (((tuning.BOSS || {})[mapId] || {})[diffId]) || null;
+                // 大BOSS僅第30波出現，直接指定目標血量
+                if (t && t.wave30 && wave === ((CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 30)) {
+                    this.maxHealth = t.wave30;
+                }
+            }
+        } catch (e) {
+            // 保守處理：任何錯誤均不影響既有流程
+        }
         this.health = this.maxHealth;
         this.damage = enemyConfig.DAMAGE;
         this.speed = enemyConfig.SPEED * ((Game.difficulty && Game.difficulty.enemySpeedMultiplier) ? Game.difficulty.enemySpeedMultiplier : 1);
