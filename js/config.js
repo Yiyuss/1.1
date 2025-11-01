@@ -225,12 +225,15 @@ const CONFIG = {
         },
         ASURA: {
             NAME: '修羅',
-            enemyHealthMultiplier: 1.0,
+            // 小怪希望 1波約70、30波約10000（以第三張地圖基礎50為例）
+            // 因此適度提升基礎倍率並降低成長倍率：50 * 1.4 ≈ 70；30波總倍率約142.8
+            enemyHealthMultiplier: 1.4,
             spawnIntervalMultiplier: 0.85,
             spawnCountMultiplier: 1.2,
             enemySpeedMultiplier: 1.7,
             bossRangedEnabled: true,
-            enemyHealthGrowthRateMultiplier: 3.0, // 血量成長為3
+            // 使 1.05^(4g) * 1.1^(25g) ≈ 142.8，解得 g ≈ 1.925
+            enemyHealthGrowthRateMultiplier: 1.925,
             maxEnemiesBonusMin: 50,
             maxEnemiesBonusMax: 100
         }
@@ -402,6 +405,39 @@ const CONFIG = {
             { WAVE: 4, TYPE: "GHOST" }
         ]
     },
+
+    // 迷你BOSS/大BOSS 血量微調（依地圖與難度）
+    // 僅針對 MINI_BOSS / BOSS，不影響普通敵人。
+    TUNING: {
+        MINI_BOSS: {
+            // 第一張地圖：廁所
+            city: {
+                // EASY 不調整（沿用既有數值）
+                HARD: { startWave1: 1000, endWave30: 30000 }
+            },
+            // 第二張地圖：草原
+            forest: {
+                HARD: { startWave1: 2000, endWave30: 60000 }
+            },
+            // 第三張地圖：宇宙
+            desert: {
+                HARD: { startWave1: 3000, endWave30: 100000 },
+                ASURA: { startWave1: 4000, endWave30: 200000 }
+            }
+        },
+        BOSS: {
+            city: {
+                HARD: { wave30: 80000 }
+            },
+            forest: {
+                HARD: { wave30: 100000 }
+            },
+            desert: {
+                HARD: { wave30: 120000 },
+                ASURA: { wave30: 300000 }
+            }
+        }
+    }
     
     // 優化設置
     OPTIMIZATION: {
