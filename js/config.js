@@ -23,6 +23,28 @@ const CONFIG = {
     
     // 武器設置
     WEAPONS: {
+        AURA_FIELD: {
+            NAME: "守護領域",
+            DAMAGE: 10,
+            COOLDOWN: 1000,
+            PROJECTILE_SPEED: 0,
+            // 場域半徑（以像素計算），升級逐步擴大
+            FIELD_RADIUS: 60,
+            FIELD_RADIUS_PER_LEVEL: 10,
+            // 備註：此武器為常駐型，不依賴 DURATION，到達 LV10 僅提升範圍
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "在腳底生成持續傷害場域（範圍+0px）" },
+                { COUNT: 1, DESCRIPTION: "場域範圍提升（+10px）" },
+                { COUNT: 1, DESCRIPTION: "場域範圍提升（+20px）" },
+                { COUNT: 1, DESCRIPTION: "場域範圍提升（+30px）" },
+                { COUNT: 1, DESCRIPTION: "場域範圍提升（+40px）" },
+                { COUNT: 1, DESCRIPTION: "場域範圍提升（+50px）" },
+                { COUNT: 1, DESCRIPTION: "場域範圍提升（+60px）" },
+                { COUNT: 1, DESCRIPTION: "場域範圍提升（+70px）" },
+                { COUNT: 1, DESCRIPTION: "場域範圍提升（+80px）" },
+                { COUNT: 1, DESCRIPTION: "場域範圍提升（+90px）" }
+            ]
+        },
         SING: {
             NAME: "唱歌",
             DAMAGE: 0,
