@@ -197,6 +197,8 @@ function createDefaultImages() {
         { name: 'fireball', src: 'assets/images/fireball.png' },
         { name: 'lightning', src: 'assets/images/lightning.png' },
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
+// 新增：守護領域場域圖片
+        { name: 'field', src: 'assets/images/field.gif' },
         { name: 'box', src: 'assets/images/BOX.png' },
         // 唱歌技能特效圖片（四張）
         { name: 'LA', src: 'assets/images/LA.png' },
@@ -386,6 +388,7 @@ const iconMap = {
     FIREBALL: 'assets/images/A5.png',
     LIGHTNING: 'assets/images/A6.png',
     ORBIT: 'assets/images/A7.png',
+    AURA_FIELD: 'assets/images/A13.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
