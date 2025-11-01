@@ -64,6 +64,25 @@ class Weapon {
             return;
         }
 
+        // 特殊技能：守護領域（常駐場域）
+        if (this.type === 'AURA_FIELD') {
+            const baseRadius = this.config.FIELD_RADIUS || 60;
+            const perLevel = this.config.FIELD_RADIUS_PER_LEVEL || 0;
+            const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+            const dmg = this._computeFinalDamage(levelMul);
+            // 僅首次生成；升級時在 fire 內同步半徑與傷害
+            if (!this._auraEntity || this._auraEntity.markedForDeletion) {
+                this._auraEntity = new AuraField(this.player, dynamicRadius, dmg);
+                Game.addProjectile(this._auraEntity);
+            } else {
+                // 升級或定期同步最新數值
+                this._auraEntity.radius = dynamicRadius;
+                this._auraEntity.damage = dmg;
+                this._auraEntity.tickDamage = Math.max(1, Math.round(dmg));
+            }
+            return;
+        }
+
         // 特殊技能：雷射
         if (this.type === 'LASER') {
             // 朝最近敵人方向；若無敵人則向右
