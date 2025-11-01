@@ -437,7 +437,7 @@ const CONFIG = {
                 ASURA: { wave30: 300000 }
             }
         }
-    }
+    },
     
     // 優化設置
     OPTIMIZATION: {
