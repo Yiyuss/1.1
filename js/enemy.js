@@ -564,7 +564,7 @@ class Enemy extends Entity {
             Game.spawnChest(this.x, this.y);
         }
         if (typeof Game !== 'undefined' && typeof Game.addCoins === 'function') {
-            let coinGain = 1;
+            let coinGain = 2;
             if (this.type === 'MINI_BOSS') coinGain = 5;
             else if (this.type === 'BOSS') coinGain = 15;
             Game.addCoins(coinGain);
