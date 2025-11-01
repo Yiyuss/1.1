@@ -205,7 +205,7 @@ const CONFIG = {
             DURATION_MS: 15000,
             PLAYER_SIZE_MULTIPLIER: 2.5, // 變身體型再放大一些
             IMAGE_KEY: 'playerN',
-            ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING'],
+            ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD'],
             ULTIMATE_LEVEL: 10
         },
 
