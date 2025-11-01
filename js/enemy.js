@@ -565,8 +565,8 @@ class Enemy extends Entity {
         }
         if (typeof Game !== 'undefined' && typeof Game.addCoins === 'function') {
             let coinGain = 2;
-            if (this.type === 'MINI_BOSS') coinGain = 5;
-            else if (this.type === 'BOSS') coinGain = 15;
+            if (this.type === 'MINI_BOSS') coinGain = 50;
+            else if (this.type === 'BOSS') coinGain = 500;
             Game.addCoins(coinGain);
         }
         if (this.type === 'BOSS') {
