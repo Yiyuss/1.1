@@ -486,6 +486,14 @@ class Enemy extends Entity {
         
         // 檢查攻擊冷卻
         if (currentTime - this.lastAttackTime >= this.attackCooldown) {
+            // 技能無敵時完全免疫近戰傷害（不觸發扣血）
+            try {
+                const p = Game.player;
+                if (p && p.invulnerabilitySource === 'INVINCIBLE') {
+                    this.lastAttackTime = currentTime; // 視為一次攻擊嘗試，維持冷卻節奏
+                    return;
+                }
+            } catch (_) {}
             Game.player.takeDamage(this.damage);
             this.lastAttackTime = currentTime;
         }
