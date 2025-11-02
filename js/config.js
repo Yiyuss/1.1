@@ -23,6 +23,26 @@ const CONFIG = {
     
     // 武器設置
     WEAPONS: {
+        INVINCIBLE: {
+            NAME: "無敵",
+            DAMAGE: 0,
+            COOLDOWN: 10000,
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 0,
+            // 無敵持續時間：LV1 2.0s，之後每級+0.2s，LV10 3.8s
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "冷卻10秒：無敵2.0秒" },
+                { COUNT: 1, DESCRIPTION: "冷卻10秒：無敵2.2秒" },
+                { COUNT: 1, DESCRIPTION: "冷卻10秒：無敵2.4秒" },
+                { COUNT: 1, DESCRIPTION: "冷卻10秒：無敵2.6秒" },
+                { COUNT: 1, DESCRIPTION: "冷卻10秒：無敵2.8秒" },
+                { COUNT: 1, DESCRIPTION: "冷卻10秒：無敵3.0秒" },
+                { COUNT: 1, DESCRIPTION: "冷卻10秒：無敵3.2秒" },
+                { COUNT: 1, DESCRIPTION: "冷卻10秒：無敵3.4秒" },
+                { COUNT: 1, DESCRIPTION: "冷卻10秒：無敵3.6秒" },
+                { COUNT: 1, DESCRIPTION: "冷卻10秒：無敵3.8秒" }
+            ]
+        },
         AURA_FIELD: {
             NAME: "守護領域",
             DAMAGE: 10,
@@ -320,6 +340,7 @@ const CONFIG = {
             EXPERIENCE: 10,
             COLLISION_RADIUS: 16
         },
+        // 第三張地圖專用：殭屍3（僅初始血量+20、初始傷害+10，其餘相同）
         ZOMBIE3: {
             NAME: "殭屍",
             HEALTH: 50,
@@ -329,6 +350,7 @@ const CONFIG = {
             EXPERIENCE: 5,
             COLLISION_RADIUS: 16
         },
+        // 第三張地圖專用：骷髏3（僅初始血量+20、初始傷害+10，其餘相同）
         SKELETON3: {
             NAME: "骷髏",
             HEALTH: 40,
@@ -338,6 +360,7 @@ const CONFIG = {
             EXPERIENCE: 8,
             COLLISION_RADIUS: 16
         },
+        // 第三張地圖專用：幽靈3（僅初始血量+20、初始傷害+10，其餘相同）
         GHOST3: {
             NAME: "幽靈",
             HEALTH: 35,
