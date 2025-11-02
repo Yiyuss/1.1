@@ -16,6 +16,8 @@ class Player extends Entity {
         this.isInvulnerable = false;
         this.invulnerabilityTime = 0;
         this.invulnerabilityDuration = 1000; // 受傷後1秒無敵時間
+        // 新增：無敵來源（'INVINCIBLE' | 'HIT_FLASH' | null）用於區分技能無敵與受傷短暫無敵
+        this.invulnerabilitySource = null;
         
         // 增益系統 - 存儲所有持續性增益效果
         this.buffs = {
@@ -123,6 +125,7 @@ class Player extends Entity {
             if (this.invulnerabilityTime >= this.invulnerabilityDuration) {
                 this.isInvulnerable = false;
                 this.invulnerabilityTime = 0;
+                this.invulnerabilitySource = null; // 到期清空無敵來源
             }
         }
 
@@ -180,7 +183,14 @@ class Player extends Entity {
     takeDamage(amount, options = {}) {
         // options.ignoreInvulnerability: 略過無敵判定（彈幕/火焰彈等重擊）
         const ignoreInvulnerability = !!(options && options.ignoreInvulnerability);
-        if (this.isInvulnerable && !ignoreInvulnerability) return;
+        if (this.invulnerabilitySource === 'INVINCIBLE') return;
+        if (this.isInvulnerable) {
+            // 若攻擊不要求忽略無敵，直接免疫
+            if (!ignoreInvulnerability) return;
+            // 若為技能無敵（INVINCIBLE），即便攻擊要求忽略無敵也需尊重技能無敵
+            if (this.invulnerabilitySource === 'INVINCIBLE') return;
+            // 其餘情況（受傷短暫無敵），允許忽略並造成傷害
+        }
         
         // 防禦：基礎防禦 + 天賦平減（不為負）
         const baseDef = this.baseDefense || 0;
@@ -196,12 +206,31 @@ class Player extends Entity {
             // 受傷後短暫無敵（即便忽略無敵判定，仍啟動受傷視覺與短暫保護，避免連擊過度懲罰）
             this.isInvulnerable = true;
             this.invulnerabilityTime = 0;
+            this.invulnerabilitySource = 'HIT_FLASH';
             // 啟動紅閃
             this.hitFlashTime = this.hitFlashDuration;
         }
         
         // 更新UI
         UI.updateHealthBar(this.health, this.maxHealth);
+    }
+
+    // 施加技能無敵：在指定毫秒內免疫傷害（BOSS/彈幕亦尊重此技能無敵）
+    applyInvincibility(durationMs) {
+        const d = Math.max(0, Math.floor(durationMs || 0));
+        this.isInvulnerable = true;
+        this.invulnerabilityTime = 0;
+        this.invulnerabilityDuration = d > 0 ? d : this.invulnerabilityDuration;
+        this.invulnerabilitySource = 'INVINCIBLE';
+        // 視覺覆蓋（DOM 護盾），與武器中一致；此處作為冗餘保險。
+        try {
+            if (typeof InvincibleEffect !== 'undefined') {
+                const effect = new InvincibleEffect(this, this.invulnerabilityDuration);
+                if (typeof Game !== 'undefined' && Game.addProjectile) {
+                    Game.addProjectile(effect);
+                }
+            }
+        } catch (_) {}
     }
     
     // 死亡
