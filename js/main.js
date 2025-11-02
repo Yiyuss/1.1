@@ -200,11 +200,8 @@ function createDefaultImages() {
 // 新增：守護領域場域圖片
         { name: 'field', src: 'assets/images/field.gif' },
         { name: 'box', src: 'assets/images/BOX.png' },
-        // 唱歌技能特效圖片（四張）
+        // 唱歌技能特效圖片（GIF 與 PNG 後備）
         { name: 'LA', src: 'assets/images/LA.png' },
-        { name: 'LA2', src: 'assets/images/LA2.png' },
-        { name: 'LA3', src: 'assets/images/LA3.png' },
-        { name: 'LA4', src: 'assets/images/LA4.png' },
         // 障礙物素材
         { name: 'S1', src: 'assets/images/S1.png' },
         { name: 'S2', src: 'assets/images/S2.png' },
