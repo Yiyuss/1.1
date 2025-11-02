@@ -24,6 +24,30 @@ class Weapon {
         const levelMul = (typeof DamageSystem !== 'undefined')
             ? DamageSystem.levelMultiplier(this.level)
             : (1 + 0.05 * Math.max(0, this.level - 1));
+        // 特殊技能：無敵（不造成傷害，給予玩家短暫無敵並顯示護盾特效）
+        if (this.type === 'INVINCIBLE') {
+            const seconds = 2.0 + 0.2 * Math.max(0, this.level - 1);
+            const durationMs = Math.round(seconds * 1000);
+            try {
+                if (this.player && typeof this.player.applyInvincibility === 'function') {
+                    this.player.applyInvincibility(durationMs);
+                } else if (this.player) {
+                    // 後備：直接設定玩家無敵並產生視覺覆蓋
+                    this.player.isInvulnerable = true;
+                    this.player.invulnerabilityTime = 0;
+                    this.player.invulnerabilityDuration = durationMs;
+                    this.player.invulnerabilitySource = 'INVINCIBLE';
+                    if (typeof InvincibleEffect !== 'undefined') {
+                        const effect = new InvincibleEffect(this.player, durationMs);
+                        Game.addProjectile(effect);
+                    }
+                }
+            } catch (_) {}
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('invincible_activate');
+            }
+            return;
+        }
         // 特殊技能：唱歌（不造成傷害，恢復HP並產生音符特效）
         if (this.type === 'SING') {
             const heal = this.level;
