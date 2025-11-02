@@ -121,12 +121,62 @@
             const distSq = dx * dx + dy * dy;
             const rad = pr + br;
             if (distSq <= rad * rad) {
-              // 以既有管線扣血；彈幕屬於重擊來源，忽略無敵判定
+              // 技能無敵期間完全免疫彈幕傷害（即便為重擊類型）
+              try {
+                if (player && player.invulnerabilitySource === 'INVINCIBLE') {
+                  // 保留命中感（震動/粒子），但不扣血
+                  if (!Game.cameraShake) {
+                    Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+                  }
+                  Game.cameraShake.active = true;
+                  Game.cameraShake.intensity = 6;
+                  Game.cameraShake.duration = 120;
+                  if (!Game.explosionParticles) Game.explosionParticles = [];
+                  for (let k = 0; k < 6; k++) {
+                    const ang = Math.random() * Math.PI * 2;
+                    const spd = 0.8 + Math.random() * 1.2;
+                    Game.explosionParticles.push({
+                      x: b.x,
+                      y: b.y,
+                      vx: Math.cos(ang) * spd,
+                      vy: Math.sin(ang) * spd,
+                      life: 180 + Math.random() * 120,
+                      maxLife: 180 + Math.random() * 120,
+                      size: 2 + Math.random() * 2,
+                      color: '#ffcc55'
+                    });
+                  }
+                  for (let k = 0; k < 3; k++) {
+                    const ang2 = Math.random() * Math.PI * 2;
+                    const spd2 = 0.5 + Math.random() * 1.0;
+                    Game.explosionParticles.push({
+                      x: b.x + (Math.random() - 0.5) * 8,
+                      y: b.y + (Math.random() - 0.5) * 8,
+                      vx: Math.cos(ang2) * spd2 * 0.5,
+                      vy: Math.sin(ang2) * spd2 * 0.5 - 0.6,
+                      life: 250 + Math.random() * 150,
+                      maxLife: 250 + Math.random() * 150,
+                      size: 5 + Math.random() * 3,
+                      color: '#cc6666'
+                    });
+                  }
+                  this.bullets.splice(i, 1);
+                  continue;
+                }
+              } catch (_) {}
+
+              // 以既有管線扣血；忽略一般無敵（受傷短暫無敵），但尊重技能無敵（由 player.takeDamage 早退）
               if (typeof player.takeDamage === 'function') {
                 const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(30);
                 player.takeDamage(hitDamage, { ignoreInvulnerability: true, source: 'bullet_system' });
               } else if (typeof Game !== 'undefined' && Game.player) {
-                // 後備：直接扣血
+                // 後備：直接扣血（技能無敵時避免扣血）
+                try {
+                  if (Game.player && Game.player.invulnerabilitySource === 'INVINCIBLE') {
+                    this.bullets.splice(i, 1);
+                    continue;
+                  }
+                } catch (_) {}
                 const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(30);
                 Game.player.health = Math.max(0, (Game.player.health || 0) - hitDamage);
                 if (typeof UI !== 'undefined' && UI.updateHealthBar) {
