@@ -628,7 +628,15 @@ const Game = {
         this.isPaused = false;
         this.isGameOver = false;
         this.boss = null;
-        
+
+        // 清除技能視覺覆蓋層與樣式（例如 INVINCIBLE 護盾）
+        try {
+            const layer = document.getElementById('skill-effects-layer');
+            if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
+            const styleTag = document.getElementById('invincible-style');
+            if (styleTag && styleTag.parentNode) styleTag.parentNode.removeChild(styleTag);
+        } catch (_) {}
+
         // 世界大小無需重算（保持init設定）。重新置中玩家
         this.player = new Player(this.worldWidth / 2, this.worldHeight / 2);
         // 應用選角屬性（若有）
