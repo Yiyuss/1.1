@@ -53,7 +53,20 @@ class BossProjectile extends Entity {
         
         // 檢查與玩家碰撞
         if (Game.player && this.isColliding(Game.player)) {
-            // 對玩家造成傷害（火焰彈屬於重擊來源，忽略無敵判定）
+            // 技能無敵時完全免疫火彈傷害（即便為重擊類型）
+            try {
+                const p = Game.player;
+                if (p && p.invulnerabilitySource === 'INVINCIBLE') {
+                    // 仍保留命中特效以維持手感，但不扣血
+                    if (typeof AudioManager !== 'undefined') {
+                        AudioManager.playSound('bo');
+                    }
+                    this.createExplosionEffect();
+                    this.destroy();
+                    return;
+                }
+            } catch (_) {}
+            // 對玩家造成傷害：忽略一般無敵（受傷短暫無敵），但尊重技能無敵
             Game.player.takeDamage(this.damage, { ignoreInvulnerability: true, source: 'boss_projectile' });
             // 新增：命中玩家時播放bo音效
             if (typeof AudioManager !== 'undefined') {
