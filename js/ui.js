@@ -149,9 +149,11 @@ const UI = {
     isAnyOverlayOpen: function() {
         const levelMenu = this._get('level-up-menu');
         const skillsMenu = this._get('skills-menu');
+        const achModal = this._get('achievements-modal');
         const levelOpen = !!(levelMenu && !levelMenu.classList.contains('hidden'));
         const skillsOpen = !!(skillsMenu && !skillsMenu.classList.contains('hidden'));
-        return levelOpen || skillsOpen;
+        const achOpen = !!(achModal && !achModal.classList.contains('hidden'));
+        return levelOpen || skillsOpen || achOpen;
     },
 
     /**
@@ -262,6 +264,19 @@ const UI = {
                 }, { once: true });
             }
         } catch (_) {}
+
+        // 回到開始介面後（僅勝利流程）顯示成就彈窗與音效，不改動既有流程
+        try {
+            if (screenId === 'victory-screen' && typeof Achievements !== 'undefined') {
+                const ids = (typeof Achievements.consumeSessionUnlocked === 'function')
+                    ? Achievements.consumeSessionUnlocked()
+                    : (typeof Achievements.getSessionUnlocked === 'function' ? Achievements.getSessionUnlocked() : []);
+                if (ids && ids.length) {
+                    this.showAchievementsUnlockModal(ids);
+                    try { if (AudioManager && AudioManager.playSound) AudioManager.playSound('achievements'); } catch (_) {}
+                }
+            }
+        } catch (_) {}
     },
     isSkillsMenuOpen: function() {
         const el = this.skillsMenu;
@@ -299,6 +314,7 @@ const skillIcons = {
     DAGGER: 'assets/images/A2.png',
     LASER: 'assets/images/A3.png',
     CHAIN_LIGHTNING: 'assets/images/A4.png',
+    FRENZY_LIGHTNING: 'assets/images/A15.png',
     FIREBALL: 'assets/images/A5.png',
     LIGHTNING: 'assets/images/A6.png',
     ORBIT: 'assets/images/A7.png',
@@ -415,9 +431,12 @@ const skillIcons = {
             : player.weapons.map(w => ({ type: w.type, level: w.level }));
 
         // 現有武器升級選項（使用CONFIG計算下一級描述）
+        const hasFrenzy = sourceWeaponsInfo.some(w => w.type === 'FRENZY_LIGHTNING');
         for (const info of sourceWeaponsInfo) {
             const cfg = CONFIG.WEAPONS[info.type];
             if (!cfg) continue;
+            // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
+            if (hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) continue;
             if (info.level < cfg.LEVELS.length) {
                 options.push({
                     type: info.type,
@@ -432,6 +451,8 @@ const skillIcons = {
         const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE'];
         const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
         for (const weaponType of availableWeapons) {
+            // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
+            if (hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) continue;
             if (!playerWeaponTypes.includes(weaponType)) {
                 const weaponConfig = CONFIG.WEAPONS[weaponType];
                 options.push({
@@ -442,6 +463,30 @@ const skillIcons = {
                 });
             }
         }
+
+        // 融合武器選項：狂熱雷擊（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 連鎖閃電(CHAIN_LIGHTNING)）
+        try {
+            const hasFrenzyFusion = playerWeaponTypes.includes('FRENZY_LIGHTNING');
+            const cheer = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
+            const cl = sourceWeaponsInfo.find(w => w.type === 'CHAIN_LIGHTNING');
+            // 成就門檻：使用通用融合解鎖 API（可擴充不同融合的門檻）
+            const fusionUnlocked = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_LIGHTNING')); } catch(_) { return false; }
+            })();
+            // 需求：兩者皆達到 LV10
+            const fusionReady = (!!cheer && !!cl && cheer.level >= 10 && cl.level >= 10);
+            if (!hasFrenzyFusion && fusionReady && fusionUnlocked) {
+                const cfgF = CONFIG.WEAPONS['FRENZY_LIGHTNING'];
+                if (cfgF && Array.isArray(cfgF.LEVELS) && cfgF.LEVELS.length > 0) {
+                    options.push({
+                        type: 'FRENZY_LIGHTNING',
+                        name: cfgF.NAME,
+                        level: 1,
+                        description: cfgF.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
 
         // 新增：屬性升級選項（每局生效，不寫入localStorage）
         try {
@@ -567,6 +612,39 @@ const skillIcons = {
             if (typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
                 BuffSystem.applyAttributeUpgrades(player);
             }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        // 融合：狂熱雷擊（移除 應援棒(DAGGER)/連鎖閃電(CHAIN_LIGHTNING)，加入或升級 FRENZY_LIGHTNING）
+        if (weaponType === 'FRENZY_LIGHTNING') {
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                // 移除基礎武器
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'CHAIN_LIGHTNING');
+                // 加入或升級融合武器
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'FRENZY_LIGHTNING');
+                const cfgF = CONFIG.WEAPONS['FRENZY_LIGHTNING'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgF && curLv < cfgF.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'FRENZY_LIGHTNING', level: 1 });
+                }
+            } else {
+                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'CHAIN_LIGHTNING');
+                const existingF = player.weapons.find(w => w.type === 'FRENZY_LIGHTNING');
+                if (existingF) {
+                    player.upgradeWeapon('FRENZY_LIGHTNING');
+                } else {
+                    player.addWeapon('FRENZY_LIGHTNING');
+                }
+            }
+            // 記錄成就：融合狂熱雷擊
+            try { if (typeof Achievements !== 'undefined' && Achievements.unlock) Achievements.unlock('FRENZY_FUSION'); } catch(_) {}
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
             this.hideLevelUpMenu();
@@ -748,6 +826,20 @@ const skillIcons = {
             document.getElementById('summary-level').textContent = playerLevel;
             document.getElementById('summary-coins').textContent = coins;
             document.getElementById('summary-exp').textContent = currentWave + "/30";
+
+            // 顯示當次新解鎖成就（若有）
+            try {
+                const achDiv = document.getElementById('victory-achievements');
+                if (achDiv && typeof Achievements !== 'undefined') {
+                    const ids = Achievements.getSessionUnlocked();
+                    if (ids && ids.length) {
+                        const names = ids.map(id => (Achievements.DEFINITIONS[id] && Achievements.DEFINITIONS[id].name) ? Achievements.DEFINITIONS[id].name : id);
+                        achDiv.textContent = `新成就解鎖：${names.join('、')}`;
+                    } else {
+                        achDiv.textContent = '';
+                    }
+                }
+            } catch(_) {}
             
             console.log("勝利結算數據:", {
                 gameTimeInSeconds,
@@ -1089,6 +1181,7 @@ const iconMap = {
     ORBIT: 'assets/images/A7.png',
     AURA_FIELD: 'assets/images/A13.png',
     INVINCIBLE: 'assets/images/A14.png',
+    FRENZY_LIGHTNING: 'assets/images/A15.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_HEALTH: 'assets/images/A10.png',
@@ -1287,3 +1380,52 @@ _actionHold: function() {
         } catch(_) {}
     }
 };
+// 附加：顯示成就解鎖彈窗（可列出多項；點外側關閉）
+UI.showAchievementsUnlockModal = function(ids) {
+        try {
+            const overlay = this._get('achievements-modal');
+            const listEl = this._get('achievements-modal-list');
+            if (!overlay || !listEl) return;
+            listEl.innerHTML = '';
+            const defs = (typeof Achievements !== 'undefined' && Achievements.DEFINITIONS) ? Achievements.DEFINITIONS : {};
+            ids.forEach(id => {
+                const def = defs[id] || { name: id, desc: '', icon: 'assets/images/A1.png', reward: '' };
+                const item = document.createElement('div');
+                item.className = 'ach-item';
+                const iconWrap = document.createElement('div');
+                iconWrap.className = 'ach-item-icon';
+                const img = document.createElement('img');
+                img.src = def.icon || 'assets/images/A1.png';
+                img.alt = def.name || id;
+                iconWrap.appendChild(img);
+                const text = document.createElement('div');
+                text.className = 'ach-item-text';
+                const name = document.createElement('div');
+                name.className = 'ach-item-name';
+                name.textContent = def.name || id;
+                const desc = document.createElement('div');
+                desc.className = 'ach-item-desc';
+                desc.textContent = def.desc || '';
+                const reward = document.createElement('div');
+                reward.className = 'ach-item-reward';
+                reward.textContent = def.reward ? String(def.reward) : '';
+                text.appendChild(name);
+                text.appendChild(desc);
+                if (reward.textContent) text.appendChild(reward);
+                item.appendChild(iconWrap);
+                item.appendChild(text);
+                listEl.appendChild(item);
+            });
+            overlay.classList.remove('hidden');
+            overlay.setAttribute('aria-hidden', 'false');
+            // 點擊外層關閉（不打斷既有操作）
+            const onClose = (e) => {
+                if (e.target === overlay) {
+                    overlay.classList.add('hidden');
+                    overlay.setAttribute('aria-hidden', 'true');
+                    overlay.removeEventListener('click', onClose);
+                }
+            };
+            overlay.addEventListener('click', onClose);
+        } catch (_) {}
+    };
