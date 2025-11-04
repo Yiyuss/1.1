@@ -65,6 +65,8 @@ const UI = {
         this._heldOptionIndex = null;
         this._pendingOptionIndex = null;
         this._actionsBound = false;
+        // 依天賦等級擴充升級選單的操作次數（不改文字與版面）
+        try { this.applyLevelUpActionChargesFromTalents(); } catch (_) {}
         // 啟用：手機螢幕旋轉適應（僅行動裝置；不影響PC）
         try { this.initMobileViewportRotation(); } catch (_) {}
     },
@@ -376,7 +378,7 @@ const skillIcons = {
         try {
             // 以階梯系統為主：只顯示每個天賦的最高階描述
             // 新增 pickup_range_boost、damage_boost 兩項：維持同樣渲染流程
-            const ids = ['hp_boost','defense_boost','speed_boost','pickup_range_boost','damage_boost','damage_specialization','crit_enhance','regen_speed_boost'];
+            const ids = ['hp_boost','defense_boost','speed_boost','pickup_range_boost','damage_boost','damage_specialization','crit_enhance','regen_speed_boost','levelup_action_charges'];
             const items = [];
             ids.forEach(id => {
                 const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) ? TalentSystem.getTalentLevel(id) : 0;
@@ -412,6 +414,36 @@ const skillIcons = {
             errorItem.className = 'talent-error';
             errorItem.textContent = '載入天賦失敗';
             this.talentsList.appendChild(errorItem);
+        }
+    },
+
+    /**
+     * 依天賦擴充升級操作次數（重抽/換一個/保留）。
+     * 來源：TalentSystem.tieredTalents.levelup_action_charges 的等級效果。
+     * 不變式：不改現有文案與版面；僅在本局計算次數。
+     */
+    applyLevelUpActionChargesFromTalents: function() {
+        try {
+            // 重算：先回復本局的基礎次數，再依天賦加成
+            this._actionCharges = { reroll: 1, replace: 1, hold: 1 };
+            const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? (TalentSystem.getTalentLevel('levelup_action_charges') || 0)
+                : 0;
+            if (lv > 0 && TalentSystem && TalentSystem.tieredTalents && TalentSystem.tieredTalents.levelup_action_charges) {
+                const cfg = TalentSystem.tieredTalents.levelup_action_charges;
+                const idx = Math.min(lv, cfg.levels.length) - 1;
+                const eff = cfg.levels[idx] || {};
+                const addR = eff.reroll || 0;
+                const addP = eff.replace || 0;
+                const addH = eff.hold || 0;
+                this._actionCharges.reroll = Math.max(0, 1 + addR);
+                this._actionCharges.replace = Math.max(0, 1 + addP);
+                this._actionCharges.hold = Math.max(0, 1 + addH);
+            }
+            // 若升級選單已開或元素存在，順手刷新按鈕文案與禁用狀態
+            if (this._renderLevelUpActions) this._renderLevelUpActions();
+        } catch (e) {
+            console.warn('套用升級操作次數天賦失敗', e);
         }
     },
     
