@@ -17,7 +17,7 @@
  *   這是防篡改、非安全強度保密（無伺服器條件下的折衷），請勿用於敏感資料。
  */
 const SaveCode = (function(){
-  const SCHEMA_VERSION = 1;
+  const SCHEMA_VERSION = 2;
   const SALT = 'MC_SAVE_SALT_V1::固定常量::僅用於防篡改';
 
   // 取得現有存檔資料（最小集合）
@@ -42,7 +42,18 @@ const SaveCode = (function(){
       const arr = JSON.parse(localStorage.getItem('unlocked_talents') || '[]');
       legacy = Array.isArray(arr) ? arr : [];
     } catch(_) {}
-    return { v: SCHEMA_VERSION, ts: Date.now(), c: Math.max(0, Math.floor(coins||0)), tl: levels, ut: legacy };
+    // achievements（若存在）
+    let achievements = [];
+    try {
+      if (typeof Achievements !== 'undefined' && Achievements.getUnlockedIds) {
+        achievements = Achievements.getUnlockedIds();
+      } else {
+        const raw = localStorage.getItem('achievements');
+        const map = raw ? JSON.parse(raw) : {};
+        achievements = Object.keys(map || {}).filter(k => map[k] && map[k].unlocked);
+      }
+    } catch(_) {}
+    return { v: SCHEMA_VERSION, ts: Date.now(), c: Math.max(0, Math.floor(coins||0)), tl: levels, ut: legacy, ac: achievements };
   }
 
   // --- Base64URL 工具 ---
@@ -175,10 +186,19 @@ const SaveCode = (function(){
       const coins = Math.max(0, Math.floor(parseInt(payload.c, 10) || 0));
       const levels = (payload.tl && typeof payload.tl === 'object') ? payload.tl : {};
       const legacy = Array.isArray(payload.ut) ? payload.ut : [];
+      const achievements = Array.isArray(payload.ac) ? payload.ac : [];
       // 寫入 localStorage（不更動鍵名）
       try { localStorage.setItem('game_coins', String(coins)); } catch(_) {}
       try { localStorage.setItem('talent_levels', JSON.stringify(levels)); } catch(_) {}
       try { localStorage.setItem('unlocked_talents', JSON.stringify(legacy)); } catch(_) {}
+      // 寫入成就（若有）
+      try {
+        if (achievements && achievements.length) {
+          const map = {};
+          achievements.forEach(id => { map[id] = { unlocked: true, ts: Date.now() }; });
+          localStorage.setItem('achievements', JSON.stringify(map));
+        }
+      } catch(_) {}
       // 更新記憶體與UI（不改事件順序，僅在可用時刷新顯示）
       try { if (typeof Game !== 'undefined' && Game.loadCoins) Game.loadCoins(); } catch(_) {}
       try { if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) UI.updateCoinsDisplay(coins); } catch(_) {}
