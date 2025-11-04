@@ -1061,6 +1061,42 @@ function setupBackupInterface() {
     }
 }
 
+// 新增：成就介面事件綁定（開始畫面 -> 成就畫面）
+function setupAchievementsInterface() {
+    const achBtn = document.getElementById('achievements-button');
+    const achScreen = document.getElementById('achievements-screen');
+    const startScreen = document.getElementById('start-screen');
+    const backBtn = document.getElementById('achievements-back');
+    const list = document.getElementById('achievements-list');
+
+    if (achBtn && achScreen && startScreen) {
+        achBtn.addEventListener('click', () => {
+            playClick();
+            hide(startScreen);
+            show(achScreen);
+            try {
+                if (typeof Achievements !== 'undefined') {
+                    Achievements.renderList(list);
+                }
+            } catch(_) {}
+            // 保持選單音樂
+            try {
+                if (typeof AudioScene !== 'undefined' && AudioScene.enterMenu) {
+                    AudioScene.enterMenu();
+                } else if (AudioManager.playMusic) {
+                    AudioManager.playMusic('menu_music');
+                }
+            } catch (_) {}
+        });
+    }
+    if (backBtn && achScreen && startScreen) {
+        backBtn.addEventListener('click', () => {
+            hide(achScreen);
+            show(startScreen);
+        });
+    }
+}
+
 // 初始化 DOM 緩存
 document.addEventListener('DOMContentLoaded', function() {
     // 初始化 DOM 緩存
@@ -1073,6 +1109,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 綁定引繼碼介面事件
     setupBackupInterface();
+    // 綁定成就介面事件
+    setupAchievementsInterface();
 
     // 開始畫面右側選單：切換左側視窗內容 + 顯示音量疊蓋
     (function setupStartMenuNav(){
@@ -1135,11 +1173,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const isVisible = (el) => el && !el.classList.contains('hidden');
         try {
             const backupScreen = document.getElementById('backup-screen');
+            const achievementsScreen = document.getElementById('achievements-screen');
             const mapScreen = document.getElementById('map-select-screen');
             const diffScreen = document.getElementById('difficulty-select-screen');
 
             if (isVisible(backupScreen)) {
                 const backBtn = document.getElementById('backup-back');
+                if (backBtn) backBtn.click();
+                e.preventDefault();
+                return;
+            }
+            if (isVisible(achievementsScreen)) {
+                const backBtn = document.getElementById('achievements-back');
                 if (backBtn) backBtn.click();
                 e.preventDefault();
                 return;
