@@ -157,6 +157,37 @@ class Weapon {
             // 音效在效果物件中觸發一次（zaps）
             return;
         }
+        // 融合：狂熱雷擊（同時間分散 10 條分支，每條保留 LV10 連鎖）
+        if (this.type === 'FRENZY_LIGHTNING') {
+            const branchCount = this.projectileCount; // 設定檔固定為 10
+            const durationMs = this.config.DURATION || 1000;
+            const chainRadius = this.config.CHAIN_RADIUS || 220; // 縮短觸發半徑，避免電到螢幕外
+            const chainsPerBranch = 10; // LV10 的連鎖段數（含第一段）
+            const dmg = this._computeFinalDamage(levelMul);
+            // 狂熱雷擊專用：紅色調色盤，不影響原本連鎖閃電藍色
+            const frenzyPalette = { halo: '#ff6b6b', mid: '#ff4444', core: '#ffffff', particle: '#ff4444' };
+            // 就近觸發：若半徑內沒有敵人，則不釋放效果
+            let nearest = null; let bestDist = Infinity;
+            for (const enemy of (Game.enemies || [])) {
+                if (!enemy || enemy.markedForDeletion || enemy.health <= 0) continue;
+                const d = Utils.distance(this.player.x, this.player.y, enemy.x, enemy.y);
+                if (d < bestDist) { bestDist = d; nearest = enemy; }
+            }
+            if (!nearest || bestDist > chainRadius) {
+                return; // 無近距離目標：不施放
+            }
+            const effect = new FrenzyLightningEffect(
+                this.player,
+                dmg,
+                durationMs,
+                branchCount,
+                chainsPerBranch,
+                chainRadius,
+                frenzyPalette
+            );
+            Game.addProjectile(effect);
+            return;
+        }
         // 閃電（追蹤且分配唯一目標，避免重疊）
         if (this.type === 'LIGHTNING') {
             const count = this.projectileCount;
@@ -335,13 +366,15 @@ class Weapon {
 // 在類內新增：根據「基礎值 +（等級5%）+（天賦基礎%）+（特化+2/4/6）」計算最終基礎傷害
 Weapon.prototype._computeFinalDamage = function(levelMul){
     const base = (this.config && this.config.DAMAGE) ? this.config.DAMAGE : 0;
+    // 狂熱雷擊：每等 +3 基礎傷害（LV10 累計 +30）
+    const frenzyExtra = (this.type === 'FRENZY_LIGHTNING') ? (3 * Math.max(1, this.level)) : 0;
     const specFlat = (this.player && this.player.damageSpecializationFlat) ? this.player.damageSpecializationFlat : 0;
     const talentPct = (this.player && this.player.damageTalentBaseBonusPct) ? this.player.damageTalentBaseBonusPct : 0;
     const attrPct = (this.player && this.player.damageAttributeBonusPct) ? this.player.damageAttributeBonusPct : 0; // 升級屬性加成（每級+10%）
     const attrFlat = (this.player && this.player.attackPowerUpgradeFlat) ? this.player.attackPowerUpgradeFlat : 0; // 新增：攻擊力上升（每級+2，單純加法）
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + specFlat + attrFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + specFlat + attrFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
