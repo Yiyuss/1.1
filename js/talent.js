@@ -46,6 +46,12 @@ const TalentSystem = {
             name: '回血強化',
             description: '升級可提升回血速度。',
             cost: 3000
+        },
+        // 新增：升級操作次數強化（提升重抽/換一個/保留次數）
+        levelup_action_charges: {
+            name: '選項次數強化',
+            description: '升級可增加重抽/換一個/保留的次數。',
+            cost: 3000
         }
     },
 
@@ -135,6 +141,17 @@ const TalentSystem = {
                 { multiplier: 2.10, cost: 35000 },
                 { multiplier: 2.30, cost: 45000 }
             ]
+        },
+        // 新增：升級操作次數強化（各+1 ~ 各+6）
+        levelup_action_charges: {
+            levels: [
+                { reroll: 1, replace: 1, hold: 1, cost: 3000 },
+                { reroll: 2, replace: 2, hold: 2, cost: 5000 },
+                { reroll: 3, replace: 3, hold: 3, cost: 7000 },
+                { reroll: 5, replace: 5, hold: 5, cost: 9000 },
+                { reroll: 7, replace: 7, hold: 7, cost: 11000 },
+                { reroll: 9, replace: 9, hold: 9, cost: 13000 }
+            ]
         }
     },
     
@@ -144,6 +161,13 @@ const TalentSystem = {
         this.migrateLegacyTalentData();
         this.loadUnlockedTalents();
         this.bindEvents();
+        // 載入等級後同步 UI：更新天賦清單與升級操作次數（本局）
+        try {
+            if (typeof UI !== 'undefined') {
+                if (UI.updateTalentsList) UI.updateTalentsList();
+                if (UI.applyLevelUpActionChargesFromTalents) UI.applyLevelUpActionChargesFromTalents();
+            }
+        } catch (_) {}
     },
     
     // 綁定事件
@@ -288,6 +312,8 @@ const TalentSystem = {
         if (typeof UI !== 'undefined' && UI.updateTalentsList) {
             UI.updateTalentsList();
         }
+        // 若為操作次數強化，立刻刷新升級操作次數（本局有效）
+        try { if (typeof UI !== 'undefined' && UI.applyLevelUpActionChargesFromTalents) UI.applyLevelUpActionChargesFromTalents(); } catch (_) {}
         alert('天賦已解鎖！');
     },
     
@@ -549,6 +575,9 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'regen_speed_boost') {
             const pct = Math.round((eff.multiplier - 1) * 100);
             return `回血速度+${pct}%`;
+        } else if (id === 'levelup_action_charges') {
+            const add = eff.reroll || 0;
+            return `重抽/換一個/保留次數各+${add}`;
         }
         return base;
     };
