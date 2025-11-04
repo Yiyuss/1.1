@@ -262,7 +262,8 @@ function setupAutoPause() {
         const diffVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('difficulty-select-screen') : !document.getElementById('difficulty-select-screen').classList.contains('hidden'));
         const talentVisible = Array.from(document.querySelectorAll('#talent-select-screen')).some(el => !el.classList.contains('hidden'));
         const achVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('achievements-screen') : !document.getElementById('achievements-screen').classList.contains('hidden'));
-        return startVisible || charVisible || mapVisible || diffVisible || talentVisible || achVisible;
+        const backupVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('backup-screen') : (document.getElementById('backup-screen') && !document.getElementById('backup-screen').classList.contains('hidden')));
+        return startVisible || charVisible || mapVisible || diffVisible || talentVisible || achVisible || backupVisible;
     };
 
     // 可見性變更：當回到可見時，若覆蓋層（升級/技能）開啟，保持暫停但解除靜音以恢復 BGM 與音效
