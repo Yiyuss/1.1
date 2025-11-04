@@ -2052,3 +2052,191 @@ body {
   gap: 10px;
 }
 
+/* 成就解鎖彈窗（開始畫面上顯示） */
+#achievements-modal {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+#achievements-modal.hidden { display: none !important; }
+
+.ach-modal-card {
+  width: min(680px, 94vw);
+  max-height: min(70vh, 560px);
+  overflow: auto;
+  padding: 16px 18px;
+  background: var(--panel-bg);
+  border: var(--border-soft);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(var(--blur-6));
+}
+.ach-modal-header { margin-bottom: 8px; }
+.ach-modal-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #e6f0ff;
+}
+.ach-modal-sub { font-size: 14px; color: #cfe0ff; opacity: 0.95; }
+.ach-modal-tip { margin-top: 10px; font-size: 12px; color: #99b9ff; opacity: 0.9; }
+
+.ach-modal-list { display: flex; flex-direction: column; gap: 10px; }
+.ach-item {
+  display: grid;
+  grid-template-columns: 64px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(160,191,242,0.22);
+  background: linear-gradient(180deg, rgba(18,24,33,0.65), rgba(15,20,28,0.6));
+}
+.ach-item-icon { width: 64px; height: 64px; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); }
+.ach-item-icon img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block; }
+.ach-item-text { display: flex; flex-direction: column; gap: 4px; }
+.ach-item-name { font-weight: 700; color: #e6f0ff; }
+.ach-item-desc { font-size: 13px; color: #cfe0ff; opacity: 0.95; }
+.ach-item-reward { font-size: 12px; color: #9bd0ff; background: rgba(155,208,255,0.12); border: 1px solid rgba(155,208,255,0.28); padding: 3px 8px; border-radius: 6px; display: inline-block; }
+
+/* 成就介面美化（僅在 #achievements-screen 命名空間下生效） */
+#achievements-screen .ach-list {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  grid-auto-rows: auto;
+  gap: 14px;
+  justify-items: center;
+}
+#achievements-screen .ach-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  width: 100%;
+  background: linear-gradient(180deg, rgba(18,24,33,0.72), rgba(15,20,28,0.68));
+  border: 1px solid rgba(160,191,242,0.18);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15,20,28,0.35);
+  transition: filter .15s ease, transform .15s ease, border-color .15s ease;
+}
+#achievements-screen .ach-row::before { content: none; display: none; }
+#achievements-screen .ach-row:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  border-color: rgba(160,191,242,0.35);
+}
+#achievements-screen .ach-title {
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: #e6f0ff;
+  margin-bottom: 6px;
+}
+#achievements-screen .ach-desc {
+  font-size: 14px;
+  line-height: 1.4;
+  color: #cfe0ff;
+  opacity: 0.95;
+}
+
+#achievements-screen .ach-content { display: block; padding: 8px 10px; border-top: 1px solid rgba(255,255,255,0.12); }
+#achievements-screen .ach-icon {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-top-left-radius: 10px; border-top-right-radius: 10px;
+  border-bottom-left-radius: 0; border-bottom-right-radius: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.04);
+}
+#achievements-screen .ach-icon img {
+  width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block;
+}
+#achievements-screen .ach-icon .ach-status {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(20,24,32,0.65);
+  color: #dfe9ff;
+}
+#achievements-screen .ach-status.unlocked {
+  border-color: rgba(102, 237, 164, 0.45);
+  color: #c6ffd8;
+  background: linear-gradient(180deg, rgba(34, 85, 58, 0.65), rgba(29, 74, 50, 0.6));
+}
+#achievements-screen .ach-status.locked {
+  border-color: rgba(180, 180, 180, 0.35);
+  color: #cbd6e9;
+  background: linear-gradient(180deg, rgba(50, 56, 66, 0.55), rgba(40, 46, 58, 0.5));
+}
+
+#achievements-screen .ach-row.locked .ach-icon img { filter: grayscale(100%) brightness(0.8); }
+#achievements-screen .ach-reward {
+  margin-top: 6px; font-size: 12px; color: #9bd0ff;
+  background: rgba(155,208,255,0.12); border: 1px solid rgba(155,208,255,0.28);
+  padding: 3px 8px; border-radius: 6px; display: inline-block;
+}
+
+/* 成就介面容器：沿用天賦的半透明面板背景 */
+#achievements-screen .char-card-wrap { position: relative; background: var(--panel-grad), url('../assets/images/Background3.jpg') center/cover no-repeat, url('../assets/images/background3.jpg') center/cover no-repeat; }
+#achievements-screen #achievements-back { position: absolute; right: 14px; bottom: 14px; margin: 0; }
+
+/* 成就介面背景：與其他介面一致使用 background2.jpg */
+#achievements-screen {
+  background: var(--overlay-grad), url('../assets/images/background2.jpg') center/cover no-repeat;
+}
+
+@media (max-width: 900px) {
+  #achievements-screen .ach-list { grid-template-columns: repeat(4, minmax(110px, 1fr)); grid-auto-rows: auto; }
+}
+@media (max-width: 640px) {
+  #achievements-screen .ach-list { grid-template-columns: repeat(3, minmax(100px, 1fr)); grid-auto-rows: auto; }
+}
+
+/* 成就方格完全複製天賦版型（卡片為正方形、圖滿版） */
+#achievements-screen .char-card,
+#achievements-screen .char-slot { aspect-ratio: 1 / 1; padding: 0; overflow: hidden; }
+#achievements-screen .char-card img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block; }
+/* Achievements 使用天賦格線，但行高改為自動以維持正方形 */
+#achievements-screen .talent-grid { grid-auto-rows: auto; }
+/* 成就格子不顯示名稱，避免文字溢出 */
+#achievements-screen .char-name { display: none !important; }
+/* 未解鎖以灰階呈現（格子圖片） */
+#achievements-screen .char-card.locked img { filter: grayscale(100%) brightness(0.85); }
+/* 成就卡左上角狀態標籤（解鎖/未解鎖） */
+#achievements-screen .char-card { position: relative; }
+#achievements-screen .char-card .ach-status {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.22);
+  background: rgba(20,24,32,0.65);
+  color: #dfe9ff;
+}
+#achievements-screen .ach-status.unlocked {
+  border-color: rgba(102, 237, 164, 0.45);
+  color: #c6ffd8;
+  background: linear-gradient(180deg, rgba(34, 85, 58, 0.65), rgba(29, 74, 50, 0.6));
+}
+#achievements-screen .ach-status.locked {
+  border-color: rgba(180, 180, 180, 0.35);
+  color: #cbd6e9;
+  background: linear-gradient(180deg, rgba(50, 56, 66, 0.55), rgba(40, 46, 58, 0.5));
+}
+@media (max-width: 420px) {
+  #achievements-screen .ach-list { grid-template-columns: repeat(2, minmax(100px, 1fr)); grid-auto-rows: auto; }
+}
+
