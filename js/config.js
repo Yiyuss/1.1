@@ -213,6 +213,25 @@ const CONFIG = {
                 { COUNT: 9, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖9次（1秒）" },
                 { COUNT: 10, DESCRIPTION: "每1.5秒施放連鎖閃電，連鎖10次（1秒）" }
             ]
+        },
+        FRENZY_LIGHTNING: {
+            NAME: "狂熱雷擊",
+            DAMAGE: 12,
+            COOLDOWN: 1500,
+            DURATION: 1000,
+            CHAIN_RADIUS: 300,
+            LEVELS: [
+                { COUNT: 10, DESCRIPTION: "每1.5秒同時釋放10條連鎖閃電，基礎傷害+3" },
+                { COUNT: 10, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 10, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 10, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 10, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 10, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 10, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 10, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 10, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 10, DESCRIPTION: "基礎傷害+3" }
+            ]
         }
     },
 
