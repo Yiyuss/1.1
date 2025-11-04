@@ -255,13 +255,14 @@ function setupAutoPause() {
     };
 
     const isMenuVisible = () => {
-        // 起始、選角、選地圖、選難度、天賦畫面是否可見
+        // 起始、選角、選地圖、選難度、天賦、成就畫面是否可見
         const startVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('start-screen') : !document.getElementById('start-screen').classList.contains('hidden'));
         const charVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('character-select-screen') : !document.getElementById('character-select-screen').classList.contains('hidden'));
         const mapVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('map-select-screen') : !document.getElementById('map-select-screen').classList.contains('hidden'));
         const diffVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('difficulty-select-screen') : !document.getElementById('difficulty-select-screen').classList.contains('hidden'));
         const talentVisible = Array.from(document.querySelectorAll('#talent-select-screen')).some(el => !el.classList.contains('hidden'));
-        return startVisible || charVisible || mapVisible || diffVisible || talentVisible;
+        const achVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('achievements-screen') : !document.getElementById('achievements-screen').classList.contains('hidden'));
+        return startVisible || charVisible || mapVisible || diffVisible || talentVisible || achVisible;
     };
 
     // 可見性變更：當回到可見時，若覆蓋層（升級/技能）開啟，保持暫停但解除靜音以恢復 BGM 與音效
@@ -1091,8 +1092,18 @@ function setupAchievementsInterface() {
     }
     if (backBtn && achScreen && startScreen) {
         backBtn.addEventListener('click', () => {
+            playClick();
             hide(achScreen);
             show(startScreen);
+            // 保持選單音樂（與其他選單一致）
+            try {
+                if (typeof AudioScene !== 'undefined' && AudioScene.enterMenu) {
+                    AudioScene.enterMenu();
+                } else if (AudioManager.playMusic) {
+                    AudioManager.playMusic('menu_music');
+                }
+                AudioManager.setMuted && AudioManager.setMuted(false);
+            } catch(_) {}
         });
     }
 }
