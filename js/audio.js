@@ -35,6 +35,7 @@ const AudioManager = {
             { name: 'victory', src: 'assets/audio/victory.mp3' },
             { name: 'button_click', src: 'assets/audio/button_click.mp3' },
             { name: 'button_click2', src: 'assets/audio/button_click2.mp3' },
+            { name: 'achievements', src: 'assets/audio/achievements.mp3' },
             // 新增：Boss火彈命中玩家音效
             { name: 'bo', src: 'assets/audio/bo.mp3' }
         ];
