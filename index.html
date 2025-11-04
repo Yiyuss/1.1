@@ -108,16 +108,28 @@
                     <div class="start-menu">
                         <div class="start-illustration" aria-hidden="true"></div>
                         <button id="start-button" class="menu-btn primary">開始遊戲</button>
+                        <button id="achievements-button" class="menu-btn ghost">成就系統</button>
                         <button class="menu-btn ghost" data-target="gameplay">遊戲玩法</button>
                         <button class="menu-btn ghost" data-target="announce">遊戲公告</button>
                         <button class="menu-btn ghost" data-target="regarding">Regarding</button>
                         <button class="menu-btn ghost" data-target="settings">音量設置</button>
                         <button id="backup-button" class="menu-btn ghost">手動備份</button>
-                        <a href="https://x.com/Yi_yuss" target="_blank" rel="noopener" class="menu-btn ghost">BUG回報</a>
                     </div>
 
                     <!-- 音量疊蓋視窗已移至左側 content-window 內 -->
                 </div>
+            </div>
+
+            <!-- 成就解鎖彈窗（勝利後回到開始介面時顯示；點外側即關閉） -->
+            <div id="achievements-modal" class="hidden" aria-hidden="true">
+              <div class="ach-modal-card" role="dialog" aria-label="新成就解鎖">
+                <div class="ach-modal-header">
+                  <div class="ach-modal-title">新成就解鎖</div>
+                  <div class="ach-modal-sub">恭喜！以下成就已解鎖：</div>
+                </div>
+                <div id="achievements-modal-list" class="ach-modal-list" aria-live="polite"></div>
+                <div class="ach-modal-tip">提示：點擊視窗外任意處可關閉。</div>
+              </div>
             </div>
         </div>
 
@@ -158,6 +170,30 @@
                     <button id="backup-back" class="ghost">返回開始畫面</button>
                 </div>
             </div>
+        </div>
+
+        <!-- 成就介面：採用天賦版型（僅搬視覺與描述邏輯） -->
+        <div id="achievements-screen" class="screen hidden">
+          <div class="char-card-wrap">
+            <h1 class="char-title">成就系統</h1>
+            <p class="char-subtitle">提示：點選成就以查看下方介紹，未解鎖會顯示灰階。</p>
+
+            <!-- 上方成就方格：沿用天賦的 6/4/3/2 欄 RWD -->
+            <div id="achievements-list" class="char-grid talent-grid" aria-live="polite"></div>
+
+            <!-- 下方預覽：顯示選取成就的圖示與描述（不包含解鎖操作） -->
+            <div class="char-preview" id="achievements-preview" aria-live="polite">
+              <div class="char-preview-image">
+                <img id="achievements-preview-img" src="assets/images/GM.png" alt="預覽" />
+              </div>
+              <div class="char-preview-info">
+                <div class="char-preview-name" id="achievements-preview-name">成就系統</div>
+                <div class="char-preview-desc" id="achievements-preview-desc">這裡會顯示成就介紹。</div>
+                <div class="char-preview-desc" id="achievements-preview-reward">提示：點選成就以查看詳細介紹，未解鎖會顯示灰階。</div>
+              </div>
+            </div>
+            <button id="achievements-back" class="ghost">返回開始畫面</button>
+          </div>
         </div>
 
         
@@ -415,6 +451,7 @@
                   <span class="stat-value" id="summary-exp">0</span>
                 </div>
               </div>
+              <div id="victory-achievements" class="summary-achievements" aria-live="polite" style="margin-top:12px;"></div>
             </div>
           </div>
         </div>
@@ -525,6 +562,7 @@
         <script src="js/weapon.js"></script>
         <!-- 可選彈幕系統骨架（需在 game.js 之前載入） -->
         <script src="js/bullet-system.js"></script>
+        <script src="js/achievements.js"></script>
         <script src="js/game.js"></script>
         <script src="js/integration.js"></script>
         <script src="js/save_code.js"></script>
