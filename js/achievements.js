@@ -13,12 +13,20 @@ const Achievements = (function(){
       desc: '完成一場任意難度遊戲並達到勝利。',
       icon: 'assets/images/A15.png',
       reward: '解鎖「狂熱雷擊」技能。'
+    },
+    HARD_CLEAR: {
+      id: 'HARD_CLEAR',
+      name: '首次通關困難',
+      desc: '首次通關任一地圖的困難模式。',
+      icon: 'assets/images/A16.png',
+      reward: '解鎖「心靈魔法」技能。'
     }
   };
 
   // 融合解鎖需求（可擴充）：各融合技能對應需先解鎖的成就 ID 陣列
   const FUSION_REQUIREMENTS = {
-    FRENZY_LIGHTNING: ['FIRST_CLEAR']
+    FRENZY_LIGHTNING: ['FIRST_CLEAR'],
+    MIND_MAGIC: ['HARD_CLEAR']
     // 未來：在此加入新融合技能的成就解鎖需求，例如：
     // OTHER_FUSION_SKILL: ['SOME_ACHIEVEMENT', 'ANOTHER_ACHIEVEMENT']
   };
