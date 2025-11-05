@@ -613,6 +613,11 @@ const Game = {
         try {
             if (typeof Achievements !== 'undefined' && Achievements.unlock) {
                 Achievements.unlock('FIRST_CLEAR');
+                // 困難模式首勝：解鎖心靈魔法成就
+                const diffId = this.selectedDifficultyId || 'EASY';
+                if (diffId === 'HARD') {
+                    Achievements.unlock('HARD_CLEAR');
+                }
             }
         } catch(_) {}
         UI.showVictoryScreen();
