@@ -464,11 +464,13 @@ const skillIcons = {
 
         // 現有武器升級選項（使用CONFIG計算下一級描述）
         const hasFrenzy = sourceWeaponsInfo.some(w => w.type === 'FRENZY_LIGHTNING');
+        const hasMindMagic = sourceWeaponsInfo.some(w => w.type === 'MIND_MAGIC');
         for (const info of sourceWeaponsInfo) {
             const cfg = CONFIG.WEAPONS[info.type];
             if (!cfg) continue;
             // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
-            if (hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) continue;
+            if ((hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) ||
+                (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING'))) continue;
             if (info.level < cfg.LEVELS.length) {
                 options.push({
                     type: info.type,
@@ -484,7 +486,8 @@ const skillIcons = {
         const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
         for (const weaponType of availableWeapons) {
             // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
-            if (hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) continue;
+            if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
+                (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING'))) continue;
             if (!playerWeaponTypes.includes(weaponType)) {
                 const weaponConfig = CONFIG.WEAPONS[weaponType];
                 options.push({
@@ -515,6 +518,28 @@ const skillIcons = {
                         name: cfgF.NAME,
                         level: 1,
                         description: cfgF.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：心靈魔法（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 唱歌(SING)）
+        try {
+            const hasMindFusion = playerWeaponTypes.includes('MIND_MAGIC');
+            const cheer2 = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
+            const sing2 = sourceWeaponsInfo.find(w => w.type === 'SING');
+            const fusionUnlocked2 = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('MIND_MAGIC')); } catch(_) { return false; }
+            })();
+            const fusionReady2 = (!!cheer2 && !!sing2 && cheer2.level >= 10 && sing2.level >= 10);
+            if (!hasMindFusion && fusionReady2 && fusionUnlocked2) {
+                const cfgM = CONFIG.WEAPONS['MIND_MAGIC'];
+                if (cfgM && Array.isArray(cfgM.LEVELS) && cfgM.LEVELS.length > 0) {
+                    options.push({
+                        type: 'MIND_MAGIC',
+                        name: cfgM.NAME,
+                        level: 1,
+                        description: cfgM.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -677,6 +702,37 @@ const skillIcons = {
             }
             // 記錄成就：融合狂熱雷擊
             try { if (typeof Achievements !== 'undefined' && Achievements.unlock) Achievements.unlock('FRENZY_FUSION'); } catch(_) {}
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        // 融合：心靈魔法（移除 應援棒(DAGGER)/唱歌(SING)，加入或升級 MIND_MAGIC）
+        if (weaponType === 'MIND_MAGIC') {
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                // 移除基礎武器
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'SING');
+                // 加入或升級融合武器
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'MIND_MAGIC');
+                const cfgM = CONFIG.WEAPONS['MIND_MAGIC'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgM && curLv < cfgM.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'MIND_MAGIC', level: 1 });
+                }
+            } else {
+                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'SING');
+                const existingM = player.weapons.find(w => w.type === 'MIND_MAGIC');
+                if (existingM) {
+                    player.upgradeWeapon('MIND_MAGIC');
+                } else {
+                    player.addWeapon('MIND_MAGIC');
+                }
+            }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
             this.hideLevelUpMenu();
@@ -1214,6 +1270,7 @@ const iconMap = {
     AURA_FIELD: 'assets/images/A13.png',
     INVINCIBLE: 'assets/images/A14.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
+    MIND_MAGIC: 'assets/images/A16.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_HEALTH: 'assets/images/A10.png',
