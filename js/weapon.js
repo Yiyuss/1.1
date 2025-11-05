@@ -143,6 +143,39 @@ class Weapon {
             return;
         }
 
+        // 特殊技能：心靈魔法（唱歌進階版：治療 + 心靈震波）
+        if (this.type === 'MIND_MAGIC') {
+            // 1) 立即治療：LV1~LV10 = +12, +14, ..., +30（公式：10 + 2*LV）
+            const heal = 10 + 2 * Math.max(1, this.level);
+            this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+            if (typeof UI !== 'undefined') {
+                UI.updateHealthBar(this.player.health, this.player.maxHealth);
+            }
+
+            // 2) 播放唱歌視覺特效（沿用 SingEffect），持續與唱歌一致
+            const singDuration = this.config.DURATION || 2000;
+            try {
+                const singEffect = new SingEffect(this.player, singDuration);
+                Game.addProjectile(singEffect);
+            } catch (_) {}
+
+            // 3) 施放心靈震波（範圍沿用現有邏輯），命中自帶緩速在 shockwave.js
+            const baseRadius = this.config.WAVE_MAX_RADIUS_BASE || 220;
+            const perLevel = this.config.WAVE_RADIUS_PER_LEVEL || 0;
+            const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+            const ringWidth = this.config.WAVE_THICKNESS || 18;
+            const durationMs = this.config.DURATION || 2000;
+            const dmg = this._computeFinalDamage(levelMul);
+            const wave = new ShockwaveEffect(this.player, dmg, durationMs, dynamicRadius, ringWidth);
+            Game.addProjectile(wave);
+
+            // 4) 音效：沿用唱歌音效（避免重複，震波不再自行播放）
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('sing_cast');
+            }
+            return;
+        }
+
         // 特殊技能：連鎖閃電（1秒內依序連鎖 N 次）
         if (this.type === 'CHAIN_LIGHTNING') {
             const chainCount = this.projectileCount; // 依照等級的 COUNT 當作連鎖次數
