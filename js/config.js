@@ -232,6 +232,28 @@ const CONFIG = {
                 { COUNT: 10, DESCRIPTION: "基礎傷害+3" },
                 { COUNT: 10, DESCRIPTION: "基礎傷害+3" }
             ]
+        },
+        // 新武器：心靈魔法（擴散震波環狀傷害）
+        MIND_MAGIC: {
+            NAME: "心靈魔法",
+            DAMAGE: 14,
+            COOLDOWN: 5000,
+            DURATION: 2000, // 與唱歌相同的演出持續（毫秒）
+            WAVE_MAX_RADIUS_BASE: 220,
+            WAVE_RADIUS_PER_LEVEL: 20,
+            WAVE_THICKNESS: 18,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每5秒補血+12，並施放心靈震波（範圍+0px）" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+14，震波範圍提升（+20px）" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+16，震波範圍提升（+40px）" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+18，震波範圍提升（+60px）" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+20，震波範圍提升（+80px）" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+22，震波範圍提升（+100px）" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+24，震波範圍提升（+120px）" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+26，震波範圍提升（+140px）" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+28，震波範圍提升（+160px）" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+30，震波範圍提升（+180px）" }
+            ]
         }
     },
 
