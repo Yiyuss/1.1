@@ -405,9 +405,9 @@ const Game = {
             chest.draw(this.ctx);
         }
         
-        // 繪製投射物（除連鎖閃電/狂熱雷擊，延後至敵人之上）
+        // 繪製投射物（除連鎖閃電/狂熱雷擊/斬擊，延後至敵人之上）
         for (const projectile of this.projectiles) {
-            if (projectile && (projectile.weaponType === 'CHAIN_LIGHTNING' || projectile.weaponType === 'FRENZY_LIGHTNING')) {
+            if (projectile && (projectile.weaponType === 'CHAIN_LIGHTNING' || projectile.weaponType === 'FRENZY_LIGHTNING' || projectile.weaponType === 'SLASH')) {
                 // 延後到前景層（敵人之上）再繪製
                 continue;
             }
@@ -448,9 +448,9 @@ const Game = {
             }
         }
         
-        // 前景層：連鎖閃電/狂熱雷擊效果（電弧與火花）
+        // 前景層：連鎖閃電/狂熱雷擊/斬擊效果（電弧與火花/GIF）
         for (const projectile of this.projectiles) {
-            if (projectile && (projectile.weaponType === 'CHAIN_LIGHTNING' || projectile.weaponType === 'FRENZY_LIGHTNING')) {
+            if (projectile && (projectile.weaponType === 'CHAIN_LIGHTNING' || projectile.weaponType === 'FRENZY_LIGHTNING' || projectile.weaponType === 'SLASH')) {
                 projectile.draw(this.ctx);
             }
         }
