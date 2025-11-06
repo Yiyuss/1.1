@@ -195,6 +195,31 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "雷射範圍提升（+18px）" }
             ]
         },
+        // 近戰斬擊（扇形範圍瞬時傷害）
+        SLASH: {
+            NAME: "斬擊",
+            DAMAGE: 15,
+            COOLDOWN: 1200,
+            DURATION: 1200, // 斬擊視覺持續（毫秒）
+            ARC_DEG_BASE: 365, // 扇形角度（度）
+            ARC_DEG_PER_LEVEL: 0, // 角度不隨等級變化
+            RADIUS_BASE: 252, // 視覺用半徑
+            RADIUS_PER_LEVEL: 12,
+            // 新增：視覺縮放倍率（僅影響 GIF 尺寸，不影響傷害邏輯）
+            VISUAL_SCALE: 1.8,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每1.2秒施放斬擊（範圍+0px）" },
+                { COUNT: 1, DESCRIPTION: "斬擊範圍提升（+12px）" },
+                { COUNT: 1, DESCRIPTION: "斬擊範圍提升（+24px）" },
+                { COUNT: 1, DESCRIPTION: "斬擊範圍提升（+36px）" },
+                { COUNT: 1, DESCRIPTION: "斬擊範圍提升（+48px）" },
+                { COUNT: 1, DESCRIPTION: "斬擊範圍提升（+60px）" },
+                { COUNT: 1, DESCRIPTION: "斬擊範圍提升（+72px）" },
+                { COUNT: 1, DESCRIPTION: "斬擊範圍提升（+84px）" },
+                { COUNT: 1, DESCRIPTION: "斬擊範圍提升（+96px）" },
+                { COUNT: 1, DESCRIPTION: "斬擊範圍提升（+108px）" }
+            ]
+        },
         CHAIN_LIGHTNING: {
             NAME: "連鎖閃電",
             DAMAGE: 15, // 與追蹤綿羊相同
@@ -266,7 +291,7 @@ const CONFIG = {
             DURATION_MS: 15000,
             PLAYER_SIZE_MULTIPLIER: 2.5, // 變身體型再放大一些
             IMAGE_KEY: 'playerN',
-            ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD'],
+            ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'SLASH'],
             ULTIMATE_LEVEL: 10
         },
 
