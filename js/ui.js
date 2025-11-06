@@ -314,6 +314,7 @@ const UI = {
 const skillIcons = {
     SING: 'assets/images/A1.png',
     DAGGER: 'assets/images/A2.png',
+    SLASH: 'assets/images/A17.png',
     LASER: 'assets/images/A3.png',
     CHAIN_LIGHTNING: 'assets/images/A4.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
@@ -482,7 +483,7 @@ const skillIcons = {
         }
 
         // 新武器選項（基於來源狀態判定）
-        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE'];
+        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH'];
         const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
         for (const weaponType of availableWeapons) {
             // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
@@ -1262,6 +1263,7 @@ _createOptionCard: function(option, index) {
 const iconMap = {
     SING: 'assets/images/A1.png',
     DAGGER: 'assets/images/A2.png',
+    SLASH: 'assets/images/A17.png',
     LASER: 'assets/images/A3.png',
     CHAIN_LIGHTNING: 'assets/images/A4.png',
     FIREBALL: 'assets/images/A5.png',
