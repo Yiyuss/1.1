@@ -25,6 +25,7 @@ const AudioManager = {
             { name: 'level_up', src: 'assets/audio/level_up.mp3' },
             { name: 'collect_exp', src: 'assets/audio/collect_exp.mp3' },
             { name: 'dagger_shoot', src: 'assets/audio/dagger_shoot.mp3' },
+            { name: 'knife', src: 'assets/audio/knife.mp3' },
             { name: 'fireball_shoot', src: 'assets/audio/fireball_shoot.mp3' },
             { name: 'lightning_shoot', src: 'assets/audio/lightning_shoot.mp3' },
             { name: 'laser_shoot', src: 'assets/audio/laser_shoot.mp3' },
