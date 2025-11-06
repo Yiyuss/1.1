@@ -42,6 +42,9 @@ class Player extends Entity {
         this._ultimateBackup = null;
         this.ultimateKeyHeld = false;
 
+        // 玩家朝向（以移動方向為基準；停止時保留上一朝向）
+        this.facingAngle = 0;
+
         // 生命自然恢復：每5秒回1HP（不溢出，上限100）
         this.healthRegenIntervalMs = 5000;
         this.healthRegenAccumulator = 0;
@@ -72,6 +75,11 @@ class Player extends Entity {
         const candY = this.y + direction.y * this.speed * deltaMul;
         if (tryMove(this.x, candY)) {
             this.y = candY;
+        }
+
+        // 更新玩家朝向角度：只有在實際存在移動輸入時才更新
+        if (direction.x !== 0 || direction.y !== 0) {
+            this.facingAngle = Math.atan2(direction.y, direction.x);
         }
         
         // 限制玩家在世界範圍內（透明牆：距離邊界一定距離）
