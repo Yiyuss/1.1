@@ -143,6 +143,30 @@ class Weapon {
             return;
         }
 
+        // 特殊技能：斬擊（扇形瞬時傷害，短暫演出）
+        if (this.type === 'SLASH') {
+            // 改為依玩家朝向施放（不再自動瞄準最近敵人）
+            const baseAngle = (this.player && typeof this.player.facingAngle === 'number') ? this.player.facingAngle : 0;
+            const baseRadius = this.config.RADIUS_BASE || 72;
+            const perLevel = this.config.RADIUS_PER_LEVEL || 0;
+            const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+            const arcDeg = (this.config.ARC_DEG_BASE || 80) + (this.config.ARC_DEG_PER_LEVEL || 0) * (this.level - 1);
+            const durationMs = this.config.DURATION || 800; // 使用配置：0.8秒
+            const dmg = this._computeFinalDamage(levelMul);
+
+            // 目前一次生成一個斬擊效果；之後若需要可加入小幅扇形分散
+            const effect = new SlashEffect(this.player, baseAngle, dmg, dynamicRadius, arcDeg, durationMs);
+            // 放大視覺尺寸但不影響傷害邏輯
+            if (typeof this.config.VISUAL_SCALE === 'number') {
+                effect.visualScale = this.config.VISUAL_SCALE;
+            }
+            Game.addProjectile(effect);
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('knife');
+            }
+            return;
+        }
+
         // 特殊技能：心靈魔法（唱歌進階版：治療 + 心靈震波）
         if (this.type === 'MIND_MAGIC') {
             // 1) 立即治療：LV1~LV10 = +12, +14, ..., +30（公式：10 + 2*LV）
