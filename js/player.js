@@ -250,7 +250,9 @@ class Player extends Entity {
     
     // 獲得經驗
     gainExperience(amount) {
-        this.experience += amount;
+        const mul = (this.experienceGainMultiplier != null) ? this.experienceGainMultiplier : 1.0;
+        const finalAmount = Math.max(0, Math.floor(amount * mul));
+        this.experience += finalAmount;
         
         // 檢查是否升級
         if (this.experience >= this.experienceToNextLevel) {
