@@ -47,6 +47,11 @@ const TalentSystem = {
             description: '升級可提升回血速度。',
             cost: 3000
         },
+        experience_boost: {
+            name: '經驗值強化',
+            description: '升級可提升獲得的經驗值。',
+            cost: 3000
+        },
         // 新增：升級操作次數強化（提升重抽/換一個/保留次數）
         levelup_action_charges: {
             name: '選項次數強化',
@@ -140,6 +145,16 @@ const TalentSystem = {
                 { multiplier: 1.90, cost: 24000 },
                 { multiplier: 2.10, cost: 35000 },
                 { multiplier: 2.30, cost: 45000 }
+            ]
+        },
+        experience_boost: {
+            levels: [
+                { multiplier: 1.10, cost: 3000 },
+                { multiplier: 1.20, cost: 6000 },
+                { multiplier: 1.30, cost: 12000 },
+                { multiplier: 1.40, cost: 24000 },
+                { multiplier: 1.50, cost: 35000 },
+                { multiplier: 1.60, cost: 45000 }
             ]
         },
         // 新增：升級操作次數強化（各+1 ~ 各+6）
@@ -575,6 +590,9 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'regen_speed_boost') {
             const pct = Math.round((eff.multiplier - 1) * 100);
             return `回血速度+${pct}%`;
+        } else if (id === 'experience_boost') {
+            const pct = Math.round((eff.multiplier - 1) * 100);
+            return `經驗值+${pct}%`;
         } else if (id === 'levelup_action_charges') {
             const add = eff.reroll || 0;
             return `重抽/換一個/保留次數各+${add}`;
