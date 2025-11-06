@@ -196,6 +196,7 @@ function createDefaultImages() {
         { name: 'dagger', src: 'assets/images/dagger.png' },
         { name: 'fireball', src: 'assets/images/fireball.png' },
         { name: 'lightning', src: 'assets/images/lightning.png' },
+        { name: 'knife', src: 'assets/images/knife.gif' },
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
 // 新增：守護領域場域圖片
         { name: 'field', src: 'assets/images/field.gif' },
@@ -382,6 +383,7 @@ function setupCharacterSelection() {
 const iconMap = {
     SING: 'assets/images/A1.png',
     DAGGER: 'assets/images/A2.png',
+    SLASH: 'assets/images/A17.png',
     LASER: 'assets/images/A3.png',
     CHAIN_LIGHTNING: 'assets/images/A4.png',
     FIREBALL: 'assets/images/A5.png',
