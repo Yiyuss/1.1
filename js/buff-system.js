@@ -76,6 +76,19 @@ const BuffSystem = {
                 player.pickupRangeMultiplier = 1.0;
             }
         },
+        // 經驗值強化（階梯，乘算經驗獲得）
+        experience_boost: {
+            name: '經驗值強化',
+            apply: function(player) {
+                const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                    ? TalentSystem.getTalentLevel('experience_boost') : 0;
+                const mul = BuffSystem._getTierEffect('experience_boost', lv, 'multiplier', 1.0) || 1.0;
+                player.experienceGainMultiplier = mul;
+            },
+            remove: function(player) {
+                player.experienceGainMultiplier = 1.0;
+            }
+        },
         // 新增：回血強化（階梯，乘算速度）
         regen_speed_boost: {
             name: '回血強化',
@@ -103,6 +116,7 @@ const BuffSystem = {
         if (player.pickupRangeMultiplier == null) player.pickupRangeMultiplier = 1.0;
         if (player.damageReductionFlat == null) player.damageReductionFlat = 0;
         if (player.healthRegenSpeedMultiplier == null) player.healthRegenSpeedMultiplier = 1.0;
+        if (player.experienceGainMultiplier == null) player.experienceGainMultiplier = 1.0;
         // 新增：傷害與爆擊相關屬性（不影響UI與數值，僅初始化）
         if (player.damageTalentBaseBonusPct == null) player.damageTalentBaseBonusPct = 0;
         if (player.damageSpecializationFlat == null) player.damageSpecializationFlat = 0;
@@ -228,12 +242,15 @@ const BuffSystem = {
                 ? TalentSystem.getTalentLevel('damage_boost') : 0;
             const regenLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                 ? TalentSystem.getTalentLevel('regen_speed_boost') : 0;
+            const expLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('experience_boost') : 0;
             // 依序套用存在的階梯效果
             if (hpLv > 0) this.applyBuff(player, 'hp_boost');
             if (defLv > 0) this.applyBuff(player, 'defense_boost');
             if (spdLv > 0) this.applyBuff(player, 'speed_boost');
             if (prLv > 0) this.applyBuff(player, 'pickup_range_boost');
             if (regenLv > 0) this.applyBuff(player, 'regen_speed_boost');
+            if (expLv > 0) this.applyBuff(player, 'experience_boost');
             
             // 統一讀取六階：基礎傷害%、傷害特化平值、爆擊率%
             player.damageTalentBaseBonusPct = BuffSystem._getTierEffect('damage_boost', dmgLv, 'multiplier', 1.0) - 1.0 || 0;
