@@ -2241,3 +2241,113 @@ body {
   #achievements-screen .ach-list { grid-template-columns: repeat(2, minmax(100px, 1fr)); grid-auto-rows: auto; }
 }
 
+/* === Map Select Screen (重構版)：沿用雙背景版型與新布局 === */
+#map-select-screen {
+  background:
+    var(--overlay-grad),
+    url('../assets/images/background2.jpg') center/cover no-repeat;
+  overflow: auto;
+}
+
+/* 內框：沿用 char-card-wrap 視覺（此處僅做命名空間微調） */
+#map-select-screen .map-card-wrap { position: relative; }
+
+/* 左右分欄布局 */
+#map-select-screen .map-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+/* 左側模式欄 */
+#map-select-screen .map-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.15);
+  position: relative;
+}
+#map-select-screen .map-menu .menu-title-image {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  width: 100%;
+  margin-bottom: -23px; /* 更貼近按鈕，製造坐在上面的感覺 */
+  pointer-events: none; /* 不阻擋按鈕點擊 */
+}
+#map-select-screen .map-menu .menu-title-image img {
+  width: 58%;
+  max-width: 160px;
+  height: auto;
+  object-fit: contain;
+  margin-top: 6px;
+  box-shadow: none; /* 去除透明框的陰影效果 */
+}
+#map-select-screen .mode-btn { position: relative; z-index: 1; }
+#map-select-screen .map-menu-title {
+  color: #eaf4ff;
+  font-weight: 800;
+  letter-spacing: .6px;
+}
+#map-select-screen .mode-btn {
+  border: 1px solid rgba(160,190,240,0.45);
+  color: #cfe7ff;
+  background: rgba(25,28,36,0.65);
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: filter .15s ease, transform .15s ease;
+}
+#map-select-screen .mode-btn.primary {
+  background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+}
+#map-select-screen .mode-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+
+/* 右側主內容：上方地圖格、下方資訊區 */
+#map-select-screen .map-main { display: grid; gap: 12px; }
+#map-select-screen .map-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* 下方資訊區：左預覽圖、右介紹文字 */
+#map-select-screen .map-info {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.15);
+}
+#map-select-screen .map-preview img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,0.4));
+}
+#map-select-screen .map-desc { margin: 0; text-align: left; color: #cfe7ff; }
+
+/* 右下角返回鍵（美化版） */
+#map-select-screen .return-btn {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  border: 1px solid rgba(160,190,240,0.45);
+  color: #cfe7ff;
+  background: rgba(25,28,36,0.65);
+  padding: 8px 14px;
+  border-radius: 10px;
+  transition: filter .15s ease;
+}
+#map-select-screen .return-btn:hover { filter: brightness(1.08); }
+
+/* RWD：窄螢幕下改為直向堆疊 */
+@media (max-width: 700px) {
+  #map-select-screen .map-layout { grid-template-columns: 1fr; }
+  #map-select-screen .map-info { grid-template-columns: 1fr; }
+}
+
