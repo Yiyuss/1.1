@@ -133,17 +133,40 @@ body {
     background: transparent;
     border: none;
     border-radius: 0;
-    padding: 12px 16px;
+    padding: 6px 12px -5px;
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 80px;
+    min-height: 52px;
+    position: relative;
+    z-index: 5;
 }
 .start-header .subtitle {
     font-size: clamp(14px, 2.5vw, 18px);
     color: #ddd;
+}
+
+/* 首頁 LOGO：置中並適配大小（取代原標題文字） */
+.start-header .start-logo {
+    display: block;
+    width: clamp(160px, 28vw, 280px);
+    max-width: 72%;
+    height: auto;
+    object-fit: contain;
+    margin: 0 auto 0;
+    filter: drop-shadow(0 6px 12px rgba(0,0,0,0.25));
+    will-change: transform;
+    animation: logoFloat 2.8s ease-in-out infinite;
+    position: relative;
+    z-index: 6;
+    pointer-events: none;
+}
+
+@keyframes logoFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
 }
 
 .start-actions {
@@ -178,7 +201,7 @@ body {
     min-width: 0; 
     display: grid; 
     grid-template-rows: auto 1fr; /* 白框(標題) / 單一左側視窗 */
-    gap: 12px;
+    gap: 2px;
 }
 #start-screen .start-menu {
     position: relative; /* 作為網格第二欄項目，避免與左側重疊 */
@@ -231,7 +254,7 @@ body {
     box-shadow: 0 10px 24px rgba(0,0,0,0.35);
 }
 #start-screen .content-window {
-    margin: 60px auto 0; /* 置中以對齊上方標題 */
+    margin: 7px auto 0; /* 顯著縮短與 LOGO 的垂直距離 */
     padding: 0;
     background: rgba(20,30,40,0.55);
     border: 1px solid rgba(255,255,255,0.12);
