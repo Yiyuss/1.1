@@ -160,10 +160,53 @@ class Weapon {
             if (typeof this.config.VISUAL_SCALE === 'number') {
                 effect.visualScale = this.config.VISUAL_SCALE;
             }
+            // 普通斬擊不顯示濺血（僅狂熱斬擊使用濺血疊層）
+            effect.hitOverlayImageKey = null;
             Game.addProjectile(effect);
             if (typeof AudioManager !== 'undefined') {
                 AudioManager.playSound('knife');
             }
+            return;
+        }
+
+        // 融合技能：狂熱斬擊（雙段斬擊：0.5秒間隔，第一段使用普通斬擊範圍、第二段使用狂熱斬擊範圍）
+        if (this.type === 'FRENZY_SLASH') {
+            const baseAngle = (this.player && typeof this.player.facingAngle === 'number') ? this.player.facingAngle : 0;
+            const durationMs = this.config.DURATION || 1200;
+            const dmg = this._computeFinalDamage(levelMul);
+
+            // 第一段：使用普通斬擊的範圍（不依等級變化）
+            const cfgS = (CONFIG && CONFIG.WEAPONS) ? CONFIG.WEAPONS['SLASH'] : null;
+            const radius1 = cfgS ? (cfgS.RADIUS_BASE || 72) : 72;
+            const arc1 = cfgS ? (cfgS.ARC_DEG_BASE || 80) : 80;
+            const vis1 = cfgS && typeof cfgS.VISUAL_SCALE === 'number' ? cfgS.VISUAL_SCALE : 1.0;
+            const effect1 = new SlashEffect(this.player, baseAngle, dmg, radius1, arc1, durationMs);
+            effect1.visualScale = vis1;
+            // 前景斬擊圖：knife；命中濺血：knife2（SlashEffect 預設）
+            effect1.overlayImageKey = 'knife';
+            effect1.hitOverlayImageKey = 'knife2';
+            Game.addProjectile(effect1);
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('knife');
+            }
+
+            // 第二段：0.5秒後，使用狂熱斬擊的範圍（升級不增範圍）
+            // 調整為第一刀的兩倍範圍（半徑與視覺尺寸加倍，角度保持）
+            const dynamicRadius2 = radius1 * 2;
+            const arcDeg2 = arc1;
+            const vis2 = vis1 * 2;
+            setTimeout(() => {
+                try {
+                    const effect2 = new SlashEffect(this.player, baseAngle, dmg, dynamicRadius2, arcDeg2, durationMs);
+                    effect2.visualScale = vis2;
+                    effect2.overlayImageKey = 'knife';
+                    effect2.hitOverlayImageKey = 'knife2';
+                    Game.addProjectile(effect2);
+                    if (typeof AudioManager !== 'undefined') {
+                        AudioManager.playSound('knife');
+                    }
+                } catch (_) {}
+            }, 500);
             return;
         }
 
@@ -423,8 +466,10 @@ class Weapon {
 // 在類內新增：根據「基礎值 +（等級5%）+（天賦基礎%）+（特化+2/4/6）」計算最終基礎傷害
 Weapon.prototype._computeFinalDamage = function(levelMul){
     const base = (this.config && this.config.DAMAGE) ? this.config.DAMAGE : 0;
-    // 狂熱雷擊：每等 +3 基礎傷害（LV10 累計 +30）
-    const frenzyExtra = (this.type === 'FRENZY_LIGHTNING') ? (3 * Math.max(1, this.level)) : 0;
+    // 狂熱類：每等 +3 基礎傷害（LV10 累計 +30）
+    const frenzyExtra = (this.type === 'FRENZY_LIGHTNING' || this.type === 'FRENZY_SLASH')
+        ? (3 * Math.max(1, this.level))
+        : 0;
     const specFlat = (this.player && this.player.damageSpecializationFlat) ? this.player.damageSpecializationFlat : 0;
     const talentPct = (this.player && this.player.damageTalentBaseBonusPct) ? this.player.damageTalentBaseBonusPct : 0;
     const attrPct = (this.player && this.player.damageAttributeBonusPct) ? this.player.damageAttributeBonusPct : 0; // 升級屬性加成（每級+10%）
