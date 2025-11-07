@@ -476,6 +476,96 @@ function setupMapAndDifficultySelection() {
     // 將 selectedDiffId 的宣告提前，避免在 confirmMap 中賦值時落入 TDZ（暫時性死區）導致錯誤
     let selectedDiffId = null;
 
+    // 新增：模式切換（生存 / 挑戰）— 切換右側地圖 grid 與介紹
+    const survivalGrid = document.getElementById('grid-survival');
+    const challengeGrid = document.getElementById('grid-challenge');
+    const stageGrid = document.getElementById('grid-stage');
+    const defenseGrid = document.getElementById('grid-defense');
+    const mainGrid = document.getElementById('grid-main');
+    const modeSurvival = document.getElementById('mode-survival');
+    const modeChallenge = document.getElementById('mode-challenge');
+    const modeStage = document.getElementById('mode-stage');
+    const modeDefense = document.getElementById('mode-defense');
+    const modeMain = document.getElementById('mode-main');
+
+    const switchMode = (mode) => {
+        // 播放模式切換音效（button_click2）
+        playClick2();
+        // 切換顯示的 grid，並重置已選地圖
+        if (mode === 'challenge') {
+            if (survivalGrid) hide(survivalGrid);
+            if (challengeGrid) show(challengeGrid);
+            if (stageGrid) hide(stageGrid);
+            if (defenseGrid) hide(defenseGrid);
+            if (mainGrid) hide(mainGrid);
+            if (mapDescEl) mapDescEl.textContent = '挑戰模式尚未開放';
+            selectedMapCfg = null;
+            if (modeSurvival) modeSurvival.classList.remove('primary');
+            if (modeChallenge) modeChallenge.classList.add('primary');
+            if (modeStage) modeStage.classList.remove('primary');
+            if (modeDefense) modeDefense.classList.remove('primary');
+            if (modeMain) modeMain.classList.remove('primary');
+        } else if (mode === 'stage') {
+            if (survivalGrid) hide(survivalGrid);
+            if (challengeGrid) hide(challengeGrid);
+            if (stageGrid) show(stageGrid);
+            if (defenseGrid) hide(defenseGrid);
+            if (mainGrid) hide(mainGrid);
+            if (mapDescEl) mapDescEl.textContent = '闖關模式尚未開放';
+            selectedMapCfg = null;
+            if (modeSurvival) modeSurvival.classList.remove('primary');
+            if (modeChallenge) modeChallenge.classList.remove('primary');
+            if (modeStage) modeStage.classList.add('primary');
+            if (modeDefense) modeDefense.classList.remove('primary');
+            if (modeMain) modeMain.classList.remove('primary');
+        } else if (mode === 'defense') {
+            if (survivalGrid) hide(survivalGrid);
+            if (challengeGrid) hide(challengeGrid);
+            if (stageGrid) hide(stageGrid);
+            if (defenseGrid) show(defenseGrid);
+            if (mainGrid) hide(mainGrid);
+            if (mapDescEl) mapDescEl.textContent = '防禦模式尚未開放';
+            selectedMapCfg = null;
+            if (modeSurvival) modeSurvival.classList.remove('primary');
+            if (modeChallenge) modeChallenge.classList.remove('primary');
+            if (modeStage) modeStage.classList.remove('primary');
+            if (modeDefense) modeDefense.classList.add('primary');
+            if (modeMain) modeMain.classList.remove('primary');
+        } else if (mode === 'main') {
+            if (survivalGrid) hide(survivalGrid);
+            if (challengeGrid) hide(challengeGrid);
+            if (stageGrid) hide(stageGrid);
+            if (defenseGrid) hide(defenseGrid);
+            if (mainGrid) show(mainGrid);
+            if (mapDescEl) mapDescEl.textContent = '主線模式尚未開放';
+            selectedMapCfg = null;
+            if (modeSurvival) modeSurvival.classList.remove('primary');
+            if (modeChallenge) modeChallenge.classList.remove('primary');
+            if (modeStage) modeStage.classList.remove('primary');
+            if (modeDefense) modeDefense.classList.remove('primary');
+            if (modeMain) modeMain.classList.add('primary');
+        } else {
+            if (survivalGrid) show(survivalGrid);
+            if (challengeGrid) hide(challengeGrid);
+            if (stageGrid) hide(stageGrid);
+            if (defenseGrid) hide(defenseGrid);
+            if (mainGrid) hide(mainGrid);
+            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
+            selectedMapCfg = null;
+            if (modeSurvival) modeSurvival.classList.add('primary');
+            if (modeChallenge) modeChallenge.classList.remove('primary');
+            if (modeStage) modeStage.classList.remove('primary');
+            if (modeDefense) modeDefense.classList.remove('primary');
+            if (modeMain) modeMain.classList.remove('primary');
+        }
+    };
+    // 綁定模式按鈕
+    if (modeSurvival) modeSurvival.addEventListener('click', () => switchMode('survival'));
+    if (modeChallenge) modeChallenge.addEventListener('click', () => switchMode('challenge'));
+    if (modeStage) modeStage.addEventListener('click', () => switchMode('stage'));
+    if (modeDefense) modeDefense.addEventListener('click', () => switchMode('defense'));
+    if (modeMain) modeMain.addEventListener('click', () => switchMode('main'));
+
     const showMapDesc = (cfg, card) => {
         Game.selectedMap = cfg || null;
         playClick2();
