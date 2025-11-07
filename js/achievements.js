@@ -20,13 +20,21 @@ const Achievements = (function(){
       desc: '首次通關任一地圖的困難模式。',
       icon: 'assets/images/A16.png',
       reward: '解鎖「心靈魔法」技能。'
+    },
+    COIN_100K: {
+      id: 'COIN_100K',
+      name: '百萬富翁的起點',
+      desc: '持有金幣達到 100000。',
+      icon: 'assets/images/A18.png',
+      reward: '解鎖「狂熱斬擊」技能。'
     }
   };
 
   // 融合解鎖需求（可擴充）：各融合技能對應需先解鎖的成就 ID 陣列
   const FUSION_REQUIREMENTS = {
     FRENZY_LIGHTNING: ['FIRST_CLEAR'],
-    MIND_MAGIC: ['HARD_CLEAR']
+    MIND_MAGIC: ['HARD_CLEAR'],
+    FRENZY_SLASH: ['COIN_100K']
     // 未來：在此加入新融合技能的成就解鎖需求，例如：
     // OTHER_FUSION_SKILL: ['SOME_ACHIEVEMENT', 'ANOTHER_ACHIEVEMENT']
   };
