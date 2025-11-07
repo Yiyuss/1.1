@@ -911,6 +911,14 @@ const Game = {
         this.coinsCollected += inc;
         // 立即存檔以符合自動存檔需求
         try { this.saveCoins(); } catch (_) {}
+        // 成就：持有金幣達到 100000 時解鎖（當局記錄，勝利返回時彈窗）
+        try {
+            if (typeof Achievements !== 'undefined' && Achievements.unlock && Achievements.isUnlocked) {
+                if (!Achievements.isUnlocked('COIN_100K') && (this.coins || 0) >= 100000) {
+                    Achievements.unlock('COIN_100K');
+                }
+            }
+        } catch(_) {}
         // 觸發金幣變更事件
         try {
             if (typeof EventSystem !== 'undefined' && typeof GameEvents !== 'undefined' && EventSystem.trigger) {
