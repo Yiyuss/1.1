@@ -6,4 +6,27 @@
     right: 12px;
     bottom: auto; /* 取消底部定位 */
   }
+  /* 選地圖：返回鍵置於右上角（僅手機） */
+  #map-select-screen .return-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    bottom: auto;
+    z-index: 120;
+  }
+
+  /* 成就：返回鍵置於右上角（僅手機） */
+  #achievements-screen #achievements-back {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    bottom: auto;
+    z-index: 120;
+  }
+
+  /* 成就：四格排版（與選角一致） */
+  #achievements-screen .char-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: auto;
+  }
 }
