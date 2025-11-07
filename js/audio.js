@@ -7,6 +7,11 @@ const AudioManager = {
     soundVolume: 0.7,
     // 新增：經驗音效開關（預設開）
     expSoundEnabled: true,
+    // 新增：死亡音效開關（預設開）
+    deathSoundEnabled: true,
+    // 新增：死亡音效同時播放上限與目前並發計數
+    maxConcurrentDeathSounds: 3,
+    _deathConcurrency: 0,
     
     init: function() {
         // 初始化音效
@@ -91,11 +96,22 @@ const AudioManager = {
         if (this.isMuted || !this.sounds[name]) return;
         // 關閉 EXP 音效時略過 collect_exp
         if (name === 'collect_exp' && this.expSoundEnabled === false) return;
+        // 關閉死亡音效時略過 enemy_death
+        if (name === 'enemy_death' && this.deathSoundEnabled === false) return;
+        // 限制死亡音效同時播放數量
+        if (name === 'enemy_death' && this._deathConcurrency >= this.maxConcurrentDeathSounds) return;
         
         try {
             // 克隆音效以允許重疊播放
             const sound = this.sounds[name].cloneNode();
             sound.volume = this.soundVolume;
+            // 針對死亡音效：計數與回收
+            if (name === 'enemy_death') {
+                this._deathConcurrency++;
+                const dec = () => { this._deathConcurrency = Math.max(0, this._deathConcurrency - 1); };
+                sound.addEventListener('ended', dec, { once: true });
+                sound.addEventListener('error', dec, { once: true });
+            }
             sound.play();
         } catch (e) {
             console.error(`播放音效 ${name} 時出錯:`, e);
