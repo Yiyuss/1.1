@@ -197,6 +197,7 @@ function createDefaultImages() {
         { name: 'fireball', src: 'assets/images/fireball.png' },
         { name: 'lightning', src: 'assets/images/lightning.png' },
         { name: 'knife', src: 'assets/images/knife.gif' },
+        { name: 'knife2', src: 'assets/images/knife2.gif' },
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
 // 新增：守護領域場域圖片
         { name: 'field', src: 'assets/images/field.gif' },
