@@ -220,6 +220,30 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "斬擊範圍提升（+108px）" }
             ]
         },
+        // 融合斬擊：持有並滿級 應援棒(DAGGER) 與 斬擊(SLASH) 後可獲得
+        FRENZY_SLASH: {
+            NAME: "狂熱斬擊",
+            DAMAGE: 15,
+            COOLDOWN: 1200,
+            DURATION: 1200,
+            ARC_DEG_BASE: 365,
+            ARC_DEG_PER_LEVEL: 0,
+            RADIUS_BASE: 280,
+            RADIUS_PER_LEVEL: 0,
+            VISUAL_SCALE: 2.0,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每1.2秒瞬間施放雙段斬擊，基礎傷害+3" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+3" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+3" }
+            ]
+        },
         CHAIN_LIGHTNING: {
             NAME: "連鎖閃電",
             DAMAGE: 15, // 與追蹤綿羊相同
