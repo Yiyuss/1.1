@@ -13,8 +13,10 @@ class SlashEffect extends Entity {
         this.appliedDamage = false;
         // 命中的敵人（用於覆蓋 GIF 演出）
         this.hitEnemies = [];
-        // 動圖鍵（預設使用 knife.gif）
+        // 動圖鍵（預設使用 knife.gif 作為扇形斬擊前景）
         this.overlayImageKey = 'knife';
+        // 命中濺血 GIF（預設 knife2.gif）
+        this.hitOverlayImageKey = 'knife2';
         // GIF 只顯示一次：在一次斬擊週期中顯示一段時間後隱藏
         // 預設顯示時間採用週期的一半（例如 1200ms 週期則顯示約 600ms）
         this.overlayPlayOnceMs = Math.floor(this.durationMs * 0.5);
@@ -31,7 +33,9 @@ class SlashEffect extends Entity {
         // DOM 疊層：以 CSS 濾色（screen）混合顯示 GIF，避免畫布黑塊
         this._domLayer = null;
         this._domEls = [];
+        this._hitDomEls = [];
         this._domInitialized = false;
+        this._hitDomCreated = false;
         // 視覺倍率：隨半徑放大（只影響 DOM 圖像尺寸）
         this.visualScale = 1.0;
         // 視覺相位（用於光暈脈動）
@@ -143,6 +147,9 @@ class SlashEffect extends Entity {
                 for (const item of this._domEls) {
                     if (item.el) item.el.style.display = 'none';
                 }
+                for (const item of this._hitDomEls) {
+                    if (item.el) item.el.style.display = 'none';
+                }
                 this._overlayHidden = true;
             }
         }
@@ -208,6 +215,13 @@ class SlashEffect extends Entity {
             } catch (_) {
                 // DOM 建立失敗則保留描邊後備
             }
+        }
+        // 建立命中濺血 GIF（每次斬擊只建立一次）
+        if (!this._hitDomCreated) {
+            try {
+                this._createHitDomImages();
+                this._hitDomCreated = true;
+            } catch (_) {}
         }
         return;
     }
@@ -276,6 +290,49 @@ class SlashEffect extends Entity {
         this._updateDomPositions();
     }
 
+    _createHitDomImages() {
+        const layer = this._ensureDomLayer();
+        if (!layer) return;
+        const hitImg = (Game && Game.images) ? Game.images[this.hitOverlayImageKey] : null;
+        if (!hitImg || !hitImg.complete || !(hitImg.naturalWidth > 0)) return;
+        const makeHit = (x, y, sizePx) => {
+            const el = document.createElement('img');
+            const src = this._freshGifSrc(hitImg.src);
+            el.src = src;
+            el.alt = 'SlashHit';
+            el.style.position = 'absolute';
+            const ratio = (this.overlayAspectW || 192) / (this.overlayAspectH || 250);
+            const heightPx = sizePx;
+            const widthPx = Math.max(1, Math.floor(heightPx * ratio));
+            el.style.width = widthPx + 'px';
+            el.style.height = heightPx + 'px';
+            el.style.transform = 'translate(-50%, -50%)'; // 濺血不旋轉
+            el.style.imageRendering = 'pixelated';
+            el.style.backgroundColor = 'transparent';
+            el.style.opacity = '1';
+            el.style.visibility = 'hidden';
+            el.loading = 'eager';
+            el.decoding = 'sync';
+            el.addEventListener('load', () => { el.style.visibility = 'visible'; }, { once: true });
+            el.dataset.logic = 'slash-hit';
+            layer.appendChild(el);
+            return el;
+        };
+        const cap = 10; // 上限避免 DOM 過載
+        const sizePx = Math.max(48, Math.min(120, this.radius * 0.45)) * Math.max(0.8, this.visualScale * 0.7);
+        const enemies = this.hitEnemies.slice(0, cap);
+        for (const enemy of enemies) {
+            if (!enemy) continue;
+            // 記錄命中當下的位置，確保即使敵人死亡也能在最後位置顯示濺血
+            const lastX = enemy.x;
+            const lastY = enemy.y;
+            const el = makeHit(lastX, lastY, sizePx);
+            this._hitDomEls.push({ el, enemy, x: lastX, y: lastY });
+        }
+        // 初始位置同步
+        this._updateDomPositions();
+    }
+
     _freshGifSrc(src) {
         try {
             const hasQuery = src.includes('?');
@@ -289,7 +346,7 @@ class SlashEffect extends Entity {
     }
 
     _updateDomPositions() {
-        if (!this._domEls.length || !this._domLayer) return;
+        if ((!this._domEls.length && !this._hitDomEls.length) || !this._domLayer) return;
         const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
         if (!canvas) return;
         const rect = canvas.getBoundingClientRect();
@@ -314,6 +371,17 @@ class SlashEffect extends Entity {
             item.el.style.width = widthPx + 'px';
             item.el.style.height = heightPx + 'px';
         }
+        for (const item of this._hitDomEls) {
+            const enemy = item.enemy;
+            // 即使敵人死亡或被標記刪除，也保留在最後命中的位置顯示濺血
+            const ex = (enemy && !enemy.markedForDeletion) ? enemy.x : (item.x || 0);
+            const ey = (enemy && !enemy.markedForDeletion) ? enemy.y : (item.y || 0);
+            let sx = ex - camX;
+            let sy = ey - camY;
+            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+            item.el.style.left = sx + 'px';
+            item.el.style.top = sy + 'px';
+        }
     }
 
     _destroyDom() {
@@ -321,8 +389,12 @@ class SlashEffect extends Entity {
             for (const item of this._domEls) {
                 if (item.el && item.el.parentNode) item.el.parentNode.removeChild(item.el);
             }
+            for (const item of this._hitDomEls) {
+                if (item.el && item.el.parentNode) item.el.parentNode.removeChild(item.el);
+            }
         } catch(_) {}
         this._domEls.length = 0;
+        this._hitDomEls.length = 0;
         this._domInitialized = false;
     }
 
