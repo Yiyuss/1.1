@@ -248,28 +248,178 @@
           </div>
         </div>
 
-        <!-- 地圖選擇介面 -->
+        <!-- 地圖選擇介面（重構：採用與選角一致的雙背景版型與布局） -->
         <div id="map-select-screen" class="screen hidden">
-          <div class="select-card">
-            <h1 class="select-title">選擇地圖</h1>
-            <div class="map-grid">
-              <button class="map-card selectable" data-map-id="city">
-                <img src="assets/images/background.jpg" alt="廁所LV.1">
-                <div class="map-name">廁所LV.1</div>
-              </button>
-              <button class="map-card selectable" data-map-id="forest">
-                <img src="assets/images/background1-2.png" alt="草原LV.2">
-                <div class="map-name">草原LV.2</div>
-              </button>
-              <button class="map-card selectable" data-map-id="desert">
-                <img src="assets/images/background1-3.png" alt="宇宙LV.3">
-                <div class="map-name">宇宙LV.3</div>
-              </button>
+          <div class="char-card-wrap map-card-wrap">
+
+            <!-- 左右分欄布局：左側模式、右側地圖格與下方介紹 -->
+            <div class="map-layout">
+              <!-- 左：模式欄，目前僅生存模式 -->
+              <div class="map-menu">
+                <div class="menu-title-image" aria-hidden="true">
+                  <img src="assets/images/start3.png" alt="模式標題" />
+                </div>
+                <button id="mode-survival" class="mode-btn primary" aria-label="生存模式">生存模式</button>
+                <button id="mode-challenge" class="mode-btn" aria-label="挑戰模式">挑戰模式</button>
+                <button id="mode-stage" class="mode-btn" aria-label="闖關模式">闖關模式</button>
+                <button id="mode-defense" class="mode-btn" aria-label="防禦模式">防禦模式</button>
+                <button id="mode-main" class="mode-btn" aria-label="主線模式">主線模式</button>
+              </div>
+
+              <!-- 右：地圖格與下方介紹 -->
+              <div class="map-main">
+                <div class="map-grid" id="grid-survival">
+                  <button class="map-card selectable" data-map-id="city">
+                    <img src="assets/images/background.jpg" alt="廁所LV.1">
+                    <div class="map-name">廁所LV.1</div>
+                  </button>
+                  <button class="map-card selectable" data-map-id="forest">
+                    <img src="assets/images/background1-2.png" alt="草原LV.2">
+                    <div class="map-name">草原LV.2</div>
+                  </button>
+                  <button class="map-card selectable" data-map-id="desert">
+                    <img src="assets/images/background1-3.png" alt="宇宙LV.3">
+                    <div class="map-name">宇宙LV.3</div>
+                  </button>
+                  <!-- 新增：三張未開放地圖（位於下方第二列），暫用 background3.jpg -->
+                  <button class="map-card disabled" data-map-id="future-1">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="future-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="future-3">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 挑戰模式：六張尚未開放地圖（隱藏，點選挑戰模式時顯示） -->
+                <div class="map-grid hidden" id="grid-challenge">
+                  <button class="map-card disabled" data-map-id="challenge-1">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="challenge-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="challenge-3">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="challenge-4">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="challenge-5">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="challenge-6">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 闖關模式：六張尚未開放地圖（隱藏，點選闖關模式時顯示） -->
+                <div class="map-grid hidden" id="grid-stage">
+                  <button class="map-card disabled" data-map-id="stage-1">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="stage-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="stage-3">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="stage-4">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="stage-5">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="stage-6">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 防禦模式：六張尚未開放地圖（隱藏，點選防禦模式時顯示） -->
+                <div class="map-grid hidden" id="grid-defense">
+                  <button class="map-card disabled" data-map-id="defense-1">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="defense-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="defense-3">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="defense-4">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="defense-5">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="defense-6">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 主線模式：六張尚未開放地圖（隱藏，點選主線模式時顯示） -->
+                <div class="map-grid hidden" id="grid-main">
+                  <button class="map-card disabled" data-map-id="main-1">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="main-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="main-3">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="main-4">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="main-5">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="main-6">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 下方資訊區：左側 GM.png、右側介紹文字 -->
+                <div class="map-info">
+                  <div class="map-preview" aria-hidden="true">
+                    <img id="map-preview-img" src="assets/images/GM.png" alt="預覽" />
+                  </div>
+                  <div id="map-desc" class="map-desc">提示：點擊地圖顯示介紹，雙擊或空白鍵確認</div>
+                </div>
+              </div>
             </div>
-            <div id="map-desc" class="map-desc">提示：點擊地圖顯示介紹，雙擊或空白鍵確認</div>
-            <div class="select-actions">
-              <button id="map-cancel" class="ghost">返回</button>
-            </div>
+
+            <!-- 右下角美化返回鍵 -->
+            <button id="map-cancel" class="return-btn ghost" aria-label="返回">返回</button>
           </div>
         </div>
 
