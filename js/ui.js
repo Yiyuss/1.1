@@ -45,11 +45,16 @@ const UI = {
         // 新增：EXP 音效切換按鈕
         this.expSoundToggle = document.getElementById('exp-sound-toggle');
         this.expSoundToggleText = document.getElementById('exp-sound-toggle-text');
+        // 新增：死亡音效切換按鈕
+        this.deathSoundToggle = document.getElementById('death-sound-toggle');
+        this.deathSoundToggleText = document.getElementById('death-sound-toggle-text');
 
         // 統一綁定技能頁音量滑桿（不改文案與行為）
         try { this.bindVolumeSliders(this.skillsMenu); } catch (_) {}
         // 新增：綁定 EXP 音效切換
         try { this.bindExpSoundToggle(); } catch (_) {}
+        // 新增：綁定 死亡音效切換
+        try { this.bindDeathSoundToggle(); } catch (_) {}
 
         // 初始化UI
         this.updateHealthBar(CONFIG.PLAYER.MAX_HEALTH, CONFIG.PLAYER.MAX_HEALTH);
@@ -318,6 +323,7 @@ const skillIcons = {
     LASER: 'assets/images/A3.png',
     CHAIN_LIGHTNING: 'assets/images/A4.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
+    FRENZY_SLASH: 'assets/images/A18.png',
     FIREBALL: 'assets/images/A5.png',
     LIGHTNING: 'assets/images/A6.png',
     ORBIT: 'assets/images/A7.png',
@@ -465,12 +471,14 @@ const skillIcons = {
 
         // 現有武器升級選項（使用CONFIG計算下一級描述）
         const hasFrenzy = sourceWeaponsInfo.some(w => w.type === 'FRENZY_LIGHTNING');
+        const hasFrenzySlash = sourceWeaponsInfo.some(w => w.type === 'FRENZY_SLASH');
         const hasMindMagic = sourceWeaponsInfo.some(w => w.type === 'MIND_MAGIC');
         for (const info of sourceWeaponsInfo) {
             const cfg = CONFIG.WEAPONS[info.type];
             if (!cfg) continue;
             // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
             if ((hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) ||
+                (hasFrenzySlash && (info.type === 'DAGGER' || info.type === 'SLASH')) ||
                 (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING'))) continue;
             if (info.level < cfg.LEVELS.length) {
                 options.push({
@@ -488,6 +496,7 @@ const skillIcons = {
         for (const weaponType of availableWeapons) {
             // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
             if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
+                (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
                 (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING'))) continue;
             if (!playerWeaponTypes.includes(weaponType)) {
                 const weaponConfig = CONFIG.WEAPONS[weaponType];
@@ -519,6 +528,28 @@ const skillIcons = {
                         name: cfgF.NAME,
                         level: 1,
                         description: cfgF.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：狂熱斬擊（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 斬擊(SLASH)）
+        try {
+            const hasFrenzySlashFusion = playerWeaponTypes.includes('FRENZY_SLASH');
+            const cheerS = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
+            const slashS = sourceWeaponsInfo.find(w => w.type === 'SLASH');
+            const fusionUnlockedS = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_SLASH')); } catch(_) { return false; }
+            })();
+            const fusionReadyS = (!!cheerS && !!slashS && cheerS.level >= 10 && slashS.level >= 10);
+            if (!hasFrenzySlashFusion && fusionReadyS && fusionUnlockedS) {
+                const cfgFS = CONFIG.WEAPONS['FRENZY_SLASH'];
+                if (cfgFS && Array.isArray(cfgFS.LEVELS) && cfgFS.LEVELS.length > 0) {
+                    options.push({
+                        type: 'FRENZY_SLASH',
+                        name: cfgFS.NAME,
+                        level: 1,
+                        description: cfgFS.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -703,6 +734,37 @@ const skillIcons = {
             }
             // 記錄成就：融合狂熱雷擊
             try { if (typeof Achievements !== 'undefined' && Achievements.unlock) Achievements.unlock('FRENZY_FUSION'); } catch(_) {}
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        // 融合：狂熱斬擊（移除 應援棒(DAGGER)/斬擊(SLASH)，加入或升級 FRENZY_SLASH）
+        if (weaponType === 'FRENZY_SLASH') {
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                // 移除基礎武器
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'SLASH');
+                // 加入或升級融合武器
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'FRENZY_SLASH');
+                const cfgFS = CONFIG.WEAPONS['FRENZY_SLASH'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgFS && curLv < cfgFS.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'FRENZY_SLASH', level: 1 });
+                }
+            } else {
+                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'SLASH');
+                const existingFS = player.weapons.find(w => w.type === 'FRENZY_SLASH');
+                if (existingFS) {
+                    player.upgradeWeapon('FRENZY_SLASH');
+                } else {
+                    player.addWeapon('FRENZY_SLASH');
+                }
+            }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
             this.hideLevelUpMenu();
@@ -1272,6 +1334,7 @@ const iconMap = {
     AURA_FIELD: 'assets/images/A13.png',
     INVINCIBLE: 'assets/images/A14.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
+    FRENZY_SLASH: 'assets/images/A18.png',
     MIND_MAGIC: 'assets/images/A16.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
@@ -1395,6 +1458,29 @@ _actionHold: function() {
                 if (typeof AudioManager !== 'undefined') {
                     // 修正：真正反轉開關狀態
                     AudioManager.expSoundEnabled = !AudioManager.expSoundEnabled;
+                }
+                if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                    AudioManager.playSound('button_click2');
+                }
+            } catch (_) {}
+            refresh();
+        });
+    },
+
+    // 新增：死亡音效切換綁定
+    bindDeathSoundToggle: function() {
+        const btn = this.deathSoundToggle;
+        const label = this.deathSoundToggleText;
+        if (!btn || !label) return;
+        const refresh = () => {
+            const enabled = (typeof AudioManager !== 'undefined') ? (AudioManager.deathSoundEnabled !== false) : true;
+            label.textContent = enabled ? '死亡音效：開' : '死亡音效：關';
+        };
+        refresh();
+        btn.addEventListener('click', () => {
+            try {
+                if (typeof AudioManager !== 'undefined') {
+                    AudioManager.deathSoundEnabled = !AudioManager.deathSoundEnabled;
                 }
                 if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
                     AudioManager.playSound('button_click2');
