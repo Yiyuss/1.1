@@ -200,7 +200,7 @@ function createDefaultImages() {
         { name: 'knife2', src: 'assets/images/knife2.gif' },
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
 // 新增：守護領域場域圖片
-        { name: 'field', src: 'assets/images/field.gif' },
+        { name: 'field', src: 'assets/images/field.png' },
         { name: 'box', src: 'assets/images/BOX.png' },
         // 唱歌技能特效圖片（GIF 與 PNG 後備）
         { name: 'LA', src: 'assets/images/LA.png' },
