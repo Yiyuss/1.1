@@ -165,23 +165,10 @@
                 }
               } catch (_) {}
 
-              // 以既有管線扣血；忽略一般無敵（受傷短暫無敵），但尊重技能無敵（由 player.takeDamage 早退）
+              // 以玩家管線扣血：套用防禦公式；忽略受傷短暫無敵，但尊重技能無敵
               if (typeof player.takeDamage === 'function') {
-                const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(30);
+                const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(40);
                 player.takeDamage(hitDamage, { ignoreInvulnerability: true, source: 'bullet_system' });
-              } else if (typeof Game !== 'undefined' && Game.player) {
-                // 後備：直接扣血（技能無敵時避免扣血）
-                try {
-                  if (Game.player && Game.player.invulnerabilitySource === 'INVINCIBLE') {
-                    this.bullets.splice(i, 1);
-                    continue;
-                  }
-                } catch (_) {}
-                const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(30);
-                Game.player.health = Math.max(0, (Game.player.health || 0) - hitDamage);
-                if (typeof UI !== 'undefined' && UI.updateHealthBar) {
-                  try { UI.updateHealthBar(Game.player.health, Game.player.maxHealth || Game.player.health); } catch (_) {}
-                }
               }
 
               // 命中感：鏡頭震動、螢幕閃光、粒子與音效
@@ -265,8 +252,8 @@
       }
     },
 
-    // 依波次計算傷害：基礎30 + 每波+1（例：第30波=60）
-    _computeWaveDamage(base = 30) {
+    // 依波次計算傷害：基礎35 + 每波+1（例：第30波=65）
+    _computeWaveDamage(base = 35) {
       try {
         const w = (typeof WaveSystem !== 'undefined' && WaveSystem && typeof WaveSystem.currentWave === 'number')
           ? WaveSystem.currentWave
@@ -278,7 +265,7 @@
     /** 加入單一彈幕（供未來使用） */
     addBullet(x, y, vx, vy, lifeMs, size = 4, color = '#fff', damage) {
       if (!this.enabled) return;
-      const dmg = (typeof damage === 'number') ? damage : this._computeWaveDamage(30);
+      const dmg = (typeof damage === 'number') ? damage : this._computeWaveDamage(40);
       this.bullets.push({ x, y, vx, vy, life: lifeMs, maxLife: lifeMs, size, color, damage: dmg });
     },
   };
