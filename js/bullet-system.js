@@ -12,6 +12,14 @@
     bullets: [],
     bulletImage: null,
     bulletImageReady: false,
+    // 雪碧圖參數（320x192；每格32x32；10列×6行；共60幀）
+    frameWidth: 32,
+    frameHeight: 32,
+    sheetCols: 10,
+    sheetRows: 6,
+    totalFrames: 60,
+    animationFps: 30,
+    _animStartTime: 0,
 
     init() {
       try {
@@ -23,18 +31,19 @@
         this.enabled = cfgEnabled;
         this.emitters = [];
         this.bullets = [];
-        // 載入彈幕圖片（bullet.gif），失敗則使用圈形備援
+        // 載入彈幕雪碧圖（bullet.png），失敗則使用圈形備援
         this.bulletImage = null;
         this.bulletImageReady = false;
         try {
           const img = new Image();
           img.onload = () => { this.bulletImage = img; this.bulletImageReady = true; };
           img.onerror = () => { this.bulletImage = null; this.bulletImageReady = false; };
-          img.src = 'assets/images/bullet.gif';
+          img.src = 'assets/images/bullet.png';
         } catch (_) {
           this.bulletImage = null;
           this.bulletImageReady = false;
         }
+        this._animStartTime = Date.now();
         // 僅用於維護調試；不影響效能與使用者介面
         console.log('[BulletSystem] 初始化：', this.enabled ? '啟用' : '停用');
       } catch (_) {
@@ -232,12 +241,21 @@
     draw(ctx) {
       if (!this.enabled || !this.bullets.length) return;
       try {
+        // 計算目前幀（所有子彈共用全域節奏，避免邏輯改動）
+        const elapsed = Date.now() - this._animStartTime;
+        const frame = Math.floor((elapsed / (1000 / this.animationFps)) % this.totalFrames);
+        const col = frame % this.sheetCols;
+        const row = Math.floor(frame / this.sheetCols);
+        const sx = col * this.frameWidth;
+        const sy = row * this.frameHeight;
+        const sw = this.frameWidth;
+        const sh = this.frameHeight;
         for (const b of this.bullets) {
           const size = b.size || 4;
           if (this.bulletImageReady && this.bulletImage) {
             const w = size * 2;
             const h = size * 2;
-            ctx.drawImage(this.bulletImage, b.x - w / 2, b.y - h / 2, w, h);
+            ctx.drawImage(this.bulletImage, sx, sy, sw, sh, b.x - w / 2, b.y - h / 2, w, h);
           } else {
             ctx.save();
             ctx.fillStyle = b.color || '#fff';
