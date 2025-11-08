@@ -673,12 +673,21 @@ function setupMapAndDifficultySelection() {
         if (desertDiffScreen) hide(desertDiffScreen);
         hide(document.getElementById('map-select-screen'));
         hide(DOMCache.get('character-select-screen'));
-        Game.startNewGame();
-        if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
-            const track = (useId === 'ASURA') ? 'shura_music' : 'game_music';
-            AudioManager.playMusic(track);
+        // 透過 ModeManager 啟動（優先）；若不可用則回退至既有流程
+        if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
+            window.ModeManager.start('survival', {
+                selectedDifficultyId: useId,
+                selectedCharacter: Game.selectedCharacter,
+                selectedMap: Game.selectedMap
+            });
+        } else {
+            Game.startNewGame();
+            if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+                const track = (useId === 'ASURA') ? 'shura_music' : 'game_music';
+                AudioManager.playMusic(track);
+            }
+            show(DOMCache.get('game-screen'));
         }
-        show(DOMCache.get('game-screen'));
     };
 
     diffCards.forEach(card => {
