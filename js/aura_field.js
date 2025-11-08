@@ -6,7 +6,7 @@
 // 依賴：Entity、Game、DamageSystem、DamageNumbers、CONFIG、Utils
 // 維護備註：
 // - SaveCode 不涉及武器狀態與臨時武器的存檔，無需變更 SCHEMA_VERSION 或 localStorage 鍵名
-// - 視覺資源鍵：'field'（於 main.js 的 createDefaultImages 中載入 assets/images/field.gif）
+// - 視覺資源鍵：'field'（於 main.js 的 createDefaultImages 中載入 assets/images/field.png，拼接雪碧圖）
 // - 半徑由 CONFIG.WEAPONS.AURA_FIELD.FIELD_RADIUS 與 FIELD_RADIUS_PER_LEVEL 決定；
 //   Weapon.fire 會動態同步半徑與傷害，避免重複生成導致堆疊
 class AuraField extends Entity {
@@ -25,9 +25,18 @@ class AuraField extends Entity {
         // 視覺倍率（只影響 DOM 圖像尺寸，不影響實際傷害/碰撞半徑）
         this.visualScale = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.AURA_FIELD && CONFIG.WEAPONS.AURA_FIELD.VISUAL_SCALE) || 1.95;
 
-        // DOM 動態GIF：建立於獨立層，使用濾色混合去背
+        // DOM 動態雪碧圖：建立於獨立層，使用濾色混合去背
         this._layer = null;
         this.el = null;
+        // 雪碧圖動畫參數（60 張 / 10x6，每格 512x512）
+        this.frameWidth = 512;
+        this.frameHeight = 512;
+        this.sheetCols = 10;
+        this.sheetRows = 6;
+        this.frameCount = 60;
+        this.frameIndex = 0;
+        this.animationFps = 30; // 30fps，接近原 GIF 節奏
+        this.animAccumulator = 0;
         this._createOrUpdateDom();
     }
 
@@ -62,6 +71,8 @@ class AuraField extends Entity {
 
         // 同步GIF位置與尺寸
         this._updateDomPosition();
+        // 更新雪碧圖動畫
+        this._updateAnimation(deltaTime);
     }
 
     draw(ctx) {
@@ -69,7 +80,7 @@ class AuraField extends Entity {
         return;
     }
 
-    // 建立或更新DOM GIF元素
+    // 建立或更新DOM 雪碧圖元素
     _ensureLayer() {
         const viewport = document.getElementById('viewport');
         if (!viewport) return null;
@@ -85,7 +96,7 @@ class AuraField extends Entity {
             layer.style.height = '100%';
             layer.style.pointerEvents = 'none';
             layer.style.zIndex = '4'; // 低於傷害數字（6）與其他技能特效（7），高於畫布（1）
-            // 讓整個容器採用 Screen 混合，強制與底層畫面混合
+            // 使用濾色混合，讓火焰與背景融合
             layer.style.mixBlendMode = 'screen';
             viewport.appendChild(layer);
         }
@@ -97,26 +108,26 @@ class AuraField extends Entity {
         const layer = this._ensureLayer();
         if (!layer) return;
         if (!this.el) {
-            const img = document.createElement('img');
-            img.alt = 'Aura Field';
-            // 優先直接引用GIF（與 Game.images 相同資源）
-            img.src = (Game.images && Game.images['field']) ? Game.images['field'].src : 'assets/images/field.gif';
-            img.style.position = 'absolute';
-            img.style.width = (this.radius * 2 * this.visualScale) + 'px';
-            img.style.height = (this.radius * 2 * this.visualScale) + 'px';
-            img.style.imageRendering = 'pixelated';
-            img.style.transform = 'translate(-50%, -50%)'; // 以中心對齊
-            img.style.willChange = 'transform, opacity, width, height';
-            // 濾色去背：使用 screen（與 Premiere 濾色一致，黑色視為透明）
-            img.style.mixBlendMode = 'screen';
-            img.style.opacity = '1';
-            img.style.backgroundColor = 'transparent';
-            // 若GIF載入失敗退回靜態PNG（可選）
-            img.addEventListener('error', () => {
-                img.src = 'assets/images/field.gif';
-            }, { once: true });
-            layer.appendChild(img);
-            this.el = img;
+            const el = document.createElement('div');
+            el.setAttribute('role', 'img');
+            el.setAttribute('aria-label', 'Aura Field');
+            el.style.position = 'absolute';
+            el.style.width = (this.radius * 2 * this.visualScale) + 'px';
+            el.style.height = (this.radius * 2 * this.visualScale) + 'px';
+            el.style.imageRendering = 'pixelated';
+            el.style.transform = 'translate(-50%, -50%)'; // 以中心對齊
+            el.style.willChange = 'transform, opacity, width, height, background-position, background-size';
+            // 使用濾色混合，讓火焰與背景融合
+            el.style.mixBlendMode = 'screen';
+            el.style.opacity = '1';
+            el.style.backgroundColor = 'transparent';
+            // 設定雪碧圖背景
+            const imgSrc = (Game.images && Game.images['field']) ? Game.images['field'].src : 'assets/images/field.png';
+            el.style.backgroundImage = `url(${imgSrc})`;
+            el.style.backgroundRepeat = 'no-repeat';
+            // 初始化背景尺寸與位置（依元素尺寸動態計算）
+            this.el = el;
+            layer.appendChild(el);
         } else {
             this.el.style.width = (this.radius * 2 * this.visualScale) + 'px';
             this.el.style.height = (this.radius * 2 * this.visualScale) + 'px';
@@ -147,9 +158,35 @@ class AuraField extends Entity {
             this.el.style.left = sx + 'px';
             this.el.style.top = sy + 'px';
             // 同步尺寸（半徑可能動態成長）
-            this.el.style.width = (this.radius * 2 * this.visualScale) + 'px';
-            this.el.style.height = (this.radius * 2 * this.visualScale) + 'px';
+            const w = (this.radius * 2 * this.visualScale);
+            const h = (this.radius * 2 * this.visualScale);
+            this.el.style.width = w + 'px';
+            this.el.style.height = h + 'px';
+            // 動態計算背景尺寸，使每格對應元素尺寸
+            const scaleBgX = w / this.frameWidth;
+            const scaleBgY = h / this.frameHeight;
+            const bgW = this.sheetCols * this.frameWidth * scaleBgX;
+            const bgH = this.sheetRows * this.frameHeight * scaleBgY;
+            this.el.style.backgroundSize = `${bgW}px ${bgH}px`;
         } catch(_) {}
+    }
+
+    // 逐幀更新：依 FPS 累積切換 frameIndex，並套用背景偏移
+    _updateAnimation(deltaTime) {
+        if (!this.el) return;
+        const frameDuration = 1000 / this.animationFps;
+        this.animAccumulator += deltaTime || 0;
+        while (this.animAccumulator >= frameDuration) {
+            this.frameIndex = (this.frameIndex + 1) % this.frameCount;
+            this.animAccumulator -= frameDuration;
+        }
+        const col = this.frameIndex % this.sheetCols;
+        const row = Math.floor(this.frameIndex / this.sheetCols);
+        const w = (this.radius * 2 * this.visualScale);
+        const h = (this.radius * 2 * this.visualScale);
+        const offsetX = -col * w;
+        const offsetY = -row * h;
+        this.el.style.backgroundPosition = `${offsetX}px ${offsetY}px`;
     }
 
     // 已移除裁剪遮罩（GIF 動畫無法靠裁剪達到理想效果）
