@@ -29,9 +29,9 @@ class Player extends Entity {
         // 新增：基礎防禦（常駐，不納入 SaveCode；維持相容）
         this.baseDefense = 1;
 
-        // 受傷紅閃效果
+        // 受傷紅閃效果（與敵人一致：150ms，alpha 0.35，沿 PNG alpha 遮罩）
         this.hitFlashTime = 0;
-        this.hitFlashDuration = 180; // 毫秒
+        this.hitFlashDuration = 150; // 毫秒
         
         // 能量與大招狀態
         this.energy = 0;
@@ -152,16 +152,29 @@ class Player extends Entity {
             ctx.globalAlpha = 0.5;
         }
         
-        // 使用玩家圖片（大招期間使用playerN）
+        // 使用玩家圖片（大招期間使用 playerN）；改用 GIF 覆蓋層以保證動畫
         const imgKey = (this.isUltimateActive && Game.images && Game.images[CONFIG.ULTIMATE.IMAGE_KEY]) ? CONFIG.ULTIMATE.IMAGE_KEY : 'player';
-        if (Game.images && Game.images[imgKey]) {
-            // 純視覺放大：大招期間在 draw 階段微幅放大，不更改碰撞半徑與邏輯尺寸
+        const imgObj = (Game.images && Game.images[imgKey]) ? Game.images[imgKey] : null;
+        if (imgObj) {
             const baseSize = Math.max(this.width, this.height);
-            const renderSize = this.isUltimateActive ? Math.floor(baseSize * 1.08) : baseSize; // +8% 視覺增量
-            ctx.drawImage(Game.images[imgKey], this.x - renderSize / 2, this.y - renderSize / 2, renderSize, renderSize);
+            const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
+            const renderSize = Math.max(1, Math.floor(baseSize * visualScale));
+            const camX = (typeof Game !== 'undefined' && Game && Game.camera) ? Game.camera.x : 0;
+            const camY = (typeof Game !== 'undefined' && Game && Game.camera) ? Game.camera.y : 0;
+            const shakeX = (typeof Game !== 'undefined' && Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetX || 0) : 0;
+            const shakeY = (typeof Game !== 'undefined' && Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetY || 0) : 0;
+            const screenX = this.x - camX - shakeX;
+            const screenY = this.y - camY - shakeY;
+            if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
+                window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, renderSize);
+            } else {
+                // 後備：仍以 Canvas 繪製（GIF 可能不動，但不影響功能）
+                ctx.drawImage(imgObj, this.x - renderSize / 2, this.y - renderSize / 2, renderSize, renderSize);
+            }
         } else {
             // 備用：使用純色球體（同樣僅視覺放大）
-            const radius = (this.width / 2) * (this.isUltimateActive ? 1.08 : 1.0);
+            const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
+            const radius = (this.width / 2) * visualScale;
             ctx.fillStyle = '#00f';
             ctx.beginPath();
             ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
@@ -174,14 +187,36 @@ class Player extends Entity {
             ctx.fill();
         }
 
-        // 受傷紅色覆蓋閃爍
-        if (this.hitFlashTime > 0) {
+        // 受傷紅閃（簡單圖片閃）：若有 DOM 閃功能，效果在 takeDamage 觸發；否則使用 Canvas 後備
+        if (this.hitFlashTime > 0 && !this._isDead) {
             const alpha = 0.35;
-            ctx.globalAlpha = alpha;
-            ctx.fillStyle = '#ff0000';
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2 + 2, 0, Math.PI * 2);
-            ctx.fill();
+            const baseSize = Math.max(this.width, this.height);
+            const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
+            const renderSize = Math.max(1, Math.floor(baseSize * visualScale));
+            const camX = (typeof Game !== 'undefined' && Game && Game.camera) ? Game.camera.x : 0;
+            const camY = (typeof Game !== 'undefined' && Game && Game.camera) ? Game.camera.y : 0;
+            const shakeX = (typeof Game !== 'undefined' && Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetX || 0) : 0;
+            const shakeY = (typeof Game !== 'undefined' && Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetY || 0) : 0;
+            const screenX = this.x - camX - shakeX;
+            const screenY = this.y - camY - shakeY;
+            const maskKey = (this.isUltimateActive && Game.images && Game.images[CONFIG.ULTIMATE.IMAGE_KEY]) ? CONFIG.ULTIMATE.IMAGE_KEY : 'player1-2';
+            const maskImg = (Game.images && Game.images[maskKey]) ? Game.images[maskKey] : null;
+            const maskSrc = maskImg && maskImg.src ? maskImg.src : 'assets/images/player1-2.png';
+            // 若有簡單 DOM 閃功能，於 takeDamage 已觸發；這裡不重複疊加
+            if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
+                // no-op: DOM 閃已處理
+            } else {
+                // 後備：以紅色半透明圓形簡化顯示（不使用遮罩與快取）
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, renderSize / 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        } else {
+            // 純圖片閃已在 DOM 層自動復原，無需額外隱藏呼叫
         }
         
         ctx.restore();
@@ -217,6 +252,12 @@ class Player extends Entity {
             this.invulnerabilitySource = 'HIT_FLASH';
             // 啟動紅閃
             this.hitFlashTime = this.hitFlashDuration;
+            // 觸發簡單圖片閃：在玩家 GIF 上套用紅色光暈與透明度
+            try {
+                if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
+                    window.GifOverlay.flash('player', { color: '#ff0000', durationMs: this.hitFlashDuration, opacity: 0.8 });
+                }
+            } catch (_) {}
         }
         
         // 更新UI
