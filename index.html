@@ -379,11 +379,11 @@
                   </button>
                 </div>
 
-                <!-- 主線模式：六張尚未開放地圖（隱藏，點選主線模式時顯示） -->
+                <!-- 主線模式：解鎖首張「測試用地圖」 -->
                 <div class="map-grid hidden" id="grid-main">
-                  <button class="map-card disabled" data-map-id="main-1">
-                    <img src="assets/images/background3.jpg" alt="尚未開放">
-                    <div class="map-name">尚未開放</div>
+                  <button class="map-card selectable" data-map-id="main-test">
+                    <img src="assets/images/background3.jpg" alt="測試用地圖">
+                    <div class="map-name">測試用地圖</div>
                   </button>
                   <button class="map-card disabled" data-map-id="main-2">
                     <img src="assets/images/background3.jpg" alt="尚未開放">
@@ -735,6 +735,8 @@
         <script src="js/core/mode_manager.js"></script>
         <!-- 生存模式適配層：封裝既有生存模式為 Mode 介面 -->
         <script src="js/modes/survival/index.js"></script>
+        <!-- 主線模式骨架：不分難度，探索 + NPC 對話 -->
+        <script src="js/modes/main/index.js"></script>
         <script src="js/main.js"></script>
     </div>
 </body>
