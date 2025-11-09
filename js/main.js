@@ -274,6 +274,14 @@ function setupAutoPause() {
             Game.pause();
             AudioManager.setMuted && AudioManager.setMuted(true);
         } else {
+            // 若目前為主線模式，維持暫停並不恢復生存迴圈或BGM
+            try {
+                const isMainMode = (typeof ModeManager !== 'undefined' && ModeManager.getActiveModeId && ModeManager.getActiveModeId() === 'main');
+                if (isMainMode) {
+                    Game.pause(true);
+                    return;
+                }
+            } catch(_) {}
             const gameVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-screen') : !document.getElementById('game-screen').classList.contains('hidden'));
             if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
                 Game.resume();
@@ -302,6 +310,13 @@ function setupAutoPause() {
     });
 
     window.addEventListener('focus', () => {
+        try {
+            const isMainMode = (typeof ModeManager !== 'undefined' && ModeManager.getActiveModeId && ModeManager.getActiveModeId() === 'main');
+            if (isMainMode) {
+                Game.pause(true);
+                return;
+            }
+        } catch(_) {}
         const gameVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-screen') : !document.getElementById('game-screen').classList.contains('hidden'));
         if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
             Game.resume();
@@ -537,7 +552,7 @@ function setupMapAndDifficultySelection() {
             if (stageGrid) hide(stageGrid);
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) show(mainGrid);
-            if (mapDescEl) mapDescEl.textContent = '主線模式尚未開放';
+            if (mapDescEl) mapDescEl.textContent = '主線模式：選擇地圖開始探索';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
             if (modeChallenge) modeChallenge.classList.remove('primary');
@@ -593,6 +608,27 @@ function setupMapAndDifficultySelection() {
         // 先關閉所有難度覆蓋層，防止交疊
         hide(diffScreen);
         if (desertDiffScreen) hide(desertDiffScreen);
+
+        // 若目前顯示的是主線模式 grid，直接啟動主線模式，不進入難度選擇
+        const isMainMode = mainGrid && !mainGrid.classList.contains('hidden');
+        if (isMainMode) {
+            // 關閉地圖/難度視窗與選角畫面
+            hide(mapScreen);
+            hide(diffScreen);
+            if (desertDiffScreen) hide(desertDiffScreen);
+            hide(DOMCache.get('character-select-screen'));
+            // 透過 ModeManager 啟動主線模式（不分難度）
+            if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
+                window.ModeManager.start('main', {
+                    selectedCharacter: Game.selectedCharacter,
+                    selectedMap: Game.selectedMap
+                });
+            } else {
+                // 後備：僅顯示遊戲畫面
+                show(DOMCache.get('game-screen'));
+            }
+            return;
+        }
 
         // 顯示正確的難度視窗；第三張地圖改為與其他地圖一致，隱藏地圖視窗以避免上下文混淆
         if (selectedMapCfg && selectedMapCfg.id === 'desert' && desertDiffScreen) {
