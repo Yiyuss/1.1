@@ -105,8 +105,9 @@
         speed: 2.2,
         targetX: null,
         targetY: null,
-        imgKey: (typeof Game !== 'undefined' && Game.selectedCharacter === 'margaret') ? 'player1-2' : 'player',
-        img: (typeof Game !== 'undefined' && Game.images) ? Game.images['player1-2'] || Game.images['player'] : null
+        // 主線模式玩家視覺統一使用 player.gif（Game.images['player']）
+        imgKey: 'player',
+        img: (typeof Game !== 'undefined' && Game.images) ? Game.images['player'] : null
       };
 
       // 鏡頭（跟隨玩家）
@@ -552,11 +553,22 @@
 
       function drawPlayer(){
         if (player.img) {
-          const size = 32;
-          ctx2d.drawImage(player.img, player.x - size/2 - camera.x, player.y - size/2 - camera.y, size, size);
+          var baseSize = 32;
+          try { if (typeof CONFIG !== 'undefined' && CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.SIZE === 'number') baseSize = CONFIG.PLAYER.SIZE; } catch(_) {}
+          var scale = 1.0;
+          try { if (typeof CONFIG !== 'undefined' && CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') scale = CONFIG.PLAYER.VISUAL_SCALE; } catch(_) {}
+          const size = Math.max(1, Math.floor(baseSize * scale));
+          if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
+            const src = (player.img && player.img.src) ? player.img.src : null;
+            window.GifOverlay.showOrUpdate('main-player', src, player.x - camera.x, player.y - camera.y, size);
+          } else {
+            ctx2d.drawImage(player.img, player.x - size/2 - camera.x, player.y - size/2 - camera.y, size, size);
+          }
         } else {
           ctx2d.fillStyle = '#4fc3f7';
-          ctx2d.beginPath(); ctx2d.arc(player.x - camera.x, player.y - camera.y, 14, 0, Math.PI*2); ctx2d.fill();
+          var scale = 1.0;
+          try { if (typeof CONFIG !== 'undefined' && CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') scale = CONFIG.PLAYER.VISUAL_SCALE; } catch(_) {}
+          ctx2d.beginPath(); ctx2d.arc(player.x - camera.x, player.y - camera.y, Math.floor(14 * scale), 0, Math.PI*2); ctx2d.fill();
         }
       }
 
@@ -632,7 +644,11 @@
       loop();
 
       // 儲存 cleanup 入口
-      this._cleanup = () => { if (rafId) cancelAnimationFrame(rafId); rafId = null; if (dialogEl) { try { dialogEl.remove(); } catch(_){} dialogEl = null; } };
+      this._cleanup = () => {
+        if (rafId) cancelAnimationFrame(rafId); rafId = null;
+        if (dialogEl) { try { dialogEl.remove(); } catch(_){} dialogEl = null; }
+        try { if (window.GifOverlay && typeof window.GifOverlay.hide === 'function') window.GifOverlay.hide('main-player'); } catch(_) {}
+      };
     },
     exit(ctx){
       try { if (typeof this._cleanup === 'function') this._cleanup(); } catch(_){}
