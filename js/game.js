@@ -324,6 +324,12 @@ const Game = {
 
     // 繪製遊戲
     draw: function() {
+        // 主線模式由其自身渲染迴圈管理，避免互相覆蓋
+        try {
+            if (typeof ModeManager !== 'undefined' && ModeManager.getActiveModeId && ModeManager.getActiveModeId() === 'main') {
+                return;
+            }
+        } catch(_) {}
         // 清空畫布
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
@@ -360,7 +366,7 @@ const Game = {
         
         // 還原座標系
         this.ctx.restore();
-        
+
         // 繪製螢幕閃光效果（在最上層）
         if (this.screenFlash && this.screenFlash.active) {
             this.ctx.save();
