@@ -179,7 +179,7 @@ function createDefaultImages() {
     
     // 定義需要加載的圖片
     const imagesToLoad = [
-        { name: 'player', src: 'assets/images/player.png' },
+        { name: 'player', src: 'assets/images/player.gif' },
         { name: 'player1-2', src: 'assets/images/player1-2.png' },
         { name: 'playerN', src: 'assets/images/playerN.png' },
         { name: 'zombie', src: 'assets/images/zombie.png' },
