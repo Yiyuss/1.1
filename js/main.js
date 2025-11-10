@@ -947,13 +947,11 @@ const DOMCache = {
     characterConfirmCancel: null,
     
     // 天賦系統相關元素
-    talentScreen: null,
     talentConfirm: null,
     talentConfirmOk: null,
     talentConfirmCancel: null,
     
     // 技能選單相關元素
-    skillsMenu: null,
     
     // 初始化緩存
     init() {
@@ -971,13 +969,11 @@ const DOMCache = {
         this.characterConfirmCancel = document.getElementById('character-confirm-cancel');
         
         // 天賦系統相關元素
-        this.talentScreen = document.getElementById('talent-screen');
         this.talentConfirm = document.getElementById('talent-confirm');
         this.talentConfirmOk = document.getElementById('talent-confirm-ok');
         this.talentConfirmCancel = document.getElementById('talent-confirm-cancel');
         
         // 技能選單相關元素
-        this.skillsMenu = document.getElementById('skills-menu');
     },
     
     // 獲取緩存元素，如果不存在則查詢並緩存
