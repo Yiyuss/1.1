@@ -24,8 +24,6 @@ const AudioManager = {
     loadSounds: function() {
         // 音效列表
         const soundsToLoad = [
-            { name: 'player_hurt', src: 'assets/audio/player_hurt.mp3' },
-            { name: 'enemy_hurt', src: 'assets/audio/enemy_hurt.mp3' },
             { name: 'enemy_death', src: 'assets/audio/enemy_death.mp3' },
             { name: 'level_up', src: 'assets/audio/level_up.mp3' },
             { name: 'collect_exp', src: 'assets/audio/collect_exp.mp3' },
@@ -37,8 +35,6 @@ const AudioManager = {
             { name: 'zaps', src: 'assets/audio/zaps.mp3' },
             { name: 'invincible_activate', src: 'assets/audio/Invincible.mp3' },
             { name: 'sing_cast', src: 'assets/audio/LA.mp3' },
-            { name: 'game_over', src: 'assets/audio/game_over.mp3' },
-            { name: 'victory', src: 'assets/audio/victory.mp3' },
             { name: 'button_click', src: 'assets/audio/button_click.mp3' },
             { name: 'button_click2', src: 'assets/audio/button_click2.mp3' },
             { name: 'achievements', src: 'assets/audio/achievements.mp3' },
