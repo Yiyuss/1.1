@@ -40,8 +40,6 @@ const UI = {
         this.skillsSoundSlider = document.getElementById('skills-sound-volume');
         this.skillsMusicText = document.getElementById('skills-music-volume-text');
         this.skillsSoundText = document.getElementById('skills-sound-volume-text');
-        // 金幣顯示元素（動態建立）
-        this.skillsCoinsEl = document.getElementById('skills-coins');
         // 新增：EXP 音效切換按鈕
         this.expSoundToggle = document.getElementById('exp-sound-toggle');
         this.expSoundToggleText = document.getElementById('exp-sound-toggle-text');
@@ -295,10 +293,6 @@ const UI = {
             this.coinsText.textContent = Math.max(0, Math.floor(coins || 0));
         }
     },
-
-    // 金幣顯示：ESC選單不再顯示金幣（右上角已有），此函數改為空操作
-    ensureCoinsElement: function() { return; },
-    updateCoins: function(total) { return; },
     /**
      * 更新技能列表（武器清單）
      * 依賴：Game.player.weapons、CONFIG、AudioManager（可選，僅處理滑桿綁定）。
@@ -1271,7 +1265,6 @@ const skillIcons = {
         // 更新技能、天賦與金幣顯示
         try { this.updateSkillsList(); } catch (_) {}
         try { this.updateTalentsList(); } catch (_) {}
-        try { this.updateCoins(Game.coins || 0); } catch (_) {}
         this.skillsMenu.classList.remove('hidden');
         // 按鈕點擊音效
         this._playClick();
