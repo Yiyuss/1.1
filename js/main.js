@@ -343,6 +343,14 @@ function setupAutoPause() {
 function setupSkillsMenuToggle() {
     // 註冊 ESC 鍵處理器到 KeyboardRouter
     KeyboardRouter.register('game', 'Escape', (e) => {
+        // 主線模式不開啟生存模式的技能頁（ESC 無效）
+        try {
+            if (typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function') {
+                if (ModeManager.getActiveModeId() === 'main') {
+                    return;
+                }
+            }
+        } catch(_) {}
         const gameVisible = !document.getElementById('game-screen').classList.contains('hidden');
         const isGameOver = Game.isGameOver;
         const levelUpOpen = (() => { const el = document.getElementById('level-up-menu'); return el && !el.classList.contains('hidden'); })();
