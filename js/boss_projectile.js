@@ -258,9 +258,9 @@ class BossProjectile extends Entity {
         // 創建鏡頭震動效果
         this.createCameraShake();
         
-        // 播放爆炸音效
+        // 播放爆炸音效（使用既有 'bo' 音效，避免未載入的 'explosion' 名稱）
         if (typeof AudioManager !== 'undefined') {
-            AudioManager.playSound('explosion');
+            AudioManager.playSound('bo');
         }
     }
     
