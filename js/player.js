@@ -199,9 +199,6 @@ class Player extends Entity {
             const shakeY = (typeof Game !== 'undefined' && Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetY || 0) : 0;
             const screenX = this.x - camX - shakeX;
             const screenY = this.y - camY - shakeY;
-            const maskKey = (this.isUltimateActive && Game.images && Game.images[CONFIG.ULTIMATE.IMAGE_KEY]) ? CONFIG.ULTIMATE.IMAGE_KEY : 'player1-2';
-            const maskImg = (Game.images && Game.images[maskKey]) ? Game.images[maskKey] : null;
-            const maskSrc = maskImg && maskImg.src ? maskImg.src : 'assets/images/player1-2.png';
             // 若有簡單 DOM 閃功能，於 takeDamage 已觸發；這裡不重複疊加
             if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
                 // no-op: DOM 閃已處理
