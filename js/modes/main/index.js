@@ -122,14 +122,23 @@
         camera.y = Math.floor(clamp(player.y - canvas.height/2, 0, maxY));
       }
 
-      // 螢幕座標轉世界座標（含鏡頭偏移）
+      // 螢幕座標轉世界座標（含鏡頭偏移＋手機旋轉對應）
       function screenToCanvas(e){
         const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        const x = (e.clientX - rect.left) * scaleX + camera.x;
-        const y = (e.clientY - rect.top) * scaleY + camera.y;
-        return { x, y };
+        const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+        if (rotatedPortrait) {
+          const u = (e.clientX - rect.left) / rect.width;
+          const v = (e.clientY - rect.top) / rect.height;
+          const x = v * canvas.width + camera.x;
+          const y = (1 - u) * canvas.height + camera.y;
+          return { x, y };
+        } else {
+          const scaleX = canvas.width / rect.width;
+          const scaleY = canvas.height / rect.height;
+          const x = (e.clientX - rect.left) * scaleX + camera.x;
+          const y = (e.clientY - rect.top) * scaleY + camera.y;
+          return { x, y };
+        }
       }
 
       // —— 碰撞格（僅針對 SpriteFusion 的 collider:true 層）——
@@ -350,16 +359,18 @@
         const dx = ax - bx; const dy = ay - by; return Math.sqrt(dx*dx + dy*dy);
       }
 
-      // 點擊：設定移動目標；若點到 NPC，目標為 NPC 位置
-      canvas.addEventListener('click', (e) => {
+      // 點擊：設定移動目標；若點到 NPC，目標為 NPC 位置（主線模式優先捕獲，阻斷生存輸入）
+      const onCanvasClick = (e) => {
         const p = screenToCanvas(e);
-        // 檢查是否點擊NPC附近（半徑32px）
         let target = p;
         for (const npc of npcs) {
           if (distance(p.x, p.y, npc.x, npc.y) <= 32) { target = { x: npc.x, y: npc.y }; break; }
         }
         player.targetX = target.x; player.targetY = target.y;
-      });
+        try { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); } catch(_) {}
+      };
+      canvas.addEventListener('click', onCanvasClick, { capture: true });
+      this._onCanvasClick = onCanvasClick;
 
       // 主線模式對話覆蓋層（簡易）
       let dialogEl = null;
@@ -654,6 +665,14 @@
       try { if (typeof this._cleanup === 'function') this._cleanup(); } catch(_){}
       // 恢復 HUD 顯示（若離開主線模式返回生存）
       try { const gameUI = document.getElementById('game-ui'); if (gameUI) gameUI.style.display = ''; } catch(_){}
+      // 解除主線模式的 canvas 點擊捕獲，避免影響生存模式輸入
+      try {
+        const canvas = document.getElementById('game-canvas');
+        if (canvas && typeof this._onCanvasClick === 'function') {
+          canvas.removeEventListener('click', this._onCanvasClick, { capture: true });
+          this._onCanvasClick = null;
+        }
+      } catch(_){}
     }
   };
 
