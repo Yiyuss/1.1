@@ -937,11 +937,6 @@ const Game = {
                 UI.updateCoinsDisplay(this.coins);
             }
         } catch (_) {}
-        // 若技能頁打開，更新顯示
-        try {
-            if (typeof UI !== 'undefined' && UI.isSkillsMenuOpen && UI.isSkillsMenuOpen()) {
-                if (UI.updateCoins) UI.updateCoins(this.coins);
-            }
-        } catch (_) {}
+        
     }
 };
