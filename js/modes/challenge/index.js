@@ -75,6 +75,7 @@ function safePlayShura(ctx) {
 
       // 基本玩家狀態（示範：點擊移動）；渲染改為 GIF 圖片覆蓋於 canvas
       const size = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER && CONFIG.PLAYER.SIZE) ? CONFIG.PLAYER.SIZE : 48;
+      const visualScale = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
       const speedBase = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER && CONFIG.PLAYER.SPEED) ? CONFIG.PLAYER.SPEED : 3;
       const EXTRA_SPEED_SCALE = 1.15; // 小幅提速：+15%
       const player = { x: canvas.width/2, y: canvas.height/2, width: size, height: size, speed: speedBase };
@@ -98,17 +99,48 @@ function safePlayShura(ctx) {
       // 玩家 GIF 覆蓋：改用共用 GifOverlay，隨 UI 縮放自動對齊
       const actorImg = ctx.resources.getImage('challenge_player');
       const actorSrc = actorImg ? actorImg.src : 'assets/images/player.gif';
-      const actorSize = size * 2; // 放大約 2 倍
+      // 與生存模式一致：以玩家基準尺寸乘以 VISUAL_SCALE 決定渲染尺寸（避免過大）
+      const actorSize = Math.max(1, Math.floor(size * visualScale));
+
+      // ALT+TAB / 可見性恢復：若因瀏覽器策略導致播放失敗，掛一次性互動恢復
+      function ensureShuraPlaying(){
+        try {
+          safePlayShura(ctx);
+          const track = (typeof AudioManager !== 'undefined' && AudioManager.music) ? AudioManager.music['shura_music'] : null;
+          // 若仍未播放，於下一次使用者互動恢復
+          if (track && track.paused !== false) {
+            const once = function(){
+              try { ctx.audio.unmuteAndPlay('shura_music', { loop: true }); } catch(_){}
+              try { document.removeEventListener('click', once, true); } catch(_){}
+              try { document.removeEventListener('touchstart', once, true); } catch(_){}
+            };
+            document.addEventListener('click', once, { capture: true, once: true });
+            document.addEventListener('touchstart', once, { capture: true, once: true });
+          }
+        } catch(_){}
+      }
 
       // 點擊設定移動目標（使用 ctx.events 以便退出時自動清理）
       ctx.events.on(canvas, 'click', (e) => {
         try {
           const rect = canvas.getBoundingClientRect();
-          const x = (e.clientX != null ? e.clientX : e.pageX) - rect.left;
-          const y = (e.clientY != null ? e.clientY : e.pageY) - rect.top;
+          const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+          let x, y;
+          if (rotatedPortrait) {
+            // 與 input.js 一致的直立旋轉映射：CW 90°
+            const u = ((e.clientX != null ? e.clientX : e.pageX) - rect.left) / rect.width;  // [0,1]
+            const v = ((e.clientY != null ? e.clientY : e.pageY) - rect.top) / rect.height; // [0,1]
+            x = v * canvas.width;
+            y = (1 - u) * canvas.height;
+          } else {
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            x = (((e.clientX != null ? e.clientX : e.pageX) - rect.left) * scaleX);
+            y = (((e.clientY != null ? e.clientY : e.pageY) - rect.top) * scaleY);
+          }
           clickTarget = { x, y };
-          // 若被瀏覽器阻擋，第一次互動補播
-          if (_needResumeShura) { safePlayShura(ctx); }
+          // 若被瀏覽器阻擋，第一次互動補播或已被自動靜音，嘗試恢復
+          if (_needResumeShura) { safePlayShura(ctx); } else { ensureShuraPlaying(); }
         } catch(_){}
       }, { capture: true });
 
@@ -134,12 +166,12 @@ function safePlayShura(ctx) {
 
       // 回焦/可見時嘗試恢復挑戰音樂
       ctx.events.on(window, 'focus', () => {
-          try { safePlayShura(ctx); } catch(_){}
+          try { ensureShuraPlaying(); } catch(_){}
         }, { capture: true });
       ctx.events.on(document, 'visibilitychange', () => {
         try {
           if (document.visibilityState === 'visible') {
-            safePlayShura(ctx);
+            ensureShuraPlaying();
           }
         } catch(_){}
       }, { capture: true });
@@ -189,7 +221,7 @@ function safePlayShura(ctx) {
             }
           }
           // 邊界限制（避免超出畫布）：以基準解析度為準，配合 GifOverlay 縮放
-          const half = (size * 2) / 2; // actorSize/2（角色渲染一半尺寸）
+          const half = actorSize / 2; // 與生存模式一致：以渲染尺寸的一半限制邊界
           player.x = Math.max(half, Math.min(baseW - half, player.x));
           player.y = Math.max(half, Math.min(baseH - half, player.y));
           render();
