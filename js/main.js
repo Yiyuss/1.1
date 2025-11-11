@@ -283,7 +283,8 @@ function setupAutoPause() {
                     : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
                         ? ModeManager.getActiveModeId()
                         : null);
-                const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge');
+                // 非生存模式包含：主線、挑戰、闖關、防禦（這些模式的暫停/菜單由各自 UI 控制）
+                const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge' || activeId === 'stage' || activeId === 'defense');
                 if (isNonSurvivalMode) {
                     Game.pause(true);
                     return;
@@ -323,7 +324,8 @@ function setupAutoPause() {
                 : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
                     ? ModeManager.getActiveModeId()
                     : null);
-            const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge');
+            // 非生存模式包含：主線、挑戰、闖關、防禦（這些模式的暫停/菜單由各自 UI 控制）
+            const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge' || activeId === 'stage' || activeId === 'defense');
             if (isNonSurvivalMode) {
                 Game.pause(true);
                 return;
@@ -355,15 +357,15 @@ function setupAutoPause() {
 function setupSkillsMenuToggle() {
     // 註冊 ESC 鍵處理器到 KeyboardRouter
     KeyboardRouter.register('game', 'Escape', (e) => {
-        // 主線/挑戰模式不開啟生存模式的技能頁（ESC 無效）
+        // 僅在「生存模式」開啟全域技能頁（避免污染挑戰/闖關/防禦）
         try {
             const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
                 ? GameModeManager.getCurrent()
                 : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
                     ? ModeManager.getActiveModeId()
                     : null);
-            if (activeId === 'main' || activeId === 'challenge') {
-                return;
+            if (activeId !== 'survival') {
+                return; // 非生存模式不處理 ESC（交由各模式自己的 ESC 菜單）
             }
         } catch(_) {}
         const gameVisible = !document.getElementById('game-screen').classList.contains('hidden');
@@ -550,7 +552,7 @@ function setupMapAndDifficultySelection() {
             if (stageGrid) show(stageGrid);
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) hide(mainGrid);
-            if (mapDescEl) mapDescEl.textContent = '闖關模式尚未開放';
+            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
             if (modeChallenge) modeChallenge.classList.remove('primary');
@@ -563,7 +565,7 @@ function setupMapAndDifficultySelection() {
             if (stageGrid) hide(stageGrid);
             if (defenseGrid) show(defenseGrid);
             if (mainGrid) hide(mainGrid);
-            if (mapDescEl) mapDescEl.textContent = '防禦模式尚未開放';
+            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
             if (modeChallenge) modeChallenge.classList.remove('primary');
@@ -683,6 +685,52 @@ function setupMapAndDifficultySelection() {
                 });
             } else {
                 // 後備：僅顯示遊戲畫面
+                show(DOMCache.get('game-screen'));
+            }
+            return;
+        }
+
+        // 若目前顯示的是闖關模式 grid，直接啟動闖關模式，不進入難度選擇
+        const isStageMode = stageGrid && !stageGrid.classList.contains('hidden');
+        if (isStageMode) {
+            hide(mapScreen);
+            hide(diffScreen);
+            if (desertDiffScreen) hide(desertDiffScreen);
+            hide(DOMCache.get('character-select-screen'));
+            if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
+                window.GameModeManager.start('stage', {
+                    selectedCharacter: Game.selectedCharacter,
+                    selectedMap: Game.selectedMap
+                });
+            } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
+                window.ModeManager.start('stage', {
+                    selectedCharacter: Game.selectedCharacter,
+                    selectedMap: Game.selectedMap
+                });
+            } else {
+                show(DOMCache.get('game-screen'));
+            }
+            return;
+        }
+
+        // 若目前顯示的是防禦模式 grid，直接啟動防禦模式，不進入難度選擇
+        const isDefenseMode = defenseGrid && !defenseGrid.classList.contains('hidden');
+        if (isDefenseMode) {
+            hide(mapScreen);
+            hide(diffScreen);
+            if (desertDiffScreen) hide(desertDiffScreen);
+            hide(DOMCache.get('character-select-screen'));
+            if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
+                window.GameModeManager.start('defense', {
+                    selectedCharacter: Game.selectedCharacter,
+                    selectedMap: Game.selectedMap
+                });
+            } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
+                window.ModeManager.start('defense', {
+                    selectedCharacter: Game.selectedCharacter,
+                    selectedMap: Game.selectedMap
+                });
+            } else {
                 show(DOMCache.get('game-screen'));
             }
             return;
