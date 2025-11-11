@@ -117,13 +117,24 @@ const AudioManager = {
     // 播放音樂
     playMusic: function(name) {
         if (this.isMuted || !this.music[name]) return;
-        
-        // 停止所有其他音樂
-        this.stopAllMusic();
-        
+        const track = this.music[name];
+
+        // 若目標曲已在播放中，避免重複觸發造成瀏覽器音軌堆疊或閃斷
         try {
-            this.music[name].currentTime = 0;
-            this.music[name].play();
+            if (track && track.paused === false) {
+                // 守護：同曲連續呼叫直接略過
+                return;
+            }
+        } catch(_){}
+
+        // 停止所有其他音樂（確保只保留一條 BGM）
+        this.stopAllMusic();
+
+        try {
+            track.currentTime = 0;
+            track.loop = true; // 防止被外部誤改
+            track.volume = this.musicVolume; // 同步最新音量
+            track.play();
         } catch (e) {
             console.error(`播放音樂 ${name} 時出錯:`, e);
         }
@@ -141,6 +152,24 @@ const AudioManager = {
                 }
             }
         }
+        // 額外守護：清理可能由其它模組誤建的 <audio> 實例，避免殘留造成重疊
+        try {
+            const known = [
+              'assets/audio/menu_music.mp3',
+              'assets/audio/game_music.mp3',
+              'assets/audio/boss_music.mp3',
+              'assets/audio/Shura.mp3'
+            ];
+            const medias = document.querySelectorAll('audio');
+            medias.forEach((m) => {
+              try {
+                const src = (m.currentSrc || m.src || '').toLowerCase();
+                if (src && known.some(k => src.endsWith(k.toLowerCase()))) {
+                  m.pause(); m.currentTime = 0;
+                }
+              } catch(_){}
+            });
+        } catch(_){}
     },
     
     // 靜音/取消靜音
