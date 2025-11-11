@@ -56,6 +56,8 @@
         if (isMobile && vh === 0) vh = window.innerHeight || 720;
         canvas.width = vw;
         canvas.height = vh;
+        /* 手機排查：把尺寸印在 console，確認是否 0×0 */
+        if (isMobile) console.log('[ChallengeMode] canvas size set to', vw, 'x', vh);
       } catch(_) {
         canvas.width = 1280; canvas.height = 720;
       }
@@ -154,13 +156,13 @@
       // 簡易渲染：鋪背景並同步玩家 GIF 位置（不在 canvas 內重畫白方塊）
       function render(){
         ctx2d.clearRect(0,0,canvas.width,canvas.height);
+        /* 手機黑畫面排查：先強制塗成紅色，確認 Canvas 有沒有真的被畫出來 */
+        ctx2d.fillStyle = '#f00';
+        ctx2d.fillRect(0,0,canvas.width,canvas.height);
         const bg = ctx.resources.getImage('challenge_bg4');
         if (bg) {
           ctx2d.drawImage(bg, 0, 0, canvas.width, canvas.height);
-        } else {
-          ctx2d.fillStyle = '#000';
-          ctx2d.fillRect(0,0,canvas.width,canvas.height);
-        }
+        } /*  else 不再補黑，保留紅底 */ 
         // 同步覆蓋元素位置
         try {
           if (actorEl) {
