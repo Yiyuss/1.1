@@ -603,6 +603,13 @@ body {
     left: 120px;
 }
 
+/* 挑戰模式 HUD 基礎條樣式（獨立 class，避免影響生存模式） */
+.cbar-row { display: flex; align-items: center; gap: 6px; }
+.cbar-label { font-weight: bold; color: #fff; text-shadow: 0 0 4px rgba(0,0,0,0.6); }
+.cbar-text { font-weight: bold; color: #fff; min-width: 72px; text-align: right; }
+.cbar { width: 220px; height: 18px; background: #333; border: 2px solid #fff; border-radius: 10px; overflow: hidden; }
+.cbar-fill { height: 100%; width: 0%; transition: width 0.25s ease; }
+
 /* 手機響應式調整：縮小字體與血條尺寸，避免遮擋 */
 
 
@@ -1186,6 +1193,31 @@ body {
 #skills-menu #exp-sound-toggle-text { color: #cfe7ff; white-space: nowrap; font-weight: 600; }
 #skills-menu #death-sound-toggle-text { color: #cfe7ff; white-space: nowrap; font-weight: 600; }
 
+/* 挑戰 ESC 菜單：採用與技能頁一致的面板樣式（僅視覺復用） */
+#challenge-menu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(600px, 92vw);
+    max-height: 70vh;
+    padding: 16px;
+    background: var(--panel-bg);
+    border: var(--border-soft);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(6px);
+    z-index: 121; /* 高於技能頁，避免被蓋過 */
+    overflow: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+#challenge-menu::-webkit-scrollbar { width: 0; height: 0; }
+
+/* 隱藏挑戰菜單的天賦清單捲軸（仍可滾動） */
+#challenge-talents-list { scrollbar-width: none; -ms-overflow-style: none; }
+#challenge-talents-list::-webkit-scrollbar { width: 0; height: 0; }
+
 /* Talents section styling */
 .talents-section { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 12px; }
 .talents-title { font-size: 1.1rem; font-weight: 600; color: #cfe7ff; margin-bottom: 6px; }
@@ -1194,6 +1226,9 @@ body {
 .talent-row { display: flex; align-items: center; }
 .talent-desc { color: #9ed0ff; }
 .talent-empty { text-align: center; color: #cfe7ff; padding: 6px 0; }
+
+/* 挑戰天賦：右側不顯示元素，維持左側敘述對齊 */
+/* （不覆蓋 .talent-row 的排版，保持與生存模式相同內距與字級） */
 @media (max-width: 540px) {
   .skill-item { grid-template-columns: 36px 1fr 50px; padding: 6px 8px; gap: 8px; }
   .skill-icon { width: 36px; height: 36px; }
