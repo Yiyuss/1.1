@@ -1,20 +1,10 @@
 /* 手機專用覆蓋樣式：引繼碼返回鍵移至右上角（PC 不變） */
 @media (pointer: coarse), (max-width: 768px) {
-   /*
-   /*
-     手機版專用樣式
+  /* 手機版專用樣式
      說明：
      1. (pointer: coarse) 可過濾掉大部分「有滑鼠」的 PC 裝置，但無法 100% 排除觸控筆電
      2. 因此，底下樣式應以「優化手機體驗」為主，不能是「只有手機才能正常顯示」的樣式
-   */
-   @media (pointer: coarse) {
-     /*
-       天賦樹：按鈕放大 & 滾動優化
-       說明：
-       - 手機螢幕小，天賦樹按鈕應放大，方便點擊
-     */
-   }
-   */
+  */
 
   #backup-screen #backup-back {
     position: absolute; /* 保持既有定位方式 */
@@ -45,8 +35,4 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     grid-auto-rows: auto;
   }
-}
-
-#viewport.challenge-mobile {
-  height: 100vh;
 }
