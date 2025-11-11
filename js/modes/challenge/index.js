@@ -47,8 +47,11 @@
       const viewportEl = document.getElementById('viewport') || canvas.parentNode;
       // 畫布尺寸：優先取用 viewport 的實際可見尺寸，回退到 CONFIG 或預設
       try {
-        const vw = viewportEl && viewportEl.clientWidth ? viewportEl.clientWidth : ((typeof CONFIG !== 'undefined' && CONFIG.CANVAS_WIDTH) ? CONFIG.CANVAS_WIDTH : 1280);
-        const vh = viewportEl && viewportEl.clientHeight ? viewportEl.clientHeight : ((typeof CONFIG !== 'undefined' && CONFIG.CANVAS_HEIGHT) ? CONFIG.CANVAS_HEIGHT : 720);
+        let vw = viewportEl && viewportEl.clientWidth ? viewportEl.clientWidth : ((typeof CONFIG !== 'undefined' && CONFIG.CANVAS_WIDTH) ? CONFIG.CANVAS_WIDTH : 1280);
+        let vh = viewportEl && viewportEl.clientHeight ? viewportEl.clientHeight : ((typeof CONFIG !== 'undefined' && CONFIG.CANVAS_HEIGHT) ? CONFIG.CANVAS_HEIGHT : 720);
+        // 手機保護：若高度仍為 0，改用 window.innerHeight 避免黑畫面
+        const isMobile = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+        if (isMobile && vh === 0) vh = window.innerHeight || 720;
         canvas.width = vw;
         canvas.height = vh;
       } catch(_) {
@@ -213,8 +216,10 @@
       // 視窗尺寸變更時，同步 canvas 尺寸，避免與 viewport 不一致導致邊界錯誤
       ctx.events.on(window, 'resize', () => {
         try {
-          const vw = viewportEl && viewportEl.clientWidth ? viewportEl.clientWidth : canvas.width;
-          const vh = viewportEl && viewportEl.clientHeight ? viewportEl.clientHeight : canvas.height;
+          let vw = viewportEl && viewportEl.clientWidth ? viewportEl.clientWidth : canvas.width;
+          let vh = viewportEl && viewportEl.clientHeight ? viewportEl.clientHeight : canvas.height;
+          const isMobile = window.matchMedia && matchMedia('(pointer: coarse)').matches;
+          if (isMobile && vh === 0) vh = window.innerHeight || 720;
           canvas.width = vw; canvas.height = vh;
         } catch(_){}
       }, { capture: true });
