@@ -46,3 +46,7 @@
     grid-auto-rows: auto;
   }
 }
+
+#viewport.challenge-mobile {
+  height: 100vh;
+}
