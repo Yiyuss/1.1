@@ -9,20 +9,9 @@
    */
    @media (pointer: coarse) {
      /*
-       挑戰模式：強制全螢幕顯示
-       說明：
-       - 挑戰模式因地圖很大，在手機上應強制佔滿整個螢幕，避免畫面被切割
-       - height: 100dvh 可確保在 iOS Safari 上，網址列縮小後，高度能動態填滿，避免底下出現白邊
-       - 此樣式只應套用在挑戰模式，故透過 #viewport.challenge-mobile 選擇器限定
-     */
-     #viewport.challenge-mobile {
-       width: 100vw;
-       height: 100dvh; /* dynamic viewport height */
-     }
-   
-     /*
        天賦樹：按鈕放大 & 滾動優化
        說明：
+       - 手機螢幕小，天賦樹按鈕應放大，方便點擊
      */
    }
    */
