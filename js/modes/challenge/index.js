@@ -1,6 +1,22 @@
 // 挑戰模式（Challenge Mode）骨架 - 使用 GameModeManager
 // 目標：示範以隔離上下文（ctx）開發新模式，避免污染生存模式或全域狀態。
 // 注意：不改動既有生存模式與主程式；此檔僅註冊新模式供未來啟用。
+
+// -------------- 安全播放輔助 --------------
+let _needResumeShura = false;          // 被瀏覽器阻擋後，等待使用者互動補播
+function safePlayShura(ctx) {
+  try {
+    ctx.audio.unmuteAndPlay('shura_music', { loop: true });
+    _needResumeShura = false;            // 成功播放就關閉補播旗標
+  } catch (err) {
+    // 只處理 AbortError（用戶尚未互動導致）
+    if (err.name === 'AbortError' || err.message.includes('play')) {
+      _needResumeShura = true;
+    }
+    // 其餘錯誤也吃掉，避免中斷遊戲迴圈
+  }
+}
+// -------------- 安全播放結束 --------------
 (function(){
   const MODE_ID = 'challenge';
 
@@ -39,9 +55,9 @@
       // 顯示挑戰 HUD
       try { const cHUD = document.getElementById('challenge-ui'); if (cHUD) cHUD.style.display = ''; } catch(_){}
 
-      // 音樂：先確保停止其他 BGM，再解除靜音並播放挑戰 BGM（避免重疊）
+      // 音樂：先確保停止其他 BGM，再安全播放挑戰 BGM（避免重疊與 AbortError）
       try { ctx.audio.stopAllMusic(); } catch(_){}
-      ctx.audio.unmuteAndPlay('shura_music', { loop: true });
+      safePlayShura(ctx);
 
       // 先取得視窗容器，之後以其實際尺寸為主（避免 CSS 與 canvas 不一致）
       const viewportEl = document.getElementById('viewport') || canvas.parentNode;
@@ -119,8 +135,8 @@
           const x = (e.clientX != null ? e.clientX : e.pageX) - rect.left;
           const y = (e.clientY != null ? e.clientY : e.pageY) - rect.top;
           clickTarget = { x, y };
-          // 互動可作為恢復播放的觸發
-          ctx.audio.unmuteAndPlay('shura_music');
+          // 若被瀏覽器阻擋，第一次互動補播
+          if (_needResumeShura) { safePlayShura(ctx); }
         } catch(_){}
       }, { capture: true });
 
@@ -145,9 +161,15 @@
       ctx.events.on(document, 'keyup', (e) => { try { setKey(e.code || e.key, false); } catch(_){} }, { capture: true });
 
       // 回焦/可見時嘗試恢復挑戰音樂
-      ctx.events.on(window, 'focus', () => { try { ctx.audio.unmuteAndPlay('shura_music'); } catch(_){} }, { capture: true });
+      ctx.events.on(window, 'focus', () => {
+          try { safePlayShura(ctx); } catch(_){}
+        }, { capture: true });
       ctx.events.on(document, 'visibilitychange', () => {
-        try { if (document.visibilityState === 'visible') ctx.audio.unmuteAndPlay('shura_music'); } catch(_){}
+        try {
+          if (document.visibilityState === 'visible') {
+            safePlayShura(ctx);
+          }
+        } catch(_){}
       }, { capture: true });
 
       // （保留音樂恢復事件即可）挑戰模式不強制以分頁隱藏/失焦暫停整個主迴圈，
@@ -156,13 +178,13 @@
       // 簡易渲染：鋪背景並同步玩家 GIF 位置（不在 canvas 內重畫白方塊）
       function render(){
         ctx2d.clearRect(0,0,canvas.width,canvas.height);
-        /* 手機黑畫面排查：先強制塗成紅色，確認 Canvas 有沒有真的被畫出來 */
-        ctx2d.fillStyle = '#f00';
-        ctx2d.fillRect(0,0,canvas.width,canvas.height);
         const bg = ctx.resources.getImage('challenge_bg4');
         if (bg) {
           ctx2d.drawImage(bg, 0, 0, canvas.width, canvas.height);
-        } /*  else 不再補黑，保留紅底 */ 
+        } else {
+          ctx2d.fillStyle = '#000';
+          ctx2d.fillRect(0,0,canvas.width,canvas.height);
+        } 
         // 同步覆蓋元素位置
         try {
           if (actorEl) {
