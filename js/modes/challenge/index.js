@@ -59,8 +59,7 @@ function safePlayShura(ctx) {
       try { ctx.audio.stopAllMusic(); } catch(_){}
       safePlayShura(ctx);
 
-      // 取得視窗容器（供 overlay/邊界用途），畫布採固定基準解析度，交由主程式/UI 等比縮放
-      const viewportEl = document.getElementById('viewport') || canvas.parentNode;
+      // 畫布採固定基準解析度，交由主程式/UI 等比縮放
       const baseW = (typeof CONFIG !== 'undefined' && CONFIG.CANVAS_WIDTH) ? CONFIG.CANVAS_WIDTH : 1280;
       const baseH = (typeof CONFIG !== 'undefined' && CONFIG.CANVAS_HEIGHT) ? CONFIG.CANVAS_HEIGHT : 720;
       canvas.width = baseW;
