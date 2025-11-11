@@ -331,6 +331,7 @@ const CONFIG = {
         { id: 'city', name: '廁所', backgroundKey: 'background' },
         { id: 'forest', name: '草原', backgroundKey: 'background1-2' },
         { id: 'desert', name: '宇宙', backgroundKey: 'background1-3' },
+        { id: 'challenge-1', name: 'LV1.銀河系', backgroundKey: 'background4' },
         // 主線模式地圖（不分難度）：測試用地圖
         { id: 'main-test', name: '測試用地圖', backgroundKey: 'background3' }
     ],
