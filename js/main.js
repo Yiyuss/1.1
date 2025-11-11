@@ -218,6 +218,8 @@ function createDefaultImages() {
         { name: 'background', src: 'assets/images/background.jpg' },
         { name: 'background2', src: 'assets/images/background2.jpg' },
         { name: 'background3', src: 'assets/images/background3.jpg' },
+        // 新增：挑戰模式「銀河系」地圖背景
+        { name: 'background4', src: 'assets/images/background4.png' },
         { name: 'background1-2', src: 'assets/images/background1-2.png' },
         { name: 'background1-3', src: 'assets/images/background1-3.png' }
     ];
@@ -274,10 +276,15 @@ function setupAutoPause() {
             Game.pause();
             AudioManager.setMuted && AudioManager.setMuted(true);
         } else {
-            // 若目前為主線模式，維持暫停並不恢復生存迴圈或BGM
+            // 若目前為非生存模式（主線/挑戰），維持暫停並不恢復生存迴圈或BGM
             try {
-                const isMainMode = (typeof ModeManager !== 'undefined' && ModeManager.getActiveModeId && ModeManager.getActiveModeId() === 'main');
-                if (isMainMode) {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge');
+                if (isNonSurvivalMode) {
                     Game.pause(true);
                     return;
                 }
@@ -311,8 +318,13 @@ function setupAutoPause() {
 
     window.addEventListener('focus', () => {
         try {
-            const isMainMode = (typeof ModeManager !== 'undefined' && ModeManager.getActiveModeId && ModeManager.getActiveModeId() === 'main');
-            if (isMainMode) {
+            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                    ? ModeManager.getActiveModeId()
+                    : null);
+            const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge');
+            if (isNonSurvivalMode) {
                 Game.pause(true);
                 return;
             }
@@ -343,12 +355,15 @@ function setupAutoPause() {
 function setupSkillsMenuToggle() {
     // 註冊 ESC 鍵處理器到 KeyboardRouter
     KeyboardRouter.register('game', 'Escape', (e) => {
-        // 主線模式不開啟生存模式的技能頁（ESC 無效）
+        // 主線/挑戰模式不開啟生存模式的技能頁（ESC 無效）
         try {
-            if (typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function') {
-                if (ModeManager.getActiveModeId() === 'main') {
-                    return;
-                }
+            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                    ? ModeManager.getActiveModeId()
+                    : null);
+            if (activeId === 'main' || activeId === 'challenge') {
+                return;
             }
         } catch(_) {}
         const gameVisible = !document.getElementById('game-screen').classList.contains('hidden');
@@ -521,7 +536,8 @@ function setupMapAndDifficultySelection() {
             if (stageGrid) hide(stageGrid);
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) hide(mainGrid);
-            if (mapDescEl) mapDescEl.textContent = '挑戰模式尚未開放';
+            // 改為與使用者要求一致的提示文案
+            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
             if (modeChallenge) modeChallenge.classList.add('primary');
@@ -600,6 +616,9 @@ function setupMapAndDifficultySelection() {
                 mapDescEl.textContent = '綠意盎然的草原，卻出現了許多馬桶。';
             } else if (cfg && (cfg.id === 'desert' || cfg.name === '宇宙' || cfg.name === '宇宙LV.3')) {
                 mapDescEl.textContent = '無盡的宇宙星空中，漂浮著許多馬桶。';
+            } else if (cfg && (cfg.id === 'challenge-1' || (typeof cfg.name === 'string' && cfg.name.includes('銀河系')))) {
+                // 銀河系地圖介紹
+                mapDescEl.textContent = '未知信號所具現化的能量體「森森鈴蘭」。';
             }
         }
     };
@@ -625,9 +644,40 @@ function setupMapAndDifficultySelection() {
             hide(diffScreen);
             if (desertDiffScreen) hide(desertDiffScreen);
             hide(DOMCache.get('character-select-screen'));
-            // 透過 ModeManager 啟動主線模式（不分難度）
-            if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
+            // 透過 GameModeManager 啟動主線模式（不分難度）；若不可用則回退至 ModeManager
+            if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
+                window.GameModeManager.start('main', {
+                    selectedCharacter: Game.selectedCharacter,
+                    selectedMap: Game.selectedMap
+                });
+            } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
                 window.ModeManager.start('main', {
+                    selectedCharacter: Game.selectedCharacter,
+                    selectedMap: Game.selectedMap
+                });
+            } else {
+                // 後備：僅顯示遊戲畫面
+                show(DOMCache.get('game-screen'));
+            }
+            return;
+        }
+
+        // 若目前顯示的是挑戰模式 grid，直接啟動挑戰模式，不進入難度選擇
+        const isChallengeMode = challengeGrid && !challengeGrid.classList.contains('hidden');
+        if (isChallengeMode) {
+            // 關閉地圖/難度視窗與選角畫面
+            hide(mapScreen);
+            hide(diffScreen);
+            if (desertDiffScreen) hide(desertDiffScreen);
+            hide(DOMCache.get('character-select-screen'));
+            // 透過 GameModeManager 啟動挑戰模式；若不可用則回退至 ModeManager
+            if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
+                window.GameModeManager.start('challenge', {
+                    selectedCharacter: Game.selectedCharacter,
+                    selectedMap: Game.selectedMap
+                });
+            } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
+                window.ModeManager.start('challenge', {
                     selectedCharacter: Game.selectedCharacter,
                     selectedMap: Game.selectedMap
                 });
@@ -717,8 +767,14 @@ function setupMapAndDifficultySelection() {
         if (desertDiffScreen) hide(desertDiffScreen);
         hide(document.getElementById('map-select-screen'));
         hide(DOMCache.get('character-select-screen'));
-        // 透過 ModeManager 啟動（優先）；若不可用則回退至既有流程
-        if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
+        // 透過新的 GameModeManager 啟動（優先）；若不可用則回退至舊 ModeManager；再不行回退至既有流程
+        if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
+            window.GameModeManager.start('survival', {
+                selectedDifficultyId: useId,
+                selectedCharacter: Game.selectedCharacter,
+                selectedMap: Game.selectedMap
+            });
+        } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
             window.ModeManager.start('survival', {
                 selectedDifficultyId: useId,
                 selectedCharacter: Game.selectedCharacter,
