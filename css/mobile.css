@@ -1,10 +1,11 @@
 /* 手機專用覆蓋樣式：引繼碼返回鍵移至右上角（PC 不變） */
 @media (pointer: coarse), (max-width: 768px) {
-   /* 僅挑戰模式啟用時才用 100dvh，避免污染生存模式 */
+   /*
    #viewport.challenge-mobile {
      width: 100vw;
-     height: 100dvh; /* 動態可視高度，iOS 底部工具列相容 */
+     height: 100dvh; 
    }
+   */
 
   #backup-screen #backup-back {
     position: absolute; /* 保持既有定位方式 */
