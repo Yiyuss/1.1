@@ -129,7 +129,20 @@ const Game = {
         // 如果遊戲未暫停，更新遊戲狀態（加入防呆，避免單幀錯誤中斷迴圈）
         try {
             if (!this.isPaused && !this.isGameOver) {
-                this.update(deltaTime);
+                // 非生存模式（例如主線/挑戰）啟動時，暫停生存更新以避免互相污染
+                let activeId = null;
+                try {
+                    activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                } catch(_) {}
+                if (activeId === 'main' || activeId === 'challenge') {
+                    // 在主線/挑戰模式下不執行生存邏輯更新
+                } else {
+                    this.update(deltaTime);
+                }
             }
         } catch (e) {
             console.error('Game.update 發生錯誤，跳過本幀：', e);
@@ -324,9 +337,12 @@ const Game = {
 
     // 繪製遊戲
     draw: function() {
-        // 主線模式由其自身渲染迴圈管理，避免互相覆蓋
+        // 主線模式由其自身渲染迴圈管理（支援新舊管理器），避免互相覆蓋
         try {
-            if (typeof ModeManager !== 'undefined' && ModeManager.getActiveModeId && ModeManager.getActiveModeId() === 'main') {
+            const activeId = (typeof GameModeManager !== 'undefined' && GameModeManager.getCurrent)
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && ModeManager.getActiveModeId) ? ModeManager.getActiveModeId() : null);
+            if (activeId === 'main' || activeId === 'challenge') {
                 return;
             }
         } catch(_) {}
@@ -474,6 +490,7 @@ const Game = {
             // 平鋪背景圖片，覆蓋目前可視區域（已平移座標）
             const pattern = this.ctx.createPattern(imgObj, 'repeat');
             this.ctx.fillStyle = pattern || '#111';
+            // 與既有設計保持一致：使用世界座標 camera.x/camera.y（座標系已平移）
             this.ctx.fillRect(this.camera.x, this.camera.y, this.canvas.width, this.canvas.height);
         } else {
             // 備用：使用純色背景
