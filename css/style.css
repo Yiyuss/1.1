@@ -1218,6 +1218,52 @@ body {
 #challenge-talents-list { scrollbar-width: none; -ms-overflow-style: none; }
 #challenge-talents-list::-webkit-scrollbar { width: 0; height: 0; }
 
+/* 闖關 ESC 菜單（複製挑戰菜單樣式） */
+#stage-menu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(600px, 92vw);
+    max-height: 70vh;
+    padding: 16px;
+    background: var(--panel-bg);
+    border: var(--border-soft);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(6px);
+    z-index: 121;
+    overflow: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+#stage-menu::-webkit-scrollbar { width: 0; height: 0; }
+#stage-talents-list { scrollbar-width: none; -ms-overflow-style: none; }
+#stage-talents-list::-webkit-scrollbar { width: 0; height: 0; }
+
+/* 防禦 ESC 菜單（複製挑戰菜單樣式） */
+#defense-menu {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(600px, 92vw);
+    max-height: 70vh;
+    padding: 16px;
+    background: var(--panel-bg);
+    border: var(--border-soft);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(6px);
+    z-index: 121;
+    overflow: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+#defense-menu::-webkit-scrollbar { width: 0; height: 0; }
+#defense-talents-list { scrollbar-width: none; -ms-overflow-style: none; }
+#defense-talents-list::-webkit-scrollbar { width: 0; height: 0; }
+
 /* Talents section styling */
 .talents-section { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; margin-top: 12px; }
 .talents-title { font-size: 1.1rem; font-weight: 600; color: #cfe7ff; margin-bottom: 6px; }
