@@ -1,5 +1,11 @@
 /* 手機專用覆蓋樣式：引繼碼返回鍵移至右上角（PC 不變） */
 @media (pointer: coarse), (max-width: 768px) {
+  /* 修正手機可視高度：優先使用 100dvh，避免 iOS 底部工具列導致黑畫面 */
+  #viewport {
+    width: 100vw;
+    height: 100dvh; /* 動態可視高度，iOS 15+ 與現代瀏覽器支援 */
+  }
+
   #backup-screen #backup-back {
     position: absolute; /* 保持既有定位方式 */
     top: 12px;
