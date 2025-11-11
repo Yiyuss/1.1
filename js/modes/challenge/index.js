@@ -59,24 +59,12 @@ function safePlayShura(ctx) {
       try { ctx.audio.stopAllMusic(); } catch(_){}
       safePlayShura(ctx);
 
-      // 先取得視窗容器，之後以其實際尺寸為主（避免 CSS 與 canvas 不一致）
+      // 取得視窗容器（供 overlay/邊界用途），畫布採固定基準解析度，交由主程式/UI 等比縮放
       const viewportEl = document.getElementById('viewport') || canvas.parentNode;
-      // 掛上專屬 class，讓 mobile.css 只對挑戰模式啟用 100dvh
-      if (viewportEl) viewportEl.classList.add('challenge-mobile');
-      // 畫布尺寸：優先取用 viewport 的實際可見尺寸，回退到 CONFIG 或預設
-      try {
-        let vw = viewportEl && viewportEl.clientWidth ? viewportEl.clientWidth : ((typeof CONFIG !== 'undefined' && CONFIG.CANVAS_WIDTH) ? CONFIG.CANVAS_WIDTH : 1280);
-        let vh = viewportEl && viewportEl.clientHeight ? viewportEl.clientHeight : ((typeof CONFIG !== 'undefined' && CONFIG.CANVAS_HEIGHT) ? CONFIG.CANVAS_HEIGHT : 720);
-        // 手機保護：若高度仍為 0，改用 window.innerHeight 避免黑畫面
-        const isMobile = window.matchMedia && matchMedia('(pointer: coarse)').matches;
-        if (isMobile && vh === 0) vh = window.innerHeight || 720;
-        canvas.width = vw;
-        canvas.height = vh;
-        /* 手機排查：把尺寸印在 console，確認是否 0×0 */
-        if (isMobile) console.log('[ChallengeMode] canvas size set to', vw, 'x', vh);
-      } catch(_) {
-        canvas.width = 1280; canvas.height = 720;
-      }
+      const baseW = (typeof CONFIG !== 'undefined' && CONFIG.CANVAS_WIDTH) ? CONFIG.CANVAS_WIDTH : 1280;
+      const baseH = (typeof CONFIG !== 'undefined' && CONFIG.CANVAS_HEIGHT) ? CONFIG.CANVAS_HEIGHT : 720;
+      canvas.width = baseW;
+      canvas.height = baseH;
 
       // 顯示左上角玩家頭像（沿用現有 UI 元素，不變更生存模式）
       try {
@@ -107,26 +95,10 @@ function safePlayShura(ctx) {
       let paused = false;
       const keys = { up:false, down:false, left:false, right:false };
 
-      // 建立玩家 GIF 覆蓋元素（確保動畫與像素風格）
-      // viewport 已在上方取得；記錄原本 position，退出時還原避免污染
-      try { if (viewportEl) { ctx._challengeViewportPrevPos = viewportEl.style.position; viewportEl.style.position = 'relative'; } } catch(_){}
+      // 玩家 GIF 覆蓋：改用共用 GifOverlay，隨 UI 縮放自動對齊
       const actorImg = ctx.resources.getImage('challenge_player');
-      const actorEl = new Image();
-      actorEl.id = 'challenge-player-actor';
-      actorEl.src = actorImg ? actorImg.src : 'assets/images/player.gif';
-      actorEl.style.position = 'absolute';
-      actorEl.style.imageRendering = 'pixelated';
+      const actorSrc = actorImg ? actorImg.src : 'assets/images/player.gif';
       const actorSize = size * 2; // 放大約 2 倍
-      actorEl.style.width = actorSize + 'px';
-      actorEl.style.height = actorSize + 'px';
-      actorEl.style.zIndex = '1'; // 畫在 canvas 之上、UI 之下
-      actorEl.style.pointerEvents = 'none';
-      // 初始定位（避免第一幀前看不到）
-      actorEl.style.left = (player.x - actorSize/2) + 'px';
-      actorEl.style.top = (player.y - actorSize/2) + 'px';
-      try { if (viewportEl) viewportEl.appendChild(actorEl); } catch(_){}
-      // 供退出模式時清理
-      ctx.playerActorEl = actorEl;
 
       // 點擊設定移動目標（使用 ctx.events 以便退出時自動清理）
       ctx.events.on(canvas, 'click', (e) => {
@@ -184,14 +156,9 @@ function safePlayShura(ctx) {
         } else {
           ctx2d.fillStyle = '#000';
           ctx2d.fillRect(0,0,canvas.width,canvas.height);
-        } 
-        // 同步覆蓋元素位置
-        try {
-          if (actorEl) {
-            actorEl.style.left = (player.x - actorSize/2) + 'px';
-            actorEl.style.top = (player.y - actorSize/2) + 'px';
-          }
-        } catch(_){}
+        }
+        // 使用 GifOverlay 將玩家 GIF 疊於畫面（依 --ui-scale 自動縮放對位）
+        try { if (typeof window.GifOverlay !== 'undefined') { window.GifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, actorSize); } } catch(_){}
       }
 
       // 簡易主迴圈：只跑本模式的 raf，離開時由 ctx.timers 清掉
@@ -221,12 +188,10 @@ function safePlayShura(ctx) {
               player.y += (my / len) * s;
             }
           }
-          // 邊界限制（避免超出畫布）：以 viewport 實際尺寸為準，並考慮角色渲染尺寸
-          const vw = viewportEl && viewportEl.clientWidth ? viewportEl.clientWidth : canvas.width;
-          const vh = viewportEl && viewportEl.clientHeight ? viewportEl.clientHeight : canvas.height;
+          // 邊界限制（避免超出畫布）：以基準解析度為準，配合 GifOverlay 縮放
           const half = (size * 2) / 2; // actorSize/2（角色渲染一半尺寸）
-          player.x = Math.max(half, Math.min(vw - half, player.x));
-          player.y = Math.max(half, Math.min(vh - half, player.y));
+          player.x = Math.max(half, Math.min(baseW - half, player.x));
+          player.y = Math.max(half, Math.min(baseH - half, player.y));
           render();
         }
         // 以 RAF 推進挑戰 HUD 的能量/回血邏輯（與生存模式一致以 dt 計算）
@@ -239,16 +204,7 @@ function safePlayShura(ctx) {
       }
       ctx.timers.requestAnimationFrame(loop);
 
-      // 視窗尺寸變更時，同步 canvas 尺寸，避免與 viewport 不一致導致邊界錯誤
-      ctx.events.on(window, 'resize', () => {
-        try {
-          let vw = viewportEl && viewportEl.clientWidth ? viewportEl.clientWidth : canvas.width;
-          let vh = viewportEl && viewportEl.clientHeight ? viewportEl.clientHeight : canvas.height;
-          const isMobile = window.matchMedia && matchMedia('(pointer: coarse)').matches;
-          if (isMobile && vh === 0) vh = window.innerHeight || 720;
-          canvas.width = vw; canvas.height = vh;
-        } catch(_){}
-      }, { capture: true });
+      // 視窗尺寸變更時：不改 canvas 解析度（交由 UI/main.js 縮放），此處無需處理
 
       // 初始化挑戰 UI 模組（音量、天賦清單、計時器）
       try {
@@ -263,20 +219,8 @@ function safePlayShura(ctx) {
     // 退出模式：主要依靠 ctx.dispose 清理事件與計時器；可選擇 UI 還原
     exit(ctx){
       try { if (ctx && typeof ctx.dispose === 'function') ctx.dispose(); } catch(_){ }
-      // 卸載挑戰模式專屬 class，避免污染生存模式
-      try {
-        const vp = document.getElementById('viewport');
-        if (vp) vp.classList.remove('challenge-mobile');
-      } catch(_){ }
-      // 還原 viewport 位置樣式（避免影響其他模式）
-      try {
-        const vp = document.getElementById('viewport');
-        if (vp && typeof ctx._challengeViewportPrevPos !== 'undefined') {
-          vp.style.position = ctx._challengeViewportPrevPos || '';
-        }
-      } catch(_){ }
-      // 清理覆蓋玩家元素
-      try { if (ctx && ctx.playerActorEl && ctx.playerActorEl.parentNode) { ctx.playerActorEl.parentNode.removeChild(ctx.playerActorEl); ctx.playerActorEl = null; } } catch(_){}
+      // 清理 GIF 覆蓋元素（避免殘留）
+      try { if (typeof window.GifOverlay !== 'undefined') window.GifOverlay.clearAll(); } catch(_){}
       try { const gameUI = document.getElementById('game-ui'); if (gameUI) gameUI.style.display = ''; } catch(_){}
       try { if (typeof window.ChallengeUI !== 'undefined') window.ChallengeUI.dispose(); } catch(_){}
       try { const cHUD = document.getElementById('challenge-ui'); if (cHUD) cHUD.style.display = 'none'; } catch(_){}
