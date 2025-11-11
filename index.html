@@ -326,9 +326,9 @@
 
                 <!-- 闖關模式：六張尚未開放地圖（隱藏，點選闖關模式時顯示） -->
                 <div class="map-grid hidden" id="grid-stage">
-                  <button class="map-card disabled" data-map-id="stage-1">
-                    <img src="assets/images/background3.jpg" alt="尚未開放">
-                    <div class="map-name">尚未開放</div>
+                  <button class="map-card selectable" data-map-id="challenge-1">
+                    <img src="assets/images/background4.png" alt="LV1.銀河系">
+                    <div class="map-name">LV1.銀河系(施工中)</div>
                   </button>
                   <button class="map-card disabled" data-map-id="stage-2">
                     <img src="assets/images/background3.jpg" alt="尚未開放">
@@ -354,9 +354,9 @@
 
                 <!-- 防禦模式：六張尚未開放地圖（隱藏，點選防禦模式時顯示） -->
                 <div class="map-grid hidden" id="grid-defense">
-                  <button class="map-card disabled" data-map-id="defense-1">
-                    <img src="assets/images/background3.jpg" alt="尚未開放">
-                    <div class="map-name">尚未開放</div>
+                  <button class="map-card selectable" data-map-id="challenge-1">
+                    <img src="assets/images/background4.png" alt="LV1.銀河系">
+                    <div class="map-name">LV1.銀河系(施工中)</div>
                   </button>
                   <button class="map-card disabled" data-map-id="defense-2">
                     <img src="assets/images/background3.jpg" alt="尚未開放">
@@ -598,6 +598,116 @@
                 <ul id="challenge-talents-list" class="talents-list" style="list-style:none; padding:0; margin:0;"></ul>
               </div>
             </div>
+
+            <!-- 闖關模式專用 HUD（獨立容器） -->
+            <div id="stage-ui" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none;">
+              <!-- 左上：頭像、HP、EXP、能量 -->
+              <div id="stage-left" style="position:absolute; top:10px; left:10px; display:flex; gap:10px; align-items:flex-start;">
+                <img id="stage-avatar" alt="avatar" style="width:80px; height:80px; image-rendering:pixelated; border:2px solid #fff; border-radius:6px;" />
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <div class="cbar-row">
+                    <span class="cbar-label">生命</span>
+                    <div id="stage-health-bar" class="cbar"><div id="stage-health-fill" class="cbar-fill" style="background:#ff4d4f;"></div></div>
+                    <span id="stage-health-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">經驗</span>
+                    <div id="stage-exp-bar" class="cbar"><div id="stage-exp-fill" class="cbar-fill" style="background:#52c41a;"></div></div>
+                    <span id="stage-exp-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">能量</span>
+                    <div id="stage-energy-bar" class="cbar"><div id="stage-energy-fill" class="cbar-fill" style="background:#40a9ff;"></div></div>
+                    <span id="stage-energy-text" class="cbar-text">0/0</span>
+                  </div>
+                </div>
+              </div>
+              <!-- 右上：時間、金幣 -->
+              <div id="stage-right" style="position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+                <div id="stage-timer" style="font-size:1.4rem; font-weight:bold; color:#fff; text-shadow:0 0 6px rgba(0,0,0,0.6);">00:00</div>
+                <div id="stage-coins" style="display:flex; align-items:center; gap:6px; color:#ffd700; font-weight:bold; text-shadow:0 0 5px rgba(255,215,0,0.6);">
+                  <img id="stage-coins-icon" src="assets/images/money.png" alt="金幣" style="width:24px; height:24px;"/>
+                  <span id="stage-coins-text">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 闖關模式 ESC 菜單（複製挑戰樣式） -->
+            <div id="stage-menu" class="hidden">
+              <div class="skills-title">技能與音量</div>
+              <div class="skills-hint">按 ESC 關閉</div>
+              <div class="skills-volume">
+                <div class="volume-row">
+                  <label for="stage-music-volume">音樂</label>
+                  <input type="range" id="stage-music-volume" min="0" max="1" step="0.01" value="0.5">
+                  <span id="stage-music-volume-text">50%</span>
+                </div>
+                <div class="volume-row">
+                  <label for="stage-sound-volume">音效</label>
+                  <input type="range" id="stage-sound-volume" min="0" max="1" step="0.01" value="0.7">
+                  <span id="stage-sound-volume-text">70%</span>
+                </div>
+              </div>
+              <div class="talents-section">
+                <h3 class="talents-title">目前天賦</h3>
+                <ul id="stage-talents-list" class="talents-list" style="list-style:none; padding:0; margin:0;"></ul>
+              </div>
+            </div>
+
+            <!-- 防禦模式專用 HUD（獨立容器） -->
+            <div id="defense-ui" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none;">
+              <!-- 左上：頭像、HP、EXP、能量 -->
+              <div id="defense-left" style="position:absolute; top:10px; left:10px; display:flex; gap:10px; align-items:flex-start;">
+                <img id="defense-avatar" alt="avatar" style="width:80px; height:80px; image-rendering:pixelated; border:2px solid #fff; border-radius:6px;" />
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <div class="cbar-row">
+                    <span class="cbar-label">生命</span>
+                    <div id="defense-health-bar" class="cbar"><div id="defense-health-fill" class="cbar-fill" style="background:#ff4d4f;"></div></div>
+                    <span id="defense-health-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">經驗</span>
+                    <div id="defense-exp-bar" class="cbar"><div id="defense-exp-fill" class="cbar-fill" style="background:#52c41a;"></div></div>
+                    <span id="defense-exp-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">能量</span>
+                    <div id="defense-energy-bar" class="cbar"><div id="defense-energy-fill" class="cbar-fill" style="background:#40a9ff;"></div></div>
+                    <span id="defense-energy-text" class="cbar-text">0/0</span>
+                  </div>
+                </div>
+              </div>
+              <!-- 右上：時間、金幣 -->
+              <div id="defense-right" style="position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+                <div id="defense-timer" style="font-size:1.4rem; font-weight:bold; color:#fff; text-shadow:0 0 6px rgba(0,0,0,0.6);">00:00</div>
+                <div id="defense-coins" style="display:flex; align-items:center; gap:6px; color:#ffd700; font-weight:bold; text-shadow:0 0 5px rgba(255,215,0,0.6);">
+                  <img id="defense-coins-icon" src="assets/images/money.png" alt="金幣" style="width:24px; height:24px;"/>
+                  <span id="defense-coins-text">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 防禦模式 ESC 菜單（複製挑戰樣式） -->
+            <div id="defense-menu" class="hidden">
+              <div class="skills-title">技能與音量</div>
+              <div class="skills-hint">按 ESC 關閉</div>
+              <div class="skills-volume">
+                <div class="volume-row">
+                  <label for="defense-music-volume">音樂</label>
+                  <input type="range" id="defense-music-volume" min="0" max="1" step="0.01" value="0.5">
+                  <span id="defense-music-volume-text">50%</span>
+                </div>
+                <div class="volume-row">
+                  <label for="defense-sound-volume">音效</label>
+                  <input type="range" id="defense-sound-volume" min="0" max="1" step="0.01" value="0.7">
+                  <span id="defense-sound-volume-text">70%</span>
+                </div>
+              </div>
+              <div class="talents-section">
+                <h3 class="talents-title">目前天賦</h3>
+                <ul id="defense-talents-list" class="talents-list" style="list-style:none; padding:0; margin:0;"></ul>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -800,6 +910,14 @@
         <script src="js/modes/challenge/ui.js"></script>
         <!-- 挑戰模式骨架：接入隔離化 GameModeManager -->
         <script src="js/modes/challenge/index.js"></script>
+        <!-- 闖關模式 UI 模組：提供 HUD 與 ESC 菜單 -->
+        <script src="js/modes/stage/ui.js"></script>
+        <!-- 闖關模式骨架：接入隔離化 GameModeManager -->
+        <script src="js/modes/stage/index.js"></script>
+        <!-- 防禦模式 UI 模組：提供 HUD 與 ESC 菜單 -->
+        <script src="js/modes/defense/ui.js"></script>
+        <!-- 防禦模式骨架：接入隔離化 GameModeManager -->
+        <script src="js/modes/defense/index.js"></script>
         <!-- 主線模式骨架：不分難度，探索 + NPC 對話 -->
         <script src="js/modes/main/index.js"></script>
         <script src="js/main.js"></script>
