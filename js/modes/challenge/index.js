@@ -62,8 +62,9 @@ function safePlayShura(ctx) {
       // 先取得視窗容器，之後以其實際尺寸為主（避免 CSS 與 canvas 不一致）
       const viewportEl = document.getElementById('viewport') || canvas.parentNode;
       // 掛上專屬 class，讓 mobile.css 只對挑戰模式啟用 100dvh
-      if (viewportEl) viewportEl.classList.add('challenge-mobile');
+      // if (viewportEl) viewportEl.classList.add('challenge-mobile');
       // 畫布尺寸：優先取用 viewport 的實際可見尺寸，回退到 CONFIG 或預設
+      /*
       try {
         let vw = viewportEl && viewportEl.clientWidth ? viewportEl.clientWidth : ((typeof CONFIG !== 'undefined' && CONFIG.CANVAS_WIDTH) ? CONFIG.CANVAS_WIDTH : 1280);
         let vh = viewportEl && viewportEl.clientHeight ? viewportEl.clientHeight : ((typeof CONFIG !== 'undefined' && CONFIG.CANVAS_HEIGHT) ? CONFIG.CANVAS_HEIGHT : 720);
@@ -72,11 +73,12 @@ function safePlayShura(ctx) {
         if (isMobile && vh === 0) vh = window.innerHeight || 720;
         canvas.width = vw;
         canvas.height = vh;
-        /* 手機排查：把尺寸印在 console，確認是否 0×0 */
+        // 手機排查：把尺寸印在 console，確認是否 0×0
         if (isMobile) console.log('[ChallengeMode] canvas size set to', vw, 'x', vh);
       } catch(_) {
         canvas.width = 1280; canvas.height = 720;
       }
+      */
 
       // 顯示左上角玩家頭像（沿用現有 UI 元素，不變更生存模式）
       try {
@@ -240,6 +242,7 @@ function safePlayShura(ctx) {
       ctx.timers.requestAnimationFrame(loop);
 
       // 視窗尺寸變更時，同步 canvas 尺寸，避免與 viewport 不一致導致邊界錯誤
+      /*
       ctx.events.on(window, 'resize', () => {
         try {
           let vw = viewportEl && viewportEl.clientWidth ? viewportEl.clientWidth : canvas.width;
@@ -249,6 +252,7 @@ function safePlayShura(ctx) {
           canvas.width = vw; canvas.height = vh;
         } catch(_){}
       }, { capture: true });
+      */
 
       // 初始化挑戰 UI 模組（音量、天賦清單、計時器）
       try {
@@ -264,10 +268,12 @@ function safePlayShura(ctx) {
     exit(ctx){
       try { if (ctx && typeof ctx.dispose === 'function') ctx.dispose(); } catch(_){ }
       // 卸載挑戰模式專屬 class，避免污染生存模式
+      /*
       try {
         const vp = document.getElementById('viewport');
         if (vp) vp.classList.remove('challenge-mobile');
       } catch(_){ }
+      */
       // 還原 viewport 位置樣式（避免影響其他模式）
       try {
         const vp = document.getElementById('viewport');
@@ -287,6 +293,6 @@ function safePlayShura(ctx) {
   if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.register === 'function') {
     window.GameModeManager.register(ChallengeMode.id, ChallengeMode);
   } else {
-    console.warn('[ChallengeMode] GameModeManager 尚未就緒，無法註冊挑戰模式');
+    console.warn('[ChallengeMode] GameModeManager 尚未就绪，无法注册挑战模式');
   }
 })();
