@@ -296,11 +296,11 @@
                   </button>
                 </div>
 
-                <!-- 挑戰模式：六張尚未開放地圖（隱藏，點選挑戰模式時顯示） -->
+                <!-- 挑戰模式：第一張地圖開放（LV1.銀河系），其餘暫未開放） -->
                 <div class="map-grid hidden" id="grid-challenge">
-                  <button class="map-card disabled" data-map-id="challenge-1">
-                    <img src="assets/images/background3.jpg" alt="尚未開放">
-                    <div class="map-name">尚未開放</div>
+                  <button class="map-card selectable" data-map-id="challenge-1">
+                    <img src="assets/images/background4.png" alt="LV1.銀河系">
+                    <div class="map-name">LV1.銀河系</div>
                   </button>
                   <button class="map-card disabled" data-map-id="challenge-2">
                     <img src="assets/images/background3.jpg" alt="尚未開放">
@@ -479,7 +479,7 @@
               </div>
         
               <div id="health-bar-container">
-                <div class="ui-label">HP:</div>
+                <div class="ui-label">血量:</div>
                 <div id="health-bar">
                   <div id="health-fill"></div>
                 </div>
@@ -543,6 +543,60 @@
                 </div>
               </div>
               <div id="skills-list" class="skills-list" aria-live="polite"></div>
+            </div>
+            <!-- 挑戰模式專用 HUD（獨立容器，避免污染生存模式） -->
+            <div id="challenge-ui" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none;">
+              <!-- 左上：頭像、HP、EXP、能量 -->
+              <div id="challenge-left" style="position:absolute; top:10px; left:10px; display:flex; gap:10px; align-items:flex-start;">
+                <img id="challenge-avatar" alt="avatar" style="width:80px; height:80px; image-rendering:pixelated; border:2px solid #fff; border-radius:6px;" />
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <div class="cbar-row">
+                    <span class="cbar-label">生命</span>
+                    <div id="challenge-health-bar" class="cbar"><div id="challenge-health-fill" class="cbar-fill" style="background:#ff4d4f;"></div></div>
+                    <span id="challenge-health-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">經驗</span>
+                    <div id="challenge-exp-bar" class="cbar"><div id="challenge-exp-fill" class="cbar-fill" style="background:#52c41a;"></div></div>
+                    <span id="challenge-exp-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">能量</span>
+                    <div id="challenge-energy-bar" class="cbar"><div id="challenge-energy-fill" class="cbar-fill" style="background:#40a9ff;"></div></div>
+                    <span id="challenge-energy-text" class="cbar-text">0/0</span>
+                  </div>
+                </div>
+              </div>
+              <!-- 右上：時間、金幣 -->
+              <div id="challenge-right" style="position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+                <div id="challenge-timer" style="font-size:1.4rem; font-weight:bold; color:#fff; text-shadow:0 0 6px rgba(0,0,0,0.6);">00:00</div>
+                <div id="challenge-coins" style="display:flex; align-items:center; gap:6px; color:#ffd700; font-weight:bold; text-shadow:0 0 5px rgba(255,215,0,0.6);">
+                  <img id="challenge-coins-icon" src="assets/images/money.png" alt="金幣" style="width:24px; height:24px;"/>
+                  <span id="challenge-coins-text">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 挑戰模式 ESC 菜單（僅視覺採用生存樣式，避免邏輯污染） -->
+            <div id="challenge-menu" class="hidden">
+              <div class="skills-title">技能與音量</div>
+              <div class="skills-hint">按 ESC 關閉</div>
+              <div class="skills-volume">
+                <div class="volume-row">
+                  <label for="challenge-music-volume">音樂</label>
+                  <input type="range" id="challenge-music-volume" min="0" max="1" step="0.01" value="0.5">
+                  <span id="challenge-music-volume-text">50%</span>
+                </div>
+                <div class="volume-row">
+                  <label for="challenge-sound-volume">音效</label>
+                  <input type="range" id="challenge-sound-volume" min="0" max="1" step="0.01" value="0.7">
+                  <span id="challenge-sound-volume-text">70%</span>
+                </div>
+              </div>
+              <div class="talents-section">
+                <h3 class="talents-title">目前天賦</h3>
+                <ul id="challenge-talents-list" class="talents-list" style="list-style:none; padding:0; margin:0;"></ul>
+              </div>
             </div>
           </div>
         </div>
@@ -735,9 +789,17 @@
         <!-- 核心服務與模式管理（不改動 SaveCode；僅新增骨架） -->
         <script src="js/core/services/save_service.js"></script>
         <script src="js/core/services/resource_loader.js"></script>
+        <!-- 注意：ModeManager 僅保留作為『回退』用途，請勿在新模式上使用。
+             未來新增/啟動模式請一律改用 GameModeManager.register/start。 -->
         <script src="js/core/mode_manager.js"></script>
+        <!-- 主用：隔離化 GameModeManager（新模式與主線模式皆走此管理器） -->
+        <script src="js/core/game_mode_manager.js"></script>
         <!-- 生存模式適配層：封裝既有生存模式為 Mode 介面 -->
         <script src="js/modes/survival/index.js"></script>
+        <!-- 挑戰模式 UI 模組：提供 HUD 與 ESC 菜單 -->
+        <script src="js/modes/challenge/ui.js"></script>
+        <!-- 挑戰模式骨架：接入隔離化 GameModeManager -->
+        <script src="js/modes/challenge/index.js"></script>
         <!-- 主線模式骨架：不分難度，探索 + NPC 對話 -->
         <script src="js/modes/main/index.js"></script>
         <script src="js/main.js"></script>
