@@ -106,15 +106,18 @@ function safePlayShura(ctx) {
         try {
           safePlayShura(ctx);
           const track = (typeof AudioManager !== 'undefined' && AudioManager.music) ? AudioManager.music['shura_music'] : null;
-          // 若仍未播放，於下一次使用者互動恢復
+          // 若仍未播放，於下一次使用者互動恢復（使用 ctx.events 註冊，確保離開模式時自動清理）
           if (track && track.paused !== false) {
-            const once = function(){
+            const onceHandler = function(){
               try { ctx.audio.unmuteAndPlay('shura_music', { loop: true }); } catch(_){}
-              try { document.removeEventListener('click', once, true); } catch(_){}
-              try { document.removeEventListener('touchstart', once, true); } catch(_){}
             };
-            document.addEventListener('click', once, { capture: true, once: true });
-            document.addEventListener('touchstart', once, { capture: true, once: true });
+            if (ctx && ctx.events && typeof ctx.events.on === 'function') {
+              ctx.events.on(document, 'click', onceHandler, { capture: true, once: true });
+              ctx.events.on(document, 'touchstart', onceHandler, { capture: true, once: true });
+            } else {
+              document.addEventListener('click', onceHandler, { capture: true, once: true });
+              document.addEventListener('touchstart', onceHandler, { capture: true, once: true });
+            }
           }
         } catch(_){}
       }
