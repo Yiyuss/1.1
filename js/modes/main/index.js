@@ -62,8 +62,16 @@
         canvas.width = 1280; canvas.height = 720;
       }
 
-      // 動態資源存取：避免 ModeManager 資源尚未載入完成導致黑屏
+      // 動態資源存取：優先使用 GameModeManager 的模式資源，回退至舊 ResourceLoader
       function getResource(name){
+        // 1) 新管理器資源（隔離 Bucket）
+        try {
+          if (ctx && ctx.resources) {
+            if (name === 'map') return ctx.resources.getJson('main_map');
+            if (name === 'sheet') return ctx.resources.getImage('main_spritesheet');
+          }
+        } catch(_) {}
+        // 2) 舊資源快取（全域共用）
         const cache = (window.ResourceLoader && window.ResourceLoader.cache) ? window.ResourceLoader.cache : { images: new Map(), json: new Map() };
         if (name === 'map') return cache.json.get('main_map');
         if (name === 'sheet') return cache.images.get('main_spritesheet');
@@ -676,10 +684,13 @@
     }
   };
 
-  if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.register === 'function') {
+  // 優先註冊到隔離化 GameModeManager；若不可用則回退到舊 ModeManager
+  if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.register === 'function') {
+    window.GameModeManager.register(MODE_ID, MainMode);
+  } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.register === 'function') {
     window.ModeManager.register(MODE_ID, MainMode);
   } else {
-    console.warn('[MainMode] ModeManager 尚未就緒，無法註冊主線模式');
+    console.warn('[MainMode] 找不到可用的模式管理器，無法註冊主線模式');
   }
 })();
       // （清理）舊的分類輔助函式已不再使用，改由 collisionsByLayer + getLayerConfig 控制
