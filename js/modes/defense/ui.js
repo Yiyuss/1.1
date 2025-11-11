@@ -1,5 +1,11 @@
-// 防禦模式 UI 模組：獨立於生存/挑戰/闖關 UI，提供 HUD 與 ESC 菜單
-// 說明：完全複製挑戰模式的行為與視覺，但採用防禦專用的 DOM ID。
+// 防禦模式 UI 模組：獨立於其他模式 UI，提供 HUD 與 ESC 菜單
+// 職責：
+// - 顯示左上頭像/HP/EXP/能量、右上時間/金幣
+// - ESC 菜單：音量控制（音樂/音效）、顯示目前天賦、暫停/繼續
+// - 僅在防禦模式 enter/exit 期間掛載與清理，避免污染其他模式
+// 維護守則：
+// - 僅使用防禦專用 DOM ID（#defense-...），不得操作其他模式元素
+// - 不更動 SaveCode/localStorage 鍵名/資料結構/簽章；相容升級由 SaveService 處理
 (function(){
   const $ = (sel) => document.querySelector(sel);
 
