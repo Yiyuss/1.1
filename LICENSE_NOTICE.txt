@@ -1,0 +1,32 @@
+LICENSE NOTICE / 授權聲明
+
+--- ENGLISH VERSION ---
+
+This project reimplements and adapts bullet pattern ideas inspired by open-source bullet-hell engines.
+While the JavaScript implementations are developed for this project, some bullet patterns and boss
+movement logic may resemble those found in the referenced projects. 
+
+References:
+- Danmokou: https://github.com/Bagoum/danmokou (MIT)
+- BulletUpHell: https://github.com/Dark-Peace/BulletUpHell (MIT)
+
+This project acknowledges the artistic and gameplay influence of these projects,
+including bullet pattern concepts, movement logic, and game mechanics.
+It is **not intended to be an original creation**, but a reinterpretation in JavaScript.
+
+© 2025
+
+--- 中文版（CHINESE TRANSLATION） ---
+
+本專案重新實作並改編了開源彈幕系統的彈幕概念與 BOSS 移動邏輯。
+雖然本專案的 JavaScript 代碼為專案自行開發，但部分彈幕型態與邏輯可能
+與參考專案相似。
+
+參考來源：
+- Danmokou: https://github.com/Bagoum/danmokou (MIT)
+- BulletUpHell: https://github.com/Dark-Peace/BulletUpHell (MIT)
+
+本專案承認上述專案在彈幕藝術與遊戲機制上的影響，包括彈幕設計、運動邏輯與遊戲功能。
+本專案 **並非原創作品**，而是對其概念與效果的 JavaScript 再詮釋。
+
+© 2025 
