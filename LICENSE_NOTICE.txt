@@ -14,7 +14,9 @@ This project acknowledges the artistic and gameplay influence of these projects,
 including bullet pattern concepts, movement logic, and game mechanics.
 It is **not intended to be an original creation**, but a reinterpretation in JavaScript.
 
-© 2025
+**Note:** Only the "Challenge Mode" of this game makes use of the bullet pattern concepts inspired by the above projects. Other game modes are implemented independently.
+
+© 2025 
 
 --- 中文版（CHINESE TRANSLATION） ---
 
@@ -28,5 +30,7 @@ It is **not intended to be an original creation**, but a reinterpretation in Jav
 
 本專案承認上述專案在彈幕藝術與遊戲機制上的影響，包括彈幕設計、運動邏輯與遊戲功能。
 本專案 **並非原創作品**，而是對其概念與效果的 JavaScript 再詮釋。
+
+**說明：** 本專案僅在遊戲的「挑戰模式」中使用了上述專案啟發的彈幕概念，其他遊戲模式均為獨立實作。
 
 © 2025 
