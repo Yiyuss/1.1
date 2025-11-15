@@ -38,8 +38,8 @@ const AudioManager = {
             { name: 'button_click', src: 'assets/audio/button_click.mp3' },
             { name: 'button_click2', src: 'assets/audio/button_click2.mp3' },
             { name: 'achievements', src: 'assets/audio/achievements.mp3' },
-            // 新增：Boss火彈命中玩家音效
-            { name: 'bo', src: 'assets/audio/bo.mp3' }
+            { name: 'bo', src: 'assets/audio/bo.mp3' },
+            { name: 'boss_cooldown', src: 'assets/audio/BOSS.mp3' }
         ];
         
         // 音樂列表
