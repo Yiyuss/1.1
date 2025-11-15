@@ -242,8 +242,18 @@ const UI = {
         const charSel = this._get('character-select-screen'); if (charSel) charSel.classList.add('hidden');
         const mapSel = this._get('map-select-screen'); if (mapSel) mapSel.classList.add('hidden');
         const start = this._get('start-screen'); if (start) start.classList.remove('hidden');
+        // 確保結束目前模式並釋放其事件（特別是生存模式在 visibility/focus 會自動恢復 BGM）
+        try {
+            if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.stop === 'function') {
+                window.GameModeManager.stop();
+            } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.stop === 'function') {
+                window.ModeManager.stop();
+            }
+        } catch(_) {}
         Game.isGameOver = false;
-        try { if (AudioManager && AudioManager.setMuted) { AudioManager.setMuted(false); } else { AudioManager.isMuted = false; } } catch (_) {}
+        // 不呼叫 setMuted(false) 以避免其自動恢復生存 BGM（game_music）造成汙染。
+        // 改為直接解除靜音旗標，後續以 stopAllMusic + enterMenu 顯式切入選單音樂。
+        try { if (AudioManager) { AudioManager.isMuted = false; } } catch (_) {}
         // 先確保停止殘留的音樂，再切入選單場景
         try { if (AudioManager && AudioManager.stopAllMusic) { AudioManager.stopAllMusic(); } } catch (_) {}
         try {
@@ -906,11 +916,17 @@ const skillIcons = {
             let currentWave = WaveSystem.currentWave || 0;
             console.log("WaveSystem.currentWave:", WaveSystem.currentWave);
             document.getElementById('game-over-exp').textContent = currentWave + "/30";
-            
+            // 擊殺數（若可用）
+            try {
+                const enemiesKilled = (typeof Game !== 'undefined' && Game.enemiesKilled != null) ? Game.enemiesKilled : 0;
+                const elKills = document.getElementById('game-over-kills');
+                if (elKills) elKills.textContent = enemiesKilled;
+            } catch(_) {}
+
             console.log("遊戲結算數據:", {
                 gameTimeInSeconds,
                 playerLevel,
-                enemiesKilled,
+                enemiesKilled: (typeof Game !== 'undefined' && Game.enemiesKilled != null) ? Game.enemiesKilled : 0,
                 coinsCollected,
                 currentWave
             });
@@ -927,7 +943,8 @@ const skillIcons = {
      * 新增：結算視窗顯示遊戲數據
      */
     showVictoryScreen: function() {
-        try { if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
+        // 統一使用 stopAllMusic，避免生存/挑戰 BGM 殘留到開始介面
+        try { if (AudioManager.stopAllMusic) AudioManager.stopAllMusic(); else if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
         Game.pause(true);
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('victory-screen').classList.remove('hidden');
@@ -945,7 +962,24 @@ const skillIcons = {
         const onEnded = () => this._returnToStartFrom('victory-screen');
         el.addEventListener('ended', onEnded, { once: true });
     
-        try { el.play(); } catch (_) {}
+        // 嘗試播放，若被瀏覽器的自動播放策略阻擋，提供一次點擊後備
+        try {
+            const playPromise = el.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch((error) => {
+                    console.warn('播放勝利影片失敗，啟用點擊恢復:', error);
+                    const overlay = this._get('victory-overlay');
+                    const playBtn = this._get('victory-play');
+                    const playOnClick = () => {
+                        try { el.play(); } catch(_){}
+                        if (overlay) overlay.classList.add('hidden');
+                        document.removeEventListener('click', playOnClick);
+                    };
+                    if (playBtn) playBtn.addEventListener('click', playOnClick, { once: true });
+                    document.addEventListener('click', playOnClick, { once: true });
+                });
+            }
+        } catch(_) {}
     },
     
     /**
@@ -971,6 +1005,12 @@ const skillIcons = {
             document.getElementById('summary-level').textContent = playerLevel;
             document.getElementById('summary-coins').textContent = coins;
             document.getElementById('summary-exp').textContent = currentWave + "/30";
+            // 擊殺數（若可用）
+            try {
+                const kills = (typeof Game !== 'undefined' && Game.enemiesKilled != null) ? Game.enemiesKilled : 0;
+                const elKills = document.getElementById('summary-kills');
+                if (elKills) elKills.textContent = kills;
+            } catch(_) {}
 
             // 顯示當次新解鎖成就（若有）
             try {
@@ -989,7 +1029,7 @@ const skillIcons = {
             console.log("勝利結算數據:", {
                 gameTimeInSeconds,
                 playerLevel,
-                kills,
+                kills: (typeof Game !== 'undefined' && Game.enemiesKilled != null) ? Game.enemiesKilled : 0,
                 coins,
                 currentWave
             });
