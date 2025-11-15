@@ -40,6 +40,8 @@
       } catch(_){ }
     },
     enter(params, ctx){
+      // 先清理可能殘留的全域玩家 GIF 覆蓋層，避免其他模式的圖像污染
+      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.clearAll === 'function') window.GifOverlay.clearAll(); } catch(_){}
       try {
         if (params && params.selectedDifficultyId) {
           Game.selectedDifficultyId = params.selectedDifficultyId;
@@ -122,6 +124,8 @@
           AudioManager.stopAllMusic();
         }
       } catch(_){}
+      // 離開生存模式時同樣清除全域 GIF 覆蓋層，避免殘留到其他模式
+      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.clearAll === 'function') window.GifOverlay.clearAll(); } catch(_){}
     },
     update(){ /* 交由 Game.update */ },
     draw(){ /* 交由 Game.draw */ }
