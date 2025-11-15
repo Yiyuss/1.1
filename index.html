@@ -575,6 +575,10 @@
                   <span id="challenge-coins-text">0</span>
                 </div>
               </div>
+              <!-- 右下：操作提示圖例 -->
+              <div id="challenge-legend" style="position:absolute; right:12px; bottom:12px; color:#ffffff; font-size:1.0rem; font-weight:600; text-shadow:0 0 6px rgba(0,0,0,0.6); pointer-events:none;">
+                Z=攻擊&nbsp;&nbsp;X=衝刺
+              </div>
             </div>
 
             <!-- 挑戰模式 ESC 菜單（僅視覺採用生存樣式，避免邏輯污染） -->
@@ -906,8 +910,18 @@
         <script src="js/core/game_mode_manager.js"></script>
         <!-- 生存模式適配層：封裝既有生存模式為 Mode 介面 -->
         <script src="js/modes/survival/index.js"></script>
+        <!-- 挑戰模式專屬 GIF 覆蓋層：獨立於生存模式，避免汙染 -->
+        <script src="js/modes/challenge/gif_overlay.js"></script>
         <!-- 挑戰模式 UI 模組：提供 HUD 與 ESC 菜單 -->
         <script src="js/modes/challenge/ui.js"></script>
+        <!-- 挑戰模式：專屬彈幕系統 + 樣式庫與 BOSS 控制器（在骨架 index.js 之前） -->
+        <script src="js/modes/challenge/bullet_system.js"></script>
+        <!-- 挑戰模式專用雷射美術，不影響其他模式 -->
+        <script src="js/modes/challenge/laser_art.js"></script>
+        <script src="js/modes/challenge/boss_patterns.js"></script>
+        <!-- 挑戰模式專屬經驗系統：與生存模式的經驗分離 -->
+        <script src="js/modes/challenge/experience.js"></script>
+        <script src="js/modes/challenge/boss.js"></script>
         <!-- 挑戰模式骨架：接入隔離化 GameModeManager -->
         <script src="js/modes/challenge/index.js"></script>
         <!-- 闖關模式 UI 模組：提供 HUD 與 ESC 菜單 -->
