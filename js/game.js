@@ -675,11 +675,26 @@ const Game = {
         // 應用選角屬性（若有）
         if (this.selectedCharacter) {
             const sc = this.selectedCharacter;
-            if (sc.speedMultiplier) this.player.speed = CONFIG.PLAYER.SPEED * sc.speedMultiplier;
-            if (sc.hpMultiplier) {
-                this.player.maxHealth = Math.floor(CONFIG.PLAYER.MAX_HEALTH * sc.hpMultiplier);
-                this.player.health = this.player.maxHealth;
+            // 角色移動速度倍率（預設為 1.0）
+            if (sc.speedMultiplier) {
+                this.player.speed = CONFIG.PLAYER.SPEED * sc.speedMultiplier;
             }
+            // 角色血量：以 baseMaxHealth 為基準，乘上倍率再加上固定加成
+            const baseMax = CONFIG.PLAYER.MAX_HEALTH;
+            const hpMul = sc.hpMultiplier != null ? sc.hpMultiplier : 1.0;
+            const hpBonus = sc.hpBonus != null ? sc.hpBonus : 0;
+            const charBaseMax = Math.max(1, Math.floor(baseMax * hpMul + hpBonus));
+            this.player.baseMaxHealth = charBaseMax;
+            this.player.maxHealth = charBaseMax;
+            this.player.health = charBaseMax;
+            // 是否允許使用大絕（Q）：預設 true，角色可明確關閉
+            if (sc.canUseUltimate === false) {
+                this.player.canUseUltimate = false;
+            } else {
+                this.player.canUseUltimate = true;
+            }
+            // 生存模式玩家主體圖像鍵（若未指定則回退到 'player'）
+            this.player.spriteImageKey = sc.spriteImageKey || 'player';
         }
         
         // 套用選定難度（若有），供敵人與波次使用
@@ -739,8 +754,14 @@ const Game = {
         const avatarEl = document.getElementById('player-avatar-img');
         if (avatarEl) {
             let key = 'player';
-            if (this.selectedCharacter && this.selectedCharacter.avatarImageKey) {
-                key = this.selectedCharacter.avatarImageKey;
+            if (this.selectedCharacter) {
+                const sc = this.selectedCharacter;
+                // 角色可提供獨立 HUD 頭像鍵；若無則回退到 avatarImageKey
+                if (sc.hudImageKey) {
+                    key = sc.hudImageKey;
+                } else if (sc.avatarImageKey) {
+                    key = sc.avatarImageKey;
+                }
             }
             const imgObj = (this.images || Game.images || {})[key];
             if (imgObj && imgObj.src) {
