@@ -224,7 +224,8 @@ function safePlayShura(ctx) {
         player.speed = speedBase * EXTRA_SPEED_SCALE;
       }
       let clickTarget = null;
-      let paused = false;
+      // 初始化時檢查頁面可見性：如果頁面可見，確保不會被錯誤暫停
+      let paused = (document.hidden || document.visibilityState !== 'visible') ? true : false;
       const keys = { up:false, down:false, left:false, right:false, fire:false, dash:false, shift:false };
       let shootAcc = 0;
       const shootRateMs = 90;
@@ -583,6 +584,31 @@ function safePlayShura(ctx) {
             return;
           }
         } catch(_){}
+        
+        // 重要：即使 paused，也要至少渲染一次，避免黑屏
+        // 檢查頁面可見性：如果頁面可見但 paused 為 true，可能是初始化時的問題，強制恢復
+        try {
+          if (paused && !document.hidden && document.visibilityState === 'visible') {
+            // 頁面可見但被暫停：檢查是否應該恢復
+            const m = document.getElementById('challenge-menu');
+            const isOpen = m && !m.classList.contains('hidden');
+            if (!isOpen && (!Game || !Game.isGameOver)) {
+              try {
+                if (typeof UI !== 'undefined' && UI.isScreenVisible) {
+                  if (!UI.isScreenVisible('victory-screen') && !UI.isScreenVisible('game-over-screen')) {
+                    paused = false;
+                  }
+                } else {
+                  paused = false;
+                }
+              } catch(_) { paused = false; }
+            }
+          }
+        } catch(_) {}
+        
+        // 無論是否暫停，都要渲染（避免黑屏）
+        render();
+        
         if (!paused) {
           // 點擊移動（時間校正可依需要加入）
           if (clickTarget) {
@@ -740,8 +766,10 @@ function safePlayShura(ctx) {
               window.ChallengeExperience.update(dt);
             }
           } catch(_){}
-          render();
         }
+        // 重要：無論是否暫停，都要渲染（避免黑屏）
+        // 這確保即使 paused = true，畫面也會顯示，不會永久黑屏
+        render();
         // 以 RAF 推進挑戰 HUD 的能量/回血邏輯（與生存模式一致以 dt 計算）
         try {
           if (typeof window.ChallengeUI !== 'undefined' && typeof window.ChallengeUI.advanceBars === 'function') {
