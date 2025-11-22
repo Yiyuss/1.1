@@ -23,14 +23,20 @@ const BuffSystem = {
                 const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                     ? TalentSystem.getTalentLevel('hp_boost') : 0;
                 const healthBoost = BuffSystem._getTierEffect('hp_boost', lv, 'hp', 0) || 0;
-                player.maxHealth = CONFIG.PLAYER.MAX_HEALTH + healthBoost;
+                const baseMax = (player && typeof player.baseMaxHealth === 'number')
+                    ? player.baseMaxHealth
+                    : CONFIG.PLAYER.MAX_HEALTH;
+                player.maxHealth = baseMax + healthBoost;
                 player.health = player.maxHealth;
                 if (typeof UI !== 'undefined' && UI.updateHealthBar) {
                     UI.updateHealthBar(player.health, player.maxHealth);
                 }
             },
             remove: function(player) {
-                player.maxHealth = CONFIG.PLAYER.MAX_HEALTH;
+                const baseMax = (player && typeof player.baseMaxHealth === 'number')
+                    ? player.baseMaxHealth
+                    : CONFIG.PLAYER.MAX_HEALTH;
+                player.maxHealth = baseMax;
                 player.health = Math.min(player.health, player.maxHealth);
                 if (typeof UI !== 'undefined' && UI.updateHealthBar) {
                     UI.updateHealthBar(player.health, player.maxHealth);
@@ -165,7 +171,10 @@ const BuffSystem = {
                 ? TalentSystem.getTalentLevel('hp_boost') : 0;
             const hpTalentFlat = BuffSystem._getTierEffect('hp_boost', hpTalentLv, 'hp', 0) || 0;
             const hpUpgradeFlat = 20 * hpLv; // 每級+20
-            player.maxHealth = (CONFIG && CONFIG.PLAYER ? CONFIG.PLAYER.MAX_HEALTH : (player.maxHealth || 100)) + hpTalentFlat + hpUpgradeFlat;
+            const baseMax = (player && typeof player.baseMaxHealth === 'number')
+                ? player.baseMaxHealth
+                : ((CONFIG && CONFIG.PLAYER ? CONFIG.PLAYER.MAX_HEALTH : (player.maxHealth || 100)));
+            player.maxHealth = baseMax + hpTalentFlat + hpUpgradeFlat;
             player.health = Math.min(player.health, player.maxHealth);
             if (typeof UI !== 'undefined' && UI.updateHealthBar) {
                 UI.updateHealthBar(player.health, player.maxHealth);
