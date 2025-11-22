@@ -50,7 +50,7 @@
             
             if ($(timeId)) $(timeId).textContent = formatTime(stats.timeSec);
             if ($(waveId)) $(waveId).textContent = `${Math.max(1, stats.wave || 1)}/${stats.maxWave || 30}`;
-            if ($(goldId)) $(goldId).textContent = `${stats.gold ?? 0} (${stats.totalGoldEarned ?? 0}/${stats.totalGoldSpent ?? 0})`;
+            if ($(goldId)) $(goldId).textContent = stats.enemyGoldEarned ?? 0;
             if ($(killId)) $(killId).textContent = stats.enemiesKilled ?? 0;
             if ($(towerId)) $(towerId).textContent = stats.towersBuilt ?? 0;
             if ($(baseId)) $(baseId).textContent = `${stats.baseHealth ?? 0}/${stats.maxBaseHealth ?? 0}`;
