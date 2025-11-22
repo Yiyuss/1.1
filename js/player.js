@@ -5,7 +5,9 @@ class Player extends Entity {
         this.speed = CONFIG.PLAYER.SPEED;
         
         // 基礎屬性
-        this.maxHealth = CONFIG.PLAYER.MAX_HEALTH;
+        // baseMaxHealth：角色基礎最大血量（含角色加成，不含天賦/局內升級），供 BuffSystem 參考
+        this.baseMaxHealth = CONFIG.PLAYER.MAX_HEALTH;
+        this.maxHealth = this.baseMaxHealth;
         this.health = this.maxHealth;
         console.log(`玩家初始血量: ${this.health}/${this.maxHealth}`);
         this.collisionRadius = CONFIG.PLAYER.COLLISION_RADIUS;
@@ -41,6 +43,8 @@ class Player extends Entity {
         this.ultimateEndTime = 0;
         this._ultimateBackup = null;
         this.ultimateKeyHeld = false;
+        // 是否允許使用大絕（預設為 true，可由選角資料覆寫：CONFIG.CHARACTERS[*].canUseUltimate）
+        this.canUseUltimate = true;
 
         // 玩家朝向（以移動方向為基準；停止時保留上一朝向）
         this.facingAngle = 0;
@@ -115,9 +119,9 @@ class Player extends Entity {
             this.healthRegenAccumulator = 0;
         }
 
-        // 監聽大招觸發（Q鍵）
+        // 監聽大招觸發（Q鍵）— 僅當角色允許使用大絕時才處理
         const qDown = Input.isKeyDown('q') || Input.isKeyDown('Q');
-        if (qDown && !this.ultimateKeyHeld) {
+        if (this.canUseUltimate && qDown && !this.ultimateKeyHeld) {
             this.tryActivateUltimate();
         }
         this.ultimateKeyHeld = qDown;
@@ -153,7 +157,12 @@ class Player extends Entity {
         }
         
         // 使用玩家圖片（大招期間使用 playerN）；改用 GIF 覆蓋層以保證動畫
-        const imgKey = (this.isUltimateActive && Game.images && Game.images[CONFIG.ULTIMATE.IMAGE_KEY]) ? CONFIG.ULTIMATE.IMAGE_KEY : 'player';
+        const baseKey = (this.spriteImageKey && Game.images && Game.images[this.spriteImageKey])
+            ? this.spriteImageKey
+            : 'player';
+        const imgKey = (this.isUltimateActive && Game.images && Game.images[CONFIG.ULTIMATE.IMAGE_KEY])
+            ? CONFIG.ULTIMATE.IMAGE_KEY
+            : baseKey;
         const imgObj = (Game.images && Game.images[imgKey]) ? Game.images[imgKey] : null;
         if (imgObj) {
             const baseSize = Math.max(this.width, this.height);
