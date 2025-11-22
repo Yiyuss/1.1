@@ -73,7 +73,8 @@
                 try {
                   if (global.ChallengeGifOverlay) {
                     global.ChallengeGifOverlay.shakeViewport(18, 700);
-                    global.ChallengeGifOverlay.showFullscreenCover('challenge-phase-banner', 'assets/images/challengeBOSS-1-2.gif', { opacity: 0.5, fadeInMs: 300, holdMs: 3900, fadeOutMs: 300 });
+                    // 轉場改用 MP4，檔名相同：challengeBOSS-1-2.mp4
+                    global.ChallengeGifOverlay.showFullscreenCover('challenge-phase-banner', 'assets/images/challengeBOSS-1-2.mp4', { opacity: 0.5, fadeInMs: 300, holdMs: 3900, fadeOutMs: 300 });
                   }
                   if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
                     AudioManager.playSound('boss_cooldown');
@@ -224,7 +225,7 @@
           const p = global.ChallengeBossPatterns.stereoMaze({
             spawnIntervalSec: 0.92,           // 生成間隔（秒），與EclipseRosette相同
             baseSpeed: 2.4,                   // 基礎速度（較慢，參考EclipseRosette內層速度）
-            life: 12000,                      // 生命周期，與EclipseRosette相同
+            life: 12000,                      // 生命周期
             leftSpawnCount: 15,               // 左側同時生成數量（控制密度）
             rightSpawnCount: 15,              // 右側同時生成數量（控制密度）
             crossPattern: true,               // 是否啟用交叉模式
