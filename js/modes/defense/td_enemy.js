@@ -74,11 +74,21 @@ class TDEnemy {
     loadSprite() {
         // 這裡使用現有的殭屍圖片作為佔位符
         // 實際遊戲中會根據敵人類型載入不同的圖片
-        this.sprite = {
-            src: this.enemyConfig.sprite,
-            width: this.size,
-            height: this.size
-        };
+        if (this.isBoss) {
+            // BOSS 比例：123x160，保持高度為 size，寬度按比例計算
+            const bossAspect = 123 / 160; // 寬高比
+            this.sprite = {
+                src: this.enemyConfig.sprite,
+                width: Math.round(this.size * bossAspect),
+                height: this.size
+            };
+        } else {
+            this.sprite = {
+                src: this.enemyConfig.sprite,
+                width: this.size,
+                height: this.size
+            };
+        }
         
         console.log(`敵人 ${this.type} 精靈載入:`, this.sprite.src);
     }
@@ -295,23 +305,28 @@ class TDEnemy {
         
         // 繪製敵人（如果被減速，添加藍色色調）
         if (this.isSlowed) {
+            const drawWidth = this.sprite.width || this.size;
+            const drawHeight = this.sprite.height || this.size;
             ctx.globalCompositeOperation = 'multiply';
             ctx.fillStyle = 'rgba(100, 150, 255, 0.5)';
             ctx.fillRect(
-                this.x - this.size / 2,
-                this.y - this.size / 2,
-                this.size,
-                this.size
+                this.x - drawWidth / 2,
+                this.y - drawHeight / 2,
+                drawWidth,
+                drawHeight
             );
             ctx.globalCompositeOperation = 'source-over';
         }
         
+        // 使用 sprite 的寬高來繪製，保持正確比例（BOSS 為 123x160）
+        const drawWidth = this.sprite.width || this.size;
+        const drawHeight = this.sprite.height || this.size;
         ctx.drawImage(
             image,
-            this.x - this.size / 2,
-            this.y - this.size / 2,
-            this.size,
-            this.size
+            this.x - drawWidth / 2,
+            this.y - drawHeight / 2,
+            drawWidth,
+            drawHeight
         );
         
         // 繪製血條
@@ -372,9 +387,11 @@ class TDEnemy {
     
     // 渲染血條
     renderHealthBar(ctx) {
-        const barWidth = this.size;
+        // 使用實際渲染高度來計算血條位置（BOSS 為 123x160 比例）
+        const drawHeight = this.sprite.height || this.size;
+        const barWidth = this.sprite.width || this.size;
         const barHeight = 4;
-        const barY = this.y - this.size / 2 - 8;
+        const barY = this.y - drawHeight / 2 - 8;
         
         // 背景
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
@@ -452,10 +469,12 @@ class TDEnemy {
     
     // 渲染Boss指示器
     renderBossIndicator(ctx) {
+        // 使用實際渲染高度來計算指示器位置（BOSS 為 123x160 比例）
+        const drawHeight = this.sprite.height || this.size;
         ctx.fillStyle = '#FF0000';
         ctx.font = 'bold 10px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('BOSS', this.x, this.y - this.size / 2 - 15);
+        ctx.fillText('BOSS', this.x, this.y - drawHeight / 2 - 15);
     }
     
     // 獲取碰撞半徑
