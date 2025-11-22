@@ -1,0 +1,533 @@
+// 防禦塔TD玩家角色系統
+// 管理玩家的移動、攻擊、建造等行為
+
+class TDPlayer {
+    constructor(x, y, config) {
+        console.log('TDPlayer構造函數開始，位置:', x, y);
+        this.x = x;
+        this.y = y;
+        this.fullConfig = config;
+        this.config = config.PLAYER;
+        
+        console.log('玩家配置:', this.config);
+        
+        // 基礎屬性
+        this.size = this.config.SIZE;
+        this.speed = this.config.SPEED;
+        this.damage = this.config.DAMAGE;
+        this.attackRange = this.config.ATTACK_RANGE;
+        this.attackCooldown = this.config.ATTACK_COOLDOWN;
+        this.buildRange = this.config.BUILD_RANGE;
+        
+        // 狀態
+        this.isMoving = false;
+        this.moveTarget = null;
+        this.lastAttackTime = 0;
+        this.isAttacking = false;
+        this.attackTarget = null;
+        
+        // 建造相關
+        this.isBuilding = false;
+        this.buildTarget = null;
+        this.buildStartTime = 0;
+        this.buildDuration = 0;
+        
+        // 視覺效果
+        this.sprite = null;
+        this.animationTime = 0;
+        this.direction = 0; // 0: 右, 1: 下, 2: 左, 3: 上
+        
+        // 音效
+        this.attackSound = TD_CONFIG.SOUNDS.PLAYER_ATTACK;
+
+        // 鍵盤移動輸入狀態（WASD + 方向鍵）
+        this.keyboardInput = {
+            up: false,
+            down: false,
+            left: false,
+            right: false
+        };
+        this.keyboardMoving = false;
+        const mapCfg = this.fullConfig.MAP || { WIDTH: 3840, HEIGHT: 2160 };
+        this.mapBounds = {
+            minX: this.size / 2,
+            maxX: mapCfg.WIDTH - this.size / 2,
+            minY: this.size / 2,
+            maxY: mapCfg.HEIGHT - this.size / 2
+        };
+        
+        // 攻擊視覺：匕首彈道（dagger.png）
+        this.attackProjectiles = [];
+        
+        this.loadSprite();
+    }
+    
+    // 載入精靈圖
+    loadSprite() {
+        this.sprite = {
+            src: 'assets/images/player.gif',
+            width: this.size,
+            height: this.size
+        };
+    }
+    
+    /**
+     * 更新玩家狀態
+     * 
+     * 維護說明：
+     * - 此方法在每幀被 TDGame.update() 調用
+     * - 鍵盤移動優先於點擊移動（updateKeyboardMovement 先執行）
+     * - 如果鍵盤輸入存在，會取消點擊移動目標
+     * 
+     * 重要：此方法必須調用 updateKeyboardMovement() 才能響應鍵盤輸入
+     * 之前存在重複的 update() 方法定義（380行），已刪除，只保留此版本
+     * 
+     * 依賴：
+     * - this.keyboardInput - 由 TDGame.handleKeyDown() -> handleMovementInput() 更新
+     * - Input.keys (input.js) - 作為備用鍵盤狀態來源（getExternalKeyboardAxis）
+     * 
+     * 注意：避免代碼膨脹，不要重複定義此方法
+     */
+    update(deltaTime, currentTime, enemyManager, towerManager, gameState) {
+        // 更新動畫時間
+        this.animationTime += deltaTime;
+
+        // 鍵盤移動優先於點擊移動
+        this.updateKeyboardMovement(deltaTime);
+        
+        // 處理移動
+        if (this.isMoving && this.moveTarget) {
+            this.updateMovement(deltaTime, towerManager);
+        }
+        
+        // 處理建造
+        if (this.isBuilding && this.buildTarget) {
+            this.updateBuilding(currentTime, towerManager, gameState);
+        }
+        
+        // 處理攻擊
+        if (!this.isBuilding && currentTime >= this.lastAttackTime + this.attackCooldown) {
+            this.findAndAttackEnemy(currentTime, enemyManager);
+        }
+
+        // 更新攻擊彈道
+        this.updateAttackProjectiles(currentTime);
+    }
+
+    // 鍵盤移動處理
+    updateKeyboardMovement(deltaTime) {
+        let horizontal = (this.keyboardInput.right ? 1 : 0) - (this.keyboardInput.left ? 1 : 0);
+        let vertical = (this.keyboardInput.down ? 1 : 0) - (this.keyboardInput.up ? 1 : 0);
+        const externalAxis = this.getExternalKeyboardAxis();
+        if (externalAxis) {
+            horizontal = externalAxis.horizontal;
+            vertical = externalAxis.vertical;
+        }
+        
+        if (horizontal === 0 && vertical === 0) {
+            this.keyboardMoving = false;
+            return;
+        }
+        
+        this.keyboardMoving = true;
+        this.isMoving = false; // 取消點擊移動
+        this.moveTarget = null;
+        
+        const length = Math.sqrt(horizontal * horizontal + vertical * vertical) || 1;
+        const moveDistance = this.speed * (deltaTime / 1000);
+        const vx = (horizontal / length) * moveDistance;
+        const vy = (vertical / length) * moveDistance;
+        
+        let nextX = this.x + vx;
+        let nextY = this.y + vy;
+        
+        // 邊界檢查
+        nextX = Math.max(this.mapBounds.minX, Math.min(this.mapBounds.maxX, nextX));
+        nextY = Math.max(this.mapBounds.minY, Math.min(this.mapBounds.maxY, nextY));
+        
+        // 更新方向
+        if (Math.abs(vx) > Math.abs(vy)) {
+            this.direction = vx > 0 ? 0 : 2;
+        } else {
+            this.direction = vy > 0 ? 1 : 3;
+        }
+        
+        this.x = nextX;
+        this.y = nextY;
+    }
+
+    getExternalKeyboardAxis() {
+        if (typeof Input === 'undefined' || !Input.keys) return null;
+        const isDown = (k) => Input.keys[k] === true;
+        const horizontal = (isDown('ArrowRight') || isDown('d') || isDown('D') ? 1 : 0) -
+            (isDown('ArrowLeft') || isDown('a') || isDown('A') ? 1 : 0);
+        const vertical = (isDown('ArrowDown') || isDown('s') || isDown('S') ? 1 : 0) -
+            (isDown('ArrowUp') || isDown('w') || isDown('W') ? 1 : 0);
+        if (horizontal === 0 && vertical === 0) return null;
+        return { horizontal, vertical };
+    }
+
+    // 設定鍵盤輸入
+    handleMovementInput(direction, isPressed) {
+        if (!this.keyboardInput.hasOwnProperty(direction)) return;
+        this.keyboardInput[direction] = isPressed;
+        if (!isPressed) {
+            // 若所有鍵已釋放，標記鍵盤移動結束
+            const anyPressed = Object.values(this.keyboardInput).some(Boolean);
+            if (!anyPressed) {
+                this.keyboardMoving = false;
+            }
+        }
+    }
+    
+    // 更新移動
+    updateMovement(deltaTime, towerManager) {
+        if (!this.moveTarget) return;
+        
+        const dx = this.moveTarget.x - this.x;
+        const dy = this.moveTarget.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // 更新方向
+        if (Math.abs(dx) > Math.abs(dy)) {
+            this.direction = dx > 0 ? 0 : 2; // 右或左
+        } else {
+            this.direction = dy > 0 ? 1 : 3; // 下或上
+        }
+        
+        if (distance < 5) {
+            // 到達目標
+            this.x = this.moveTarget.x;
+            this.y = this.moveTarget.y;
+            this.isMoving = false;
+            this.moveTarget = null;
+            
+            // 如果目標是建造點，開始建造
+            if (this.buildTarget && this.isInBuildRange(this.buildTarget.x, this.buildTarget.y)) {
+                this.startBuilding(towerManager);
+            }
+        } else {
+            // 繼續移動
+            const moveDistance = this.speed * (deltaTime / 1000);
+            
+            if (distance <= moveDistance) {
+                this.x = this.moveTarget.x;
+                this.y = this.moveTarget.y;
+                this.isMoving = false;
+                this.moveTarget = null;
+                
+                if (this.buildTarget && this.isInBuildRange(this.buildTarget.x, this.buildTarget.y)) {
+                    this.startBuilding(towerManager);
+                }
+            } else {
+                this.x += (dx / distance) * moveDistance;
+                this.y += (dy / distance) * moveDistance;
+            }
+        }
+    }
+    
+    // 更新建造
+    updateBuilding(currentTime, towerManager, gameState) {
+        if (currentTime >= this.buildStartTime + this.buildDuration) {
+            this.isBuilding = false;
+            this.buildTarget = null;
+        }
+    }
+    
+    // 開始建造
+    startBuilding(towerManager) {
+        if (!this.buildTarget) return;
+
+        const tower = towerManager.buildTower(
+            this.buildTarget.towerType,
+            this.buildTarget.x,
+            this.buildTarget.y
+        );
+        if (!tower) {
+            this.isBuilding = false;
+            this.buildTarget = null;
+            return;
+        }
+
+        this.isBuilding = true;
+        this.buildStartTime = Date.now();
+        this.buildDuration = this.buildTarget.buildTime * 1000;
+        this.isMoving = false;
+        this.moveTarget = null;
+    }
+    
+    // 完成建造 - 創建防禦塔
+    completeBuilding(towerManager, gameState) {
+        this.isBuilding = false;
+        this.buildTarget = null;
+    }
+    
+    // 尋找並攻擊敵人
+    findAndAttackEnemy(currentTime, enemyManager) {
+        const nearestEnemy = enemyManager.getNearestEnemy(this.x, this.y, this.attackRange);
+        
+        if (nearestEnemy) {
+            this.attack(nearestEnemy, currentTime);
+        }
+    }
+    
+    // 攻擊（應用天賦系統加成）
+    attack(target, currentTime) {
+        if (!target.isAlive) return;
+        
+        this.isAttacking = true;
+        this.attackTarget = target;
+        this.lastAttackTime = currentTime;
+        
+        // 計算基礎傷害（應用天賦系統）
+        let finalDamage = this.damage;
+        
+        // 應用天賦系統的傷害加成
+        try {
+            if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+                // 傷害強化（百分比加成）
+                const damageBoostLevel = TalentSystem.getTalentLevel('damage_boost') || 0;
+                if (damageBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.damage_boost) {
+                    const effect = TalentSystem.tieredTalents.damage_boost.levels[damageBoostLevel - 1];
+                    if (effect && effect.multiplier) {
+                        finalDamage *= effect.multiplier;
+                    }
+                }
+                
+                // 傷害特化（固定加成）
+                const damageSpecLevel = TalentSystem.getTalentLevel('damage_specialization') || 0;
+                if (damageSpecLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.damage_specialization) {
+                    const effect = TalentSystem.tieredTalents.damage_specialization.levels[damageSpecLevel - 1];
+                    if (effect && effect.flat) {
+                        finalDamage += effect.flat;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('應用天賦系統傷害加成時出錯:', error);
+        }
+        
+        // 直接套用最終傷害，確保必中（不再使用 DamageSystem 進行命中判定）
+        const died = target.takeDamage(finalDamage, this);
+        
+        // 播放音效
+        if (this.onPlaySound) {
+            this.onPlaySound(this.attackSound);
+        }
+
+        // 產生匕首彈道視覺（純視覺，不影響命中判定與傷害）
+        this.spawnDaggerProjectile(target, currentTime);
+        
+        // 重置攻擊狀態
+        setTimeout(() => {
+            this.isAttacking = false;
+            this.attackTarget = null;
+        }, 200);
+        
+        return died;
+    }
+    
+    // 移動到指定位置
+    moveTo(x, y) {
+        this.moveTarget = { x, y };
+        this.isMoving = true;
+        this.isBuilding = false; // 取消當前建造
+        this.buildTarget = null;
+    }
+    
+    // 設定建造目標 - 新的建造系統
+    setBuildTarget(buildTarget) {
+        this.buildTarget = buildTarget;
+        // 直接設定移動目標但不清除建造目標
+        this.moveTarget = { x: buildTarget.x, y: buildTarget.y };
+        this.isMoving = true;
+    }
+    
+    // 檢查是否在建造範圍內
+    isInBuildRange(x, y) {
+        const distance = Math.sqrt(
+            Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2)
+        );
+        return distance <= this.buildRange;
+    }
+    
+    // 檢查是否在攻擊範圍內
+    isInAttackRange(x, y) {
+        const distance = Math.sqrt(
+            Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2)
+        );
+        return distance <= this.attackRange;
+    }
+    
+    // 停止移動
+    stopMoving() {
+        this.isMoving = false;
+        this.moveTarget = null;
+        this.buildTarget = null;
+    }
+    
+    // 取消建造
+    cancelBuilding() {
+        this.isBuilding = false;
+        this.buildTarget = null;
+    }
+    
+    
+    // 渲染玩家
+    render(ctx, resources) {
+        ctx.save();
+        
+        // 載入圖片
+        const image = resources.getImage('player');
+        if (image) {
+            // 繪製玩家
+            ctx.drawImage(
+                image,
+                this.x - this.size / 2,
+                this.y - this.size / 2,
+                this.size,
+                this.size
+            );
+        } else {
+            // 後備繪製（純色方塊）
+            ctx.fillStyle = this.isBuilding ? '#FFD700' : '#00FF00';
+            ctx.fillRect(
+                this.x - this.size / 2,
+                this.y - this.size / 2,
+                this.size,
+                this.size
+            );
+        }
+        
+        // 繪建造範圍（建造模式時）
+        if (this.isBuilding) {
+            this.renderBuildRange(ctx);
+        }
+        
+        // 繪製建造進度
+        if (this.isBuilding && this.buildTarget) {
+            this.renderBuildProgress(ctx);
+        }
+        
+        // 繪製移動目標
+        if (this.isMoving && this.moveTarget) {
+            this.renderMoveTarget(ctx);
+        }
+
+        // 繪製匕首彈道
+        this.renderAttackProjectiles(ctx, resources);
+        
+        ctx.restore();
+    }
+    
+    // （已停用）渲染攻擊範圍：防禦模式改用匕首彈道取代紅圈
+    renderAttackRange(ctx) {}
+
+    // 更新匕首彈道
+    updateAttackProjectiles(currentTime) {
+        const life = 200; // 每發匕首存活 200ms
+        this.attackProjectiles = this.attackProjectiles.filter(p => {
+            const t = (currentTime - p.startTime) / life;
+            if (t >= 1) return false;
+            p.t = t;
+            return true;
+        });
+    }
+
+    // 產生一發匕首彈道
+    spawnDaggerProjectile(target, currentTime) {
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
+        const angle = Math.atan2(dy, dx);
+        this.attackProjectiles.push({
+            startX: this.x,
+            startY: this.y,
+            targetX: target.x,
+            targetY: target.y,
+            angle,
+            startTime: currentTime,
+            t: 0
+        });
+    }
+
+    // 繪製匕首彈道
+    renderAttackProjectiles(ctx, resources) {
+        if (!this.attackProjectiles.length) return;
+        const image = resources.getImage('dagger');
+        const size = 24;
+        this.attackProjectiles.forEach(p => {
+            const x = p.startX + (p.targetX - p.startX) * p.t;
+            const y = p.startY + (p.targetY - p.startY) * p.t;
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(p.angle);
+            if (image) {
+                ctx.drawImage(image, -size / 2, -size / 2, size, size);
+            } else {
+                // 後備：使用簡單的白色匕首形狀
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(-size / 2, -2, size, 4);
+            }
+            ctx.restore();
+        });
+    }
+    
+    // 渲染建造範圍
+    renderBuildRange(ctx) {
+        ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.buildRange, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+    
+    // 渲染建造進度
+    renderBuildProgress(ctx) {
+        const buildProgress = (Date.now() - this.buildStartTime) / this.buildDuration;
+        const barWidth = 40;
+        const barHeight = 6;
+        const barY = this.y - this.size / 2 - 15;
+        
+        // 背景
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(this.x - barWidth / 2, barY, barWidth, barHeight);
+        
+        // 進度
+        ctx.fillStyle = '#FFD700';
+        ctx.fillRect(this.x - barWidth / 2, barY, barWidth * buildProgress, barHeight);
+        
+        // 邊框
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(this.x - barWidth / 2, barY, barWidth, barHeight);
+    }
+    
+    // 渲染移動目標
+    renderMoveTarget(ctx) {
+        if (!this.moveTarget) return;
+        
+        ctx.strokeStyle = '#00FF00';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(this.x, this.y);
+        ctx.lineTo(this.moveTarget.x, this.moveTarget.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // 目標標記
+        ctx.fillStyle = '#00FF00';
+        ctx.beginPath();
+        ctx.arc(this.moveTarget.x, this.moveTarget.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// 導出類別
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = TDPlayer;
+} else {
+    window.TDPlayer = TDPlayer;
+}
