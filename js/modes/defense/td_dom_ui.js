@@ -289,7 +289,7 @@
       const upCost = t.getUpgradeCost ? t.getUpgradeCost() : 0;
       if (this.towerEls.upBtn) {
         if (upCost > 0) {
-          this.towerEls.upBtn.textContent = `升級\n${upCost}${this.game.config.RESOURCES.RESOURCE_NAME}`;
+          this.towerEls.upBtn.textContent = `升級Z\n${upCost}${this.game.config.RESOURCES.RESOURCE_NAME}`;
           this.towerEls.upBtn.classList.toggle('disabled', this.game.gameState.gold < upCost);
         } else {
           this.towerEls.upBtn.textContent = '已達最高等級';
@@ -298,7 +298,7 @@
       }
       const sellPrice = t.getSellPrice ? t.getSellPrice() : 0;
       if (this.towerEls.sellBtn) {
-        this.towerEls.sellBtn.textContent = `出售\n${sellPrice}${this.game.config.RESOURCES.RESOURCE_NAME}`;
+        this.towerEls.sellBtn.textContent = `出售X\n${sellPrice}${this.game.config.RESOURCES.RESOURCE_NAME}`;
       }
     }
   };
