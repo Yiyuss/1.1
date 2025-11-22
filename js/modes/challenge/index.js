@@ -149,6 +149,30 @@ function safePlayShura(ctx) {
       canvas.width = baseW;
       canvas.height = baseH;
       
+      // 重要：立即驗證 Canvas 上下文是否有效，並強制觸發一次渲染
+      // 這解決了在 GitHub Pages 等環境下，Canvas 上下文可能未就緒的問題
+      try {
+        // 驗證上下文
+        if (!ctx2d) {
+          console.warn('[ChallengeMode] Canvas 上下文無效，嘗試重新獲取');
+          const newCtx2d = canvas.getContext('2d');
+          if (newCtx2d) {
+            ctx2d = newCtx2d;
+            try { ctx2d.imageSmoothingEnabled = false; } catch(_){}
+          } else {
+            console.error('[ChallengeMode] 無法獲取 Canvas 上下文');
+            return;
+          }
+        }
+        // 立即清除畫布並繪製初始畫面（避免黑屏）
+        ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+        ctx2d.fillStyle = '#1a1a2e';
+        ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+      } catch(e) {
+        console.error('[ChallengeMode] Canvas 初始化錯誤:', e);
+        return;
+      }
+      
       // 根據選擇的地圖決定使用哪個BOSS控制器（提前定義，供資源檢查使用）
       const selectedMapId = (params && params.selectedMap && params.selectedMap.id) ? params.selectedMap.id : 'challenge-1';
       let bgKey = 'challenge_bg4';
@@ -770,6 +794,8 @@ function safePlayShura(ctx) {
         // 重要：無論是否暫停，都要渲染（避免黑屏）
         // 這確保即使 paused = true，畫面也會顯示，不會永久黑屏
         render();
+        // 記錄最後一次渲染時間，供備用渲染檢查使用
+        try { window._lastChallengeRender = performance.now(); } catch(_) {}
         // 以 RAF 推進挑戰 HUD 的能量/回血邏輯（與生存模式一致以 dt 計算）
         try {
           if (typeof window.ChallengeUI !== 'undefined' && typeof window.ChallengeUI.advanceBars === 'function') {
@@ -778,7 +804,55 @@ function safePlayShura(ctx) {
         } catch(_) {}
         ctx.timers.requestAnimationFrame(loop);
       }
+      
+      // 重要：在啟動遊戲循環前，先強制渲染一次，確保畫面顯示
+      // 這解決了在 GitHub Pages 等環境下，如果頁面初始不可見導致 RAF 不執行的問題
+      // 因為 render 函數在 loop 函數之前定義，所以可以直接調用
+      try {
+        render();
+      } catch(e) {
+        console.warn('[ChallengeMode] 初始渲染失敗，將在循環中重試:', e);
+      }
+      
+      // 啟動遊戲循環
+      // 如果頁面初始不可見，RAF 可能不會立即執行，但一旦頁面變為可見就會自動恢復
       ctx.timers.requestAnimationFrame(loop);
+      
+      // 額外保障：使用 setInterval 定期檢查並強制渲染，確保即使 RAF 被暫停也能看到畫面
+      // 這解決了"預先切換畫面可以避免黑屏"的問題（因為切換畫面會觸發 visibilitychange，恢復 RAF）
+      let renderFallbackInterval = null;
+      const startRenderFallback = () => {
+        if (renderFallbackInterval) return; // 已啟動
+        renderFallbackInterval = setInterval(() => {
+          try {
+            // 只在頁面可見時強制渲染（避免浪費資源）
+            if (!document.hidden && document.visibilityState === 'visible') {
+              // 檢查循環是否真的在運行（通過檢查最近一次渲染時間）
+              // 如果超過 200ms 沒有渲染，強制渲染一次
+              const now = performance.now();
+              if (!window._lastChallengeRender || (now - window._lastChallengeRender) > 200) {
+                render();
+                window._lastChallengeRender = now;
+              }
+            }
+          } catch(_) {}
+        }, 100); // 每 100ms 檢查一次
+      };
+      startRenderFallback();
+      
+      // 在模式退出時清理備用渲染計時器
+      const originalExit = ctx.dispose;
+      if (typeof originalExit === 'function') {
+        ctx.dispose = function() {
+          try {
+            if (renderFallbackInterval) {
+              clearInterval(renderFallbackInterval);
+              renderFallbackInterval = null;
+            }
+          } catch(_) {}
+          if (typeof originalExit === 'function') originalExit.call(this);
+        };
+      }
 
       // 視窗尺寸變更時：不改 canvas 解析度（交由 UI/main.js 縮放），此處無需處理
 
