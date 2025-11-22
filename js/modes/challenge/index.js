@@ -148,6 +148,36 @@ function safePlayShura(ctx) {
       const baseH = (typeof CONFIG !== 'undefined' && CONFIG.CANVAS_HEIGHT) ? CONFIG.CANVAS_HEIGHT : 720;
       canvas.width = baseW;
       canvas.height = baseH;
+      
+      // 根據選擇的地圖決定使用哪個BOSS控制器（提前定義，供資源檢查使用）
+      const selectedMapId = (params && params.selectedMap && params.selectedMap.id) ? params.selectedMap.id : 'challenge-1';
+      let bgKey = 'challenge_bg4';
+      if (selectedMapId === 'challenge-2') bgKey = 'challenge_bg5';
+      else if (selectedMapId === 'challenge-3') bgKey = 'challenge_bg6';
+      else if (selectedMapId === 'challenge-4') bgKey = 'challenge_bg7';
+      
+      // 資源載入狀態標記（用於避免在資源未載入時啟動遊戲循環）
+      let resourcesReady = false;
+      
+      // 等待關鍵資源載入完成（避免在GitHub Pages等CDN環境下因資源未載入導致黑屏）
+      // 使用立即執行的異步函數等待資源載入，不阻塞主流程
+      (async () => {
+        const maxWait = 3000; // 最多等待3秒，避免無限等待
+        const startTime = Date.now();
+        while (Date.now() - startTime < maxWait) {
+          const bg = ctx.resources.getImage(bgKey);
+          const playerImg = ctx.resources.getImage('challenge_player');
+          // 檢查背景圖和玩家GIF是否已載入（complete屬性表示圖片已完全載入）
+          if (bg && bg.complete && playerImg && playerImg.complete) {
+            resourcesReady = true;
+            break;
+          }
+          // 等待下一幀再檢查
+          await new Promise(resolve => requestAnimationFrame(resolve));
+        }
+        // 即使超時也標記為就緒，避免永遠等待
+        if (!resourcesReady) resourcesReady = true;
+      })();
 
       // 建立上層彈幕 canvas 並插入 viewport（位置與主 canvas 對齊）
       try {
@@ -403,9 +433,7 @@ function safePlayShura(ctx) {
       let _playerTopHoldUntil = 0;
       // 勝利狀態旗標：避免重複觸發勝利流程（僅挑戰模式）
       let _victoryHandled = false;
-      // 根據選擇的地圖決定使用哪個BOSS控制器
-      const selectedMapId = (params && params.selectedMap && params.selectedMap.id) ? params.selectedMap.id : 'challenge-1';
-      // 記錄選擇的地圖ID供BGM選擇使用
+      // 記錄選擇的地圖ID供BGM選擇使用（已在上面定義）
       _selectedMapId = selectedMapId;
 
       // 簡易渲染：鋪背景並同步玩家 GIF 位置（不在 canvas 內重畫白方塊）
@@ -413,16 +441,18 @@ function safePlayShura(ctx) {
         ctx2d.clearRect(0,0,canvas.width,canvas.height);
         if (enemyBulletCtx) enemyBulletCtx.clearRect(0,0,baseW,baseH);
         // 根據選擇的地圖使用不同的背景圖片
-        let bgKey = 'challenge_bg4';
-        if (selectedMapId === 'challenge-2') bgKey = 'challenge_bg5';
-        else if (selectedMapId === 'challenge-3') bgKey = 'challenge_bg6';
-        else if (selectedMapId === 'challenge-4') bgKey = 'challenge_bg7';
         const bg = ctx.resources.getImage(bgKey);
-        if (bg) {
+        if (bg && bg.complete) {
+          // 資源已載入，正常渲染
           ctx2d.drawImage(bg, 0, 0, canvas.width, canvas.height);
         } else {
-          ctx2d.fillStyle = '#000';
+          // 資源未載入：顯示載入提示而非純黑屏
+          ctx2d.fillStyle = '#1a1a2e';
           ctx2d.fillRect(0,0,canvas.width,canvas.height);
+          ctx2d.fillStyle = '#ffffff';
+          ctx2d.font = '24px Arial';
+          ctx2d.textAlign = 'center';
+          ctx2d.fillText('載入中...', canvas.width / 2, canvas.height / 2);
         }
         // 分層：先畫玩家彈幕（同層 base canvas，位於玩家圖層下方）
         try { if (window.ChallengeBulletSystem) window.ChallengeBulletSystem.drawFriendly(ctx2d); } catch(_){}
