@@ -138,8 +138,8 @@ const Game = {
                             ? ModeManager.getActiveModeId()
                             : null);
                 } catch(_) {}
-                if (activeId === 'main' || activeId === 'challenge') {
-                    // 在主線/挑戰模式下不執行生存邏輯更新
+                if (activeId === 'main' || activeId === 'challenge' || activeId === 'defense') {
+                    // 在主線/挑戰/防禦模式下不執行生存邏輯更新
                 } else {
                     this.update(deltaTime);
                 }
@@ -342,7 +342,7 @@ const Game = {
             const activeId = (typeof GameModeManager !== 'undefined' && GameModeManager.getCurrent)
                 ? GameModeManager.getCurrent()
                 : ((typeof ModeManager !== 'undefined' && ModeManager.getActiveModeId) ? ModeManager.getActiveModeId() : null);
-            if (activeId === 'main' || activeId === 'challenge') {
+            if (activeId === 'main' || activeId === 'challenge' || activeId === 'defense') {
                 return;
             }
         } catch(_) {}
