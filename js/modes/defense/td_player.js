@@ -62,10 +62,19 @@ class TDPlayer {
         this.loadSprite();
     }
     
-    // 載入精靈圖
+    // 載入精靈圖（依選角角色決定玩家外觀，但保持 TD 模式獨立）
     loadSprite() {
+        // 預設：沿用原本防禦模式玩家圖
+        let src = 'assets/images/player.gif';
+        try {
+            const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+            // 灰妲DaDa：改用 player2.png，其餘角色維持 player.gif
+            if (sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2')) {
+                src = 'assets/images/player2.png';
+            }
+        } catch(_) {}
         this.sprite = {
-            src: 'assets/images/player.gif',
+            src,
             width: this.size,
             height: this.size
         };
@@ -377,8 +386,19 @@ class TDPlayer {
     render(ctx, resources) {
         ctx.save();
         
-        // 載入圖片
-        const image = resources.getImage('player');
+        // 載入圖片：依 this.sprite.src 推導資源鍵（支援 player / player2）
+        let image = null;
+        if (this.sprite && this.sprite.src) {
+            try {
+                const baseName = this.sprite.src
+                    .replace('assets/images/', '')
+                    .replace(/\.(png|gif)$/i, '');
+                image = resources.getImage(baseName);
+            } catch(_) {}
+        }
+        if (!image) {
+            image = resources.getImage('player');
+        }
         if (image) {
             // 繪製玩家
             ctx.drawImage(
