@@ -526,6 +526,8 @@ class TDEnemyManager {
     // 生成敵人
     spawnEnemies(currentTime) {
         if (!this.gameState.isWaveActive) return;
+        // 準備時間內絕對不生成敵人：只在 wavePrepTimer <= 0（準備結束之後）才開始依時間軸生怪
+        if (this.gameState.wavePrepTimer > 0) return;
         
         const spawnQueue = this.gameState.waveSpawnQueue;
         // 使用波次生成經過時間（毫秒），不直接依賴真實時間，確保暫停不會「補生」敵人
@@ -540,6 +542,14 @@ class TDEnemyManager {
                 spawnQueue.splice(i, 1);
             }
         }
+    }
+
+    /**
+     * 開始新的一波時呼叫，重置每條路徑的「已生成數量」，
+     * 確保新波次的第一隻怪都從起點開始排隊，而不會延續前一波的偏移量。
+     */
+    startNewWave() {
+        this._spawnedCountPerPath = [];
     }
     
     /**
