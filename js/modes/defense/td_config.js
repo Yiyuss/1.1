@@ -389,7 +389,6 @@ class TDGameState {
         this.lastSpawnTime = 0;
         this.waveStartTime = 0; // 波次實際開始生成敵人的時間（準備時間結束後）
         this.waveSpawnElapsed = 0; // 自開始生成敵人以來經過的時間（毫秒，暫停時不累計）
-        this.remainingEnemiesFromLastWave = 0; // 上一波未清掉的敵人數量
         
         // 建造相關
         this.selectedTowerType = null;
@@ -440,6 +439,7 @@ class TDGameState {
         this.waveSpawnQueue = this.generateWaveSpawnQueue(waveIndex);
         this.lastSpawnTime = 0;
         this.waveStartTime = 0; // 將在準備時間結束時設置
+        this.waveSpawnElapsed = 0; // 每一波從 0 開始累計生成時間，避免延續前一波的進度
     }
     
     // 生成波次生成隊列
@@ -531,7 +531,6 @@ class TDGameState {
         this.currentWaveEnemies = [];
         this.waveSpawnQueue = [];
         this.lastSpawnTime = 0;
-        this.remainingEnemiesFromLastWave = 0;
         this.waveStartTime = 0;
         this.waveSpawnElapsed = 0;
         this.selectedTowerType = null;
