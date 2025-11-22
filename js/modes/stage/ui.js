@@ -56,9 +56,16 @@
       } catch(_) {}
 
       try {
-        const img = ctx && ctx.resources ? ctx.resources.getImage('stage_avatar') : null;
         const avatarEl = $('#stage-avatar');
-        if (avatarEl) avatarEl.src = img ? img.src : 'assets/images/player1-2.png';
+        if (avatarEl) {
+          const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+          if (sc && (sc.id === 'dada' || sc.hudImageKey === 'player2-2')) {
+            avatarEl.src = 'assets/images/player2-2.png';
+          } else {
+            const img = ctx && ctx.resources ? ctx.resources.getImage('stage_avatar') : null;
+            avatarEl.src = img ? img.src : 'assets/images/player1-2.png';
+          }
+        }
       } catch(_) {}
 
       const music = $('#stage-music-volume');
