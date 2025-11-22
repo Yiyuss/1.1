@@ -4,6 +4,7 @@
 
 // -------------- 安全播放輔助 --------------
 let _needResumeShura = false;          // 被瀏覽器阻擋後，等待使用者互動補播
+let _selectedMapId = 'challenge-1';   // 記錄當前選擇的地圖ID
 // 守衛：僅在挑戰模式活動且非結束畫面時才允許播放 BGM
 function shouldPlayChallengeBGM(){
   try {
@@ -25,11 +26,20 @@ function shouldPlayChallengeBGM(){
 function safePlayShura(ctx) {
   if (!shouldPlayChallengeBGM()) return;
   try {
-    ctx.audio.unmuteAndPlay('shura_music', { loop: true });
-    _needResumeShura = false;            // 成功播放就關閉補播旗標
+    // 根據地圖選擇播放不同的BGM
+    let musicKey = 'shura_music';
+    if (_selectedMapId === 'challenge-2') musicKey = 'boss2_music';
+    else if (_selectedMapId === 'challenge-3') musicKey = 'boss3_music';
+    else if (_selectedMapId === 'challenge-4') musicKey = 'boss4_music';
+
+    // 統一走模式上下文音訊介面，確保先解除靜音再播放
+    ctx.audio.unmuteAndPlay(musicKey, { loop: true });
+
+    _needResumeShura = false;
   } catch (err) {
-    // 只處理 AbortError（用戶尚未互動導致）
-    if ((err && err.name === 'AbortError') || (err && String(err.message||'').includes('play'))) {
+    // 只處理 AbortError（用戶尚未互動導致）或其他播放錯誤
+    if ((err && err.name === 'AbortError') || (err && String(err.message||'').includes('play')) || 
+        (err && (err.name === 'NotAllowedError' || err.name === 'NotSupportedError'))) {
       _needResumeShura = true;
     }
     // 其餘錯誤也吃掉，避免中斷遊戲迴圈
@@ -46,12 +56,27 @@ function safePlayShura(ctx) {
       return {
         images: [
           { key: 'challenge_bg4', src: 'assets/images/background4.png' },
+          { key: 'challenge_bg5', src: 'assets/images/background5.jpg' },
+          { key: 'challenge_bg6', src: 'assets/images/background6.jpg' },
+          { key: 'challenge_bg7', src: 'assets/images/background7.jpg' },
           { key: 'challenge_player', src: 'assets/images/player.gif' },
           { key: 'challenge_avatar', src: 'assets/images/player1-2.png' },
-          { key: 'challenge_boss_gif', src: 'assets/images/challengeBOSS-1.gif' }
+          { key: 'challenge_boss_gif', src: 'assets/images/challengeBOSS-1.gif' },
+          { key: 'challenge_boss2_img', src: 'assets/images/challengeBOSS-2.png' },
+          { key: 'challenge_boss3_img', src: 'assets/images/challengeBOSS-3.png' },
+          { key: 'challenge_boss3_img_2', src: 'assets/images/challengeBOSS-3-2.png' },
+          { key: 'challenge_boss3_img_3', src: 'assets/images/challengeBOSS-3-3.png' },
+          { key: 'challenge_boss3_img_4', src: 'assets/images/challengeBOSS-3-4.png' },
+          { key: 'challenge_boss3_img_5', src: 'assets/images/challengeBOSS-3-5.png' },
+          { key: 'challenge_boss3_img_6', src: 'assets/images/challengeBOSS-3-6.png' },
+          { key: 'challenge_boss4_img', src: 'assets/images/challengeBOSS-4.gif' },
+          { key: 'aperture', src: 'assets/images/aperture.png' }
         ],
         audio: [
           { name: 'shura_music', src: 'assets/audio/Shura.mp3', loop: true },
+          { name: 'boss2_music', src: 'assets/audio/BOSS2.mp3', loop: true },
+          { name: 'boss3_music', src: 'assets/audio/BOSS3.mp3', loop: true },
+          { name: 'boss4_music', src: 'assets/audio/BOSS4.mp3', loop: true },
           { name: 'challenge_laser', src: 'assets/audio/challenge_laser.mp3', loop: false }
         ],
         json: []
@@ -84,8 +109,20 @@ function safePlayShura(ctx) {
       try { const cHUD = document.getElementById('challenge-ui'); if (cHUD) cHUD.style.display = ''; } catch(_){}
 
       // 音樂：先確保停止其他 BGM，再安全播放挑戰 BGM（避免重疊與 AbortError）
-      try { ctx.audio.stopAllMusic(); } catch(_){}
-      safePlayShura(ctx);
+      try { 
+        if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) {
+          AudioManager.stopAllMusic();
+        } else if (ctx.audio && ctx.audio.stopAllMusic) {
+          ctx.audio.stopAllMusic(); 
+        }
+      } catch(_){}
+      
+      // 延遲播放BGM，確保所有資源都載入完成
+      setTimeout(() => {
+        try {
+          safePlayShura(ctx);
+        } catch(_) {}
+      }, 100);
       // 挑戰模式專用音效動態註冊：避免全域音效清單污染其他模式
       try {
         if (typeof AudioManager !== 'undefined' && AudioManager.sounds && !AudioManager.sounds['challenge_laser']) {
@@ -193,14 +230,26 @@ function safePlayShura(ctx) {
         try {
           // 僅在挑戰模式活動且未顯示結束畫面時恢復 BGM
           if (!shouldPlayChallengeBGM()) return;
+          
+          let musicKey = 'shura_music';
+          if (_selectedMapId === 'challenge-2') musicKey = 'boss2_music';
+          else if (_selectedMapId === 'challenge-3') musicKey = 'boss3_music';
+          const track = (typeof AudioManager !== 'undefined' && AudioManager.music) ? AudioManager.music[musicKey] : null;
+          
+          // 如果音樂正在播放，不需要做任何事
+          if (track && typeof track.paused === 'boolean' && !track.paused && track.currentTime > 0) {
+            return;
+          }
+          
+          // 否則嘗試播放音樂
           safePlayShura(ctx);
-          const track = (typeof AudioManager !== 'undefined' && AudioManager.music) ? AudioManager.music['shura_music'] : null;
+          
           // 若仍未播放，於下一次使用者互動恢復（使用 ctx.events 註冊，確保離開模式時自動清理）
-          if (track && track.paused !== false) {
-            const onceHandler = function(){
+          if (track && typeof track.paused === 'boolean' && track.paused) {
+            const onceHandler = function onceHandler(){
               try {
                 if (!shouldPlayChallengeBGM()) return;
-                ctx.audio.unmuteAndPlay('shura_music', { loop: true });
+                safePlayShura(ctx);
               } catch(_){}
             };
             if (ctx && ctx.events && typeof ctx.events.on === 'function') {
@@ -211,7 +260,6 @@ function safePlayShura(ctx) {
               document.addEventListener('touchstart', onceHandler, { capture: true, once: true });
             }
           }
-          // 衝刺邏輯移至主迴圈，避免與音訊恢復耦合
         } catch(_){}
       }
 
@@ -278,10 +326,18 @@ function safePlayShura(ctx) {
       ctx.events.on(document, 'visibilitychange', () => {
         try {
           if (document.hidden) {
-            // 分頁隱藏：暫停主迴圈
+            // 分頁隱藏：暫停主迴圈和音樂
             paused = true;
+            // 停止音樂以避免瀏覽器自動暫停造成的問題
+            try {
+              if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) {
+                AudioManager.stopAllMusic();
+              } else if (ctx.audio && ctx.audio.stopAllMusic) {
+                ctx.audio.stopAllMusic();
+              }
+            } catch(_){}
           } else {
-            // 分頁回可見：僅在未開啟挑戰菜單、未處於勝利/失敗覆蓋層時恢復
+            // 分頁回可見：僅在未開啟挑戰菜單、未處於勝利/失敗覆蓋層時恢復主迴圈
             const m = document.getElementById('challenge-menu');
             const isOpen = m && !m.classList.contains('hidden');
             if (!isOpen && !Game.isGameOver) {
@@ -294,13 +350,27 @@ function safePlayShura(ctx) {
                   paused = false;
                 }
               } catch(_) { paused = false; }
-              try { ensureShuraPlaying(); } catch(_){}
+              // 重要：分頁重新可見時，**不能**自動播放音樂（瀏覽器限制）
+              // 設置標記，等待下一次用戶互動時再播放
+              _needResumeShura = true;
+              // 立即嘗試恢復音樂（與第一張地圖行為一致）
+              ensureShuraPlaying();
             }
           }
         } catch(_){}
       }, { capture: true });
       ctx.events.on(window, 'blur', () => {
-        try { paused = true; } catch(_){}
+        try { 
+          paused = true;
+          // 視窗失焦時也停止音樂
+          try {
+            if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) {
+              AudioManager.stopAllMusic();
+            } else if (ctx.audio && ctx.audio.stopAllMusic) {
+              ctx.audio.stopAllMusic();
+            }
+          } catch(_){}
+        } catch(_){}
       }, { capture: true });
       ctx.events.on(window, 'focus', () => {
         try {
@@ -316,7 +386,11 @@ function safePlayShura(ctx) {
                 paused = false;
               }
             } catch(_) { paused = false; }
-            try { ensureShuraPlaying(); } catch(_){}
+            // 重要：視窗重新獲得焦點時，**不能**自動播放音樂（瀏覽器限制）
+            // 設置標記，等待下一次用戶互動時再播放
+            _needResumeShura = true;
+            // 立即嘗試恢復音樂（與第一張地圖行為一致）
+            ensureShuraPlaying(ctx);
           }
         } catch(_){}
       }, { capture: true });
@@ -329,12 +403,21 @@ function safePlayShura(ctx) {
       let _playerTopHoldUntil = 0;
       // 勝利狀態旗標：避免重複觸發勝利流程（僅挑戰模式）
       let _victoryHandled = false;
+      // 根據選擇的地圖決定使用哪個BOSS控制器
+      const selectedMapId = (params && params.selectedMap && params.selectedMap.id) ? params.selectedMap.id : 'challenge-1';
+      // 記錄選擇的地圖ID供BGM選擇使用
+      _selectedMapId = selectedMapId;
 
       // 簡易渲染：鋪背景並同步玩家 GIF 位置（不在 canvas 內重畫白方塊）
       function render(){
         ctx2d.clearRect(0,0,canvas.width,canvas.height);
         if (enemyBulletCtx) enemyBulletCtx.clearRect(0,0,baseW,baseH);
-        const bg = ctx.resources.getImage('challenge_bg4');
+        // 根據選擇的地圖使用不同的背景圖片
+        let bgKey = 'challenge_bg4';
+        if (selectedMapId === 'challenge-2') bgKey = 'challenge_bg5';
+        else if (selectedMapId === 'challenge-3') bgKey = 'challenge_bg6';
+        else if (selectedMapId === 'challenge-4') bgKey = 'challenge_bg7';
+        const bg = ctx.resources.getImage(bgKey);
         if (bg) {
           ctx2d.drawImage(bg, 0, 0, canvas.width, canvas.height);
         } else {
@@ -450,8 +533,13 @@ function safePlayShura(ctx) {
               paused = true;
               try { if (window.ChallengeBulletSystem) window.ChallengeBulletSystem.reset(); } catch(_){}
               try { if (boss && typeof boss.stopAllEmitters === 'function') boss.stopAllEmitters(); } catch(_){}
-              try { ctx.audio.stopAllMusic(); } catch(_){}
-              try { if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) AudioManager.stopAllMusic(); } catch(_){}
+              try { 
+                if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) {
+                  AudioManager.stopAllMusic();
+                } else {
+                  ctx.audio.stopAllMusic();
+                }
+              } catch(_){}
               try {
                 if (typeof window !== 'undefined' && window.ChallengeUI && typeof window.ChallengeUI.showSurvivalSettlement === 'function') {
                   window.ChallengeUI.showSurvivalSettlement('failure');
@@ -594,8 +682,13 @@ function safePlayShura(ctx) {
                 paused = true;
                 try { if (window.ChallengeBulletSystem) window.ChallengeBulletSystem.reset(); } catch(_){}
                 try { if (boss && typeof boss.stopAllEmitters === 'function') boss.stopAllEmitters(); } catch(_){}
-                try { ctx.audio.stopAllMusic(); } catch(_){}
-                try { if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) AudioManager.stopAllMusic(); } catch(_){}
+                try { 
+                  if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) {
+                    AudioManager.stopAllMusic();
+                  } else {
+                    ctx.audio.stopAllMusic();
+                  }
+                } catch(_){}
                 _victoryHandled = true;
                 // 使用挑戰模式的結算覆蓋層，避免與生存模式互相污染
                 try {
@@ -662,13 +755,51 @@ function safePlayShura(ctx) {
         if (typeof window.ChallengeBulletSystem !== 'undefined') {
           window.ChallengeBulletSystem.init({ canvas, defaultDamage: 20 });
         }
-        const bossGif = ctx.resources.getImage('challenge_boss_gif');
-        const gw = bossGif && bossGif.naturalWidth ? bossGif.naturalWidth : 223;
-        const gh = bossGif && bossGif.naturalHeight ? bossGif.naturalHeight : 320;
-        const halfGifSize = { width: Math.floor(gw * 0.5), height: Math.floor(gh * 0.5) };
-        boss = (typeof window.ChallengeBoss !== 'undefined' && window.ChallengeBoss.create)
-          ? window.ChallengeBoss.create(ctx, { maxHealth: 100000, gifUrl: bossGif ? bossGif.src : 'assets/images/challengeBOSS-1.gif', gifSize: halfGifSize })
-          : null;
+        const boss1Img = ctx.resources.getImage('challenge_boss_gif');
+        const baseW = boss1Img && boss1Img.naturalWidth ? boss1Img.naturalWidth : 223;
+        const baseH = boss1Img && boss1Img.naturalHeight ? boss1Img.naturalHeight : 320;
+        const baseHalfH = Math.floor(baseH * 0.5);
+        const baseHalfW = Math.floor(baseW * 0.5);
+        const halfGifSize = { width: baseHalfW, height: baseHalfH };
+        
+        // 根據選擇的地圖使用不同的BOSS控制器
+        if (selectedMapId === 'challenge-4') {
+          // 使用第4張地圖的BOSS控制器（瑪格麗特） - 改用動態 GIF challengeBOSS-4.gif
+          const img4 = ctx.resources.getImage('challenge_boss4_img');
+          const nW4 = img4 && img4.naturalWidth ? img4.naturalWidth : 290;
+          const nH4 = img4 && img4.naturalHeight ? img4.naturalHeight : 242;
+          const scale4 = baseHalfH / nH4;
+          const size4 = { width: Math.floor(nW4 * scale4), height: Math.floor(nH4 * scale4) };
+          boss = (typeof window.ChallengeBoss4 !== 'undefined' && window.ChallengeBoss4.create)
+            ? window.ChallengeBoss4.create(ctx, { maxHealth: 100000, gifUrl: (img4 ? img4.src : 'assets/images/challengeBOSS-4.gif'), gifSize: size4 })
+            : null;
+        } else if (selectedMapId === 'challenge-3') {
+          // 使用第3張地圖的BOSS控制器（灰妲）
+          const img3 = ctx.resources.getImage('challenge_boss3_img');
+          const nW3 = img3 && img3.naturalWidth ? img3.naturalWidth : 290;
+          const nH3 = img3 && img3.naturalHeight ? img3.naturalHeight : 242;
+          const scale3 = baseHalfH / nH3;
+          const size3 = { width: Math.floor(nW3 * scale3), height: Math.floor(nH3 * scale3) };
+          boss = (typeof window.ChallengeBoss3 !== 'undefined' && window.ChallengeBoss3.create)
+            ? window.ChallengeBoss3.create(ctx, { maxHealth: 100000, gifUrl: (img3 ? img3.src : 'assets/images/challengeBOSS-3.png'), gifSize: size3 })
+            : null;
+        } else if (selectedMapId === 'challenge-2') {
+          // 使用第2張地圖的BOSS控制器（洛可洛斯特）
+          const img2 = ctx.resources.getImage('challenge_boss2_img');
+          const nW2 = img2 && img2.naturalWidth ? img2.naturalWidth : 267;
+          const nH2 = img2 && img2.naturalHeight ? img2.naturalHeight : 300;
+          const scale2 = baseHalfH / nH2;
+          const size2 = { width: Math.floor(nW2 * scale2), height: Math.floor(nH2 * scale2) };
+          boss = (typeof window.ChallengeBoss2 !== 'undefined' && window.ChallengeBoss2.create)
+            ? window.ChallengeBoss2.create(ctx, { maxHealth: 100000, gifUrl: (img2 ? img2.src : 'assets/images/challengeBOSS-2.png'), gifSize: size2 })
+            : null;
+        } else {
+          // 使用第1張地圖的BOSS控制器（森森鈴蘭）
+          boss = (typeof window.ChallengeBoss !== 'undefined' && window.ChallengeBoss.create)
+            ? window.ChallengeBoss.create(ctx, { maxHealth: 100000, gifUrl: boss1Img ? boss1Img.src : 'assets/images/challengeBOSS-1.gif', gifSize: halfGifSize })
+            : null;
+        }
+        
         // 生成於畫面「中間的上方」
         if (boss) {
           boss.x = canvas.width * 0.5;
@@ -692,6 +823,50 @@ function safePlayShura(ctx) {
         const c = document.getElementById('challenge-bullets-top');
         if (c && c.parentNode) c.parentNode.removeChild(c);
       } catch(_){}
+      // 清理全局變量（避免跨模式污染）
+      try {
+        if (typeof window.CHALLENGE_PLAYER !== 'undefined') delete window.CHALLENGE_PLAYER;
+        if (typeof window.CHALLENGE_PLAYER_VISUAL_SIZE_BASE !== 'undefined') delete window.CHALLENGE_PLAYER_VISUAL_SIZE_BASE;
+        if (typeof window.CHALLENGE_PLAYER_ON_TOP !== 'undefined') delete window.CHALLENGE_PLAYER_ON_TOP;
+        if (typeof window.CHALLENGE_BOSS !== 'undefined') delete window.CHALLENGE_BOSS;
+      } catch(_){}
+      // 清理挑戰模式專用音效（從AudioManager中移除）
+      try {
+        if (typeof AudioManager !== 'undefined' && AudioManager.sounds && AudioManager.sounds['challenge_laser']) {
+          try {
+            const sound = AudioManager.sounds['challenge_laser'];
+            if (sound && typeof sound.pause === 'function') sound.pause();
+          } catch(_){}
+          delete AudioManager.sounds['challenge_laser'];
+        }
+      } catch(_){}
+      // 清理挑戰模式專用經驗系統
+      try { if (typeof window.ChallengeExperience !== 'undefined' && typeof window.ChallengeExperience.reset === 'function') window.ChallengeExperience.reset(); } catch(_){}
+      // 清理DOM元素（結算覆蓋層等）
+      try {
+        const ceo = document.getElementById('challenge-end-overlay');
+        if (ceo && ceo.parentNode) ceo.parentNode.removeChild(ceo);
+      } catch(_){}
+      try {
+        const cfo = document.getElementById('challenge-failure-overlay');
+        if (cfo && cfo.parentNode) cfo.parentNode.removeChild(cfo);
+      } catch(_){}
+      // 清理生存模式的結算畫面（避免殘留）
+      try {
+        const vs = document.getElementById('victory-screen');
+        const gos = document.getElementById('game-over-screen');
+        if (vs) vs.classList.add('hidden');
+        if (gos) gos.classList.add('hidden');
+        const vv = document.getElementById('victory-video');
+        const gv = document.getElementById('game-over-video');
+        if (vv) { try { vv.pause(); vv.currentTime = 0; } catch(_){} }
+        if (gv) { try { gv.pause(); gv.currentTime = 0; } catch(_){} }
+        const vo = document.getElementById('victory-overlay');
+        const go = document.getElementById('game-over-overlay');
+        if (vo) vo.classList.add('hidden');
+        if (go) go.classList.add('hidden');
+      } catch(_){}
+      // 恢復UI顯示
       try { const gameUI = document.getElementById('game-ui'); if (gameUI) gameUI.style.display = ''; } catch(_){}
       try { if (typeof window.ChallengeUI !== 'undefined') window.ChallengeUI.dispose(); } catch(_){}
       try { const cHUD = document.getElementById('challenge-ui'); if (cHUD) cHUD.style.display = 'none'; } catch(_){}
