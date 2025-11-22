@@ -473,6 +473,10 @@ const skillIcons = {
             ? player._ultimateBackup.weapons // [{ type, level }]
             : player.weapons.map(w => ({ type: w.type, level: w.level }));
 
+        // 針對角色設定：可選擇性隱藏部分武器（例如第二位角色禁用綿羊系技能）
+        const ch = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+        const disabledWeapons = (ch && Array.isArray(ch.disabledWeapons)) ? new Set(ch.disabledWeapons) : new Set();
+
         // 現有武器升級選項（使用CONFIG計算下一級描述）
         const hasFrenzy = sourceWeaponsInfo.some(w => w.type === 'FRENZY_LIGHTNING');
         const hasFrenzySlash = sourceWeaponsInfo.some(w => w.type === 'FRENZY_SLASH');
@@ -480,6 +484,8 @@ const skillIcons = {
         for (const info of sourceWeaponsInfo) {
             const cfg = CONFIG.WEAPONS[info.type];
             if (!cfg) continue;
+            // 若此武器被角色設定為禁用，則不提供升級選項
+            if (disabledWeapons.has(info.type)) continue;
             // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
             if ((hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (info.type === 'DAGGER' || info.type === 'SLASH')) ||
@@ -498,6 +504,8 @@ const skillIcons = {
         const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH'];
         const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
         for (const weaponType of availableWeapons) {
+            // 若此武器被角色設定為禁用，則完全不顯示於升級選項中
+            if (disabledWeapons.has(weaponType)) continue;
             // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
             if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
@@ -1107,17 +1115,23 @@ const skillIcons = {
 
     /**
      * 綁定升級視窗背景圖到當前角色（預設 player -> player1-2.png）
-     * 依賴：Game.selectedCharacter.avatarImageKey；若缺失則回退到 'player'
+     * 依賴：Game.selectedCharacter.levelUpBgKey / hudImageKey / avatarImageKey；若缺失則回退到 'player'
      * 不變式：不更動任何文字顯示；僅設定背景圖片樣式
      */
     setLevelUpBackgroundForCharacter: function() {
         const bgEl = this._lumBg || (this.levelUpMenu ? this.levelUpMenu.querySelector('.lum-bg') : null);
         if (!bgEl) return;
         const ch = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
-        const key = (ch && ch.avatarImageKey) ? ch.avatarImageKey : 'player';
+        // 角色優先順序：levelUpBgKey > hudImageKey > avatarImageKey > 'player'
+        const key = (ch && (ch.levelUpBgKey || ch.hudImageKey || ch.avatarImageKey))
+            ? (ch.levelUpBgKey || ch.hudImageKey || ch.avatarImageKey)
+            : 'player';
         const map = {
-            // 現有唯一角色：使用指定底圖
-            player: 'assets/images/player1-2.png'
+            // 第一位角色（瑪格麗特）：使用 player1-2.png
+            player: 'assets/images/player1-2.png',
+            'player1-2': 'assets/images/player1-2.png',
+            // 第二位角色（灰妲DaDa）：使用 player2-2.png
+            'player2-2': 'assets/images/player2-2.png'
         };
         const url = map[key] || map['player'];
         bgEl.style.backgroundImage = `url('${url}')`;
