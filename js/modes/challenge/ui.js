@@ -124,11 +124,18 @@
         this._state.exp = 0; this._state.expMax = 100; // 固定 100
       } catch(_) {}
 
-      // 設定頭像圖片（使用挑戰模式資源）
+      // 設定頭像圖片（依選角角色決定，若無則使用挑戰模式預設資源）
       try {
-        const img = ctx && ctx.resources ? ctx.resources.getImage('challenge_avatar') : null;
         const avatarEl = $('#challenge-avatar');
-        if (avatarEl) avatarEl.src = img ? img.src : 'assets/images/player1-2.png';
+        if (avatarEl) {
+          const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+          if (sc && (sc.id === 'dada' || sc.hudImageKey === 'player2-2')) {
+            avatarEl.src = 'assets/images/player2-2.png';
+          } else {
+            const img = ctx && ctx.resources ? ctx.resources.getImage('challenge_avatar') : null;
+            avatarEl.src = img ? img.src : 'assets/images/player1-2.png';
+          }
+        }
       } catch(_) {}
 
       // 初始化音量 slider 與事件
