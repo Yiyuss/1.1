@@ -230,19 +230,16 @@ class TDGame {
     
     // 更新波次
     updateWave(deltaTime) {
-        // 如果當前波次未激活，檢查是否需要自動開始下一波
+        // 若當前波次未激活：代表位於兩波之間的空檔
+        // 符合 TD 標準流程：清完一波 → 自動進入下一波「準備時間」
         if (!this.gameState.isWaveActive) {
-            // 如果遊戲未結束且未獲勝，自動開始下一波（有準備時間）
             if (!this.isGameOver && !this.isGameWon && this.gameState.wave < this.config.GAME.MAX_WAVES) {
-                // 自動開始下一波（保留準備時間，讓玩家有時間準備）
+                // 自動開始下一波（先進入 60 秒準備，準備結束後才生怪）
                 this.startNextWave();
             }
             return;
         }
-        
-        // 更新波次計時器（秒）
-        this.gameState.waveTimer += deltaTime / 1000;
-        
+
         // 波次準備時間
         if (this.gameState.wavePrepTimer > 0) {
             this.gameState.wavePrepTimer -= deltaTime / 1000;
@@ -259,23 +256,6 @@ class TDGame {
         if (this.gameState.wavePrepTimer <= 0) {
             this.gameState.waveSpawnElapsed += deltaTime;
         }
-        
-        // 檢查波次時間限制
-        // 時間到了自動進入下一波，未清掉的敵人會累積到下一波
-        if (this.gameState.waveTimer >= this.config.GAME.WAVE_TIME_LIMIT) {
-            // 記錄當前未清掉的敵人數量
-            const remainingEnemies = this.enemyManager.getEnemyCount();
-            
-            // 完成當前波次（但不清掉敵人）
-            this.gameState.completeWave();
-            
-            // 自動開始下一波
-            if (this.gameState.wave < this.config.GAME.MAX_WAVES) {
-                // 在開始下一波之前，先記錄未清掉的敵人數量
-                this.gameState.remainingEnemiesFromLastWave = remainingEnemies;
-                this.startNextWave();
-            }
-        }
     }
     
     // 開始下一波（自動或手動）
@@ -285,74 +265,21 @@ class TDGame {
         const nextWave = this.gameState.wave;
         if (nextWave >= this.config.GAME.MAX_WAVES) return;
         
-        // 啟動下一波，先讓 TDGameState 依照 10 秒邏輯產生本波的 waveSpawnQueue
+        // 啟動下一波，讓 TDGameState 依照 10 秒邏輯產生本波的 waveSpawnQueue，
+        // 並重置敵人排隊偏移，確保新一波的怪物都從起點開始排隊。
         this.gameState.startWave(nextWave);
-        
-        // 如果有上一波未清掉的敵人，將它們「一併」併入本波的 10 秒生成時間軸中
-        if (this.gameState.remainingEnemiesFromLastWave > 0) {
-            const lastWaveConfig = TD_CONFIG.WAVES[nextWave - 1];
-            const currentWaveConfig = TD_CONFIG.WAVES[nextWave];
-            
-            if (lastWaveConfig && lastWaveConfig.enemies.length > 0 && 
-                currentWaveConfig && currentWaveConfig.enemies.length > 0) {
-                // 使用上一波最後一種敵人類型當作「補課怪」
-                const lastEnemyType = lastWaveConfig.enemies[lastWaveConfig.enemies.length - 1].type;
-                
-                // 先取出目前這一波原本的生成隊列
-                const baseQueue = Array.isArray(this.gameState.waveSpawnQueue)
-                    ? this.gameState.waveSpawnQueue.slice()
-                    : [];
-                
-                const extraCount = this.gameState.remainingEnemiesFromLastWave;
-                const NUM_PATHS = 4;
-                
-                // 將上一波殘留的敵人，加到新的隊列尾端（路線仍平均分配）
-                for (let i = 0; i < extraCount; i++) {
-                    const globalIndex = baseQueue.length + i;
-                    const pathIndex = globalIndex % NUM_PATHS;
-                    baseQueue.push({
-                        type: lastEnemyType,
-                        pathIndex,
-                        spawnTime: 0, // 先暫存，稍後統一重新計算
-                        spawned: false
-                    });
-                }
-                
-                // 依照「本波原本 + 補課怪」的總數量，重新計算 0~10 秒內的平均間隔
-                const totalEnemies = baseQueue.length;
-                const SPAWN_DURATION = 10000; // 10 秒 = 10000ms
-                const slotInterval = SPAWN_DURATION / totalEnemies;
-                
-                for (let i = 0; i < baseQueue.length; i++) {
-                    baseQueue[i].spawnTime = i * slotInterval;
-                }
-                
-                // 以重新排好時間軸的隊列覆蓋回去（確保所有敵人都能在 10 秒內生完）
-                this.gameState.waveSpawnQueue = baseQueue;
-            }
-            
-            // 重置上一波殘留計數器
-            this.gameState.remainingEnemiesFromLastWave = 0;
+        if (this.enemyManager && typeof this.enemyManager.startNewWave === 'function') {
+            this.enemyManager.startNewWave();
         }
         
         this.playSound(TD_CONFIG.SOUNDS.WAVE_START);
     }
     
-    // 手動開始波次（跳過準備時間）
+    // 手動開始波次（由玩家觸發）
     startWave() {
         if (this.gameState.isWaveActive) return false;
-
-        const nextWave = this.gameState.wave;
-        if (nextWave >= this.config.GAME.MAX_WAVES) return false;
-
-        // 直接開始波次，跳過準備時間
-        this.gameState.startWave(nextWave);
-        this.gameState.wavePrepTimer = 0; // 跳過準備時間
-        this.gameState.waveStartTime = this.currentTime; // 立即開始生成敵人
-        this.gameState.lastSpawnTime = this.currentTime;
-        this.enemyManager.lastSpawnTime = this.currentTime;
-        this.gameState.waveSpawnElapsed = 0; // 重設生成時間軸，避免全部同幀生成
-        this.playSound(TD_CONFIG.SOUNDS.WAVE_START);
+        // 統一走 startNextWave：先進入 60 秒準備時間，時間到才開始生怪
+        this.startNextWave();
         return true;
     }
     
@@ -647,6 +574,33 @@ class TDGame {
         // 繪製敵人
         if (this.config.DEBUG) { console.log('開始繪製敵人...'); }
         this.enemyManager.render(this.ctx, this.resources);
+        
+        // 繪製選中防禦塔的虛線標記（讓玩家清楚知道目前選中了哪座塔）
+        if (this.selectedTower) {
+            const t = this.selectedTower;
+            this.ctx.save();
+            this.ctx.setLineDash([6, 4]);
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+
+            const gridSize = this.config.MAP && this.config.MAP.GRID_SIZE ? this.config.MAP.GRID_SIZE : 80;
+            let radius;
+            if (t.type === 'SLOW' || t.type === 'MAGIC') {
+                // GIF 塔（瑪格麗特 / 森森鈴蘭）：依照實際 GIF 視覺大小放大一點，圈住整個動圖底部
+                radius = gridSize * 0.45; // 約一格稍大一點，對應高度 ~64px 的 GIF
+            } else {
+                const baseRadius =
+                    (t.sprite && t.sprite.width)
+                        ? (t.sprite.width / 2 + 6)
+                        : (gridSize * 0.35);
+                radius = Math.max(18, baseRadius);
+            }
+
+            this.ctx.beginPath();
+            this.ctx.arc(t.x, t.y, radius, 0, Math.PI * 2);
+            this.ctx.stroke();
+            this.ctx.restore();
+        }
         
         // 繪製玩家
         if (this.config.DEBUG) { console.log('開始繪製玩家...'); }
@@ -1004,6 +958,24 @@ class TDGame {
                     this.reset();
                 }
                 break;
+            case 'z':
+            case 'Z':
+                if (this.selectedTower) {
+                    if (rawEvent && typeof rawEvent.preventDefault === 'function') {
+                        rawEvent.preventDefault();
+                    }
+                    this.upgradeTower(this.selectedTower);
+                }
+                break;
+            case 'x':
+            case 'X':
+                if (this.selectedTower) {
+                    if (rawEvent && typeof rawEvent.preventDefault === 'function') {
+                        rawEvent.preventDefault();
+                    }
+                    this.sellTower(this.selectedTower);
+                }
+                break;
             case '1':
                 this.enterBuildMode('ARROW');
                 break;
@@ -1076,7 +1048,10 @@ class TDGame {
   // 出售防禦塔
   sellTower(tower) {
     if (tower && this.towerManager) {
-      this.towerManager.sellTower(tower);
+      const ok = this.towerManager.sellTower(tower);
+      if (ok && this.selectedTower === tower) {
+        this.selectedTower = null;
+      }
     }
   }
     
