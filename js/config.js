@@ -332,6 +332,10 @@ const CONFIG = {
         { id: 'forest', name: '草原', backgroundKey: 'background1-2' },
         { id: 'desert', name: '宇宙', backgroundKey: 'background1-3' },
         { id: 'challenge-1', name: 'LV1.銀河系', backgroundKey: 'background4' },
+        { id: 'challenge-2', name: 'LV2.星雲', backgroundKey: 'background5' },
+        { id: 'challenge-3', name: 'LV3.星軌', backgroundKey: 'background6' },
+        { id: 'challenge-4', name: 'LV4.黑洞', backgroundKey: 'background7' },
+        { id: 'defense-1', name: 'TD防禦戰場I', backgroundKey: 'background1-2' },
         // 主線模式地圖（不分難度）：測試用地圖
         { id: 'main-test', name: '測試用地圖', backgroundKey: 'background3' }
     ],
