@@ -140,7 +140,7 @@ class TDGame {
         this.enemyManager.onEnemyReachEnd = null;
         
         this.enemyManager.onGoldReward = (gold) => {
-            this.gameState.addGold(gold);
+            this.gameState.addEnemyGold(gold);
         };
         
         // 播放背景音樂
@@ -336,6 +336,7 @@ class TDGame {
             gold: this.gameState.gold,
             totalGoldEarned: this.gameState.totalGoldEarned,
             totalGoldSpent: this.gameState.totalGoldSpent,
+            enemyGoldEarned: this.gameState.enemyGoldEarned,
             enemiesKilled: this.gameState.enemiesKilled,
             towersBuilt: this.gameState.towersBuilt,
             baseHealth: this.gameState.baseHealth,
