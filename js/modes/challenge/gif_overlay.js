@@ -12,7 +12,7 @@
 
   function canonicalizeId(id){
     if (id === 'challenge-player') return 'player';
-    if (id === 'challenge-boss') return 'boss';
+    if (id === 'challenge-boss' || id === 'challenge-boss2' || id === 'challenge-boss3' || id === 'challenge-boss4') return 'boss';
     if (id === 'challenge-phase-banner') return 'phase-banner';
     return id || '';
   }
@@ -106,18 +106,65 @@
       } catch(_) {}
     },
     // 全螢幕覆蓋（挑戰模式 banner）
+    // 支援 GIF / PNG / JPG（<img>）與 MP4（<video>），透明度與淡入淡出邏輯與原本一致
     showFullscreenCover(id, src, options){
       try {
         const role = canonicalizeId(id || 'phase-banner');
-        const el = ensureImg(role);
-        if (!el) return;
-        if (src && el.src !== src) el.src = src;
-        el.style.left = '0px';
-        el.style.top = '0px';
-        el.style.width = '100%';
-        el.style.height = '100%';
-        el.style.objectFit = 'cover';
-        el.style.objectPosition = 'center center';
+        const vp = getViewport();
+        if (!vp) return;
+        const domId = ID_PREFIX + role;
+        const isVideo = typeof src === 'string' && src.toLowerCase().endsWith('.mp4');
+
+        let el = document.getElementById(domId);
+
+        // 若型態不符（例如原本是 <img>，現在要顯示 MP4），則移除重建
+        if (el && isVideo && el.tagName !== 'VIDEO') {
+          try { el.parentNode && el.parentNode.removeChild(el); } catch(_) {}
+          el = null;
+        } else if (el && !isVideo && el.tagName !== 'IMG') {
+          try { el.parentNode && el.parentNode.removeChild(el); } catch(_) {}
+          el = null;
+        }
+
+        if (!el) {
+          el = document.createElement(isVideo ? 'video' : 'img');
+          el.id = domId;
+          el.style.position = 'absolute';
+          el.style.zIndex = '8'; // phase-banner 專用層級
+          el.style.pointerEvents = 'none';
+          el.style.display = 'none';
+          el.style.left = '0px';
+          el.style.top = '0px';
+          el.style.width = '100%';
+          el.style.height = '100%';
+          el.style.objectFit = 'cover';
+          el.style.objectPosition = 'center center';
+
+          if (isVideo) {
+            el.muted = true;
+            el.loop = true;
+            el.autoplay = true;
+            el.playsInline = true;
+          } else {
+            el.style.imageRendering = 'pixelated';
+          }
+
+          vp.appendChild(el);
+        }
+
+        if (src) {
+          if (isVideo) {
+            if (el.src !== src) {
+              el.src = src;
+              try { el.load(); } catch(_) {}
+            }
+            try { el.currentTime = 0; } catch(_) {}
+            try { el.play().catch(()=>{}); } catch(_) {}
+          } else if (el.src !== src) {
+            el.src = src;
+          }
+        }
+
         const opts = Object.assign({ opacity: 0.5, fadeInMs: 300, holdMs: 3900, fadeOutMs: 300 }, options || {});
         el.style.opacity = '0';
         el.style.transition = `opacity ${Math.max(1, opts.fadeInMs)}ms ease-in-out`;
@@ -128,7 +175,15 @@
           try {
             el.style.transition = `opacity ${Math.max(1, opts.fadeOutMs)}ms ease-in-out`;
             el.style.opacity = '0';
-            setTimeout(() => { try { el.style.display = 'none'; } catch(_){} }, Math.max(1, opts.fadeOutMs) + 40);
+            setTimeout(() => {
+              try {
+                el.style.display = 'none';
+                if (isVideo) {
+                  try { el.pause(); } catch(_) {}
+                  try { el.currentTime = 0; } catch(_) {}
+                }
+              } catch(_) {}
+            }, Math.max(1, opts.fadeOutMs) + 40);
           } catch(_){ }
         }, total);
       } catch(_) {}
