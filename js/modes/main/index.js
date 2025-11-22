@@ -106,16 +106,23 @@
         { id: 'npc2', name: 'NPC-2', x: 460, y: 240, dialogues: ['未來這裡會加入角色故事與介紹。', '也可能有一些互動小遊戲。'] }
       ];
 
-      // 玩家初始位置與簡易點擊移動
+      // 玩家初始位置與簡易點擊移動（依選角角色決定外觀）
+      const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+      let imgKey = 'player';
+      if (sc && sc.spriteImageKey) {
+        imgKey = sc.spriteImageKey;
+      } else if (sc && sc.id === 'dada') {
+        imgKey = 'player2';
+      }
+      const imgObj = (typeof Game !== 'undefined' && Game.images) ? Game.images[imgKey] : null;
       const player = {
         x: 96,
         y: 96,
         speed: 2.2,
         targetX: null,
         targetY: null,
-        // 主線模式玩家視覺統一使用 player.gif（Game.images['player']）
-        imgKey: 'player',
-        img: (typeof Game !== 'undefined' && Game.images) ? Game.images['player'] : null
+        imgKey,
+        img: imgObj || ((typeof Game !== 'undefined' && Game.images) ? Game.images['player'] : null)
       };
 
       // 鏡頭（跟隨玩家）
