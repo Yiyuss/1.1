@@ -621,6 +621,18 @@ function setupMapAndDifficultySelection() {
             } else if (cfg && (cfg.id === 'challenge-1' || (typeof cfg.name === 'string' && cfg.name.includes('銀河系')))) {
                 // 銀河系地圖介紹
                 mapDescEl.textContent = '未知信號所具現化的能量體「森森鈴蘭」。';
+            } else if (cfg && (cfg.id === 'challenge-2' || (typeof cfg.name === 'string' && cfg.name.includes('星雲')))) {
+                // 星雲地圖介紹
+                mapDescEl.textContent = '星雲深處的神秘存在「洛可洛斯特」，在宇宙中探索著鬆餅。';
+            } else if (cfg && (cfg.id === 'challenge-3' || (typeof cfg.name === 'string' && cfg.name.includes('星軌')))) {
+                // 星軌地圖介紹
+                mapDescEl.textContent = '宇宙星軌守護者「灰妲」，操控著恆星的運行軌跡，非常愛工作。';
+            } else if (cfg && (cfg.id === 'challenge-4' || (typeof cfg.name === 'string' && cfg.name.includes('黑洞')))) {
+                // 黑洞地圖介紹
+                mapDescEl.textContent = '黑洞深處的終極存在「瑪格麗特·諾爾絲」，掌控著宇宙最神秘的力量。';
+            } else if (cfg && (cfg.id === 'defense-1' || (typeof cfg.name === 'string' && cfg.name.includes('糖果煉金坊')))) {
+                // 防禦模式第一張地圖介紹
+                mapDescEl.textContent = '守護魔法糖果煉金坊，抵抗未知信號的入侵！';
             }
         }
     };
@@ -713,24 +725,39 @@ function setupMapAndDifficultySelection() {
             return;
         }
 
-        // 若目前顯示的是防禦模式 grid，直接啟動防禦模式，不進入難度選擇
+        // 若目前顯示的是防禦模式 grid，或「已選地圖屬於防禦系列」，直接啟動防禦模式，不進入難度選擇
         const isDefenseMode = defenseGrid && !defenseGrid.classList.contains('hidden');
-        if (isDefenseMode) {
+        const isDefenseMap = selectedMapCfg && typeof selectedMapCfg.id === 'string' && selectedMapCfg.id.indexOf('defense') === 0;
+        if (isDefenseMode || isDefenseMap) {
             hide(mapScreen);
             hide(diffScreen);
             if (desertDiffScreen) hide(desertDiffScreen);
             hide(DOMCache.get('character-select-screen'));
-            if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
-                window.GameModeManager.start('defense', {
-                    selectedCharacter: Game.selectedCharacter,
-                    selectedMap: Game.selectedMap
-                });
-            } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
-                window.ModeManager.start('defense', {
-                    selectedCharacter: Game.selectedCharacter,
-                    selectedMap: Game.selectedMap
-                });
-            } else {
+            let started = false;
+            try {
+                if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
+                    if (typeof window.GameModeManager.has === 'function' && !window.GameModeManager.has('defense')) {
+                        throw new Error('defense mode not registered');
+                    }
+                    window.GameModeManager.start('defense', {
+                        selectedCharacter: Game.selectedCharacter,
+                        selectedMap: Game.selectedMap
+                    });
+                    started = true;
+                }
+            } catch (_) {}
+            if (!started) {
+                try {
+                    if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
+                        window.ModeManager.start('defense', {
+                            selectedCharacter: Game.selectedCharacter,
+                            selectedMap: Game.selectedMap
+                        });
+                        started = true;
+                    }
+                } catch (_) {}
+            }
+            if (!started) {
                 show(DOMCache.get('game-screen'));
             }
             return;
