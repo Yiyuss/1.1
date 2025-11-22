@@ -221,13 +221,6 @@ function safePlayShura(ctx) {
         }
       } catch(_){}
 
-      // 顯示左上角玩家頭像（沿用現有 UI 元素，不變更生存模式）
-      try {
-        const avatarEl = document.getElementById('player-avatar-img');
-        const avatarImg = ctx.resources.getImage('challenge_avatar');
-        if (avatarEl) avatarEl.src = avatarImg ? avatarImg.src : 'assets/images/player1-2.png';
-      } catch(_){}
-
       // 基本玩家狀態（示範：點擊移動）；渲染改為 GIF 圖片覆蓋於 canvas
       const size = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER && CONFIG.PLAYER.SIZE) ? CONFIG.PLAYER.SIZE : 48;
       const visualScale = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
@@ -256,9 +249,27 @@ function safePlayShura(ctx) {
       let sfxShootAcc = 0;
       const sfxShootRateMs = 180;
 
-      // 玩家 GIF 覆蓋：改用共用 GifOverlay，隨 UI 縮放自動對齊
-      const actorImg = ctx.resources.getImage('challenge_player');
-      const actorSrc = actorImg ? actorImg.src : 'assets/images/player.gif';
+      // 玩家圖片覆蓋：依選角角色決定圖像（預設瑪格麗特為 player.gif，灰妲為 player2.png）
+      let actorSrc;
+      try {
+        const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+        let key = 'player';
+        if (sc && sc.spriteImageKey) {
+          key = sc.spriteImageKey;
+        } else if (sc && sc.id === 'dada') {
+          key = 'player2';
+        }
+        const imgObj = (Game.images && Game.images[key]) ? Game.images[key] : null;
+        if (imgObj && imgObj.src) {
+          actorSrc = imgObj.src;
+        } else {
+          const actorImg = ctx.resources.getImage('challenge_player');
+          actorSrc = actorImg ? actorImg.src : 'assets/images/player.gif';
+        }
+      } catch(_) {
+        const actorImg = ctx.resources.getImage('challenge_player');
+        actorSrc = actorImg ? actorImg.src : 'assets/images/player.gif';
+      }
       // 與生存模式一致：以玩家基準尺寸乘以 VISUAL_SCALE 決定渲染尺寸（避免過大）
       const actorSizeDesired = Math.max(1, Math.floor(size * visualScale));
       const actorSize = (typeof window.CHALLENGE_PLAYER_VISUAL_SIZE_BASE === 'number' && window.CHALLENGE_PLAYER_VISUAL_SIZE_BASE > 0)
