@@ -57,13 +57,6 @@ function safePlayStage(ctx) {
       canvas.width = baseW;
       canvas.height = baseH;
 
-      // 左上玩家頭像（沿用生存 UI img，不影響模式獨立性）
-      try {
-        const avatarEl = document.getElementById('player-avatar-img');
-        const avatarImg = ctx.resources.getImage('stage_avatar');
-        if (avatarEl) avatarEl.src = avatarImg ? avatarImg.src : 'assets/images/player1-2.png';
-      } catch(_){}
-
       // 玩家狀態與移動
       const size = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER && CONFIG.PLAYER.SIZE) ? CONFIG.PLAYER.SIZE : 48;
       const visualScale = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
@@ -85,9 +78,27 @@ function safePlayStage(ctx) {
       let paused = false;
       const keys = { up:false, down:false, left:false, right:false };
 
-      // 玩家 GIF 覆蓋
-      const actorImg = ctx.resources.getImage('stage_player');
-      const actorSrc = actorImg ? actorImg.src : 'assets/images/player.gif';
+      // 玩家圖片覆蓋：依選角角色決定外觀（預設使用 player.gif，灰妲為 player2.png）
+      let actorSrc;
+      try {
+        const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+        let key = 'player';
+        if (sc && sc.spriteImageKey) {
+          key = sc.spriteImageKey;
+        } else if (sc && sc.id === 'dada') {
+          key = 'player2';
+        }
+        const imgObj = (Game.images && Game.images[key]) ? Game.images[key] : null;
+        if (imgObj && imgObj.src) {
+          actorSrc = imgObj.src;
+        } else {
+          const actorImg = ctx.resources.getImage('stage_player');
+          actorSrc = actorImg ? actorImg.src : 'assets/images/player.gif';
+        }
+      } catch(_) {
+        const actorImg = ctx.resources.getImage('stage_player');
+        actorSrc = actorImg ? actorImg.src : 'assets/images/player.gif';
+      }
       const actorSize = Math.max(1, Math.floor(size * visualScale));
 
       function ensureShuraPlaying(){
