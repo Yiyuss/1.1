@@ -33,10 +33,14 @@ const AudioManager = {
             { name: 'lightning_shoot', src: 'assets/audio/lightning_shoot.mp3' },
             { name: 'laser_shoot', src: 'assets/audio/laser_shoot.mp3' },
             { name: 'zaps', src: 'assets/audio/zaps.mp3' },
+            // 防禦模式冰凍塔專用音效（不更動既有鍵名與 SaveCode 結構）
+            { name: 'ICE', src: 'assets/audio/ICE.mp3' },
             { name: 'invincible_activate', src: 'assets/audio/Invincible.mp3' },
             { name: 'sing_cast', src: 'assets/audio/LA.mp3' },
             { name: 'button_click', src: 'assets/audio/button_click.mp3' },
             { name: 'button_click2', src: 'assets/audio/button_click2.mp3' },
+            { name: 'level_up2', src: 'assets/audio/level_up2.mp3' },
+            { name: 'money', src: 'assets/audio/money.mp3' },
             { name: 'achievements', src: 'assets/audio/achievements.mp3' },
             { name: 'bo', src: 'assets/audio/bo.mp3' },
             { name: 'boss_cooldown', src: 'assets/audio/BOSS.mp3' }
@@ -48,7 +52,13 @@ const AudioManager = {
             { name: 'game_music', src: 'assets/audio/game_music.mp3' },
             { name: 'boss_music', src: 'assets/audio/boss_music.mp3' },
             // 修羅模式專用 BGM
-            { name: 'shura_music', src: 'assets/audio/Shura.mp3' }
+            { name: 'shura_music', src: 'assets/audio/Shura.mp3' },
+            // 第二張挑戰地圖專用 BGM
+            { name: 'boss2_music', src: 'assets/audio/BOSS2.mp3' },
+            // 第三張挑戰地圖專用 BGM
+            { name: 'boss3_music', src: 'assets/audio/BOSS3.mp3' },
+            // 第四張挑戰地圖專用 BGM
+            { name: 'boss4_music', src: 'assets/audio/BOSS4.mp3' }
         ];
         
         // 加載音效
@@ -158,7 +168,10 @@ const AudioManager = {
               'assets/audio/menu_music.mp3',
               'assets/audio/game_music.mp3',
               'assets/audio/boss_music.mp3',
-              'assets/audio/Shura.mp3'
+              'assets/audio/Shura.mp3',
+              'assets/audio/BOSS2.mp3',
+              'assets/audio/BOSS3.mp3',
+              'assets/audio/BOSS4.mp3'
             ];
             const medias = document.querySelectorAll('audio');
             medias.forEach((m) => {
