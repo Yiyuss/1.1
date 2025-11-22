@@ -771,7 +771,7 @@ function safePlayShura(ctx) {
           const scale4 = baseHalfH / nH4;
           const size4 = { width: Math.floor(nW4 * scale4), height: Math.floor(nH4 * scale4) };
           boss = (typeof window.ChallengeBoss4 !== 'undefined' && window.ChallengeBoss4.create)
-            ? window.ChallengeBoss4.create(ctx, { maxHealth: 100000, gifUrl: (img4 ? img4.src : 'assets/images/challengeBOSS-4.gif'), gifSize: size4 })
+            ? window.ChallengeBoss4.create(ctx, { maxHealth: 250000, gifUrl: (img4 ? img4.src : 'assets/images/challengeBOSS-4.gif'), gifSize: size4 })
             : null;
         } else if (selectedMapId === 'challenge-3') {
           // 使用第3張地圖的BOSS控制器（灰妲）
@@ -781,7 +781,7 @@ function safePlayShura(ctx) {
           const scale3 = baseHalfH / nH3;
           const size3 = { width: Math.floor(nW3 * scale3), height: Math.floor(nH3 * scale3) };
           boss = (typeof window.ChallengeBoss3 !== 'undefined' && window.ChallengeBoss3.create)
-            ? window.ChallengeBoss3.create(ctx, { maxHealth: 100000, gifUrl: (img3 ? img3.src : 'assets/images/challengeBOSS-3.png'), gifSize: size3 })
+            ? window.ChallengeBoss3.create(ctx, { maxHealth: 200000, gifUrl: (img3 ? img3.src : 'assets/images/challengeBOSS-3.png'), gifSize: size3 })
             : null;
         } else if (selectedMapId === 'challenge-2') {
           // 使用第2張地圖的BOSS控制器（洛可洛斯特）
@@ -791,7 +791,7 @@ function safePlayShura(ctx) {
           const scale2 = baseHalfH / nH2;
           const size2 = { width: Math.floor(nW2 * scale2), height: Math.floor(nH2 * scale2) };
           boss = (typeof window.ChallengeBoss2 !== 'undefined' && window.ChallengeBoss2.create)
-            ? window.ChallengeBoss2.create(ctx, { maxHealth: 100000, gifUrl: (img2 ? img2.src : 'assets/images/challengeBOSS-2.png'), gifSize: size2 })
+            ? window.ChallengeBoss2.create(ctx, { maxHealth: 150000, gifUrl: (img2 ? img2.src : 'assets/images/challengeBOSS-2.png'), gifSize: size2 })
             : null;
         } else {
           // 使用第1張地圖的BOSS控制器（森森鈴蘭）
