@@ -398,6 +398,7 @@ class TDGameState {
         // 統計
         this.totalGoldEarned = 0;
         this.totalGoldSpent = 0;
+        this.enemyGoldEarned = 0; // 消滅敵人獲得的金幣累積
         this.waveTimes = [];
     }
     
@@ -405,6 +406,13 @@ class TDGameState {
     addGold(amount) {
         this.gold += amount;
         this.totalGoldEarned += amount;
+    }
+    
+    // 消滅敵人獲得的金幣（用於結算統計）
+    addEnemyGold(amount) {
+        this.gold += amount;
+        this.totalGoldEarned += amount;
+        this.enemyGoldEarned += amount;
     }
     
     spendGold(amount) {
@@ -538,6 +546,7 @@ class TDGameState {
         this.buildPreviewPos = null;
         this.totalGoldEarned = 0;
         this.totalGoldSpent = 0;
+        this.enemyGoldEarned = 0;
         this.waveTimes = [];
     }
 }
