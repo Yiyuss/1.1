@@ -368,8 +368,28 @@ const TD_CONFIG = {
 
 // 防禦塔TD遊戲狀態管理
 class TDGameState {
+    // 獲取防禦模式初始消波塊加成（從天賦系統）
+    static getDefenseGoldBonus() {
+        try {
+            if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+                const level = TalentSystem.getTalentLevel('defense_gold_boost');
+                if (level > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.defense_gold_boost) {
+                    const cfg = TalentSystem.tieredTalents.defense_gold_boost;
+                    if (cfg.levels && cfg.levels[level - 1]) {
+                        return cfg.levels[level - 1].bonus || 0;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('讀取防禦模式消波塊加成失敗:', e);
+        }
+        return 0;
+    }
+    
     constructor() {
-        this.gold = TD_CONFIG.RESOURCES.STARTING_GOLD;
+        const baseGold = TD_CONFIG.RESOURCES.STARTING_GOLD;
+        const talentBonus = TDGameState.getDefenseGoldBonus();
+        this.gold = baseGold + talentBonus;
         this.wave = 0;
         this.baseHealth = TD_CONFIG.BASE.MAX_HEALTH;
         this.maxBaseHealth = TD_CONFIG.BASE.MAX_HEALTH;
@@ -524,7 +544,9 @@ class TDGameState {
     
     // 重置遊戲
     reset() {
-        this.gold = TD_CONFIG.RESOURCES.STARTING_GOLD;
+        const baseGold = TD_CONFIG.RESOURCES.STARTING_GOLD;
+        const talentBonus = TDGameState.getDefenseGoldBonus();
+        this.gold = baseGold + talentBonus;
         this.wave = 0;
         this.baseHealth = TD_CONFIG.BASE.MAX_HEALTH;
         this.maxBaseHealth = TD_CONFIG.BASE.MAX_HEALTH;
