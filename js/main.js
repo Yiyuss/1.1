@@ -181,6 +181,13 @@ function createDefaultImages() {
     const imagesToLoad = [
         { name: 'player', src: 'assets/images/player.gif' },
         { name: 'player1-2', src: 'assets/images/player1-2.png' },
+        // 新增：第二位角色（灰妲DaDa）相關圖片
+        // - player2.png   ：所有模式中玩家進入戰場時的主體形象
+        // - player2-2.png ：所有模式 HUD 左上角頭像 + 生存模式升級介面左側底圖
+        // - player2-3.png ：選角介面角色卡片/預覽用圖片
+        { name: 'player2', src: 'assets/images/player2.png' },
+        { name: 'player2-2', src: 'assets/images/player2-2.png' },
+        { name: 'player2-3', src: 'assets/images/player2-3.png' },
         { name: 'playerN', src: 'assets/images/playerN.png' },
         { name: 'zombie', src: 'assets/images/zombie.png' },
         { name: 'zombie2', src: 'assets/images/zombie2.png' },
@@ -394,6 +401,40 @@ function setupCharacterSelection() {
     let picked = null;
     let lastTapTime = 0;
 
+    // 角色解鎖狀態管理（不透過 SaveCode，僅使用獨立 localStorage 鍵，避免影響引繼碼結構）
+    const CHAR_UNLOCK_KEY = 'unlocked_characters';
+    const loadUnlockedCharacters = () => {
+        try {
+            const raw = localStorage.getItem(CHAR_UNLOCK_KEY);
+            const arr = raw ? JSON.parse(raw) : [];
+            if (!Array.isArray(arr)) return ['margaret']; // 預設第一位角色解鎖
+            // 確保第一位角色永遠可用
+            if (!arr.includes('margaret')) arr.push('margaret');
+            return arr;
+        } catch (_) {
+            return ['margaret'];
+        }
+    };
+    const saveUnlockedCharacters = (list) => {
+        try {
+            const arr = Array.isArray(list) ? list.slice() : [];
+            if (!arr.includes('margaret')) arr.push('margaret');
+            localStorage.setItem(CHAR_UNLOCK_KEY, JSON.stringify(arr));
+        } catch (_) {}
+    };
+    const unlockedSet = new Set(loadUnlockedCharacters());
+    const isUnlocked = (id, ch) => {
+        // 若角色未設定解鎖價格或價格<=0，視為預設解鎖
+        if (ch && (!ch.unlockCost || ch.unlockCost <= 0)) return true;
+        return unlockedSet.has(id);
+    };
+    const unlockCharacter = (id) => {
+        if (!unlockedSet.has(id)) {
+            unlockedSet.add(id);
+            saveUnlockedCharacters(Array.from(unlockedSet));
+        }
+    };
+
     const updatePreview = (ch) => {
         if (!ch) return;
         picked = ch;
@@ -450,13 +491,58 @@ const iconMap = {
     cards.forEach(card => {
         const id = card.getAttribute('data-char-id');
         const ch = (CONFIG.CHARACTERS || []).find(c => c.id === id);
-        // 單擊：僅更新預覽
+        if (!ch) return;
+
+        // 初始根據解鎖狀態調整卡片外觀（簡單使用 locked 類別與灰階樣式）
+        const refreshCardLockState = () => {
+            const unlocked = isUnlocked(id, ch);
+            if (unlocked) {
+                card.classList.remove('locked');
+                const img = card.querySelector('img');
+                if (img) img.classList.remove('grayscale');
+            } else {
+                card.classList.add('locked');
+                const img = card.querySelector('img');
+                if (img) img.classList.add('grayscale');
+            }
+        };
+        refreshCardLockState();
+
+        const tryUnlockCharacter = () => {
+            const unlocked = isUnlocked(id, ch);
+            if (unlocked) return true;
+            const price = ch.unlockCost || 0;
+            // 若設定了解鎖價格，檢查金幣是否足夠
+            if (price > 0) {
+                const currentCoins = Game.coins || 0;
+                if (currentCoins < price) {
+                    alert(`需要 ${price} 金幣才能啟動 ${ch.name}，目前金幣不足。`);
+                    return false;
+                }
+                const ok = confirm(`是否花費 ${price} 金幣啟動 ${ch.name}？`);
+                if (!ok) return false;
+                // 扣除金幣並即時存檔與更新 UI（金幣鍵名與 SaveCode 結構保持不變）
+                Game.coins = Math.max(0, Math.floor(currentCoins - price));
+                try { Game.saveCoins(); } catch (_) {}
+                try { if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) UI.updateCoinsDisplay(Game.coins); } catch (_) {}
+                unlockCharacter(id);
+                refreshCardLockState();
+                alert(`${ch.name} 已啟動！`);
+                return true;
+            }
+            return true;
+        };
+
+        // 單擊：僅更新預覽（若未解鎖，仍可查看介紹）
         card.addEventListener('click', () => {
             playClick2();
             updatePreview(ch);
         });
-        // 雙擊：顯示選圖覆蓋層（不隱藏選角畫面）
+        // 雙擊：若角色已解鎖則進入選圖；否則嘗試購買解鎖
         card.addEventListener('dblclick', () => {
+            if (!isUnlocked(id, ch)) {
+                if (!tryUnlockCharacter()) return;
+            }
             Game.selectedCharacter = ch;
             show(DOMCache.get('map-select-screen'));
         });
@@ -464,6 +550,12 @@ const iconMap = {
         card.addEventListener('touchend', () => {
             const now = Date.now();
             if (now - lastTapTime <= 300) {
+                if (!isUnlocked(id, ch)) {
+                    if (!tryUnlockCharacter()) {
+                        lastTapTime = now;
+                        return;
+                    }
+                }
                 Game.selectedCharacter = ch;
                 show(DOMCache.get('map-select-screen'));
             } else {
