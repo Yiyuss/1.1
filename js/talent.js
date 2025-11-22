@@ -57,6 +57,12 @@ const TalentSystem = {
             name: '選項次數強化',
             description: '升級可增加重抽/換一個/保留的次數。',
             cost: 3000
+        },
+        // 新增：消波塊增加（僅套用在防禦模式）
+        defense_gold_boost: {
+            name: '消波塊增加',
+            description: '升級可提升防禦模式的初始消波塊。',
+            cost: 3000
         }
     },
 
@@ -166,6 +172,17 @@ const TalentSystem = {
                 { reroll: 5, replace: 5, hold: 5, cost: 9000 },
                 { reroll: 7, replace: 7, hold: 7, cost: 11000 },
                 { reroll: 9, replace: 9, hold: 9, cost: 13000 }
+            ]
+        },
+        // 新增：消波塊增加（僅套用在防禦模式，+200/+400/+600/+800/+1000/+1500）
+        defense_gold_boost: {
+            levels: [
+                { bonus: 200, cost: 3000 },
+                { bonus: 400, cost: 6000 },
+                { bonus: 600, cost: 12000 },
+                { bonus: 800, cost: 24000 },
+                { bonus: 1000, cost: 35000 },
+                { bonus: 1500, cost: 45000 }
             ]
         }
     },
@@ -596,6 +613,9 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'levelup_action_charges') {
             const add = eff.reroll || 0;
             return `重抽/換一個/保留次數各+${add}`;
+        } else if (id === 'defense_gold_boost') {
+            const bonus = eff.bonus || 0;
+            return `防禦模式初始消波塊+${bonus}`;
         }
         return base;
     };
