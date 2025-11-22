@@ -321,9 +321,54 @@ const CONFIG = {
             ULTIMATE_LEVEL: 10
         },
 
-    // 選角列表（目前僅1名角色）
+    // 選角列表（目前 2 名角色）
+    // 維護備註：
+    // - avatarImageKey   ：角色預覽用圖片鍵（選角右側大圖）
+    // - hudImageKey      ：遊戲中 HUD 左上角頭像用圖片鍵
+    // - spriteImageKey   ：生存模式中玩家主體使用的圖片鍵（對應 Game.images[key]）
+    // - levelUpBgKey     ：生存模式升級介面左側背景用圖片鍵
+    // - hpBonus          ：在基礎血量 CONFIG.PLAYER.MAX_HEALTH 之上額外增加的固定血量
+    // - canUseUltimate   ：是否允許使用 Q 鍵大絕（預設 true）
+    // - disabledWeapons  ：此角色在生存模式升級時不可見/不可選的武器 type 陣列
     CHARACTERS: [
-        { id: 'margaret', name: '瑪格麗特·諾爾絲', hpMultiplier: 1.0, speedMultiplier: 1.0, description: `角色介紹：全方面平均，可變身成三角形，穩健新手選擇。\n專屬技能：綿羊護體、紳士綿羊、追蹤綿羊、唱歌。`, avatarImageKey: 'player1-2' }
+        {
+            id: 'margaret',
+            name: '瑪格麗特·諾爾絲',
+            hpMultiplier: 1.0,
+            hpBonus: 0,
+            speedMultiplier: 1.0,
+            description: `角色介紹：全方面平均，可變身成三角形，穩健新手選擇。\n專屬技能：綿羊護體、紳士綿羊、追蹤綿羊、唱歌。`,
+            avatarImageKey: 'player1-2',
+            hudImageKey: 'player1-2',
+            spriteImageKey: 'player',
+            levelUpBgKey: 'player1-2',
+            canUseUltimate: true,
+            disabledWeapons: []
+        },
+        {
+            id: 'dada',
+            name: '灰妲DaDa',
+            // 第二位角色：初始血量比第一位角色多 100，其餘基礎數值相同
+            hpMultiplier: 1.0,
+            hpBonus: 100,
+            speedMultiplier: 1.0,
+            description: `角色介紹：元氣灰鸚鵡，有著卓越體質，特別耐扛！\n專屬技能：暫無`,
+            // 選角預覽圖（下方角色介紹用）：使用 player2-2.png
+            avatarImageKey: 'player2-2',
+            // 所有模式的 HUD 左上角頭像：使用 player2-2.png
+            hudImageKey: 'player2-2',
+            // 所有模式進入時的玩家主體形象：使用 player2.png
+            spriteImageKey: 'player2',
+            // 生存模式升級介面左側底圖：使用 player2-2.png
+            levelUpBgKey: 'player2-2',
+            // 第二位角色無法使用大絕（Q）
+            canUseUltimate: false,
+            // 生存模式升級時不顯示以下四種技能：
+            // 綿羊護體(ORBIT)、紳士綿羊(FIREBALL)、追蹤綿羊(LIGHTNING)、唱歌(SING)
+            disabledWeapons: ['ORBIT', 'FIREBALL', 'LIGHTNING', 'SING'],
+            // 解鎖價格（遊戲金幣）；若 <=0 則視為預設解鎖
+            unlockCost: 10000
+        }
     ],
     
     // 新增：地圖列表（背景鍵）
