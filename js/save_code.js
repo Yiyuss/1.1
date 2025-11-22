@@ -9,15 +9,17 @@
  * - 生成/套用過程不影響遊戲機制與事件順序；僅更新localStorage並在必要時刷新顯示。
  * 維護備註（風險與版本）：
  * - SaveSchema V1 欄位：v(版本)、ts(時間戳)、c(金幣)、tl(天賦等級物件)、ut(舊制已解鎖天賦陣列)。
+ * - SaveSchema V2 新增欄位：ac(已解鎖成就ID陣列)。
+ * - SaveSchema V3 新增欄位：uc(已解鎖角色ID陣列，對應 localStorage 'unlocked_characters')。
  * - 未來若新增資料（例如關卡進度/音量等）請：
- *   1) 提升 v 至 V2，新增最小相容邏輯（舊欄位保留且有預設值）。
+ *   1) 提升 v 版本號，新增最小相容邏輯（舊欄位保留且有預設值）。
  *   2) 維持鍵名穩定（避免破壞舊碼）。
  *   3) 在此檔案頂部更新「版本維護註記」。
  * - 加密/驗證：採用簡易對稱 XOR（key 來源為 SHA-256(salt) 或 FNV32 fallback），並以簽章（payload+salt 的雜湊前12位）驗證。
  *   這是防篡改、非安全強度保密（無伺服器條件下的折衷），請勿用於敏感資料。
  */
 const SaveCode = (function(){
-  const SCHEMA_VERSION = 2;
+  const SCHEMA_VERSION = 3;
   const SALT = 'MC_SAVE_SALT_V1::固定常量::僅用於防篡改';
 
   // 取得現有存檔資料（最小集合）
@@ -53,7 +55,25 @@ const SaveCode = (function(){
         achievements = Object.keys(map || {}).filter(k => map[k] && map[k].unlocked);
       }
     } catch(_) {}
-    return { v: SCHEMA_VERSION, ts: Date.now(), c: Math.max(0, Math.floor(coins||0)), tl: levels, ut: legacy, ac: achievements };
+    // unlocked characters（角色解鎖狀態，對應選角介面的購買解鎖）
+    let unlockedChars = [];
+    try {
+      const raw = localStorage.getItem('unlocked_characters');
+      const arr = raw ? JSON.parse(raw) : [];
+      unlockedChars = Array.isArray(arr) ? arr : [];
+    } catch(_) {}
+    // 確保預設角色永遠解鎖
+    if (!unlockedChars.includes('margaret')) unlockedChars.push('margaret');
+
+    return {
+      v: SCHEMA_VERSION,
+      ts: Date.now(),
+      c: Math.max(0, Math.floor(coins||0)),
+      tl: levels,
+      ut: legacy,
+      ac: achievements,
+      uc: unlockedChars
+    };
   }
 
   // --- Base64URL 工具 ---
@@ -187,10 +207,19 @@ const SaveCode = (function(){
       const levels = (payload.tl && typeof payload.tl === 'object') ? payload.tl : {};
       const legacy = Array.isArray(payload.ut) ? payload.ut : [];
       const achievements = Array.isArray(payload.ac) ? payload.ac : [];
+      const unlockedChars = Array.isArray(payload.uc) ? payload.uc : null;
       // 寫入 localStorage（不更動鍵名）
       try { localStorage.setItem('game_coins', String(coins)); } catch(_) {}
       try { localStorage.setItem('talent_levels', JSON.stringify(levels)); } catch(_) {}
       try { localStorage.setItem('unlocked_talents', JSON.stringify(legacy)); } catch(_) {}
+      // 寫入角色解鎖狀態（若有）
+      try {
+        if (unlockedChars && unlockedChars.length) {
+          // 確保預設角色永遠存在
+          if (!unlockedChars.includes('margaret')) unlockedChars.push('margaret');
+          localStorage.setItem('unlocked_characters', JSON.stringify(unlockedChars));
+        }
+      } catch(_) {}
       // 寫入成就（若有）
       try {
         if (achievements && achievements.length) {
