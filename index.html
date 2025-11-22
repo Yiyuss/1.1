@@ -92,11 +92,12 @@
                                     <ul class="list">
                                         <li><span class="badge">聲明</span> 所使用素材來源如下，版權皆屬原作者所有。</li>
                                         <li><span class="badge">頻道</span> <a href="https://www.youtube.com/@%E7%91%AA%E6%A0%BC%E9%BA%97%E7%89%B9margaretnorth" target="blank" rel="noopener">瑪格麗特</a>、<a href="https://www.youtube.com/@%E6%A3%AE%E6%A3%AE%E9%88%B4%E8%98%ADLilyLinglan" target="blank" rel="noopener">森森鈴蘭</a></li>
-                                        <li><span class="badge">繪師</span> <a href="https://x.com/Linye274" target="blank" rel="noopener">凜夜 (像素人物)</a>
+                                        <li><span class="badge">繪師</span> <a href="https://x.com/Linye274" target="blank" rel="noopener">凜夜 (像素人物)</a>、<a href="https://x.com/mellow9114" target="blank" rel="noopener">米歐 (像素建築)</a>
                                         <li><span class="badge">素材</span> GPT、illustAC、pixabay、DOVA-SYNDROME。</li>
                                         <li><span class="badge">設定</span> 角色設定、立繪、IP 皆為箱箱 THEBOX 所有。</li>
                                         <li><span class="badge">立場</span> 遊戲劇情皆為虛構二次創作，與原 IP 並無關聯。</li>
-                                        <li><span class="badge">用途</span> 內容致敬與娛樂為主，角色與元素取材自各 VTuber，無商業用途。</li>
+                                        <li><span class="badge">用途</span> 內容致敬與娛樂為主，無商業用途。</li>
+                                        <li><span class="badge">角色</span>  <a href="https://www.youtube.com/@ReLiveDaDa" target="blank" rel="noopener">灰妲</a>、<a href="https://www.youtube.com/@Locolost65" target="blank" rel="noopener">洛可洛斯特</a>
                                         <li><span class="badge">尊重</span> 若任何權利人對本作品有疑慮，請來信告知，我將立即修改或下架。</li>
                                         <li><span class="badge">授權</span> 未經同意不得重製、修改、再發布；欲參考或作為基底，請先取得許可。</li>
                                         <li><span class="badge">聯絡</span> <a href="https://x.com/Yi_yuss" target="blank" rel="noopener">https://x.com/Yi_yuss</a></li>
@@ -296,23 +297,23 @@
                   </button>
                 </div>
 
-                <!-- 挑戰模式：第一張地圖開放（LV1.銀河系），其餘暫未開放） -->
+                <!-- 挑戰模式：-->
                 <div class="map-grid hidden" id="grid-challenge">
                   <button class="map-card selectable" data-map-id="challenge-1">
                     <img src="assets/images/background4.png" alt="LV1.銀河系">
                     <div class="map-name">LV1.銀河系</div>
                   </button>
-                  <button class="map-card disabled" data-map-id="challenge-2">
-                    <img src="assets/images/background3.jpg" alt="尚未開放">
-                    <div class="map-name">尚未開放</div>
+                  <button class="map-card selectable" data-map-id="challenge-2">
+                    <img src="assets/images/background5.jpg" alt="LV2.星雲">
+                    <div class="map-name">LV2.星雲</div>
                   </button>
-                  <button class="map-card disabled" data-map-id="challenge-3">
-                    <img src="assets/images/background3.jpg" alt="尚未開放">
-                    <div class="map-name">尚未開放</div>
+                  <button class="map-card selectable" data-map-id="challenge-3">
+                    <img src="assets/images/background6.jpg" alt="LV3.星軌">
+                    <div class="map-name">LV3.星軌</div>
                   </button>
-                  <button class="map-card disabled" data-map-id="challenge-4">
-                    <img src="assets/images/background3.jpg" alt="尚未開放">
-                    <div class="map-name">尚未開放</div>
+                  <button class="map-card selectable" data-map-id="challenge-4">
+                    <img src="assets/images/background7.jpg" alt="LV4.黑洞">
+                    <div class="map-name">LV4.黑洞</div>
                   </button>
                   <button class="map-card disabled" data-map-id="challenge-5">
                     <img src="assets/images/background3.jpg" alt="尚未開放">
@@ -324,7 +325,7 @@
                   </button>
                 </div>
 
-                <!-- 闖關模式：六張尚未開放地圖（隱藏，點選闖關模式時顯示） -->
+                <!-- 闖關模式：-->
                 <div class="map-grid hidden" id="grid-stage">
                   <button class="map-card selectable" data-map-id="challenge-1">
                     <img src="assets/images/background4.png" alt="LV1.銀河系">
@@ -352,11 +353,11 @@
                   </button>
                 </div>
 
-                <!-- 防禦模式：六張尚未開放地圖（隱藏，點選防禦模式時顯示） -->
+                <!-- 防禦模式：-->
                 <div class="map-grid hidden" id="grid-defense">
-                  <button class="map-card selectable" data-map-id="challenge-1">
-                    <img src="assets/images/background4.png" alt="LV1.銀河系">
-                    <div class="map-name">LV1.銀河系(施工中)</div>
+                  <button class="map-card selectable" data-map-id="defense-1">
+                    <img src="assets/images/background1-2.png" alt="TD防禦戰場I">
+                    <div class="map-name">LV1.魔法糖果煉金坊</div>
                   </button>
                   <button class="map-card disabled" data-map-id="defense-2">
                     <img src="assets/images/background3.jpg" alt="尚未開放">
@@ -777,6 +778,78 @@
             </div>
           </div>
         </div>
+        
+        <!-- 防禦模式專用結算畫面：失敗 -->
+        <div id="defense-gameover-screen" class="screen hidden">
+          <video id="defense-gameover-video" src="assets/videos/game_over.mp4" preload="auto" playsinline></video>
+          <div class="game-over-summary">
+            <div class="game-over-summary-content">
+              <h2>防禦模式結算</h2>
+              <div class="summary-stats">
+                <div class="summary-stat">
+                  <span class="stat-label">遊戲時間:</span>
+                  <span class="stat-value" id="defense-failure-time">00:00</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">波次進度:</span>
+                  <span class="stat-value" id="defense-failure-wave">0/30</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">剩餘資源:</span>
+                  <span class="stat-value" id="defense-failure-gold">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">擊殺數:</span>
+                  <span class="stat-value" id="defense-failure-kill">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">建造塔數:</span>
+                  <span class="stat-value" id="defense-failure-tower">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">主堡血量:</span>
+                  <span class="stat-value" id="defense-failure-base">0/0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 防禦模式專用結算畫面：勝利 -->
+        <div id="defense-victory-screen" class="screen hidden">
+          <video id="defense-victory-video" src="assets/videos/victory.mp4" preload="auto" playsinline></video>
+          <div class="victory-summary">
+            <div class="victory-summary-content">
+              <h2>防禦模式勝利</h2>
+              <div class="summary-stats">
+                <div class="summary-stat">
+                  <span class="stat-label">遊戲時間:</span>
+                  <span class="stat-value" id="defense-victory-time">00:00</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">波次進度:</span>
+                  <span class="stat-value" id="defense-victory-wave">0/30</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">剩餘資源:</span>
+                  <span class="stat-value" id="defense-victory-gold">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">擊殺數:</span>
+                  <span class="stat-value" id="defense-victory-kill">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">建造塔數:</span>
+                  <span class="stat-value" id="defense-victory-tower">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">主堡血量:</span>
+                  <span class="stat-value" id="defense-victory-base">0/0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <!-- 天賦介面 -->
         <div id="talent-select-screen" class="screen hidden">
           <div class="char-card-wrap">
@@ -885,7 +958,7 @@
         <script src="js/experience.js"></script>
         <script src="js/chest.js"></script>
     <script src="js/ui.js"></script>
-    <!-- GIF 覆蓋層工具：確保玩家 GIF 在 Canvas 上正常動畫 -->
+        <!-- GIF 覆蓋層工具：確保玩家 GIF 在 Canvas 上正常動畫 -->
     <script src="js/gif_overlay.js"></script>
         <script src="js/wave.js"></script>
         <script src="js/talent.js"></script>
@@ -919,22 +992,75 @@
         <!-- 挑戰模式專用雷射美術，不影響其他模式 -->
         <script src="js/modes/challenge/laser_art.js"></script>
         <script src="js/modes/challenge/boss_patterns.js"></script>
+        <script src="js/modes/challenge/boss_patterns2.js"></script>
+        <script src="js/modes/challenge/boss_patterns3.js"></script>
+        <script src="js/modes/challenge/boss_patterns4.js"></script>
         <!-- 挑戰模式專屬經驗系統：與生存模式的經驗分離 -->
         <script src="js/modes/challenge/experience.js"></script>
         <script src="js/modes/challenge/boss.js"></script>
+        <script src="js/modes/challenge/boss2.js"></script>
+        <script src="js/modes/challenge/boss3.js"></script>
+        <script src="js/modes/challenge/boss4.js"></script>
         <!-- 挑戰模式骨架：接入隔離化 GameModeManager -->
         <script src="js/modes/challenge/index.js"></script>
         <!-- 闖關模式 UI 模組：提供 HUD 與 ESC 菜單 -->
         <script src="js/modes/stage/ui.js"></script>
         <!-- 闖關模式骨架：接入隔離化 GameModeManager -->
         <script src="js/modes/stage/index.js"></script>
-        <!-- 防禦模式 UI 模組：提供 HUD 與 ESC 菜單 -->
-        <script src="js/modes/defense/ui.js"></script>
-        <!-- 防禦模式骨架：接入隔離化 GameModeManager -->
+        <!-- 防禦模式專用 GIF 疊加層 -->
+        <script src="js/modes/defense/td_gif_overlay.js"></script>
+        <!-- 防禦模式核心組件 -->
+        <script src="js/modes/defense/td_config.js"></script>
+        <script>console.log('td_config.js 加載完成, TD_CONFIG:', typeof TD_CONFIG);</script>
+        <script src="js/modes/defense/td_map.js"></script>
+        <script>console.log('td_map.js 加載完成, TDMap:', typeof TDMap);</script>
+        <script src="js/modes/defense/td_enemy.js"></script>
+        <script>console.log('td_enemy.js 加載完成, TDEnemyManager:', typeof TDEnemyManager);</script>
+        <script src="js/modes/defense/td_tower.js"></script>
+        <script>console.log('td_tower.js 加載完成, TDTowerManager:', typeof TDTowerManager);</script>
+        <script src="js/modes/defense/td_player.js"></script>
+        <script>console.log('td_player.js 加載完成, TDPlayer:', typeof TDPlayer);</script>
+        <script src="js/modes/defense/td_game.js"></script>
+        <script>console.log('td_game.js 加載完成, TDGame:', typeof TDGame);</script>
+        <script src="js/modes/defense/td_ui_enhanced.js"></script>
+        <script>console.log('td_ui_enhanced.js 加載完成, TDEnhancedUI:', typeof TDEnhancedUI);</script>
+        <script src="js/modes/defense/td_dom_ui.js"></script>
+        <script src="js/modes/defense/td_settlement.js"></script>
+        <script>console.log('td_settlement.js 加載完成, TDDefenseSettlement:', typeof TDDefenseSettlement);</script>
+        
+        <!-- TD組件可用性檢查 -->
+        <script>
+        console.log('=== TD組件總結 ===');
+        console.log('TD_CONFIG:', typeof TD_CONFIG);
+        console.log('TDMap:', typeof TDMap);
+        console.log('TDEnemyManager:', typeof TDEnemyManager);
+        console.log('TDTowerManager:', typeof TDTowerManager);
+        console.log('TDPlayer:', typeof TDPlayer);
+        console.log('TDGame:', typeof TDGame);
+        console.log('TDEnhancedUI:', typeof TDEnhancedUI);
+        console.log('================');
+        </script>
+        
+        <!-- 防禦模式 UI 模組：提供 HUD 與 ESC 菜單 --> 
+        <script src="js/modes/defense/ui.js"></script> 
+        <!-- 防禦模式骨架：接入隔離化 GameModeManager --> 
         <script src="js/modes/defense/index.js"></script>
         <!-- 主線模式骨架：不分難度，探索 + NPC 對話 -->
         <script src="js/modes/main/index.js"></script>
         <script src="js/main.js"></script>
+        
+        <!-- TD組件可用性檢查 -->
+        <script>
+        console.log('=== TD組件總結（最終檢查） ===');
+        console.log('TD_CONFIG:', typeof TD_CONFIG);
+        console.log('TDMap:', typeof TDMap);
+        console.log('TDEnemyManager:', typeof TDEnemyManager);
+        console.log('TDTowerManager:', typeof TDTowerManager);
+        console.log('TDPlayer:', typeof TDPlayer);
+        console.log('TDGame:', typeof TDGame);
+        console.log('TDEnhancedUI:', typeof TDEnhancedUI);
+        console.log('=============================');
+        </script>
     </div>
 </body>
 </html>
