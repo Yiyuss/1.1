@@ -1,9 +1,9 @@
 // SaveService（包裝 SaveCode，相容升級骨架）
 // 職責：提供一致的存檔/引繼介面，保證不更動 SaveCode 模組邏輯與 localStorage 鍵名，並預留舊版自動升級流程。
 // 維護備註：
-// - 不改 SaveCode：不改動 SCHEMA_VERSION、SALT、簽章與編碼邏輯。
-// - 不改鍵名：沿用 'game_coins'、'talent_levels'、'unlocked_talents'、'achievements'；若未來新增資料，請以「預設值」策略相容，不覆蓋舊鍵。
-// - 升級策略：目前為 V2 最小集合；若新增欄位，請：
+// - 不改 SaveCode：不改動 SALT、簽章與編碼邏輯（僅允許提升 SCHEMA_VERSION 與新增欄位）。
+// - 不改鍵名：沿用 'game_coins'、'talent_levels'、'unlocked_talents'、'achievements'、'unlocked_characters'；若未來新增資料，請以「預設值」策略相容，不覆蓋舊鍵。
+// - 升級策略：目前為 V3 最小集合；若新增欄位，請：
 //   1) 在此檔實作 upgradeSchemaIfNeeded() 將缺失欄位補上預設值；
 //   2) SaveCode.collect() 可維持只收集最小集合，或於未來提升版本時追加欄位（仍允許舊碼套用）。
 (function(){
@@ -21,7 +21,7 @@
     try { localStorage.setItem(key, String(n)); } catch(_) {}
   }
 
-  // 自動升級舊版本存檔（目前 V2，僅確保必需鍵存在）
+  // 自動升級舊版本存檔（目前 V3，僅確保必需鍵存在）
   function upgradeSchemaIfNeeded(){
     // 1) 金幣
     const coins = readNumber('game_coins', 0);
@@ -38,7 +38,16 @@
     // 4) 成就表（可選）
     const achievements = readJSON('achievements', null);
     if (achievements && typeof achievements !== 'object') writeJSON('achievements', {});
-    // 注意：不增刪鍵名，不覆蓋有效資料。
+    // 5) 角色解鎖狀態（選角用）
+    const chars = readJSON('unlocked_characters', null);
+    if (!Array.isArray(chars)) {
+      // 若不存在，至少確保預設角色解鎖
+      writeJSON('unlocked_characters', ['margaret']);
+    } else if (!chars.includes('margaret')) {
+      chars.push('margaret');
+      writeJSON('unlocked_characters', chars);
+    }
+    // 注意：不增刪其他鍵名，不覆蓋有效資料。
   }
 
   async function exportSaveCode(){
