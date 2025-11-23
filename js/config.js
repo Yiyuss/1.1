@@ -87,6 +87,26 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復10HP" }
             ]
         },
+        YOUNG_DADA_GLORY: {
+            NAME: "幼妲光輝",
+            DAMAGE: 0,
+            COOLDOWN: 5000,
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 0,
+            DURATION: 2000,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次幼妲光輝，恢復1HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次幼妲光輝，恢復2HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次幼妲光輝，恢復3HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次幼妲光輝，恢復4HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次幼妲光輝，恢復5HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次幼妲光輝，恢復6HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次幼妲光輝，恢復7HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次幼妲光輝，恢復8HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次幼妲光輝，恢復9HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次幼妲光輝，恢復10HP" }
+            ]
+        },
         DAGGER: {
             NAME: "應援棒",
             DAMAGE: 10,
@@ -392,7 +412,7 @@ const CONFIG = {
             hpMultiplier: 1.0,
             hpBonus: 100,
             speedMultiplier: 1.0,
-            description: `角色介紹：元氣灰鸚鵡，有著卓越體質，特別耐扛！\n專屬技能：雞腿庇佑`,
+            description: `角色介紹：元氣灰鸚鵡，有著卓越體質，特別耐扛！\n專屬技能：雞腿庇佑、幼妲光輝`,
             // 選角預覽圖（下方角色介紹用）：使用 player2-2.png
             avatarImageKey: 'player2-2',
             // 所有模式的 HUD 左上角頭像：使用 player2-2.png
@@ -406,8 +426,8 @@ const CONFIG = {
             // 注意：不再需要在此處禁用 ORBIT、FIREBALL、LIGHTNING、SING
             // 因為這些技能已通過第一位角色的 exclusiveWeapons 機制自動隱藏
             disabledWeapons: [],
-            // 專屬技能：只有灰妲角色可以看到雞腿庇佑
-            exclusiveWeapons: ['CHICKEN_BLESSING'],
+            // 專屬技能：只有灰妲角色可以看到雞腿庇佑、幼妲光輝
+            exclusiveWeapons: ['CHICKEN_BLESSING', 'YOUNG_DADA_GLORY'],
             // 解鎖價格（遊戲金幣）；若 <=0 則視為預設解鎖
             unlockCost: 10000
         }
