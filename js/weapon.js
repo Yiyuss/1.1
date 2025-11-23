@@ -62,6 +62,20 @@ class Weapon {
             }
             return;
         }
+        // 特殊技能：幼妲光輝（不造成傷害，恢復HP並產生聖光特效）
+        if (this.type === 'YOUNG_DADA_GLORY') {
+            const heal = this.level;
+            this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+            if (typeof UI !== 'undefined') {
+                UI.updateHealthBar(this.player.health, this.player.maxHealth);
+            }
+            const effect = new YoungDadaGloryEffect(this.player, this.config.DURATION || 2000);
+            Game.addProjectile(effect);
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('sing_cast'); // 使用與唱歌相同的音效
+            }
+            return;
+        }
         // 特殊技能：旋球
         if (this.type === 'ORBIT') {
             const count = this.projectileCount;
