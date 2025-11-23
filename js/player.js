@@ -186,6 +186,23 @@ class Player extends Entity {
             const screenY = this.y - camY - shakeY;
             if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
                 window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, renderSize);
+                // 第二位角色大絕期間：將玩家GIF置於守護領域之上（z-index 5 > 4）
+                if (this.isUltimateActive && this._ultimateImageKey === 'playerN2') {
+                    try {
+                        const playerGifEl = document.getElementById('gif-overlay-player');
+                        if (playerGifEl) {
+                            playerGifEl.style.zIndex = '5'; // 高於守護領域的 z-index 4
+                        }
+                    } catch (_) {}
+                } else {
+                    // 非第二位角色大絕時，恢復預設 z-index
+                    try {
+                        const playerGifEl = document.getElementById('gif-overlay-player');
+                        if (playerGifEl) {
+                            playerGifEl.style.zIndex = '3'; // 恢復預設值
+                        }
+                    } catch (_) {}
+                }
             } else {
                 // 後備：仍以 Canvas 繪製（GIF 可能不動，但不影響功能）
                 ctx.drawImage(imgObj, this.x - renderSize / 2, this.y - renderSize / 2, renderSize, renderSize);
@@ -582,6 +599,17 @@ class Player extends Entity {
         // 能量歸零
         this.energy = 0;
         UI.updateEnergyBar(this.energy, this.maxEnergy);
+        
+        // 第二位角色大絕結束：恢復玩家GIF的z-index（在清理前檢查）
+        const wasDadaUltimate = (this._ultimateImageKey === 'playerN2');
+        if (wasDadaUltimate) {
+            try {
+                const playerGifEl = document.getElementById('gif-overlay-player');
+                if (playerGifEl) {
+                    playerGifEl.style.zIndex = '3'; // 恢復預設值
+                }
+            } catch (_) {}
+        }
         
         // 清理備份與角色特定配置
         this._ultimateBackup = null;
