@@ -176,6 +176,30 @@ const CONFIG = {
                 { COUNT: 10, DESCRIPTION: "生成10個綿羊護體環繞3秒" }
             ]
         },
+        CHICKEN_BLESSING: {
+            NAME: "雞腿庇佑",
+            DAMAGE: 10,
+            COOLDOWN: 4000,
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 20,
+            PROJECTILE_SIZE_PER_LEVEL: 2,
+            ORBIT_RADIUS: 60,
+            ORBIT_RADIUS_PER_LEVEL: 10,
+            DURATION: 3000, // 3秒持續
+            ANGULAR_SPEED: 6.283, // 約1圈/秒
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "生成1個雞腿庇佑環繞3秒" },
+                { COUNT: 2, DESCRIPTION: "生成2個雞腿庇佑環繞3秒" },
+                { COUNT: 3, DESCRIPTION: "生成3個雞腿庇佑環繞3秒" },
+                { COUNT: 4, DESCRIPTION: "生成4個雞腿庇佑環繞3秒" },
+                { COUNT: 5, DESCRIPTION: "生成5個雞腿庇佑環繞3秒" },
+                { COUNT: 6, DESCRIPTION: "生成6個雞腿庇佑環繞3秒" },
+                { COUNT: 7, DESCRIPTION: "生成7個雞腿庇佑環繞3秒" },
+                { COUNT: 8, DESCRIPTION: "生成8個雞腿庇佑環繞3秒" },
+                { COUNT: 9, DESCRIPTION: "生成9個雞腿庇佑環繞3秒" },
+                { COUNT: 10, DESCRIPTION: "生成10個雞腿庇佑環繞3秒" }
+            ]
+        },
         LASER: {
             NAME: "雷射",
             DAMAGE: 12,
@@ -342,7 +366,8 @@ const CONFIG = {
     // - levelUpBgKey     ：生存模式升級介面左側背景用圖片鍵
     // - hpBonus          ：在基礎血量 CONFIG.PLAYER.MAX_HEALTH 之上額外增加的固定血量
     // - canUseUltimate   ：是否允許使用 Q 鍵大絕（預設 true）
-    // - disabledWeapons  ：此角色在生存模式升級時不可見/不可選的武器 type 陣列
+    // - disabledWeapons  ：此角色在生存模式升級時不可見/不可選的武器 type 陣列（通用禁用）
+    // - exclusiveWeapons ：此角色的專屬技能，只有該角色可以看到和選擇
     CHARACTERS: [
         {
             id: 'margaret',
@@ -356,7 +381,9 @@ const CONFIG = {
             spriteImageKey: 'player',
             levelUpBgKey: 'player1-2',
             canUseUltimate: true,
-            disabledWeapons: []
+            disabledWeapons: [],
+            // 專屬技能：只有瑪格麗特角色可以看到
+            exclusiveWeapons: ['ORBIT', 'FIREBALL', 'LIGHTNING', 'SING']
         },
         {
             id: 'dada',
@@ -365,7 +392,7 @@ const CONFIG = {
             hpMultiplier: 1.0,
             hpBonus: 100,
             speedMultiplier: 1.0,
-            description: `角色介紹：元氣灰鸚鵡，有著卓越體質，特別耐扛！\n專屬技能：暫無`,
+            description: `角色介紹：元氣灰鸚鵡，有著卓越體質，特別耐扛！\n專屬技能：雞腿庇佑`,
             // 選角預覽圖（下方角色介紹用）：使用 player2-2.png
             avatarImageKey: 'player2-2',
             // 所有模式的 HUD 左上角頭像：使用 player2-2.png
@@ -376,9 +403,11 @@ const CONFIG = {
             levelUpBgKey: 'player2-2',
             // 第二位角色可以使用大絕（Q），使用專屬配置
             canUseUltimate: true,
-            // 生存模式升級時不顯示以下四種技能：
-            // 綿羊護體(ORBIT)、紳士綿羊(FIREBALL)、追蹤綿羊(LIGHTNING)、唱歌(SING)
-            disabledWeapons: ['ORBIT', 'FIREBALL', 'LIGHTNING', 'SING'],
+            // 注意：不再需要在此處禁用 ORBIT、FIREBALL、LIGHTNING、SING
+            // 因為這些技能已通過第一位角色的 exclusiveWeapons 機制自動隱藏
+            disabledWeapons: [],
+            // 專屬技能：只有灰妲角色可以看到雞腿庇佑
+            exclusiveWeapons: ['CHICKEN_BLESSING'],
             // 解鎖價格（遊戲金幣）；若 <=0 則視為預設解鎖
             unlockCost: 10000
         }
