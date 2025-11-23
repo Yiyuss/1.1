@@ -476,6 +476,7 @@ const iconMap = {
     AURA_FIELD: 'assets/images/A13.png',
     INVINCIBLE: 'assets/images/A14.png',
     CHICKEN_BLESSING: 'assets/images/A19.png',
+    YOUNG_DADA_GLORY: 'assets/images/A20.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
