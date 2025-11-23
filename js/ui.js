@@ -501,11 +501,26 @@ const skillIcons = {
         }
 
         // 新武器選項（基於來源狀態判定）
-        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH'];
+        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING'];
+        // 檢查角色專屬技能（只有特定角色可以看到）
+        const exclusiveWeapons = (ch && Array.isArray(ch.exclusiveWeapons)) ? new Set(ch.exclusiveWeapons) : new Set();
+        // 找出所有角色的專屬技能
+        const allExclusiveWeapons = new Set();
+        if (CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) {
+            CONFIG.CHARACTERS.forEach(char => {
+                if (char.exclusiveWeapons && Array.isArray(char.exclusiveWeapons)) {
+                    char.exclusiveWeapons.forEach(weapon => allExclusiveWeapons.add(weapon));
+                }
+            });
+        }
         const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
         for (const weaponType of availableWeapons) {
             // 若此武器被角色設定為禁用，則完全不顯示於升級選項中
             if (disabledWeapons.has(weaponType)) continue;
+            // 若此武器為專屬技能，只有擁有該專屬技能的角色可以看到
+            if (allExclusiveWeapons.has(weaponType) && !exclusiveWeapons.has(weaponType)) {
+                continue; // 其他角色的專屬技能，當前角色不可見
+            }
             // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
             if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
@@ -1380,6 +1395,7 @@ const iconMap = {
     ORBIT: 'assets/images/A7.png',
     AURA_FIELD: 'assets/images/A13.png',
     INVINCIBLE: 'assets/images/A14.png',
+    CHICKEN_BLESSING: 'assets/images/A19.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
     FRENZY_SLASH: 'assets/images/A18.png',
     MIND_MAGIC: 'assets/images/A16.png',
