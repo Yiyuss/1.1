@@ -43,7 +43,8 @@ const AudioManager = {
             { name: 'money', src: 'assets/audio/money.mp3' },
             { name: 'achievements', src: 'assets/audio/achievements.mp3' },
             { name: 'bo', src: 'assets/audio/bo.mp3' },
-            { name: 'boss_cooldown', src: 'assets/audio/BOSS.mp3' }
+            { name: 'boss_cooldown', src: 'assets/audio/BOSS.mp3' },
+            { name: 'playerN2', src: 'assets/audio/playerN2.mp3' } // 第二位角色大絕專用音效
         ];
         
         // 音樂列表
