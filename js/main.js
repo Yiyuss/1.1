@@ -189,6 +189,7 @@ function createDefaultImages() {
         { name: 'player2-2', src: 'assets/images/player2-2.png' },
         { name: 'player2-3', src: 'assets/images/player2-3.png' },
         { name: 'playerN', src: 'assets/images/playerN.png' },
+        { name: 'playerN2', src: 'assets/images/playerN2.gif' }, // 第二位角色大絕專用動態圖片
         { name: 'zombie', src: 'assets/images/zombie.png' },
         { name: 'zombie2', src: 'assets/images/zombie2.png' },
         { name: 'zombie3', src: 'assets/images/zombie3.png' },
