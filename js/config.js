@@ -320,6 +320,18 @@ const CONFIG = {
             ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'SLASH'],
             ULTIMATE_LEVEL: 10
         },
+        // 角色特定的大招配置（覆蓋 ULTIMATE 預設值）
+        CHARACTER_ULTIMATES: {
+            'margaret': {
+                // 使用預設 ULTIMATE 配置
+            },
+            'dada': {
+                IMAGE_KEY: 'playerN2', // 使用 playerN2.gif 動態圖片
+                ULTIMATE_WEAPONS: ['AURA_FIELD'], // 只裝上LV10的守護領域
+                EXTRA_DEFENSE: 10, // 大絕期間額外防禦+10
+                AUDIO_KEY: 'playerN2' // 大絕期間播放 playerN2.mp3
+            }
+        },
 
     // 選角列表（目前 2 名角色）
     // 維護備註：
@@ -361,8 +373,8 @@ const CONFIG = {
             spriteImageKey: 'player2',
             // 生存模式升級介面左側底圖：使用 player2-2.png
             levelUpBgKey: 'player2-2',
-            // 第二位角色無法使用大絕（Q）
-            canUseUltimate: false,
+            // 第二位角色可以使用大絕（Q），使用專屬配置
+            canUseUltimate: true,
             // 生存模式升級時不顯示以下四種技能：
             // 綿羊護體(ORBIT)、紳士綿羊(FIREBALL)、追蹤綿羊(LIGHTNING)、唱歌(SING)
             disabledWeapons: ['ORBIT', 'FIREBALL', 'LIGHTNING', 'SING'],
