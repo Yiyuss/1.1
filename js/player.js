@@ -411,6 +411,9 @@ class Player extends Entity {
         const audioKey = (charUltimate && charUltimate.AUDIO_KEY) 
             ? charUltimate.AUDIO_KEY 
             : null;
+        const sizeMultiplier = (charUltimate && typeof charUltimate.PLAYER_SIZE_MULTIPLIER === 'number')
+            ? charUltimate.PLAYER_SIZE_MULTIPLIER
+            : CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER;
         
         // 變身狀態
         this.isUltimateActive = true;
@@ -418,9 +421,9 @@ class Player extends Entity {
         this._ultimateImageKey = ultimateImageKey; // 儲存角色特定圖片鍵
         this._ultimateExtraDefense = extraDefense; // 儲存額外防禦
         
-        // 體型變大
-        this.width = Math.floor(this.width * CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER);
-        this.height = Math.floor(this.height * CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER);
+        // 體型變大（使用角色特定倍率或預設倍率）
+        this.width = Math.floor(this.width * sizeMultiplier);
+        this.height = Math.floor(this.height * sizeMultiplier);
         this.collisionRadius = Math.max(this.width, this.height) / 2;
         
         // 啟用武器，全部LV10（使用角色特定配置或預設配置）
