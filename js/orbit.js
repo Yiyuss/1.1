@@ -1,6 +1,6 @@
 // 旋球投射物：在玩家周圍以固定半徑旋轉，持續一段時間
 class OrbitBall extends Entity {
-    constructor(player, initialAngle, radius, damage, size, durationMs, angularSpeedRadPerSec) {
+    constructor(player, initialAngle, radius, damage, size, durationMs, angularSpeedRadPerSec, imageKey = 'lightning') {
         super(player.x + Math.cos(initialAngle) * radius, player.y + Math.sin(initialAngle) * radius, size, size);
         this.player = player;
         this.angle = initialAngle;
@@ -13,7 +13,10 @@ class OrbitBall extends Entity {
         this.duration = durationMs;
         this.angularSpeed = angularSpeedRadPerSec; // 弧度/秒
         this.startTime = Date.now();
-        this.weaponType = 'ORBIT';
+        // 根據圖片鍵判斷武器類型
+        this.weaponType = (imageKey === 'chicken') ? 'CHICKEN_BLESSING' : 'ORBIT';
+        // 視覺圖片鍵（預設為 lightning，可傳入其他鍵如 'chicken'）
+        this.imageKey = imageKey;
         // 視覺：輕量拖尾緩存（不影響傷害或判定）
         this.trail = [];
         this.trailMax = 12;
@@ -66,8 +69,9 @@ class OrbitBall extends Entity {
                 const t = this.trail[i];
                 const alpha = 0.08 + (i / this.trail.length) * 0.18;
                 ctx.globalAlpha = alpha;
-                if (Game.images && Game.images.lightning) {
-                    ctx.drawImage(Game.images.lightning, t.x - size / 2, t.y - size / 2, size * (0.9 - i * 0.02), size * (0.9 - i * 0.02));
+                const trailImg = (Game.images && Game.images[this.imageKey]) ? Game.images[this.imageKey] : null;
+                if (trailImg) {
+                    ctx.drawImage(trailImg, t.x - size / 2, t.y - size / 2, size * (0.9 - i * 0.02), size * (0.9 - i * 0.02));
                 } else {
                     ctx.fillStyle = '#fff59d';
                     ctx.beginPath();
@@ -78,8 +82,9 @@ class OrbitBall extends Entity {
             ctx.globalAlpha = 1;
         }
 
-        if (Game.images && Game.images.lightning) {
-            ctx.drawImage(Game.images.lightning, this.x - size / 2, this.y - size / 2, size, size);
+        const img = (Game.images && Game.images[this.imageKey]) ? Game.images[this.imageKey] : null;
+        if (img) {
+            ctx.drawImage(img, this.x - size / 2, this.y - size / 2, size, size);
         } else {
             // 備用：使用黃色球體
             ctx.fillStyle = '#ff0';
