@@ -329,7 +329,8 @@ const CONFIG = {
                 IMAGE_KEY: 'playerN2', // 使用 playerN2.gif 動態圖片
                 ULTIMATE_WEAPONS: ['AURA_FIELD'], // 只裝上LV10的守護領域
                 EXTRA_DEFENSE: 10, // 大絕期間額外防禦+10
-                AUDIO_KEY: 'playerN2' // 大絕期間播放 playerN2.mp3
+                AUDIO_KEY: 'playerN2', // 大絕期間播放 playerN2.mp3
+                PLAYER_SIZE_MULTIPLIER: 3.5 // 大絕期間體型放大倍率（比預設2.5更大）
             }
         },
 
