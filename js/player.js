@@ -45,6 +45,12 @@ class Player extends Entity {
         this.ultimateKeyHeld = false;
         // 是否允許使用大絕（預設為 true，可由選角資料覆寫：CONFIG.CHARACTERS[*].canUseUltimate）
         this.canUseUltimate = true;
+        // 大招期間的額外防禦（角色特定配置）
+        this._ultimateExtraDefense = 0;
+        // 大招期間播放的音效實例（用於結束時停止）
+        this._ultimateAudioInstance = null;
+        // 大招期間保存的BGM狀態（僅第二位角色使用）
+        this._ultimateBgmBackup = null;
 
         // 玩家朝向（以移動方向為基準；停止時保留上一朝向）
         this.facingAngle = 0;
@@ -156,13 +162,17 @@ class Player extends Entity {
             ctx.globalAlpha = 0.5;
         }
         
-        // 使用玩家圖片（大招期間使用 playerN）；改用 GIF 覆蓋層以保證動畫
+        // 使用玩家圖片（大招期間使用角色特定圖片或預設 playerN）；改用 GIF 覆蓋層以保證動畫
         const baseKey = (this.spriteImageKey && Game.images && Game.images[this.spriteImageKey])
             ? this.spriteImageKey
             : 'player';
-        const imgKey = (this.isUltimateActive && Game.images && Game.images[CONFIG.ULTIMATE.IMAGE_KEY])
-            ? CONFIG.ULTIMATE.IMAGE_KEY
-            : baseKey;
+        // 使用角色特定的大招圖片鍵（若存在），否則使用預設
+        const ultimateImgKey = (this.isUltimateActive && this._ultimateImageKey && Game.images && Game.images[this._ultimateImageKey])
+            ? this._ultimateImageKey
+            : (this.isUltimateActive && Game.images && Game.images[CONFIG.ULTIMATE.IMAGE_KEY])
+                ? CONFIG.ULTIMATE.IMAGE_KEY
+                : null;
+        const imgKey = ultimateImgKey || baseKey;
         const imgObj = (Game.images && Game.images[imgKey]) ? Game.images[imgKey] : null;
         if (imgObj) {
             const baseSize = Math.max(this.width, this.height);
@@ -292,6 +302,13 @@ class Player extends Entity {
      die() {
          if (Game.isGameOver || this._isDead) return;
          this._isDead = true;
+         // 清理大招狀態（包括音效、額外防禦、BGM備份等）
+         if (this.isUltimateActive) {
+             this.deactivateUltimate();
+         } else if (this._ultimateBgmBackup) {
+             // 如果大招已結束但BGM備份還在，清理它
+             this._ultimateBgmBackup = null;
+         }
          Game.gameOver();
      }
     
@@ -369,22 +386,106 @@ class Player extends Entity {
             weapons: this.weapons.map(w => ({ type: w.type, level: w.level }))
         };
         
+        // 取得角色特定的大招配置（若存在）
+        let characterId = null;
+        try {
+            if (typeof Game !== 'undefined' && Game.selectedCharacter) {
+                characterId = Game.selectedCharacter.id;
+            }
+        } catch (_) {}
+        
+        const charUltimate = (characterId && CONFIG.CHARACTER_ULTIMATES && CONFIG.CHARACTER_ULTIMATES[characterId]) 
+            ? CONFIG.CHARACTER_ULTIMATES[characterId] 
+            : null;
+        
+        // 使用角色特定配置或預設配置
+        const ultimateImageKey = (charUltimate && charUltimate.IMAGE_KEY) 
+            ? charUltimate.IMAGE_KEY 
+            : CONFIG.ULTIMATE.IMAGE_KEY;
+        const ultimateWeapons = (charUltimate && charUltimate.ULTIMATE_WEAPONS) 
+            ? charUltimate.ULTIMATE_WEAPONS 
+            : CONFIG.ULTIMATE.ULTIMATE_WEAPONS;
+        const extraDefense = (charUltimate && typeof charUltimate.EXTRA_DEFENSE === 'number') 
+            ? charUltimate.EXTRA_DEFENSE 
+            : 0;
+        const audioKey = (charUltimate && charUltimate.AUDIO_KEY) 
+            ? charUltimate.AUDIO_KEY 
+            : null;
+        
         // 變身狀態
         this.isUltimateActive = true;
         this.ultimateEndTime = Date.now() + CONFIG.ULTIMATE.DURATION_MS;
+        this._ultimateImageKey = ultimateImageKey; // 儲存角色特定圖片鍵
+        this._ultimateExtraDefense = extraDefense; // 儲存額外防禦
         
         // 體型變大
         this.width = Math.floor(this.width * CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER);
         this.height = Math.floor(this.height * CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER);
         this.collisionRadius = Math.max(this.width, this.height) / 2;
         
-        // 啟用四種武器，全部LV10
-        this.weapons = CONFIG.ULTIMATE.ULTIMATE_WEAPONS.map(type => {
+        // 啟用武器，全部LV10（使用角色特定配置或預設配置）
+        this.weapons = ultimateWeapons.map(type => {
             const w = new Weapon(this, type);
             w.level = CONFIG.ULTIMATE.ULTIMATE_LEVEL;
             w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
             return w;
         });
+        
+        // 應用額外防禦（角色特定配置）
+        if (extraDefense > 0) {
+            const originalDefense = this.baseDefense || 1; // 預設基礎防禦為1
+            this.baseDefense = originalDefense + extraDefense;
+        }
+        
+        // 第二位角色：大絕期間暫停BGM（僅第二位角色）
+        if (characterId === 'dada' && typeof AudioManager !== 'undefined' && AudioManager.music) {
+            try {
+                // 查找當前正在播放的BGM
+                let currentBgmName = null;
+                let currentBgmTime = 0;
+                for (const key in AudioManager.music) {
+                    if (AudioManager.music.hasOwnProperty(key)) {
+                        const track = AudioManager.music[key];
+                        try {
+                            if (track && !track.paused && track.currentTime > 0) {
+                                currentBgmName = key;
+                                currentBgmTime = track.currentTime;
+                                // 暫停BGM
+                                track.pause();
+                                break;
+                            }
+                        } catch (_) {}
+                    }
+                }
+                // 保存BGM狀態以便恢復
+                if (currentBgmName) {
+                    this._ultimateBgmBackup = {
+                        name: currentBgmName,
+                        time: currentBgmTime
+                    };
+                }
+            } catch (e) {
+                console.warn('保存BGM狀態失敗:', e);
+            }
+        }
+        
+        // 播放角色特定音效（若存在）
+        if (audioKey && typeof AudioManager !== 'undefined' && AudioManager.sounds && AudioManager.sounds[audioKey]) {
+            try {
+                const audio = AudioManager.sounds[audioKey];
+                // 克隆音效以允許重疊播放
+                this._ultimateAudioInstance = audio.cloneNode();
+                this._ultimateAudioInstance.volume = AudioManager.soundVolume;
+                this._ultimateAudioInstance.loop = false; // 大絕期間只播放一次
+                this._ultimateAudioInstance.play().catch(e => {
+                    console.warn('播放大絕音效失敗:', e);
+                    this._ultimateAudioInstance = null;
+                });
+            } catch (e) {
+                console.warn('初始化大絕音效失敗:', e);
+                this._ultimateAudioInstance = null;
+            }
+        }
         
         // 消耗能量
         this.energy = 0;
@@ -409,6 +510,46 @@ class Player extends Entity {
     deactivateUltimate() {
         if (!this.isUltimateActive || !this._ultimateBackup) return;
         this.isUltimateActive = false;
+        
+        // 停止角色特定音效（若存在）
+        if (this._ultimateAudioInstance) {
+            try {
+                this._ultimateAudioInstance.pause();
+                this._ultimateAudioInstance.currentTime = 0;
+            } catch (_) {}
+            this._ultimateAudioInstance = null;
+        }
+        
+        // 第二位角色：恢復BGM（僅第二位角色）
+        if (this._ultimateBgmBackup && typeof AudioManager !== 'undefined' && AudioManager.music) {
+            try {
+                const bgmName = this._ultimateBgmBackup.name;
+                const bgmTime = this._ultimateBgmBackup.time;
+                const track = AudioManager.music[bgmName];
+                if (track) {
+                    // 恢復BGM播放位置並繼續播放
+                    track.currentTime = bgmTime;
+                    track.volume = AudioManager.musicVolume;
+                    track.loop = true;
+                    if (!AudioManager.isMuted) {
+                        track.play().catch(e => {
+                            console.warn('恢復BGM失敗:', e);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn('恢復BGM狀態失敗:', e);
+            }
+            this._ultimateBgmBackup = null;
+        }
+        
+        // 移除額外防禦（角色特定配置）
+        if (this._ultimateExtraDefense > 0) {
+            // 恢復到原始防禦值（至少為1）
+            const currentDefense = this.baseDefense || 1;
+            this.baseDefense = Math.max(1, currentDefense - this._ultimateExtraDefense);
+        }
+        this._ultimateExtraDefense = 0;
         
         // 恢復尺寸與碰撞半徑
         this.width = this._ultimateBackup.width;
@@ -439,8 +580,9 @@ class Player extends Entity {
         this.energy = 0;
         UI.updateEnergyBar(this.energy, this.maxEnergy);
         
-        // 清理備份
+        // 清理備份與角色特定配置
         this._ultimateBackup = null;
         this.ultimateEndTime = 0;
+        this._ultimateImageKey = null;
     }
 }
