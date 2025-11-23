@@ -204,6 +204,7 @@ function createDefaultImages() {
         { name: 'dagger', src: 'assets/images/dagger.png' },
         { name: 'fireball', src: 'assets/images/fireball.png' },
         { name: 'lightning', src: 'assets/images/lightning.png' },
+        { name: 'chicken', src: 'assets/images/chicken.png' }, // 雞腿庇佑專用圖片
         { name: 'knife', src: 'assets/images/knife.gif' },
         { name: 'knife2', src: 'assets/images/knife2.gif' },
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
@@ -474,6 +475,7 @@ const iconMap = {
     ORBIT: 'assets/images/A7.png',
     AURA_FIELD: 'assets/images/A13.png',
     INVINCIBLE: 'assets/images/A14.png',
+    CHICKEN_BLESSING: 'assets/images/A19.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
