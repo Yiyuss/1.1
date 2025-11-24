@@ -93,6 +93,11 @@ class IceBallProjectile extends Entity {
                 this.player
             );
             Game.addProjectile(field);
+            
+            // 播放结冰音效（地面特效出现时）
+            if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+                AudioManager.playSound('ice2');
+            }
         }
     }
     
