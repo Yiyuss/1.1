@@ -333,6 +333,9 @@ const skillIcons = {
     ORBIT: 'assets/images/A7.png',
     AURA_FIELD: 'assets/images/A13.png',
     INVINCIBLE: 'assets/images/A14.png',
+    CHICKEN_BLESSING: 'assets/images/A19.png',
+    YOUNG_DADA_GLORY: 'assets/images/A20.png',
+    BIG_ICE_BALL: 'assets/images/A21.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
@@ -501,7 +504,7 @@ const skillIcons = {
         }
 
         // 新武器選項（基於來源狀態判定）
-        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY'];
+        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL'];
         // 檢查角色專屬技能（只有特定角色可以看到）
         const exclusiveWeapons = (ch && Array.isArray(ch.exclusiveWeapons)) ? new Set(ch.exclusiveWeapons) : new Set();
         // 找出所有角色的專屬技能
@@ -1397,7 +1400,7 @@ const iconMap = {
     INVINCIBLE: 'assets/images/A14.png',
     CHICKEN_BLESSING: 'assets/images/A19.png',
     YOUNG_DADA_GLORY: 'assets/images/A20.png',
-    YOUNG_DADA_GLORY: 'assets/images/A20.png',
+    BIG_ICE_BALL: 'assets/images/A21.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
     FRENZY_SLASH: 'assets/images/A18.png',
     MIND_MAGIC: 'assets/images/A16.png',
