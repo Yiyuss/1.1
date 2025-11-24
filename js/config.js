@@ -448,7 +448,7 @@ const CONFIG = {
             hpMultiplier: 1.0,
             hpBonus: 0,
             speedMultiplier: 1.0,
-            description: `角色介紹：全方面平均，可變身成三角形，穩健新手選擇。\n專屬技能：綿羊護體、紳士綿羊、追蹤綿羊、唱歌。`,
+            description: `角色介紹：全方面平均，可變身成三角形，穩健新手選擇。\n專屬技能：綿羊護體、紳士綿羊、追蹤綿羊、唱歌`,
             avatarImageKey: 'player1-2',
             hudImageKey: 'player1-2',
             spriteImageKey: 'player',
