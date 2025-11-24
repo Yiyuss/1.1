@@ -35,6 +35,7 @@ const AudioManager = {
             { name: 'zaps', src: 'assets/audio/zaps.mp3' },
             // 防禦模式冰凍塔專用音效（不更動既有鍵名與 SaveCode 結構）
             { name: 'ICE', src: 'assets/audio/ICE.mp3' },
+            { name: 'ice2', src: 'assets/audio/ICE2.mp3' }, // 大波球地面特效音效
             { name: 'invincible_activate', src: 'assets/audio/Invincible.mp3' },
             { name: 'sing_cast', src: 'assets/audio/LA.mp3' },
             { name: 'button_click', src: 'assets/audio/button_click.mp3' },
