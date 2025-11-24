@@ -47,7 +47,7 @@ const CONFIG = {
         },
         AURA_FIELD: {
             NAME: "守護領域",
-            DAMAGE: 10,
+            DAMAGE: 5,
             COOLDOWN: 1000,
             PROJECTILE_SPEED: 0,
             // 場域半徑（以像素計算），升級逐步擴大
@@ -222,7 +222,7 @@ const CONFIG = {
         },
         LASER: {
             NAME: "雷射",
-            DAMAGE: 12,
+            DAMAGE: 10,
             COOLDOWN: 5000, // 5秒一次（持續2秒，空檔3秒）
             DURATION: 2000,
             BEAM_WIDTH_BASE: 8,
