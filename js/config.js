@@ -382,6 +382,26 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍148px" },
                 { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍156px" }
             ]
+        },
+        // 新武器：抽象化（灰妲專屬技能，被動回避）
+        ABSTRACTION: {
+            NAME: "抽象化",
+            DAMAGE: 0, // 被動技能，不造成傷害
+            COOLDOWN: 0, // 被動技能，無冷卻
+            // 回避率配置（LV1~LV10）
+            DODGE_RATES: [0.05, 0.07, 0.09, 0.11, 0.13, 0.15, 0.17, 0.19, 0.21, 0.25],
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "5%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "7%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "9%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "11%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "13%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "15%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "17%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "19%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "21%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "25%迴避傷害" }
+            ]
         }
     },
 
@@ -445,7 +465,7 @@ const CONFIG = {
             hpMultiplier: 1.0,
             hpBonus: 100,
             speedMultiplier: 1.0,
-            description: `角色介紹：元氣灰鸚鵡，有著卓越體質，特別耐扛！\n專屬技能：雞腿庇佑、幼妲光輝、大波球`,
+            description: `角色介紹：元氣灰鸚鵡，有著卓越體質，特別耐扛！\n專屬技能：雞腿庇佑、幼妲光輝、大波球、抽象化`,
             // 選角預覽圖（下方角色介紹用）：使用 player2-2.png
             avatarImageKey: 'player2-2',
             // 所有模式的 HUD 左上角頭像：使用 player2-2.png
@@ -459,8 +479,8 @@ const CONFIG = {
             // 注意：不再需要在此處禁用 ORBIT、FIREBALL、LIGHTNING、SING
             // 因為這些技能已通過第一位角色的 exclusiveWeapons 機制自動隱藏
             disabledWeapons: [],
-            // 專屬技能：只有灰妲角色可以看到雞腿庇佑、幼妲光輝、大波球
-            exclusiveWeapons: ['CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL'],
+            // 專屬技能：只有灰妲角色可以看到雞腿庇佑、幼妲光輝、大波球、抽象化
+            exclusiveWeapons: ['CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION'],
             // 解鎖價格（遊戲金幣）；若 <=0 則視為預設解鎖
             unlockCost: 10000
         }
@@ -475,7 +495,7 @@ const CONFIG = {
         { id: 'challenge-2', name: 'LV2.星雲', backgroundKey: 'background5' },
         { id: 'challenge-3', name: 'LV3.星軌', backgroundKey: 'background6' },
         { id: 'challenge-4', name: 'LV4.黑洞', backgroundKey: 'background7' },
-        { id: 'defense-1', name: 'TD防禦戰場I', backgroundKey: 'background1-2' },
+        { id: 'defense-1', name: 'LV1.魔法糖果煉金坊', backgroundKey: 'background1-2' },
         // 主線模式地圖（不分難度）：測試用地圖
         { id: 'main-test', name: '測試用地圖', backgroundKey: 'background3' }
     ],
