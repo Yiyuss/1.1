@@ -302,7 +302,7 @@
       try {
         const orderedIds = [
           'hp_boost','defense_boost','speed_boost','pickup_range_boost','damage_boost',
-          'damage_specialization','crit_enhance','regen_speed_boost','experience_boost','levelup_action_charges'
+          'damage_specialization','crit_enhance','regen_speed_boost','experience_boost','levelup_action_charges','dodge_enhance'
         ];
         const getLv = (id) => (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) ? (TalentSystem.getTalentLevel(id) || 0) : 0;
         const getDesc = (id) => {
