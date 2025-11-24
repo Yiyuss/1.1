@@ -349,6 +349,39 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "每5秒補血+28，震波範圍提升（+160px）" },
                 { COUNT: 1, DESCRIPTION: "每5秒補血+30，震波範圍提升（+180px）" }
             ]
+        },
+        // 新武器：大波球（灰妲專屬技能）
+        BIG_ICE_BALL: {
+            NAME: "大波球",
+            DAMAGE: 2, // 持續傷害為2（可吃到天賦加成）
+            COOLDOWN: 5000, // 每5秒
+            // 紳士綿羊的擴散半徑約52像素（SPLASH_MIN_RADIUS）
+            // LV1範圍：52 * 1.5 = 78
+            // LV10範圍：52 * 3 = 156
+            // 線性增長：(156 - 78) / 9 = 8.67 每級
+            FIELD_RADIUS_BASE: 78, // LV1範圍
+            FIELD_RADIUS_PER_LEVEL: 8.67, // 每級增加約8.67，LV10達到156
+            // 拋物線飛行時間固定1秒
+            PROJECTILE_FLIGHT_TIME: 1000,
+            // 地面特效持續時間3秒
+            FIELD_DURATION: 3000,
+            // 緩速效果（與紳士綿羊相同）
+            SLOW_FACTOR: 0.5, // 50%速度
+            SLOW_DURATION_MS: 1000, // 緩速持續時間（毫秒）
+            // 傷害間隔（與守護領域相同）
+            TICK_INTERVAL_MS: 120,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍78px" },
+                { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍87px" },
+                { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍96px" },
+                { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍104px" },
+                { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍113px" },
+                { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍122px" },
+                { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍130px" },
+                { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍139px" },
+                { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍148px" },
+                { COUNT: 1, DESCRIPTION: "每5秒丟1顆冰彈，範圍156px" }
+            ]
         }
     },
 
@@ -412,7 +445,7 @@ const CONFIG = {
             hpMultiplier: 1.0,
             hpBonus: 100,
             speedMultiplier: 1.0,
-            description: `角色介紹：元氣灰鸚鵡，有著卓越體質，特別耐扛！\n專屬技能：雞腿庇佑、幼妲光輝`,
+            description: `角色介紹：元氣灰鸚鵡，有著卓越體質，特別耐扛！\n專屬技能：雞腿庇佑、幼妲光輝、大波球`,
             // 選角預覽圖（下方角色介紹用）：使用 player2-2.png
             avatarImageKey: 'player2-2',
             // 所有模式的 HUD 左上角頭像：使用 player2-2.png
@@ -426,8 +459,8 @@ const CONFIG = {
             // 注意：不再需要在此處禁用 ORBIT、FIREBALL、LIGHTNING、SING
             // 因為這些技能已通過第一位角色的 exclusiveWeapons 機制自動隱藏
             disabledWeapons: [],
-            // 專屬技能：只有灰妲角色可以看到雞腿庇佑、幼妲光輝
-            exclusiveWeapons: ['CHICKEN_BLESSING', 'YOUNG_DADA_GLORY'],
+            // 專屬技能：只有灰妲角色可以看到雞腿庇佑、幼妲光輝、大波球
+            exclusiveWeapons: ['CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL'],
             // 解鎖價格（遊戲金幣）；若 <=0 則視為預設解鎖
             unlockCost: 10000
         }
