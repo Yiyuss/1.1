@@ -21,17 +21,13 @@ class IceBallProjectile extends Entity {
         const dx = targetX - startX;
         const dy = targetY - startY;
         const distance = Math.hypot(dx, dy);
+        const totalTime = flightTimeMs / 1000;
         
         // 抛物线高度（根据距离调整）
-        const maxHeight = Math.max(80, distance * 0.3);
+        this.maxHeight = Math.max(80, distance * 0.3);
         
-        // 计算初始速度分量
-        // 水平速度：vx = dx / t
-        this.vx = dx / (flightTimeMs / 1000);
-        // 垂直速度：使用抛物线公式 vy = (2 * maxHeight) / t - (g * t) / 2
-        // 简化：假设重力加速度 g，初始向上速度
-        this.vy0 = (2 * maxHeight) / (flightTimeMs / 1000);
-        this.gravity = (2 * maxHeight) / ((flightTimeMs / 1000) ** 2);
+        // 存储目标位置和时间，用于精确计算
+        this.totalTime = totalTime;
         
         this.weaponType = 'BIG_ICE_BALL';
         this.imageKey = 'ICE3';
@@ -41,21 +37,34 @@ class IceBallProjectile extends Entity {
         this.elapsedTime += deltaTime;
         const t = this.elapsedTime / 1000; // 转换为秒
         
-        if (t >= this.flightTimeMs / 1000) {
-            // 到达目标位置，创建地面特效
+        if (t >= this.totalTime) {
+            // 到达目标位置，使用实际落地位置创建地面特效
+            // 确保精确落在目标位置
+            this.x = this.targetX;
+            this.y = this.targetY;
             this.land();
             this.destroy();
             return;
         }
         
         // 计算当前位置（抛物线轨迹）
-        this.x = this.startX + this.vx * t;
-        // 垂直位置：y = startY + vy0 * t - 0.5 * g * t^2
-        this.y = this.startY + this.vy0 * t - 0.5 * this.gravity * t * t;
+        // 使用归一化进度 [0, 1]
+        const progress = t / this.totalTime;
+        
+        // 水平位置：线性插值确保精确到达目标
+        this.x = this.startX + (this.targetX - this.startX) * progress;
+        
+        // 垂直位置：抛物线轨迹
+        // 使用二次贝塞尔曲线确保在 progress=1 时精确到达 targetY
+        // y = startY + (targetY - startY) * progress + maxHeight * 4 * progress * (1 - progress)
+        // 当 progress=0 时，y = startY
+        // 当 progress=1 时，y = startY + (targetY - startY) + 0 = targetY ✓
+        // 当 progress=0.5 时，y = startY + (targetY - startY) * 0.5 + maxHeight = 中点 + maxHeight（最高点）
+        this.y = this.startY + (this.targetY - this.startY) * progress + this.maxHeight * 4 * progress * (1 - progress);
     }
     
     land() {
-        // 创建地面冷冻特效
+        // 创建地面冷冻特效，使用实际落地位置（this.x, this.y）
         if (typeof Game !== 'undefined' && typeof IceFieldEffect !== 'undefined') {
             const cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.BIG_ICE_BALL) || {};
             const baseRadius = cfg.FIELD_RADIUS_BASE || 78;
@@ -74,9 +83,10 @@ class IceBallProjectile extends Entity {
                 }
             }
             
+            // 使用实际落地位置，而不是目标位置
             const field = new IceFieldEffect(
-                this.targetX,
-                this.targetY,
+                this.x,
+                this.y,
                 radius,
                 damage,
                 cfg.FIELD_DURATION || 3000,
