@@ -67,6 +67,7 @@ class BossProjectile extends Entity {
                 }
             } catch (_) {}
             // 對玩家造成傷害：忽略一般無敵（受傷短暫無敵），但尊重技能無敵
+            // 抽象化技能會在 takeDamage 內部處理回避判定
             Game.player.takeDamage(this.damage, { ignoreInvulnerability: true, source: 'boss_projectile' });
             // 新增：命中玩家時播放bo音效
             if (typeof AudioManager !== 'undefined') {
