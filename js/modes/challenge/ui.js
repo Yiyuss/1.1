@@ -325,6 +325,26 @@
     applyDamage(amount){
       try {
         const dmg = Math.max(0, Math.floor(amount||0));
+        
+        // 迴避強化天賦：挑戰模式所有角色最高15%
+        let dodgeRate = 0;
+        if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+          const dodgeLv = TalentSystem.getTalentLevel('dodge_enhance');
+          if (dodgeLv > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.dodge_enhance) {
+            const cfg = TalentSystem.tieredTalents.dodge_enhance;
+            if (cfg.levels && cfg.levels[dodgeLv - 1]) {
+              dodgeRate = cfg.levels[dodgeLv - 1].dodgeRate || 0;
+            }
+          }
+        }
+        // 挑戰模式：所有角色最高15%
+        dodgeRate = Math.min(0.15, dodgeRate);
+        
+        if (dodgeRate > 0 && Math.random() < dodgeRate) {
+          // 回避成功，不造成傷害
+          return;
+        }
+        
         // 扣除平坦減傷（若有天賦 BuffSystem 設定）
         const flat = (this._playerGhost && Number.isFinite(this._playerGhost.damageReductionFlat)) ? Math.max(0, this._playerGhost.damageReductionFlat) : 0;
         const final = Math.max(0, dmg - flat);
@@ -716,7 +736,7 @@
         // 與生存模式相同的顯示順序
         const orderedIds = [
           'hp_boost','defense_boost','speed_boost','pickup_range_boost','damage_boost',
-          'damage_specialization','crit_enhance','regen_speed_boost','experience_boost','levelup_action_charges'
+          'damage_specialization','crit_enhance','regen_speed_boost','experience_boost','levelup_action_charges','dodge_enhance'
         ];
         // 僅顯示已解鎖（等級 > 0）之天賦，並沿用最高階描述
         const getLv = (id) => (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) ? (TalentSystem.getTalentLevel(id) || 0) : 0;
