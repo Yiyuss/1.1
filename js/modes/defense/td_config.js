@@ -446,6 +446,25 @@ class TDGameState {
     
     // 主堡傷害
     damageBase(amount) {
+        // 迴避強化天賦：防禦模式所有角色最高15%
+        let dodgeRate = 0;
+        if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+            const dodgeLv = TalentSystem.getTalentLevel('dodge_enhance');
+            if (dodgeLv > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.dodge_enhance) {
+                const cfg = TalentSystem.tieredTalents.dodge_enhance;
+                if (cfg.levels && cfg.levels[dodgeLv - 1]) {
+                    dodgeRate = cfg.levels[dodgeLv - 1].dodgeRate || 0;
+                }
+            }
+        }
+        // 防禦模式：所有角色最高15%
+        dodgeRate = Math.min(0.15, dodgeRate);
+        
+        if (dodgeRate > 0 && Math.random() < dodgeRate) {
+            // 回避成功，不造成傷害
+            return;
+        }
+        
         this.baseHealth = Math.max(0, this.baseHealth - amount);
         if (this.baseHealth <= 0) {
             this.isGameOver = true;
