@@ -10,6 +10,11 @@ class Weapon {
     }
     
     update(deltaTime) {
+        // 抽象化是被動技能，不需要發射
+        if (this.type === 'ABSTRACTION') {
+            return;
+        }
+        
         const currentTime = Date.now();
         
         // 檢查是否可以發射
