@@ -63,6 +63,12 @@ const TalentSystem = {
             name: '消波塊增加',
             description: '升級可提升防禦模式的初始消波塊。',
             cost: 3000
+        },
+        // 新增：迴避強化
+        dodge_enhance: {
+            name: '迴避強化',
+            description: '升級可提升迴避傷害的機率。',
+            cost: 3000
         }
     },
 
@@ -183,6 +189,17 @@ const TalentSystem = {
                 { bonus: 800, cost: 24000 },
                 { bonus: 1000, cost: 35000 },
                 { bonus: 1500, cost: 45000 }
+            ]
+        },
+        // 新增：迴避強化（3%/5%/7%/9%/11%/15%）
+        dodge_enhance: {
+            levels: [
+                { dodgeRate: 0.03, cost: 3000 },
+                { dodgeRate: 0.05, cost: 6000 },
+                { dodgeRate: 0.07, cost: 12000 },
+                { dodgeRate: 0.09, cost: 24000 },
+                { dodgeRate: 0.11, cost: 35000 },
+                { dodgeRate: 0.15, cost: 45000 }
             ]
         }
     },
@@ -616,6 +633,9 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'defense_gold_boost') {
             const bonus = eff.bonus || 0;
             return `防禦模式初始消波塊+${bonus}`;
+        } else if (id === 'dodge_enhance') {
+            const pct = Math.round((eff.dodgeRate || 0) * 100);
+            return `迴避傷害的機率+${pct}%`;
         }
         return base;
     };
