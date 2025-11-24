@@ -273,6 +273,11 @@ const BuffSystem = {
             this.applyAttributeUpgrades(player);
             const upgradeCritPct = player.critChanceUpgradeBonusPct || 0;
             player.critChanceBonusPct = critTalentPct + upgradeCritPct;
+            
+            // 迴避強化天賦
+            const dodgeLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('dodge_enhance') : 0;
+            player.dodgeTalentRate = BuffSystem._getTierEffect('dodge_enhance', dodgeLv, 'dodgeRate', 0) || 0;
         } catch (e) {
             console.error('從天賦系統應用buff失敗:', e);
         }
