@@ -268,6 +268,19 @@ class Player extends Entity {
             // 其餘情況（受傷短暫無敵），允許忽略並造成傷害
         }
         
+        // 抽象化技能：回避傷害判定（適用於所有傷害來源，包括小BOSS火焰彈和彈幕）
+        if (this.weapons && Array.isArray(this.weapons)) {
+            const abstractionWeapon = this.weapons.find(w => w && w.type === 'ABSTRACTION');
+            if (abstractionWeapon && abstractionWeapon.config && Array.isArray(abstractionWeapon.config.DODGE_RATES)) {
+                const level = abstractionWeapon.level || 1;
+                const dodgeRate = abstractionWeapon.config.DODGE_RATES[level - 1] || 0;
+                if (dodgeRate > 0 && Math.random() < dodgeRate) {
+                    // 回避成功，不造成傷害
+                    return;
+                }
+            }
+        }
+        
         // 防禦：基礎防禦 + 天賦平減（不為負）
         const baseDef = this.baseDefense || 0;
         const talentDef = this.damageReductionFlat || 0;
