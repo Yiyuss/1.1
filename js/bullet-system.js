@@ -175,6 +175,7 @@
               } catch (_) {}
 
               // 以玩家管線扣血：套用防禦公式；忽略受傷短暫無敵，但尊重技能無敵
+              // 抽象化技能會在 takeDamage 內部處理回避判定
               if (typeof player.takeDamage === 'function') {
                 const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(40);
                 player.takeDamage(hitDamage, { ignoreInvulnerability: true, source: 'bullet_system' });
