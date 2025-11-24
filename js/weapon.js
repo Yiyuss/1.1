@@ -147,6 +147,52 @@ class Weapon {
             return;
         }
 
+        // 特殊技能：大波球（灰妲專屬）
+        if (this.type === 'BIG_ICE_BALL') {
+            // 获取玩家当前画面范围
+            const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : null;
+            if (!canvas) return;
+            
+            const camX = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0;
+            const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
+            const viewportWidth = canvas.width;
+            const viewportHeight = canvas.height;
+            
+            // 计算画面边界（世界坐标）
+            const viewportLeft = camX;
+            const viewportRight = camX + viewportWidth;
+            const viewportTop = camY;
+            const viewportBottom = camY + viewportHeight;
+            
+            // 在玩家附近随机生成目标位置（不超出当前画面）
+            const minDistance = 50; // 最小距离
+            const maxDistance = Math.min(viewportWidth, viewportHeight) * 0.4; // 最大距离（画面尺寸的40%）
+            const angle = Math.random() * Math.PI * 2;
+            const distance = minDistance + Math.random() * (maxDistance - minDistance);
+            
+            let targetX = this.player.x + Math.cos(angle) * distance;
+            let targetY = this.player.y + Math.sin(angle) * distance;
+            
+            // 确保目标位置在画面范围内
+            targetX = Math.max(viewportLeft + 50, Math.min(viewportRight - 50, targetX));
+            targetY = Math.max(viewportTop + 50, Math.min(viewportBottom - 50, targetY));
+            
+            // 创建冰弹投射物（从玩家位置发射到目标位置）
+            const flightTimeMs = this.config.PROJECTILE_FLIGHT_TIME || 1000;
+            const iceBall = new IceBallProjectile(
+                this.player.x,
+                this.player.y,
+                targetX,
+                targetY,
+                flightTimeMs,
+                this.level,
+                this.player
+            );
+            Game.addProjectile(iceBall);
+            
+            return;
+        }
+
         // 特殊技能：雷射
         if (this.type === 'LASER') {
             // 朝最近敵人方向；若無敵人則向右
