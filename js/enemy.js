@@ -402,6 +402,7 @@ class Enemy extends Entity {
         };
         
         // 減速藍色覆蓋（持續顯示於減速期間），沿PNG透明度裁切；若無圖或尚未載入則回退原邏輯
+        // 注意：藍閃優先於紅閃，若同時有緩速和受傷，只顯示藍閃
         if (this.isSlowed) {
             const alpha = 0.3;
             ensureTint(imageName, drawW, drawH);
@@ -436,7 +437,8 @@ class Enemy extends Entity {
         }
         
         // 受傷紅色覆蓋閃爍（死亡期間停用），沿PNG透明度裁切；若無圖或尚未載入則回退原邏輯
-        if (!this.isDying && this.hitFlashTime > 0) {
+        // 注意：若同時有緩速效果，則不顯示紅閃（藍閃優先）
+        if (!this.isDying && this.hitFlashTime > 0 && !this.isSlowed) {
             const alpha = 0.35;
             ensureTint(imageName, drawW, drawH);
             if (this._tintRed) {
