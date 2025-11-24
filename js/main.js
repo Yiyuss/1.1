@@ -206,6 +206,7 @@ function createDefaultImages() {
         { name: 'lightning', src: 'assets/images/lightning.png' },
         { name: 'chicken', src: 'assets/images/chicken.png' }, // 雞腿庇佑專用圖片
         { name: 'A21', src: 'assets/images/A21.png' }, // 大波球技能圖片
+        { name: 'A22', src: 'assets/images/A22.png' }, // 抽象化技能圖片
         { name: 'ICE3', src: 'assets/images/ICE3.png' }, // 大波球冰彈圖片
         { name: 'knife', src: 'assets/images/knife.gif' },
         { name: 'knife2', src: 'assets/images/knife2.gif' },
@@ -480,6 +481,7 @@ const iconMap = {
     CHICKEN_BLESSING: 'assets/images/A19.png',
     YOUNG_DADA_GLORY: 'assets/images/A20.png',
     BIG_ICE_BALL: 'assets/images/A21.png',
+    ABSTRACTION: 'assets/images/A22.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
