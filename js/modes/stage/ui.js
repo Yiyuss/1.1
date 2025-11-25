@@ -59,7 +59,11 @@
         const avatarEl = $('#stage-avatar');
         if (avatarEl) {
           const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
-          if (sc && (sc.id === 'dada' || sc.hudImageKey === 'player2-2')) {
+          if (sc && sc.hudImageKey) {
+            // 使用角色的hudImageKey，如果图片已加载则使用，否则使用后备路径
+            const imgObj = (Game.images && Game.images[sc.hudImageKey]) ? Game.images[sc.hudImageKey] : null;
+            avatarEl.src = (imgObj && imgObj.src) ? imgObj.src : `assets/images/${sc.hudImageKey}.png`;
+          } else if (sc && (sc.id === 'dada' || sc.hudImageKey === 'player2-2')) {
             avatarEl.src = 'assets/images/player2-2.png';
           } else {
             const img = ctx && ctx.resources ? ctx.resources.getImage('stage_avatar') : null;
