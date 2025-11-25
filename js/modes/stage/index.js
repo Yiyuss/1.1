@@ -35,6 +35,10 @@ function safePlayStage(ctx) {
       const ctx2d = canvas ? canvas.getContext('2d') : null;
       if (!canvas || !ctx2d) return;
       try { ctx2d.imageSmoothingEnabled = false; } catch(_){}
+      // 進入闖關模式前先清除其他模式的 GIF 圖層殘留，避免污染
+      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.clearAll === 'function') window.GifOverlay.clearAll(); } catch(_){}
+      try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
+      try { if (typeof window.ChallengeGifOverlay !== 'undefined' && typeof window.ChallengeGifOverlay.clearAll === 'function') window.ChallengeGifOverlay.clearAll(); } catch(_){}
 
       // 顯示遊戲畫面、隱藏選單（保持薄層，不動生存 HUD）
       ctx.dom.show('game-screen');
@@ -87,6 +91,8 @@ function safePlayStage(ctx) {
           key = sc.spriteImageKey;
         } else if (sc && sc.id === 'dada') {
           key = 'player2';
+        } else if (sc && sc.id === 'lilylinglan') {
+          key = 'player3';
         }
         const imgObj = (Game.images && Game.images[key]) ? Game.images[key] : null;
         if (imgObj && imgObj.src) {
@@ -216,6 +222,8 @@ function safePlayStage(ctx) {
     exit(ctx){
       try { if (ctx && typeof ctx.dispose === 'function') ctx.dispose(); } catch(_){}
       try { if (typeof window.GifOverlay !== 'undefined') window.GifOverlay.clearAll(); } catch(_){}
+      try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
+      try { if (typeof window.ChallengeGifOverlay !== 'undefined' && typeof window.ChallengeGifOverlay.clearAll === 'function') window.ChallengeGifOverlay.clearAll(); } catch(_){}
       try { const gameUI = document.getElementById('game-ui'); if (gameUI) gameUI.style.display = ''; } catch(_){}
       try { if (typeof window.StageUI !== 'undefined') window.StageUI.dispose(); } catch(_){}
       try { const hud = document.getElementById('stage-ui'); if (hud) hud.style.display = 'none'; } catch(_){}
