@@ -42,6 +42,8 @@ function safePlayDefense(ctx) {
           // 玩家主體與 HUD 頭像實際會根據選角角色決定圖像，本地資源僅作預載
           { key: 'player', src: 'assets/images/player.gif' },
           { key: 'player2', src: 'assets/images/player2.png' },
+          { key: 'player3', src: 'assets/images/player3.gif' },
+          { key: 'player3-2', src: 'assets/images/player3-2.png' },
           { key: 'defense_avatar', src: 'assets/images/player1-2.png' },
           { key: 'zombie', src: 'assets/images/zombie.png' },
           { key: 'zombie2', src: 'assets/images/zombie2.png' },
