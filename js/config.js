@@ -481,6 +481,7 @@ const CONFIG = {
                 AUDIO_KEY: 'playerN2', // 大絕期間播放 playerN2.mp3
                 PLAYER_SIZE_MULTIPLIER: 3.5 // 大絕期間體型放大倍率（比預設2.5更大）
             }
+            // 'lilylinglan': 第三位角色大招暫未製作
         },
 
     // 選角列表（目前 2 名角色）
@@ -535,6 +536,30 @@ const CONFIG = {
             exclusiveWeapons: ['CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION'],
             // 解鎖價格（遊戲金幣）；若 <=0 則視為預設解鎖
             unlockCost: 10000
+        },
+        {
+            id: 'lilylinglan',
+            name: '森森鈴蘭',
+            // 第三位角色：初始血量比第一位角色多 2000，其餘基礎數值相同
+            hpMultiplier: 1.0,
+            hpBonus: 2000, 
+            speedMultiplier: 1.0,
+            description: `角色介紹：傳說中的未知信號，被她抓到，就會被馬桶坐坐！\n專屬技能：暫無`,
+            // 選角預覽圖（下方角色介紹用）：使用 player3-2.png
+            avatarImageKey: 'player3-2',
+            // 所有模式的 HUD 左上角頭像：使用 player3-2.png
+            hudImageKey: 'player3-2',
+            // 所有模式進入時的玩家主體形象：使用 player3.gif
+            spriteImageKey: 'player3',
+            // 生存模式升級介面左側底圖：使用 player3-2.png
+            levelUpBgKey: 'player3-2',
+            // 第三位角色暫時不能使用大絕（Q），專屬技能還沒製作
+            canUseUltimate: false,
+            disabledWeapons: [],
+            // 專屬技能：暫無
+            exclusiveWeapons: [],
+            // 解鎖價格（遊戲金幣）：100萬金幣
+            unlockCost: 1000000
         }
     ],
     
