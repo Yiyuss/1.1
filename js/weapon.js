@@ -198,6 +198,69 @@ class Weapon {
             return;
         }
 
+        // 融合技能：狂熱大波（一次丟出5顆，隨機距離加長）
+        if (this.type === 'FRENZY_ICE_BALL') {
+            // 获取玩家当前画面范围
+            const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : null;
+            if (!canvas) return;
+            
+            const camX = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0;
+            const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
+            const viewportWidth = canvas.width;
+            const viewportHeight = canvas.height;
+            
+            // 计算画面边界（世界坐标）
+            const viewportLeft = camX;
+            const viewportRight = camX + viewportWidth;
+            const viewportTop = camY;
+            const viewportBottom = camY + viewportHeight;
+            
+            // 一次丟出5顆
+            const projectileCount = this.config.PROJECTILE_COUNT || 5;
+            const flightTimeMs = this.config.PROJECTILE_FLIGHT_TIME || 1000;
+            
+            for (let i = 0; i < projectileCount; i++) {
+                // 随机距离加长：有机会投到更远的地方
+                // 基础最大距离是画面尺寸的40%，但有机会达到60%或80%
+                const distanceRoll = Math.random();
+                let maxDistanceMultiplier = 0.4; // 默认40%
+                if (distanceRoll < 0.1) {
+                    maxDistanceMultiplier = 0.8; // 10%概率达到80%
+                } else if (distanceRoll < 0.4) {
+                    maxDistanceMultiplier = 0.6; // 30%概率达到60%（0.1到0.4之间）
+                }
+                
+                const minDistance = 50; // 最小距离
+                const maxDistance = Math.min(viewportWidth, viewportHeight) * maxDistanceMultiplier;
+                const angle = Math.random() * Math.PI * 2;
+                const distance = minDistance + Math.random() * (maxDistance - minDistance);
+                
+                let targetX = this.player.x + Math.cos(angle) * distance;
+                let targetY = this.player.y + Math.sin(angle) * distance;
+                
+                // 确保目标位置在画面范围内（允许稍微超出以支持更远距离）
+                const padding = 100; // 增加padding以支持更远距离
+                targetX = Math.max(viewportLeft - padding, Math.min(viewportRight + padding, targetX));
+                targetY = Math.max(viewportTop - padding, Math.min(viewportBottom + padding, targetY));
+                
+                // 创建冰弹投射物（从玩家位置发射到目标位置）
+                // 使用固定范围（大波球LV10的156px）
+                const iceBall = new IceBallProjectile(
+                    this.player.x,
+                    this.player.y,
+                    targetX,
+                    targetY,
+                    flightTimeMs,
+                    this.level,
+                    this.player,
+                    true // 标记为狂熱大波，使用固定范围
+                );
+                Game.addProjectile(iceBall);
+            }
+            
+            return;
+        }
+
         // 特殊技能：雷射
         if (this.type === 'LASER') {
             // 朝最近敵人方向；若無敵人則向右
@@ -564,13 +627,17 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     const frenzyExtra = (this.type === 'FRENZY_LIGHTNING' || this.type === 'FRENZY_SLASH')
         ? (3 * Math.max(1, this.level))
         : 0;
+    // 狂熱大波：每等 +1 基礎傷害（LV10 累計 +10）
+    const frenzyIceBallExtra = (this.type === 'FRENZY_ICE_BALL')
+        ? (1 * Math.max(1, this.level))
+        : 0;
     const specFlat = (this.player && this.player.damageSpecializationFlat) ? this.player.damageSpecializationFlat : 0;
     const talentPct = (this.player && this.player.damageTalentBaseBonusPct) ? this.player.damageTalentBaseBonusPct : 0;
     const attrPct = (this.player && this.player.damageAttributeBonusPct) ? this.player.damageAttributeBonusPct : 0; // 升級屬性加成（每級+10%）
     const attrFlat = (this.player && this.player.attackPowerUpgradeFlat) ? this.player.attackPowerUpgradeFlat : 0; // 新增：攻擊力上升（每級+2，單純加法）
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + frenzyExtra + specFlat + attrFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + specFlat + attrFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
