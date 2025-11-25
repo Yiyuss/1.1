@@ -518,15 +518,28 @@
             if (typeof UI !== 'undefined' && typeof UI.showAchievementsUnlockModal === 'function') {
               UI.showAchievementsUnlockModal(ids);
             }
-            // 播放成就解鎖音效（與生存模式相同）
+            // 播放成就解鎖音效（與生存模式相同）- 確保音效播放
             try { 
               if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                // 確保音效系統未靜音
+                const wasMuted = AudioManager.isMuted;
+                if (wasMuted) {
+                  AudioManager.isMuted = false;
+                }
                 AudioManager.playSound('achievements');
+                // 恢復靜音狀態（如果之前是靜音的）
+                if (wasMuted) {
+                  AudioManager.isMuted = true;
+                }
               }
-            } catch (_) {}
+            } catch (err) {
+              console.warn('播放成就音效失敗:', err);
+            }
           }
         }
-      } catch(_){}
+      } catch(err){
+        console.warn('檢查成就解鎖時出錯:', err);
+      }
     },
 
     _renderBars(){
