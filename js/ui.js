@@ -337,6 +337,7 @@ const skillIcons = {
     YOUNG_DADA_GLORY: 'assets/images/A20.png',
     BIG_ICE_BALL: 'assets/images/A21.png',
     ABSTRACTION: 'assets/images/A22.png',
+    FRENZY_ICE_BALL: 'assets/images/A23.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
@@ -485,6 +486,7 @@ const skillIcons = {
         const hasFrenzy = sourceWeaponsInfo.some(w => w.type === 'FRENZY_LIGHTNING');
         const hasFrenzySlash = sourceWeaponsInfo.some(w => w.type === 'FRENZY_SLASH');
         const hasMindMagic = sourceWeaponsInfo.some(w => w.type === 'MIND_MAGIC');
+        const hasFrenzyIceBall = sourceWeaponsInfo.some(w => w.type === 'FRENZY_ICE_BALL');
         for (const info of sourceWeaponsInfo) {
             const cfg = CONFIG.WEAPONS[info.type];
             if (!cfg) continue;
@@ -493,7 +495,8 @@ const skillIcons = {
             // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
             if ((hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (info.type === 'DAGGER' || info.type === 'SLASH')) ||
-                (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING'))) continue;
+                (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING')) ||
+                (hasFrenzyIceBall && (info.type === 'DAGGER' || info.type === 'BIG_ICE_BALL'))) continue;
             if (info.level < cfg.LEVELS.length) {
                 options.push({
                     type: info.type,
@@ -528,7 +531,8 @@ const skillIcons = {
             // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
             if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
-                (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING'))) continue;
+                (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING')) ||
+                (hasFrenzyIceBall && (weaponType === 'DAGGER' || weaponType === 'BIG_ICE_BALL'))) continue;
             if (!playerWeaponTypes.includes(weaponType)) {
                 const weaponConfig = CONFIG.WEAPONS[weaponType];
                 options.push({
@@ -603,6 +607,28 @@ const skillIcons = {
                         name: cfgM.NAME,
                         level: 1,
                         description: cfgM.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：狂熱大波（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 大波球(BIG_ICE_BALL)）
+        try {
+            const hasFrenzyIceBallFusion = playerWeaponTypes.includes('FRENZY_ICE_BALL');
+            const cheer3 = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
+            const iceBall = sourceWeaponsInfo.find(w => w.type === 'BIG_ICE_BALL');
+            const fusionUnlocked3 = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_ICE_BALL')); } catch(_) { return false; }
+            })();
+            const fusionReady3 = (!!cheer3 && !!iceBall && cheer3.level >= 10 && iceBall.level >= 10);
+            if (!hasFrenzyIceBallFusion && fusionReady3 && fusionUnlocked3) {
+                const cfgFIB = CONFIG.WEAPONS['FRENZY_ICE_BALL'];
+                if (cfgFIB && Array.isArray(cfgFIB.LEVELS) && cfgFIB.LEVELS.length > 0) {
+                    options.push({
+                        type: 'FRENZY_ICE_BALL',
+                        name: cfgFIB.NAME,
+                        level: 1,
+                        description: cfgFIB.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -825,6 +851,37 @@ const skillIcons = {
                     player.upgradeWeapon('MIND_MAGIC');
                 } else {
                     player.addWeapon('MIND_MAGIC');
+                }
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        // 融合：狂熱大波（移除 應援棒(DAGGER)/大波球(BIG_ICE_BALL)，加入或升級 FRENZY_ICE_BALL）
+        if (weaponType === 'FRENZY_ICE_BALL') {
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                // 移除基礎武器
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'BIG_ICE_BALL');
+                // 加入或升級融合武器
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'FRENZY_ICE_BALL');
+                const cfgFIB = CONFIG.WEAPONS['FRENZY_ICE_BALL'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgFIB && curLv < cfgFIB.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'FRENZY_ICE_BALL', level: 1 });
+                }
+            } else {
+                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'BIG_ICE_BALL');
+                const existingFIB = player.weapons.find(w => w.type === 'FRENZY_ICE_BALL');
+                if (existingFIB) {
+                    player.upgradeWeapon('FRENZY_ICE_BALL');
+                } else {
+                    player.addWeapon('FRENZY_ICE_BALL');
                 }
             }
             try { this.updateSkillsList(); } catch (_) {}
@@ -1403,6 +1460,7 @@ const iconMap = {
     YOUNG_DADA_GLORY: 'assets/images/A20.png',
     BIG_ICE_BALL: 'assets/images/A21.png',
     ABSTRACTION: 'assets/images/A22.png',
+    FRENZY_ICE_BALL: 'assets/images/A23.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
     FRENZY_SLASH: 'assets/images/A18.png',
     MIND_MAGIC: 'assets/images/A16.png',
