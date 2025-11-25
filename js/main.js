@@ -209,6 +209,8 @@ function createDefaultImages() {
         { name: 'A22', src: 'assets/images/A22.png' }, // 抽象化技能圖片
         { name: 'A23', src: 'assets/images/A23.png' }, // 狂熱大波技能圖片
         { name: 'A24', src: 'assets/images/A24.png' }, // 銀河系征服者成就圖片
+        { name: 'A25', src: 'assets/images/A25.png' }, // 幼妲天使技能圖片
+        { name: 'A26', src: 'assets/images/A26.png' }, // 星雲征服者成就圖片
         { name: 'ICE3', src: 'assets/images/ICE3.png' }, // 大波球冰彈圖片
         { name: 'knife', src: 'assets/images/knife.gif' },
         { name: 'knife2', src: 'assets/images/knife2.gif' },
@@ -485,6 +487,7 @@ const iconMap = {
     BIG_ICE_BALL: 'assets/images/A21.png',
     ABSTRACTION: 'assets/images/A22.png',
     FRENZY_ICE_BALL: 'assets/images/A23.png',
+    FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
