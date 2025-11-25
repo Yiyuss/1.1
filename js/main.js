@@ -188,6 +188,13 @@ function createDefaultImages() {
         { name: 'player2', src: 'assets/images/player2.png' },
         { name: 'player2-2', src: 'assets/images/player2-2.png' },
         { name: 'player2-3', src: 'assets/images/player2-3.png' },
+        // 第三位角色圖片：
+        // - player3.gif   ：所有模式中玩家進入戰場時的主體形象
+        // - player3-2.png  ：所有模式 HUD 左上角頭像 + 生存模式升級介面左側底圖
+        // - player3-3.png  ：選角介面角色卡片/預覽用圖片
+        { name: 'player3', src: 'assets/images/player3.gif' },
+        { name: 'player3-2', src: 'assets/images/player3-2.png' },
+        { name: 'player3-3', src: 'assets/images/player3-3.png' },
         { name: 'playerN', src: 'assets/images/playerN.png' },
         { name: 'playerN2', src: 'assets/images/playerN2.gif' }, // 第二位角色大絕專用動態圖片
         { name: 'zombie', src: 'assets/images/zombie.png' },
