@@ -34,6 +34,13 @@ const Achievements = (function(){
       desc: '通關挑戰模式中的銀河系關卡。',
       icon: 'assets/images/A24.png',
       reward: '解鎖「狂熱大波」技能。'
+    },
+    CHALLENGE_NEBULA_CLEAR: {
+      id: 'CHALLENGE_NEBULA_CLEAR',
+      name: '星雲征服者',
+      desc: '通關挑戰模式中的星雲關卡。',
+      icon: 'assets/images/A26.png',
+      reward: '解鎖「幼妲天使」技能。'
     }
   };
 
@@ -42,13 +49,19 @@ const Achievements = (function(){
     FRENZY_LIGHTNING: ['FIRST_CLEAR'],
     MIND_MAGIC: ['HARD_CLEAR'],
     FRENZY_SLASH: ['COIN_100K'],
-    FRENZY_ICE_BALL: ['CHALLENGE_GALAXY_CLEAR']
+    FRENZY_ICE_BALL: ['CHALLENGE_GALAXY_CLEAR'],
+    FRENZY_YOUNG_DADA_GLORY: ['CHALLENGE_NEBULA_CLEAR']
     // 未來：在此加入新融合技能的成就解鎖需求，例如：
     // OTHER_FUSION_SKILL: ['SOME_ACHIEVEMENT', 'ANOTHER_ACHIEVEMENT']
   };
 
   // 當次遊戲解鎖清單（勝利提示用）
   let sessionUnlocked = [];
+  
+  // 緩存成就解鎖狀態，避免頻繁讀取 localStorage
+  let _unlockedCache = null;
+  let _cacheTimestamp = 0;
+  const CACHE_DURATION = 1000; // 緩存1秒
 
   function _loadRaw(){
     try {
@@ -60,7 +73,12 @@ const Achievements = (function(){
   }
 
   function _saveRaw(map){
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(map||{})); } catch(_) {}
+    try { 
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(map||{})); 
+      // 清除緩存，強制下次重新讀取
+      _unlockedCache = null;
+      _cacheTimestamp = 0;
+    } catch(_) {}
   }
 
   function getAll(){
@@ -68,8 +86,13 @@ const Achievements = (function(){
   }
 
   function isUnlocked(id){
-    const m = _loadRaw();
-    return !!(m && m[id] && m[id].unlocked === true);
+    // 使用緩存減少 localStorage 讀取
+    const now = Date.now();
+    if (!_unlockedCache || (now - _cacheTimestamp) > CACHE_DURATION) {
+      _unlockedCache = _loadRaw();
+      _cacheTimestamp = now;
+    }
+    return !!(_unlockedCache && _unlockedCache[id] && _unlockedCache[id].unlocked === true);
   }
 
   function unlock(id){
@@ -78,6 +101,10 @@ const Achievements = (function(){
     if (m[id] && m[id].unlocked) return false; // 已解鎖
     m[id] = { unlocked: true, ts: Date.now() };
     _saveRaw(m);
+    // 更新緩存
+    if (!_unlockedCache) _unlockedCache = {};
+    _unlockedCache[id] = { unlocked: true, ts: Date.now() };
+    _cacheTimestamp = Date.now();
     // 記錄於當次遊戲
     if (!sessionUnlocked.includes(id)) sessionUnlocked.push(id);
     // 可選：提示音效/文字（不更動既有 UI 流程）
