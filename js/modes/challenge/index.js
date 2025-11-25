@@ -802,6 +802,12 @@ function safePlayShura(ctx) {
                       Achievements.unlock('CHALLENGE_GALAXY_CLEAR');
                     }
                   }
+                  // 檢查是否為星雲關卡（challenge-2），如果是則解鎖成就
+                  if (_selectedMapId === 'challenge-2') {
+                    if (typeof Achievements !== 'undefined' && Achievements.unlock) {
+                      Achievements.unlock('CHALLENGE_NEBULA_CLEAR');
+                    }
+                  }
                 } catch(_){}
                 // 使用挑戰模式的結算覆蓋層，避免與生存模式互相污染
                 try {
