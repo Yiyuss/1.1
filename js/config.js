@@ -402,6 +402,37 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "21%迴避傷害" },
                 { COUNT: 1, DESCRIPTION: "25%迴避傷害" }
             ]
+        },
+        // 融合技能：狂熱大波（持有並滿級 應援棒(DAGGER) 與 大波球(BIG_ICE_BALL) 後可獲得）
+        FRENZY_ICE_BALL: {
+            NAME: "狂熱大波",
+            DAMAGE: 2, // 基礎傷害為2
+            COOLDOWN: 5000, // 每5秒
+            // 範圍固定為大波球LV10的範圍（156px）
+            FIELD_RADIUS: 156,
+            // 拋物線飛行時間固定1秒
+            PROJECTILE_FLIGHT_TIME: 1000,
+            // 地面特效持續時間3秒
+            FIELD_DURATION: 3000,
+            // 緩速效果（與大波球相同）
+            SLOW_FACTOR: 0.5, // 50%速度
+            SLOW_DURATION_MS: 1000, // 緩速持續時間（毫秒）
+            // 傷害間隔（與守護領域相同）
+            TICK_INTERVAL_MS: 120,
+            // 一次丟出5顆
+            PROJECTILE_COUNT: 5,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每5秒丟5顆冰彈，基礎傷害+1" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+1" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+1" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+1" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+1" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+1" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+1" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+1" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+1" },
+                { COUNT: 1, DESCRIPTION: "基礎傷害+1" }
+            ]
         }
     },
 
