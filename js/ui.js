@@ -487,6 +487,7 @@ const skillIcons = {
         const hasFrenzySlash = sourceWeaponsInfo.some(w => w.type === 'FRENZY_SLASH');
         const hasMindMagic = sourceWeaponsInfo.some(w => w.type === 'MIND_MAGIC');
         const hasFrenzyIceBall = sourceWeaponsInfo.some(w => w.type === 'FRENZY_ICE_BALL');
+        const hasFrenzyYoungDadaGlory = sourceWeaponsInfo.some(w => w.type === 'FRENZY_YOUNG_DADA_GLORY');
         for (const info of sourceWeaponsInfo) {
             const cfg = CONFIG.WEAPONS[info.type];
             if (!cfg) continue;
@@ -496,7 +497,8 @@ const skillIcons = {
             if ((hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (info.type === 'DAGGER' || info.type === 'SLASH')) ||
                 (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING')) ||
-                (hasFrenzyIceBall && (info.type === 'DAGGER' || info.type === 'BIG_ICE_BALL'))) continue;
+                (hasFrenzyIceBall && (info.type === 'DAGGER' || info.type === 'BIG_ICE_BALL')) ||
+                (hasFrenzyYoungDadaGlory && (info.type === 'DAGGER' || info.type === 'YOUNG_DADA_GLORY'))) continue;
             if (info.level < cfg.LEVELS.length) {
                 options.push({
                     type: info.type,
@@ -532,7 +534,8 @@ const skillIcons = {
             if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
                 (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING')) ||
-                (hasFrenzyIceBall && (weaponType === 'DAGGER' || weaponType === 'BIG_ICE_BALL'))) continue;
+                (hasFrenzyIceBall && (weaponType === 'DAGGER' || weaponType === 'BIG_ICE_BALL')) ||
+                (hasFrenzyYoungDadaGlory && (weaponType === 'DAGGER' || weaponType === 'YOUNG_DADA_GLORY'))) continue;
             if (!playerWeaponTypes.includes(weaponType)) {
                 const weaponConfig = CONFIG.WEAPONS[weaponType];
                 options.push({
@@ -629,6 +632,28 @@ const skillIcons = {
                         name: cfgFIB.NAME,
                         level: 1,
                         description: cfgFIB.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：幼妲天使（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 幼妲光輝(YOUNG_DADA_GLORY)）
+        try {
+            const hasFrenzyYoungDadaGloryFusion = playerWeaponTypes.includes('FRENZY_YOUNG_DADA_GLORY');
+            const cheer4 = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
+            const youngDadaGlory = sourceWeaponsInfo.find(w => w.type === 'YOUNG_DADA_GLORY');
+            const fusionUnlocked4 = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_YOUNG_DADA_GLORY')); } catch(_) { return false; }
+            })();
+            const fusionReady4 = (!!cheer4 && !!youngDadaGlory && cheer4.level >= 10 && youngDadaGlory.level >= 10);
+            if (!hasFrenzyYoungDadaGloryFusion && fusionReady4 && fusionUnlocked4) {
+                const cfgFYDG = CONFIG.WEAPONS['FRENZY_YOUNG_DADA_GLORY'];
+                if (cfgFYDG && Array.isArray(cfgFYDG.LEVELS) && cfgFYDG.LEVELS.length > 0) {
+                    options.push({
+                        type: 'FRENZY_YOUNG_DADA_GLORY',
+                        name: cfgFYDG.NAME,
+                        level: 1,
+                        description: cfgFYDG.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -882,6 +907,37 @@ const skillIcons = {
                     player.upgradeWeapon('FRENZY_ICE_BALL');
                 } else {
                     player.addWeapon('FRENZY_ICE_BALL');
+                }
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        // 融合：幼妲天使（移除 應援棒(DAGGER)/幼妲光輝(YOUNG_DADA_GLORY)，加入或升級 FRENZY_YOUNG_DADA_GLORY）
+        if (weaponType === 'FRENZY_YOUNG_DADA_GLORY') {
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                // 移除基礎武器
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'YOUNG_DADA_GLORY');
+                // 加入或升級融合武器
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'FRENZY_YOUNG_DADA_GLORY');
+                const cfgFYDG = CONFIG.WEAPONS['FRENZY_YOUNG_DADA_GLORY'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgFYDG && curLv < cfgFYDG.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'FRENZY_YOUNG_DADA_GLORY', level: 1 });
+                }
+            } else {
+                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'YOUNG_DADA_GLORY');
+                const existingFYDG = player.weapons.find(w => w.type === 'FRENZY_YOUNG_DADA_GLORY');
+                if (existingFYDG) {
+                    player.upgradeWeapon('FRENZY_YOUNG_DADA_GLORY');
+                } else {
+                    player.addWeapon('FRENZY_YOUNG_DADA_GLORY');
                 }
             }
             try { this.updateSkillsList(); } catch (_) {}
@@ -1461,6 +1517,7 @@ const iconMap = {
     BIG_ICE_BALL: 'assets/images/A21.png',
     ABSTRACTION: 'assets/images/A22.png',
     FRENZY_ICE_BALL: 'assets/images/A23.png',
+    FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
     FRENZY_SLASH: 'assets/images/A18.png',
     MIND_MAGIC: 'assets/images/A16.png',
