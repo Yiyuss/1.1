@@ -68,9 +68,20 @@ class TDPlayer {
         let src = 'assets/images/player.gif';
         try {
             const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
-            // 灰妲DaDa：改用 player2.png，其餘角色維持 player.gif
-            if (sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2')) {
+            // 依選角角色決定圖片：灰妲DaDa使用player2.png，森森鈴蘭使用player3.gif，其餘角色維持player.gif
+            if (sc && sc.spriteImageKey) {
+                // 根据spriteImageKey判断是gif还是png
+                if (sc.spriteImageKey === 'player3') {
+                    src = 'assets/images/player3.gif';
+                } else if (sc.spriteImageKey === 'player2') {
+                    src = 'assets/images/player2.png';
+                } else {
+                    src = `assets/images/${sc.spriteImageKey}.gif`;
+                }
+            } else if (sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2')) {
                 src = 'assets/images/player2.png';
+            } else if (sc && sc.id === 'lilylinglan') {
+                src = 'assets/images/player3.gif';
             }
         } catch(_) {}
         this.sprite = {
@@ -382,41 +393,45 @@ class TDPlayer {
     }
     
     
-    // 渲染玩家
+    // 渲染玩家（GIF由TDGifOverlay在td_game.js中統一處理，這裡只繪製非GIF和其他元素）
     render(ctx, resources) {
         ctx.save();
         
-        // 載入圖片：依 this.sprite.src 推導資源鍵（支援 player / player2）
-        let image = null;
-        if (this.sprite && this.sprite.src) {
-            try {
-                const baseName = this.sprite.src
-                    .replace('assets/images/', '')
-                    .replace(/\.(png|gif)$/i, '');
-                image = resources.getImage(baseName);
-            } catch(_) {}
-        }
-        if (!image) {
-            image = resources.getImage('player');
-        }
-        if (image) {
-            // 繪製玩家
-            ctx.drawImage(
-                image,
-                this.x - this.size / 2,
-                this.y - this.size / 2,
-                this.size,
-                this.size
-            );
-        } else {
-            // 後備繪製（純色方塊）
-            ctx.fillStyle = this.isBuilding ? '#FFD700' : '#00FF00';
-            ctx.fillRect(
-                this.x - this.size / 2,
-                this.y - this.size / 2,
-                this.size,
-                this.size
-            );
+        // 如果是GIF，跳過Canvas繪製（由TDGifOverlay處理）
+        const isGif = this.sprite && this.sprite.src && /\.gif$/i.test(this.sprite.src);
+        if (!isGif) {
+            // 載入圖片：依 this.sprite.src 推導資源鍵（支援 player / player2）
+            let image = null;
+            if (this.sprite && this.sprite.src) {
+                try {
+                    const baseName = this.sprite.src
+                        .replace('assets/images/', '')
+                        .replace(/\.(png|gif)$/i, '');
+                    image = resources.getImage(baseName);
+                } catch(_) {}
+            }
+            if (!image) {
+                image = resources.getImage('player');
+            }
+            if (image) {
+                // 繪製玩家（非GIF）
+                ctx.drawImage(
+                    image,
+                    this.x - this.size / 2,
+                    this.y - this.size / 2,
+                    this.size,
+                    this.size
+                );
+            } else {
+                // 後備繪製（純色方塊）
+                ctx.fillStyle = this.isBuilding ? '#FFD700' : '#00FF00';
+                ctx.fillRect(
+                    this.x - this.size / 2,
+                    this.y - this.size / 2,
+                    this.size,
+                    this.size
+                );
+            }
         }
         
         // 繪建造範圍（建造模式時）
