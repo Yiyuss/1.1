@@ -403,6 +403,20 @@
           const lEl = document.getElementById('summary-level'); if (lEl) lEl.textContent = lv;
           const cEl = document.getElementById('summary-coins'); if (cEl) cEl.textContent = coinsGain;
           const wEl = document.getElementById('summary-exp'); if (wEl) wEl.textContent = '—';
+          
+          // 顯示當次新解鎖成就（若有）- 與生存模式相同
+          try {
+            const achDiv = document.getElementById('victory-achievements');
+            if (achDiv && typeof Achievements !== 'undefined') {
+              const ids = Achievements.getSessionUnlocked();
+              if (ids && ids.length) {
+                const names = ids.map(id => (Achievements.DEFINITIONS[id] && Achievements.DEFINITIONS[id].name) ? Achievements.DEFINITIONS[id].name : id);
+                achDiv.textContent = `新成就解鎖：${names.join('、')}`;
+              } else {
+                achDiv.textContent = '';
+              }
+            }
+          } catch(_) {}
         } else {
           const tEl = document.getElementById('game-over-time'); if (tEl) tEl.textContent = sec;
           const lEl = document.getElementById('game-over-level'); if (lEl) lEl.textContent = lv;
@@ -490,6 +504,27 @@
           AudioScene.enterMenu();
         } else if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
           AudioManager.playMusic('menu_music');
+        }
+      } catch(_){}
+
+      // 回到主選單後（僅勝利流程）顯示成就彈窗與音效，與生存模式相同
+      try {
+        if (typeof Achievements !== 'undefined') {
+          const ids = (typeof Achievements.consumeSessionUnlocked === 'function')
+            ? Achievements.consumeSessionUnlocked()
+            : (typeof Achievements.getSessionUnlocked === 'function' ? Achievements.getSessionUnlocked() : []);
+          if (ids && ids.length) {
+            // 使用與生存模式相同的成就彈窗顯示邏輯
+            if (typeof UI !== 'undefined' && typeof UI.showAchievementsUnlockModal === 'function') {
+              UI.showAchievementsUnlockModal(ids);
+            }
+            // 播放成就解鎖音效（與生存模式相同）
+            try { 
+              if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                AudioManager.playSound('achievements');
+              }
+            } catch (_) {}
+          }
         }
       } catch(_){}
     },
