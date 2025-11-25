@@ -3,7 +3,7 @@
 
 // 冰弹投射物类（抛物线轨迹，约1秒落地）
 class IceBallProjectile extends Entity {
-    constructor(startX, startY, targetX, targetY, flightTimeMs, weaponLevel, player) {
+    constructor(startX, startY, targetX, targetY, flightTimeMs, weaponLevel, player, isFrenzyIceBall = false) {
         // 投射物大小
         const size = 32;
         super(startX, startY, size, size);
@@ -16,6 +16,7 @@ class IceBallProjectile extends Entity {
         this.elapsedTime = 0;
         this.weaponLevel = weaponLevel || 1;
         this.player = player;
+        this.isFrenzyIceBall = isFrenzyIceBall; // 是否为狂熱大波
         
         // 计算抛物线参数
         const dx = targetX - startX;
@@ -29,7 +30,7 @@ class IceBallProjectile extends Entity {
         // 存储目标位置和时间，用于精确计算
         this.totalTime = totalTime;
         
-        this.weaponType = 'BIG_ICE_BALL';
+        this.weaponType = isFrenzyIceBall ? 'FRENZY_ICE_BALL' : 'BIG_ICE_BALL';
         this.imageKey = 'ICE3';
     }
     
@@ -66,15 +67,25 @@ class IceBallProjectile extends Entity {
     land() {
         // 创建地面冷冻特效，使用实际落地位置（this.x, this.y）
         if (typeof Game !== 'undefined' && typeof IceFieldEffect !== 'undefined') {
-            const cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.BIG_ICE_BALL) || {};
-            const baseRadius = cfg.FIELD_RADIUS_BASE || 78;
-            const perLevel = cfg.FIELD_RADIUS_PER_LEVEL || 8.67;
-            const radius = baseRadius + perLevel * (this.weaponLevel - 1);
+            let radius;
+            let cfg;
+            if (this.isFrenzyIceBall) {
+                // 狂熱大波：使用固定范围（大波球LV10的156px）
+                cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.FRENZY_ICE_BALL) || {};
+                radius = cfg.FIELD_RADIUS || 156;
+            } else {
+                // 大波球：根据等级计算范围
+                cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.BIG_ICE_BALL) || {};
+                const baseRadius = cfg.FIELD_RADIUS_BASE || 78;
+                const perLevel = cfg.FIELD_RADIUS_PER_LEVEL || 8.67;
+                radius = baseRadius + perLevel * (this.weaponLevel - 1);
+            }
             
             // 计算最终伤害（包含天赋加成）
             let damage = cfg.DAMAGE || 2;
             if (this.player && this.player.weapons) {
-                const weapon = this.player.weapons.find(w => w.type === 'BIG_ICE_BALL');
+                const weaponType = this.isFrenzyIceBall ? 'FRENZY_ICE_BALL' : 'BIG_ICE_BALL';
+                const weapon = this.player.weapons.find(w => w.type === weaponType);
                 if (weapon && typeof weapon._computeFinalDamage === 'function') {
                     const levelMul = (typeof DamageSystem !== 'undefined')
                         ? DamageSystem.levelMultiplier(this.weaponLevel)
