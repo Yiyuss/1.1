@@ -1263,7 +1263,9 @@ const skillIcons = {
             player: 'assets/images/player1-2.png',
             'player1-2': 'assets/images/player1-2.png',
             // 第二位角色（灰妲DaDa）：使用 player2-2.png
-            'player2-2': 'assets/images/player2-2.png'
+            'player2-2': 'assets/images/player2-2.png',
+            // 第三位角色（森森鈴蘭）：使用 player3-2.png
+            'player3-2': 'assets/images/player3-2.png'
         };
         const url = map[key] || map['player'];
         bgEl.style.backgroundImage = `url('${url}')`;
