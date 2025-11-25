@@ -81,6 +81,27 @@ class Weapon {
             }
             return;
         }
+
+        // 融合技能：幼妲天使（超級加強版，每5秒補血並產生華麗聖光特效）
+        if (this.type === 'FRENZY_YOUNG_DADA_GLORY') {
+            // 根據等級獲取補血量（LV1~LV10：12, 14, 16, 18, 20, 22, 24, 26, 28, 30）
+            const healAmounts = this.config.HEAL_AMOUNTS || [12, 14, 16, 18, 20, 22, 24, 26, 28, 30];
+            const heal = healAmounts[Math.min(this.level - 1, healAmounts.length - 1)] || 12;
+            
+            this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+            if (typeof UI !== 'undefined') {
+                UI.updateHealthBar(this.player.health, this.player.maxHealth);
+            }
+            
+            // 創建超級加強版聖光特效
+            const effect = new FrenzyYoungDadaGloryEffect(this.player, this.config.DURATION || 3000);
+            Game.addProjectile(effect);
+            
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('sing_cast'); // 使用與唱歌相同的音效
+            }
+            return;
+        }
         // 特殊技能：旋球
         if (this.type === 'ORBIT') {
             const count = this.projectileCount;
