@@ -388,6 +388,20 @@ function safePlayShura(ctx) {
         } catch(_){}
       }, { capture: true });
 
+      // 測試功能：CTRL+M 直接獲勝
+      ctx.events.on(document, 'keydown', (e) => {
+        try {
+          if ((e.ctrlKey || e.metaKey) && (e.key === 'm' || e.key === 'M' || e.code === 'KeyM')) {
+            if (boss && boss.alive) {
+              // 設置 BOSS 為死亡狀態，觸發勝利邏輯
+              boss.alive = false;
+              e.preventDefault();
+              console.log('[測試] CTRL+M 觸發直接獲勝');
+            }
+          }
+        } catch(_){}
+      }, { capture: true });
+
       // 分頁可見性/焦點：隱藏或失焦時暫停主迴圈；回焦/可見時在無菜單與無覆蓋層下恢復
       ctx.events.on(document, 'visibilitychange', () => {
         try {
@@ -781,6 +795,14 @@ function safePlayShura(ctx) {
                   }
                 } catch(_){}
                 _victoryHandled = true;
+                // 檢查是否為銀河系關卡（challenge-1），如果是則解鎖成就
+                try {
+                  if (_selectedMapId === 'challenge-1') {
+                    if (typeof Achievements !== 'undefined' && Achievements.unlock) {
+                      Achievements.unlock('CHALLENGE_GALAXY_CLEAR');
+                    }
+                  }
+                } catch(_){}
                 // 使用挑戰模式的結算覆蓋層，避免與生存模式互相污染
                 try {
                   if (typeof window !== 'undefined' && window.ChallengeUI && typeof window.ChallengeUI.showSurvivalSettlement === 'function') {
