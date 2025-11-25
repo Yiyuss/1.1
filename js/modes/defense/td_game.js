@@ -603,7 +603,7 @@ class TDGame {
             this.ctx.restore();
         }
         
-        // 繪製玩家
+        // 繪製玩家（非GIF在Canvas上繪製，GIF由TDGifOverlay在最後統一處理）
         if (this.config.DEBUG) { console.log('開始繪製玩家...'); }
         this.player.render(this.ctx, this.resources);
         
@@ -680,6 +680,14 @@ class TDGame {
                         );
                     }
                 });
+                
+                // 最後統一處理玩家GIF（在clearAll之後，確保玩家GIF顯示在最上層）
+                const playerIsGif = this.player.sprite && this.player.sprite.src && /\.gif$/i.test(this.player.sprite.src);
+                if (playerIsGif && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
+                    const screenX = this.player.x - this.camera.x;
+                    const screenY = this.player.y - this.camera.y;
+                    window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, this.player.size);
+                }
             }
         } catch (_) {}
         
