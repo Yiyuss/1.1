@@ -93,6 +93,7 @@ function safePlayShura(ctx) {
       try { ctx2d.imageSmoothingEnabled = false; } catch(_){}
       // 進入挑戰模式前先清除全域 GifOverlay（生存/舞台/防禦）殘留，避免雙重玩家圖污染
       try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.clearAll === 'function') window.GifOverlay.clearAll(); } catch(_){}
+      try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
       // 敵人彈幕上層畫布（分層）：確保敵彈在玩家圖層之上、擦邊特效之下
       let enemyBulletCanvas = null;
       let enemyBulletCtx = null;
@@ -249,7 +250,7 @@ function safePlayShura(ctx) {
       let sfxShootAcc = 0;
       const sfxShootRateMs = 180;
 
-      // 玩家圖片覆蓋：依選角角色決定圖像（預設瑪格麗特為 player.gif，灰妲為 player2.png）
+      // 玩家圖片覆蓋：依選角角色決定圖像（預設瑪格麗特為 player.gif，灰妲為 player2.png，森森鈴蘭為 player3.gif）
       let actorSrc;
       try {
         const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
@@ -258,6 +259,8 @@ function safePlayShura(ctx) {
           key = sc.spriteImageKey;
         } else if (sc && sc.id === 'dada') {
           key = 'player2';
+        } else if (sc && sc.id === 'lilylinglan') {
+          key = 'player3';
         }
         const imgObj = (Game.images && Game.images[key]) ? Game.images[key] : null;
         if (imgObj && imgObj.src) {
@@ -988,6 +991,7 @@ function safePlayShura(ctx) {
       try { if (ctx && typeof ctx.dispose === 'function') ctx.dispose(); } catch(_){ }
       // 清理 GIF 覆蓋元素（避免殘留）
       try { if (typeof window.ChallengeGifOverlay !== 'undefined') window.ChallengeGifOverlay.clearAll(); } catch(_){}
+      try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.ChallengeBulletSystem !== 'undefined') window.ChallengeBulletSystem.reset(); } catch(_){}
       // 移除上層彈幕 canvas
       try {
