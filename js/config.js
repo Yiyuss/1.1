@@ -433,6 +433,27 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "基礎傷害+1" },
                 { COUNT: 1, DESCRIPTION: "基礎傷害+1" }
             ]
+        },
+        // 融合技能：幼妲天使（持有並滿級 應援棒(DAGGER) 與 幼妲光輝(YOUNG_DADA_GLORY) 後可獲得）
+        FRENZY_YOUNG_DADA_GLORY: {
+            NAME: "幼妲天使",
+            DAMAGE: 0, // 補血技能，不造成傷害
+            COOLDOWN: 5000, // 每5秒
+            DURATION: 3000, // 聖光特效持續時間3秒（比幼妲光輝更長）
+            // LV1~LV10 補血量：12, 14, 16, 18, 20, 22, 24, 26, 28, 30
+            HEAL_AMOUNTS: [12, 14, 16, 18, 20, 22, 24, 26, 28, 30],
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每5秒補血+12" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+14" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+16" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+18" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+20" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+22" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+24" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+26" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+28" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+30" }
+            ]
         }
     },
 
