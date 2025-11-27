@@ -118,6 +118,12 @@ const WaveSystem = {
                 else if (enemyType === 'SKELETON') enemyType = 'SKELETON3';
                 else if (enemyType === 'GHOST') enemyType = 'GHOST3';
             }
+            // 第四張地圖（garden）將普通敵人替換為花精靈系列（基礎值與第3張地圖相同）
+            else if (Game.selectedMap && Game.selectedMap.id === 'garden') {
+                if (enemyType === 'ZOMBIE') enemyType = 'ELF';
+                else if (enemyType === 'SKELETON') enemyType = 'ELF2';
+                else if (enemyType === 'GHOST') enemyType = 'ELF3';
+            }
             // 在世界邊緣生成敵人（加入內縮與分散避免重疊）
             const worldW = (Game.worldWidth || Game.canvas.width);
             const worldH = (Game.worldHeight || Game.canvas.height);
@@ -177,8 +183,8 @@ const WaveSystem = {
         }
         this.lastMiniBossWave = this.currentWave;
         this.lastMiniBossTime = Date.now();
-        // 第二、第三張地圖（forest、desert）：每波生成 2 隻小BOSS；其餘維持 1 隻。
-        const count = (Game.selectedMap && (Game.selectedMap.id === 'forest' || Game.selectedMap.id === 'desert')) ? 2 : 1;
+        // 第二、第三、第四張地圖（forest、desert、garden）：每波生成 2 隻小BOSS；其餘維持 1 隻。
+        const count = (Game.selectedMap && (Game.selectedMap.id === 'forest' || Game.selectedMap.id === 'desert' || Game.selectedMap.id === 'garden')) ? 2 : 1;
         for (let idx = 0; idx < count; idx++) {
             // 在世界邊緣生成小BOSS（加入內縮與分散避免重疊）
             const worldW = (Game.worldWidth || Game.canvas.width);
@@ -223,7 +229,9 @@ const WaveSystem = {
                 else if (edge === 'top') sx = Utils.randomInt(inner, worldW - inner);
                 else sx = Utils.randomInt(inner, worldW - inner);
             }
-            const miniBoss = new Enemy(sx, sy, 'MINI_BOSS');
+            // 根據地圖選擇小BOSS類型
+            const miniBossType = (Game.selectedMap && Game.selectedMap.id === 'garden') ? 'ELF_MINI_BOSS' : 'MINI_BOSS';
+            const miniBoss = new Enemy(sx, sy, miniBossType);
             Game.addEnemy(miniBoss);
             console.log('Mini Boss spawned!');
 
@@ -264,11 +272,13 @@ const WaveSystem = {
     
     // 生成大BOSS
     spawnBoss: function() {
+        // 根據地圖選擇大BOSS類型
+        const bossType = (Game.selectedMap && Game.selectedMap.id === 'garden') ? 'ELF_BOSS' : 'BOSS';
         // 在世界中央生成大BOSS
         const boss = new Enemy(
             (Game.worldWidth || CONFIG.CANVAS_WIDTH) / 2,
             (Game.worldHeight || CONFIG.CANVAS_HEIGHT) / 2,
-            'BOSS'
+            bossType
         );
         
         Game.addEnemy(boss);
