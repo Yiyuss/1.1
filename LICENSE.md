@@ -1,5 +1,4 @@
-The license file for this repository is stored at Assets/Danmokou.LICENSE.md.
-
-
-
-The license file for each submodule is stored in its own submodule folder (eg. `Assets/Danmokou/SiMP/Danmokou.SiMP.LICENSE.md`). Note that the only required submodule is SZYU, with the license files `Assets/Danmokou/SZYU/Suzunoya.LICENSE.md` and `Assets/Danmokou/SZYU/SuzunoyaUnity.LICENSE.md`.
+Sakura 2020 by Roa Music | https://soundcloud.com/roa_music1031
+Music promoted by https://www.free-stock-music.com
+Creative Commons / Attribution 3.0 Unported License (CC BY 3.0)
+https://creativecommons.org/licenses/by/3.0/deed.en_US
