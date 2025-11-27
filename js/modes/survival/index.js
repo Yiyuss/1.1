@@ -12,6 +12,7 @@
         audio: [
           { name: 'menu_music', src: 'assets/audio/menu_music.mp3' },
           { name: 'game_music', src: 'assets/audio/game_music.mp3' },
+          { name: 'game_music2', src: 'assets/audio/game_music2.mp3' }, // 第4張地圖（花園）專用 BGM
           { name: 'boss_music', src: 'assets/audio/boss_music.mp3' },
           { name: 'shura_music', src: 'assets/audio/Shura.mp3' }
         ],
@@ -27,8 +28,13 @@
       } catch(_){ }
       let track = 'game_music';
       try {
-        const useId = Game.selectedDifficultyId || 'EASY';
-        track = (useId === 'ASURA') ? 'shura_music' : 'game_music';
+        // 第4張地圖（花園）使用 game_music2（優先於修羅模式）
+        if (Game.selectedMap && Game.selectedMap.id === 'garden') {
+          track = 'game_music2';
+        } else {
+          const useId = Game.selectedDifficultyId || 'EASY';
+          track = (useId === 'ASURA') ? 'shura_music' : 'game_music';
+        }
         // 解除靜音並播放；同時同步音訊場景到遊戲
         if (ctx && ctx.audio && typeof ctx.audio.unmuteAndPlay === 'function') {
           ctx.audio.unmuteAndPlay(track);
@@ -60,16 +66,23 @@
       // 音樂：進入後強制同步到遊戲場景，避免被選單音樂覆蓋
       let track = 'game_music';
       try {
-        const useId = Game.selectedDifficultyId || 'EASY';
-        track = (useId === 'ASURA') ? 'shura_music' : 'game_music';
+        // 第4張地圖（花園）使用 game_music2
+        if (Game.selectedMap && Game.selectedMap.id === 'garden') {
+          track = 'game_music2';
+          console.log('[SurvivalMode] 花園地圖，使用 game_music2');
+        } else {
+          const useId = Game.selectedDifficultyId || 'EASY';
+          track = (useId === 'ASURA') ? 'shura_music' : 'game_music';
+        }
       } catch(_){ }
       try {
-        if (typeof AudioScene !== 'undefined' && AudioScene.enterGame) {
-          AudioScene.enterGame();
-        } else if (ctx && ctx.audio && typeof ctx.audio.playMusic === 'function') {
+        // 直接播放音樂，不通過 AudioScene.enterGame()，因為它會重新判斷
+        if (ctx && ctx.audio && typeof ctx.audio.playMusic === 'function') {
           ctx.audio.playMusic(track);
         } else if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
           AudioManager.playMusic(track);
+        } else if (typeof AudioScene !== 'undefined' && AudioScene.enterGame) {
+          AudioScene.enterGame();
         }
       } catch(_){}
 
@@ -126,6 +139,18 @@
       } catch(_){}
       // 離開生存模式時同樣清除全域 GIF 覆蓋層，避免殘留到其他模式
       try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.clearAll === 'function') window.GifOverlay.clearAll(); } catch(_){}
+      // 確保清理其他模式的殘留（防禦、挑戰模式）
+      try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
+      try { if (typeof window.ChallengeGifOverlay !== 'undefined' && typeof window.ChallengeGifOverlay.clearAll === 'function') window.ChallengeGifOverlay.clearAll(); } catch(_){}
+      // 清理挑戰模式HUD和DOM元素（確保沒有殘留）
+      try { const cHUD = document.getElementById('challenge-ui'); if (cHUD) cHUD.style.display = 'none'; } catch(_){}
+      try { const actor = document.getElementById('challenge-player-actor'); if (actor && actor.parentNode) actor.parentNode.removeChild(actor); } catch(_){}
+      try {
+        const ceo = document.getElementById('challenge-end-overlay');
+        if (ceo && ceo.parentNode) ceo.parentNode.removeChild(ceo);
+      } catch(_){}
+      // 清理防禦模式HUD
+      try { const dHUD = document.getElementById('defense-ui'); if (dHUD) dHUD.style.display = 'none'; } catch(_){}
     },
     update(){ /* 交由 Game.update */ },
     draw(){ /* 交由 Game.draw */ }
