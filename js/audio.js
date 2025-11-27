@@ -52,6 +52,7 @@ const AudioManager = {
         const musicToLoad = [
             { name: 'menu_music', src: 'assets/audio/menu_music.mp3' },
             { name: 'game_music', src: 'assets/audio/game_music.mp3' },
+            { name: 'game_music2', src: 'assets/audio/game_music2.mp3' }, // 第4張地圖（花園）專用 BGM
             { name: 'boss_music', src: 'assets/audio/boss_music.mp3' },
             // 修羅模式專用 BGM
             { name: 'shura_music', src: 'assets/audio/Shura.mp3' },
@@ -169,6 +170,7 @@ const AudioManager = {
             const known = [
               'assets/audio/menu_music.mp3',
               'assets/audio/game_music.mp3',
+              'assets/audio/game_music2.mp3',
               'assets/audio/boss_music.mp3',
               'assets/audio/Shura.mp3',
               'assets/audio/BOSS2.mp3',
@@ -200,7 +202,13 @@ const AudioManager = {
             } else if (Game.boss) {
                 this.playMusic('boss_music');
             } else {
-                const bgmName = (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') ? 'shura_music' : 'game_music';
+                let bgmName = 'game_music';
+                // 第4張地圖（花園）使用 game_music2（優先於修羅模式）
+                if (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id === 'garden') {
+                    bgmName = 'game_music2';
+                } else if (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') {
+                    bgmName = 'shura_music';
+                }
                 this.playMusic(bgmName);
             }
         }
@@ -227,7 +235,13 @@ const AudioManager = {
             } else if (Game.boss) {
                 this.playMusic('boss_music');
             } else {
-                const bgmName = (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') ? 'shura_music' : 'game_music';
+                let bgmName = 'game_music';
+                // 第4張地圖（花園）使用 game_music2（優先於修羅模式）
+                if (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id === 'garden') {
+                    bgmName = 'game_music2';
+                } else if (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') {
+                    bgmName = 'shura_music';
+                }
                 this.playMusic(bgmName);
             }
         }
@@ -282,11 +296,17 @@ const AudioScene = {
     },
     enterGame: function() {
         if (AudioManager.isMuted) return;
-        if (this.current === 'game') return;
+        // 移除 early return，讓切換分頁時也能重新判斷並播放正確的音樂
         this.current = 'game';
         try {
             if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
-                const bgmName = (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') ? 'shura_music' : 'game_music';
+                let bgmName = 'game_music';
+                // 第4張地圖（花園）使用 game_music2（優先於修羅模式）
+                if (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id === 'garden') {
+                    bgmName = 'game_music2';
+                } else if (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') {
+                    bgmName = 'shura_music';
+                }
                 AudioManager.playMusic(bgmName);
             }
         } catch (_) {}
