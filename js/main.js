@@ -990,7 +990,13 @@ function setupMapAndDifficultySelection() {
         } else {
             Game.startNewGame();
             if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
-                const track = (useId === 'ASURA') ? 'shura_music' : 'game_music';
+                let track = 'game_music';
+                // 第4張地圖（花園）使用 game_music2
+                if (Game.selectedMap && Game.selectedMap.id === 'garden') {
+                    track = 'game_music2';
+                } else if (useId === 'ASURA') {
+                    track = 'shura_music';
+                }
                 AudioManager.playMusic(track);
             }
             show(DOMCache.get('game-screen'));
