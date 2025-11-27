@@ -568,6 +568,7 @@ const CONFIG = {
         { id: 'city', name: '廁所', backgroundKey: 'background' },
         { id: 'forest', name: '草原', backgroundKey: 'background1-2' },
         { id: 'desert', name: '宇宙', backgroundKey: 'background1-3' },
+        { id: 'garden', name: 'LV4.花園', backgroundKey: 'background8' },
         { id: 'challenge-1', name: 'LV1.銀河系', backgroundKey: 'background4' },
         { id: 'challenge-2', name: 'LV2.星雲', backgroundKey: 'background5' },
         { id: 'challenge-3', name: 'LV3.星軌', backgroundKey: 'background6' },
@@ -721,6 +722,38 @@ const CONFIG = {
         },
         
         // ========================================================================
+        // 第4張地圖：花園 (garden) - 花精靈系列
+        // 維護備註：基礎值與第3張地圖（宇宙）完全相同
+        // ========================================================================
+        ELF: {
+            NAME: "花精靈",
+            HEALTH: 50,                // 基礎血量（與第3張地圖ZOMBIE3相同）
+            DAMAGE: 20,                // 攻擊傷害（與第3張地圖ZOMBIE3相同）
+            SPEED: 1,                   // 移動速度（與第3張地圖ZOMBIE3相同）
+            SIZE: 32,                   // 渲染尺寸（實際圖片100x98，按比例縮放）
+            EXPERIENCE: 5,              // 擊殺經驗值（與第3張地圖ZOMBIE3相同）
+            COLLISION_RADIUS: 16       // 碰撞半徑
+        },
+        ELF2: {
+            NAME: "花精靈2",
+            HEALTH: 40,                // 基礎血量（與第3張地圖SKELETON3相同）
+            DAMAGE: 25,                // 攻擊傷害（與第3張地圖SKELETON3相同）
+            SPEED: 1.5,                 // 移動速度（與第3張地圖SKELETON3相同）
+            SIZE: 32,                   // 渲染尺寸（實際圖片110x101，按比例縮放）
+            EXPERIENCE: 8,              // 擊殺經驗值（與第3張地圖SKELETON3相同）
+            COLLISION_RADIUS: 16       // 碰撞半徑
+        },
+        ELF3: {
+            NAME: "花精靈3",
+            HEALTH: 35,                // 基礎血量（與第3張地圖GHOST3相同）
+            DAMAGE: 30,                // 攻擊傷害（與第3張地圖GHOST3相同）
+            SPEED: 2,                   // 移動速度（與第3張地圖GHOST3相同）
+            SIZE: 32,                   // 渲染尺寸（實際圖片100x100，按比例縮放）
+            EXPERIENCE: 10,             // 擊殺經驗值（與第3張地圖GHOST3相同）
+            COLLISION_RADIUS: 16       // 碰撞半徑
+        },
+        
+        // ========================================================================
         // BOSS類敵人
         // ========================================================================
         MINI_BOSS: {
@@ -751,6 +784,48 @@ const CONFIG = {
             SIZE: 300,                  // 渲染尺寸（最大）
             EXPERIENCE: 500,            // 擊殺經驗值（最高）
             COLLISION_RADIUS: 150,      // 碰撞半徑
+            // 遠程攻擊參數（僅在困難模式及以上啟用）
+            RANGED_ATTACK: {
+                ENABLED: true,          // 是否啟用遠程攻擊
+                RANGE: 500,              // 攻擊範圍（像素）
+                COOLDOWN: 2500,          // 冷卻時間（毫秒）
+                PROJECTILE_DAMAGE: 60,   // 投射物傷害
+                PROJECTILE_SPEED: 6,     // 投射物速度
+                PROJECTILE_SIZE: 24,     // 投射物大小
+                HOMING: true,            // 是否追蹤玩家
+                TURN_RATE: 2.5           // 追蹤轉向速率（弧度/秒）
+            }
+        },
+        // 第4張地圖專用：花園BOSS系列
+        // 維護備註：基礎值與第3張地圖（宇宙）BOSS系列完全相同
+        ELF_MINI_BOSS: {
+            NAME: "花護衛",
+            HEALTH: 600,               // 基礎血量（與MINI_BOSS相同）
+            DAMAGE: 25,                // 攻擊傷害（與MINI_BOSS相同）
+            SPEED: 0.8,                // 移動速度（與MINI_BOSS相同）
+            SIZE: 160,                  // 渲染尺寸（實際圖片200x194，按比例縮放）
+            EXPERIENCE: 50,            // 擊殺經驗值（與MINI_BOSS相同）
+            COLLISION_RADIUS: 80,      // 碰撞半徑（與MINI_BOSS相同）
+            // 遠程攻擊參數（僅在困難模式及以上啟用）
+            RANGED_ATTACK: {
+                ENABLED: true,         // 是否啟用遠程攻擊
+                RANGE: 250,            // 攻擊範圍（像素）
+                COOLDOWN: 3500,        // 冷卻時間（毫秒）
+                PROJECTILE_DAMAGE: 40, // 投射物傷害
+                PROJECTILE_SPEED: 5,   // 投射物速度
+                PROJECTILE_SIZE: 18,   // 投射物大小
+                HOMING: true,          // 是否追蹤玩家
+                TURN_RATE: 2.0         // 追蹤轉向速率（弧度/秒）
+            }
+        },
+        ELF_BOSS: {
+            NAME: "花女王",
+            HEALTH: 5000,              // 基礎血量（與BOSS相同）
+            DAMAGE: 40,                 // 攻擊傷害（與BOSS相同）
+            SPEED: 0.7,                 // 移動速度（與BOSS相同）
+            SIZE: 300,                  // 渲染尺寸（實際圖片400x382，按比例縮放）
+            EXPERIENCE: 500,            // 擊殺經驗值（與BOSS相同）
+            COLLISION_RADIUS: 150,      // 碰撞半徑（與BOSS相同）
             // 遠程攻擊參數（僅在困難模式及以上啟用）
             RANGED_ATTACK: {
                 ENABLED: true,          // 是否啟用遠程攻擊
@@ -857,6 +932,19 @@ const CONFIG = {
                     baseHealth: 20,         // 基礎值加成（基礎值+20）
                     maxHealthWave30: 12000 // 第30波最大血量
                 }
+            },
+            // 第四張地圖：花園 (garden)
+            garden: {
+                // 簡單模式：花精靈基礎值~10000（第1波基礎值，第30波10000）
+                EASY: {
+                    baseHealth: 0,          // 基礎值加成（第4張地圖為0，使用基礎值）
+                    maxHealthWave30: 10000  // 第30波最大血量
+                },
+                // 困難模式：花精靈(基礎值+50)~15000（第1波基礎值+50，第30波15000）
+                HARD: {
+                    baseHealth: 50,         // 基礎值加成（基礎值+50）
+                    maxHealthWave30: 15000  // 第30波最大血量
+                }
             }
         },
         
@@ -901,6 +989,19 @@ const CONFIG = {
                     startWave1: 4000,      // 第1波血量
                     endWave30: 80000       // 第30波血量
                 }
+            },
+            // 第四張地圖：花園 (garden)
+            garden: {
+                // 簡單模式：花護衛小BOSS 2000-25000（第1波2000，第30波25000）
+                EASY: {
+                    startWave1: 2000,      // 第1波血量
+                    endWave30: 25000       // 第30波血量
+                },
+                // 困難模式：花護衛小BOSS 3500-120000（第1波3500，第30波120000）
+                HARD: {
+                    startWave1: 3500,      // 第1波血量
+                    endWave30: 120000      // 第30波血量
+                }
             }
         },
         
@@ -937,6 +1038,17 @@ const CONFIG = {
                 // 修羅模式：大BOSS 120000
                 ASURA: {
                     wave30: 120000        // 第30波血量
+                }
+            },
+            // 第四張地圖：花園 (garden)
+            garden: {
+                // 簡單模式：花女王大BOSS 50000
+                EASY: {
+                    wave30: 50000         // 第30波血量
+                },
+                // 困難模式：花女王大BOSS 150000
+                HARD: {
+                    wave30: 150000        // 第30波血量
                 }
             }
         }
