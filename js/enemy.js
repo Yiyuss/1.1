@@ -21,7 +21,7 @@ class Enemy extends Entity {
         
         try {
             // 普通小怪：根據地圖與難度配置調整血量
-            if (this.type !== 'MINI_BOSS' && this.type !== 'BOSS') {
+            if (this.type !== 'MINI_BOSS' && this.type !== 'ELF_MINI_BOSS' && this.type !== 'BOSS' && this.type !== 'ELF_BOSS') {
                 const enemyHealthConfig = (((tuning.ENEMY_HEALTH || {})[mapId] || {})[diffId]) || null;
                 if (enemyHealthConfig) {
                     // 計算基礎血量（原始基礎值 + 地圖加成）
@@ -46,7 +46,7 @@ class Enemy extends Entity {
                 }
             }
             // 小BOSS：根據地圖與難度配置調整血量
-            else if (this.type === 'MINI_BOSS') {
+            else if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS') {
                 const miniBossConfig = (((tuning.MINI_BOSS || {})[mapId] || {})[diffId]) || null;
                 if (miniBossConfig && miniBossConfig.startWave1 && miniBossConfig.endWave30) {
                     const start = miniBossConfig.startWave1;
@@ -69,7 +69,7 @@ class Enemy extends Entity {
                 }
             }
             // 大BOSS：根據地圖與難度配置調整血量（僅第30波）
-            else if (this.type === 'BOSS') {
+            else if (this.type === 'BOSS' || this.type === 'ELF_BOSS') {
                 const bossConfig = (((tuning.BOSS || {})[mapId] || {})[diffId]) || null;
                 // 大BOSS僅第30波出現，直接指定目標血量
                 if (bossConfig && bossConfig.wave30 && wave === ((CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 30)) {
@@ -100,17 +100,29 @@ class Enemy extends Entity {
         this.hitFlashDuration = 150; // 毫秒
         
         // 視覺與邏輯尺寸同步：MINI_BOSS 與 BOSS 使用非正方形大小
-        if (this.type === 'MINI_BOSS') {
-            this.width = 123; this.height = 160;
-            const img = Game && Game.images ? Game.images['mini_boss'] : null;
+        if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS') {
+            if (this.type === 'ELF_MINI_BOSS') {
+                // 花護衛：200x194，按比例縮放
+                this.width = 200; this.height = 194;
+            } else {
+                this.width = 123; this.height = 160;
+            }
+            const imgName = (this.type === 'ELF_MINI_BOSS') ? 'elf_mini_boss' : 'mini_boss';
+            const img = Game && Game.images ? Game.images[imgName] : null;
             if (img && img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
                 const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, 32, 72, 2);
                 if (poly && poly.length >= 3) this.setCollisionPolygon(poly);
             }
         }
-        if (this.type === 'BOSS') {
-            this.width = 212; this.height = 300;
-            const img = Game && Game.images ? Game.images['boss'] : null;
+        if (this.type === 'BOSS' || this.type === 'ELF_BOSS') {
+            if (this.type === 'ELF_BOSS') {
+                // 花女王：400x382，按比例縮放
+                this.width = 400; this.height = 382;
+            } else {
+                this.width = 212; this.height = 300;
+            }
+            const imgName = (this.type === 'ELF_BOSS') ? 'elfboss' : 'boss';
+            const img = Game && Game.images ? Game.images[imgName] : null;
             if (img && img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
                 const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, 36, 80, 2);
                 if (poly && poly.length >= 3) this.setCollisionPolygon(poly);
@@ -152,11 +164,13 @@ class Enemy extends Entity {
         if (typeof this.hasCollisionPolygon === 'function' && !this.hasCollisionPolygon()) {
             let imageName = null;
             if (this.type === 'MINI_BOSS') imageName = 'mini_boss';
+            else if (this.type === 'ELF_MINI_BOSS') imageName = 'elf_mini_boss';
             else if (this.type === 'BOSS') imageName = 'boss';
+            else if (this.type === 'ELF_BOSS') imageName = 'elfboss';
             if (imageName && Game && Game.images && Game.images[imageName]) {
                 const img = Game.images[imageName];
                 if (img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
-                    const params = this.type === 'BOSS' ? [36, 80, 2] : [32, 72, 2];
+                    const params = (this.type === 'BOSS' || this.type === 'ELF_BOSS') ? [36, 80, 2] : [32, 72, 2];
                     const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, ...params);
                     if (poly && poly.length >= 3) this.setCollisionPolygon(poly);
                 }
@@ -213,7 +227,7 @@ class Enemy extends Entity {
         }
 
         // 與障礙物分離/滑動：若接觸則沿法線微推開，避免卡住
-        const slideStrength = (this.type === 'BOSS') ? 0.45 : 0.25;
+        const slideStrength = (this.type === 'BOSS' || this.type === 'ELF_BOSS') ? 0.45 : 0.25;
         for (const obs of Game.obstacles || []) {
             const halfW = obs.width / 2;
             const halfH = obs.height / 2;
@@ -377,12 +391,32 @@ class Enemy extends Entity {
                 imageName = 'ghost3';
                 color = '#aaf';
                 break;
+            case 'ELF':
+                imageName = 'elf';
+                color = '#0fa';
+                break;
+            case 'ELF2':
+                imageName = 'elf2';
+                color = '#0fa';
+                break;
+            case 'ELF3':
+                imageName = 'elf3';
+                color = '#0fa';
+                break;
             case 'MINI_BOSS':
                 imageName = 'mini_boss';
                 color = '#f80';
                 break;
+            case 'ELF_MINI_BOSS':
+                imageName = 'elf_mini_boss';
+                color = '#f80';
+                break;
             case 'BOSS':
                 imageName = 'boss';
+                color = '#f00';
+                break;
+            case 'ELF_BOSS':
+                imageName = 'elfboss';
                 color = '#f00';
                 break;
             default:
@@ -393,7 +427,7 @@ class Enemy extends Entity {
         // 繪製敵人 - 優先使用圖片
         if (Game.images && Game.images[imageName]) {
             // 迷你頭目與頭目使用邏輯尺寸（非正方形），其他維持既有正方形 size
-            if (this.type === 'MINI_BOSS' || this.type === 'BOSS') {
+            if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'BOSS' || this.type === 'ELF_BOSS') {
                 drawW = this.width; drawH = this.height;
                 ctx.drawImage(
                     Game.images[imageName],
@@ -573,9 +607,9 @@ class Enemy extends Entity {
             angle,
             this.rangedAttack.PROJECTILE_SPEED,
             this.rangedAttack.PROJECTILE_DAMAGE,
-            (this.type === 'BOSS' 
+            ((this.type === 'BOSS' || this.type === 'ELF_BOSS')
                 ? this.rangedAttack.PROJECTILE_SIZE * 1.5 
-                : (this.type === 'MINI_BOSS' 
+                : ((this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS')
                     ? this.rangedAttack.PROJECTILE_SIZE * 1.35 
                     : this.rangedAttack.PROJECTILE_SIZE)),
             this.rangedAttack.HOMING,
@@ -611,16 +645,16 @@ class Enemy extends Entity {
         this.hitFlashTime = 0;
         // 生成經驗寶石與獎勵等（維持事件順序與文字/數值不變）
         Game.spawnExperienceOrb(this.x, this.y, this.experienceValue);
-        if (this.type === 'MINI_BOSS' || this.type === 'BOSS') {
+        if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'BOSS' || this.type === 'ELF_BOSS') {
             Game.spawnChest(this.x, this.y);
         }
         if (typeof Game !== 'undefined' && typeof Game.addCoins === 'function') {
             let coinGain = 2;
-            if (this.type === 'MINI_BOSS') coinGain = 50;
-            else if (this.type === 'BOSS') coinGain = 500;
+            if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS') coinGain = 50;
+            else if (this.type === 'BOSS' || this.type === 'ELF_BOSS') coinGain = 500;
             Game.addCoins(coinGain);
         }
-        if (this.type === 'BOSS') {
+        if (this.type === 'BOSS' || this.type === 'ELF_BOSS') {
             Game.victory();
         }
         
