@@ -609,133 +609,158 @@ const CONFIG = {
         }
     },
 
-    // 敵人設置
+    // ============================================================================
+    // 敵人基礎屬性配置
+    // ============================================================================
+    // 維護說明：
+    // 1. 此處定義所有敵人的基礎屬性（血量、傷害、速度、尺寸等）
+    // 2. 實際遊戲中的血量會根據地圖、難度、波次在 CONFIG.TUNING 中調整
+    // 3. 敵人按地圖順序排列：第1張（廁所）→ 第2張（草原）→ 第3張（宇宙）→ BOSS類
+    // 4. 每個敵人類型包含以下屬性：
+    //    - NAME: 顯示名稱
+    //    - HEALTH: 基礎血量（實際血量由 CONFIG.TUNING 控制）
+    //    - DAMAGE: 攻擊傷害（對玩家造成的傷害）
+    //    - SPEED: 移動速度（像素/幀）
+    //    - SIZE: 敵人尺寸（像素，用於渲染）
+    //    - EXPERIENCE: 擊殺後獲得的經驗值
+    //    - COLLISION_RADIUS: 碰撞半徑（用於碰撞檢測）
+    //    - RANGED_ATTACK: 遠程攻擊參數（僅BOSS類有）
+    // ============================================================================
     ENEMIES: {
+        // ========================================================================
+        // 第1張地圖：廁所 (city) - 基礎敵人
+        // ========================================================================
         ZOMBIE: {
             NAME: "殭屍",
-            HEALTH: 30,
-            DAMAGE: 10,
-            SPEED: 1,
-            SIZE: 32,
-            EXPERIENCE: 5,
-            COLLISION_RADIUS: 16
-        },
-        // 第二張地圖專用：殭屍2
-        ZOMBIE2: {
-            NAME: "殭屍",
-            HEALTH: 40,
-            DAMAGE: 15,
-            SPEED: 1,
-            SIZE: 32,
-            EXPERIENCE: 5,
-            COLLISION_RADIUS: 16
+            HEALTH: 30,              // 基礎血量（實際血量由 CONFIG.TUNING 控制）
+            DAMAGE: 10,               // 攻擊傷害
+            SPEED: 1,                 // 移動速度
+            SIZE: 32,                 // 渲染尺寸
+            EXPERIENCE: 5,            // 擊殺經驗值
+            COLLISION_RADIUS: 16      // 碰撞半徑
         },
         SKELETON: {
             NAME: "骷髏",
-            HEALTH: 20,
-            DAMAGE: 15,
-            SPEED: 1.5,
-            SIZE: 32,
-            EXPERIENCE: 8,
-            COLLISION_RADIUS: 16
-        },
-        // 第二張地圖專用：骷髏2
-        SKELETON2: {
-            NAME: "骷髏",
-            HEALTH: 30,
-            DAMAGE: 20,
-            SPEED: 1.5,
-            SIZE: 32,
-            EXPERIENCE: 8,
-            COLLISION_RADIUS: 16
+            HEALTH: 20,               // 基礎血量
+            DAMAGE: 15,               // 攻擊傷害
+            SPEED: 1.5,               // 移動速度（比殭屍快）
+            SIZE: 32,                 // 渲染尺寸
+            EXPERIENCE: 8,            // 擊殺經驗值
+            COLLISION_RADIUS: 16      // 碰撞半徑
         },
         GHOST: {
             NAME: "幽靈",
-            HEALTH: 15,
-            DAMAGE: 20,
-            SPEED: 2,
-            SIZE: 32,
-            EXPERIENCE: 10,
-            COLLISION_RADIUS: 16
+            HEALTH: 15,               // 基礎血量（血量最低但速度快）
+            DAMAGE: 20,               // 攻擊傷害（傷害最高）
+            SPEED: 2,                 // 移動速度（最快）
+            SIZE: 32,                 // 渲染尺寸
+            EXPERIENCE: 10,           // 擊殺經驗值（最高）
+            COLLISION_RADIUS: 16      // 碰撞半徑
         },
-        // 第二張地圖專用：幽靈2
+        
+        // ========================================================================
+        // 第2張地圖：草原 (forest) - 強化敵人
+        // ========================================================================
+        ZOMBIE2: {
+            NAME: "殭屍",
+            HEALTH: 40,               // 基礎血量（比第1張地圖+10）
+            DAMAGE: 15,                // 攻擊傷害（比第1張地圖+5）
+            SPEED: 1,                  // 移動速度（與第1張相同）
+            SIZE: 32,                  // 渲染尺寸
+            EXPERIENCE: 5,            // 擊殺經驗值
+            COLLISION_RADIUS: 16      // 碰撞半徑
+        },
+        SKELETON2: {
+            NAME: "骷髏",
+            HEALTH: 30,                // 基礎血量（比第1張地圖+10）
+            DAMAGE: 20,                // 攻擊傷害（比第1張地圖+5）
+            SPEED: 1.5,                // 移動速度（與第1張相同）
+            SIZE: 32,                  // 渲染尺寸
+            EXPERIENCE: 8,             // 擊殺經驗值
+            COLLISION_RADIUS: 16      // 碰撞半徑
+        },
         GHOST2: {
             NAME: "幽靈",
-            HEALTH: 25,
-            DAMAGE: 25,
-            SPEED: 2,
-            SIZE: 32,
-            EXPERIENCE: 10,
-            COLLISION_RADIUS: 16
+            HEALTH: 25,                // 基礎血量（比第1張地圖+10）
+            DAMAGE: 25,                // 攻擊傷害（比第1張地圖+5）
+            SPEED: 2,                  // 移動速度（與第1張相同）
+            SIZE: 32,                  // 渲染尺寸
+            EXPERIENCE: 10,            // 擊殺經驗值
+            COLLISION_RADIUS: 16      // 碰撞半徑
         },
-        // 第三張地圖專用：殭屍3）
+        
+        // ========================================================================
+        // 第3張地圖：宇宙 (desert) - 高級敵人
+        // ========================================================================
         ZOMBIE3: {
             NAME: "殭屍",
-            HEALTH: 50,
-            DAMAGE: 20,
-            SPEED: 1,
-            SIZE: 32,
-            EXPERIENCE: 5,
-            COLLISION_RADIUS: 16
+            HEALTH: 50,               // 基礎血量（比第1張地圖+20）
+            DAMAGE: 20,                // 攻擊傷害（比第1張地圖+10）
+            SPEED: 1,                  // 移動速度（與第1張相同）
+            SIZE: 32,                  // 渲染尺寸
+            EXPERIENCE: 5,             // 擊殺經驗值
+            COLLISION_RADIUS: 16      // 碰撞半徑
         },
-        // 第三張地圖專用：骷髏3
         SKELETON3: {
             NAME: "骷髏",
-            HEALTH: 40,
-            DAMAGE: 25,
-            SPEED: 1.5,
-            SIZE: 32,
-            EXPERIENCE: 8,
-            COLLISION_RADIUS: 16
+            HEALTH: 40,                // 基礎血量（比第1張地圖+20）
+            DAMAGE: 25,                // 攻擊傷害（比第1張地圖+10）
+            SPEED: 1.5,                 // 移動速度（與第1張相同）
+            SIZE: 32,                   // 渲染尺寸
+            EXPERIENCE: 8,              // 擊殺經驗值
+            COLLISION_RADIUS: 16       // 碰撞半徑
         },
-        // 第三張地圖專用：幽靈3
         GHOST3: {
             NAME: "幽靈",
-            HEALTH: 35,
-            DAMAGE: 30,
-            SPEED: 2,
-            SIZE: 32,
-            EXPERIENCE: 10,
-            COLLISION_RADIUS: 16
+            HEALTH: 35,                // 基礎血量（比第1張地圖+20）
+            DAMAGE: 30,                // 攻擊傷害（比第1張地圖+10）
+            SPEED: 2,                   // 移動速度（與第1張相同）
+            SIZE: 32,                   // 渲染尺寸
+            EXPERIENCE: 10,             // 擊殺經驗值
+            COLLISION_RADIUS: 16       // 碰撞半徑
         },
+        
+        // ========================================================================
+        // BOSS類敵人
+        // ========================================================================
         MINI_BOSS: {
             NAME: "小BOSS",
-            HEALTH: 600, // 原先200 * 3 = 600
-            DAMAGE: 25,
-            SPEED: 0.8,
-            SIZE: 160,
-            EXPERIENCE: 50,
-            COLLISION_RADIUS: 80,
-            // 新增：遠程攻擊參數（小BOSS技能）
+            HEALTH: 600,               // 基礎血量（實際血量由 CONFIG.TUNING 控制）
+            DAMAGE: 25,                // 攻擊傷害
+            SPEED: 0.8,                // 移動速度（較慢）
+            SIZE: 160,                 // 渲染尺寸（較大）
+            EXPERIENCE: 50,            // 擊殺經驗值
+            COLLISION_RADIUS: 80,     // 碰撞半徑
+            // 遠程攻擊參數（僅在困難模式及以上啟用）
             RANGED_ATTACK: {
-                ENABLED: true,
-                RANGE: 250,
-                COOLDOWN: 3500,
-                PROJECTILE_DAMAGE: 40,
-                PROJECTILE_SPEED: 5,
-                PROJECTILE_SIZE: 18,
-                HOMING: true,
-                TURN_RATE: 2.0
+                ENABLED: true,         // 是否啟用遠程攻擊
+                RANGE: 250,            // 攻擊範圍（像素）
+                COOLDOWN: 3500,        // 冷卻時間（毫秒）
+                PROJECTILE_DAMAGE: 40, // 投射物傷害
+                PROJECTILE_SPEED: 5,   // 投射物速度
+                PROJECTILE_SIZE: 18,   // 投射物大小
+                HOMING: true,          // 是否追蹤玩家
+                TURN_RATE: 2.0         // 追蹤轉向速率（弧度/秒）
             }
         },
         BOSS: {
             NAME: "大BOSS",
-            HEALTH: 5000, // 原先1000 * 5 = 5000
-            DAMAGE: 40,
-            SPEED: 0.7,
-            SIZE: 300,
-            EXPERIENCE: 500,
-            COLLISION_RADIUS: 150,
-            // 新增：遠程攻擊參數
+            HEALTH: 5000,              // 基礎血量（實際血量由 CONFIG.TUNING 控制）
+            DAMAGE: 40,                 // 攻擊傷害
+            SPEED: 0.7,                 // 移動速度（最慢）
+            SIZE: 300,                  // 渲染尺寸（最大）
+            EXPERIENCE: 500,            // 擊殺經驗值（最高）
+            COLLISION_RADIUS: 150,      // 碰撞半徑
+            // 遠程攻擊參數（僅在困難模式及以上啟用）
             RANGED_ATTACK: {
-                ENABLED: true,
-                RANGE: 500, // 攻擊範圍
-                COOLDOWN: 2500, // 火彈冷卻時間（毫秒）
-                PROJECTILE_DAMAGE: 60, // 火彈傷害
-                PROJECTILE_SPEED: 6, // 火彈速度
-                PROJECTILE_SIZE: 24, // 火彈大小
-                HOMING: true, // 是否追蹤玩家
-                TURN_RATE: 2.5 // 追蹤轉向速率（弧度/秒）
+                ENABLED: true,          // 是否啟用遠程攻擊
+                RANGE: 500,              // 攻擊範圍（像素）
+                COOLDOWN: 2500,          // 冷卻時間（毫秒）
+                PROJECTILE_DAMAGE: 60,   // 投射物傷害
+                PROJECTILE_SPEED: 6,     // 投射物速度
+                PROJECTILE_SIZE: 24,     // 投射物大小
+                HOMING: true,            // 是否追蹤玩家
+                TURN_RATE: 2.5           // 追蹤轉向速率（弧度/秒）
             }
         }
     },
