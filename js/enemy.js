@@ -40,15 +40,9 @@ class Enemy extends Entity {
                         this.maxHealth = Math.floor(baseHealth + (maxHealthWave30 - baseHealth) * progress);
                     }
                 } else {
-                    // 如果沒有配置，使用原有邏輯（向後兼容）
-                    const earlyMult = CONFIG.WAVES.HEALTH_MULTIPLIER_PER_WAVE || 1;
-                    const lateMult = CONFIG.WAVES.HEALTH_MULTIPLIER_PER_WAVE_LATE || earlyMult;
-                    const earlyWaves = Math.min(Math.max(0, wave - 1), 4);
-                    const lateWaves = Math.max(0, wave - 5);
-                    const growthMult = (Game.difficulty && Game.difficulty.enemyHealthGrowthRateMultiplier) ? Game.difficulty.enemyHealthGrowthRateMultiplier : 1;
-                    const hpMult = Math.pow(earlyMult, earlyWaves * growthMult) * Math.pow(lateMult, lateWaves * growthMult);
-                    const diffHp = (Game.difficulty && Game.difficulty.enemyHealthMultiplier) ? Game.difficulty.enemyHealthMultiplier : 1;
-                    this.maxHealth = Math.floor(this.maxHealth * hpMult * diffHp);
+                    // 如果沒有配置，使用基礎值（應確保所有地圖/難度組合都有配置）
+                    console.warn(`[Enemy] 未找到血量配置: 地圖=${mapId}, 難度=${diffId}, 類型=${this.type}`);
+                    this.maxHealth = enemyConfig.HEALTH;
                 }
             }
             // 小BOSS：根據地圖與難度配置調整血量
