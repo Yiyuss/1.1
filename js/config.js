@@ -730,7 +730,7 @@ const CONFIG = {
             HEALTH: 50,                // 基礎血量（與第3張地圖ZOMBIE3相同）
             DAMAGE: 20,                // 攻擊傷害（與第3張地圖ZOMBIE3相同）
             SPEED: 1,                   // 移動速度（與第3張地圖ZOMBIE3相同）
-            SIZE: 32,                   // 渲染尺寸（實際圖片100x98，按比例縮放）
+            SIZE: 50,                   // 渲染尺寸（實際圖片100x98，按比例縮放）
             EXPERIENCE: 5,              // 擊殺經驗值（與第3張地圖ZOMBIE3相同）
             COLLISION_RADIUS: 16       // 碰撞半徑
         },
@@ -739,7 +739,7 @@ const CONFIG = {
             HEALTH: 40,                // 基礎血量（與第3張地圖SKELETON3相同）
             DAMAGE: 25,                // 攻擊傷害（與第3張地圖SKELETON3相同）
             SPEED: 1.5,                 // 移動速度（與第3張地圖SKELETON3相同）
-            SIZE: 32,                   // 渲染尺寸（實際圖片110x101，按比例縮放）
+            SIZE: 50,                   // 渲染尺寸（實際圖片110x101，按比例縮放）
             EXPERIENCE: 8,              // 擊殺經驗值（與第3張地圖SKELETON3相同）
             COLLISION_RADIUS: 16       // 碰撞半徑
         },
@@ -748,7 +748,7 @@ const CONFIG = {
             HEALTH: 35,                // 基礎血量（與第3張地圖GHOST3相同）
             DAMAGE: 30,                // 攻擊傷害（與第3張地圖GHOST3相同）
             SPEED: 2,                   // 移動速度（與第3張地圖GHOST3相同）
-            SIZE: 32,                   // 渲染尺寸（實際圖片100x100，按比例縮放）
+            SIZE: 50,                   // 渲染尺寸（實際圖片100x100，按比例縮放）
             EXPERIENCE: 10,             // 擊殺經驗值（與第3張地圖GHOST3相同）
             COLLISION_RADIUS: 16       // 碰撞半徑
         },
