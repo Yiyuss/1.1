@@ -208,6 +208,12 @@ function createDefaultImages() {
         { name: 'ghost3', src: 'assets/images/ghost3.png' },
         { name: 'mini_boss', src: 'assets/images/mini_boss.png' },
         { name: 'boss', src: 'assets/images/boss.png' },
+        // 第4張地圖：花園 - 花精靈系列敵人
+        { name: 'elf', src: 'assets/images/Elf.png' },
+        { name: 'elf2', src: 'assets/images/Elf2.png' },
+        { name: 'elf3', src: 'assets/images/Elf3.png' },
+        { name: 'elf_mini_boss', src: 'assets/images/Elf_mini_boss.png' },
+        { name: 'elfboss', src: 'assets/images/Elfboss.png' },
         { name: 'dagger', src: 'assets/images/dagger.png' },
         { name: 'fireball', src: 'assets/images/fireball.png' },
         { name: 'lightning', src: 'assets/images/lightning.png' },
@@ -237,6 +243,14 @@ function createDefaultImages() {
         { name: 'S7', src: 'assets/images/S7.png' },
         { name: 'S8', src: 'assets/images/S8.png' },
         { name: 'S9', src: 'assets/images/S9.png' },
+        // 第4張地圖：花園 - 裝飾物素材
+        { name: 'S10', src: 'assets/images/S10.png' },
+        { name: 'S11', src: 'assets/images/S11.png' },
+        { name: 'S12', src: 'assets/images/S12.png' },
+        { name: 'S13', src: 'assets/images/S13.png' },
+        { name: 'S14', src: 'assets/images/S14.png' },
+        { name: 'S15', src: 'assets/images/S15.png' },
+        { name: 'S16', src: 'assets/images/S16.png' },
         // 背景素材（多地圖）
         { name: 'background', src: 'assets/images/background.jpg' },
         { name: 'background2', src: 'assets/images/background2.jpg' },
@@ -244,7 +258,9 @@ function createDefaultImages() {
         // 新增：挑戰模式「銀河系」地圖背景
         { name: 'background4', src: 'assets/images/background4.png' },
         { name: 'background1-2', src: 'assets/images/background1-2.png' },
-        { name: 'background1-3', src: 'assets/images/background1-3.png' }
+        { name: 'background1-3', src: 'assets/images/background1-3.png' },
+        // 第4張地圖：花園背景
+        { name: 'background8', src: 'assets/images/background8.png' }
     ];
     
     // 加載所有圖片
@@ -732,6 +748,8 @@ function setupMapAndDifficultySelection() {
                 mapDescEl.textContent = '綠意盎然的草原，卻出現了許多馬桶。';
             } else if (cfg && (cfg.id === 'desert' || cfg.name === '宇宙' || cfg.name === '宇宙LV.3')) {
                 mapDescEl.textContent = '無盡的宇宙星空中，漂浮著許多馬桶。';
+            } else if (cfg && (cfg.id === 'garden' || cfg.name === '花園' || cfg.name === 'LV4.花園')) {
+                mapDescEl.textContent = '美麗的花園中，花精靈們守護著這片淨土。';
             } else if (cfg && (cfg.id === 'challenge-1' || (typeof cfg.name === 'string' && cfg.name.includes('銀河系')))) {
                 // 銀河系地圖介紹
                 mapDescEl.textContent = '未知信號所具現化的能量體「森森鈴蘭」。';
