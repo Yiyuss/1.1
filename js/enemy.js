@@ -6,42 +6,89 @@ class Enemy extends Entity {
         
         this.type = type;
         this.name = enemyConfig.NAME;
-        // 基礎血量，後續依波次倍率提升
-        this.maxHealth = enemyConfig.HEALTH;
-        // 依照目前波次提高血量（每波乘以倍率），第5波後稍微提高倍率
+        
+        // ============================================================================
+        // 血量計算邏輯（依地圖、難度、波次）
+        // ============================================================================
         const wave = (typeof WaveSystem !== 'undefined' && WaveSystem.currentWave) ? WaveSystem.currentWave : 1;
-        const earlyMult = CONFIG.WAVES.HEALTH_MULTIPLIER_PER_WAVE || 1;
-        const lateMult = CONFIG.WAVES.HEALTH_MULTIPLIER_PER_WAVE_LATE || earlyMult;
-        const earlyWaves = Math.min(Math.max(0, wave - 1), 4); // 前4波使用earlyMult
-        const lateWaves = Math.max(0, wave - 5);
-        const growthMult = (Game.difficulty && Game.difficulty.enemyHealthGrowthRateMultiplier) ? Game.difficulty.enemyHealthGrowthRateMultiplier : 1;
-        const hpMult = Math.pow(earlyMult, earlyWaves * growthMult) * Math.pow(lateMult, lateWaves * growthMult);
-        const diffHp = (Game.difficulty && Game.difficulty.enemyHealthMultiplier) ? Game.difficulty.enemyHealthMultiplier : 1;
-        this.maxHealth = Math.floor(this.maxHealth * hpMult * diffHp);
-        // 迷你BOSS/大BOSS：依地圖與難度覆蓋血量（不影響普通敵人）
+        const mapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : 'city';
+        const diffId = (Game.selectedDifficultyId) ? Game.selectedDifficultyId : 'EASY';
+        const tuning = (CONFIG.TUNING || {});
+        const totalWaves = (CONFIG.WAVES && CONFIG.WAVES.TOTAL_WAVES) ? CONFIG.WAVES.TOTAL_WAVES : 30;
+        
+        // 基礎血量（從敵人配置中取得）
+        this.maxHealth = enemyConfig.HEALTH;
+        
         try {
-            const mapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : 'city';
-            const diffId = (Game.selectedDifficultyId) ? Game.selectedDifficultyId : 'EASY';
-            const tuning = (CONFIG.TUNING || {});
-            if (this.type === 'MINI_BOSS') {
-                const t = (((tuning.MINI_BOSS || {})[mapId] || {})[diffId]) || null;
-                if (t && t.startWave1 && t.endWave30) {
-                    const total = (CONFIG.WAVES && CONFIG.WAVES.TOTAL_WAVES) ? CONFIG.WAVES.TOTAL_WAVES : 30;
-                    const start = t.startWave1;
-                    const end = t.endWave30;
-                    const perWave = Math.pow(end / start, 1 / Math.max(1, (total - 1)));
-                    const steps = Math.max(0, wave - 1);
-                    this.maxHealth = Math.floor(start * Math.pow(perWave, steps));
+            // 普通小怪：根據地圖與難度配置調整血量
+            if (this.type !== 'MINI_BOSS' && this.type !== 'BOSS') {
+                const enemyHealthConfig = (((tuning.ENEMY_HEALTH || {})[mapId] || {})[diffId]) || null;
+                if (enemyHealthConfig) {
+                    // 計算基礎血量（原始基礎值 + 地圖加成）
+                    const baseHealth = this.maxHealth + (enemyHealthConfig.baseHealth || 0);
+                    // 計算第30波目標血量
+                    const maxHealthWave30 = enemyHealthConfig.maxHealthWave30 || baseHealth;
+                    
+                    // 根據波次線性插值：第1波使用基礎血量，第30波達到最大血量
+                    if (wave === 1) {
+                        this.maxHealth = baseHealth;
+                    } else if (wave >= totalWaves) {
+                        this.maxHealth = maxHealthWave30;
+                    } else {
+                        // 線性插值：從基礎血量到最大血量
+                        const progress = (wave - 1) / (totalWaves - 1);
+                        this.maxHealth = Math.floor(baseHealth + (maxHealthWave30 - baseHealth) * progress);
+                    }
+                } else {
+                    // 如果沒有配置，使用原有邏輯（向後兼容）
+                    const earlyMult = CONFIG.WAVES.HEALTH_MULTIPLIER_PER_WAVE || 1;
+                    const lateMult = CONFIG.WAVES.HEALTH_MULTIPLIER_PER_WAVE_LATE || earlyMult;
+                    const earlyWaves = Math.min(Math.max(0, wave - 1), 4);
+                    const lateWaves = Math.max(0, wave - 5);
+                    const growthMult = (Game.difficulty && Game.difficulty.enemyHealthGrowthRateMultiplier) ? Game.difficulty.enemyHealthGrowthRateMultiplier : 1;
+                    const hpMult = Math.pow(earlyMult, earlyWaves * growthMult) * Math.pow(lateMult, lateWaves * growthMult);
+                    const diffHp = (Game.difficulty && Game.difficulty.enemyHealthMultiplier) ? Game.difficulty.enemyHealthMultiplier : 1;
+                    this.maxHealth = Math.floor(this.maxHealth * hpMult * diffHp);
                 }
-            } else if (this.type === 'BOSS') {
-                const t = (((tuning.BOSS || {})[mapId] || {})[diffId]) || null;
+            }
+            // 小BOSS：根據地圖與難度配置調整血量
+            else if (this.type === 'MINI_BOSS') {
+                const miniBossConfig = (((tuning.MINI_BOSS || {})[mapId] || {})[diffId]) || null;
+                if (miniBossConfig && miniBossConfig.startWave1 && miniBossConfig.endWave30) {
+                    const start = miniBossConfig.startWave1;
+                    const end = miniBossConfig.endWave30;
+                    
+                    // 根據波次計算血量：第1波使用起始值，第30波達到結束值
+                    if (wave === 1) {
+                        this.maxHealth = start;
+                    } else if (wave >= totalWaves) {
+                        this.maxHealth = end;
+                    } else {
+                        // 指數增長：從起始值到結束值
+                        const perWave = Math.pow(end / start, 1 / Math.max(1, (totalWaves - 1)));
+                        const steps = Math.max(0, wave - 1);
+                        this.maxHealth = Math.floor(start * Math.pow(perWave, steps));
+                    }
+                } else {
+                    // 如果沒有配置，使用基礎值（向後兼容）
+                    this.maxHealth = enemyConfig.HEALTH;
+                }
+            }
+            // 大BOSS：根據地圖與難度配置調整血量（僅第30波）
+            else if (this.type === 'BOSS') {
+                const bossConfig = (((tuning.BOSS || {})[mapId] || {})[diffId]) || null;
                 // 大BOSS僅第30波出現，直接指定目標血量
-                if (t && t.wave30 && wave === ((CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 30)) {
-                    this.maxHealth = t.wave30;
+                if (bossConfig && bossConfig.wave30 && wave === ((CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 30)) {
+                    this.maxHealth = bossConfig.wave30;
+                } else {
+                    // 如果沒有配置，使用基礎值（向後兼容）
+                    this.maxHealth = enemyConfig.HEALTH;
                 }
             }
         } catch (e) {
-            // 保守處理：任何錯誤均不影響既有流程
+            // 保守處理：任何錯誤均不影響既有流程，使用基礎值
+            console.warn('[Enemy] 血量計算錯誤，使用基礎值:', e);
+            this.maxHealth = enemyConfig.HEALTH;
         }
         this.health = this.maxHealth;
         this.damage = enemyConfig.DAMAGE;
