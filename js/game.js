@@ -397,17 +397,34 @@ const Game = {
     drawEntities: function() {
         // 繪製地圖裝飾（非碰撞）
         if (this.decorations && this.decorations.length) {
+            // 保存当前图像平滑设置
+            const wasSmoothingEnabled = this.ctx.imageSmoothingEnabled;
+            // 禁用图像平滑以获得更清晰的像素化效果（避免缩放模糊）
+            try { this.ctx.imageSmoothingEnabled = false; } catch(_) {}
+            
             for (const deco of this.decorations) {
                 const img = (this.images || Game.images || {})[deco.imageKey];
                 const drawX = deco.x - deco.width / 2;
                 const drawY = deco.y - deco.height / 2;
-                if (img) {
-                    this.ctx.drawImage(img, drawX, drawY, deco.width, deco.height);
+                if (img && img.complete) {
+                    // 获取图片的原始尺寸
+                    const imgW = img.naturalWidth || img.width || deco.width;
+                    const imgH = img.naturalHeight || img.height || deco.height;
+                    // 调试：S15特殊处理，输出尺寸信息
+                    if (deco.imageKey === 'S15') {
+                        console.log('[S15调试] 图片原始尺寸:', imgW, 'x', imgH, '配置尺寸:', deco.width, 'x', deco.height);
+                    }
+                    // 使用图片的完整原始尺寸作为源，缩放到配置的目标尺寸绘制
+                    // 这样即使图片文件是原始尺寸，也会正确缩放到目标尺寸
+                    this.ctx.drawImage(img, 0, 0, imgW, imgH, drawX, drawY, deco.width, deco.height);
                 } else {
                     this.ctx.fillStyle = '#666';
                     this.ctx.fillRect(drawX, drawY, deco.width, deco.height);
                 }
             }
+            
+            // 恢复图像平滑设置
+            try { this.ctx.imageSmoothingEnabled = wasSmoothingEnabled; } catch(_) {}
         }
 
         // 繪製障礙物
@@ -582,7 +599,7 @@ const Game = {
             let toRemove = this.enemies.length - effectiveMax;
             for (let i = 0; i < this.enemies.length && toRemove > 0;) {
                 const e = this.enemies[i];
-                if (e && (e.type === 'BOSS' || e.type === 'MINI_BOSS')) {
+                if (e && (e.type === 'BOSS' || e.type === 'ELF_BOSS' || e.type === 'MINI_BOSS' || e.type === 'ELF_MINI_BOSS')) {
                     i++; // 跳過BOSS類型
                 } else {
                     this.enemies.splice(i, 1);
@@ -857,6 +874,62 @@ const Game = {
         if (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert')) {
             return; // 跳過裝飾生成
         }
+        
+        // 第四張地圖（garden）使用 S10-S16 作為裝飾物
+        // 注意：以下尺寸為縮小後的目標尺寸（圖片文件可能是原始尺寸，渲染時會縮放到這些尺寸）
+        // S10: 原始尺寸縮小50% → 118×98
+        // S11: 原始尺寸縮小50% → 116×88
+        // S12: 原始尺寸縮小50% → 122×73
+        // S13: 原始尺寸縮小30% → 128×91
+        // S14: 原始尺寸縮小30% → 133×108
+        // S15: 原始尺寸縮小60% → 183×151
+        // S16: 原始尺寸縮小60% → 183×151
+        if (this.selectedMap && this.selectedMap.id === 'garden') {
+            const specs = {
+                S10: { w: 59, h: 49 },    // 縮小50%（原118×98的50%）
+                S11: { w: 58, h: 44 },    // 縮小50%（原116×88的50%）
+                S12: { w: 61, h: 37 },    // 縮小50%（原122×73的50%，四捨五入）
+                S13: { w: 90, h: 64 },    // 縮小30%（原128×91的30%，128×0.7≈90，91×0.7≈64）
+                S14: { w: 93, h: 76 },    // 縮小30%（原133×108的30%，133×0.7≈93，108×0.7≈76）
+                S15: { w: 73, h: 60 },    // 縮小60%（原183×151的60%，183×0.4≈73，151×0.4≈60）
+                S16: { w: 73, h: 60 }     // 縮小60%（原183×151的60%，183×0.4≈73，151×0.4≈60）
+            };
+            const types = ['S10','S11','S12','S13','S14','S15','S16'];
+            const margin = 12;
+            const minPlayerDist = 0;
+            const rectOverlap = (ax, ay, aw, ah, bx, by, bw, bh, m = 0) => {
+                const halfAw = aw / 2, halfAh = ah / 2, halfBw = bw / 2, halfBh = bh / 2;
+                return Math.abs(ax - bx) < (halfAw + halfBw + m) && Math.abs(ay - by) < (halfAh + halfBh + m);
+            };
+            const tryPlace = (key) => {
+                const spec = specs[key];
+                const halfW = spec.w / 2;
+                const halfH = spec.h / 2;
+                let attempts = 0;
+                while (attempts++ < 200) {
+                    const x = Utils.randomInt(halfW, this.worldWidth - halfW);
+                    const y = Utils.randomInt(halfH, this.worldHeight - halfH);
+                    if (minPlayerDist > 0 && Utils.distance(x, y, this.player.x, this.player.y) < minPlayerDist) continue;
+                    let overlap = false;
+                    for (const d of this.decorations) {
+                        if (rectOverlap(x, y, spec.w, spec.h, d.x, d.y, d.width, d.height, margin)) { overlap = true; break; }
+                    }
+                    if (overlap) continue;
+                    for (const o of this.obstacles) {
+                        if (rectOverlap(x, y, spec.w, spec.h, o.x, o.y, o.width, o.height, margin)) { overlap = true; break; }
+                    }
+                    if (overlap) continue;
+                    this.decorations.push({ x, y, width: spec.w, height: spec.h, imageKey: key });
+                    break;
+                }
+            };
+            for (const t of types) {
+                tryPlace(t);
+            }
+            return; // 花園地圖裝飾物生成完成，直接返回
+        }
+        
+        // 第一張地圖（city）使用 S3-S9 作為裝飾物
         const specs = {
             S3: { w: 228, h: 70 },
             S4: { w: 184, h: 80 },
