@@ -577,41 +577,33 @@ const CONFIG = {
         { id: 'main-test', name: '測試用地圖', backgroundKey: 'background3' }
     ],
 
-    // 新增：難度模式倍率（影響血量、生成速度、生成數量）
+    // 難度模式倍率（影響生成速度、生成數量、移動速度等）
+    // 注意：血量調整已移至 CONFIG.TUNING，不再使用此處的血量倍率
     DIFFICULTY: {
         EASY: {
             NAME: '簡單',
-            enemyHealthMultiplier: 0.85,
             spawnIntervalMultiplier: 1.15,
             spawnCountMultiplier: 0.9,
             enemySpeedMultiplier: 1.0,
             bossRangedEnabled: false,
-            enemyHealthGrowthRateMultiplier: 1.0,
             maxEnemiesBonusMin: 0,
             maxEnemiesBonusMax: 0
         },
         HARD: {
             NAME: '困難',
-            enemyHealthMultiplier: 1.0,
             spawnIntervalMultiplier: 0.85,
             spawnCountMultiplier: 1.2,
             enemySpeedMultiplier: 1.2,
             bossRangedEnabled: true,
-            enemyHealthGrowthRateMultiplier: 2.0, // 成長幅度+100%
             maxEnemiesBonusMin: 50,   // 比簡單上限多50~100
             maxEnemiesBonusMax: 100
         },
         ASURA: {
             NAME: '修羅',
-            // 小怪希望 1波約70、30波約10000（以第三張地圖基礎50為例）
-            // 因此適度提升基礎倍率並降低成長倍率：50 * 1.4 ≈ 70；30波總倍率約142.8
-            enemyHealthMultiplier: 1.4,
             spawnIntervalMultiplier: 0.85,
             spawnCountMultiplier: 1.2,
             enemySpeedMultiplier: 1.7,
             bossRangedEnabled: true,
-            // 使 1.05^(4g) * 1.1^(25g) ≈ 142.8，解得 g ≈ 1.925
-            enemyHealthGrowthRateMultiplier: 1.925,
             maxEnemiesBonusMin: 50,
             maxEnemiesBonusMax: 100
         }
@@ -628,7 +620,7 @@ const CONFIG = {
             EXPERIENCE: 5,
             COLLISION_RADIUS: 16
         },
-        // 第二張地圖專用：殭屍2（僅初始血量+10、初始傷害+5，其餘相同）
+        // 第二張地圖專用：殭屍2
         ZOMBIE2: {
             NAME: "殭屍",
             HEALTH: 40,
@@ -647,7 +639,7 @@ const CONFIG = {
             EXPERIENCE: 8,
             COLLISION_RADIUS: 16
         },
-        // 第二張地圖專用：骷髏2（僅初始血量+10、初始傷害+5，其餘相同）
+        // 第二張地圖專用：骷髏2
         SKELETON2: {
             NAME: "骷髏",
             HEALTH: 30,
@@ -666,7 +658,7 @@ const CONFIG = {
             EXPERIENCE: 10,
             COLLISION_RADIUS: 16
         },
-        // 第二張地圖專用：幽靈2（僅初始血量+10、初始傷害+5，其餘相同）
+        // 第二張地圖專用：幽靈2
         GHOST2: {
             NAME: "幽靈",
             HEALTH: 25,
@@ -676,7 +668,7 @@ const CONFIG = {
             EXPERIENCE: 10,
             COLLISION_RADIUS: 16
         },
-        // 第三張地圖專用：殭屍3（僅初始血量+20、初始傷害+10，其餘相同）
+        // 第三張地圖專用：殭屍3）
         ZOMBIE3: {
             NAME: "殭屍",
             HEALTH: 50,
@@ -686,7 +678,7 @@ const CONFIG = {
             EXPERIENCE: 5,
             COLLISION_RADIUS: 16
         },
-        // 第三張地圖專用：骷髏3（僅初始血量+20、初始傷害+10，其餘相同）
+        // 第三張地圖專用：骷髏3
         SKELETON3: {
             NAME: "骷髏",
             HEALTH: 40,
@@ -696,7 +688,7 @@ const CONFIG = {
             EXPERIENCE: 8,
             COLLISION_RADIUS: 16
         },
-        // 第三張地圖專用：幽靈3（僅初始血量+20、初始傷害+10，其餘相同）
+        // 第三張地圖專用：幽靈3
         GHOST3: {
             NAME: "幽靈",
             HEALTH: 35,
@@ -835,10 +827,10 @@ const CONFIG = {
                     baseHealth: 15,         // 基礎值加成（基礎值+15）
                     maxHealthWave30: 10000  // 第30波最大血量
                 },
-                // 修羅模式：小怪(基礎值+20)~10000（第1波基礎值+20，第30波10000）
+                // 修羅模式：小怪(基礎值+20)~12000（第1波基礎值+20，第30波12000）
                 ASURA: {
                     baseHealth: 20,         // 基礎值加成（基礎值+20）
-                    maxHealthWave30: 10000 // 第30波最大血量
+                    maxHealthWave30: 12000 // 第30波最大血量
                 }
             }
         },
@@ -902,8 +894,10 @@ const CONFIG = {
             },
             // 第二張地圖：草原 (forest)
             forest: {
-                // 簡單模式：使用基礎值（不調整）
-                // EASY: 不設置，使用基礎值5000
+                // 簡單模式：大BOSS 15000
+                EASY: {
+                    wave30: 15000        // 第30波血量
+                },
                 // 困難模式：大BOSS 70000
                 HARD: {
                     wave30: 70000         // 第30波血量
