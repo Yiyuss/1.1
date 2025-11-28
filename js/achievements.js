@@ -28,6 +28,13 @@ const Achievements = (function(){
       icon: 'assets/images/A18.png',
       reward: '解鎖「狂熱斬擊」技能。'
     },
+    COIN_200K: {
+      id: 'COIN_200K',
+      name: '引力波解鎖',
+      desc: '持有金幣達到 200000。',
+      icon: 'assets/images/A27.png',
+      reward: '解鎖「引力波」技能。'
+    },
     CHALLENGE_GALAXY_CLEAR: {
       id: 'CHALLENGE_GALAXY_CLEAR',
       name: '銀河系征服者',
@@ -50,7 +57,8 @@ const Achievements = (function(){
     MIND_MAGIC: ['HARD_CLEAR'],
     FRENZY_SLASH: ['COIN_100K'],
     FRENZY_ICE_BALL: ['CHALLENGE_GALAXY_CLEAR'],
-    FRENZY_YOUNG_DADA_GLORY: ['CHALLENGE_NEBULA_CLEAR']
+    FRENZY_YOUNG_DADA_GLORY: ['CHALLENGE_NEBULA_CLEAR'],
+    GRAVITY_WAVE: ['COIN_200K']
     // 未來：在此加入新融合技能的成就解鎖需求，例如：
     // OTHER_FUSION_SKILL: ['SOME_ACHIEVEMENT', 'ANOTHER_ACHIEVEMENT']
   };
