@@ -1034,6 +1034,10 @@ const Game = {
                 if (!Achievements.isUnlocked('COIN_100K') && (this.coins || 0) >= 100000) {
                     Achievements.unlock('COIN_100K');
                 }
+                // 成就：持有金幣達到 200000 時解鎖引力波（當局記錄，勝利/失敗返回時彈窗）
+                if (!Achievements.isUnlocked('COIN_200K') && (this.coins || 0) >= 200000) {
+                    Achievements.unlock('COIN_200K');
+                }
             }
         } catch(_) {}
         // 觸發金幣變更事件
