@@ -173,6 +173,25 @@ class Weapon {
             return;
         }
 
+        // 特殊技能：引力波（常駐場域，帶推怪功能）
+        if (this.type === 'GRAVITY_WAVE') {
+            const baseRadius = this.config.FIELD_RADIUS || 150;
+            const perLevel = this.config.FIELD_RADIUS_PER_LEVEL || 0;
+            const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+            const dmg = this._computeFinalDamage(levelMul);
+            // 僅首次生成；升級時在 fire 內同步半徑與傷害
+            if (!this._auraEntity || this._auraEntity.markedForDeletion) {
+                this._auraEntity = new GravityWaveField(this.player, dynamicRadius, dmg);
+                Game.addProjectile(this._auraEntity);
+            } else {
+                // 升級或定期同步最新數值
+                this._auraEntity.radius = dynamicRadius;
+                this._auraEntity.damage = dmg;
+                this._auraEntity.tickDamage = Math.max(1, Math.round(dmg));
+            }
+            return;
+        }
+
         // 特殊技能：大波球（灰妲專屬）
         if (this.type === 'BIG_ICE_BALL') {
             // 获取玩家当前画面范围
@@ -652,13 +671,17 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     const frenzyIceBallExtra = (this.type === 'FRENZY_ICE_BALL')
         ? (1 * Math.max(1, this.level))
         : 0;
+    // 引力波：每等 +1 基礎傷害（LV10 累計 +10）
+    const gravityWaveExtra = (this.type === 'GRAVITY_WAVE')
+        ? (1 * Math.max(1, this.level))
+        : 0;
     const specFlat = (this.player && this.player.damageSpecializationFlat) ? this.player.damageSpecializationFlat : 0;
     const talentPct = (this.player && this.player.damageTalentBaseBonusPct) ? this.player.damageTalentBaseBonusPct : 0;
     const attrPct = (this.player && this.player.damageAttributeBonusPct) ? this.player.damageAttributeBonusPct : 0; // 升級屬性加成（每級+10%）
     const attrFlat = (this.player && this.player.attackPowerUpgradeFlat) ? this.player.attackPowerUpgradeFlat : 0; // 新增：攻擊力上升（每級+2，單純加法）
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + specFlat + attrFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + specFlat + attrFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
