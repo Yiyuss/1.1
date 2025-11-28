@@ -280,9 +280,9 @@ const UI = {
             }
         } catch (_) {}
 
-        // 回到開始介面後（僅勝利流程）顯示成就彈窗與音效，不改動既有流程
+        // 回到開始介面後（勝利/失敗流程）顯示成就彈窗與音效，不改動既有流程
         try {
-            if (screenId === 'victory-screen' && typeof Achievements !== 'undefined') {
+            if ((screenId === 'victory-screen' || screenId === 'game-over-screen') && typeof Achievements !== 'undefined') {
                 const ids = (typeof Achievements.consumeSessionUnlocked === 'function')
                     ? Achievements.consumeSessionUnlocked()
                     : (typeof Achievements.getSessionUnlocked === 'function' ? Achievements.getSessionUnlocked() : []);
@@ -333,6 +333,7 @@ const skillIcons = {
     ORBIT: 'assets/images/A7.png',
     AURA_FIELD: 'assets/images/A13.png',
     INVINCIBLE: 'assets/images/A14.png',
+    GRAVITY_WAVE: 'assets/images/A27.png',
     CHICKEN_BLESSING: 'assets/images/A19.png',
     YOUNG_DADA_GLORY: 'assets/images/A20.png',
     BIG_ICE_BALL: 'assets/images/A21.png',
@@ -488,6 +489,7 @@ const skillIcons = {
         const hasMindMagic = sourceWeaponsInfo.some(w => w.type === 'MIND_MAGIC');
         const hasFrenzyIceBall = sourceWeaponsInfo.some(w => w.type === 'FRENZY_ICE_BALL');
         const hasFrenzyYoungDadaGlory = sourceWeaponsInfo.some(w => w.type === 'FRENZY_YOUNG_DADA_GLORY');
+        const hasGravityWave = sourceWeaponsInfo.some(w => w.type === 'GRAVITY_WAVE');
         for (const info of sourceWeaponsInfo) {
             const cfg = CONFIG.WEAPONS[info.type];
             if (!cfg) continue;
@@ -498,7 +500,8 @@ const skillIcons = {
                 (hasFrenzySlash && (info.type === 'DAGGER' || info.type === 'SLASH')) ||
                 (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING')) ||
                 (hasFrenzyIceBall && (info.type === 'DAGGER' || info.type === 'BIG_ICE_BALL')) ||
-                (hasFrenzyYoungDadaGlory && (info.type === 'DAGGER' || info.type === 'YOUNG_DADA_GLORY'))) continue;
+                (hasFrenzyYoungDadaGlory && (info.type === 'DAGGER' || info.type === 'YOUNG_DADA_GLORY')) ||
+                (hasGravityWave && (info.type === 'AURA_FIELD' || info.type === 'INVINCIBLE'))) continue;
             if (info.level < cfg.LEVELS.length) {
                 options.push({
                     type: info.type,
@@ -535,7 +538,8 @@ const skillIcons = {
                 (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
                 (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING')) ||
                 (hasFrenzyIceBall && (weaponType === 'DAGGER' || weaponType === 'BIG_ICE_BALL')) ||
-                (hasFrenzyYoungDadaGlory && (weaponType === 'DAGGER' || weaponType === 'YOUNG_DADA_GLORY'))) continue;
+                (hasFrenzyYoungDadaGlory && (weaponType === 'DAGGER' || weaponType === 'YOUNG_DADA_GLORY')) ||
+                (hasGravityWave && (weaponType === 'AURA_FIELD' || weaponType === 'INVINCIBLE'))) continue;
             if (!playerWeaponTypes.includes(weaponType)) {
                 const weaponConfig = CONFIG.WEAPONS[weaponType];
                 options.push({
@@ -632,6 +636,28 @@ const skillIcons = {
                         name: cfgFIB.NAME,
                         level: 1,
                         description: cfgFIB.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：引力波（需成就解鎖 + 同時持有且等級達標的 守護領域(AURA_FIELD) 與 無敵(INVINCIBLE)）
+        try {
+            const hasGravityWaveFusion = playerWeaponTypes.includes('GRAVITY_WAVE');
+            const auraField = sourceWeaponsInfo.find(w => w.type === 'AURA_FIELD');
+            const invincible = sourceWeaponsInfo.find(w => w.type === 'INVINCIBLE');
+            const fusionUnlockedGW = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('GRAVITY_WAVE')); } catch(_) { return false; }
+            })();
+            const fusionReadyGW = (!!auraField && !!invincible && auraField.level >= 10 && invincible.level >= 10);
+            if (!hasGravityWaveFusion && fusionReadyGW && fusionUnlockedGW) {
+                const cfgGW = CONFIG.WEAPONS['GRAVITY_WAVE'];
+                if (cfgGW && Array.isArray(cfgGW.LEVELS) && cfgGW.LEVELS.length > 0) {
+                    options.push({
+                        type: 'GRAVITY_WAVE',
+                        name: cfgGW.NAME,
+                        level: 1,
+                        description: cfgGW.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -853,6 +879,62 @@ const skillIcons = {
             return;
         }
 
+        // 融合：引力波（移除 守護領域(AURA_FIELD)/無敵(INVINCIBLE)，加入或升級 GRAVITY_WAVE）
+        if (weaponType === 'GRAVITY_WAVE') {
+            // 先清理守護領域的實體（避免重疊，無論是否在大招模式）
+            try {
+                if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+                    for (const p of Game.projectiles) {
+                        if (p && p.weaponType === 'AURA_FIELD' && p.player === player && !p.markedForDeletion) {
+                            if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
+                        }
+                    }
+                }
+                // 清理武器實例中的 _auraEntity 引用（正常模式）
+                if (!player.isUltimateActive) {
+                    const auraWeapon = player.weapons.find(w => w.type === 'AURA_FIELD');
+                    if (auraWeapon && auraWeapon._auraEntity) {
+                        try {
+                            if (typeof auraWeapon._auraEntity.destroy === 'function') {
+                                auraWeapon._auraEntity.destroy();
+                            } else {
+                                auraWeapon._auraEntity.markedForDeletion = true;
+                            }
+                        } catch(_) {}
+                        auraWeapon._auraEntity = null;
+                    }
+                }
+            } catch(_) {}
+            
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                // 移除基礎武器
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'AURA_FIELD' && info.type !== 'INVINCIBLE');
+                // 加入或升級融合武器
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'GRAVITY_WAVE');
+                const cfgGW = CONFIG.WEAPONS['GRAVITY_WAVE'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgGW && curLv < cfgGW.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'GRAVITY_WAVE', level: 1 });
+                }
+            } else {
+                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'AURA_FIELD' && w.type !== 'INVINCIBLE');
+                const existingGW = player.weapons.find(w => w.type === 'GRAVITY_WAVE');
+                if (existingGW) {
+                    player.upgradeWeapon('GRAVITY_WAVE');
+                } else {
+                    player.addWeapon('GRAVITY_WAVE');
+                }
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+
         // 融合：心靈魔法（移除 應援棒(DAGGER)/唱歌(SING)，加入或升級 MIND_MAGIC）
         if (weaponType === 'MIND_MAGIC') {
             if (player.isUltimateActive && player._ultimateBackup) {
@@ -1063,13 +1145,19 @@ const skillIcons = {
                 if (elKills) elKills.textContent = enemiesKilled;
             } catch(_) {}
 
-            console.log("遊戲結算數據:", {
-                gameTimeInSeconds,
-                playerLevel,
-                enemiesKilled: (typeof Game !== 'undefined' && Game.enemiesKilled != null) ? Game.enemiesKilled : 0,
-                coinsCollected,
-                currentWave
-            });
+            // 顯示當次新解鎖成就（若有）
+            try {
+                const achDiv = document.getElementById('game-over-achievements');
+                if (achDiv && typeof Achievements !== 'undefined') {
+                    const ids = Achievements.getSessionUnlocked();
+                    if (ids && ids.length) {
+                        const names = ids.map(id => (Achievements.DEFINITIONS[id] && Achievements.DEFINITIONS[id].name) ? Achievements.DEFINITIONS[id].name : id);
+                        achDiv.textContent = `新成就解鎖：${names.join('、')}`;
+                    } else {
+                        achDiv.textContent = '';
+                    }
+                }
+            } catch(_) {}
         } catch (err) {
             console.error("更新失敗結算視窗時出錯:", err);
         }
@@ -1166,13 +1254,6 @@ const skillIcons = {
                 }
             } catch(_) {}
             
-            console.log("勝利結算數據:", {
-                gameTimeInSeconds,
-                playerLevel,
-                kills: (typeof Game !== 'undefined' && Game.enemiesKilled != null) ? Game.enemiesKilled : 0,
-                coins,
-                currentWave
-            });
         } catch (err) {
             console.error("更新勝利結算視窗時出錯:", err);
         }
@@ -1522,6 +1603,7 @@ const iconMap = {
     FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
     FRENZY_SLASH: 'assets/images/A18.png',
+    GRAVITY_WAVE: 'assets/images/A27.png',
     MIND_MAGIC: 'assets/images/A16.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
