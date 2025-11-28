@@ -224,12 +224,14 @@ function createDefaultImages() {
         { name: 'A24', src: 'assets/images/A24.png' }, // 銀河系征服者成就圖片
         { name: 'A25', src: 'assets/images/A25.png' }, // 幼妲天使技能圖片
         { name: 'A26', src: 'assets/images/A26.png' }, // 星雲征服者成就圖片
+        { name: 'A27', src: 'assets/images/A27.png' }, // 引力波技能圖片/成就圖片
         { name: 'ICE3', src: 'assets/images/ICE3.png' }, // 大波球冰彈圖片
         { name: 'knife', src: 'assets/images/knife.gif' },
         { name: 'knife2', src: 'assets/images/knife2.gif' },
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
 // 新增：守護領域場域圖片
         { name: 'field', src: 'assets/images/field.png' },
+        { name: 'field2', src: 'assets/images/field2.png' }, // 引力波場域圖片
         { name: 'box', src: 'assets/images/BOX.png' },
         // 唱歌技能特效圖片（GIF 與 PNG 後備）
         { name: 'LA', src: 'assets/images/LA.png' },
@@ -329,7 +331,16 @@ function setupAutoPause() {
                     return;
                 }
             } catch(_) {}
+            // 檢查是否在勝利/失敗畫面（不應恢復遊戲音樂）
+            const victoryVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('victory-screen') : !document.getElementById('victory-screen').classList.contains('hidden'));
+            const gameOverVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-over-screen') : !document.getElementById('game-over-screen').classList.contains('hidden'));
             const gameVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-screen') : !document.getElementById('game-screen').classList.contains('hidden'));
+            
+            if (victoryVisible || gameOverVisible) {
+                // 勝利/失敗畫面：不恢復遊戲音樂，避免修羅音樂污染
+                return;
+            }
+            
             if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
                 Game.resume();
                 AudioManager.setMuted && AudioManager.setMuted(false);
@@ -370,7 +381,16 @@ function setupAutoPause() {
                 return;
             }
         } catch(_) {}
+        // 檢查是否在勝利/失敗畫面（不應恢復遊戲音樂）
+        const victoryVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('victory-screen') : !document.getElementById('victory-screen').classList.contains('hidden'));
+        const gameOverVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-over-screen') : !document.getElementById('game-over-screen').classList.contains('hidden'));
         const gameVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-screen') : !document.getElementById('game-screen').classList.contains('hidden'));
+        
+        if (victoryVisible || gameOverVisible) {
+            // 勝利/失敗畫面：不恢復遊戲音樂，避免修羅音樂污染
+            return;
+        }
+        
         if (gameVisible && !Game.isGameOver && !isAnyMenuOpen()) {
             Game.resume();
             AudioManager.setMuted && AudioManager.setMuted(false);
