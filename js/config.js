@@ -290,6 +290,30 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "基礎傷害+3" }
             ]
         },
+        // 融合技能：引力波（守護領域LV10 + 無敵LV10）
+        GRAVITY_WAVE: {
+            NAME: "引力波",
+            DAMAGE: 5, // 與守護領域LV10相同
+            COOLDOWN: 1000,
+            PROJECTILE_SPEED: 0,
+            // 場域半徑：與守護領域LV10相同（60 + 10*9 = 150）
+            FIELD_RADIUS: 150,
+            FIELD_RADIUS_PER_LEVEL: 0, // 升級不增加範圍
+            VISUAL_SCALE: 1.95, // 與守護領域相同
+            // 備註：此武器為常駐型，傷害與範圍與守護領域LV10相同，LV1~LV10基礎攻擊+1~+10
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "在腳底生成持續傷害場域，基礎攻擊+1" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+2" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+3" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+4" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+5" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+6" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+7" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+8" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+9" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+10" }
+            ]
+        },
         CHAIN_LIGHTNING: {
             NAME: "連鎖閃電",
             DAMAGE: 15, // 與追蹤綿羊相同
@@ -311,7 +335,7 @@ const CONFIG = {
         },
         FRENZY_LIGHTNING: {
             NAME: "狂熱雷擊",
-            DAMAGE: 12,
+            DAMAGE: 15,
             COOLDOWN: 1500,
             DURATION: 1000,
             CHAIN_RADIUS: 300,
@@ -331,7 +355,7 @@ const CONFIG = {
         // 新武器：心靈魔法（擴散震波環狀傷害）
         MIND_MAGIC: {
             NAME: "心靈魔法",
-            DAMAGE: 14,
+            DAMAGE: 50,
             COOLDOWN: 5000,
             DURATION: 2000, // 與唱歌相同的演出持續（毫秒）
             WAVE_MAX_RADIUS_BASE: 220,
@@ -440,19 +464,19 @@ const CONFIG = {
             DAMAGE: 0, // 補血技能，不造成傷害
             COOLDOWN: 5000, // 每5秒
             DURATION: 3000, // 聖光特效持續時間3秒（比幼妲光輝更長）
-            // LV1~LV10 補血量：12, 14, 16, 18, 20, 22, 24, 26, 28, 30
-            HEAL_AMOUNTS: [12, 14, 16, 18, 20, 22, 24, 26, 28, 30],
+            // LV1~LV10 補血量：20, 25, 30, 35, 40, 45, 50, 55, 60, 65
+            HEAL_AMOUNTS: [20, 25, 30, 35, 40, 45, 50, 55, 60, 65],
             LEVELS: [
-                { COUNT: 1, DESCRIPTION: "每5秒補血+12" },
-                { COUNT: 1, DESCRIPTION: "每5秒補血+14" },
-                { COUNT: 1, DESCRIPTION: "每5秒補血+16" },
-                { COUNT: 1, DESCRIPTION: "每5秒補血+18" },
                 { COUNT: 1, DESCRIPTION: "每5秒補血+20" },
-                { COUNT: 1, DESCRIPTION: "每5秒補血+22" },
-                { COUNT: 1, DESCRIPTION: "每5秒補血+24" },
-                { COUNT: 1, DESCRIPTION: "每5秒補血+26" },
-                { COUNT: 1, DESCRIPTION: "每5秒補血+28" },
-                { COUNT: 1, DESCRIPTION: "每5秒補血+30" }
+                { COUNT: 1, DESCRIPTION: "每5秒補血+25" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+30" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+35" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+40" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+45" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+50" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+55" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+60" },
+                { COUNT: 1, DESCRIPTION: "每5秒補血+65" }
             ]
         }
     },
