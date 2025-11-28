@@ -10,7 +10,7 @@
     return document.getElementById('viewport');
   }
 
-  function ensureImg(id){
+  function ensureImg(id, isBackground){
     const vp = getViewport();
     if (!vp) return null;
     const domId = ID_PREFIX + id;
@@ -19,13 +19,20 @@
       el = document.createElement('img');
       el.id = domId;
       el.style.position = 'absolute';
-      // 玩家GIF層：置於畫布之上、UI之下
-      el.style.zIndex = '3';
+      // 背景GIF層：置於畫布之下（z-index 0.5），用於BOSS背景特效
+      // 前景GIF層：置於畫布之上、UI之下（z-index 3），用於玩家等
+      el.style.zIndex = isBackground ? '0.5' : '3';
       el.style.pointerEvents = 'none';
       el.style.imageRendering = 'pixelated';
       // 預設隱藏，避免閃爍
       el.style.display = 'none';
       vp.appendChild(el);
+    } else if (isBackground && el.style.zIndex !== '0.5') {
+      // 如果元素已存在但z-index不正確，更新它
+      el.style.zIndex = '0.5';
+    } else if (!isBackground && el.style.zIndex === '0.5') {
+      // 如果元素已存在但需要改為前景層
+      el.style.zIndex = '3';
     }
     return el;
   }
@@ -48,17 +55,28 @@
   }
 
   const GifOverlay = {
-    showOrUpdate(id, src, centerX, centerY, size){
+    showOrUpdate(id, src, centerX, centerY, size, isBackground){
       try {
-        const el = ensureImg(id);
+        const el = ensureImg(id, isBackground);
         if (!el) return;
         if (src && el.src !== src) el.src = src;
         const uiScale = getUiScale();
-        const half = Math.floor(size / 2);
-        el.style.left = (Math.floor((centerX - half) * uiScale)) + 'px';
-        el.style.top = (Math.floor((centerY - half) * uiScale)) + 'px';
-        el.style.width = Math.max(1, Math.floor(size * uiScale)) + 'px';
-        el.style.height = Math.max(1, Math.floor(size * uiScale)) + 'px';
+        let w, h;
+        if (size && typeof size === 'object') {
+          // 支援 { width, height }，用於維持 GIF 原始比例
+          w = Math.max(1, Math.floor((size.width || 1) * uiScale));
+          h = Math.max(1, Math.floor((size.height || 1) * uiScale));
+        } else {
+          const s = Math.max(1, Math.floor((Number(size) || 1) * uiScale));
+          w = s;
+          h = s;
+        }
+        const halfW = Math.floor(w / 2);
+        const halfH = Math.floor(h / 2);
+        el.style.left = (Math.floor(centerX * uiScale) - halfW) + 'px';
+        el.style.top = (Math.floor(centerY * uiScale) - halfH) + 'px';
+        el.style.width = w + 'px';
+        el.style.height = h + 'px';
         el.style.display = '';
       } catch(_) {}
     },
@@ -66,7 +84,7 @@
     // options: { color?: string, durationMs?: number, opacity?: number }
     flash(id, options){
       try {
-        const el = ensureImg(id);
+        const el = ensureImg(id, false);
         if (!el) return;
         const domId = ID_PREFIX + id;
         const opts = options || {};
