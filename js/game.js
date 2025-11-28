@@ -33,6 +33,12 @@ const Game = {
     worldHeight: 0,
     camera: { x: 0, y: 0 },
     coins: 0,
+    // 花園地圖視頻播放相關
+    gardenVideoTimer: 0, // 累積時間（毫秒）
+    gardenVideoInterval: 30000, // 每30秒播放一次
+    gardenVideoPlaying: false, // 是否正在播放視頻
+    gardenVideoElement: null, // 視頻元素
+    gardenVideoFadeOutTime: 0, // 淡出開始時間
     // 統計數據
     enemiesKilled: 0,
     coinsCollected: 0,
@@ -184,6 +190,11 @@ const Game = {
         this.gameTime += deltaTime;
         // 正規化時間倍率，避免粒子/效果更新時發生未定義錯誤
         const deltaMul = deltaTime / 16.67;
+        
+        // 花園地圖：每30秒播放一次視頻
+        if (this.selectedMap && this.selectedMap.id === 'garden' && !this.isPaused && !this.isGameOver) {
+            this._updateGardenVideo(deltaTime);
+        }
         
         // 更新玩家與武器（第一次，保留歷史節奏）
         this._updatePlayer(deltaTime);
@@ -503,12 +514,18 @@ const Game = {
         // 根據選定地圖的背景鍵選擇對應圖片
         const bgKey = (this.backgroundKey) || (this.selectedMap && this.selectedMap.backgroundKey) || 'background';
         const imgObj = (this.images || Game.images || {})[bgKey];
-        if (imgObj) {
-            // 平鋪背景圖片，覆蓋目前可視區域（已平移座標）
-            const pattern = this.ctx.createPattern(imgObj, 'repeat');
-            this.ctx.fillStyle = pattern || '#111';
-            // 與既有設計保持一致：使用世界座標 camera.x/camera.y（座標系已平移）
-            this.ctx.fillRect(this.camera.x, this.camera.y, this.canvas.width, this.canvas.height);
+        if (imgObj && imgObj.complete) {
+            // 第4張地圖（花園）：直接使用3840x2160圖片，不使用九宮格
+            if (this.selectedMap && this.selectedMap.id === 'garden') {
+                // 直接在世界座標(0,0)繪製完整圖片（座標系已平移）
+                this.ctx.drawImage(imgObj, 0, 0);
+            } else {
+                // 其他地圖：平鋪背景圖片，覆蓋目前可視區域（已平移座標）
+                const pattern = this.ctx.createPattern(imgObj, 'repeat');
+                this.ctx.fillStyle = pattern || '#111';
+                // 與既有設計保持一致：使用世界座標 camera.x/camera.y（座標系已平移）
+                this.ctx.fillRect(this.camera.x, this.camera.y, this.canvas.width, this.canvas.height);
+            }
         } else {
             // 備用：使用純色背景
             this.ctx.fillStyle = '#111';
@@ -678,6 +695,21 @@ const Game = {
         this.isPaused = false;
         this.isGameOver = false;
         this.boss = null;
+        
+        // 重置花園視頻計時器
+        this.gardenVideoTimer = 0;
+        this.gardenVideoPlaying = false;
+        this.gardenVideoFadeOutTime = 0;
+        if (this.gardenVideoElement) {
+            try {
+                this.gardenVideoElement.pause();
+                this.gardenVideoElement.currentTime = 0;
+                if (this.gardenVideoElement.parentNode) {
+                    this.gardenVideoElement.style.display = 'none';
+                    this.gardenVideoElement.style.opacity = '0';
+                }
+            } catch(_) {}
+        }
 
         // 清除技能視覺覆蓋層與樣式（例如 INVINCIBLE 護盾）
         try {
@@ -869,13 +901,14 @@ const Game = {
      * 設計：避免與障礙與既有裝飾矩形重疊；允許靠近玩家。
      */
     spawnDecorations: function() {
-        // 第二、第三張地圖（forest、desert）不生成裝飾物，僅保留 S1/S2 障礙物。
+        // 第二、第三、第四張地圖（forest、desert、garden）不生成裝飾物，僅保留 S1/S2 障礙物。
         // 注意：不更改任何顯示文字與其他地圖行為；維持第一張地圖邏輯。
-        if (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert')) {
+        // 第四張地圖（garden）的 S10-S16 裝飾物邏輯保留在註釋中，供未來其他地圖使用。
+        if (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert' || this.selectedMap.id === 'garden')) {
             return; // 跳過裝飾生成
         }
         
-        // 第四張地圖（garden）使用 S10-S16 作為裝飾物
+        // 第四張地圖（garden）使用 S10-S16 作為裝飾物（已禁用，保留供未來使用）
         // 注意：以下尺寸為縮小後的目標尺寸（圖片文件可能是原始尺寸，渲染時會縮放到這些尺寸）
         // S10: 原始尺寸縮小50% → 118×98
         // S11: 原始尺寸縮小50% → 116×88
@@ -884,50 +917,50 @@ const Game = {
         // S14: 原始尺寸縮小30% → 133×108
         // S15: 原始尺寸縮小60% → 183×151
         // S16: 原始尺寸縮小60% → 183×151
-        if (this.selectedMap && this.selectedMap.id === 'garden') {
-            const specs = {
-                S10: { w: 59, h: 49 },    // 縮小50%（原118×98的50%）
-                S11: { w: 58, h: 44 },    // 縮小50%（原116×88的50%）
-                S12: { w: 61, h: 37 },    // 縮小50%（原122×73的50%，四捨五入）
-                S13: { w: 90, h: 64 },    // 縮小30%（原128×91的30%，128×0.7≈90，91×0.7≈64）
-                S14: { w: 93, h: 76 },    // 縮小30%（原133×108的30%，133×0.7≈93，108×0.7≈76）
-                S15: { w: 73, h: 60 },    // 縮小60%（原183×151的60%，183×0.4≈73，151×0.4≈60）
-                S16: { w: 73, h: 60 }     // 縮小60%（原183×151的60%，183×0.4≈73，151×0.4≈60）
-            };
-            const types = ['S10','S11','S12','S13','S14','S15','S16'];
-            const margin = 12;
-            const minPlayerDist = 0;
-            const rectOverlap = (ax, ay, aw, ah, bx, by, bw, bh, m = 0) => {
-                const halfAw = aw / 2, halfAh = ah / 2, halfBw = bw / 2, halfBh = bh / 2;
-                return Math.abs(ax - bx) < (halfAw + halfBw + m) && Math.abs(ay - by) < (halfAh + halfBh + m);
-            };
-            const tryPlace = (key) => {
-                const spec = specs[key];
-                const halfW = spec.w / 2;
-                const halfH = spec.h / 2;
-                let attempts = 0;
-                while (attempts++ < 200) {
-                    const x = Utils.randomInt(halfW, this.worldWidth - halfW);
-                    const y = Utils.randomInt(halfH, this.worldHeight - halfH);
-                    if (minPlayerDist > 0 && Utils.distance(x, y, this.player.x, this.player.y) < minPlayerDist) continue;
-                    let overlap = false;
-                    for (const d of this.decorations) {
-                        if (rectOverlap(x, y, spec.w, spec.h, d.x, d.y, d.width, d.height, margin)) { overlap = true; break; }
-                    }
-                    if (overlap) continue;
-                    for (const o of this.obstacles) {
-                        if (rectOverlap(x, y, spec.w, spec.h, o.x, o.y, o.width, o.height, margin)) { overlap = true; break; }
-                    }
-                    if (overlap) continue;
-                    this.decorations.push({ x, y, width: spec.w, height: spec.h, imageKey: key });
-                    break;
-                }
-            };
-            for (const t of types) {
-                tryPlace(t);
-            }
-            return; // 花園地圖裝飾物生成完成，直接返回
-        }
+        // if (this.selectedMap && this.selectedMap.id === 'garden') {
+        //     const specs = {
+        //         S10: { w: 59, h: 49 },    // 縮小50%（原118×98的50%）
+        //         S11: { w: 58, h: 44 },    // 縮小50%（原116×88的50%）
+        //         S12: { w: 61, h: 37 },    // 縮小50%（原122×73的50%，四捨五入）
+        //         S13: { w: 90, h: 64 },    // 縮小30%（原128×91的30%，128×0.7≈90，91×0.7≈64）
+        //         S14: { w: 93, h: 76 },    // 縮小30%（原133×108的30%，133×0.7≈93，108×0.7≈76）
+        //         S15: { w: 73, h: 60 },    // 縮小60%（原183×151的60%，183×0.4≈73，151×0.4≈60）
+        //         S16: { w: 73, h: 60 }     // 縮小60%（原183×151的60%，183×0.4≈73，151×0.4≈60）
+        //     };
+        //     const types = ['S10','S11','S12','S13','S14','S15','S16'];
+        //     const margin = 12;
+        //     const minPlayerDist = 0;
+        //     const rectOverlap = (ax, ay, aw, ah, bx, by, bw, bh, m = 0) => {
+        //         const halfAw = aw / 2, halfAh = ah / 2, halfBw = bw / 2, halfBh = bh / 2;
+        //         return Math.abs(ax - bx) < (halfAw + halfBw + m) && Math.abs(ay - by) < (halfAh + halfBh + m);
+        //     };
+        //     const tryPlace = (key) => {
+        //         const spec = specs[key];
+        //         const halfW = spec.w / 2;
+        //         const halfH = spec.h / 2;
+        //         let attempts = 0;
+        //         while (attempts++ < 200) {
+        //             const x = Utils.randomInt(halfW, this.worldWidth - halfW);
+        //             const y = Utils.randomInt(halfH, this.worldHeight - halfH);
+        //             if (minPlayerDist > 0 && Utils.distance(x, y, this.player.x, this.player.y) < minPlayerDist) continue;
+        //             let overlap = false;
+        //             for (const d of this.decorations) {
+        //                 if (rectOverlap(x, y, spec.w, spec.h, d.x, d.y, d.width, d.height, margin)) { overlap = true; break; }
+        //             }
+        //             if (overlap) continue;
+        //             for (const o of this.obstacles) {
+        //                 if (rectOverlap(x, y, spec.w, spec.h, o.x, o.y, o.width, o.height, margin)) { overlap = true; break; }
+        //             }
+        //             if (overlap) continue;
+        //             this.decorations.push({ x, y, width: spec.w, height: spec.h, imageKey: key });
+        //             break;
+        //         }
+        //     };
+        //     for (const t of types) {
+        //         tryPlace(t);
+        //     }
+        //     return; // 花園地圖裝飾物生成完成，直接返回
+        // }
         
         // 第一張地圖（city）使用 S3-S9 作為裝飾物
         const specs = {
@@ -1053,5 +1086,124 @@ const Game = {
             }
         } catch (_) {}
         
+    },
+    
+    // 花園地圖視頻播放邏輯
+    _updateGardenVideo: function(deltaTime) {
+        if (!this.gardenVideoElement) {
+            // 創建視頻元素（如果不存在）
+            this._createGardenVideoElement();
+        }
+        
+        if (!this.gardenVideoElement) return;
+        
+        // 如果正在播放，處理淡出邏輯
+        if (this.gardenVideoPlaying) {
+            const currentTime = Date.now();
+            if (this.gardenVideoFadeOutTime > 0 && currentTime >= this.gardenVideoFadeOutTime) {
+                // 開始淡出（500ms淡出）
+                const fadeOutDuration = 500;
+                const elapsed = currentTime - this.gardenVideoFadeOutTime;
+                if (elapsed < fadeOutDuration) {
+                    const opacity = 1 - (elapsed / fadeOutDuration);
+                    this.gardenVideoElement.style.opacity = String(Math.max(0, opacity));
+                } else {
+                    // 淡出完成，停止播放
+                    try {
+                        this.gardenVideoElement.pause();
+                        this.gardenVideoElement.currentTime = 0;
+                        this.gardenVideoElement.style.display = 'none';
+                        this.gardenVideoElement.style.opacity = '0';
+                    } catch(_) {}
+                    this.gardenVideoPlaying = false;
+                    this.gardenVideoFadeOutTime = 0;
+                    this.gardenVideoTimer = 0; // 重置計時器
+                }
+            }
+            return;
+        }
+        
+        // 累積時間
+        this.gardenVideoTimer += deltaTime;
+        
+        // 每30秒觸發一次
+        if (this.gardenVideoTimer >= this.gardenVideoInterval) {
+            this._playGardenVideo();
+            this.gardenVideoTimer = 0;
+        }
+    },
+    
+    // 創建花園視頻元素
+    _createGardenVideoElement: function() {
+        try {
+            const viewport = document.getElementById('viewport') || document.getElementById('game-screen');
+            if (!viewport) return;
+            
+            // 檢查是否已存在
+            let video = document.getElementById('garden-background-video');
+            if (!video) {
+                video = document.createElement('video');
+                video.id = 'garden-background-video';
+                video.src = 'assets/videos/background8-2.mp4';
+                video.preload = 'auto';
+                video.playsinline = true;
+                video.loop = false;
+                video.muted = false;
+                video.style.position = 'absolute';
+                video.style.left = '0';
+                video.style.top = '0';
+                video.style.width = '100%';
+                video.style.height = '100%';
+                video.style.zIndex = '1000'; // 覆蓋整個遊戲畫面
+                video.style.objectFit = 'cover';
+                video.style.pointerEvents = 'none';
+                video.style.display = 'none';
+                video.style.opacity = '0';
+                // 使用Screen混合模式去除純黑背景（類似Premiere效果）
+                video.style.mixBlendMode = 'screen';
+                viewport.appendChild(video);
+            }
+            this.gardenVideoElement = video;
+        } catch(e) {
+            console.warn('創建花園視頻元素失敗:', e);
+        }
+    },
+    
+    // 播放花園視頻
+    _playGardenVideo: function() {
+        if (!this.gardenVideoElement) return;
+        
+        try {
+            // 重置視頻
+            this.gardenVideoElement.currentTime = 0;
+            this.gardenVideoElement.style.display = 'block';
+            this.gardenVideoElement.style.opacity = '0';
+            
+            // 淡入（300ms）
+            const fadeInDuration = 300;
+            requestAnimationFrame(() => {
+                this.gardenVideoElement.style.transition = `opacity ${fadeInDuration}ms ease-in-out`;
+                this.gardenVideoElement.style.opacity = '1';
+            });
+            
+            // 播放視頻
+            const playPromise = this.gardenVideoElement.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch((error) => {
+                    console.warn('播放花園視頻失敗:', error);
+                    // 如果播放失敗，重置狀態
+                    this.gardenVideoElement.style.display = 'none';
+                    this.gardenVideoElement.style.opacity = '0';
+                    this.gardenVideoPlaying = false;
+                });
+            }
+            
+            this.gardenVideoPlaying = true;
+            // 5秒後開始淡出
+            this.gardenVideoFadeOutTime = Date.now() + 5000;
+        } catch(e) {
+            console.warn('播放花園視頻時出錯:', e);
+            this.gardenVideoPlaying = false;
+        }
     }
 };
