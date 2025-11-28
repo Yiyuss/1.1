@@ -33,7 +33,11 @@ class Enemy extends Entity {
                     if (wave === 1) {
                         this.maxHealth = baseHealth;
                     } else if (wave >= totalWaves) {
-                        this.maxHealth = maxHealthWave30;
+                        // 30波後：每波額外+當前血量的10%（無限疊加，避免卡BUG刷金幣）
+                        const wave30Health = maxHealthWave30;
+                        const wavesBeyond30 = wave - totalWaves;
+                        // 計算公式：第30波血量 * (1.1 ^ 超過30波的波數)
+                        this.maxHealth = Math.floor(wave30Health * Math.pow(1.1, wavesBeyond30));
                     } else {
                         // 線性插值：從基礎血量到最大血量
                         const progress = (wave - 1) / (totalWaves - 1);
@@ -56,7 +60,11 @@ class Enemy extends Entity {
                     if (wave === 1) {
                         this.maxHealth = start;
                     } else if (wave >= totalWaves) {
-                        this.maxHealth = end;
+                        // 30波後：每波額外+當前血量的10%（無限疊加，避免卡BUG刷金幣）
+                        const wave30Health = end;
+                        const wavesBeyond30 = wave - totalWaves;
+                        // 計算公式：第30波血量 * (1.1 ^ 超過30波的波數)
+                        this.maxHealth = Math.floor(wave30Health * Math.pow(1.1, wavesBeyond30));
                     } else {
                         // 指數增長：從起始值到結束值
                         const perWave = Math.pow(end / start, 1 / Math.max(1, (totalWaves - 1)));
