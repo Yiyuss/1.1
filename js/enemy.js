@@ -68,12 +68,14 @@ class Enemy extends Entity {
                     this.maxHealth = enemyConfig.HEALTH;
                 }
             }
-            // 大BOSS：根據地圖與難度配置調整血量（僅第30波）
+            // 大BOSS：根據地圖與難度配置調整血量（僅第20波）
             else if (this.type === 'BOSS' || this.type === 'ELF_BOSS') {
                 const bossConfig = (((tuning.BOSS || {})[mapId] || {})[diffId]) || null;
-                // 大BOSS僅第30波出現，直接指定目標血量
-                if (bossConfig && bossConfig.wave30 && wave === ((CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 30)) {
-                    this.maxHealth = bossConfig.wave30;
+                // 大BOSS僅第20波出現，直接指定目標血量（原為第30波，已縮短為20波）
+                const bossWave = (CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 20;
+                if (bossConfig && (bossConfig.wave20 || bossConfig.wave30) && wave === bossWave) {
+                    // 優先使用 wave20，如果沒有則使用 wave30（向後兼容）
+                    this.maxHealth = bossConfig.wave20 || bossConfig.wave30;
                 } else {
                     // 如果沒有配置，使用基礎值（向後兼容）
                     this.maxHealth = enemyConfig.HEALTH;
