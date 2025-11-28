@@ -92,6 +92,13 @@
           ctx.events.on(document, 'visibilitychange', function(){
             try {
               if (!document.hidden) {
+                // 檢查是否在勝利/失敗畫面（不應恢復遊戲音樂）
+                const victoryVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('victory-screen') : !document.getElementById('victory-screen').classList.contains('hidden'));
+                const gameOverVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-over-screen') : !document.getElementById('game-over-screen').classList.contains('hidden'));
+                if (victoryVisible || gameOverVisible) {
+                  // 勝利/失敗畫面：不恢復遊戲音樂，避免修羅音樂污染
+                  return;
+                }
                 try { if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) AudioManager.setMuted(false); } catch(_){}
                 if (typeof AudioScene !== 'undefined' && AudioScene.enterGame) {
                   AudioScene.enterGame();
@@ -103,6 +110,13 @@
           });
           ctx.events.on(window, 'focus', function(){
             try {
+              // 檢查是否在勝利/失敗畫面（不應恢復遊戲音樂）
+              const victoryVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('victory-screen') : !document.getElementById('victory-screen').classList.contains('hidden'));
+              const gameOverVisible = !!(typeof UI !== 'undefined' && UI.isScreenVisible ? UI.isScreenVisible('game-over-screen') : !document.getElementById('game-over-screen').classList.contains('hidden'));
+              if (victoryVisible || gameOverVisible) {
+                // 勝利/失敗畫面：不恢復遊戲音樂，避免修羅音樂污染
+                return;
+              }
               try { if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) AudioManager.setMuted(false); } catch(_){}
               if (typeof AudioScene !== 'undefined' && AudioScene.enterGame) {
                 AudioScene.enterGame();
