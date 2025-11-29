@@ -679,9 +679,22 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     const talentPct = (this.player && this.player.damageTalentBaseBonusPct) ? this.player.damageTalentBaseBonusPct : 0;
     const attrPct = (this.player && this.player.damageAttributeBonusPct) ? this.player.damageAttributeBonusPct : 0; // 升級屬性加成（每級+10%）
     const attrFlat = (this.player && this.player.attackPowerUpgradeFlat) ? this.player.attackPowerUpgradeFlat : 0; // 新增：攻擊力上升（每級+2，單純加法）
+    
+    // 新增：雞腿強化（僅對雞腿庇佑生效，直接增加基礎攻擊）
+    let chickenBlessingFlat = 0;
+    if (this.type === 'CHICKEN_BLESSING' && typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+        const chickenBoostLevel = TalentSystem.getTalentLevel('chicken_blessing_boost') || 0;
+        if (chickenBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.chicken_blessing_boost) {
+            const effect = TalentSystem.tieredTalents.chicken_blessing_boost.levels[chickenBoostLevel - 1];
+            if (effect && typeof effect.flat === 'number') {
+                chickenBlessingFlat = effect.flat;
+            }
+        }
+    }
+    
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + specFlat + attrFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + specFlat + attrFlat + chickenBlessingFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
