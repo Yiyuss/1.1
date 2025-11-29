@@ -69,6 +69,12 @@ const TalentSystem = {
             name: '迴避強化',
             description: '升級可提升迴避傷害的機率。',
             cost: 3000
+        },
+        // 新增：雞腿強化（強化雞腿庇佑的基礎攻擊）
+        chicken_blessing_boost: {
+            name: '雞腿強化',
+            description: '升級可強化雞腿庇佑的基礎攻擊。',
+            cost: 10000
         }
     },
 
@@ -200,6 +206,17 @@ const TalentSystem = {
                 { dodgeRate: 0.09, cost: 24000 },
                 { dodgeRate: 0.11, cost: 35000 },
                 { dodgeRate: 0.15, cost: 45000 }
+            ]
+        },
+        // 新增：雞腿強化（強化雞腿庇佑的基礎攻擊：+5/+10/+15/+20/+25/+30）
+        chicken_blessing_boost: {
+            levels: [
+                { flat: 5, cost: 10000 },
+                { flat: 10, cost: 20000 },
+                { flat: 15, cost: 30000 },
+                { flat: 20, cost: 40000 },
+                { flat: 25, cost: 50000 },
+                { flat: 30, cost: 60000 }
             ]
         }
     },
@@ -636,6 +653,9 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'dodge_enhance') {
             const pct = Math.round((eff.dodgeRate || 0) * 100);
             return `迴避傷害的機率+${pct}%`;
+        } else if (id === 'chicken_blessing_boost') {
+            const flat = eff.flat || 0;
+            return `雞腿庇佑基礎攻擊+${flat}`;
         }
         return base;
     };
