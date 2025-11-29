@@ -318,9 +318,13 @@ const WaveSystem = {
         
         // 立即切換到BOSS音樂（在遊戲內直接觸發，不需要切換分頁）
         try {
-            if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+            if (typeof AudioScene !== 'undefined' && AudioScene.enterBoss) {
+                AudioScene.enterBoss();
+                console.log('[WaveSystem] BOSS出現，AudioScene 進入 boss 場景');
+            } else if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+                // 後備方案：直接播放 BOSS 音樂
                 AudioManager.playMusic('boss_music');
-                console.log('[WaveSystem] BOSS出現，切換到boss_music');
+                console.log('[WaveSystem] BOSS出現，直接切換到 boss_music');
             }
         } catch (e) {
             console.warn('[WaveSystem] 切換BOSS音樂失敗:', e);
