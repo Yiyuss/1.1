@@ -250,45 +250,14 @@ class Enemy extends Entity {
             return false;
         };
 
-        // 根據地圖決定碰撞模式：
-        // - 花園地圖：軟互斥（允許重疊但會推開）
-        // - 其他地圖：硬碰撞（阻止移動）
-        const isGardenMap = (Game.selectedMap && Game.selectedMap.id === 'garden');
-        
-        if (isGardenMap) {
-            // 花園地圖：軟互斥模式，允許移動，互斥力會在後面計算
-            // 嘗試X軸位移（僅檢查障礙物，不再硬性阻止敵人碰撞）
-            if (!blockedByObs(candX, this.y)) {
-                this.x = candX;
-            }
-            // 嘗試Y軸位移（僅檢查障礙物，不再硬性阻止敵人碰撞）
-            if (!blockedByObs(this.x, candY)) {
-                this.y = candY;
-            }
-        } else {
-            // 其他地圖：保持原來的硬碰撞邏輯
-            const blockedByEnemies = (nx, ny) => {
-                for (const otherEnemy of Game.enemies || []) {
-                    if (otherEnemy === this) continue;
-                    const dx = nx - otherEnemy.x;
-                    const dy = ny - otherEnemy.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    const minDistance = this.collisionRadius + otherEnemy.collisionRadius;
-                    if (distance < minDistance) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-            
-            // 嘗試X軸位移（檢查障礙物和敵人碰撞）
-            if (!blockedByObs(candX, this.y) && !blockedByEnemies(candX, this.y)) {
-                this.x = candX;
-            }
-            // 嘗試Y軸位移（檢查障礙物和敵人碰撞）
-            if (!blockedByObs(this.x, candY) && !blockedByEnemies(this.x, candY)) {
-                this.y = candY;
-            }
+        // 生存模式統一採用軟互斥模式（允許重疊但會推開，避免硬碰撞造成卡住BUG）
+        // 嘗試X軸位移（僅檢查障礙物，不再硬性阻止敵人碰撞）
+        if (!blockedByObs(candX, this.y)) {
+            this.x = candX;
+        }
+        // 嘗試Y軸位移（僅檢查障礙物，不再硬性阻止敵人碰撞）
+        if (!blockedByObs(this.x, candY)) {
+            this.y = candY;
         }
 
         // 與障礙物分離/滑動：若接觸則沿法線微推開，避免卡住
@@ -316,16 +285,14 @@ class Enemy extends Entity {
         }
 
         // ========================================================================
-        // 敵人互斥系統：軟碰撞，允許重疊但會互相推開（僅在花園地圖生效，解決邊界卡住問題）
+        // 敵人互斥系統：軟碰撞，允許重疊但會互相推開（所有地圖統一採用，解決邊界卡住問題）
         // ========================================================================
-        // 只在花園地圖啟用互斥系統
-        if (isGardenMap) {
         // 性能優化：只檢查附近的敵人（使用距離閾值，避免O(n²)全掃描）
         const maxCheckDistance = (this.collisionRadius * 2) + 100; // 只檢查碰撞半徑2倍+100像素內的敵人
         const maxCheckDistanceSq = maxCheckDistance * maxCheckDistance;
         
         // 根據敵人體積調整互斥強度（大體積敵人需要更強的推力）
-        // 注意：isGardenLargeEnemy 和 isLargeEnemy 已在下面邊界處理部分定義，這裡使用相同邏輯
+        // 注意：這些變數會在下面的邊界處理部分再次使用，所以提前定義
         const isGardenLargeEnemyForRepulsion = (Game.selectedMap && Game.selectedMap.id === 'garden') && 
                                    (this.type === 'ELF_MINI_BOSS' || this.type === 'ELF_BOSS');
         const isLargeEnemyForRepulsion = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || 
@@ -392,7 +359,6 @@ class Enemy extends Entity {
             this.x += repulsionX;
             this.y += repulsionY;
         }
-        } // 結束花園地圖互斥系統
 
         // 限制在世界範圍內（非循環邊界）
         const maxX = (Game.worldWidth || Game.canvas.width) - this.width / 2;
