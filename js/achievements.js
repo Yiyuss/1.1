@@ -48,6 +48,13 @@ const Achievements = (function(){
       desc: '通關挑戰模式中的星雲關卡。',
       icon: 'assets/images/A26.png',
       reward: '解鎖「幼妲天使」技能。'
+    },
+    DEFENSE_LV1_CLEAR: {
+      id: 'DEFENSE_LV1_CLEAR',
+      name: '煉金坊守護者',
+      desc: '通關防禦模式的LV1地圖。',
+      icon: 'assets/images/test11.png',
+      reward: '解鎖主堡的2個自動化技能。'
     }
   };
 
