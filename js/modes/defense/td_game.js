@@ -93,6 +93,41 @@ class TDGame {
             this.selectedTowerType = null;
             this.buildMode = false;
             
+            // 主堡選中狀態
+            this.selectedBase = false;
+            
+            // 自動化技能系統
+            this.baseAutoSkills = {
+                chainLightning: {
+                    enabled: false,
+                    lastCastTime: 0,
+                    cooldown: 5000, // 5秒
+                    damage: 300,
+                    range: 300, // 範圍300
+                    maxChains: 5
+                },
+                heal: {
+                    enabled: false,
+                    lastHealTime: 0,
+                    interval: 5000, // 5秒
+                    healAmount: 2
+                }
+            };
+            
+            // 主堡圖片位置（用於選中虛線和連鎖閃電起點）
+            this.baseImageX = 0;
+            this.baseImageY = 0;
+            this.baseImageWidth = 0;
+            this.baseImageHeight = 0;
+            this.baseImageCenterX = 0;
+            this.baseImageCenterY = 0;
+            
+            // 連鎖閃電視覺效果列表
+            this.chainLightningEffects = [];
+            
+            // 從localStorage讀取自動化技能解鎖狀態
+            this.loadBaseAutoSkills();
+            
         } catch (error) {
             console.error('TDGame構造函數失敗:', error);
             console.error('錯誤堆疊:', error.stack);
@@ -220,6 +255,12 @@ class TDGame {
         
         // 更新防禦塔
         this.towerManager.update(this.currentTime, this.enemyManager);
+        
+        // 更新主堡自動化技能
+        this.updateBaseAutoSkills(deltaTime);
+        
+        // 更新連鎖閃電視覺效果
+        this.updateChainLightningEffects(deltaTime);
         
         // 檢查遊戲結束條件
         this.checkGameEnd();
@@ -361,6 +402,7 @@ class TDGame {
         // 檢查是否點擊了防禦塔（用於升級或出售）
         const tower = this.towerManager.getTowerAt(worldX, worldY);
         if (tower) {
+            this.playSound('button_click2');
             this.selectTower(tower);
             return;
         }
@@ -371,14 +413,39 @@ class TDGame {
             Math.pow(worldY - this.config.BASE.Y, 2)
         );
         if (baseDistance <= this.config.BASE.SIZE / 2) {
-            // 點擊主堡顯示信息（可以擴展）
-            // 目前先關閉其他選中狀態
+            // 點擊主堡顯示信息
+            this.playSound('button_click2');
             this.selectedTower = null;
+            this.selectedBase = !this.selectedBase; // 切換主堡選中狀態
+            // 通知 DOM UI 更新主堡資訊面板
+            if (typeof window.TDDefenseDomUI !== 'undefined' && typeof window.TDDefenseDomUI.update === 'function') {
+                try {
+                    window.TDDefenseDomUI.update(this);
+                } catch (_) {}
+            }
             return;
+        }
+        
+        // 點擊空白處：關閉主堡選中狀態
+        if (this.selectedBase) {
+            this.selectedBase = false;
+            if (typeof window.TDDefenseDomUI !== 'undefined' && typeof window.TDDefenseDomUI.update === 'function') {
+                try {
+                    window.TDDefenseDomUI.update(this);
+                } catch (_) {}
+            }
         }
         
         // 點擊空白處：關閉所有信息面板
         this.selectedTower = null;
+        if (this.selectedBase) {
+            this.selectedBase = false;
+            if (typeof window.TDDefenseDomUI !== 'undefined' && typeof window.TDDefenseDomUI.update === 'function') {
+                try {
+                    window.TDDefenseDomUI.update(this);
+                } catch (_) {}
+            }
+        }
         
         // 移動玩家到世界座標
         this.player.moveTo(worldX, worldY);
@@ -563,6 +630,13 @@ class TDGame {
                     const offsetY = -8;
                     const baseX = baseCell.centerX - targetWidth / 2 + offsetX;
                     const baseY = baseCell.centerY - targetHeight / 2 + offsetY;
+                    // 保存主堡圖片實際位置，用於選中虛線和連鎖閃電起點
+                    this.baseImageX = baseX;
+                    this.baseImageY = baseY;
+                    this.baseImageWidth = targetWidth;
+                    this.baseImageHeight = targetHeight;
+                    this.baseImageCenterX = baseX + targetWidth / 2;
+                    this.baseImageCenterY = baseY + targetHeight / 2;
                     this.ctx.drawImage(baseImg, baseX, baseY, targetWidth, targetHeight);
                 }
             }
@@ -603,9 +677,35 @@ class TDGame {
             this.ctx.restore();
         }
         
+        // 繪製選中主堡的虛線標記（以圖片實際位置為準）
+        if (this.selectedBase && this.baseImageCenterX !== undefined && this.baseImageCenterY !== undefined) {
+            this.ctx.save();
+            this.ctx.setLineDash([6, 4]);
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            
+            // 以主堡圖片中心為圓心，使用圖片對角線的一半作為半徑
+            const radius = Math.sqrt(
+                Math.pow(this.baseImageWidth / 2, 2) + 
+                Math.pow(this.baseImageHeight / 2, 2)
+            ) + 10; // 稍微放大一點，讓虛線圈住整個圖片
+            
+            this.ctx.beginPath();
+            this.ctx.arc(this.baseImageCenterX, this.baseImageCenterY, radius, 0, Math.PI * 2);
+            this.ctx.stroke();
+            this.ctx.restore();
+        }
+        
         // 繪製玩家（非GIF在Canvas上繪製，GIF由TDGifOverlay在最後統一處理）
         if (this.config.DEBUG) { console.log('開始繪製玩家...'); }
         this.player.render(this.ctx, this.resources);
+        
+        // 繪製連鎖閃電視覺效果（與生存模式相同）
+        for (const effect of this.chainLightningEffects) {
+            if (effect && typeof effect.draw === 'function') {
+                effect.draw(this.ctx);
+            }
+        }
         
         // 在世界座標繪製主堡血量條
         this.renderBaseHealthIndicator();
@@ -1069,6 +1169,440 @@ class TDGame {
         // 將屏幕坐標轉換為世界坐標
         this.mousePos.x = x + this.camera.x;
         this.mousePos.y = y + this.camera.y;
+    }
+    
+    // 更新主堡自動化技能
+    updateBaseAutoSkills(deltaTime) {
+        const currentTime = this.currentTime;
+        
+        // 檢查技能是否解鎖
+        const isSkillUnlocked = this._isBaseAutoSkillUnlocked();
+        
+        // 連鎖閃電技能
+        if (isSkillUnlocked && this.baseAutoSkills.chainLightning.enabled) {
+            const skill = this.baseAutoSkills.chainLightning;
+            // 檢查冷卻時間
+            if (currentTime - skill.lastCastTime >= skill.cooldown) {
+                // 檢查範圍內是否有敵人
+                const baseX = this.baseImageCenterX || this.config.BASE.X;
+                const baseY = this.baseImageCenterY || this.config.BASE.Y;
+                const enemies = this.enemyManager.enemies || [];
+                let hasEnemyInRange = false;
+                for (const enemy of enemies) {
+                    if (!enemy || !enemy.isAlive || enemy.hp <= 0) continue;
+                    const dist = Math.sqrt(
+                        Math.pow(enemy.x - baseX, 2) + 
+                        Math.pow(enemy.y - baseY, 2)
+                    );
+                    if (dist <= skill.range) {
+                        hasEnemyInRange = true;
+                        break;
+                    }
+                }
+                // 只有範圍內有敵人才施放
+                if (hasEnemyInRange) {
+                    this.castChainLightning();
+                    skill.lastCastTime = currentTime;
+                }
+            }
+        }
+      
+      // 回復技能
+      if (isSkillUnlocked && this.baseAutoSkills.heal.enabled) {
+        const skill = this.baseAutoSkills.heal;
+        if (currentTime - skill.lastHealTime >= skill.interval) {
+          this.gameState.repairBase(skill.healAmount);
+          skill.lastHealTime = currentTime;
+        }
+      }
+    }
+    
+    // 施放連鎖閃電
+    castChainLightning() {
+        const skill = this.baseAutoSkills.chainLightning;
+        // 使用主堡圖片中心作為起點
+        const baseX = this.baseImageCenterX || this.config.BASE.X;
+        const baseY = this.baseImageCenterY || this.config.BASE.Y;
+        
+        // 尋找最近的敵人（不限制範圍，與生存模式一致）
+        const enemies = this.enemyManager.enemies || [];
+        if (enemies.length === 0) return;
+        
+        // 計算最終傷害（應用天賦系統）
+        let finalDamage = skill.damage;
+        try {
+            if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+                // 傷害強化（百分比加成）
+                const damageBoostLevel = TalentSystem.getTalentLevel('damage_boost') || 0;
+                if (damageBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.damage_boost) {
+                    const effect = TalentSystem.tieredTalents.damage_boost.levels[damageBoostLevel - 1];
+                    if (effect && effect.multiplier) {
+                        finalDamage *= effect.multiplier;
+                    }
+                }
+                
+                // 傷害特化（固定加成）
+                const damageSpecLevel = TalentSystem.getTalentLevel('damage_specialization') || 0;
+                if (damageSpecLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.damage_specialization) {
+                    const effect = TalentSystem.tieredTalents.damage_specialization.levels[damageSpecLevel - 1];
+                    if (effect && effect.flat) {
+                        finalDamage += effect.flat;
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('應用天賦系統傷害加成時出錯:', error);
+        }
+        
+        // 創建連鎖閃電視覺效果（使用與生存模式相同的ChainLightningEffect）
+        if (typeof ChainLightningEffect !== 'undefined') {
+            // 創建一個虛擬的"玩家"對象，位置在主堡圖片中心
+            const basePlayer = {
+                x: baseX,
+                y: baseY
+            };
+            
+            // 為每個敵人生成唯一ID（如果沒有id屬性）
+            const enemyIdMap = new WeakMap();
+            let idCounter = 0;
+            for (const enemy of enemies) {
+                if (!enemyIdMap.has(enemy)) {
+                    enemyIdMap.set(enemy, `td_enemy_${idCounter++}`);
+                }
+            }
+            
+            // 先創建效果對象（但不讓它自動構建鏈，因為需要先覆蓋方法）
+            // 創建一個臨時效果來獲取結構，然後手動構建
+            const effect = Object.create(ChainLightningEffect.prototype);
+            effect.player = basePlayer;
+            effect.damage = finalDamage; // 使用應用天賦後的傷害
+            effect.durationMs = 1000; // 持續時間1秒
+            effect.maxChains = skill.maxChains;
+            effect.chainRadius = skill.range; // 使用range作為chainRadius（連鎖半徑）
+            effect.startTime = Date.now();
+            effect.segments = [];
+            effect.particles = [];
+            effect.weaponType = 'CHAIN_LIGHTNING';
+            effect.palette = {
+                halo: '#66ccff',
+                mid: '#aaddff',
+                core: '#ffffff',
+                particle: '#66ccff'
+            };
+            effect.revealedCount = 0;
+            effect.markedForDeletion = false;
+            effect.x = baseX;
+            effect.y = baseY;
+            effect.width = 2;
+            effect.height = 2;
+            
+            // 覆蓋_findNearestEnemy方法，使用防禦模式的敵人列表
+            effect._findNearestEnemy = (x, y, excludeIds = new Set(), withinRadius = null) => {
+                let best = null;
+                let bestDist = Infinity;
+                for (const enemy of enemies) {
+                    if (!enemy || !enemy.isAlive || enemy.hp <= 0) continue;
+                    // 使用WeakMap獲取唯一ID
+                    const enemyId = enemyIdMap.get(enemy) || enemy;
+                    if (excludeIds.has(enemyId)) continue;
+                    const d = Math.sqrt(Math.pow(enemy.x - x, 2) + Math.pow(enemy.y - y, 2));
+                    // 如果指定了範圍，必須在範圍內
+                    if (withinRadius != null && d > withinRadius) continue;
+                    if (d < bestDist) { 
+                        bestDist = d; 
+                        best = enemy; 
+                    }
+                }
+                return best;
+            };
+            
+            // 覆蓋_buildChain方法，與生存模式邏輯完全一致
+            effect._buildChain = () => {
+                const exclude = new Set();
+                // 第一個目標：不限制範圍（withinRadius = null），找最近的敵人（與生存模式一致）
+                const primary = effect._findNearestEnemy(basePlayer.x, basePlayer.y, exclude, null);
+                if (!primary) {
+                    effect.segments = [];
+                    return;
+                }
+                // 檢查第一個目標是否在範圍內（如果不在範圍內，不構建鏈）
+                const primaryDist = Math.sqrt(
+                    Math.pow(primary.x - basePlayer.x, 2) + 
+                    Math.pow(primary.y - basePlayer.y, 2)
+                );
+                if (primaryDist > skill.range) {
+                    effect.segments = [];
+                    return;
+                }
+                exclude.add(enemyIdMap.get(primary) || primary);
+                effect.segments.push({ fromType: 'player', to: primary, applied: false, revealAt: 0 });
+                
+                // 後續連鎖：從當前敵人位置找最近的敵人，限制在chainRadius內（與生存模式完全一致）
+                let last = primary;
+                for (let i = 0; i < skill.maxChains; i++) {
+                    // 從當前敵人位置找最近的敵人，限制在chainRadius內（與生存模式一致）
+                    const next = effect._findNearestEnemy(last.x, last.y, exclude, effect.chainRadius);
+                    if (!next) break;
+                    exclude.add(enemyIdMap.get(next) || next);
+                    effect.segments.push({ fromType: 'enemy', fromEnemy: last, to: next, applied: false, revealAt: 0 });
+                    last = next;
+                }
+                
+                // 將段落均勻分配在持續時間內揭示
+                const segCount = effect.segments.length;
+                const interval = segCount > 0 ? (effect.durationMs / segCount) : effect.durationMs;
+                let t = 0;
+                for (const s of effect.segments) {
+                    s.revealAt = t;
+                    t += interval;
+                }
+            };
+            
+            // 添加_updateParticles方法（從ChainLightningEffect複製）
+            effect._updateParticles = (deltaTime) => {
+                const toRemove = [];
+                for (let i = 0; i < effect.particles.length; i++) {
+                    const p = effect.particles[i];
+                    p.life -= deltaTime;
+                    if (p.life <= 0) { toRemove.push(i); continue; }
+                    p.x += p.vx * (deltaTime / 16.67);
+                    p.y += p.vy * (deltaTime / 16.67);
+                }
+                for (let i = toRemove.length - 1; i >= 0; i--) {
+                    effect.particles.splice(toRemove[i], 1);
+                }
+            };
+            
+            // 添加_spawnSegmentSparks方法（從ChainLightningEffect複製）
+            effect._spawnSegmentSparks = (seg) => {
+                const { fx, fy, tx, ty } = effect._segmentEndpoints(seg);
+                const dx = tx - fx;
+                const dy = ty - fy;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const dirX = dx / (len || 1);
+                const dirY = dy / (len || 1);
+                const count = 16;
+                for (let i = 0; i < count; i++) {
+                    const t = Math.random();
+                    const px = fx + dx * t + (Math.random() - 0.5) * 8;
+                    const py = fy + dy * t + (Math.random() - 0.5) * 8;
+                    const speed = 1 + Math.random() * 3;
+                    const angle = Math.random() * Math.PI * 2;
+                    const life = 200 + Math.random() * 250;
+                    effect.particles.push({
+                        x: px,
+                        y: py,
+                        vx: Math.cos(angle) * speed + dirX * 0.5,
+                        vy: Math.sin(angle) * speed + dirY * 0.5,
+                        life,
+                        maxLife: life,
+                        size: 3 + Math.random() * 2.5,
+                        color: effect.palette.particle || '#66ccff'
+                    });
+                }
+            };
+            
+            // 添加_segmentEndpoints方法
+            effect._segmentEndpoints = (seg) => {
+                let fx, fy;
+                if (seg.fromType === 'player') {
+                    fx = basePlayer.x; fy = basePlayer.y;
+                } else {
+                    fx = seg.fromEnemy ? seg.fromEnemy.x : basePlayer.x;
+                    fy = seg.fromEnemy ? seg.fromEnemy.y : basePlayer.y;
+                }
+                const tx = seg.to ? seg.to.x : fx;
+                const ty = seg.to ? seg.to.y : fy;
+                return { fx, fy, tx, ty };
+            };
+            
+            // 添加_drawElectricArc方法（從ChainLightningEffect複製）
+            effect._drawElectricArc = (ctx, x1, y1, x2, y2) => {
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const steps = Math.max(8, Math.floor(dist / 16));
+                const jitterAmp = Math.min(10, dist / 12);
+                const angle = Math.atan2(dy, dx);
+                const nx = -Math.sin(angle);
+                const ny = Math.cos(angle);
+                const points = [];
+                for (let i = 0; i <= steps; i++) {
+                    const t = i / steps;
+                    const bx = x1 + dx * t;
+                    const by = y1 + dy * t;
+                    const jitter = (Math.random() - 0.5) * jitterAmp;
+                    points.push({ x: bx + nx * jitter, y: by + ny * jitter });
+                }
+                // 外層光暈
+                ctx.globalAlpha = 0.35;
+                ctx.lineWidth = 10;
+                ctx.strokeStyle = effect.palette.halo || '#66ccff';
+                ctx.beginPath();
+                for (let i = 0; i < points.length; i++) {
+                    const p = points[i];
+                    if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+                }
+                ctx.stroke();
+                // 中層
+                ctx.globalAlpha = 0.7;
+                ctx.lineWidth = 6;
+                ctx.strokeStyle = effect.palette.mid || '#aaddff';
+                ctx.beginPath();
+                for (let i = 0; i < points.length; i++) {
+                    const p = points[i];
+                    if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+                }
+                ctx.stroke();
+                // 核心亮線
+                ctx.globalAlpha = 1.0;
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = effect.palette.core || '#ffffff';
+                ctx.beginPath();
+                for (let i = 0; i < points.length; i++) {
+                    const p = points[i];
+                    if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+                }
+                ctx.stroke();
+            };
+            
+            // 添加draw方法（從ChainLightningEffect複製）
+            effect.draw = (ctx) => {
+                ctx.save();
+                const elapsed = Date.now() - effect.startTime;
+                for (const seg of effect.segments) {
+                    if (elapsed < seg.revealAt) continue;
+                    const { fx, fy, tx, ty } = effect._segmentEndpoints(seg);
+                    effect._drawElectricArc(ctx, fx, fy, tx, ty);
+                }
+                ctx.globalCompositeOperation = 'lighter';
+                for (const p of effect.particles) {
+                    const alpha = Math.max(0.04, Math.min(1, p.life / (p.maxLife || 250)));
+                    ctx.fillStyle = p.color || (effect.palette.particle || '#66ccff');
+                    ctx.globalAlpha = alpha * 0.25;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * 1.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = alpha;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            };
+            
+            // 重新構建鏈（使用覆蓋後的_buildChain方法）
+            effect._buildChain();
+            
+            // 如果沒有找到任何目標，不添加效果
+            if (effect.segments.length === 0) {
+                return;
+            }
+            
+            // 覆蓋update方法，在造成傷害時使用防禦模式的傷害系統
+            effect.update = (deltaTime) => {
+                const elapsed = Date.now() - effect.startTime;
+                if (elapsed >= effect.durationMs) {
+                    effect.markedForDeletion = true;
+                    return;
+                }
+                effect._updateParticles(deltaTime);
+                
+                for (const seg of effect.segments) {
+                    if (seg.applied) continue;
+                    if (elapsed >= seg.revealAt) {
+                        const target = seg.to;
+                        if (target && target.isAlive && target.hp > 0) {
+                            // 對目標造成傷害（防禦模式，使用應用天賦後的傷害）
+                            if (target.takeDamage) {
+                                target.takeDamage(finalDamage);
+                            } else if (target.hp !== undefined) {
+                                target.hp = Math.max(0, target.hp - finalDamage);
+                                if (target.hp <= 0 && target.isAlive) {
+                                    target.isAlive = false;
+                                    if (this.enemyManager.onEnemyDeath) {
+                                        this.enemyManager.onEnemyDeath(target);
+                                    }
+                                }
+                            }
+                            effect._spawnSegmentSparks(seg);
+                        }
+                        seg.applied = true;
+                    }
+                }
+            };
+            
+            this.chainLightningEffects.push(effect);
+        }
+        
+        // 播放音效
+        this.playSound('zaps');
+    }
+    
+    // 更新連鎖閃電視覺效果
+    updateChainLightningEffects(deltaTime) {
+        for (let i = this.chainLightningEffects.length - 1; i >= 0; i--) {
+            const effect = this.chainLightningEffects[i];
+            if (effect && typeof effect.update === 'function') {
+                effect.update(deltaTime);
+            }
+            if (effect && effect.markedForDeletion) {
+                this.chainLightningEffects.splice(i, 1);
+            }
+        }
+    }
+    
+    // 檢查自動化技能是否解鎖
+    _isBaseAutoSkillUnlocked() {
+        try {
+            if (typeof Achievements !== 'undefined' && Achievements.isUnlocked) {
+                return Achievements.isUnlocked('DEFENSE_LV1_CLEAR');
+            }
+        } catch (_) {}
+        return false;
+    }
+    
+    // 從localStorage載入自動化技能解鎖狀態
+    loadBaseAutoSkills() {
+        try {
+            const raw = localStorage.getItem('defense_auto_skills');
+            const data = raw ? JSON.parse(raw) : {};
+            // 檢查成就是否解鎖（DEFENSE_LV1_CLEAR）
+            const isUnlocked = this._isBaseAutoSkillUnlocked();
+            if (isUnlocked) {
+                // 如果成就已解鎖，從localStorage讀取啟用狀態
+                // 如果localStorage中沒有值，預設為false（灰色狀態）
+                if (typeof data.chainLightning === 'boolean') {
+                    this.baseAutoSkills.chainLightning.enabled = data.chainLightning;
+                } else {
+                    this.baseAutoSkills.chainLightning.enabled = false; // 預設不啟用
+                }
+                if (typeof data.heal === 'boolean') {
+                    this.baseAutoSkills.heal.enabled = data.heal;
+                } else {
+                    this.baseAutoSkills.heal.enabled = false; // 預設不啟用
+                }
+            } else {
+                // 如果成就未解鎖，強制設為false
+                this.baseAutoSkills.chainLightning.enabled = false;
+                this.baseAutoSkills.heal.enabled = false;
+            }
+        } catch (_) {
+            // 發生錯誤時，確保技能狀態為false
+            this.baseAutoSkills.chainLightning.enabled = false;
+            this.baseAutoSkills.heal.enabled = false;
+        }
+    }
+    
+    // 保存自動化技能狀態到localStorage
+    saveBaseAutoSkills() {
+        try {
+            const data = {
+                chainLightning: this.baseAutoSkills.chainLightning.enabled,
+                heal: this.baseAutoSkills.heal.enabled
+            };
+            localStorage.setItem('defense_auto_skills', JSON.stringify(data));
+        } catch (_) {}
     }
     
     // 獲取遊戲狀態
