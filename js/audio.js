@@ -296,7 +296,15 @@ const AudioScene = {
     },
     enterGame: function() {
         if (AudioManager.isMuted) return;
-        // 移除 early return，讓切換分頁時也能重新判斷並播放正確的音樂
+        // 若目前場景中已存在 BOSS，改為進入 BOSS 場景，避免誤切回一般 BGM
+        try {
+            if (typeof Game !== 'undefined' && Game.boss) {
+                this.enterBoss();
+                return;
+            }
+        } catch (_) {}
+        
+        // 一般遊戲場景 BGM
         this.current = 'game';
         try {
             if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
