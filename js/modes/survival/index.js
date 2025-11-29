@@ -42,7 +42,8 @@
           try { AudioManager.setMuted(false); } catch(_){}
           if (AudioManager.playMusic) AudioManager.playMusic(track);
         }
-        try { if (typeof AudioScene !== 'undefined' && AudioScene.enterGame) AudioScene.enterGame(); } catch(_){}
+        // 進入生存模式時，同步當前場景音樂（若已有BOSS則使用BOSS音樂）
+        try { if (typeof AudioScene !== 'undefined' && AudioScene.sync) AudioScene.sync(); } catch(_){}
       } catch(_){ }
     },
     enter(params, ctx){
@@ -81,8 +82,9 @@
           ctx.audio.playMusic(track);
         } else if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
           AudioManager.playMusic(track);
-        } else if (typeof AudioScene !== 'undefined' && AudioScene.enterGame) {
-          AudioScene.enterGame();
+        } else if (typeof AudioScene !== 'undefined' && AudioScene.sync) {
+          // 若外部尚未初始化 AudioManager，退回場景同步邏輯
+          AudioScene.sync();
         }
       } catch(_){}
 
@@ -100,8 +102,9 @@
                   return;
                 }
                 try { if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) AudioManager.setMuted(false); } catch(_){}
-                if (typeof AudioScene !== 'undefined' && AudioScene.enterGame) {
-                  AudioScene.enterGame();
+                if (typeof AudioScene !== 'undefined' && AudioScene.sync) {
+                  // 使用場景同步：有BOSS時維持BOSS音樂，否則回到對應地圖/難度的BGM
+                  AudioScene.sync();
                 } else if (ctx.audio && typeof ctx.audio.unmuteAndPlay === 'function') {
                   ctx.audio.unmuteAndPlay(track);
                 }
@@ -118,8 +121,9 @@
                 return;
               }
               try { if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) AudioManager.setMuted(false); } catch(_){}
-              if (typeof AudioScene !== 'undefined' && AudioScene.enterGame) {
-                AudioScene.enterGame();
+              if (typeof AudioScene !== 'undefined' && AudioScene.sync) {
+                // 使用場景同步：有BOSS時維持BOSS音樂，否則回到對應地圖/難度的BGM
+                AudioScene.sync();
               } else if (ctx.audio && typeof ctx.audio.unmuteAndPlay === 'function') {
                 ctx.audio.unmuteAndPlay(track);
               }
