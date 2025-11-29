@@ -11,6 +11,7 @@
  * - SaveSchema V1 欄位：v(版本)、ts(時間戳)、c(金幣)、tl(天賦等級物件)、ut(舊制已解鎖天賦陣列)。
  * - SaveSchema V2 新增欄位：ac(已解鎖成就ID陣列)。
  * - SaveSchema V3 新增欄位：uc(已解鎖角色ID陣列，對應 localStorage 'unlocked_characters')。
+ * - SaveSchema V4 新增欄位：das(防禦模式自動化技能解鎖狀態物件，對應 localStorage 'defense_auto_skills')。
  * - 未來若新增資料（例如關卡進度/音量等）請：
  *   1) 提升 v 版本號，新增最小相容邏輯（舊欄位保留且有預設值）。
  *   2) 維持鍵名穩定（避免破壞舊碼）。
@@ -19,7 +20,7 @@
  *   這是防篡改、非安全強度保密（無伺服器條件下的折衷），請勿用於敏感資料。
  */
 const SaveCode = (function(){
-  const SCHEMA_VERSION = 3;
+  const SCHEMA_VERSION = 4;
   const SALT = 'MC_SAVE_SALT_V1::固定常量::僅用於防篡改';
 
   // 取得現有存檔資料（最小集合）
@@ -64,6 +65,13 @@ const SaveCode = (function(){
     } catch(_) {}
     // 確保預設角色永遠解鎖
     if (!unlockedChars.includes('margaret')) unlockedChars.push('margaret');
+    // 防禦模式自動化技能解鎖狀態（V4新增）
+    let defenseAutoSkills = {};
+    try {
+      const raw = localStorage.getItem('defense_auto_skills');
+      const obj = raw ? JSON.parse(raw) : {};
+      defenseAutoSkills = (obj && typeof obj === 'object') ? obj : {};
+    } catch(_) {}
 
     return {
       v: SCHEMA_VERSION,
@@ -72,7 +80,8 @@ const SaveCode = (function(){
       tl: levels,
       ut: legacy,
       ac: achievements,
-      uc: unlockedChars
+      uc: unlockedChars,
+      das: defenseAutoSkills // V4新增：防禦模式自動化技能解鎖狀態
     };
   }
 
@@ -208,6 +217,7 @@ const SaveCode = (function(){
       const legacy = Array.isArray(payload.ut) ? payload.ut : [];
       const achievements = Array.isArray(payload.ac) ? payload.ac : [];
       const unlockedChars = Array.isArray(payload.uc) ? payload.uc : null;
+      const defenseAutoSkills = (payload.das && typeof payload.das === 'object') ? payload.das : {};
       // 寫入 localStorage（不更動鍵名）
       try { localStorage.setItem('game_coins', String(coins)); } catch(_) {}
       try { localStorage.setItem('talent_levels', JSON.stringify(levels)); } catch(_) {}
@@ -226,6 +236,12 @@ const SaveCode = (function(){
           const map = {};
           achievements.forEach(id => { map[id] = { unlocked: true, ts: Date.now() }; });
           localStorage.setItem('achievements', JSON.stringify(map));
+        }
+      } catch(_) {}
+      // 寫入防禦模式自動化技能解鎖狀態（V4新增，向下相容：舊版本無此欄位時不寫入）
+      try {
+        if (defenseAutoSkills && Object.keys(defenseAutoSkills).length > 0) {
+          localStorage.setItem('defense_auto_skills', JSON.stringify(defenseAutoSkills));
         }
       } catch(_) {}
       // 更新記憶體與UI（不改事件順序，僅在可用時刷新顯示）
