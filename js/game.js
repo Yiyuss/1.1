@@ -455,9 +455,18 @@ const Game = {
             chest.draw(this.ctx);
         }
         
-        // 繪製投射物（除連鎖閃電/狂熱雷擊/斬擊，延後至敵人之上）
+        // 繪製投射物（除連鎖閃電/狂熱雷擊/斬擊與幼妲光輝/幼妲天使聖光，延後至敵人之上）
         for (const projectile of this.projectiles) {
-            if (projectile && (projectile.weaponType === 'CHAIN_LIGHTNING' || projectile.weaponType === 'FRENZY_LIGHTNING' || projectile.weaponType === 'SLASH')) {
+            if (
+                projectile &&
+                (
+                    projectile.weaponType === 'CHAIN_LIGHTNING' ||
+                    projectile.weaponType === 'FRENZY_LIGHTNING' ||
+                    projectile.weaponType === 'SLASH' ||
+                    projectile.weaponType === 'YOUNG_DADA_GLORY' ||
+                    projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY'
+                )
+            ) {
                 // 延後到前景層（敵人之上）再繪製
                 continue;
             }
@@ -498,9 +507,18 @@ const Game = {
             }
         }
         
-        // 前景層：連鎖閃電/狂熱雷擊/斬擊效果（電弧與火花/GIF）
+        // 前景層：連鎖閃電/狂熱雷擊/斬擊效果（電弧與火花/GIF）以及幼妲光輝/幼妲天使聖光特效
         for (const projectile of this.projectiles) {
-            if (projectile && (projectile.weaponType === 'CHAIN_LIGHTNING' || projectile.weaponType === 'FRENZY_LIGHTNING' || projectile.weaponType === 'SLASH')) {
+            if (
+                projectile &&
+                (
+                    projectile.weaponType === 'CHAIN_LIGHTNING' ||
+                    projectile.weaponType === 'FRENZY_LIGHTNING' ||
+                    projectile.weaponType === 'SLASH' ||
+                    projectile.weaponType === 'YOUNG_DADA_GLORY' ||
+                    projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY'
+                )
+            ) {
                 projectile.draw(this.ctx);
             }
         }
