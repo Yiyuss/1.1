@@ -692,9 +692,21 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
         }
     }
     
+    // 新增：綿羊護體強化（僅對綿羊護體生效，直接增加基礎攻擊）
+    let sheepGuardFlat = 0;
+    if (this.type === 'ORBIT' && typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+        const sheepBoostLevel = TalentSystem.getTalentLevel('sheep_guard_boost') || 0;
+        if (sheepBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.sheep_guard_boost) {
+            const effect = TalentSystem.tieredTalents.sheep_guard_boost.levels[sheepBoostLevel - 1];
+            if (effect && typeof effect.flat === 'number') {
+                sheepGuardFlat = effect.flat;
+            }
+        }
+    }
+    
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + specFlat + attrFlat + chickenBlessingFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
