@@ -155,6 +155,43 @@ class Enemy extends Entity {
         this.deathAlpha = 1;
         this.deathVelX = 0;
         this.deathVelY = 0;
+        
+        // ========================================================================
+        // 花護衛背景雪碧圖動畫初始化（在constructor中初始化，避免在draw中重複創建）
+        // ========================================================================
+        if (this.type === 'ELF_MINI_BOSS') {
+            this._spriteAnimation = {
+                spriteSheet: null,
+                spriteSheetLoaded: false,
+                frameWidth: 437,
+                frameHeight: 437,
+                framesPerRow: 6,
+                framesPerCol: 5,
+                totalFrames: 30,
+                currentFrame: 0,
+                frameDuration: 50, // 每幀50毫秒（約20fps）
+                animAccumulator: 0,
+                spriteSrc: 'assets/images/Elf_mini_boss-2.png',
+                imageLoading: false // 防止重複載入
+            };
+            
+            // 立即開始載入雪碧圖（僅一次）
+            const img = new Image();
+            img.onload = () => {
+                if (this._spriteAnimation) {
+                    this._spriteAnimation.spriteSheet = img;
+                    this._spriteAnimation.spriteSheetLoaded = true;
+                }
+            };
+            img.onerror = () => {
+                if (this._spriteAnimation) {
+                    console.warn('[Enemy] 花護衛雪碧圖載入失敗:', this._spriteAnimation.spriteSrc);
+                    this._spriteAnimation.spriteSheetLoaded = false;
+                }
+            };
+            this._spriteAnimation.imageLoading = true;
+            img.src = this._spriteAnimation.spriteSrc;
+        }
     }
     
     update(deltaTime) {
@@ -213,27 +250,45 @@ class Enemy extends Entity {
             return false;
         };
 
-        const blockedByEnemies = (nx, ny) => {
-            for (const otherEnemy of Game.enemies || []) {
-                if (otherEnemy === this) continue;
-                const dx = nx - otherEnemy.x;
-                const dy = ny - otherEnemy.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                const minDistance = this.collisionRadius + otherEnemy.collisionRadius;
-                if (distance < minDistance) {
-                    return true;
-                }
+        // 根據地圖決定碰撞模式：
+        // - 花園地圖：軟互斥（允許重疊但會推開）
+        // - 其他地圖：硬碰撞（阻止移動）
+        const isGardenMap = (Game.selectedMap && Game.selectedMap.id === 'garden');
+        
+        if (isGardenMap) {
+            // 花園地圖：軟互斥模式，允許移動，互斥力會在後面計算
+            // 嘗試X軸位移（僅檢查障礙物，不再硬性阻止敵人碰撞）
+            if (!blockedByObs(candX, this.y)) {
+                this.x = candX;
             }
-            return false;
-        };
-
-        // 嘗試X軸位移
-        if (!blockedByObs(candX, this.y) && !blockedByEnemies(candX, this.y)) {
-            this.x = candX;
-        }
-        // 嘗試Y軸位移
-        if (!blockedByObs(this.x, candY) && !blockedByEnemies(this.x, candY)) {
-            this.y = candY;
+            // 嘗試Y軸位移（僅檢查障礙物，不再硬性阻止敵人碰撞）
+            if (!blockedByObs(this.x, candY)) {
+                this.y = candY;
+            }
+        } else {
+            // 其他地圖：保持原來的硬碰撞邏輯
+            const blockedByEnemies = (nx, ny) => {
+                for (const otherEnemy of Game.enemies || []) {
+                    if (otherEnemy === this) continue;
+                    const dx = nx - otherEnemy.x;
+                    const dy = ny - otherEnemy.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    const minDistance = this.collisionRadius + otherEnemy.collisionRadius;
+                    if (distance < minDistance) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            
+            // 嘗試X軸位移（檢查障礙物和敵人碰撞）
+            if (!blockedByObs(candX, this.y) && !blockedByEnemies(candX, this.y)) {
+                this.x = candX;
+            }
+            // 嘗試Y軸位移（檢查障礙物和敵人碰撞）
+            if (!blockedByObs(this.x, candY) && !blockedByEnemies(this.x, candY)) {
+                this.y = candY;
+            }
         }
 
         // 與障礙物分離/滑動：若接觸則沿法線微推開，避免卡住
@@ -260,14 +315,114 @@ class Enemy extends Entity {
             }
         }
 
+        // ========================================================================
+        // 敵人互斥系統：軟碰撞，允許重疊但會互相推開（僅在花園地圖生效，解決邊界卡住問題）
+        // ========================================================================
+        // 只在花園地圖啟用互斥系統
+        if (isGardenMap) {
+        // 性能優化：只檢查附近的敵人（使用距離閾值，避免O(n²)全掃描）
+        const maxCheckDistance = (this.collisionRadius * 2) + 100; // 只檢查碰撞半徑2倍+100像素內的敵人
+        const maxCheckDistanceSq = maxCheckDistance * maxCheckDistance;
+        
+        // 根據敵人體積調整互斥強度（大體積敵人需要更強的推力）
+        // 注意：isGardenLargeEnemy 和 isLargeEnemy 已在下面邊界處理部分定義，這裡使用相同邏輯
+        const isGardenLargeEnemyForRepulsion = (Game.selectedMap && Game.selectedMap.id === 'garden') && 
+                                   (this.type === 'ELF_MINI_BOSS' || this.type === 'ELF_BOSS');
+        const isLargeEnemyForRepulsion = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || 
+                             this.type === 'BOSS' || this.type === 'ELF_BOSS');
+        
+        // 互斥強度：大體積敵人需要更強的推力，避免被小敵人卡住
+        let repulsionStrength = 0.15; // 默認互斥強度
+        if (isGardenLargeEnemyForRepulsion) {
+            repulsionStrength = 0.35; // 花園大體積敵人：更強推力
+        } else if (isLargeEnemyForRepulsion) {
+            repulsionStrength = 0.25; // 其他大體積敵人：中等推力
+        }
+        
+        // 累積互斥力（向量累加）
+        let repulsionX = 0;
+        let repulsionY = 0;
+        let repulsionCount = 0;
+        
+        // 只檢查附近的敵人（性能優化）
+        for (const otherEnemy of Game.enemies || []) {
+            if (otherEnemy === this || otherEnemy.markedForDeletion) continue;
+            
+            const dx = this.x - otherEnemy.x;
+            const dy = this.y - otherEnemy.y;
+            const distSq = dx * dx + dy * dy;
+            
+            // 距離閾值檢查（性能優化）
+            if (distSq > maxCheckDistanceSq) continue;
+            
+            const distance = Math.sqrt(distSq);
+            const minDistance = this.collisionRadius + otherEnemy.collisionRadius;
+            
+            // 如果距離小於最小距離，計算互斥力
+            if (distance < minDistance && distance > 0.0001) {
+                // 標準化方向向量（從其他敵人指向自己）
+                const dirX = dx / distance;
+                const dirY = dy / distance;
+                
+                // 計算重疊深度
+                const overlap = minDistance - distance;
+                
+                // 互斥力與重疊深度成正比，但使用平方根避免過強
+                const force = Math.sqrt(overlap) * repulsionStrength * deltaMul;
+                
+                // 累積互斥力
+                repulsionX += dirX * force;
+                repulsionY += dirY * force;
+                repulsionCount++;
+            }
+        }
+        
+        // 應用互斥力（平均化，避免單個敵人造成過大位移）
+        if (repulsionCount > 0) {
+            // 限制最大互斥力，避免瞬間位移過大
+            const maxRepulsion = this.speed * deltaMul * 2.0; // 最大互斥速度不超過移動速度的2倍
+            const repulsionMag = Math.sqrt(repulsionX * repulsionX + repulsionY * repulsionY);
+            if (repulsionMag > maxRepulsion) {
+                const scale = maxRepulsion / repulsionMag;
+                repulsionX *= scale;
+                repulsionY *= scale;
+            }
+            
+            // 應用互斥位移
+            this.x += repulsionX;
+            this.y += repulsionY;
+        }
+        } // 結束花園地圖互斥系統
+
         // 限制在世界範圍內（非循環邊界）
         const maxX = (Game.worldWidth || Game.canvas.width) - this.width / 2;
         const maxY = (Game.worldHeight || Game.canvas.height) - this.height / 2;
         const minX = this.width / 2;
         const minY = this.height / 2;
         
+        // ========================================================================
+        // 針對花園地圖大體積敵人的邊界處理優化
+        // ========================================================================
+        // 判斷是否為花園地圖的大體積敵人
+        const isGardenLargeEnemy = (Game.selectedMap && Game.selectedMap.id === 'garden') && 
+                                   (this.type === 'ELF_MINI_BOSS' || this.type === 'ELF_BOSS');
+        const isLargeEnemy = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || 
+                             this.type === 'BOSS' || this.type === 'ELF_BOSS');
+        
+        // 根據敵人體積動態調整邊界推入距離
+        // 花園地圖的大體積敵人需要更大的推入距離，避免卡在邊界
+        let borderPush = 8; // 默認推入距離
+        if (isGardenLargeEnemy) {
+            // 花護衛（200x194）和花女王（400x382）需要更大的推入距離
+            borderPush = Math.max(this.width, this.height) * 0.15; // 使用尺寸的15%作為推入距離
+            borderPush = Math.max(borderPush, 30); // 最小30像素
+        } else if (isLargeEnemy) {
+            // 其他大體積敵人
+            borderPush = Math.max(this.width, this.height) * 0.1; // 使用尺寸的10%作為推入距離
+            borderPush = Math.max(borderPush, 20); // 最小20像素
+        }
+        
         // 檢查是否碰到邊界，如果是則稍微向內推
-        const borderPush = 8; // 增加向內推的距離
         if (this.x <= minX) {
             this.x = minX + borderPush;
         } else if (this.x >= maxX) {
@@ -284,7 +439,7 @@ class Enemy extends Entity {
         this.x = Utils.clamp(this.x, minX, maxX);
         this.y = Utils.clamp(this.y, minY, maxY);
 
-        // 改進的邊界防卡機制
+        // 改進的邊界防卡機制（針對大體積敵人優化）
         if (!this.isSlowed) {
             const now = Date.now();
             if (this.lastMoveCheckTime === undefined) {
@@ -296,15 +451,30 @@ class Enemy extends Entity {
                 const dxMove = this.x - this.lastMoveX;
                 const dyMove = this.y - this.lastMoveY;
                 const movedDist = Math.sqrt(dxMove * dxMove + dyMove * dyMove);
-                const borderMargin = 15; // 增加邊界檢測範圍
+                
+                // 根據敵人體積動態調整邊界檢測範圍
+                let borderMargin = 15; // 默認邊界檢測範圍
+                if (isGardenLargeEnemy) {
+                    borderMargin = Math.max(this.width, this.height) * 0.2; // 使用尺寸的20%作為檢測範圍
+                    borderMargin = Math.max(borderMargin, 40); // 最小40像素
+                } else if (isLargeEnemy) {
+                    borderMargin = Math.max(this.width, this.height) * 0.15; // 使用尺寸的15%作為檢測範圍
+                    borderMargin = Math.max(borderMargin, 25); // 最小25像素
+                }
+                
                 const nearBorder = (this.x <= minX + borderMargin || this.x >= maxX - borderMargin || 
                                   this.y <= minY + borderMargin || this.y >= maxY - borderMargin);
                 
-                if (nearBorder && movedDist < 2.0) { // 放寬移動距離判定
+                // 根據敵人體積調整移動距離判定閾值
+                const moveThreshold = isGardenLargeEnemy ? 5.0 : (isLargeEnemy ? 3.0 : 2.0);
+                
+                if (nearBorder && movedDist < moveThreshold) {
                     this.stuckCounter = (this.stuckCounter || 0) + 1;
                     
                     // 如果連續卡住，採用更強力的脫離機制
-                    if (this.stuckCounter >= 2) {
+                    // 大體積敵人需要更強的推力
+                    const stuckThreshold = isGardenLargeEnemy ? 1 : 2; // 花園大體積敵人更快觸發脫離機制
+                    if (this.stuckCounter >= stuckThreshold) {
                         const centerX = (Game.worldWidth || Game.canvas.width) / 2;
                         const centerY = (Game.worldHeight || Game.canvas.height) / 2;
                         const angleToCenter = Utils.angle(this.x, this.y, centerX, centerY);
@@ -312,10 +482,20 @@ class Enemy extends Entity {
                         // 增強推力，並添加隨機偏移避免多個敵人同時卡住
                         const randomOffset = (Math.random() - 0.5) * Math.PI * 0.3; // ±27度隨機偏移
                         const adjustedAngle = angleToCenter + randomOffset;
-                        const nudge = (this.baseSpeed || this.speed) * (deltaMul) * 1.5; // 增強推力
                         
-                        this.x = Utils.clamp(this.x + Math.cos(adjustedAngle) * nudge, minX + borderMargin, maxX - borderMargin);
-                        this.y = Utils.clamp(this.y + Math.sin(adjustedAngle) * nudge, minY + borderMargin, maxY - borderMargin);
+                        // 根據敵人體積調整推力強度
+                        let nudgeMultiplier = 1.5; // 默認推力倍數
+                        if (isGardenLargeEnemy) {
+                            nudgeMultiplier = 3.0; // 花園大體積敵人使用3倍推力
+                        } else if (isLargeEnemy) {
+                            nudgeMultiplier = 2.0; // 其他大體積敵人使用2倍推力
+                        }
+                        const nudge = (this.baseSpeed || this.speed) * (deltaMul) * nudgeMultiplier;
+                        
+                        // 使用更大的邊界緩衝區，避免推回邊界
+                        const pushBuffer = isGardenLargeEnemy ? borderMargin * 1.5 : borderMargin;
+                        this.x = Utils.clamp(this.x + Math.cos(adjustedAngle) * nudge, minX + pushBuffer, maxX - pushBuffer);
+                        this.y = Utils.clamp(this.y + Math.sin(adjustedAngle) * nudge, minY + pushBuffer, maxY - pushBuffer);
                         
                         // 重置卡住計數器
                         this.stuckCounter = 0;
@@ -352,13 +532,18 @@ class Enemy extends Entity {
         }
         
         // 更新花護衛的背景雪碧圖動畫幀（在update中更新，draw中只負責繪製）
+        // 優化：只在遊戲未暫停時更新動畫，避免升級界面時不必要的計算
         if (this.type === 'ELF_MINI_BOSS' && !this.isDying && this._spriteAnimation) {
             try {
-                // 更新動畫幀
-                this._spriteAnimation.animAccumulator += deltaTime;
-                while (this._spriteAnimation.animAccumulator >= this._spriteAnimation.frameDuration) {
-                    this._spriteAnimation.currentFrame = (this._spriteAnimation.currentFrame + 1) % this._spriteAnimation.totalFrames;
-                    this._spriteAnimation.animAccumulator -= this._spriteAnimation.frameDuration;
+                // 檢查遊戲是否暫停（升級界面顯示時會暫停）
+                const isGamePaused = (typeof Game !== 'undefined' && Game.isPaused) || false;
+                if (!isGamePaused) {
+                    // 更新動畫幀
+                    this._spriteAnimation.animAccumulator += deltaTime;
+                    while (this._spriteAnimation.animAccumulator >= this._spriteAnimation.frameDuration) {
+                        this._spriteAnimation.currentFrame = (this._spriteAnimation.currentFrame + 1) % this._spriteAnimation.totalFrames;
+                        this._spriteAnimation.animAccumulator -= this._spriteAnimation.frameDuration;
+                    }
                 }
             } catch (e) {
                 // 忽略錯誤
@@ -377,63 +562,33 @@ class Enemy extends Entity {
         // ========================================================================
         
         // 繪製花護衛的背景雪碧圖動畫（在敵人圖片之前繪製，自然顯示在後方）
-        if (this.type === 'ELF_MINI_BOSS' && !this.isDying) {
+        // 優化：只在圖片已載入且不在死亡狀態時繪製，避免重複檢查和創建對象
+        if (this.type === 'ELF_MINI_BOSS' && !this.isDying && this._spriteAnimation && 
+            this._spriteAnimation.spriteSheetLoaded && this._spriteAnimation.spriteSheet) {
             try {
-                // 初始化雪碧圖動畫參數（僅初始化一次）
-                if (!this._spriteAnimation) {
-                    this._spriteAnimation = {
-                        spriteSheet: null,
-                        spriteSheetLoaded: false,
-                        frameWidth: 437,
-                        frameHeight: 437,
-                        framesPerRow: 6,
-                        framesPerCol: 5,
-                        totalFrames: 30,
-                        currentFrame: 0,
-                        frameDuration: 50, // 每幀50毫秒（約20fps）
-                        animAccumulator: 0,
-                        spriteSrc: 'assets/images/Elf_mini_boss-2.png'
-                    };
-                    
-                    // 載入雪碧圖
-                    const img = new Image();
-                    img.onload = () => {
-                        this._spriteAnimation.spriteSheet = img;
-                        this._spriteAnimation.spriteSheetLoaded = true;
-                    };
-                    img.onerror = () => {
-                        console.warn('[Enemy] 花護衛雪碧圖載入失敗:', this._spriteAnimation.spriteSrc);
-                        this._spriteAnimation.spriteSheetLoaded = false;
-                    };
-                    img.src = this._spriteAnimation.spriteSrc;
-                }
+                ctx.save();
                 
-                // 如果雪碧圖已載入，繪製動畫
-                if (this._spriteAnimation.spriteSheetLoaded && this._spriteAnimation.spriteSheet) {
-                    ctx.save();
-                    
-                    // 計算當前幀在雪碧圖中的位置
-                    const frameIndex = this._spriteAnimation.currentFrame;
-                    const col = frameIndex % this._spriteAnimation.framesPerRow;
-                    const row = Math.floor(frameIndex / this._spriteAnimation.framesPerRow);
-                    const sx = col * this._spriteAnimation.frameWidth;
-                    const sy = row * this._spriteAnimation.frameHeight;
-                    
-                    // 計算繪製尺寸（稍微放大以作為背景特效）
-                    const drawSize = Math.max(this.width, this.height) * 1.2;
-                    const drawX = this.x - drawSize / 2;
-                    const drawY = this.y - drawSize / 2;
-                    
-                    // 繪製雪碧圖動畫（在敵人圖片之前，自然顯示在後方）
-                    ctx.imageSmoothingEnabled = false; // 保持像素風格
-                    ctx.drawImage(
-                        this._spriteAnimation.spriteSheet,
-                        sx, sy, this._spriteAnimation.frameWidth, this._spriteAnimation.frameHeight,
-                        drawX, drawY, drawSize, drawSize
-                    );
-                    
-                    ctx.restore();
-                }
+                // 計算當前幀在雪碧圖中的位置
+                const frameIndex = this._spriteAnimation.currentFrame;
+                const col = frameIndex % this._spriteAnimation.framesPerRow;
+                const row = Math.floor(frameIndex / this._spriteAnimation.framesPerRow);
+                const sx = col * this._spriteAnimation.frameWidth;
+                const sy = row * this._spriteAnimation.frameHeight;
+                
+                // 計算繪製尺寸（稍微放大以作為背景特效）
+                const drawSize = Math.max(this.width, this.height) * 1.2;
+                const drawX = this.x - drawSize / 2;
+                const drawY = this.y - drawSize / 2;
+                
+                // 繪製雪碧圖動畫（在敵人圖片之前，自然顯示在後方）
+                ctx.imageSmoothingEnabled = false; // 保持像素風格
+                ctx.drawImage(
+                    this._spriteAnimation.spriteSheet,
+                    sx, sy, this._spriteAnimation.frameWidth, this._spriteAnimation.frameHeight,
+                    drawX, drawY, drawSize, drawSize
+                );
+                
+                ctx.restore();
             } catch (e) {
                 // 忽略錯誤，避免影響正常繪製
                 console.warn('[Enemy] 花護衛背景雪碧圖動畫顯示失敗:', e);
