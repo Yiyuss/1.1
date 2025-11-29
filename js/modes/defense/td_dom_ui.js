@@ -23,6 +23,7 @@
       this._buildStartButton();
       this._buildTowerBar();
       this._buildTowerPanel();
+      this._buildBasePanel();
     },
 
     _injectStyles() {
@@ -64,6 +65,28 @@
       .td-btn-green { background:linear-gradient(180deg,#3ad46c,#1f9f47); color:#fff; }
       .td-btn-red { background:linear-gradient(180deg,#ff6b6b,#e84141); color:#fff; }
       .td-btn.disabled { opacity:0.4; cursor:default; }
+
+      .td-base-panel { position:absolute; top:120px; right:20px; width:390px; min-height:320px; border-radius:14px; background:linear-gradient(180deg,rgba(23,32,42,0.98),rgba(17,24,32,0.98)); box-shadow:0 10px 20px rgba(0,0,0,0.8); padding-bottom:20px; pointer-events:auto; color:#fff; }
+      .td-base-panel.hidden { display:none; }
+      .td-base-panel-header { height:52px; border-radius:14px 14px 0 0; background:linear-gradient(180deg,rgba(46,204,113,0.97),rgba(39,174,96,0.97)); display:flex; align-items:center; padding:0 18px; font-weight:700; font-size:19px; }
+      .td-base-panel-body { padding:18px 20px 14px; font-size:15px; }
+      .td-base-panel-row { display:flex; justify-content:space-between; margin-bottom:12px; color:rgba(200,220,240,0.95); }
+      .td-base-panel-row-label { color:rgba(200,220,240,0.8); }
+      .td-base-panel-row-value { color:#ffffff; }
+      .td-base-skills { margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.1); }
+      .td-base-skill-item { display:flex; align-items:center; margin-bottom:12px; padding:10px; border-radius:8px; background:rgba(0,0,0,0.2); cursor:pointer; transition:background 0.2s; }
+      .td-base-skill-item:hover { background:rgba(0,0,0,0.3); }
+      .td-base-skill-item.disabled { opacity:0.5; cursor:not-allowed; }
+      .td-base-skill-item.disabled:hover { background:rgba(0,0,0,0.2); }
+      .td-base-skill-icon { width:48px; height:48px; border-radius:8px; margin-right:12px; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+      .td-base-skill-icon img { width:100%; height:100%; object-fit:cover; }
+      .td-base-skill-info { flex:1; }
+      .td-base-skill-name { font-weight:700; font-size:16px; margin-bottom:4px; }
+      .td-base-skill-desc { font-size:12px; color:rgba(200,220,240,0.7); }
+      .td-base-skill-toggle { width:50px; height:28px; border-radius:14px; background:rgba(100,100,100,0.5); position:relative; transition:background 0.2s; }
+      .td-base-skill-toggle.active { background:linear-gradient(180deg,#3ad46c,#1f9f47); }
+      .td-base-skill-toggle::after { content:''; position:absolute; width:24px; height:24px; border-radius:50%; background:#fff; top:2px; left:2px; transition:transform 0.2s; }
+      .td-base-skill-toggle.active::after { transform:translateX(22px); }
       `;
       document.head.appendChild(style);
     },
@@ -211,6 +234,130 @@
       });
     },
 
+    _buildBasePanel() {
+      const panel = document.createElement('div');
+      panel.className = 'td-base-panel hidden';
+      panel.innerHTML = `
+        <div class="td-base-panel-header" data-role="title">主堡資訊</div>
+        <div class="td-base-panel-body">
+          <div class="td-base-panel-row">
+            <span class="td-base-panel-row-label">生命值</span>
+            <span class="td-base-panel-row-value" data-role="health">0/0</span>
+          </div>
+          <div class="td-base-skills">
+            <div class="td-base-skill-item" data-skill="chainLightning">
+              <div class="td-base-skill-icon">
+                <img data-role="icon" src="assets/images/A4.png" alt="連鎖閃電">
+              </div>
+              <div class="td-base-skill-info">
+                <div class="td-base-skill-name">連鎖閃電</div>
+                <div class="td-base-skill-desc">傷害300，距離500，連鎖5隻，冷卻5秒</div>
+              </div>
+              <div class="td-base-skill-toggle" data-role="toggle"></div>
+            </div>
+            <div class="td-base-skill-item" data-skill="heal">
+              <div class="td-base-skill-icon">
+                <img data-role="icon" src="assets/images/A10.png" alt="回復">
+              </div>
+              <div class="td-base-skill-info">
+                <div class="td-base-skill-name">回復</div>
+                <div class="td-base-skill-desc">每5秒回復2HP</div>
+              </div>
+              <div class="td-base-skill-toggle" data-role="toggle"></div>
+            </div>
+          </div>
+        </div>
+      `;
+      this.container.appendChild(panel);
+      this.basePanel = panel;
+      this.baseEls = {
+        title: panel.querySelector('[data-role="title"]'),
+        health: panel.querySelector('[data-role="health"]'),
+        chainLightning: panel.querySelector('[data-skill="chainLightning"]'),
+        heal: panel.querySelector('[data-skill="heal"]')
+      };
+
+      // 綁定技能切換事件
+      if (this.baseEls.chainLightning) {
+        this.baseEls.chainLightning.addEventListener('click', () => {
+          if (!this.game) return;
+          const skill = this.game.baseAutoSkills.chainLightning;
+          if (this._isSkillUnlocked('chainLightning')) {
+            skill.enabled = !skill.enabled;
+            if (this.game.saveBaseAutoSkills) {
+              this.game.saveBaseAutoSkills();
+            }
+            this._updateBasePanel();
+          }
+        });
+      }
+
+      if (this.baseEls.heal) {
+        this.baseEls.heal.addEventListener('click', () => {
+          if (!this.game) return;
+          const skill = this.game.baseAutoSkills.heal;
+          if (this._isSkillUnlocked('heal')) {
+            skill.enabled = !skill.enabled;
+            if (this.game.saveBaseAutoSkills) {
+              this.game.saveBaseAutoSkills();
+            }
+            this._updateBasePanel();
+          }
+        });
+      }
+    },
+
+    _isSkillUnlocked(skillName) {
+      try {
+        if (typeof Achievements !== 'undefined' && Achievements.isUnlocked) {
+          return Achievements.isUnlocked('DEFENSE_LV1_CLEAR');
+        }
+      } catch (_) {}
+      return false;
+    },
+
+    _updateBasePanel() {
+      if (!this.basePanel || !this.game) return;
+      const game = this.game;
+      const gameState = game.gameState || {};
+      
+      // 更新生命值
+      if (this.baseEls.health) {
+        this.baseEls.health.textContent = `${gameState.baseHealth || 0}/${gameState.maxBaseHealth || 0}`;
+      }
+
+      // 更新技能狀態
+      const chainLightning = game.baseAutoSkills.chainLightning;
+      const heal = game.baseAutoSkills.heal;
+      const isUnlocked = this._isSkillUnlocked('chainLightning');
+
+      if (this.baseEls.chainLightning) {
+        const toggle = this.baseEls.chainLightning.querySelector('[data-role="toggle"]');
+        if (toggle) {
+          toggle.classList.toggle('active', chainLightning.enabled);
+        }
+        this.baseEls.chainLightning.classList.toggle('disabled', !isUnlocked);
+        if (!isUnlocked) {
+          this.baseEls.chainLightning.style.filter = 'grayscale(1)';
+        } else {
+          this.baseEls.chainLightning.style.filter = '';
+        }
+      }
+
+      if (this.baseEls.heal) {
+        const toggle = this.baseEls.heal.querySelector('[data-role="toggle"]');
+        if (toggle) {
+          toggle.classList.toggle('active', heal.enabled);
+        }
+        this.baseEls.heal.classList.toggle('disabled', !isUnlocked);
+        if (!isUnlocked) {
+          this.baseEls.heal.style.filter = 'grayscale(1)';
+        } else {
+          this.baseEls.heal.style.filter = '';
+        }
+      }
+    },
+
     _getStartLabel() {
       if (!this.game || !this.game.gameState) return '開始下一波';
       const st = this.game.gameState;
@@ -269,6 +416,18 @@
 
       // 更新防禦塔資訊面板
       this._updateTowerPanel();
+      
+      // 更新主堡資訊面板
+      this._updateBasePanel();
+      
+      // 顯示/隱藏主堡面板
+      if (this.basePanel) {
+        if (this.game.selectedBase) {
+          this.basePanel.classList.remove('hidden');
+        } else {
+          this.basePanel.classList.add('hidden');
+        }
+      }
     },
 
     _updateTowerPanel() {
