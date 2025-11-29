@@ -131,7 +131,27 @@ const WaveSystem = {
             const worldW = (Game.worldWidth || Game.canvas.width);
             const worldH = (Game.worldHeight || Game.canvas.height);
             const rad = (CONFIG.ENEMIES[enemyType] && CONFIG.ENEMIES[enemyType].COLLISION_RADIUS) ? CONFIG.ENEMIES[enemyType].COLLISION_RADIUS : 16;
-            const inner = rad + 12;
+            
+            // 針對花園地圖大體積敵人增加內縮距離，避免一開始就卡在邊界
+            let inner = rad + 12; // 默認內縮距離
+            const isGardenLargeEnemy = (Game.selectedMap && Game.selectedMap.id === 'garden') && 
+                                      (enemyType === 'ELF_MINI_BOSS' || enemyType === 'ELF_BOSS');
+            if (isGardenLargeEnemy) {
+                // 花園大體積敵人需要更大的內縮距離
+                // 使用敵人實際尺寸的一半作為內縮距離，確保不會卡在邊界
+                const enemyConfig = CONFIG.ENEMIES[enemyType];
+                if (enemyConfig) {
+                    let enemyWidth = enemyConfig.SIZE || rad * 2;
+                    let enemyHeight = enemyConfig.SIZE || rad * 2;
+                    // 如果是花護衛或花女王，使用實際的width和height
+                    if (enemyType === 'ELF_MINI_BOSS') {
+                        enemyWidth = 200; enemyHeight = 194;
+                    } else if (enemyType === 'ELF_BOSS') {
+                        enemyWidth = 400; enemyHeight = 382;
+                    }
+                    inner = Math.max(enemyWidth, enemyHeight) / 2 + 30; // 使用最大尺寸的一半 + 30像素緩衝
+                }
+            }
             const rawPos = Utils.getRandomEdgePositionInWorld(worldW, worldH);
             let sx = rawPos.x;
             let sy = rawPos.y;
@@ -192,8 +212,17 @@ const WaveSystem = {
             // 在世界邊緣生成小BOSS（加入內縮與分散避免重疊）
             const worldW = (Game.worldWidth || Game.canvas.width);
             const worldH = (Game.worldHeight || Game.canvas.height);
-            const rad = (CONFIG.ENEMIES['MINI_BOSS'] && CONFIG.ENEMIES['MINI_BOSS'].COLLISION_RADIUS) ? CONFIG.ENEMIES['MINI_BOSS'].COLLISION_RADIUS : 32;
-            const inner = rad + 12;
+            
+            // 根據地圖選擇小BOSS類型（在計算內縮距離之前確定）
+            const miniBossType = (Game.selectedMap && Game.selectedMap.id === 'garden') ? 'ELF_MINI_BOSS' : 'MINI_BOSS';
+            const rad = (CONFIG.ENEMIES[miniBossType] && CONFIG.ENEMIES[miniBossType].COLLISION_RADIUS) ? CONFIG.ENEMIES[miniBossType].COLLISION_RADIUS : 32;
+            
+            // 針對花園地圖花護衛增加內縮距離，避免一開始就卡在邊界
+            let inner = rad + 12; // 默認內縮距離
+            if (Game.selectedMap && Game.selectedMap.id === 'garden' && miniBossType === 'ELF_MINI_BOSS') {
+                // 花護衛（200x194）需要更大的內縮距離
+                inner = 100 + 30; // 使用200的一半 + 30像素緩衝
+            }
             const rawPos = Utils.getRandomEdgePositionInWorld(worldW, worldH);
             let sx = rawPos.x;
             let sy = rawPos.y;
@@ -232,8 +261,7 @@ const WaveSystem = {
                 else if (edge === 'top') sx = Utils.randomInt(inner, worldW - inner);
                 else sx = Utils.randomInt(inner, worldW - inner);
             }
-            // 根據地圖選擇小BOSS類型
-            const miniBossType = (Game.selectedMap && Game.selectedMap.id === 'garden') ? 'ELF_MINI_BOSS' : 'MINI_BOSS';
+            // 根據地圖選擇小BOSS類型（已在上面確定）
             const miniBoss = new Enemy(sx, sy, miniBossType);
             Game.addEnemy(miniBoss);
             console.log('Mini Boss spawned!');
@@ -287,6 +315,16 @@ const WaveSystem = {
         Game.addEnemy(boss);
         Game.boss = boss;
         console.log('Boss spawned!');
+        
+        // 立即切換到BOSS音樂（在遊戲內直接觸發，不需要切換分頁）
+        try {
+            if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+                AudioManager.playMusic('boss_music');
+                console.log('[WaveSystem] BOSS出現，切換到boss_music');
+            }
+        } catch (e) {
+            console.warn('[WaveSystem] 切換BOSS音樂失敗:', e);
+        }
 
         // 示例彈幕：Boss 出現後啟動環狀旋轉彈幕（僅在 BulletSystem 啟用時生效）
         try {
