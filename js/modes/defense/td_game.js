@@ -103,7 +103,7 @@ class TDGame {
                     lastCastTime: 0,
                     cooldown: 5000, // 5秒
                     damage: 300,
-                    range: 300, // 範圍300
+                    range: 500, // 範圍500
                     maxChains: 5
                 },
                 heal: {
