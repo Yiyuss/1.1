@@ -6,15 +6,26 @@ class OrbitBall extends Entity {
         this.angle = initialAngle;
         this.radius = radius;
         this.damage = damage;
-        // 調整為更高頻率的持續傷害，提升命中感
-        this.tickDamage = Math.max(1, Math.round(this.damage));
-        this.tickIntervalMs = 120; // 每0.12秒一次，類似雷射頻率
-        this.tickAccumulator = 0;
+        
+        // 根據武器類型決定傷害模式
+        this.weaponType = (imageKey === 'chicken') ? 'CHICKEN_BLESSING' : 'ORBIT';
+        
+        // 雞腿庇佑和綿羊護體：改為單次碰撞傷害（移除持續傷害，避免BOSS被秒殺）
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT') {
+            // 單次碰撞傷害模式：每個敵人只造成一次傷害，然後有冷卻時間
+            this.collisionCooldown = new Map(); // 記錄每個敵人的最後碰撞時間
+            this.collisionCooldownMs = 500; // 每個敵人500ms內只能受到一次傷害
+            this.singleHitDamage = Math.max(1, Math.round(this.damage));
+        } else {
+            // 其他武器：保持原來的持續傷害模式（如果有其他使用OrbitBall的武器）
+            this.tickDamage = Math.max(1, Math.round(this.damage));
+            this.tickIntervalMs = 120; // 每0.12秒一次，類似雷射頻率
+            this.tickAccumulator = 0;
+        }
+        
         this.duration = durationMs;
         this.angularSpeed = angularSpeedRadPerSec; // 弧度/秒
         this.startTime = Date.now();
-        // 根據圖片鍵判斷武器類型
-        this.weaponType = (imageKey === 'chicken') ? 'CHICKEN_BLESSING' : 'ORBIT';
         // 視覺圖片鍵（預設為 lightning，可傳入其他鍵如 'chicken'）
         this.imageKey = imageKey;
         // 視覺：輕量拖尾緩存（不影響傷害或判定）
@@ -33,24 +44,64 @@ class OrbitBall extends Entity {
         this.trail.push({ x: this.x, y: this.y, size: this.width });
         if (this.trail.length > this.trailMax) this.trail.shift();
 
-        // 對碰到的敵人造成傷害（每球每秒一次）。若延遲較大，逐步補齊間隔。
-        this.tickAccumulator += deltaTime;
-        while (this.tickAccumulator >= this.tickIntervalMs) {
+        // 根據武器類型選擇傷害模式
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT') {
+            // 雞腿庇佑和綿羊護體：單次碰撞傷害模式（避免持續傷害導致BOSS被秒殺）
+            const currentTime = Date.now();
             for (const enemy of Game.enemies) {
                 if (this.isColliding(enemy)) {
-                    if (typeof DamageSystem !== 'undefined') {
-                        const result = DamageSystem.computeHit(this.tickDamage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
-                        enemy.takeDamage(result.amount);
-                        if (typeof DamageNumbers !== 'undefined') {
-                            // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
-                            DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height||0)/2, result.isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemy.id });
+                    const enemyId = enemy.id || enemy;
+                    const lastHitTime = this.collisionCooldown.get(enemyId) || 0;
+                    
+                    // 檢查冷卻時間：每個敵人500ms內只能受到一次傷害
+                    if (currentTime - lastHitTime >= this.collisionCooldownMs) {
+                        // 造成單次碰撞傷害
+                        if (typeof DamageSystem !== 'undefined') {
+                            const result = DamageSystem.computeHit(this.singleHitDamage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
+                            enemy.takeDamage(result.amount);
+                            if (typeof DamageNumbers !== 'undefined') {
+                                // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
+                                DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height||0)/2, result.isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemyId });
+                            }
+                        } else {
+                            enemy.takeDamage(this.singleHitDamage);
                         }
-                    } else {
-                        enemy.takeDamage(this.tickDamage);
+                        
+                        // 記錄碰撞時間
+                        this.collisionCooldown.set(enemyId, currentTime);
                     }
                 }
             }
-            this.tickAccumulator -= this.tickIntervalMs;
+            
+            // 清理過期的碰撞記錄（避免內存泄漏）
+            if (this.collisionCooldown.size > 100) {
+                const expiredTime = currentTime - this.collisionCooldownMs * 2;
+                for (const [enemyId, time] of this.collisionCooldown.entries()) {
+                    if (time < expiredTime) {
+                        this.collisionCooldown.delete(enemyId);
+                    }
+                }
+            }
+        } else {
+            // 其他武器（如ORBIT）：保持原來的持續傷害模式
+            this.tickAccumulator += deltaTime;
+            while (this.tickAccumulator >= this.tickIntervalMs) {
+                for (const enemy of Game.enemies) {
+                    if (this.isColliding(enemy)) {
+                        if (typeof DamageSystem !== 'undefined') {
+                            const result = DamageSystem.computeHit(this.tickDamage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
+                            enemy.takeDamage(result.amount);
+                            if (typeof DamageNumbers !== 'undefined') {
+                                // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
+                                DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height||0)/2, result.isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemy.id });
+                            }
+                        } else {
+                            enemy.takeDamage(this.tickDamage);
+                        }
+                    }
+                }
+                this.tickAccumulator -= this.tickIntervalMs;
+            }
         }
 
         // 到期銷毀
