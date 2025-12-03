@@ -1,5 +1,4 @@
 /**
- * Terraria Web - Final Uncompressed Fix
  * 修復：將所有壓縮的單行代碼展開，解決 fullLightUpdate 未定義的錯誤。
  * 包含：地獄、鑽石、弓箭、寶箱、網格合成、存檔系統、完整物理與光照。
  */
