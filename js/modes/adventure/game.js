@@ -5989,15 +5989,21 @@ window.addEventListener('keydown', e => {
             let dropCount = 1; // 每次丟出1個
             
             // 根據滑鼠位置決定丟出方向（如果滑鼠在左側，向左丟；否則向右丟）
-            // 手動計算滑鼠世界座標，確保使用最新值（因為 keydown 事件是異步的）
-            let mouseWorldX = camera.x + mouse.x;
+            // 使用滑鼠屏幕座標判斷：如果滑鼠在屏幕左半邊，向左丟；在右半邊，向右丟
+            // 這樣更簡單直接，不依賴 camera 和世界座標轉換
             let throwRight = player.facingRight; // 默認使用玩家面向
-            // 滑鼠在玩家左側，向左丟；在右側，向右丟
-            throwRight = mouseWorldX > (player.x + player.w / 2);
+            if (mouse && mouse.x !== undefined) {
+                // 獲取屏幕寬度（如果 width 未初始化，使用 window.innerWidth）
+                let screenWidth = width || window.innerWidth || canvas.width || 800;
+                // 滑鼠在屏幕左半邊，向左丟；在右半邊，向右丟
+                throwRight = mouse.x > (screenWidth / 2);
+            }
             
             // 創建掉落物（從玩家位置開始，通過物理系統形成拋物線動畫）
-            // 從玩家手部位置開始（稍微向上和向前）
-            let dropX = player.x + player.w / 2 + (throwRight ? 10 : -10);
+            // 從玩家手部位置開始（稍微向上和向前，確保不會立即碰撞）
+            // 往右丟：從玩家右側更遠的位置開始；往左丟：從玩家左側更遠的位置開始
+            let offsetX = throwRight ? 20 : -20; // 增加偏移距離，避免立即碰撞
+            let dropX = player.x + player.w / 2 + offsetX;
             let dropY = player.y + player.h / 2 - 10; // 手部位置
             let drop = { 
                 x: dropX, 
