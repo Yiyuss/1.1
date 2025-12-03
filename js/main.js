@@ -815,7 +815,7 @@ function setupMapAndDifficultySelection() {
                 mapDescEl.textContent = '守護魔法糖果煉金坊，抵抗未知信號的入侵！';
             } else if (cfg && (cfg.id === 'adventure-isekai' || (typeof cfg.name === 'string' && cfg.name.includes('異世界')))) {
                 // 冒險模式「異世界」介紹
-                mapDescEl.textContent = '異世界：從主體遊戲前往另一個世界，請手動F2存檔，遊戲不會自動存檔。';
+                mapDescEl.textContent = '從主體遊戲前往另一個世界，請手動F2存檔，遊戲不會自動存檔。';
             }
         }
     };
