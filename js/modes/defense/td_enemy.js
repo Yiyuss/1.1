@@ -41,6 +41,9 @@ class TDEnemy {
         this.path = path;
         this.pathIndex = 0;
         
+        // 唯一ID（用於傷害數字節流）
+        this.id = `td_enemy_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
         // 基礎屬性
         this.maxHp = this.enemyConfig.hp;
         this.hp = this.maxHp;
@@ -205,17 +208,65 @@ class TDEnemy {
      * 維護說明：
      * - 扣除生命值並觸發閃爍效果
      * - 生命值歸零時觸發死亡
+     * - 顯示傷害數字特效（防禦模式專用）
      * - 可擴展：添加護甲、傷害減免等機制
      * 
      * @param {number} damage - 傷害值
-     * @param {Object} source - 傷害來源（可選）
+     * @param {Object} source - 傷害來源（可選，包含攻擊方向等信息）
      * @returns {boolean} 是否死亡
      */
     takeDamage(damage, source = null) {
         if (!this.isAlive) return false;
         
-        this.hp = Math.max(0, this.hp - damage);
+        // 如果 source 已經包含計算好的傷害和爆擊信息，直接使用
+        let finalDamage = damage;
+        let isCrit = false;
+        
+        if (source && typeof source.isCrit === 'boolean' && typeof source.finalDamage === 'number') {
+            // 已經在 TDProjectile.hit 中計算過，直接使用
+            finalDamage = source.finalDamage;
+            isCrit = source.isCrit;
+        } else {
+            // 需要重新計算（兼容舊代碼）
+            try {
+                if (typeof DamageSystem !== 'undefined' && DamageSystem.computeHit) {
+                    const result = DamageSystem.computeHit(damage, this, {
+                        weaponType: source && source.weaponType ? source.weaponType : 'TOWER_ATTACK',
+                        critChanceBonusPct: source && source.critChanceBonusPct ? source.critChanceBonusPct : 0
+                    });
+                    finalDamage = result.amount;
+                    isCrit = result.isCrit;
+                }
+            } catch (_) {}
+        }
+        
+        this.hp = Math.max(0, this.hp - finalDamage);
         this.hitFlashTime = 200; // 200ms 閃爍效果
+        
+        // 顯示傷害數字（防禦模式專用）
+        try {
+            if (typeof window !== 'undefined' && window.TDDamageNumbers && typeof window.TDDamageNumbers.show === 'function') {
+                const dirX = source && typeof source.dirX === 'number' ? source.dirX : 0;
+                const dirY = source && typeof source.dirY === 'number' ? source.dirY : -1;
+                const enemyId = this.id || `${this.type}_${this.x}_${this.y}`;
+                const camera = source && source.camera ? source.camera : null;
+                
+                window.TDDamageNumbers.show(
+                    Math.round(finalDamage),
+                    this.x,
+                    this.y - (this.sprite && this.sprite.height ? this.sprite.height / 2 : this.size / 2),
+                    isCrit,
+                    {
+                        dirX,
+                        dirY,
+                        enemyId,
+                        camera
+                    }
+                );
+            }
+        } catch (e) {
+            console.warn('顯示傷害數字失敗:', e);
+        }
         
         if (this.hp <= 0) {
             this.die();
