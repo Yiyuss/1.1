@@ -737,7 +737,7 @@ function setupMapAndDifficultySelection() {
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) show(mainGrid);
             if (adventureGrid) hide(adventureGrid);
-            if (mapDescEl) mapDescEl.textContent = '主線模式：選擇地圖開始探索';
+            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
             if (modeChallenge) modeChallenge.classList.remove('primary');
@@ -752,7 +752,7 @@ function setupMapAndDifficultySelection() {
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) hide(mainGrid);
             if (adventureGrid) show(adventureGrid);
-            if (mapDescEl) mapDescEl.textContent = '冒險模式：單張地圖「異世界」，擁有獨立的存檔與玩法。';
+            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
             if (modeChallenge) modeChallenge.classList.remove('primary');
