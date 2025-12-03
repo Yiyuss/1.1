@@ -21,6 +21,7 @@ const ACCEL = 0.5;
 const FRICTION = 0.8;
 const MINING_RANGE = 5.5; 
 const DAY_LEN = 72000; // 增加3倍时间（从24000改为72000）
+const MAX_INVENTORY_SLOTS = 20; // 背包最大槽位數
 
 const IDS = {
     AIR: 0, DIRT: 1, GRASS: 2, STONE: 3, WOOD: 4, LEAVES: 5, 
@@ -112,7 +113,7 @@ const BLOCKS = {
     [IDS.DIRT]:  { name: "泥土", solid: true, hardness: 15, color: "#5d4037" },
     [IDS.GRASS]: { name: "草地", solid: true, hardness: 18, color: "#388e3c" },
     [IDS.STONE]: { name: "石頭", solid: true, hardness: 40, color: "#9e9e9e" },
-    [IDS.WOOD]:  { name: "原木", solid: false, hardness: 20, color: "#5d4037", scale: 0.8 },
+    [IDS.WOOD]:  { name: "原木", solid: true, hardness: 20, color: "#5d4037", scale: 0.8 },
     [IDS.LEAVES]:{ name: "樹葉", solid: true, hardness: 5, transparent: true, color: "#2e7d32" },
     [IDS.BEDROCK]:{ name: "基岩", solid: true, hardness: 99999, color: "#000" },
     [IDS.TORCH]: { name: "火把", solid: false, light: 15, transparent: true, hardness: 1, breakInstantly: true, color: "#ffeb3b" },
@@ -142,13 +143,13 @@ const BLOCKS = {
     [IDS.HELLSTONE]: { name: "獄石", solid: true, hardness: 80, color: "#b71c1c" },
     [IDS.HELL_BRICK]: { name: "獄石磚", solid: true, hardness: 60, color: "#5d4037" },
     [IDS.DIAMOND_ORE]: { name: "鑽石礦", solid: true, hardness: 100, color: "#29b6f6" },
-    [IDS.DIAMOND]: { name: "鑽石", solid: false, color: "#00bcd4" },
+    [IDS.DIAMOND]: { name: "鑽石", solid: false, hardness: 1, breakInstantly: true, color: "#00bcd4" },
     [IDS.WOOD_PLATFORM]: { name: "木平台", solid: true, platform: true, hardness: 5, transparent: true, color: "#8d6e63" },
     [IDS.GLASS_WALL]: { name: "玻璃牆", solid: false, isWall: true, color: "#81d4fa" },
     [IDS.BRICK_WALL]: { name: "磚牆", solid: false, isWall: true, color: "#616161" },
     [IDS.BOOKSHELF]: { name: "書架", solid: true, hardness: 20, transparent: true, color: "#5d4037" },
     [IDS.ARROW]: { name: "箭矢", solid: false, color: "#fff" },
-    [IDS.WOOD_BOW]: { name: "木弓", solid: false, range: 400, damage: 3, color: "#8d6e63", isBow: true },
+    [IDS.WOOD_BOW]: { name: "木弓", solid: false, range: 400, damage: 3, color: "#8d6e63", isBow: true, durability: 40 },
     [IDS.CHEST]: { name: "箱子", solid: false, hardness: 15, transparent: true, color: "#ffb300" },
     [IDS.LOOT_CHEST]: { name: "寶箱(未開)", solid: false, hardness: 99999, transparent: true, color: "#ff6f00" }, // 探索宝箱不能被挖掘
     [IDS.DOOR_CLOSED]: { name: "門(關)", solid: true, hardness: 15, transparent: true, color: "#5d4037" },
@@ -160,8 +161,8 @@ const BLOCKS = {
     [IDS.SUNPLATE]: { name: "天域磚", solid: true, hardness: 60, color: "#ffd54f" },
     [IDS.SKYWARE_CHEST]: { name: "天域寶箱", solid: false, hardness: 99999, transparent: true, color: "#0288d1" },
     // --- 新武器與道具 ---
-    [IDS.MAGIC_STAFF]: { name: "魔法法杖", solid: false, damage: 6, color: "#e040fb", isMagic: true },
-    [IDS.STARFURY]: { name: "星怒", solid: false, damage: 15, range: 250, color: "#ff4081", isMagic: true },
+    [IDS.MAGIC_STAFF]: { name: "魔法法杖", solid: false, damage: 6, color: "#e040fb", isMagic: true, durability: 60 },
+    [IDS.STARFURY]: { name: "星怒", solid: false, damage: 15, range: 250, color: "#ff4081", isMagic: true, durability: 150 },
     [IDS.HEALTH_POTION]: { name: "治療藥水", solid: false, heal: 3, color: "#f44336", consumable: true },
     // --- 腐化之地 ---
     [IDS.EBONSTONE]: { name: "黑檀石", solid: true, hardness: 60, color: "#6a1b9a" },
@@ -176,7 +177,7 @@ const BLOCKS = {
     [IDS.WHEAT_RIPE]: { name: "成熟小麥", solid: false, transparent: true, breakInstantly: true, color: "#fdd835" }, // 金黃色
     [IDS.WHEAT]: { name: "小麥", solid: false, color: "#ffeb3b" },
     [IDS.BREAD]: { name: "麵包", solid: false, heal: 2, consumable: true, color: "#d7ccc8" },
-    [IDS.ACORN]: { name: "橡實", solid: false, color: "#8d6e63" },
+    [IDS.ACORN]: { name: "橡實", solid: false, hardness: 1, breakInstantly: true, color: "#8d6e63" },
     // --- 裝飾建材 ---
     [IDS.FENCE]: { name: "柵欄", solid: false, isWall: true, color: "#795548" }, // 柵欄視為背景牆的一種，不阻擋移動
     [IDS.LANTERN]: { name: "吊燈", solid: false, light: 15, transparent: true, hardness: 1, breakInstantly: true, color: "#ff9800" },
@@ -201,8 +202,8 @@ const BLOCKS = {
     [IDS.ROPE]: { name: "繩索", solid: false, climbable: true, transparent: true, hardness: 1, breakInstantly: true, color: "#8d6e63" },
     [IDS.CHAIN]: { name: "鐵鍊", solid: false, climbable: true, transparent: true, hardness: 2, color: "#bdbdbd" },
     // --- 裝修工具 ---
-    [IDS.HAMMER]: { name: "錘子 (拆除用)", solid: false, toolSpeed: 4, color: "#795548" }, // 拆牆用
-    [IDS.PAINT_BRUSH]: { name: "油漆刷", solid: false, color: "#fff" },
+    [IDS.HAMMER]: { name: "錘子 (拆除用)", solid: false, toolSpeed: 4, color: "#795548", durability: 100 }, // 拆牆用
+    [IDS.PAINT_BRUSH]: { name: "油漆刷", solid: false, color: "#fff", durability: 40 },
     // --- 油漆 (消耗品) ---
     [IDS.PAINT_RED]: { name: "紅漆", solid: false, color: "#f44336", isPaint: 1 },
     [IDS.PAINT_GREEN]: { name: "綠漆", solid: false, color: "#4caf50", isPaint: 2 },
@@ -216,13 +217,13 @@ const BLOCKS = {
     [IDS.VINE]: { name: "藤蔓", solid: false, transparent: true, breakInstantly: true, color: "#2e7d32" },
     [IDS.STINGER]: { name: "毒刺", solid: false, color: "#212121" },
     // --- 裝備 ---
-    [IDS.GRAPPLING_HOOK]: { name: "鉤爪", solid: false, color: "#616161", isTool: true },
-    [IDS.BOOMERANG]: { name: "迴旋鏢", solid: false, damage: 8, range: 300, color: "#ffab91" },
-    [IDS.BLADE_OF_GRASS]: { name: "草薙", solid: false, damage: 15, toolSpeed: 1, range: 120, color: "#76ff03" }, // 範圍大
+    [IDS.GRAPPLING_HOOK]: { name: "鉤爪", solid: false, color: "#616161", isTool: true, durability: 200 },
+    [IDS.BOOMERANG]: { name: "迴旋鏢", solid: false, damage: 8, range: 300, color: "#ffab91", durability: 50 },
+    [IDS.BLADE_OF_GRASS]: { name: "草薙", solid: false, damage: 15, toolSpeed: 1, range: 120, color: "#76ff03", durability: 120 }, // 範圍大
     // --- 傳送門 ---
     [IDS.TELEPORTER]: { name: "傳送門", solid: false, hardness: 50, transparent: true, color: "#00e5ff" },
     // --- 釣魚工具與漁獲 ---
-    [IDS.WOOD_FISHING_ROD]: { name: "木釣竿", solid: false, color: "#8d6e63", isFishingRod: true },
+    [IDS.WOOD_FISHING_ROD]: { name: "木釣竿", solid: false, color: "#8d6e63", isFishingRod: true, durability: 60 },
     [IDS.RAW_FISH]: { name: "生魚", solid: false, heal: 1, consumable: true, color: "#90caf9" },
     [IDS.COOKED_FISH]: { name: "熟魚", solid: false, heal: 5, buffTime: 7200, color: "#ffab91", consumable: true }, // 2分鐘 buff
     [IDS.GOLDEN_CARP]: { name: "黃金鯉魚", solid: false, color: "#ffd700", value: 100 }, // 賣錢用
@@ -230,7 +231,7 @@ const BLOCKS = {
     [IDS.SOUP]: { name: "鮮魚湯", solid: false, heal: 8, buffTime: 10800, color: "#ffe0b2", consumable: true },
     [IDS.COOKING_POT]: { name: "烹飪鍋", solid: false, hardness: 20, transparent: true, color: "#616161" },
     // --- 捕捉工具 ---
-    [IDS.BUG_NET]: { name: "捕蟲網", solid: false, color: "#bdbdbd", isNet: true },
+    [IDS.BUG_NET]: { name: "捕蟲網", solid: false, color: "#bdbdbd", isNet: true, durability: 80 },
     [IDS.CARROT]: { name: "胡蘿蔔", solid: false, color: "#ff9800", isPetItem: true },
     // --- 生物物品 ---
     [IDS.ITEM_BUNNY]: { name: "兔子", solid: false, color: "#fff" },
@@ -249,9 +250,9 @@ const BLOCKS = {
     [IDS.SAPPHIRE_ORE]: { name: "藍寶石礦", solid: true, hardness: 80, color: "#42a5f5" },
     [IDS.EMERALD_ORE]: { name: "翡翠礦", solid: true, hardness: 80, color: "#66bb6a" },
     // --- 寶石物品 ---
-    [IDS.RUBY]: { name: "紅寶石", solid: false, color: "#d50000" },
-    [IDS.SAPPHIRE]: { name: "藍寶石", solid: false, color: "#2962ff" },
-    [IDS.EMERALD]: { name: "翡翠", solid: false, color: "#00c853" },
+    [IDS.RUBY]: { name: "紅寶石", solid: false, hardness: 1, breakInstantly: true, color: "#d50000" },
+    [IDS.SAPPHIRE]: { name: "藍寶石", solid: false, hardness: 1, breakInstantly: true, color: "#2962ff" },
+    [IDS.EMERALD]: { name: "翡翠", solid: false, hardness: 1, breakInstantly: true, color: "#00c853" },
     // --- 晶火磚 (自體發光，適合蓋房子) ---
     [IDS.GEMSPARK_RED]: { name: "紅晶火磚", solid: true, hardness: 10, light: 15, color: "#ffcdd2" },
     [IDS.GEMSPARK_BLUE]: { name: "藍晶火磚", solid: true, hardness: 10, light: 15, color: "#bbdefb" },
@@ -259,18 +260,18 @@ const BLOCKS = {
     // --- 墓碑 ---
     [IDS.TOMBSTONE]: { name: "墓碑", solid: false, hardness: 10, transparent: true, color: "#bdbdbd" },
 
-    // 工具
-    [IDS.WOOD_PICK]: { name: "木鎬", solid: false, toolSpeed: 3, damage: 2, color: "#8d6e63" },
-    [IDS.STONE_PICK]:{ name: "石鎬", solid: false, toolSpeed: 5, damage: 3, color: "#757575" },
-    [IDS.IRON_PICK]: { name: "鐵鎬", solid: false, toolSpeed: 8, damage: 4, color: "#b0bec5" },
-    [IDS.GOLD_PICK]: { name: "金鎬", solid: false, toolSpeed: 12, damage: 3, color: "#ffeb3b" },
-    [IDS.DIAMOND_PICK]:{ name: "鑽石鎬", solid: false, toolSpeed: 20, damage: 5, color: "#00bcd4" },
+    // 工具（添加耐久度）
+    [IDS.WOOD_PICK]: { name: "木鎬", solid: false, toolSpeed: 3, damage: 2, color: "#8d6e63", durability: 50 },
+    [IDS.STONE_PICK]:{ name: "石鎬", solid: false, toolSpeed: 5, damage: 3, color: "#757575", durability: 80 },
+    [IDS.IRON_PICK]: { name: "鐵鎬", solid: false, toolSpeed: 8, damage: 4, color: "#b0bec5", durability: 150 },
+    [IDS.GOLD_PICK]: { name: "金鎬", solid: false, toolSpeed: 12, damage: 3, color: "#ffeb3b", durability: 120 },
+    [IDS.DIAMOND_PICK]:{ name: "鑽石鎬", solid: false, toolSpeed: 20, damage: 5, color: "#00bcd4", durability: 300 },
 
-    [IDS.WOOD_SWORD]:{ name: "木劍", solid: false, toolSpeed: 1, damage: 4, range: 80, color: "#8d6e63" },
-    [IDS.STONE_SWORD]:{ name: "石劍", solid: false, toolSpeed: 1, damage: 5, range: 80, color: "#757575" },
-    [IDS.IRON_SWORD]:{ name: "鐵劍", solid: false, toolSpeed: 1, damage: 7, range: 90, color: "#b0bec5" },
-    [IDS.GOLD_SWORD]:{ name: "金劍", solid: false, toolSpeed: 1, damage: 6, range: 90, color: "#ffeb3b" },
-    [IDS.DIAMOND_SWORD]:{ name: "鑽石劍", solid: false, toolSpeed: 1, damage: 10, range: 110, color: "#00bcd4" }
+    [IDS.WOOD_SWORD]:{ name: "木劍", solid: false, toolSpeed: 1, damage: 4, range: 80, color: "#8d6e63", durability: 30 },
+    [IDS.STONE_SWORD]:{ name: "石劍", solid: false, toolSpeed: 1, damage: 5, range: 80, color: "#757575", durability: 50 },
+    [IDS.IRON_SWORD]:{ name: "鐵劍", solid: false, toolSpeed: 1, damage: 7, range: 90, color: "#b0bec5", durability: 100 },
+    [IDS.GOLD_SWORD]:{ name: "金劍", solid: false, toolSpeed: 1, damage: 6, range: 90, color: "#ffeb3b", durability: 80 },
+    [IDS.DIAMOND_SWORD]:{ name: "鑽石劍", solid: false, toolSpeed: 1, damage: 10, range: 110, color: "#00bcd4", durability: 200 }
 };
 
 const RECIPES = [
@@ -404,6 +405,7 @@ let textures = {};
 let clouds = [];
 let particles = [];
 let floatTexts = []; // 新增這行：用來存飄浮文字
+let lastInventoryFullTime = 0; // 記錄最後一次顯示"背包已滿"的時間（幀數）
 let stars = []; // 夜晚星星陣列（只在玩家視窗範圍內生成）
 let mobs = []; 
 let drops = [];
@@ -430,13 +432,11 @@ let player = {
     buffs: { wellFed: 0, swiftness: 0, shine: 0 }, // Buff 系統：剩餘時間
     pet: { active: false, x: 0, y: 0, type: null }, // 寵物系統
     fishing: { active: false, x: 0, y: 0, vx: 0, vy: 0, biteTimer: 0, inWater: false, catchWindow: 0 }, // 釣魚狀態
-    inventory: [
-        {id: IDS.WOOD_PICK, count: 1}, 
-        {id: IDS.TORCH, count: 10}, 
-        {id: IDS.AIR, count: 0},
-        {id: IDS.AIR, count: 0},
+    inventory: Array(MAX_INVENTORY_SLOTS).fill(null).map((_, i) => 
+        i === 0 ? {id: IDS.WOOD_PICK, count: 1} :
+        i === 1 ? {id: IDS.TORCH, count: 10} :
         {id: IDS.AIR, count: 0}
-    ],
+    ),
     hotbarSlot: 0 
 };
 
@@ -2160,6 +2160,39 @@ function loadGame() {
         if (!player.fishing) player.fishing = { active: false, x: 0, y: 0, vx: 0, vy: 0, biteTimer: 0, inWater: false, catchWindow: 0 };
         if (!player.pet) player.pet = { active: false, x: 0, y: 0, type: null };
         
+        // 確保背包大小不超過20格（載入存檔時）
+        if (player.inventory && Array.isArray(player.inventory)) {
+            // 限制背包大小為20格
+            if (player.inventory.length > MAX_INVENTORY_SLOTS) {
+                player.inventory = player.inventory.slice(0, MAX_INVENTORY_SLOTS);
+            } else if (player.inventory.length < MAX_INVENTORY_SLOTS) {
+                // 如果少於20格，補齊到20格
+                while (player.inventory.length < MAX_INVENTORY_SLOTS) {
+                    player.inventory.push({id: IDS.AIR, count: 0});
+                }
+            }
+            
+            // 確保所有物品的耐久度正確初始化
+            player.inventory.forEach(item => {
+                if (item && item.id !== IDS.AIR && BLOCKS[item.id] && BLOCKS[item.id].durability) {
+                    // 如果物品有耐久度定義但當前物品沒有耐久度值，初始化為最大值
+                    if (item.durability === undefined || item.durability === null) {
+                        item.durability = BLOCKS[item.id].durability;
+                    }
+                    // 確保耐久度不超過最大值
+                    if (item.durability > BLOCKS[item.id].durability) {
+                        item.durability = BLOCKS[item.id].durability;
+                    }
+                } else if (item && (!BLOCKS[item.id] || !BLOCKS[item.id].durability)) {
+                    // 如果物品沒有耐久度定義，清除耐久度屬性
+                    item.durability = undefined;
+                }
+            });
+        } else {
+            // 如果背包不存在或不是數組，初始化為20格
+            player.inventory = Array(MAX_INVENTORY_SLOTS).fill(null).map(() => ({id: IDS.AIR, count: 0}));
+        }
+        
         gameTime = data.gameTime; 
         spawnPoint = data.spawnPoint;
         tiles = new Uint8Array(data.tiles); 
@@ -2204,11 +2237,22 @@ function loadGame() {
             if (!Array.isArray(chestData[key])) {
                 chestData[key] = Array(10).fill().map(() => ({ id: IDS.AIR, count: 0 }));
             } else {
-                // 確保每個箱子槽位格式正確
+                // 確保每個箱子槽位格式正確（包含耐久度處理）
                 chestData[key] = chestData[key].map(item => {
                     if (!item || typeof item !== 'object') return { id: IDS.AIR, count: 0 };
                     if (item.id === undefined) item.id = IDS.AIR;
                     if (item.count === undefined) item.count = 0;
+                    // 確保耐久度正確初始化
+                    if (item.id !== IDS.AIR && BLOCKS[item.id] && BLOCKS[item.id].durability) {
+                        if (item.durability === undefined || item.durability === null) {
+                            item.durability = BLOCKS[item.id].durability;
+                        }
+                        if (item.durability > BLOCKS[item.id].durability) {
+                            item.durability = BLOCKS[item.id].durability;
+                        }
+                    } else {
+                        item.durability = undefined;
+                    }
                     return item;
                 });
                 // 確保箱子有10個槽位
@@ -2670,17 +2714,51 @@ function updateDrops() {
         
         d.vx *= 0.9; d.vy += GRAVITY; d.x += d.vx; handleCollisions(d, true); d.y += d.vy; handleCollisions(d, false);
         let dist = Math.sqrt(Math.pow(player.x - d.x, 2) + Math.pow(player.y - d.y, 2));
-        if (dist < 100) { d.vx += (player.x - d.x) * 0.05; d.vy += (player.y - d.y) * 0.05; }
+        
+        // 檢查背包是否有空槽位（用於判斷是否應該吸引掉落物）
+        let hasEmptySlot = player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+        
+        // 檢查是否為剛丟出的物品（60幀 = 約1秒內不吸引，讓它飛出去）
+        let isJustThrown = d.justThrown && (frameCount - d.throwTime) < 60;
+        
+        // 只有背包有空槽位時才吸引掉落物，或者掉落物還沒有嘗試過撿取
+        // 但如果是剛丟出的物品，暫時不吸引（讓它飛出去）
+        if (dist < 100 && (hasEmptySlot || !d.inventoryFullNotified) && !isJustThrown) {
+            d.vx += (player.x - d.x) * 0.05;
+            d.vy += (player.y - d.y) * 0.05;
+        }
+        
+        // 60幀後清除剛丟出標記，恢復正常吸引
+        if (d.justThrown && (frameCount - d.throwTime) >= 60) {
+            d.justThrown = false;
+        }
+        
         if (dist < 20) {
             if (d.id === IDS.COIN) { // 特殊撿取邏輯：直接加錢，不進背包
                 if (!player.coins) player.coins = 0;
                 player.coins++;
                 updateUI(); // 更新UI顯示
                 playSound('drink'); // 撿錢音效
+                drops.splice(i, 1); continue;
             } else {
-                addToInventory(d.id, 1);
+                // 嘗試添加到背包
+                if (addToInventory(d.id, 1)) {
+                    // 成功添加，移除掉落物
+                    drops.splice(i, 1); continue;
+                } else {
+                    // 背包已滿，不移除掉落物，讓它繼續存在
+                    // 使用標記來記錄是否已經顯示過提示，避免每幀觸發
+                    if (!d.inventoryFullNotified) {
+                        d.inventoryFullNotified = true; // 標記已通知
+                        spawnFloatText(player.x, player.y, "背包已滿!", "#ff5252");
+                    }
+                    // 停止吸引效果：給掉落物一個反向速度，讓它遠離玩家
+                    let angle = Math.atan2(d.y - player.y, d.x - player.x);
+                    d.vx = Math.cos(angle) * 2; // 給一個遠離玩家的速度
+                    d.vy = Math.sin(angle) * 2;
+                    // 掉落物會繼續存在，玩家可以稍後再撿
+                }
             }
-            drops.splice(i, 1); continue;
         }
         d.life--; if(d.life <= 0) drops.splice(i, 1);
     }
@@ -4120,32 +4198,36 @@ function draw() {
                 ctx.drawImage(BLOCKS[hId].icon, player.x-6, player.y-10, 32, 32);
             }
         }
-        
-        let handX = player.x + (player.facingRight ? 14 : -2), handY = player.y + 14;
-        
-        let item = player.inventory[player.hotbarSlot];
-        if (item && item.id !== IDS.AIR && item.id !== 0 && BLOCKS[item.id] && BLOCKS[item.id].icon) {
-            if(item.id === IDS.WOOD_BOW) {
-                ctx.save(); ctx.translate(handX, handY);
-                let aimAngle = Math.atan2(mouse.worldY - (player.y+20), mouse.worldX - (player.x+10));
-                ctx.rotate(aimAngle);
-                ctx.drawImage(BLOCKS[item.id].icon, -12, -16);
-                ctx.restore();
-            } else if(item.id >= 20 && item.id < 40) { 
-                ctx.save(); ctx.translate(handX, handY);
-                if (mouse.left) ctx.rotate(Math.sin(Date.now()*0.2)*1.5 - 0.5); else ctx.rotate(-0.5);
-                ctx.drawImage(BLOCKS[item.id].icon, -8, -24, 24, 24); ctx.restore();
-            } else {
-                if (!playerSpriteReady) {
-                    if (mouse.left) { handX += Math.sin(Date.now() * 0.05) * 5; handY += Math.cos(Date.now() * 0.05) * 5; }
-                    ctx.fillRect(handX, handY, 6, 6);
-                }
-            }
+    }
+    
+    // 繪製手持物品（無論是否使用角色立繪都要顯示，但頭盔除外）
+    let handX = player.x + (player.facingRight ? 14 : -2), handY = player.y + 14;
+    
+    let item = player.inventory[player.hotbarSlot];
+    if (item && item.id !== IDS.AIR && item.id !== 0 && BLOCKS[item.id] && BLOCKS[item.id].icon) {
+        if(item.id === IDS.WOOD_BOW) {
+            ctx.save(); ctx.translate(handX, handY);
+            let aimAngle = Math.atan2(mouse.worldY - (player.y+20), mouse.worldX - (player.x+10));
+            ctx.rotate(aimAngle);
+            ctx.drawImage(BLOCKS[item.id].icon, -12, -16);
+            ctx.restore();
+        } else if(item.id >= 20 && item.id < 40) { 
+            // 工具類（鎬、劍等，ID 20-39）
+            ctx.save(); ctx.translate(handX, handY);
+            if (mouse.left) ctx.rotate(Math.sin(Date.now()*0.2)*1.5 - 0.5); else ctx.rotate(-0.5);
+            ctx.drawImage(BLOCKS[item.id].icon, -8, -24, 24, 24); ctx.restore();
         } else {
+            // 其他物品（僅在未使用角色立繪時顯示手部動作）
             if (!playerSpriteReady) {
                 if (mouse.left) { handX += Math.sin(Date.now() * 0.05) * 5; handY += Math.cos(Date.now() * 0.05) * 5; }
                 ctx.fillRect(handX, handY, 6, 6);
             }
+        }
+    } else {
+        // 空手時（僅在未使用角色立繪時顯示手部動作）
+        if (!playerSpriteReady) {
+            if (mouse.left) { handX += Math.sin(Date.now() * 0.05) * 5; handY += Math.cos(Date.now() * 0.05) * 5; }
+            ctx.fillRect(handX, handY, 6, 6);
         }
     }
 
@@ -4172,9 +4254,16 @@ function draw() {
     ctx.textAlign = "center";
     for (let i = floatTexts.length - 1; i >= 0; i--) {
         let t = floatTexts[i];
+        t.life--; // 先減少生命值
+        
+        // 如果生命值歸零，立即移除，不繪製
+        if (t.life <= 0) {
+            floatTexts.splice(i, 1);
+            continue;
+        }
+        
         t.y += t.vy; // 往上飄
         t.vy *= 0.9; // 減速
-        t.life--;
         
         // 計算屏幕坐標
         let screenX = t.x - camera.x;
@@ -4182,18 +4271,23 @@ function draw() {
         
         // 只繪製在屏幕範圍內的文字
         if (screenX > -50 && screenX < width + 50 && screenY > -50 && screenY < height + 50) {
-        // 畫邊框 (黑色)
-        ctx.fillStyle = "black";
+            // 根據生命值計算透明度（接近消失時變透明）
+            let alpha = Math.min(1, t.life / 20);
+            ctx.globalAlpha = alpha;
+            
+            // 畫邊框 (黑色)
+            ctx.fillStyle = "black";
             ctx.fillText(t.text, screenX + 2, screenY + 2);
-        // 畫本體 (彩色)
-        ctx.fillStyle = t.color;
+            // 畫本體 (彩色)
+            ctx.fillStyle = t.color;
             ctx.fillText(t.text, screenX, screenY);
+            
+            ctx.globalAlpha = 1; // 恢復透明度
         }
-        
-        if (t.life <= 0) floatTexts.splice(i, 1);
     }
     
-    let item = player.inventory[player.hotbarSlot];
+    // 繪製物品名稱（使用已宣告的 item 變數）
+    item = player.inventory[player.hotbarSlot];
     if (item && item.id !== IDS.AIR && item.id !== 0 && BLOCKS[item.id]) {
         ctx.fillStyle = "white"; ctx.font = "bold 20px monospace"; ctx.textAlign = "center";
         ctx.fillStyle = "black"; ctx.fillText(BLOCKS[item.id].name, width/2 + 2, height - 90 + 2);
@@ -4282,6 +4376,14 @@ function updateInteraction() {
                     player.mana -= 8;
                     if (player.mana < 0) player.mana = 0; // 防止魔力变成负数
                     updateHealthUI();
+                    
+                    // 消耗星怒耐久度
+                    if (consumeDurability(handItem, 1)) {
+                        updateUI();
+                        mouse.left = false;
+                        return; // 武器損壞
+                    }
+                    
                     let sx = mouse.worldX + (Math.random()-0.5)*150;
                     let sy = camera.y - 50; 
                     let angle = Math.atan2(mouse.worldY - sy, mouse.worldX - sx);
@@ -4301,6 +4403,14 @@ function updateInteraction() {
                     player.mana -= 5; // 扣除魔力
                     if (player.mana < 0) player.mana = 0; // 防止魔力变成负数
                     updateHealthUI(); // 更新 UI
+                    
+                    // 消耗魔法法杖耐久度
+                    if (consumeDurability(handItem, 1)) {
+                        updateUI();
+                        mouse.left = false;
+                        return; // 武器損壞
+                    }
+                    
                     let angle = Math.atan2(mouse.worldY - (player.y+20), mouse.worldX - (player.x+10));
                     projectiles.push({ 
                         x:player.x+10, y:player.y+20, 
@@ -4315,6 +4425,13 @@ function updateInteraction() {
         else if (handItem && handItem.id === IDS.WOOD_BOW) {
             let arrowIdx = player.inventory.findIndex(i => i.id === IDS.ARROW && i.count > 0);
             if (arrowIdx !== -1) {
+                // 消耗弓耐久度
+                if (consumeDurability(handItem, 1)) {
+                    updateUI();
+                    mouse.left = false;
+                    return; // 武器損壞
+                }
+                
                 let angle = Math.atan2(mouse.worldY - (player.y + 20), mouse.worldX - (player.x + 10));
                 projectiles.push({
                     x: player.x + 10,
@@ -4354,6 +4471,17 @@ function updateInteraction() {
                     spawnFloatText(m.x + m.w / 2, m.y, String(Math.floor(dmg)), "#ffeb3b");
                 }
 
+                // 消耗武器耐久度（如果是武器）
+                if (handItem && ((handItem.id >= IDS.WOOD_SWORD && handItem.id <= IDS.DIAMOND_SWORD) || 
+                    handItem.id === IDS.MAGIC_STAFF || handItem.id === IDS.STARFURY || 
+                    handItem.id === IDS.BLADE_OF_GRASS || handItem.id === IDS.BOOMERANG)) {
+                    if (consumeDurability(handItem, 1)) {
+                        updateUI();
+                        mouse.left = false;
+                        return; // 武器損壞，停止攻擊
+                    }
+                }
+                
                 playSound('hit');
                 createParticle(m.x + m.w / 2, m.y + m.h / 2, m.color, 0.5);
                 if (m.hp <= 0) {
@@ -4396,8 +4524,23 @@ function updateInteraction() {
                     playSound('shoot'); // 揮網聲
                     
                     // 給予物品
-                    if (m.type === 'bunny') addToInventory(IDS.ITEM_BUNNY, 1);
-                    if (m.type === 'firefly') addToInventory(IDS.ITEM_FIREFLY, 1);
+                    if (m.type === 'bunny') {
+                        if (!addToInventory(IDS.ITEM_BUNNY, 1)) {
+                            spawnFloatText(player.x, player.y, "背包已滿!", "#ff5252");
+                            spawnDrop(player.x, player.y, IDS.ITEM_BUNNY); // 掉落物品
+                        }
+                    }
+                    if (m.type === 'firefly') {
+                        if (!addToInventory(IDS.ITEM_FIREFLY, 1)) {
+                            spawnFloatText(player.x, player.y, "背包已滿!", "#ff5252");
+                            spawnDrop(player.x, player.y, IDS.ITEM_FIREFLY); // 掉落物品
+                        }
+                    }
+                    
+                    // 消耗捕蟲網耐久度
+                    if (consumeDurability(handItem, 1)) {
+                        updateUI();
+                    }
                     
                     spawnFloatText(player.x, player.y, "抓到了!", "#4caf50");
                     mouse.left = false;
@@ -4410,6 +4553,13 @@ function updateInteraction() {
         if (handItem && handItem.id === IDS.GRAPPLING_HOOK) {
             // 只有當鉤爪未啟用時發射
             if (!player.hook.active) {
+                // 消耗鉤爪耐久度（每次發射時）
+                if (consumeDurability(handItem, 1)) {
+                    updateUI();
+                    mouse.left = false;
+                    return; // 工具損壞
+                }
+                
                 let angle = Math.atan2(mouse.worldY - (player.y+20), mouse.worldX - (player.x+10));
                 player.hook.active = true;
                 player.hook.state = 1; // 射出
@@ -4451,6 +4601,11 @@ function updateInteraction() {
                     spawnDrop(player.x, player.y - 10, lootId);
                     spawnFloatText(player.x, player.y, "釣到了!", "#4caf50");
                     playSound('drink');
+                    
+                    // 消耗釣竿耐久度（成功釣到時）
+                    if (consumeDurability(handItem, 1)) {
+                        updateUI();
+                    }
                 } else {
                     // 沒釣到或單純收回
                 }
@@ -4463,6 +4618,13 @@ function updateInteraction() {
         if (handItem && handItem.id === IDS.BOOMERANG) {
             // 限制一次只能丟一個
             if (!projectiles.some(p => p.type === 'boomerang')) {
+                // 消耗迴旋鏢耐久度
+                if (consumeDurability(handItem, 1)) {
+                    updateUI();
+                    mouse.left = false;
+                    return; // 武器損壞
+                }
+                
                 let angle = Math.atan2(mouse.worldY - (player.y+20), mouse.worldX - (player.x+10));
                 projectiles.push({
                     x: player.x+10, y: player.y+20,
@@ -4477,15 +4639,23 @@ function updateInteraction() {
             return;
         }
         
-        // 錘子模式：拆除背景牆 (Wall) - 放在最前面，優先處理
+        // 錘子模式：拆除背景牆 (Wall) 和非放置類物品 - 放在最前面，優先處理
         if (handItem && handItem.id === IDS.HAMMER) {
             let idx = ty * CHUNK_W + tx;
+            // 先處理背景牆
             if (walls[idx] !== IDS.AIR) {
                 // 檢查是否有覆蓋方塊 (通常要先把前景挖掉才能拆牆，這裡簡化為直接拆)
                 let wallId = walls[idx];
                 setWall(tx, ty, IDS.AIR); // 拆除
                 playSound('mine');
                 createParticle(tx*TILE_SIZE, ty*TILE_SIZE, "#555", 0.5);
+                
+                // 消耗錘子耐久度
+                if (consumeDurability(handItem, 1)) {
+                    updateUI();
+                    mouse.left = false;
+                    return; // 工具損壞
+                }
                 
                 // 簡單掉落判定
                 if (wallId === IDS.WOOD_WALL) spawnDrop(tx*TILE_SIZE, ty*TILE_SIZE, IDS.WOOD_WALL);
@@ -4495,6 +4665,34 @@ function updateInteraction() {
                 
                 mouse.left = false;
                 return;
+            }
+            // 處理非放置類物品（寶石、橡實、鑽石等）
+            if (id !== IDS.AIR && id !== IDS.BEDROCK && id !== IDS.LAVA && id !== IDS.WATER) {
+                let blockDef = BLOCKS[id];
+                // 檢查是否為非放置類物品（沒有 solid 或 hardness 很低，且不是工具/武器）
+                if (blockDef && !blockDef.solid && (blockDef.breakInstantly || (blockDef.hardness && blockDef.hardness <= 1))) {
+                    // 排除工具、武器、裝備等不應該被錘子拆除的物品
+                    if (!(id >= 20 && id < 40) && // 工具
+                        id !== IDS.WOOD_BOW && id !== IDS.ARROW && // 武器
+                        id !== IDS.HELMET_WOOD && id !== IDS.HELMET_IRON && id !== IDS.HELMET_MINER && // 裝備
+                        id !== IDS.GRAPPLING_HOOK && id !== IDS.BOOMERANG && id !== IDS.BLADE_OF_GRASS && // 其他工具
+                        id !== IDS.MAGIC_STAFF && id !== IDS.STARFURY && // 武器
+                        id !== IDS.WOOD_FISHING_ROD && id !== IDS.BUG_NET && // 工具
+                        id !== IDS.HAMMER && id !== IDS.PAINT_BRUSH) { // 工具本身
+                        playSound('mine');
+                        setTile(tx, ty, IDS.AIR);
+                        spawnDrop(tx * TILE_SIZE + 10, ty * TILE_SIZE + 10, id);
+                        createParticle(tx*TILE_SIZE, ty*TILE_SIZE, blockDef.color || "#555", 0.5);
+                        
+                        // 消耗錘子耐久度（拆除非放置類物品時）
+                        if (consumeDurability(handItem, 1)) {
+                            updateUI();
+                        }
+                        
+                        mouse.left = false;
+                        return;
+                    }
+                }
             }
         }
         
@@ -4578,6 +4776,15 @@ function updateInteraction() {
             if (Math.random() > 0.5 && BLOCKS[id] && BLOCKS[id].color) createParticle(mouse.worldX, mouse.worldY, BLOCKS[id].color);
             if (mining.progress >= (BLOCKS[id] ? BLOCKS[id].hardness : 10) || (BLOCKS[id] && BLOCKS[id].breakInstantly)) {
                 playSound('mine');
+                
+                // 消耗稿子耐久度（如果是稿子類工具）
+                if (handItem && handItem.id >= IDS.WOOD_PICK && handItem.id <= IDS.DIAMOND_PICK) {
+                    if (consumeDurability(handItem, 1)) {
+                        updateUI();
+                        mouse.left = false;
+                        return; // 工具損壞，停止挖掘
+                    }
+                }
                 
                 // 特殊掉落邏輯
                 if (id === IDS.GRASS) {
@@ -4822,6 +5029,14 @@ function updateInteraction() {
                             paintItem.id = IDS.AIR;
                             paintItem.count = 0;
                         }
+                        
+                        // 消耗油漆刷耐久度
+                        if (consumeDurability(handItem, 1)) {
+                            updateUI();
+                            mouse.right = false;
+                            return; // 工具損壞
+                        }
+                        
                         createParticle(mouse.worldX, mouse.worldY, BLOCKS[paintItem.id].color, 0.5);
                         playSound('slime'); // 濕濕的聲音
                         updateUI();
@@ -5095,7 +5310,21 @@ function updateInteraction() {
                     mouse.right = false;
                 }
             } else {
-                if ((id === IDS.AIR || (targetBlock && targetBlock.transparent)) && !(targetBlock && targetBlock.solid)) {
+                // 檢查是否可以放置方塊
+                // 規則：1. 目標必須是空氣才能放置（基本規則）
+                //       2. 例外：岩漿和水可以互相取代
+                let canPlace = false;
+                
+                if (id === IDS.AIR) {
+                    // 目標是空氣，可以放置
+                    canPlace = true;
+                } else if ((handItem.id === IDS.WATER || handItem.id === IDS.LAVA) && 
+                           (id === IDS.WATER || id === IDS.LAVA)) {
+                    // 例外：手持岩漿或水時，可以取代目標位置的岩漿或水
+                    canPlace = true;
+                }
+                
+                if (canPlace) {
                     let bx = tx * TILE_SIZE,
                         by = ty * TILE_SIZE;
                     let collides = false;
@@ -5121,10 +5350,57 @@ function updateInteraction() {
     }
 }
 
+// 消耗工具/武器耐久度
+function consumeDurability(item, amount = 1) {
+    if (!item || item.id === IDS.AIR || !BLOCKS[item.id]) return false;
+    let def = BLOCKS[item.id];
+    if (!def.durability) return false; // 沒有耐久度的物品不需要消耗
+    
+    // 初始化耐久度（如果還沒有設置）
+    if (item.durability === undefined) {
+        item.durability = def.durability;
+    }
+    
+    // 消耗耐久度
+    item.durability -= amount;
+    
+    // 如果耐久度歸零或以下，將物品設為空氣
+    if (item.durability <= 0) {
+        item.id = IDS.AIR;
+        item.count = 0;
+        item.durability = undefined;
+        spawnFloatText(player.x, player.y - 20, "工具損壞!", "#ff5252");
+        return true; // 返回 true 表示物品已損壞
+    }
+    
+    return false; // 返回 false 表示物品還可以使用
+}
+
 function addToInventory(id, count) {
     // 防止添加无效物品
-    if (!id || id === IDS.AIR || count <= 0) return;
+    if (!id || id === IDS.AIR || count <= 0) return false; // 返回 false 表示添加失敗
     
+    // 檢查物品是否有耐久度
+    let hasDurability = BLOCKS[id] && BLOCKS[id].durability;
+    
+    // 如果有耐久度，不能疊加，必須放在新槽位
+    if (hasDurability) {
+        // 查找空槽位
+        let empty = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+        if(empty) {
+            empty.id = id;
+            empty.count = Math.min(count, 999);
+            // 初始化耐久度
+            empty.durability = BLOCKS[id].durability;
+            updateUI();
+            return true; // 成功添加
+        } else {
+            // 背包已满，返回 false，不顯示提示（由調用者決定是否顯示）
+            return false;
+        }
+    }
+    
+    // 沒有耐久度的物品可以疊加
     let found = player.inventory.find(s => s.id === id && s.count > 0);
     if(found) {
         found.count += count;
@@ -5133,25 +5409,25 @@ function addToInventory(id, count) {
         if (found.count > MAX_STACK_SIZE) {
             found.count = MAX_STACK_SIZE;
         }
+        updateUI();
+        return true; // 成功添加
     } else {
         // 查找真正的空槽位（id 为 AIR 或 count 为 0）
-        let empty = player.inventory.find(s => s.id === IDS.AIR || (s.id === id && s.count === 0));
+        let empty = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
         if(empty) {
             empty.id = id;
             empty.count = Math.min(count, 999); // 限制单次添加的最大数量
-        } else {
-            // 限制背包总槽位数（例如50个），防止无限增长导致性能问题
-            const MAX_INVENTORY_SLOTS = 50;
-            if (player.inventory.length < MAX_INVENTORY_SLOTS) {
-                player.inventory.push({id: id, count: Math.min(count, 999)});
-            } else {
-                // 背包已满，物品掉落
-                spawnDrop(player.x, player.y, id, count);
-                spawnFloatText(player.x, player.y, "背包已滿!", "#ff5252");
+            // 如果是工具/武器，初始化耐久度
+            if (BLOCKS[id] && BLOCKS[id].durability) {
+                empty.durability = BLOCKS[id].durability;
             }
+            updateUI();
+            return true; // 成功添加
+        } else {
+            // 背包已满，返回 false，不顯示提示（由調用者決定是否顯示）
+            return false;
         }
     }
-    updateUI();
 }
 
 // UI 
@@ -5211,8 +5487,18 @@ function updateRecipeGrid() {
                 canCraft = false; // 如果材料ID未定义，标记为无法合成
                 return;
             }
-            let item = player.inventory.find(i => i.id === costItem.id); 
-            if (!item || item.count < costItem.count) canCraft = false; 
+            // 檢查材料數量（考慮耐久度物品的特殊情況）
+            let hasDurability = BLOCKS[costItem.id] && BLOCKS[costItem.id].durability;
+            let has = 0;
+            if (hasDurability) {
+                // 有耐久度的物品不能疊加，每個都是獨立的
+                has = player.inventory.filter(i => i.id === costItem.id && i.count > 0).length;
+            } else {
+                // 沒有耐久度的物品可以疊加，計算總數量
+                let item = player.inventory.find(i => i.id === costItem.id);
+                has = item ? item.count : 0;
+            }
+            if (has < costItem.count) canCraft = false; 
         }); 
         if(!canCraft) div.classList.add('cannot-craft'); 
         if(selectedRecipeIdx === r.originalIdx) div.classList.add('selected'); 
@@ -5255,8 +5541,17 @@ function selectRecipe(idx) {
             costHTML += `<div class="cost-item missing"><span>未知材料 (ID: ${costItem.id})</span> <span>0/${costItem.count}</span></div>`;
             return;
         }
-        let item = player.inventory.find(i => i.id === costItem.id); 
-        let has = item ? item.count : 0; 
+        // 檢查材料數量（考慮耐久度物品的特殊情況）
+        let hasDurability = BLOCKS[costItem.id] && BLOCKS[costItem.id].durability;
+        let has = 0;
+        if (hasDurability) {
+            // 有耐久度的物品不能疊加，每個都是獨立的
+            has = player.inventory.filter(i => i.id === costItem.id && i.count > 0).length;
+        } else {
+            // 沒有耐久度的物品可以疊加，計算總數量
+            let item = player.inventory.find(i => i.id === costItem.id);
+            has = item ? item.count : 0;
+        }
         let missing = has < costItem.count ? "missing" : ""; 
         if (has < costItem.count) canCraft = false; 
         costHTML += `<div class="cost-item ${missing}"><span>${BLOCKS[costItem.id].name}</span> <span>${has}/${costItem.count}</span></div>`; 
@@ -5287,31 +5582,87 @@ function craftSelected() {
         costMap[c.id] += c.count;
     });
     
-    // 检查是否有足够的材料
+    // 检查是否有足够的材料（考慮耐久度物品的特殊情況）
     let can = true;
     for (let id in costMap) {
-        let item = player.inventory.find(i => i.id === parseInt(id));
-        if (!item || item.count < costMap[id]) {
-            can = false;
-            break;
+        let itemId = parseInt(id);
+        let needed = costMap[id];
+        let hasDurability = BLOCKS[itemId] && BLOCKS[itemId].durability;
+        
+        if (hasDurability) {
+            // 有耐久度的物品不能疊加，每個都是獨立的，需要找到足夠數量的物品
+            let foundItems = player.inventory.filter(i => i.id === itemId && i.count > 0);
+            if (foundItems.length < needed) {
+                can = false;
+                break;
+            }
+        } else {
+            // 沒有耐久度的物品可以疊加，檢查總數量
+            let item = player.inventory.find(i => i.id === itemId);
+            if (!item || item.count < needed) {
+                can = false;
+                break;
+            }
         }
     }
     if (!can) return;
     
+    // 先檢查背包是否有空槽位（在消耗材料之前檢查）
+    let hasEmptySlot = false;
+    let outHasDurability = BLOCKS[r.out.id] && BLOCKS[r.out.id].durability;
+    if (outHasDurability) {
+        // 有耐久度的物品需要空槽位
+        hasEmptySlot = player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+    } else {
+        // 沒有耐久度的物品可以疊加或找空槽位
+        let found = player.inventory.find(s => s.id === r.out.id && s.count > 0);
+        hasEmptySlot = found || player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+    }
+    
+    if (!hasEmptySlot) {
+        // 背包已滿，只顯示提示訊息（不消耗材料，不掉落物品）
+        spawnFloatText(player.x, player.y, "背包已滿!", "#ff5252");
+        return; // 不執行合成，不消耗材料
+    }
+    
+    // 背包有空槽位，開始消耗材料
     // 消耗材料，并清理空槽位（按汇总后的数量消耗）
+    // 注意：有耐久度的物品不能疊加，數量固定為1，需要特殊處理
     for (let id in costMap) {
-        let item = player.inventory.find(i => i.id === parseInt(id));
-        if (item) {
-            item.count -= costMap[id];
-            // 如果数量为0或负数，清空槽位
-            if (item.count <= 0) {
-                item.id = IDS.AIR;
-                item.count = 0;
+        let itemId = parseInt(id);
+        let needed = costMap[id];
+        let hasDurability = BLOCKS[itemId] && BLOCKS[itemId].durability;
+        
+        // 如果有耐久度，每個物品都是獨立的，需要找到多個物品
+        if (hasDurability) {
+            let foundItems = player.inventory.filter(i => i.id === itemId && i.count > 0);
+            if (foundItems.length < needed) {
+                // 材料不足（有耐久度的物品不能疊加，每個都是獨立的）
+                return;
+            }
+            // 消耗指定數量的物品
+            for (let i = 0; i < needed && i < foundItems.length; i++) {
+                foundItems[i].id = IDS.AIR;
+                foundItems[i].count = 0;
+                foundItems[i].durability = undefined;
+            }
+        } else {
+            // 沒有耐久度的物品可以疊加
+            let item = player.inventory.find(i => i.id === itemId);
+            if (item) {
+                item.count -= needed;
+                // 如果数量为0或负数，清空槽位
+                if (item.count <= 0) {
+                    item.id = IDS.AIR;
+                    item.count = 0;
+                    item.durability = undefined;
+                }
             }
         }
     }
     
-    addToInventory(r.out.id, r.out.count); 
+    // 執行合成，添加新物品
+    addToInventory(r.out.id, r.out.count);
     updateUI(); 
     selectRecipe(selectedRecipeIdx); 
 }
@@ -5333,10 +5684,48 @@ function updateUI() {
                 iconCtx.fillRect(0,0,32,32); 
             } 
             div.appendChild(iconCanvas); 
-            let count = document.createElement('span'); 
-            count.className = 'count'; 
-            count.innerText = item.count; 
-            div.appendChild(count); 
+            
+            // 如果有耐久度，顯示耐久度條（不顯示數字）
+            if (BLOCKS[item.id] && BLOCKS[item.id].durability && item.durability !== undefined) {
+                let maxDurability = BLOCKS[item.id].durability;
+                let currentDurability = Math.max(0, item.durability); // 確保不小於0
+                let durabilityPercent = currentDurability / maxDurability;
+                
+                // 創建耐久度條容器
+                let durabilityBar = document.createElement('div');
+                durabilityBar.style.position = 'absolute';
+                durabilityBar.style.bottom = '0';
+                durabilityBar.style.left = '0';
+                durabilityBar.style.width = '100%';
+                durabilityBar.style.height = '3px';
+                durabilityBar.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                durabilityBar.style.borderRadius = '0 0 2px 2px';
+                durabilityBar.style.overflow = 'hidden';
+                
+                // 耐久度填充條
+                let durabilityFill = document.createElement('div');
+                durabilityFill.style.width = (durabilityPercent * 100) + '%';
+                durabilityFill.style.height = '100%';
+                // 根據耐久度百分比設置顏色：綠色(>50%) -> 黃色(>25%) -> 紅色(<=25%)
+                if (durabilityPercent > 0.5) {
+                    durabilityFill.style.backgroundColor = '#4caf50'; // 綠色
+                } else if (durabilityPercent > 0.25) {
+                    durabilityFill.style.backgroundColor = '#ffeb3b'; // 黃色
+                } else {
+                    durabilityFill.style.backgroundColor = '#f44336'; // 紅色
+                }
+                durabilityFill.style.transition = 'width 0.2s';
+                durabilityBar.appendChild(durabilityFill);
+                div.appendChild(durabilityBar);
+            }
+            
+            // 顯示數量（如果沒有耐久度或數量>1）
+            if (!BLOCKS[item.id] || !BLOCKS[item.id].durability || item.count > 1) {
+                let count = document.createElement('span'); 
+                count.className = 'count'; 
+                count.innerText = item.count; 
+                div.appendChild(count);
+            }
         } 
         div.onclick = () => { player.hotbarSlot = idx; updateUI(); }; 
         hb.appendChild(div); 
@@ -5584,7 +5973,65 @@ window.addEventListener('keydown', e => {
             player.hotbarSlot = 9; 
             updateUI(); 
         } 
-    } 
+    }
+    
+    // Q鍵丟出選取到的物品（檢查Q鍵是否已被占用）
+    // 目前Q鍵沒有其他功能，可以安全使用
+    if (e.code === 'KeyQ' || e.key === 'q' || e.key === 'Q' || e.keyCode === 81 || e.which === 81) {
+        // 防止事件繼續傳播，確保 Q 鍵處理不會被其他邏輯影響
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // 檢查是否有選取的物品
+        let selectedItem = player.inventory[player.hotbarSlot];
+        if (selectedItem && selectedItem.id !== IDS.AIR && selectedItem.count > 0) {
+            // 丟出物品
+            let dropCount = 1; // 每次丟出1個
+            
+            // 根據滑鼠位置決定丟出方向（如果滑鼠在左側，向左丟；否則向右丟）
+            // 手動計算滑鼠世界座標，確保使用最新值（因為 keydown 事件是異步的）
+            let mouseWorldX = camera.x + mouse.x;
+            let throwRight = player.facingRight; // 默認使用玩家面向
+            // 滑鼠在玩家左側，向左丟；在右側，向右丟
+            throwRight = mouseWorldX > (player.x + player.w / 2);
+            
+            // 創建掉落物（從玩家位置開始，通過物理系統形成拋物線動畫）
+            // 從玩家手部位置開始（稍微向上和向前）
+            let dropX = player.x + player.w / 2 + (throwRight ? 10 : -10);
+            let dropY = player.y + player.h / 2 - 10; // 手部位置
+            let drop = { 
+                x: dropX, 
+                y: dropY, 
+                w: 12, 
+                h: 12, 
+                // 給一個較大的初始速度，讓物品飛出至少200像素
+                // 水平速度：根據丟出方向，18-22像素/幀，確保能飛出至少200像素距離
+                vx: (throwRight ? 18 : -18) + (Math.random() - 0.5) * 4,
+                // 垂直速度：向上拋出，形成拋物線
+                vy: -7 - Math.random() * 2, // -7 到 -9 像素/幀，形成明顯的拋物線
+                id: selectedItem.id, 
+                life: 3000, 
+                spawnTime: frameCount,
+                justThrown: true, // 標記為剛丟出的物品，防止立即被吸引
+                throwTime: frameCount // 記錄丟出時間
+            };
+            drops.push(drop);
+            
+            // 減少物品數量
+            selectedItem.count -= dropCount;
+            if (selectedItem.count <= 0) {
+                // 如果數量歸零，清空槽位
+                selectedItem.id = IDS.AIR;
+                selectedItem.count = 0;
+                selectedItem.durability = undefined;
+            }
+            
+            updateUI();
+            playSound('drink'); // 使用撿取音效
+        }
+        // 無論是否有物品，都返回，防止其他邏輯影響
+        return;
+    }
 });
 // 補強說明：
 // - 原本這裡會再用 keypress 觸發一次合成介面，避免部分輸入法環境 keydown 失敗。
@@ -5681,12 +6128,35 @@ function loop(ts) {
 
 // --- 新增：產生飄浮文字 ---
 function spawnFloatText(x, y, text, color) {
+    // 對於"背包已滿"相關提示，添加冷卻時間（120幀 = 約2秒）
+    if (text.includes("背包已滿")) {
+        const COOLDOWN_FRAMES = 120; // 冷卻時間：120幀（約2秒）
+        if (frameCount - lastInventoryFullTime < COOLDOWN_FRAMES) {
+            return; // 在冷卻期內，不顯示
+        }
+        lastInventoryFullTime = frameCount; // 更新最後觸發時間
+    }
+    
     // 限制浮字数量，防止内存溢出
-    const MAX_FLOAT_TEXTS = 50;
+    const MAX_FLOAT_TEXTS = 20; // 減少最大數量，避免殘影
     if (floatTexts.length >= MAX_FLOAT_TEXTS) {
         // 移除最旧的浮字
         floatTexts.shift();
     }
+    
+    // 檢查是否已有相同位置和文字的浮字（避免重複）
+    let existing = floatTexts.find(t => 
+        Math.abs(t.x - x) < 10 && 
+        Math.abs(t.y - y) < 10 && 
+        t.text === text
+    );
+    if (existing) {
+        // 如果已有相同的浮字，重置它的生命值而不是創建新的
+        existing.life = 60;
+        existing.vy = -2;
+        return;
+    }
+    
     floatTexts.push({
         x: x, y: y,
         text: text,
@@ -5887,8 +6357,45 @@ function updateChestUI() {
             if(BLOCKS[item.id] && BLOCKS[item.id].icon) c.drawImage(BLOCKS[item.id].icon, 0, 0);
             else if(BLOCKS[item.id]) { c.fillStyle = BLOCKS[item.id].color || '#fff'; c.fillRect(0,0,32,32); }
             div.appendChild(cvs);
-            let count = document.createElement('span'); count.className = 'count'; count.innerText = item.count;
-            div.appendChild(count);
+            
+            // 如果有耐久度，顯示耐久度條（與玩家背包相同）
+            if (BLOCKS[item.id] && BLOCKS[item.id].durability && item.durability !== undefined) {
+                let maxDurability = BLOCKS[item.id].durability;
+                let currentDurability = Math.max(0, item.durability);
+                let durabilityPercent = currentDurability / maxDurability;
+                
+                // 創建耐久度條容器
+                let durabilityBar = document.createElement('div');
+                durabilityBar.style.position = 'absolute';
+                durabilityBar.style.bottom = '0';
+                durabilityBar.style.left = '0';
+                durabilityBar.style.width = '100%';
+                durabilityBar.style.height = '3px';
+                durabilityBar.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+                durabilityBar.style.borderRadius = '0 0 2px 2px';
+                durabilityBar.style.overflow = 'hidden';
+                
+                // 耐久度填充條
+                let durabilityFill = document.createElement('div');
+                durabilityFill.style.width = (durabilityPercent * 100) + '%';
+                durabilityFill.style.height = '100%';
+                if (durabilityPercent > 0.5) {
+                    durabilityFill.style.backgroundColor = '#4caf50'; // 綠色
+                } else if (durabilityPercent > 0.25) {
+                    durabilityFill.style.backgroundColor = '#ffeb3b'; // 黃色
+                } else {
+                    durabilityFill.style.backgroundColor = '#f44336'; // 紅色
+                }
+                durabilityFill.style.transition = 'width 0.2s';
+                durabilityBar.appendChild(durabilityFill);
+                div.appendChild(durabilityBar);
+            }
+            
+            // 顯示數量（如果沒有耐久度或數量>1）
+            if (!BLOCKS[item.id] || !BLOCKS[item.id].durability || item.count > 1) {
+                let count = document.createElement('span'); count.className = 'count'; count.innerText = item.count;
+                div.appendChild(count);
+            }
         }
         div.onclick = () => handleChestClick(idx);
         grid.appendChild(div);
@@ -5916,42 +6423,101 @@ function handleChestClick(idx) {
     if (cItem.count === undefined) cItem.count = 0;
     let pItem = player.inventory[player.hotbarSlot];
     
-    // 改进的物品交换逻辑
+    // 改进的物品交换逻辑（包含耐久度處理）
     if (pItem && pItem.id !== IDS.AIR && pItem.count > 0) {
         // 手上有物品：存入宝箱
+        let pItemHasDurability = BLOCKS[pItem.id] && BLOCKS[pItem.id].durability;
+        
         if (cItem.id === IDS.AIR || cItem.id === 0 || cItem.count === 0) {
             // 空槽：直接放入
             cItem.id = pItem.id;
             cItem.count = pItem.count;
+            // 複製耐久度（如果有）
+            if (pItemHasDurability && pItem.durability !== undefined) {
+                cItem.durability = pItem.durability;
+            } else if (pItemHasDurability) {
+                cItem.durability = BLOCKS[pItem.id].durability;
+            } else {
+                cItem.durability = undefined;
+            }
             pItem.id = IDS.AIR;
             pItem.count = 0;
+            pItem.durability = undefined;
         } else if (cItem.id === pItem.id) {
-            // 相同物品：合并
-            cItem.count += pItem.count;
-            pItem.id = IDS.AIR;
-            pItem.count = 0;
+            // 相同物品：合併（但如果有耐久度，不能合併，改為交換）
+            let cItemHasDurability = BLOCKS[cItem.id] && BLOCKS[cItem.id].durability;
+            if (pItemHasDurability || cItemHasDurability) {
+                // 有耐久度的物品不能合併，改為交換
+                let tempId = pItem.id;
+                let tempCount = pItem.count;
+                let tempDurability = pItem.durability;
+                pItem.id = cItem.id;
+                pItem.count = cItem.count;
+                pItem.durability = cItem.durability;
+                cItem.id = tempId;
+                cItem.count = tempCount;
+                cItem.durability = tempDurability;
+            } else {
+                // 沒有耐久度，可以合併
+                cItem.count += pItem.count;
+                pItem.id = IDS.AIR;
+                pItem.count = 0;
+                pItem.durability = undefined;
+            }
         } else {
             // 不同物品：交换
             let tempId = pItem.id;
             let tempCount = pItem.count;
+            let tempDurability = pItem.durability;
             pItem.id = cItem.id;
             pItem.count = cItem.count;
+            pItem.durability = cItem.durability;
             cItem.id = tempId;
             cItem.count = tempCount;
+            cItem.durability = tempDurability;
         }
     } else if (cItem && cItem.id !== IDS.AIR && cItem.id !== 0 && cItem.count > 0) {
         // 手上无物品或空槽：从宝箱取出
+        // 檢查背包是否有空槽位（在20格內）
+        let hasEmptySlot = player.inventory.some(s => s.id === IDS.AIR || (s.id === cItem.id && s.count === 0 && !BLOCKS[cItem.id]?.durability));
+        if (!hasEmptySlot) {
+            // 背包已滿，無法取出
+            spawnFloatText(player.x, player.y, "背包已滿，無法取出!", "#ff5252");
+            return;
+        }
+        
         if (!pItem) {
-            // 如果槽位不存在，确保它存在
-            while (player.inventory.length <= player.hotbarSlot) {
+            // 如果槽位不存在，確保它存在（但不超過20格）
+            if (player.inventory.length <= player.hotbarSlot && player.inventory.length < MAX_INVENTORY_SLOTS) {
                 player.inventory.push({id: IDS.AIR, count: 0});
             }
-            pItem = player.inventory[player.hotbarSlot];
+            if (player.inventory.length > player.hotbarSlot) {
+                pItem = player.inventory[player.hotbarSlot];
+            } else {
+                // 如果熱鍵槽位不存在，找一個空槽位
+                let emptySlot = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+                if (emptySlot) {
+                    pItem = emptySlot;
+                } else {
+                    spawnFloatText(player.x, player.y, "背包已滿，無法取出!", "#ff5252");
+                    return;
+                }
+            }
         }
+        let cItemHasDurability = BLOCKS[cItem.id] && BLOCKS[cItem.id].durability;
         pItem.id = cItem.id;
         pItem.count = cItem.count;
+        // 複製耐久度（如果有）
+        if (cItemHasDurability && cItem.durability !== undefined) {
+            pItem.durability = cItem.durability;
+        } else if (cItemHasDurability) {
+            pItem.durability = BLOCKS[cItem.id].durability;
+        } else {
+            pItem.durability = undefined;
+        }
         cItem.id = IDS.AIR;
         cItem.count = 0;
+        cItem.durability = undefined;
     }
     
     updateChestUI(); 
@@ -6066,8 +6632,29 @@ function buyMerchantItem() {
         return;
     }
     
+    // 先檢查背包是否有空槽位
+    let hasEmptySlot = false;
+    let itemHasDurability = BLOCKS[item.id] && BLOCKS[item.id].durability;
+    if (itemHasDurability) {
+        hasEmptySlot = player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+    } else {
+        let found = player.inventory.find(s => s.id === item.id && s.count > 0);
+        hasEmptySlot = found || player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+    }
+    
+    if (!hasEmptySlot) {
+        spawnFloatText(player.x, player.y, "背包已滿!", "#ff5252");
+        return; // 不扣錢，不購買
+    }
+    
+    // 背包有空槽位，執行購買
     player.coins = (player.coins || 0) - item.price;
-    addToInventory(item.id, item.count || 1);
+    if (!addToInventory(item.id, item.count || 1)) {
+        // 如果添加失敗（理論上不應該發生，因為已經檢查過了），退還金錢
+        player.coins = (player.coins || 0) + item.price;
+        spawnFloatText(player.x, player.y, "背包已滿!", "#ff5252");
+        return;
+    }
     updateUI();
     updateMerchantUI();
     spawnFloatText(player.x, player.y, `購買: ${item.name}`, "#fff");
