@@ -5479,17 +5479,34 @@ function takeDamage(amount) {
 
 window.addEventListener('keydown', e => { 
     keys[e.code] = true; 
-    // E 鍵：同時兼容 e.key 與 e.code，避免鍵盤佈局或瀏覽器差異
-    if (e.code === 'KeyE' || e.key === 'e' || e.key === 'E') {
-        // 如果宝箱菜单打开，先关闭它
-        if (currentChest) {
-            saveGame();
-            document.getElementById('chest-menu').style.display = 'none';
-            currentChest = null;
-        } else {
-            toggleCrafting();
-        }
+
+    // 極限保險版 E 鍵：
+    // - 不只看 e.key / e.code，也一併檢查 keyCode / which
+    // - 目標：只要這次按鍵在任何屬性上看起來像是 E，就一律當成「合成表開關」
+    const isE =
+        e.code === 'KeyE' ||
+        e.key === 'e' || e.key === 'E' ||
+        e.keyCode === 69 || e.which === 69  ||   // 'E'
+        e.keyCode === 101 || e.which === 101;    // 'e'
+
+    if (isE) {
+        try {
+            // 若有箱子開著，先關閉
+            if (typeof currentChest !== 'undefined' && currentChest) {
+                saveGame();
+                const chest = document.getElementById('chest-menu');
+                if (chest) chest.style.display = 'none';
+                currentChest = null;
+            }
+            // 然後統一切換合成表開 / 關
+            if (typeof toggleCrafting === 'function') {
+                toggleCrafting();
+            }
+        } catch(_) {}
+        // 避免後續邏輯或其他監聽再次處理這次按鍵導致狀態被反轉
+        return;
     }
+
     if (e.code === 'Escape') {
         // ESC 键关闭商人界面（优先）
         if (isMerchantOpen) {
@@ -5528,26 +5545,13 @@ window.addEventListener('keydown', e => {
         } 
     } 
 });
-// 補強：在某些輸入法環境下，keydown 的 e.code / e.key 可能異常（例如顯示為 "Process"），
-// 為了避免 E 鍵完全失效，額外用 keypress 監聽字元 'e' / 'E' 來觸發合成介面。
+// 補強說明：
+// - 原本這裡會再用 keypress 觸發一次合成介面，避免部分輸入法環境 keydown 失敗。
+// - 但在目前整合主體遊戲的情境下，keydown 已經做了「極限保險」判斷，若再在 keypress
+//   裡切換一次，容易造成「開了又關」看起來沒反應的狀況。
+// - 因此這裡保留監聽（若未來需要可擴充），但不再對 E 做任何處理。
 window.addEventListener('keypress', e => {
-    // 若主鍵盤已經處理過 E（例如打開合成或關閉箱子），這裡不會有害，只是再次嘗試。
-    if (e.key === 'e' || e.key === 'E') {
-        if (typeof currentChest !== 'undefined' && currentChest) {
-            try {
-                saveGame();
-                const chest = document.getElementById('chest-menu');
-                if (chest) chest.style.display = 'none';
-                currentChest = null;
-                return;
-            } catch(_) {}
-        }
-        try {
-            if (typeof toggleCrafting === 'function') {
-                toggleCrafting();
-            }
-        } catch(_) {}
-    }
+    // no-op for now
 });
 window.addEventListener('keyup', e => keys[e.code] = false);
 window.addEventListener('wheel', e => { 
