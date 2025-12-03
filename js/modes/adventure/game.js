@@ -2004,7 +2004,7 @@ function generateWorld() {
             }
         }
         
-        if (x % 20 === 0 && Math.random() < 0.5 && tiles[groundIdx] === IDS.GRASS) { spawnMob(x * TILE_SIZE, (h - 2) * TILE_SIZE, 'slime'); }
+        if (x % 20 === 0 && Math.random() < 0.2 && tiles[groundIdx] === IDS.GRASS) { spawnMob(x * TILE_SIZE, (h - 2) * TILE_SIZE, 'slime'); } // 調低初始生成機率：50% -> 20%
         
         // 在地下的洞穴中随机生成探索宝箱
         if (x % 30 === 0 && Math.random() < 0.3) {
@@ -3058,8 +3058,8 @@ function updateMobSpawning() {
         if (dist > viewRange * 1.5) mobs.splice(i, 1);
     }
     
-    // 生怪概率：15%
-    if (Math.random() > 0.15) return;
+    // 生怪概率：調低至 8%（原本 15%）
+    if (Math.random() > 0.08) return;
     
     // 生成位置：玩家左右10-20格
     let dist = 10 + Math.floor(Math.random() * 10); 
@@ -3093,7 +3093,7 @@ function updateMobSpawning() {
             // 特殊地形怪物也受敌对怪物数量限制（因为它们也是敌对怪物）
             let groundId = tiles[belowIdx];
             if (groundId === IDS.EBONSTONE) {
-                if (nearbyHostileMobs < 8 && Math.random() < 0.1) {
+                if (nearbyHostileMobs < 8 && Math.random() < 0.05) { // 調低：10% -> 5%
                     spawnMob(spawnX * TILE_SIZE, y * TILE_SIZE, 'eater');
                     createParticle(spawnX * TILE_SIZE, y * TILE_SIZE, "#fff", 1.0);
                     return;
@@ -3101,7 +3101,7 @@ function updateMobSpawning() {
             }
             // 在泥土(叢林)上生成黃蜂
             if (groundId === IDS.MUD || groundId === IDS.JUNGLE_GRASS) {
-                if (nearbyHostileMobs < 8 && Math.random() < 0.05) {
+                if (nearbyHostileMobs < 8 && Math.random() < 0.02) { // 調低：5% -> 2%
                     spawnMob(spawnX * TILE_SIZE, y * TILE_SIZE, 'hornet');
                     return;
                 }
@@ -3112,12 +3112,12 @@ function updateMobSpawning() {
             if (Math.abs(y - surfaceY) < 10) {
                 let isDay = !isNight;
                 // 兔子：白天，在草地或泥土上生成，独立限制最多5只
-                if (isDay && nearbyBunnies < 5 && (tiles[belowIdx] === IDS.GRASS || tiles[belowIdx] === IDS.DIRT) && Math.random() < 0.1) {
+                if (isDay && nearbyBunnies < 5 && (tiles[belowIdx] === IDS.GRASS || tiles[belowIdx] === IDS.DIRT) && Math.random() < 0.01) { // 調低：10% -> 1%
                     spawnMob(spawnX * TILE_SIZE, y * TILE_SIZE, 'bunny');
                     return;
                 }
                 // 萤火虫：夜晚，在空中生成，独立限制最多5只
-                if (isNight && nearbyFireflies < 5 && tiles[idx] === IDS.AIR && Math.random() < 0.1) {
+                if (isNight && nearbyFireflies < 5 && tiles[idx] === IDS.AIR && Math.random() < 0.01) { // 調低：10% -> 1%
                     spawnMob(spawnX * TILE_SIZE, y * TILE_SIZE, 'firefly');
                     return;
                 }
@@ -3131,23 +3131,32 @@ function updateMobSpawning() {
             // 決定怪物類型
             let type = 'slime';
             if (isNight) {
-                // 夜晚：浅层生成恶魔眼，深层生成僵尸
+                // 夜晚：浅层生成恶魔眼，深层生成僵尸（調低生成機率）
                 if (y < CHUNK_H * 0.4) { 
-                    if(Math.random() < 0.5) type = 'demon_eye';
-                } else if (Math.random() < 0.6) {
+                    if(Math.random() < 0.05) type = 'demon_eye'; // 調低：50% -> 5%
+                    else return; // 95% 機率不生成
+                } else if (Math.random() < 0.05) { // 調低：60% -> 5%
                     type = 'zombie';
+                } else {
+                    return; // 95% 機率不生成
                 }
             } else {
-                // 白天：只生成史莱姆，但概率提高到50%（原来30%太低）
-                if (Math.random() < 0.5) {
+                // 白天：只生成史莱姆（調低生成機率）
+                if (Math.random() < 0.01) { // 調低：50% -> 1%
                     type = 'slime';
                 } else {
-                    return; // 50%概率不生成怪物（白天怪物较少）
+                    return; // 99%概率不生成怪物（白天怪物较少）
                 }
             }
-            // 最深层：生成骷髅或史莱姆
+            // 最深层：生成骷髅或史莱姆（調低生成機率）
             if (y > CHUNK_H - 100) {
-                type = (Math.random() < 0.4) ? 'skeleton' : 'slime';
+                if (Math.random() < 0.05) { // 調低：40% -> 5%
+                    type = 'skeleton';
+                } else if (Math.random() < 0.05) { // 5% 機率生成史萊姆
+                    type = 'slime';
+                } else {
+                    return; // 90% 機率不生成
+                }
             }
             spawnMob(spawnX * TILE_SIZE, y * TILE_SIZE, type);
             createParticle(spawnX * TILE_SIZE, y * TILE_SIZE, "#fff", 1.0);
