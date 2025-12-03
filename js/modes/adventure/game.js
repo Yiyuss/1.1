@@ -101,9 +101,9 @@ const IDS = {
     BOTTLE: 250, FIREFLY_IN_A_BOTTLE: 251,
     // --- 寶石礦物 (鑽石已有，新增其他) ---
     RUBY_ORE: 252, SAPPHIRE_ORE: 253, EMERALD_ORE: 254,
-    RUBY: 255, SAPPHIRE: 256, EMERALD: 257,
+    RUBY: 255, SAPPHIRE: 25, EMERALD: 26,  // 修正：256->25, 257->26 (Uint8Array只能存0-255)
     // --- 晶火磚 (發光建材) ---
-    GEMSPARK_RED: 260, GEMSPARK_BLUE: 261, GEMSPARK_GREEN: 262,
+    GEMSPARK_RED: 27, GEMSPARK_BLUE: 28, GEMSPARK_GREEN: 29,  // 修正：260->27, 261->28, 262->29 (Uint8Array只能存0-255)
     // --- 環境物件 ---
     TOMBSTONE: 24  // 使用24（空閒ID），因為Uint8Array只能存0-255，270會溢出成14
 };
