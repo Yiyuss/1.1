@@ -599,7 +599,9 @@ const CONFIG = {
         { id: 'challenge-4', name: 'LV4.黑洞', backgroundKey: 'background7' },
         { id: 'defense-1', name: 'LV1.魔法糖果煉金坊', backgroundKey: 'background1-2' },
         // 主線模式地圖（不分難度）：測試用地圖
-        { id: 'main-test', name: '測試用地圖', backgroundKey: 'background3' }
+        { id: 'main-test', name: '測試用地圖', backgroundKey: 'background3' },
+        // 冒險模式地圖：異世界（獨立於主體遊戲的世界）
+        { id: 'adventure-isekai', name: '異世界', backgroundKey: 'background9' }
     ],
 
     // 難度模式倍率（影響生成速度、生成數量、移動速度等）
