@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>Terraria Web - Complete Edition</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 載入畫面 -->
+<div id="loading">
+    <h1>Generating World...</h1>
+    <div class="progress-bar"><div class="progress-fill" id="p-fill"></div></div>
+    <p id="p-text">Initializing...</p>
+</div>
+
+<!-- UI 介面層 -->
+<div id="ui-layer">
+    <div id="fps-counter" class="hud-text">FPS: 60</div>
+    <div id="coords" class="hud-text" style="display: none;">X: 0 Y: 0</div>
+    
+    <!-- 白天/夜晚顯示 (中間最上方) -->
+    <div id="daynight-display" class="hud-text"></div>
+    
+    <!-- 資訊容器 (座標、錢幣、防禦力) -->
+    <div id="info-container" class="hud-text"></div>
+    
+    <!-- Buff容器 -->
+    <div id="buff-container"></div>
+    
+    <!-- 生命值 -->
+    <div id="hearts-container"></div>
+    
+    <!-- 魔力容器 -->
+    <div id="mana-container"></div>
+    
+    <!-- 存檔提示訊息 (新增) -->
+    <div id="save-msg">Game Saved!</div>
+    
+    <!-- 教學 -->
+    <div id="tutorial" class="hud-text">
+        [W/A/S/D] 移動/跳躍<br>
+        [左鍵] 挖掘 [右鍵] 放置<br>
+        [滾輪] 切換物品 [E] 合成<br>
+        [F2] 存檔 [F4] 重置世界
+    </div>
+
+    <!-- 合成選單 -->
+<!-- 合成選單 (按 E 開啟) -->
+    <div id="crafting-menu">
+        <!-- 上方分類標籤 -->
+        <div class="crafting-tabs">
+            <div class="tab active" onclick="switchTab('basic')">基礎</div>
+            <div class="tab" onclick="switchTab('tool')">工具</div>
+            <div class="tab" onclick="switchTab('build')">建築</div>
+        </div>
+
+        <div class="crafting-body">
+            <!-- 左側：物品網格 -->
+            <div id="recipe-grid"></div>
+            
+            <!-- 右側：詳情與製作按鈕 -->
+            <div id="recipe-details">
+                <div id="detail-icon"></div>
+                <h3 id="detail-name">選擇物品</h3>
+                <div id="detail-cost"></div>
+                <button id="craft-btn" disabled onclick="craftSelected()">製作</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增：箱子介面 -->
+    <div id="chest-menu">
+        <h3>箱子儲存</h3>
+        <div id="chest-grid"></div>
+        <div class="hint">點擊物品存入/取出</div>
+    </div>
+
+    <!-- 商人購買介面 -->
+    <div id="merchant-menu" style="display: none;">
+        <h3>商人商店</h3>
+        <div id="merchant-grid"></div>
+        <div id="merchant-details">
+            <div id="merchant-icon"></div>
+            <h4 id="merchant-name">選擇商品</h4>
+            <p id="merchant-desc"></p>
+            <div id="merchant-price"></div>
+            <button id="merchant-buy-btn" disabled onclick="buyMerchantItem()">購買</button>
+        </div>
+        <div class="hint">點擊商品查看詳情並購買</div>
+    </div>
+
+    <div id="hotbar-container"></div>
+</div>
+
+<!-- 遊戲畫布 -->
+<canvas id="gameCanvas"></canvas>
+
+<!-- 解析 URL 查詢參數中的角色資訊，提供給 game.js 使用 -->
+<script>
+  // ADVENTURE_SELECTED_CHARACTER_ID：由主體遊戲透過 iframe URL ?char=... 傳入
+  // 目前預期值：'margaret'、'dada'、'lilylinglan'，缺省時視為預設角色（瑪格麗特）。
+  (function(){
+    try {
+      var params = new URLSearchParams(window.location.search || '');
+      var ch = params.get('char') || '';
+      window.ADVENTURE_SELECTED_CHARACTER_ID = ch || 'margaret';
+    } catch(e) {
+      window.ADVENTURE_SELECTED_CHARACTER_ID = 'margaret';
+    }
+  })();
+</script>
+
+<!-- 冒險模式專用 GIF 疊加層（不影響主體遊戲的 GifOverlay） -->
+<script src="adventure_gif_overlay.js"></script>
+
+<!-- 引用邏輯 -->
+<script src="game.js"></script>
+
+</body>
+</html>
