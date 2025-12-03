@@ -610,6 +610,8 @@ function safePlayDefense(ctx) {
       // 清理所有GIF圖層（全域和防禦專用）
       try { if (typeof window.GifOverlay !== 'undefined') window.GifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
+      // 清理防禦模式傷害數字層（避免跨模式污染）
+      try { if (typeof window.TDDamageNumbers !== 'undefined' && typeof window.TDDamageNumbers.clear === 'function') window.TDDamageNumbers.clear(); } catch(_){}
       // 清理調試變量
       try { if (typeof window.debugTDGame !== 'undefined') window.debugTDGame = null; } catch(_){}
       // 清理UI
