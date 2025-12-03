@@ -3599,37 +3599,47 @@ function fullLightUpdate() {
 
 function propagateLight() {
     let head = 0;
-    let maxIterations = 10000; // 防止无限循环
+    // 說明：
+    // - 以前的固定上限 10000 在地圖加寬到 2000x300（60 萬格）後，
+    //   已經不足以覆蓋整個世界，導致只有左上角少量區域有陽光，其餘區域
+    //   即使是白天也完全漆黑，只能靠火把照亮。
+    // - 這裡改成依照地圖大小動態計算安全上限，理論上光照傳播次數
+    //   上限約為「每個格子被更新數次」，仍然是有界的，不會無限循環。
+    const maxIterations = tiles.length * 4; // 對 2000x300 來說約 240 萬步，僅在 fullLightUpdate 時偶爾執行
     let iterations = 0;
-    while(head < lightQueue.length && iterations < maxIterations) {
+
+    while (head < lightQueue.length && iterations < maxIterations) {
         iterations++;
-        let idx = lightQueue[head++]; 
-        let val = lightMap[idx]; 
-        if(val <= 0.05) continue;
-        let x = idx % CHUNK_W; 
+        let idx = lightQueue[head++];
+        let val = lightMap[idx];
+        if (val <= 0.05) continue;
+
+        let x = idx % CHUNK_W;
         let dirs = [-1, 1, -CHUNK_W, CHUNK_W];
-        for(let d of dirs) {
+        for (let d of dirs) {
             let nIdx = idx + d;
-            if(nIdx >= 0 && nIdx < tiles.length) {
-                let nx = nIdx % CHUNK_W; 
-                if(Math.abs(nx - x) > 1) continue;
+            if (nIdx >= 0 && nIdx < tiles.length) {
+                let nx = nIdx % CHUNK_W;
+                // 橫向鄰居需在同一列，避免跨列錯位
+                if (Math.abs(nx - x) > 1) continue;
                 let nId = tiles[nIdx];
-                if (!BLOCKS[nId]) continue; // 防止未定义的方块
-                let decay = (BLOCKS[nId].solid) ? 0.2 : 0.05; 
+                if (!BLOCKS[nId]) continue; // 防止未定義方塊
+
+                let decay = (BLOCKS[nId].solid) ? 0.2 : 0.05;
                 let newVal = val - decay;
-                if(newVal > lightMap[nIdx] && newVal > 0.05) { 
-                    lightMap[nIdx] = newVal; 
-                    // 限制lightQueue大小，防止内存溢出
-                    if (lightQueue.length < 50000) {
-                        lightQueue.push(nIdx); 
+                if (newVal > lightMap[nIdx] && newVal > 0.05) {
+                    lightMap[nIdx] = newVal;
+                    // 限制 lightQueue 大小，避免極端情況記憶體爆掉
+                    if (lightQueue.length < tiles.length * 2) {
+                        lightQueue.push(nIdx);
                     }
                 }
             }
         }
     }
-    // 如果达到最大迭代次数，清空队列防止卡死
+
     if (iterations >= maxIterations) {
-        console.warn("Light propagation reached max iterations, clearing queue");
+        console.warn("[Adventure] Light propagation reached safety limit, result may be slightly truncated");
     }
     lightQueue = [];
 }
