@@ -50,7 +50,7 @@
         bar.style.fontSize = '14px';
 
         const title = document.createElement('div');
-        title.textContent = '冒險模式：異世界（獨立存檔）';
+        title.textContent = '冒險模式：異世界（請使用 F2 手動存檔）';
         title.style.flex = '1 1 auto';
         bar.appendChild(title);
 
