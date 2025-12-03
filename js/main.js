@@ -324,8 +324,8 @@ function setupAutoPause() {
                     : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
                         ? ModeManager.getActiveModeId()
                         : null);
-                // 非生存模式包含：主線、挑戰、闖關、防禦（這些模式的暫停/菜單由各自 UI 控制）
-                const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge' || activeId === 'stage' || activeId === 'defense');
+                // 非生存模式包含：主線、挑戰、闖關、防禦、冒險（這些模式的暫停/菜單由各自 UI 控制）
+                const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge' || activeId === 'stage' || activeId === 'defense' || activeId === 'adventure');
                 if (isNonSurvivalMode) {
                     Game.pause(true);
                     return;
@@ -374,8 +374,8 @@ function setupAutoPause() {
                 : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
                     ? ModeManager.getActiveModeId()
                     : null);
-            // 非生存模式包含：主線、挑戰、闖關、防禦（這些模式的暫停/菜單由各自 UI 控制）
-            const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge' || activeId === 'stage' || activeId === 'defense');
+            // 非生存模式包含：主線、挑戰、闖關、防禦、冒險（這些模式的暫停/菜單由各自 UI 控制）
+            const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge' || activeId === 'stage' || activeId === 'defense' || activeId === 'adventure');
             if (isNonSurvivalMode) {
                 Game.pause(true);
                 return;
@@ -672,11 +672,13 @@ function setupMapAndDifficultySelection() {
     const stageGrid = document.getElementById('grid-stage');
     const defenseGrid = document.getElementById('grid-defense');
     const mainGrid = document.getElementById('grid-main');
+    const adventureGrid = document.getElementById('grid-adventure');
     const modeSurvival = document.getElementById('mode-survival');
     const modeChallenge = document.getElementById('mode-challenge');
     const modeStage = document.getElementById('mode-stage');
     const modeDefense = document.getElementById('mode-defense');
     const modeMain = document.getElementById('mode-main');
+    const modeAdventure = document.getElementById('mode-adventure');
 
     const switchMode = (mode) => {
         // 播放模式切換音效（button_click2）
@@ -688,6 +690,7 @@ function setupMapAndDifficultySelection() {
             if (stageGrid) hide(stageGrid);
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) hide(mainGrid);
+            if (adventureGrid) hide(adventureGrid);
             // 改為與使用者要求一致的提示文案
             if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
@@ -696,12 +699,14 @@ function setupMapAndDifficultySelection() {
             if (modeStage) modeStage.classList.remove('primary');
             if (modeDefense) modeDefense.classList.remove('primary');
             if (modeMain) modeMain.classList.remove('primary');
+            if (modeAdventure) modeAdventure.classList.remove('primary');
         } else if (mode === 'stage') {
             if (survivalGrid) hide(survivalGrid);
             if (challengeGrid) hide(challengeGrid);
             if (stageGrid) show(stageGrid);
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) hide(mainGrid);
+            if (adventureGrid) hide(adventureGrid);
             if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
@@ -709,12 +714,14 @@ function setupMapAndDifficultySelection() {
             if (modeStage) modeStage.classList.add('primary');
             if (modeDefense) modeDefense.classList.remove('primary');
             if (modeMain) modeMain.classList.remove('primary');
+            if (modeAdventure) modeAdventure.classList.remove('primary');
         } else if (mode === 'defense') {
             if (survivalGrid) hide(survivalGrid);
             if (challengeGrid) hide(challengeGrid);
             if (stageGrid) hide(stageGrid);
             if (defenseGrid) show(defenseGrid);
             if (mainGrid) hide(mainGrid);
+            if (adventureGrid) hide(adventureGrid);
             if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
@@ -722,12 +729,14 @@ function setupMapAndDifficultySelection() {
             if (modeStage) modeStage.classList.remove('primary');
             if (modeDefense) modeDefense.classList.add('primary');
             if (modeMain) modeMain.classList.remove('primary');
+            if (modeAdventure) modeAdventure.classList.remove('primary');
         } else if (mode === 'main') {
             if (survivalGrid) hide(survivalGrid);
             if (challengeGrid) hide(challengeGrid);
             if (stageGrid) hide(stageGrid);
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) show(mainGrid);
+            if (adventureGrid) hide(adventureGrid);
             if (mapDescEl) mapDescEl.textContent = '主線模式：選擇地圖開始探索';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
@@ -735,12 +744,29 @@ function setupMapAndDifficultySelection() {
             if (modeStage) modeStage.classList.remove('primary');
             if (modeDefense) modeDefense.classList.remove('primary');
             if (modeMain) modeMain.classList.add('primary');
+            if (modeAdventure) modeAdventure.classList.remove('primary');
+        } else if (mode === 'adventure') {
+            if (survivalGrid) hide(survivalGrid);
+            if (challengeGrid) hide(challengeGrid);
+            if (stageGrid) hide(stageGrid);
+            if (defenseGrid) hide(defenseGrid);
+            if (mainGrid) hide(mainGrid);
+            if (adventureGrid) show(adventureGrid);
+            if (mapDescEl) mapDescEl.textContent = '冒險模式：單張地圖「異世界」，擁有獨立的存檔與玩法。';
+            selectedMapCfg = null;
+            if (modeSurvival) modeSurvival.classList.remove('primary');
+            if (modeChallenge) modeChallenge.classList.remove('primary');
+            if (modeStage) modeStage.classList.remove('primary');
+            if (modeDefense) modeDefense.classList.remove('primary');
+            if (modeMain) modeMain.classList.remove('primary');
+            if (modeAdventure) modeAdventure.classList.add('primary');
         } else {
             if (survivalGrid) show(survivalGrid);
             if (challengeGrid) hide(challengeGrid);
             if (stageGrid) hide(stageGrid);
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) hide(mainGrid);
+            if (adventureGrid) hide(adventureGrid);
             if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.add('primary');
@@ -748,6 +774,7 @@ function setupMapAndDifficultySelection() {
             if (modeStage) modeStage.classList.remove('primary');
             if (modeDefense) modeDefense.classList.remove('primary');
             if (modeMain) modeMain.classList.remove('primary');
+            if (modeAdventure) modeAdventure.classList.remove('primary');
         }
     };
     // 綁定模式按鈕
@@ -756,6 +783,7 @@ function setupMapAndDifficultySelection() {
     if (modeStage) modeStage.addEventListener('click', () => switchMode('stage'));
     if (modeDefense) modeDefense.addEventListener('click', () => switchMode('defense'));
     if (modeMain) modeMain.addEventListener('click', () => switchMode('main'));
+    if (modeAdventure) modeAdventure.addEventListener('click', () => switchMode('adventure'));
 
     const showMapDesc = (cfg, card) => {
         Game.selectedMap = cfg || null;
@@ -785,6 +813,9 @@ function setupMapAndDifficultySelection() {
             } else if (cfg && (cfg.id === 'defense-1' || (typeof cfg.name === 'string' && cfg.name.includes('糖果煉金坊')))) {
                 // 防禦模式第一張地圖介紹
                 mapDescEl.textContent = '守護魔法糖果煉金坊，抵抗未知信號的入侵！';
+            } else if (cfg && (cfg.id === 'adventure-isekai' || (typeof cfg.name === 'string' && cfg.name.includes('異世界')))) {
+                // 冒險模式「異世界」介紹
+                mapDescEl.textContent = '異世界：從主體遊戲前往另一個世界，擁有獨立的存檔與完整冒險。';
             }
         }
     };
@@ -912,6 +943,29 @@ function setupMapAndDifficultySelection() {
             if (!started) {
                 show(DOMCache.get('game-screen'));
             }
+            return;
+        }
+
+        // 若目前顯示的是冒險模式 grid，直接啟動冒險模式，不進入難度選擇（獨立存檔）
+        const isAdventureMode = adventureGrid && !adventureGrid.classList.contains('hidden');
+        if (isAdventureMode) {
+            hide(mapScreen);
+            hide(diffScreen);
+            if (desertDiffScreen) hide(desertDiffScreen);
+            hide(DOMCache.get('character-select-screen'));
+            try {
+                if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
+                    window.GameModeManager.start('adventure', {
+                        selectedCharacter: Game.selectedCharacter,
+                        selectedMap: Game.selectedMap
+                    });
+                } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
+                    window.ModeManager.start('adventure', {
+                        selectedCharacter: Game.selectedCharacter,
+                        selectedMap: Game.selectedMap
+                    });
+                }
+            } catch(_) {}
             return;
         }
 
@@ -1418,6 +1472,12 @@ function setupBackupInterface() {
     const copyBtn = document.getElementById('backup-copy');
     const applyBtn = document.getElementById('backup-apply');
     const inputField = document.getElementById('backup-code-input');
+    // 冒險模式專用引繼碼欄位
+    const advGenBtn = document.getElementById('adventure-backup-generate');
+    const advOutputInput = document.getElementById('adventure-backup-code-output');
+    const advCopyBtn = document.getElementById('adventure-backup-copy');
+    const advApplyBtn = document.getElementById('adventure-backup-apply');
+    const advInputField = document.getElementById('adventure-backup-code-input');
 
     if (backupBtn && backupScreen && startScreen) {
         backupBtn.addEventListener('click', () => {
@@ -1489,6 +1549,67 @@ function setupBackupInterface() {
             } catch (e) {
                 console.error('套用引繼碼失敗', e);
                 alert('套用引繼碼失敗');
+            }
+        });
+    }
+
+    // 冒險模式：生成引繼碼（僅包含 terraria_save）
+    if (advGenBtn && advOutputInput) {
+        advGenBtn.addEventListener('click', async () => {
+            playClick();
+            try {
+                if (typeof AdventureSaveCode === 'undefined' || typeof AdventureSaveCode.generate !== 'function') {
+                    alert('冒險模式引繼碼模組不可用，請確認腳本載入順序。');
+                    return;
+                }
+                const code = await AdventureSaveCode.generate();
+                advOutputInput.value = code || '';
+            } catch (e) {
+                console.error('生成冒險模式引繼碼失敗', e);
+                alert(e && e.message ? e.message : '生成冒險模式引繼碼失敗');
+            }
+        });
+    }
+
+    // 冒險模式：複製引繼碼
+    if (advCopyBtn && advOutputInput) {
+        advCopyBtn.addEventListener('click', async () => {
+            playClick2();
+            const text = advOutputInput.value || '';
+            if (!text) return;
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                    alert('已複製冒險模式引繼碼到剪貼簿');
+                } else {
+                    advOutputInput.focus();
+                    advOutputInput.select();
+                    alert('請按 Ctrl+C 複製冒險模式引繼碼');
+                }
+            } catch (e) {
+                alert('複製失敗，請手動選取後 Ctrl+C');
+            }
+        });
+    }
+
+    // 冒險模式：套用引繼碼（只覆蓋 terraria_save）
+    if (advApplyBtn && advInputField) {
+        advApplyBtn.addEventListener('click', async () => {
+            playClick();
+            const code = (advInputField.value || '').trim();
+            if (!code) {
+                alert('請先輸入冒險模式引繼碼');
+                return;
+            }
+            try {
+                if (typeof AdventureSaveCode === 'undefined' || typeof AdventureSaveCode.apply !== 'function') {
+                    alert('冒險模式引繼碼模組不可用，請確認腳本載入順序。');
+                    return;
+                }
+                await AdventureSaveCode.apply(code);
+            } catch (e) {
+                console.error('套用冒險模式引繼碼失敗', e);
+                alert('套用冒險模式引繼碼失敗');
             }
         });
     }
