@@ -138,34 +138,57 @@
         <div id="backup-screen" class="screen hidden">
             <div class="select-card">
                 <h1 class="select-title">引繼碼</h1>
-                <div class="map-desc" style="margin-bottom:12px;">此介面用於跨裝置備份與還原您的進度。</div>
+                <div class="map-desc" style="margin-bottom:12px;">
+                  此介面用於跨裝置備份與還原您的進度。<br>
+                  提示：本畫面分為「主體遊戲」與「冒險模式」兩組引繼碼，請依照需要選擇對應區塊操作。
+                </div>
                 <div class="map-grid" style="display:block;">
                     <div class="content" style="margin-bottom:12px;">
-                        <h2 style="margin:0 0 6px;">生成引繼碼</h2>
-                        <p>說明：基於目前存檔（金幣、天賦、成就、解鎖角色）生成安全碼。</p>
+                        <h2 style="margin:0 0 6px;">主體遊戲引繼碼（生存 / 天賦 / 成就）</h2>
+                        <p>說明：基於目前主體遊戲存檔（金幣、天賦、成就、解鎖角色）生成安全碼，不包含冒險模式世界。</p>
                         <button id="backup-generate" class="primary">生成引繼碼</button>
                         <div style="margin-top:8px;">
-                            <label for="backup-code-output">引繼碼</label>
+                            <label for="backup-code-output">主體遊戲引繼碼</label>
                             <input id="backup-code-output" type="text" readonly placeholder="點擊生成後顯示" style="width:100%;">
                             <button id="backup-copy" class="ghost" style="margin-top:6px;">複製</button>
                         </div>
                     </div>
                     <div class="content" style="margin-top:16px;">
-                        <h2 style="margin:0 0 6px;">輸入引繼碼</h2>
-                        <p>說明：貼上於其他裝置生成的引繼碼以還原存檔。</p>
-                        <label for="backup-code-input">引繼碼</label>
+                        <h2 style="margin:0 0 6px;">主體遊戲引繼碼輸入</h2>
+                        <p>說明：貼上於其他裝置生成的「主體遊戲引繼碼」以還原主體存檔（不影響冒險模式）。</p>
+                        <label for="backup-code-input">主體遊戲引繼碼</label>
                         <input id="backup-code-input" type="text" placeholder="請貼上引繼碼" style="width:100%;">
                         <button id="backup-apply" class="primary" style="margin-top:6px;">套用引繼碼</button>
                     </div>
                     <div class="content" style="margin-top:16px;">
+                        <h2 style="margin:0 0 6px;">冒險模式引繼碼（異世界存檔）</h2>
+                        <p>說明：此區塊只會備份 / 還原冒險模式中的「異世界」存檔，不會影響主體遊戲金幣、天賦或成就。</p>
+                        <div style="margin-bottom:12px;">
+                          <button id="adventure-backup-generate" class="primary">生成冒險模式引繼碼</button>
+                          <div style="margin-top:8px;">
+                            <label for="adventure-backup-code-output">冒險模式引繼碼</label>
+                            <input id="adventure-backup-code-output" type="text" readonly placeholder="先在冒險模式遊玩並自動存檔後，再點此生成" style="width:100%;">
+                            <button id="adventure-backup-copy" class="ghost" style="margin-top:6px;">複製</button>
+                          </div>
+                        </div>
+                        <div>
+                          <h3 style="margin:8px 0 6px;font-size:16px;">冒險模式引繼碼輸入</h3>
+                          <p style="margin:0 0 4px;">貼上在其他裝置生成的「冒險模式引繼碼」，只會覆蓋異世界的世界存檔。</p>
+                          <label for="adventure-backup-code-input">冒險模式引繼碼</label>
+                          <input id="adventure-backup-code-input" type="text" placeholder="請貼上冒險模式引繼碼" style="width:100%;">
+                          <button id="adventure-backup-apply" class="primary" style="margin-top:6px;">套用冒險模式引繼碼</button>
+                        </div>
+                    </div>
+                    <div class="content" style="margin-top:16px;">
                         <h2 style="margin:0 0 6px;">教學與注意事項</h2>
                         <ul style="padding-left:18px; line-height:1.6;">
-                            <li>生成後請妥善保存，不要公開分享。</li>
-                            <li>跨裝置時，在首頁點「手動備份」→貼上引繼碼→套用。</li>
-                            <li>引繼碼會覆蓋本機的金幣與天賦存檔。</li>
-                            <li>請避免多餘空白或換行，確保完整貼上。</li>
-                            <li>若瀏覽器或外掛阻擋剪貼簿，請手動選取複製。</li>
-                            <li>若版本更新造成資料欄位調整，系統會嘗試相容或提示失敗。</li>
+                            <li><strong>主體遊戲引繼碼</strong>：只包含金幣、天賦、成就、解鎖角色等資料，不會備份冒險模式世界。</li>
+                            <li><strong>冒險模式引繼碼</strong>：只包含冒險模式「異世界」的自動存檔（地形、玩家道具等），不會改變主體遊戲存檔。</li>
+                            <li>跨裝置時，請分別針對「主體遊戲」與「冒險模式」產生並套用對應的引繼碼。</li>
+                            <li>若將冒險模式引繼碼貼到主體引繼碼欄位（或相反），系統會顯示版本不相容，請確認貼到正確區塊。</li>
+                            <li>生成後請妥善保存，不要公開分享；任何人取得引繼碼都可以還原到相同存檔。</li>
+                            <li>若瀏覽器或外掛阻擋剪貼簿，請手動選取輸出欄位內容後按 Ctrl+C 進行複製。</li>
+                            <li>若版本更新造成資料欄位調整，系統會盡量維持向下相容，或在失敗時顯示提示訊息。</li>
                         </ul>
                     </div>
                     <button id="backup-back" class="ghost">返回開始畫面</button>
@@ -275,6 +298,7 @@
                 <button id="mode-stage" class="mode-btn" aria-label="闖關模式">闖關模式</button>
                 <button id="mode-defense" class="mode-btn" aria-label="防禦模式">防禦模式</button>
                 <button id="mode-main" class="mode-btn" aria-label="主線模式">主線模式</button>
+                <button id="mode-adventure" class="mode-btn" aria-label="冒險模式">冒險模式</button>
               </div>
 
               <!-- 右：地圖格與下方介紹 -->
@@ -414,6 +438,34 @@
                     <div class="map-name">尚未開放</div>
                   </button>
                   <button class="map-card disabled" data-map-id="main-6">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 冒險模式：單張地圖「異世界」（獨立存檔） -->
+                <div class="map-grid hidden" id="grid-adventure">
+                  <button class="map-card selectable" data-map-id="adventure-isekai">
+                    <img src="assets/images/background9.jpg" alt="異世界">
+                    <div class="map-name">異世界</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="adventure-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="adventure-3">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="adventure-4">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="adventure-5">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="adventure-6">
                     <img src="assets/images/background3.jpg" alt="尚未開放">
                     <div class="map-name">尚未開放</div>
                   </button>
@@ -1041,6 +1093,9 @@
         <!-- 防禦模式核心組件 -->
         <script src="js/modes/defense/td_config.js"></script>
         <script>console.log('td_config.js 加載完成, TD_CONFIG:', typeof TD_CONFIG);</script>
+        <!-- 防禦模式傷害數字系統（獨立於生存模式，避免跨模式污染） -->
+        <script src="js/modes/defense/td_damage_numbers.js"></script>
+        <script>console.log('td_damage_numbers.js 加載完成, TDDamageNumbers:', typeof TDDamageNumbers);</script>
         <script src="js/modes/defense/td_map.js"></script>
         <script>console.log('td_map.js 加載完成, TDMap:', typeof TDMap);</script>
         <script src="js/modes/defense/td_enemy.js"></script>
@@ -1076,6 +1131,10 @@
         <script src="js/modes/defense/index.js"></script>
         <!-- 主線模式骨架：不分難度，探索 + NPC 對話 -->
         <script src="js/modes/main/index.js"></script>
+        <!-- 冒險模式引繼碼工具（僅操作 terraria_save，不動主體 SaveCode） -->
+        <script src="js/modes/adventure/adventure_save_code.js"></script>
+        <!-- 冒險模式骨架：以 iframe 掛載獨立 Terraria 風格遊戲 -->
+        <script src="js/modes/adventure/index.js"></script>
         <script src="js/main.js"></script>
         
         <!-- TD組件可用性檢查 -->
