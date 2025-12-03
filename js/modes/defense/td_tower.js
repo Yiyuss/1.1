@@ -554,13 +554,21 @@ class TDProjectile {
                     weaponType: 'TOWER_ATTACK',
                     critChanceBonusPct: critBonusPct
                 });
-                return result.amount;
+                return { amount: result.amount, isCrit: result.isCrit };
             }
-            return dmg;
+            return { amount: dmg, isCrit: false };
         }
 
+        // 獲取相機對象（用於傷害數字座標轉換）
+        let camera = null;
+        try {
+            if (typeof window !== 'undefined' && window.debugTDGame) {
+                camera = window.debugTDGame.camera;
+            }
+        } catch (_) {}
+
         if (this.splashRadius > 0) {
-            // 濺射傷害
+            // 濺射傷害（森森鈴蘭 - MAGIC塔）
             allEnemies.forEach(enemy => {
                 if (!enemy.isAlive) return;
                 
@@ -572,8 +580,23 @@ class TDProjectile {
                 if (distance <= this.splashRadius) {
                     const damageMultiplier = Math.max(0.3, 1 - (distance / this.splashRadius));
                     const base = this.damage * damageMultiplier;
-                    const finalDamage = computeTalentScaledDamage(base, enemy);
-                    enemy.takeDamage(finalDamage);
+                    const result = computeTalentScaledDamage(base, enemy);
+                    const finalDamage = result.amount;
+                    const isCrit = result.isCrit;
+                    
+                    // 計算攻擊方向（從子彈位置指向敵人）
+                    const dirX = enemy.x - this.x;
+                    const dirY = enemy.y - this.y;
+                    
+                    // 對敵人造成傷害（傳遞傷害來源信息）
+                    enemy.takeDamage(finalDamage, {
+                        weaponType: 'TOWER_ATTACK',
+                        dirX,
+                        dirY,
+                        camera,
+                        isCrit,
+                        finalDamage: finalDamage  // 傳遞已計算的傷害值
+                    });
                     
                     // 減速效果
                     if (this.slowEffect > 0) {
@@ -582,9 +605,24 @@ class TDProjectile {
                 }
             });
         } else {
-            // 單體傷害
-            const finalDamage = computeTalentScaledDamage(this.damage, mainTarget);
-            mainTarget.takeDamage(finalDamage);
+            // 單體傷害（洛可洛斯特 - ARROW塔，或瑪格麗特 - SLOW塔）
+            const result = computeTalentScaledDamage(this.damage, mainTarget);
+            const finalDamage = result.amount;
+            const isCrit = result.isCrit;
+            
+            // 計算攻擊方向（從子彈位置指向目標）
+            const dirX = mainTarget.x - this.x;
+            const dirY = mainTarget.y - this.y;
+            
+            // 對目標造成傷害（傳遞傷害來源信息）
+            mainTarget.takeDamage(finalDamage, {
+                weaponType: 'TOWER_ATTACK',
+                dirX,
+                dirY,
+                camera,
+                isCrit,
+                finalDamage: finalDamage  // 傳遞已計算的傷害值
+            });
             
             // 減速效果
             if (this.slowEffect > 0) {
