@@ -6534,12 +6534,12 @@ function handleChestClick(idx) {
 
 // 商人商品列表
 const MERCHANT_ITEMS = [
-    { id: IDS.HELMET_MINER, name: "礦工頭盔", desc: "增加挖掘速度", price: 50 },
-    { id: IDS.HEALTH_POTION, name: "治療藥水", desc: "恢復生命值", price: 10 },
-    { id: IDS.TNT, name: "炸藥", desc: "爆炸性武器", price: 10, count: 2 },
-    { id: IDS.ARROW, name: "箭矢", desc: "弓箭彈藥", price: 10, count: 10 },
-    { id: IDS.TORCH, name: "火把", desc: "提供光源", price: 5, count: 10 },
-    { id: IDS.ROPE, name: "繩子", desc: "用於攀爬", price: 15, count: 50 },
+    { id: IDS.HELMET_MINER, name: "礦工頭盔", desc: "增加挖掘速度", price: 2000 },
+    { id: IDS.HEALTH_POTION, name: "治療藥水", desc: "恢復生命值", price: 100 },
+    { id: IDS.TNT, name: "炸藥", desc: "爆炸性武器", price: 100, count: 2 },
+    { id: IDS.ARROW, name: "箭矢", desc: "弓箭彈藥", price: 100, count: 10 },
+    { id: IDS.TORCH, name: "火把", desc: "提供光源", price: 50, count: 10 },
+    { id: IDS.ROPE, name: "繩子", desc: "用於攀爬", price: 150, count: 20 },
 ];
 
 function updateMerchantUI() {
