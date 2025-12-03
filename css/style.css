@@ -474,6 +474,29 @@ body {
     display: block;
 }
 
+/* 引繼碼介面：限制卡片高度、隱藏外層卷軸，返回按鈕固定在右下角 */
+#backup-screen {
+    overflow: hidden;
+}
+#backup-screen .select-card {
+    position: relative;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+}
+/* 隱藏引繼碼卡片內部的卷軸外觀（仍可使用滑鼠滾輪與觸控滾動） */
+#backup-screen .select-card::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+#backup-screen .select-card {
+    scrollbar-width: none; /* Firefox */
+}
+#backup-back {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+}
+
 /* 畫布填滿viewport（內部解析度仍為800x600） */
 #game-canvas {
     position: absolute;
