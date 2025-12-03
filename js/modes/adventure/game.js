@@ -4248,43 +4248,7 @@ function updateInteraction() {
     let dy = (player.y + player.h / 2) - (ty * TILE_SIZE + TILE_SIZE / 2);
     let inRange = Math.sqrt(dx * dx + dy * dy) < MINING_RANGE * TILE_SIZE;
     
-    // 優先檢查：與商人交易（需要靠近才能交互）
-    if (mouse.right) {
-        let clickedMerchant = null;
-        for(let m of mobs) {
-            if (m.type === 'merchant' && m.x !== undefined && m.y !== undefined && m.w !== undefined && m.h !== undefined) {
-                // 检查玩家与商人的距离（使用圆形距离）
-                let merchantCenterX = m.x + m.w / 2;
-                let merchantCenterY = m.y + m.h / 2;
-                let playerCenterX = player.x + player.w / 2;
-                let playerCenterY = player.y + player.h / 2;
-                let distX = merchantCenterX - playerCenterX;
-                let distY = merchantCenterY - playerCenterY;
-                let distToMerchant = Math.sqrt(distX * distX + distY * distY);
-                
-                // 距离限制：必须在MINING_RANGE范围内（与挖掘范围相同）
-                if (distToMerchant > MINING_RANGE * TILE_SIZE) continue;
-                
-                // 使用更宽松的点击检测（增加10像素的容错范围）
-                let clickRange = 10;
-                if (mouse.worldX >= m.x - clickRange && mouse.worldX <= m.x + m.w + clickRange && 
-                    mouse.worldY >= m.y - clickRange && mouse.worldY <= m.y + m.h + clickRange) {
-                    clickedMerchant = m;
-                    break;
-                }
-            }
-        }
-        if (clickedMerchant) {
-            // 打开商人购买界面
-            isMerchantOpen = !isMerchantOpen;
-            updateMerchantUI();
-            playSound('drink');
-            mouse.right = false; 
-            return;
-        }
-    }
-
-    // 左鍵：攻擊與挖掘
+    // 左鍵：攻擊與挖掘（不處理任何互動 UI）
     if (mouse.left) {
         // --- 召喚 BOSS 邏輯 ---
         if (handItem && handItem.id === IDS.EYE_SUMMON) {
@@ -4539,8 +4503,8 @@ function updateInteraction() {
         }
         // 如果有錘子，繼續到挖掘邏輯處理（會正常挖掘並掉落門）
 
-        // LOOT_CHEST 不能被挖掘，只能右键打开
-        if (id === IDS.LOOT_CHEST) {
+        // LOOT_CHEST / SKYWARE_CHEST 不能被挖掘，只能右鍵互動（在右鍵區塊處理）
+        if (id === IDS.LOOT_CHEST || id === IDS.SKYWARE_CHEST) {
             mouse.left = false;
             return;
         }
@@ -4675,6 +4639,52 @@ function updateInteraction() {
     if (mouse.right && inRange) {
         // 先取得目標方塊ID（所有右鍵邏輯都需要）
         let id = getTile(tx, ty);
+
+        // --- 商人互動（右鍵） ---
+        // 說明：將原本在函式開頭處理商人的區塊搬到這裡，
+        // 統一所有「互動元素」都由右鍵觸發。
+        let clickedMerchant = null;
+        for(let m of mobs) {
+            if (m.type === 'merchant' && m.x !== undefined && m.y !== undefined && m.w !== undefined && m.h !== undefined) {
+                // 檢查玩家與商人的距離（使用圓形距離）
+                let merchantCenterX = m.x + m.w / 2;
+                let merchantCenterY = m.y + m.h / 2;
+                let playerCenterX = player.x + player.w / 2;
+                let playerCenterY = player.y + player.h / 2;
+                let distX = merchantCenterX - playerCenterX;
+                let distY = merchantCenterY - playerCenterY;
+                let distToMerchant = Math.sqrt(distX * distX + distY * distY);
+                if (distToMerchant > MINING_RANGE * TILE_SIZE) continue;
+                let clickRange = 10;
+                if (mouse.worldX >= m.x - clickRange && mouse.worldX <= m.x + m.w + clickRange && 
+                    mouse.worldY >= m.y - clickRange && mouse.worldY <= m.y + m.h + clickRange) {
+                    clickedMerchant = m;
+                    break;
+                }
+            }
+        }
+        if (clickedMerchant) {
+            isMerchantOpen = !isMerchantOpen;
+            updateMerchantUI();
+            playSound('drink');
+            mouse.right = false; 
+            return;
+        }
+
+        // 互動：箱子 / 天域寶箱 / 野外寶箱（LOOT_CHEST / SKYWARE_CHEST）
+        if (id === IDS.CHEST) {
+            toggleChest(tx, ty);
+            mouse.right = false;
+            return;
+        }
+        if (id === IDS.LOOT_CHEST || id === IDS.SKYWARE_CHEST) {
+            // 探索寶箱：只開一次，打開後直接掉落獎勵並清空方塊
+            if (typeof openLootChest === 'function') {
+                openLootChest(tx, ty, id);
+            }
+            mouse.right = false;
+            return;
+        }
         
         // 門開關 (右鍵切換)
         if (id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN) {
@@ -4753,7 +4763,7 @@ function updateInteraction() {
             return;
         }
         
-        // 1. 放置告示牌 (輸入文字)
+        // 1. 放置告示牌 (輸入文字，右鍵互動：視為互動元素的一種)
         if (handItem && handItem.id === IDS.SIGN) {
             if (id === IDS.AIR || id === IDS.GRASS) { // 允許插在草上
                 let text = prompt("請輸入告示牌文字:", "這裡有寶藏");
@@ -4772,7 +4782,7 @@ function updateInteraction() {
             }
         }
         
-        // 2. 閱讀告示牌 (如果手上沒拿東西，或拿的不是方塊)
+        // 2. 閱讀告示牌 (右鍵互動，不消耗物品)
         if (id === IDS.SIGN) {
             let text = signData[`${tx}_${ty}`] || "空白";
             spawnFloatText(tx*TILE_SIZE, ty*TILE_SIZE, text, "#fff");
@@ -4780,14 +4790,14 @@ function updateInteraction() {
             return;
         }
         
-        // 閱讀墓碑
+        // 3. 閱讀墓碑（右鍵互動，不消耗物品）
         if (id === IDS.TOMBSTONE) {
             spawnFloatText(tx*TILE_SIZE, ty*TILE_SIZE, "R.I.P.", "#bdbdbd");
             mouse.right = false;
             return;
         }
         
-        // 3. 刷油漆 (Paint Brush)
+        // 4. 刷油漆 (Paint Brush，右鍵互動）
         if (handItem && handItem.id === IDS.PAINT_BRUSH) {
             // 檢查背包有沒有油漆
             let paintItem = player.inventory.find(i => BLOCKS[i.id] && BLOCKS[i.id].isPaint);
@@ -5658,8 +5668,9 @@ function spawnFloatText(x, y, text, color) {
 // --- 倉庫系統邏輯 ---
 let chestData = {}; 
 let currentChest = null;
-// --- 傳送門系統 ---
-let teleporters = []; // 格式: { x: tileX, y: tileY, name: "名稱" }
+        // --- 傳送門系統 ---
+// 格式: { x: tileX, y: tileY, name: "名稱" }
+let teleporters = [];
 let isTeleportMenuOpen = false; // 控制選單開關
 
 // 建立傳送選單 DOM
@@ -5677,6 +5688,38 @@ document.body.appendChild(teleportMenu);
 function closeTeleportMenu() {
     teleportMenu.style.display = 'none';
     isTeleportMenuOpen = false;
+}
+
+// 建立或更新傳送門清單並開啟選單（右鍵點擊傳送門）
+function openTeleportMenuAt(tileX, tileY) {
+    if (!teleporters || teleporters.length === 0) {
+        spawnFloatText(tileX * TILE_SIZE, tileY * TILE_SIZE, "尚未設定傳送門目的地", "#00e5ff");
+        return;
+    }
+    // 重建按鈕列表
+    teleportMenu.innerHTML = "";
+    const title = document.createElement('div');
+    title.textContent = "選擇傳送目的地";
+    title.style.marginBottom = "10px";
+    title.style.fontWeight = "bold";
+    teleportMenu.appendChild(title);
+
+    teleporters.forEach((t, idx) => {
+        const btn = document.createElement('button');
+        btn.textContent = t.name || `目的地 ${idx+1}`;
+        btn.style.margin = "4px 0";
+        btn.onclick = () => teleportTo(t.x, t.y);
+        teleportMenu.appendChild(btn);
+    });
+
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = "取消";
+    closeBtn.style.marginTop = "8px";
+    closeBtn.onclick = () => closeTeleportMenu();
+    teleportMenu.appendChild(closeBtn);
+
+    teleportMenu.style.display = 'flex';
+    isTeleportMenuOpen = true;
 }
 
 // 開啟選單函數
