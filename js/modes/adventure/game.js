@@ -3393,9 +3393,31 @@ function explode(tileX, tileY) {
 
 function updateWorldLogic() {
     // 召喚商人 (如果沒有商人 且 玩家有錢 > 50)
-    if (frameCount % 600 === 0) { // 每10秒檢查
-        let hasMerchant = mobs.some(m => m.type === 'merchant');
-        if (!hasMerchant && player.coins >= 50) {
+    // 或者商人離玩家太遠時，在玩家附近重新生成
+    if (frameCount % 1200 === 0) { // 每20秒檢查一次，避免太頻繁
+        let existingMerchant = mobs.find(m => m.type === 'merchant');
+        const MERCHANT_MAX_DISTANCE_TILES = 300; // 商人最大距離（格數），超過此距離會重新生成
+        const MERCHANT_MAX_DISTANCE = MERCHANT_MAX_DISTANCE_TILES * TILE_SIZE; // 轉換為像素
+        
+        // 檢查現有商人是否離玩家太遠
+        if (existingMerchant) {
+            let distX = existingMerchant.x - player.x;
+            let distY = existingMerchant.y - player.y;
+            let dist = Math.sqrt(distX * distX + distY * distY);
+            
+            // 如果商人離玩家太遠（超過500格），移除舊商人並在玩家附近重新生成
+            if (dist > MERCHANT_MAX_DISTANCE && player.coins >= 50) {
+                // 移除舊商人
+                let merchantIndex = mobs.indexOf(existingMerchant);
+                if (merchantIndex !== -1) {
+                    mobs.splice(merchantIndex, 1);
+                }
+                existingMerchant = null; // 標記為沒有商人，讓下面的邏輯重新生成
+            }
+        }
+        
+        // 如果沒有商人（或剛被移除）且玩家有錢 >= 50，生成新商人
+        if (!existingMerchant && player.coins >= 50) {
             // 在玩家附近寻找安全位置生成商人（左右200-400像素范围内）
             let spawnOffset = (Math.random() > 0.5 ? 1 : -1) * (200 + Math.random() * 200);
             let merchantX = player.x + spawnOffset;
