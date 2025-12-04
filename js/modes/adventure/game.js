@@ -6933,7 +6933,7 @@ function handleChestClick(idx) {
                 }
             }
             
-            // 如果還有剩餘，檢查點擊的槽位是否為空
+            // 如果還有剩餘，檢查點擊的槽位是否為空或可以繼續疊加
             if (itemToStore.count > 0) {
                 if (cItem.id === IDS.AIR || cItem.id === 0 || cItem.count === 0) {
                     // 空槽：放入剩餘物品
@@ -6941,6 +6941,14 @@ function handleChestClick(idx) {
                     cItem.count = itemToStore.count;
                     cItem.durability = undefined;
                     itemToStore.count = 0;
+                } else if (cItem.id === pItem.id && cItem.count < 999) {
+                    // 相同物品但還可以疊加（可能是之前疊加後還有剩餘）
+                    const MAX_STACK_SIZE = 999;
+                    let canAdd = Math.min(itemToStore.count, MAX_STACK_SIZE - cItem.count);
+                    if (canAdd > 0) {
+                        cItem.count += canAdd;
+                        itemToStore.count -= canAdd;
+                    }
                 } else if (cItem.id !== pItem.id) {
                     // 不同物品：交換（只交換剩餘的部分）
                     let tempId = pItem.id;
@@ -7010,22 +7018,51 @@ function handleChestClick(idx) {
                     // 如果還有剩餘，繼續處理
                     if (itemToTake.count > 0) {
                         // 繼續找其他相同物品格或空槽位
+                        // 使用已處理的索引列表，避免重複處理同一個物品格
+                        let processedIndices = new Set();
+                        // 記錄 existingItem 的索引（如果有的話）
+                        let existingItemIdx = player.inventory.indexOf(existingItem);
+                        if (existingItemIdx >= 0) processedIndices.add(existingItemIdx);
+                        
                         while (itemToTake.count > 0) {
-                            let nextItem = player.inventory.find(s => 
-                                s.id === itemToTake.id && s.count > 0 && s.count < MAX_STACK_SIZE
-                            );
+                            let nextItem = null;
+                            let nextItemIdx = -1;
+                            
+                            // 找下一個相同物品格（排除已處理的）
+                            for (let i = 0; i < player.inventory.length; i++) {
+                                if (processedIndices.has(i)) continue;
+                                let slot = player.inventory[i];
+                                if (slot.id === itemToTake.id && slot.count > 0 && slot.count < MAX_STACK_SIZE) {
+                                    nextItem = slot;
+                                    nextItemIdx = i;
+                                    break;
+                                }
+                            }
                             
                             if (nextItem) {
                                 let addMore = Math.min(itemToTake.count, MAX_STACK_SIZE - nextItem.count);
                                 nextItem.count += addMore;
                                 itemToTake.count -= addMore;
+                                processedIndices.add(nextItemIdx);
                             } else {
                                 // 沒有更多相同物品格，找空槽位
-                                let emptySlot = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+                                let emptySlot = null;
+                                let emptySlotIdx = -1;
+                                for (let i = 0; i < player.inventory.length; i++) {
+                                    if (processedIndices.has(i)) continue;
+                                    let slot = player.inventory[i];
+                                    if (slot.id === IDS.AIR || (slot.id === IDS.AIR && slot.count === 0)) {
+                                        emptySlot = slot;
+                                        emptySlotIdx = i;
+                                        break;
+                                    }
+                                }
+                                
                                 if (emptySlot) {
                                     emptySlot.id = itemToTake.id;
                                     emptySlot.count = Math.min(itemToTake.count, MAX_STACK_SIZE);
                                     itemToTake.count -= emptySlot.count;
+                                    processedIndices.add(emptySlotIdx);
                                 } else {
                                     // 背包已滿，無法完全取出
                                     if (itemToTake.count > 0) {
