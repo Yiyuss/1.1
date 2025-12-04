@@ -5464,9 +5464,11 @@ function updateInteraction() {
         
         // 4. 種橡實 (種樹)
         if (handItem && handItem.id === IDS.ACORN) {
+            // 只能點擊土地（GRASS或DIRT），不能點擊空氣方塊
             if (id === IDS.GRASS || id === IDS.DIRT) {
+                // 檢查目標方塊上方是否為空氣（可以種植）
                 if (getTile(tx, ty-1) === IDS.AIR) {
-                    setTile(tx, ty-1, IDS.SAPLING); // 變回原本的樹苗
+                    setTile(tx, ty-1, IDS.SAPLING); // 在土地上方放置樹苗
                     handItem.count--;
                     if (handItem.count <= 0) {
                         handItem.id = IDS.AIR;
@@ -5475,7 +5477,17 @@ function updateInteraction() {
                     updateUI();
                     mouse.right = false; 
                     return;
+                } else {
+                    // 上方不是空氣，無法種植
+                    spawnFloatText(player.x, player.y, "上方空間不足，無法種植!", "#ff5252");
+                    mouse.right = false;
+                    return;
                 }
+            } else {
+                // 點擊的不是土地，無法種植
+                spawnFloatText(player.x, player.y, "只能在草地上種植!", "#ff5252");
+                mouse.right = false;
+                return;
             }
         }
         
@@ -5736,7 +5748,8 @@ function updateInteraction() {
                         def.isFishingRod ||
                         handItem.id === IDS.GRAPPLING_HOOK ||
                         handItem.id === IDS.BOOMERANG ||
-                        handItem.id === IDS.BLADE_OF_GRASS) return;
+                        handItem.id === IDS.BLADE_OF_GRASS ||
+                        handItem.id === IDS.ACORN) return; // 橡實只能通過特殊種植邏輯放置，不能直接放置
                     if (def.solid) {
                         if (rectIntersect({ x: bx, y: by, w: TILE_SIZE, h: TILE_SIZE }, player)) collides = true;
                         for (let m of mobs)
