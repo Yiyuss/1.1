@@ -2791,8 +2791,8 @@ function updateDrops() {
                 playSound('drink'); // 撿錢音效
                 drops.splice(i, 1); continue;
             } else {
-                // 嘗試添加到背包
-                if (addToInventory(d.id, 1)) {
+                // 嘗試添加到背包（如果有耐久度，傳入保存的耐久度值）
+                if (addToInventory(d.id, 1, d.durability)) {
                     // 成功添加，移除掉落物
                     drops.splice(i, 1); continue;
                 } else {
@@ -5548,7 +5548,7 @@ function consumeDurability(item, amount = 1) {
     return false; // 返回 false 表示物品還可以使用
 }
 
-function addToInventory(id, count) {
+function addToInventory(id, count, durability) {
     // 防止添加无效物品
     if (!id || id === IDS.AIR || count <= 0) return false; // 返回 false 表示添加失敗
     
@@ -5568,8 +5568,12 @@ function addToInventory(id, count) {
         if(empty) {
             empty.id = id;
             empty.count = Math.min(count, 999);
-            // 初始化耐久度
-            empty.durability = BLOCKS[id].durability;
+            // 如果傳入了耐久度參數，使用傳入的值；否則初始化為最大值
+            if (durability !== undefined && durability !== null) {
+                empty.durability = durability;
+            } else {
+                empty.durability = BLOCKS[id].durability;
+            }
             updateUI();
             return true; // 成功添加
         } else {
@@ -5597,7 +5601,12 @@ function addToInventory(id, count) {
             empty.count = Math.min(count, 999); // 限制单次添加的最大数量
             // 如果是工具/武器，初始化耐久度
             if (BLOCKS[id] && BLOCKS[id].durability) {
-                empty.durability = BLOCKS[id].durability;
+                // 如果傳入了耐久度參數，使用傳入的值；否則初始化為最大值
+                if (durability !== undefined && durability !== null) {
+                    empty.durability = durability;
+                } else {
+                    empty.durability = BLOCKS[id].durability;
+                }
             }
             updateUI();
             return true; // 成功添加
@@ -6198,7 +6207,8 @@ window.addEventListener('keydown', e => {
                 life: 3000, 
                 spawnTime: frameCount,
                 justThrown: true, // 標記為剛丟出的物品，防止立即被吸引
-                throwTime: frameCount // 記錄丟出時間
+                throwTime: frameCount, // 記錄丟出時間
+                durability: selectedItem.durability // 保存耐久度，避免撿回來時恢復滿
             };
             drops.push(drop);
             
