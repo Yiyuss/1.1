@@ -3267,6 +3267,43 @@ function explode(tileX, tileY) {
                 if (dist <= radius) {
                     let id = tiles[y*CHUNK_W+x];
                     if (id !== IDS.BEDROCK && id !== IDS.AIR) {
+                        // --- 箱子破壞處理（必須在 setTile 之前）---
+                        if (id === IDS.CHEST) {
+                            // 檢查箱子內是否有物品
+                            let chestKey = `${x}_${y}`;
+                            let chestItems = chestData[chestKey];
+                            if (chestItems && Array.isArray(chestItems)) {
+                                // 掉落箱子內的所有物品
+                                chestItems.forEach(item => {
+                                    if (item && item.id !== IDS.AIR && item.count > 0) {
+                                        // 根據數量掉落多個物品
+                                        for (let i = 0; i < item.count; i++) {
+                                            let offsetX = (Math.random() - 0.5) * 20;
+                                            let offsetY = (Math.random() - 0.5) * 20;
+                                            let drop = {
+                                                x: x * TILE_SIZE + 10 + offsetX,
+                                                y: y * TILE_SIZE + 10 + offsetY,
+                                                w: 12,
+                                                h: 12,
+                                                vx: (Math.random() - 0.5) * 4,
+                                                vy: -3,
+                                                id: item.id,
+                                                life: 3000,
+                                                spawnTime: frameCount
+                                            };
+                                            // 如果有耐久度，複製耐久度
+                                            if (item.durability !== undefined) {
+                                                drop.durability = item.durability;
+                                            }
+                                            drops.push(drop);
+                                        }
+                                    }
+                                });
+                                // 清除箱子數據
+                                delete chestData[chestKey];
+                            }
+                        }
+                        
                         setTile(x, y, IDS.AIR);
                         createParticle(x*TILE_SIZE, y*TILE_SIZE, "#555", 1.0);
                         if (Math.random() < 0.3) spawnDrop(x*TILE_SIZE, y*TILE_SIZE, id);
@@ -4834,14 +4871,52 @@ function updateInteraction() {
                 else if (id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN) {
                     spawnDrop(tx * TILE_SIZE + 10, ty * TILE_SIZE + 10, IDS.DOOR_CLOSED); // 掉落關閉的門
                 }
+                // --- 箱子破壞處理（必須在 setTile 之前）---
+                else if (id === IDS.CHEST) {
+                    // 檢查箱子內是否有物品
+                    let chestKey = `${tx}_${ty}`;
+                    let chestItems = chestData[chestKey];
+                    if (chestItems && Array.isArray(chestItems)) {
+                        // 掉落箱子內的所有物品
+                        chestItems.forEach(item => {
+                            if (item && item.id !== IDS.AIR && item.count > 0) {
+                                // 根據數量掉落多個物品
+                                for (let i = 0; i < item.count; i++) {
+                                    let offsetX = (Math.random() - 0.5) * 20;
+                                    let offsetY = (Math.random() - 0.5) * 20;
+                                    let drop = {
+                                        x: tx * TILE_SIZE + 10 + offsetX,
+                                        y: ty * TILE_SIZE + 10 + offsetY,
+                                        w: 12,
+                                        h: 12,
+                                        vx: (Math.random() - 0.5) * 4,
+                                        vy: -3,
+                                        id: item.id,
+                                        life: 3000,
+                                        spawnTime: frameCount
+                                    };
+                                    // 如果有耐久度，複製耐久度
+                                    if (item.durability !== undefined) {
+                                        drop.durability = item.durability;
+                                    }
+                                    drops.push(drop);
+                                }
+                            }
+                        });
+                        // 清除箱子數據
+                        delete chestData[chestKey];
+                    }
+                    // 掉落箱子本身
+                    spawnDrop(tx * TILE_SIZE + 10, ty * TILE_SIZE + 10, IDS.CHEST);
+                }
                 // 原本的掉落邏輯 (確保其他方塊還會掉東西)
                 // 排除：
                 // - GRASS(不是方块，只掉种子), LEAVES(已處理), SAPLING(已處理), WHEAT_CROP/WHEAT_RIPE(特殊掉落), WOOD(已處理)
                 // - POT(已處理，提前return), TELEPORTER(已處理，提前return), COBWEB(已處理，提前return)
                 // - DOOR_CLOSED/DOOR_OPEN(已處理，上面已處理), LOOT_CHEST(已處理，提前return), SKYWARE_CHEST(已處理，提前return)
-                // - CHEST(右鍵打開，但左鍵挖掘應該掉落), SIGN(右鍵讀取，但左鍵挖掘應該掉落)
+                // - CHEST(已處理，上面已處理), SIGN(右鍵讀取，但左鍵挖掘應該掉落)
                 // - AIR, BEDROCK, WATER, LAVA(不應該掉落)
-                else if (id !== IDS.GRASS && id !== IDS.LEAVES && id !== IDS.SAPLING && id !== IDS.WHEAT_CROP && id !== IDS.WHEAT_RIPE && id !== IDS.WOOD && id !== IDS.POT && id !== IDS.TELEPORTER && id !== IDS.COBWEB && id !== IDS.DOOR_CLOSED && id !== IDS.DOOR_OPEN && id !== IDS.LOOT_CHEST && id !== IDS.SKYWARE_CHEST && id !== IDS.AIR && id !== IDS.BEDROCK && id !== IDS.WATER && id !== IDS.LAVA) {
+                else if (id !== IDS.GRASS && id !== IDS.LEAVES && id !== IDS.SAPLING && id !== IDS.WHEAT_CROP && id !== IDS.WHEAT_RIPE && id !== IDS.WOOD && id !== IDS.POT && id !== IDS.TELEPORTER && id !== IDS.COBWEB && id !== IDS.DOOR_CLOSED && id !== IDS.DOOR_OPEN && id !== IDS.LOOT_CHEST && id !== IDS.SKYWARE_CHEST && id !== IDS.CHEST && id !== IDS.AIR && id !== IDS.BEDROCK && id !== IDS.WATER && id !== IDS.LAVA) {
                 spawnDrop(tx * TILE_SIZE + 10, ty * TILE_SIZE + 10, id);
                 }
                 
@@ -5197,11 +5272,36 @@ function updateInteraction() {
         
         // 5. 裝備頭盔
         if (handItem && BLOCKS[handItem.id] && BLOCKS[handItem.id].isArmor) {
-            // 交換裝備
+            // 檢查頭盔是否有耐久度且已損壞
+            if (handItem.durability !== undefined && handItem.durability <= 0) {
+                spawnFloatText(player.x, player.y, "頭盔已損壞!", "#ff5252");
+                mouse.right = false;
+                return;
+            }
+            
+            // 原本的簡單交換邏輯：手中的頭盔 ↔ 裝備槽的頭盔
             let oldHead = player.equip.head;
+            let oldHeadDefense = (oldHead !== 0 && oldHead !== IDS.AIR && BLOCKS[oldHead]) ? (BLOCKS[oldHead].defense || 0) : 0;
+            let newHeadDefense = BLOCKS[handItem.id] ? (BLOCKS[handItem.id].defense || 0) : 0;
+            
+            // 如果已經裝備了頭盔，且新頭盔防禦力更低，提示但不阻止（讓玩家自己決定）
+            if (oldHead !== 0 && oldHead !== IDS.AIR && newHeadDefense < oldHeadDefense) {
+                spawnFloatText(player.x, player.y, "新頭盔防禦力較低", "#ff9800");
+            }
+            
+            // 執行交換：手中的頭盔 → 裝備槽，裝備槽的頭盔 → 手中
             player.equip.head = handItem.id;
-            handItem.id = (oldHead === 0) ? IDS.AIR : oldHead;
-            if (handItem.id === IDS.AIR) handItem.count = 0;
+            handItem.id = (oldHead === 0 || oldHead === IDS.AIR) ? IDS.AIR : oldHead;
+            if (handItem.id === IDS.AIR) {
+                handItem.count = 0;
+                handItem.durability = undefined;
+            } else {
+                // 如果交換回來的頭盔有耐久度定義，初始化耐久度（如果沒有設置）
+                if (BLOCKS[handItem.id] && BLOCKS[handItem.id].durability && handItem.durability === undefined) {
+                    handItem.durability = BLOCKS[handItem.id].durability;
+                }
+            }
+            
             updateUI(); 
             playSound('mine');
             mouse.right = false; 
