@@ -6295,65 +6295,88 @@ function takeDamage(amount) {
     
     // 檢查死亡（必須在 hp 被扣減後立即檢查）
     if (player.hp <= 0) {
-        // --- 墓碑生成邏輯 ---
-        // 使用玩家腳下位置（player.y + player.h）而不是頭頂位置（player.y）
-        let tx = Math.floor((player.x + player.w / 2) / TILE_SIZE);
-        let ty = Math.floor((player.y + player.h) / TILE_SIZE);
+        // 檢查是否為自殺（通過 killPlayer 函數調用）
+        let isSuicide = player._isSuicide || false;
+        player._isSuicide = false; // 重置標記
         
-        // 調試輸出：確認墓碑ID和生成位置
-        console.log(`[墓碑生成] IDS.TOMBSTONE = ${IDS.TOMBSTONE}, 玩家位置: (${player.x}, ${player.y}), 計算位置: (${tx}, ${ty})`);
-        console.log(`[墓碑生成] 當前方塊ID: ${getTile(tx, ty)}`);
-        
-        // 尋找最近的地面 (防止懸空)
-        // 優先順序：腳下 → 腳下上方一格 → 左側 → 右側
-        let placed = false;
-        if (ty >= 0 && ty < CHUNK_H && getTile(tx, ty) === IDS.AIR) {
-            tiles[ty * CHUNK_W + tx] = IDS.TOMBSTONE; // 直接設置，不使用 setTile 避免觸發光照更新
-            console.log(`[墓碑生成] 直接設置在: (${tx}, ${ty}), 設置後方塊ID: ${tiles[ty * CHUNK_W + tx]}`);
-            placed = true;
-        } else if (ty > 0 && getTile(tx, ty-1) === IDS.AIR) {
-            tiles[(ty-1) * CHUNK_W + tx] = IDS.TOMBSTONE;
-            console.log(`[墓碑生成] 直接設置在: (${tx}, ${ty-1}), 設置後方塊ID: ${tiles[(ty-1) * CHUNK_W + tx]}`);
-            placed = true;
-        } else {
-            // 如果上方也不行，嘗試左右
-            if (tx+1 < CHUNK_W && getTile(tx+1, ty) === IDS.AIR) {
-                tiles[ty * CHUNK_W + (tx+1)] = IDS.TOMBSTONE;
-                console.log(`[墓碑生成] 直接設置在: (${tx+1}, ${ty}), 設置後方塊ID: ${tiles[ty * CHUNK_W + (tx+1)]}`);
+        // 只有非自殺的死亡才生成墓碑
+        if (!isSuicide) {
+            // --- 墓碑生成邏輯 ---
+            // 使用玩家腳下位置（player.y + player.h）而不是頭頂位置（player.y）
+            let tx = Math.floor((player.x + player.w / 2) / TILE_SIZE);
+            let ty = Math.floor((player.y + player.h) / TILE_SIZE);
+            
+            // 調試輸出：確認墓碑ID和生成位置
+            console.log(`[墓碑生成] IDS.TOMBSTONE = ${IDS.TOMBSTONE}, 玩家位置: (${player.x}, ${player.y}), 計算位置: (${tx}, ${ty})`);
+            console.log(`[墓碑生成] 當前方塊ID: ${getTile(tx, ty)}`);
+            
+            // 尋找最近的地面 (防止懸空)
+            // 優先順序：腳下 → 腳下上方一格 → 左側 → 右側
+            let placed = false;
+            if (ty >= 0 && ty < CHUNK_H && getTile(tx, ty) === IDS.AIR) {
+                tiles[ty * CHUNK_W + tx] = IDS.TOMBSTONE; // 直接設置，不使用 setTile 避免觸發光照更新
+                console.log(`[墓碑生成] 直接設置在: (${tx}, ${ty}), 設置後方塊ID: ${tiles[ty * CHUNK_W + tx]}`);
                 placed = true;
-            } else if (tx > 0 && getTile(tx-1, ty) === IDS.AIR) {
-                tiles[ty * CHUNK_W + (tx-1)] = IDS.TOMBSTONE;
-                console.log(`[墓碑生成] 直接設置在: (${tx-1}, ${ty}), 設置後方塊ID: ${tiles[ty * CHUNK_W + (tx-1)]}`);
+            } else if (ty > 0 && getTile(tx, ty-1) === IDS.AIR) {
+                tiles[(ty-1) * CHUNK_W + tx] = IDS.TOMBSTONE;
+                console.log(`[墓碑生成] 直接設置在: (${tx}, ${ty-1}), 設置後方塊ID: ${tiles[(ty-1) * CHUNK_W + tx]}`);
                 placed = true;
+            } else {
+                // 如果上方也不行，嘗試左右
+                if (tx+1 < CHUNK_W && getTile(tx+1, ty) === IDS.AIR) {
+                    tiles[ty * CHUNK_W + (tx+1)] = IDS.TOMBSTONE;
+                    console.log(`[墓碑生成] 直接設置在: (${tx+1}, ${ty}), 設置後方塊ID: ${tiles[ty * CHUNK_W + (tx+1)]}`);
+                    placed = true;
+                } else if (tx > 0 && getTile(tx-1, ty) === IDS.AIR) {
+                    tiles[ty * CHUNK_W + (tx-1)] = IDS.TOMBSTONE;
+                    console.log(`[墓碑生成] 直接設置在: (${tx-1}, ${ty}), 設置後方塊ID: ${tiles[ty * CHUNK_W + (tx-1)]}`);
+                    placed = true;
+                }
+            }
+            
+            if (!placed) {
+                console.warn(`[墓碑生成] 無法找到合適位置，強制放置在: (${tx}, ${ty})`);
+                // 如果所有位置都不行，強制放在腳下（覆蓋現有方塊）
+                if (ty >= 0 && ty < CHUNK_H) {
+                    tiles[ty * CHUNK_W + tx] = IDS.TOMBSTONE;
+                    console.log(`[墓碑生成] 強制設置後方塊ID: ${tiles[ty * CHUNK_W + tx]}`);
+                }
             }
         }
         
-        if (!placed) {
-            console.warn(`[墓碑生成] 無法找到合適位置，強制放置在: (${tx}, ${ty})`);
-            // 如果所有位置都不行，強制放在腳下（覆蓋現有方塊）
-            if (ty >= 0 && ty < CHUNK_H) {
-                tiles[ty * CHUNK_W + tx] = IDS.TOMBSTONE;
-                console.log(`[墓碑生成] 強制設置後方塊ID: ${tiles[ty * CHUNK_W + tx]}`);
-            }
-        }
-        
-        alert("你死掉了！");
-        player.x = spawnPoint.x;
-        player.y = spawnPoint.y;
-        player.hp = player.maxHp;
-        player.vx = 0;
-        player.vy = 0;
-        player.grounded = false;
-        player.jumpKeyHeld = false;
-        player.invincibleTimer = 0;
-        // 清除所有按键状态，防止复活后继续移动
-        keys = {};
-        // 重置钩子和钓鱼状态
-        if (player.hook) player.hook.active = false;
-        if (player.fishing) player.fishing.active = false;
-        player.wKeyLocked = false;
-        updateHealthUI();
+        // 執行重生邏輯
+        respawnPlayer();
     }
+}
+
+// 重生玩家函數（用於死亡和自殺）
+function respawnPlayer() {
+    alert("你死掉了！");
+    player.x = spawnPoint.x;
+    player.y = spawnPoint.y;
+    player.hp = player.maxHp;
+    player.vx = 0;
+    player.vy = 0;
+    player.grounded = false;
+    player.jumpKeyHeld = false;
+    player.invincibleTimer = 0;
+    // 清除所有按键状态，防止复活后继续移动
+    keys = {};
+    // 重置钩子和钓鱼状态
+    if (player.hook) player.hook.active = false;
+    if (player.fishing) player.fishing.active = false;
+    player.wKeyLocked = false;
+    updateHealthUI();
+}
+
+// 自殺函數（用於K鍵）
+function killPlayer() {
+    // 設置自殺標記，避免生成墓碑
+    player._isSuicide = true;
+    // 直接設置HP為0，觸發死亡邏輯
+    player.hp = 0;
+    // 直接調用 takeDamage 來觸發重生邏輯（但會跳過墓碑生成）
+    takeDamage(0); // 傳入0，因為HP已經被設為0
 }
 
 window.addEventListener('keydown', e => { 
@@ -6409,7 +6432,12 @@ window.addEventListener('keydown', e => {
         }
     }
     if (e.code === 'F2') saveGame(); 
-    if (e.code === 'F4') resetGame(); 
+    if (e.code === 'F4') resetGame();
+    // K鍵自殺（重生到重生點）
+    if (e.code === 'KeyK' || e.key === 'k' || e.key === 'K' || e.keyCode === 75 || e.which === 75) {
+        killPlayer();
+        return;
+    } 
     if(e.key >= '1' && e.key <= '9') { 
         let idx = parseInt(e.key)-1;
         if(idx < player.inventory.length) { 
