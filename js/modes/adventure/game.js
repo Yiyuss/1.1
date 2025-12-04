@@ -6742,6 +6742,10 @@ function toggleChest(tileX, tileY) {
         currentChest = null;
         return;
     }
+    // 如果之前有打開其他箱子，先保存之前的箱子數據
+    if (currentChest) {
+        saveGame();
+    }
     let key = `${tileX}_${tileY}`;
     if (!chestData[key]) {
         chestData[key] = Array(10).fill().map(() => ({ id: IDS.AIR, count: 0 }));
