@@ -2,121 +2,1154 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>Terraria Web - Complete Edition</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馬桶坐坐V1.1 - 測試板</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- 手機專用覆蓋樣式（PC 不載入） -->
+    <link rel="stylesheet" href="css/mobile.css" media="(pointer: coarse), (max-width: 768px)">
+    <link rel="preload" as="image" href="assets/images/background3.jpg">
+    <link rel="preload" as="image" href="assets/images/Background3.jpg">
+    <link rel="preload" as="image" href="assets/images/background2.jpg">
 </head>
 <body>
+    <div id="game-container">
+        <!-- 開始畫面 -->
+        <div id="start-screen" class="screen">
+            <div class="start-bg"></div>
+            <div class="start-overlay"></div>
+            <div class="start-card">
+                <div class="start-grid">
+                    <div class="start-main">
+                        <div class="start-header">
+                            <img src="assets/images/LOGO.png" alt="LOGO" class="start-logo">
+                        </div>
 
-<!-- 載入畫面 -->
-<div id="loading">
-    <h1>Generating World...</h1>
-    <div class="progress-bar"><div class="progress-fill" id="p-fill"></div></div>
-    <p id="p-text">Initializing...</p>
-</div>
+                        <!-- 左側單一視窗：預設顯示「遊戲玩法」 -->
+                        <div class="content-window" id="content-window">
+                            <h2 id="content-title">遊戲玩法</h2>
+                            <!-- 左視窗底圖（依紅框位置），半透明不影響操作 -->
+                            <div class="content-illustration" aria-hidden="true"></div>
+                            <div id="content-body" class="content"></div>
+                            <!-- 音量疊蓋視窗（移入左側視窗內） -->
+                            <div id="settings-overlay" class="modal hidden">
+                                <div class="modal-card">
+                                    <h2>音量設置</h2>
+                                    <div class="settings" id="settings">
+                                        <div class="volume-row">
+                                            <label for="music-volume">音樂</label>
+                                            <input type="range" id="music-volume" min="0" max="1" step="0.01" value="0.5">
+                                            <span id="music-volume-text">50%</span>
+                                        </div>
+                                        <div class="volume-row">
+                                            <label for="sound-volume">音效</label>
+                                            <input type="range" id="sound-volume" min="0" max="1" step="0.01" value="0.7">
+                                            <span id="sound-volume-text">70%</span>
+                                        </div>
+                                        <div class="volume-row">
+                                            <label for="mute-toggle">靜音</label>
+                                            <button id="mute-toggle" class="ghost">切換</button>
+                                            <span id="mute-status">關</span>
+                                        </div>
+                                    </div>
+                                    <div class="modal-actions">
+                                        <button id="settings-close" class="ghost">關閉</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-<!-- UI 介面層 -->
-<div id="ui-layer">
-    <div id="fps-counter" class="hud-text">FPS: 60</div>
-    <div id="coords" class="hud-text" style="display: none;">X: 0 Y: 0</div>
-    
-    <!-- 白天/夜晚顯示 (中間最上方) -->
-    <div id="daynight-display" class="hud-text"></div>
-    
-    <!-- 資訊容器 (座標、錢幣、防禦力) -->
-    <div id="info-container" class="hud-text"></div>
-    
-    <!-- Buff容器 -->
-    <div id="buff-container"></div>
-    
-    <!-- 生命值 -->
-    <div id="hearts-container"></div>
-    
-    <!-- 魔力容器 -->
-    <div id="mana-container"></div>
-    
-    <!-- 存檔提示訊息 (新增) -->
-    <div id="save-msg">Game Saved!</div>
-    
-    <!-- 教學 -->
-    <div id="tutorial" class="hud-text">
-        [W/A/S/D] 移動 [空白鍵] 跳躍<br>
-        [左鍵] 挖掘 [右鍵] 放置<br>
-        [滾輪] 切換物品 [E] 合成<br>
-        [F2] 存檔 [F4] 重置世界<br>
-        [K] 自殺重生（防卡BUG）
-    </div>
 
-    <!-- 合成選單 -->
-<!-- 合成選單 (按 E 開啟) -->
-    <div id="crafting-menu">
-        <!-- 上方分類標籤 -->
-        <div class="crafting-tabs">
-            <div class="tab active" onclick="switchTab('basic')">基礎</div>
-            <div class="tab" onclick="switchTab('tool')">工具</div>
-            <div class="tab" onclick="switchTab('build')">建築</div>
-        </div>
+                        <!-- 隱藏模板：保留原始文案，作為切換來源 -->
+                        <div class="info-templates hidden" aria-hidden="true">
+                            <div id="tpl-gameplay">
+                                <h2>遊戲玩法</h2>
+                                <div class="content">
+                                    <ul class="list">
+                                        <li><span class="badge">建議</span> PC 電腦遊玩，使用 1080p 解析度。</li>
+                                        <li><span class="badge">移動</span> 滑鼠點擊移動，或使用 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd>。</li>
+                                        <li><span class="badge">暫停</span> 按 <kbd>ESC</kbd> 開啟詳細選單。</li>
+                                        <li><span class="badge">技能</span> 能量達到 100 時，按 <kbd>Q</kbd> 施放大招。</li>
+                                        <li><span class="badge">手機</span> 手機介面自動匹配，目前不支援大招。</li>
+                                        <li><span class="badge">回報</span> BUG 回報：<a href="https://x.com/Yi_yuss" target="blank" rel="noopener">https://x.com/Yi_yuss</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div id="tpl-announce">
+                                <h2>遊戲公告</h2>
+                                <div class="content">
+                                    <ul class="list">
+                                        <li><span class="badge">福利</span> 若為代表角色之 VTuber 本人遊玩，可來信領取「無限金幣」體驗。</li>
+                                        <li><span class="badge">徵稿</span> 歡迎有興趣的繪師一起參與二創，本作不涉及任何營利。</li>
+                                        <li><span class="badge">版本</span> 將在V1.2版加入更多的角色、技能、天賦、地圖，以及嘗試角色像素動態化。</li>
+                                        <li><span class="badge">託管</span> 使用 GitHub 免費空間，晚上21:00~凌晨04:00會非常卡。</li>
+                                        <li><span class="badge">存檔</span> 遊戲提供自動存檔，若主動清除瀏覽器資料，存檔會丟失，可善用手動備份。</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div id="tpl-regarding">
+                                <h2>Regarding</h2>
+                                <div class="content">
+                                    <ul class="list">
+                                        <li><span class="badge">聲明</span> 所使用素材來源如下，版權皆屬原作者所有。</li>
+                                        <li><span class="badge">頻道</span> <a href="https://www.youtube.com/@%E7%91%AA%E6%A0%BC%E9%BA%97%E7%89%B9margaretnorth" target="blank" rel="noopener">瑪格麗特</a>、<a href="https://www.youtube.com/@%E6%A3%AE%E6%A3%AE%E9%88%B4%E8%98%ADLilyLinglan" target="blank" rel="noopener">森森鈴蘭</a></li>
+                                        <li><span class="badge">繪師</span> <a href="https://x.com/Linye274" target="blank" rel="noopener">凜夜 (像素人物)</a>、<a href="https://x.com/mellow9114" target="blank" rel="noopener">米歐 (像素建築)</a>
+                                        <li><span class="badge">素材</span> GPT、illustAC、pixabay、DOVA-SYNDROME。</li>
+                                        <li><span class="badge">設定</span> 角色設定、立繪、IP 皆為箱箱 THEBOX 所有。</li>
+                                        <li><span class="badge">立場</span> 遊戲劇情皆為虛構二次創作，與原 IP 並無關聯。</li>
+                                        <li><span class="badge">用途</span> 內容致敬與娛樂為主，無商業用途。</li>
+                                        <li><span class="badge">角色</span>  <a href="https://www.youtube.com/@ReLiveDaDa" target="blank" rel="noopener">灰妲</a>、<a href="https://www.youtube.com/@Locolost65" target="blank" rel="noopener">洛可洛斯特</a>
+                                        <li><span class="badge">尊重</span> 若任何權利人對本作品有疑慮，請來信告知，我將立即修改或下架。</li>
+                                        <li><span class="badge">授權</span> 未經同意不得重製、修改、再發布；欲參考或作為基底，請先取得許可。</li>
+                                        <li><span class="badge">聯絡</span> <a href="https://x.com/Yi_yuss" target="blank" rel="noopener">https://x.com/Yi_yuss</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="start-menu">
+                        <div class="start-illustration" aria-hidden="true"></div>
+                        <button id="start-button" class="menu-btn primary">開始遊戲</button>
+                        <button id="achievements-button" class="menu-btn ghost">成就系統</button>
+                        <button class="menu-btn ghost" data-target="gameplay">遊戲玩法</button>
+                        <button class="menu-btn ghost" data-target="announce">遊戲公告</button>
+                        <button class="menu-btn ghost" data-target="regarding">Regarding</button>
+                        <button class="menu-btn ghost" data-target="settings">音量設置</button>
+                        <button id="backup-button" class="menu-btn ghost">手動備份</button>
+                    </div>
 
-        <div class="crafting-body">
-            <!-- 左側：物品網格 -->
-            <div id="recipe-grid"></div>
-            
-            <!-- 右側：詳情與製作按鈕 -->
-            <div id="recipe-details">
-                <div id="detail-icon"></div>
-                <h3 id="detail-name">選擇物品</h3>
-                <div id="detail-cost"></div>
-                <button id="craft-btn" disabled onclick="craftSelected()">製作</button>
+                    <!-- 音量疊蓋視窗已移至左側 content-window 內 -->
+                </div>
+            </div>
+
+            <!-- 成就解鎖彈窗（勝利後回到開始介面時顯示；點外側即關閉） -->
+            <div id="achievements-modal" class="hidden" aria-hidden="true">
+              <div class="ach-modal-card" role="dialog" aria-label="新成就解鎖">
+                <div class="ach-modal-header">
+                  <div class="ach-modal-title">新成就解鎖</div>
+                  <div class="ach-modal-sub">恭喜！以下成就已解鎖：</div>
+                </div>
+                <div id="achievements-modal-list" class="ach-modal-list" aria-live="polite"></div>
+                <div class="ach-modal-tip">提示：點擊視窗外任意處可關閉。</div>
+              </div>
             </div>
         </div>
-    </div>
 
-    <!-- 新增：箱子介面 -->
-    <div id="chest-menu">
-        <h3>箱子儲存</h3>
-        <div id="chest-grid"></div>
-        <div class="hint">點擊物品存入/取出</div>
-    </div>
-
-    <!-- 商人購買介面 -->
-    <div id="merchant-menu" style="display: none;">
-        <h3>商人商店</h3>
-        <div id="merchant-grid"></div>
-        <div id="merchant-details">
-            <div id="merchant-icon"></div>
-            <h4 id="merchant-name">選擇商品</h4>
-            <p id="merchant-desc"></p>
-            <div id="merchant-price"></div>
-            <button id="merchant-buy-btn" disabled onclick="buyMerchantItem()">購買</button>
+        <!-- 新增：引繼碼介面（生成/輸入/教學），保持既有版型 -->
+        <div id="backup-screen" class="screen hidden">
+            <div class="select-card">
+                <h1 class="select-title">引繼碼</h1>
+                <div class="map-desc" style="margin-bottom:12px;">
+                  此介面用於跨裝置備份與還原您的進度。<br>
+                  提示：本畫面分為「主體遊戲」與「冒險模式」兩組引繼碼，請依照需要選擇對應區塊操作。
+                </div>
+                <div class="map-grid" style="display:block;">
+                    <div class="content" style="margin-bottom:12px;">
+                        <h2 style="margin:0 0 6px;">主體遊戲引繼碼（生存 / 天賦 / 成就）</h2>
+                        <p>說明：基於目前主體遊戲存檔（金幣、天賦、成就、解鎖角色）生成安全碼，不包含冒險模式世界。</p>
+                        <button id="backup-generate" class="primary">生成引繼碼</button>
+                        <div style="margin-top:8px;">
+                            <label for="backup-code-output">主體遊戲引繼碼</label>
+                            <input id="backup-code-output" type="text" readonly placeholder="點擊生成後顯示" style="width:100%;">
+                            <button id="backup-copy" class="ghost" style="margin-top:6px;">複製</button>
+                        </div>
+                    </div>
+                    <div class="content" style="margin-top:16px;">
+                        <h2 style="margin:0 0 6px;">主體遊戲引繼碼輸入</h2>
+                        <p>說明：貼上於其他裝置生成的「主體遊戲引繼碼」以還原主體存檔（不影響冒險模式）。</p>
+                        <label for="backup-code-input">主體遊戲引繼碼</label>
+                        <input id="backup-code-input" type="text" placeholder="請貼上引繼碼" style="width:100%;">
+                        <button id="backup-apply" class="primary" style="margin-top:6px;">套用引繼碼</button>
+                    </div>
+                    <div class="content" style="margin-top:16px;">
+                        <h2 style="margin:0 0 6px;">冒險模式引繼碼（異世界存檔）</h2>
+                        <p>說明：此區塊只會備份 / 還原冒險模式中的「異世界」存檔，不會影響主體遊戲金幣、天賦或成就。</p>
+                        <div style="margin-bottom:12px;">
+                          <button id="adventure-backup-generate" class="primary">生成冒險模式引繼碼</button>
+                          <div style="margin-top:8px;">
+                            <label for="adventure-backup-code-output">冒險模式引繼碼</label>
+                            <input id="adventure-backup-code-output" type="text" readonly placeholder="先在冒險模式遊玩並自動存檔後，再點此生成" style="width:100%;">
+                            <button id="adventure-backup-copy" class="ghost" style="margin-top:6px;">複製</button>
+                          </div>
+                        </div>
+                        <div>
+                          <h3 style="margin:8px 0 6px;font-size:16px;">冒險模式引繼碼輸入</h3>
+                          <p style="margin:0 0 4px;">貼上在其他裝置生成的「冒險模式引繼碼」，只會覆蓋異世界的世界存檔。</p>
+                          <label for="adventure-backup-code-input">冒險模式引繼碼</label>
+                          <input id="adventure-backup-code-input" type="text" placeholder="請貼上冒險模式引繼碼" style="width:100%;">
+                          <button id="adventure-backup-apply" class="primary" style="margin-top:6px;">套用冒險模式引繼碼</button>
+                        </div>
+                    </div>
+                    <div class="content" style="margin-top:16px;">
+                        <h2 style="margin:0 0 6px;">教學與注意事項</h2>
+                        <ul style="padding-left:18px; line-height:1.6;">
+                            <li><strong>主體遊戲引繼碼</strong>：只包含金幣、天賦、成就、解鎖角色等資料，不會備份冒險模式世界。</li>
+                            <li><strong>冒險模式引繼碼</strong>：只包含冒險模式「異世界」的自動存檔（地形、玩家道具等），不會改變主體遊戲存檔。</li>
+                            <li>跨裝置時，請分別針對「主體遊戲」與「冒險模式」產生並套用對應的引繼碼。</li>
+                            <li>若將冒險模式引繼碼貼到主體引繼碼欄位（或相反），系統會顯示版本不相容，請確認貼到正確區塊。</li>
+                            <li>生成後請妥善保存，不要公開分享；任何人取得引繼碼都可以還原到相同存檔。</li>
+                            <li>若瀏覽器或外掛阻擋剪貼簿，請手動選取輸出欄位內容後按 Ctrl+C 進行複製。</li>
+                            <li>若版本更新造成資料欄位調整，系統會盡量維持向下相容，或在失敗時顯示提示訊息。</li>
+                        </ul>
+                    </div>
+                    <button id="backup-back" class="ghost">返回開始畫面</button>
+                </div>
+            </div>
         </div>
-        <div class="hint">點擊商品查看詳情並購買</div>
+
+        <!-- 成就介面：採用天賦版型（僅搬視覺與描述邏輯） -->
+        <div id="achievements-screen" class="screen hidden">
+          <div class="char-card-wrap">
+            <h1 class="char-title">成就系統</h1>
+            <p class="char-subtitle">提示：點選成就以查看下方介紹，未解鎖會顯示灰階。</p>
+
+            <!-- 上方成就方格：沿用天賦的 6/4/3/2 欄 RWD -->
+            <div id="achievements-list" class="char-grid talent-grid" aria-live="polite"></div>
+
+            <!-- 下方預覽：顯示選取成就的圖示與描述（不包含解鎖操作） -->
+            <div class="char-preview" id="achievements-preview" aria-live="polite">
+              <div class="char-preview-image">
+                <img id="achievements-preview-img" src="assets/images/GM.png" alt="預覽" />
+              </div>
+              <div class="char-preview-info">
+                <div class="char-preview-name" id="achievements-preview-name">成就系統</div>
+                <div class="char-preview-desc" id="achievements-preview-desc">這裡會顯示成就介紹。</div>
+                <div class="char-preview-desc" id="achievements-preview-reward">提示：點選成就以查看詳細介紹，未解鎖會顯示灰階。</div>
+              </div>
+            </div>
+            <button id="achievements-back" class="ghost">返回開始畫面</button>
+          </div>
+        </div>
+
+        
+        <!-- 選角介面 -->
+        <div id="character-select-screen" class="screen hidden">
+          <div class="char-card-wrap">
+            <button id="talent-open" class="top-left-icon-btn talent-open" aria-label="天賦">
+              <img src="assets/images/talent.png" alt="天賦" />
+            </button>
+            <h1 class="char-title">選擇VTuber角色</h1>
+            <p class="char-subtitle">提示：選取角色後按空白鍵或雙擊確認。</p>
+
+            <div class="char-grid">
+              <button class="char-card selectable" data-char-id="margaret">
+                <img src="assets/images/player1-3.png" alt="瑪格麗特·諾爾絲">
+                <div class="char-name">瑪格麗特·諾爾絲</div>
+              </button>
+              <!-- 第二位角色：灰妲DaDa（未解鎖時灰階顯示，可花費金幣解鎖） -->
+              <button class="char-card selectable locked" data-char-id="dada">
+                <img src="assets/images/player2-3.png" alt="灰妲DaDa">
+                <div class="char-name">灰妲DaDa</div>
+              </button>
+              <div class="char-slot empty"></div>
+              <div class="char-slot empty"></div>
+              <div class="char-slot empty"></div>
+              <div class="char-slot empty"></div>
+              <div class="char-slot empty"></div>
+              <div class="char-slot empty"></div>
+              <div class="char-slot empty"></div>
+              <div class="char-slot empty"></div>
+              <div class="char-slot empty"></div>
+              <!-- 第三位角色：森森鈴蘭（未解鎖時灰階顯示，可花費100萬金幣解鎖）- 最終角色，放在最後一格 -->
+              <button class="char-card selectable locked" data-char-id="lilylinglan">
+                <img src="assets/images/player3-3.png" alt="森森鈴蘭">
+                <div class="char-name">森森鈴蘭</div>
+              </button>
+
+            </div>
+
+            <div class="char-preview" id="char-preview" aria-live="polite">
+              <div class="char-preview-image">
+                <img id="char-preview-img" src="assets/images/GM.png" alt="預覽" />
+              </div>
+              <div class="char-preview-info">
+                <div class="char-preview-name" id="char-preview-name">請先在上方選擇角色</div>
+                <div class="char-preview-desc" id="char-preview-desc">這裡會顯示角色介紹與特色。</div>
+                <div class="char-preview-skills" id="char-preview-skills"></div>
+                <div class="char-hint">提示：每位角色的初始能力與技能會不同。</div>
+              </div>
+            </div>
+
+            <div id="char-confirm" class="char-confirm hidden">
+              <div class="char-dialog">
+                <div class="char-dialog-title" id="char-confirm-name">角色</div>
+                <div class="char-dialog-desc" id="char-confirm-desc">描述</div>
+                <div class="char-dialog-actions">
+                  <button id="char-confirm-ok" class="primary">確認</button>
+                  <button id="char-confirm-cancel" class="ghost">取消</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 地圖選擇介面（重構：採用與選角一致的雙背景版型與布局） -->
+        <div id="map-select-screen" class="screen hidden">
+          <div class="char-card-wrap map-card-wrap">
+
+            <!-- 左右分欄布局：左側模式、右側地圖格與下方介紹 -->
+            <div class="map-layout">
+              <!-- 左：模式欄，目前僅生存模式 -->
+              <div class="map-menu">
+                <div class="menu-title-image" aria-hidden="true">
+                  <img src="assets/images/start3.png" alt="模式標題" />
+                </div>
+                <button id="mode-survival" class="mode-btn primary" aria-label="生存模式">生存模式</button>
+                <button id="mode-challenge" class="mode-btn" aria-label="挑戰模式">挑戰模式</button>
+                <button id="mode-stage" class="mode-btn" aria-label="闖關模式">闖關模式</button>
+                <button id="mode-defense" class="mode-btn" aria-label="防禦模式">防禦模式</button>
+                <button id="mode-main" class="mode-btn" aria-label="主線模式">主線模式</button>
+                <button id="mode-adventure" class="mode-btn" aria-label="冒險模式">冒險模式</button>
+              </div>
+
+              <!-- 右：地圖格與下方介紹 -->
+              <div class="map-main">
+                <div class="map-grid" id="grid-survival">
+                  <button class="map-card selectable" data-map-id="city">
+                    <img src="assets/images/background.jpg" alt="廁所LV.1">
+                    <div class="map-name">LV1.廁所</div>
+                  </button>
+                  <button class="map-card selectable" data-map-id="forest">
+                    <img src="assets/images/background1-2.png" alt="草原LV.2">
+                    <div class="map-name">LV2.草原</div>
+                  </button>
+                  <button class="map-card selectable" data-map-id="desert">
+                    <img src="assets/images/background1-3.png" alt="宇宙LV.3">
+                    <div class="map-name">LV3.宇宙</div>
+                  </button>
+                  <button class="map-card selectable" data-map-id="garden">
+                    <img src="assets/images/background8.png" alt="花園LV.4">
+                    <div class="map-name">LV4.花園</div>
+                  </button>
+                  <!-- 新增：兩張未開放地圖（位於下方第二列），暫用 background3.jpg -->
+                  <button class="map-card disabled" data-map-id="future-1">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="future-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 挑戰模式：-->
+                <div class="map-grid hidden" id="grid-challenge">
+                  <button class="map-card selectable" data-map-id="challenge-1">
+                    <img src="assets/images/background4.png" alt="LV1.銀河系">
+                    <div class="map-name">LV1.銀河系</div>
+                  </button>
+                  <button class="map-card selectable" data-map-id="challenge-2">
+                    <img src="assets/images/background5.jpg" alt="LV2.星雲">
+                    <div class="map-name">LV2.星雲</div>
+                  </button>
+                  <button class="map-card selectable" data-map-id="challenge-3">
+                    <img src="assets/images/background6.jpg" alt="LV3.星軌">
+                    <div class="map-name">LV3.星軌</div>
+                  </button>
+                  <button class="map-card selectable" data-map-id="challenge-4">
+                    <img src="assets/images/background7.jpg" alt="LV4.黑洞">
+                    <div class="map-name">LV4.黑洞</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="challenge-5">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="challenge-6">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 闖關模式：-->
+                <div class="map-grid hidden" id="grid-stage">
+                  <button class="map-card selectable" data-map-id="challenge-1">
+                    <img src="assets/images/background4.png" alt="LV1.銀河系">
+                    <div class="map-name">LV1.銀河系(施工中)</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="stage-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="stage-3">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="stage-4">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="stage-5">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="stage-6">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 防禦模式：-->
+                <div class="map-grid hidden" id="grid-defense">
+                  <button class="map-card selectable" data-map-id="defense-1">
+                    <img src="assets/images/background1-2.png" alt="糖果煉金坊">
+                    <div class="map-name">LV1.魔法糖果煉金坊</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="defense-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="defense-3">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="defense-4">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="defense-5">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="defense-6">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 主線模式：解鎖首張「測試用地圖」 -->
+                <div class="map-grid hidden" id="grid-main">
+                  <button class="map-card selectable" data-map-id="main-test">
+                    <img src="assets/images/background3.jpg" alt="測試用地圖">
+                    <div class="map-name">測試用地圖(施工中)</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="main-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="main-3">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="main-4">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="main-5">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="main-6">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 冒險模式：單張地圖「異世界」（獨立存檔） -->
+                <div class="map-grid hidden" id="grid-adventure">
+                  <button class="map-card selectable" data-map-id="adventure-isekai">
+                    <img src="assets/images/background9.jpg" alt="異世界">
+                    <div class="map-name">異世界</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="adventure-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="adventure-3">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="adventure-4">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="adventure-5">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="adventure-6">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
+                <!-- 下方資訊區：左側 GM.png、右側介紹文字 -->
+                <div class="map-info">
+                  <div class="map-preview" aria-hidden="true">
+                    <img id="map-preview-img" src="assets/images/GM.png" alt="預覽" />
+                  </div>
+                  <div id="map-desc" class="map-desc">提示：點擊地圖顯示介紹，雙擊或空白鍵確認</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 右下角美化返回鍵 -->
+            <button id="map-cancel" class="return-btn ghost" aria-label="返回">返回</button>
+          </div>
+        </div>
+
+    <!-- 難度選擇介面 -->
+    <div id="difficulty-select-screen" class="screen hidden">
+      <div class="select-card">
+        <h1 class="select-title">選擇難度</h1>
+            <div class="diff-grid">
+              <button class="diff-card selectable" data-diff-id="EASY">
+                <span class="diff-label">簡單</span>
+                <div class="diff-intro">世界陷入了奇異的詛咒——<BR>所有 VTuber 都被神秘的「信號」控制，只要靠近她們的歌聲，就會忍不住想「坐下」。<BR><BR>你，唯一仍保持理智的玩家，必須在滿地馬桶迷宮中生存下來！</div>
+              </button>
+              <button class="diff-card selectable" data-diff-id="HARD">
+                <span class="diff-label">困難</span>
+                <div class="diff-intro">不斷傳來的詭異聲響，你以為只是廁所鬧鬼？<BR>來自深淵的「未知信號」<BR>都是在引導你走向那個終極馬桶！<BR><BR>在這裡，水花會奪命、歌聲會迷惑、<BR>每一秒的遲疑，都是墜入「坐下」的開始。</div>
+              </button>
+            </div>
+            <div class="select-actions">
+              <button id="diff-back" class="ghost">返回</button>
+            </div>
+          </div>
+        </div>
+
+    <!-- 第三張地圖專用：難度選擇介面（困難 / 修羅） -->
+    <div id="desert-difficulty-select-screen" class="screen hidden">
+      <div class="select-card">
+        <h1 class="select-title">選擇難度</h1>
+        <div class="diff-grid">
+          <!-- 左：困難（樣式同原本） -->
+          <button class="diff-card selectable" data-diff-id="HARD">
+            <span class="diff-label">困難</span>
+            <div class="diff-intro">不斷傳來的詭異聲響，你以為只是廁所鬧鬼？<br>來自深淵的「未知信號」<br>都是在引導你走向那個終極馬桶！<br><br>在這裡，水花會奪命、歌聲會迷惑、<br>每一秒的遲疑，都是墜入「坐下」的開始。</div>
+          </button>
+          <!-- 右：修羅（金色底色與指定介紹文案） -->
+          <button class="diff-card selectable" data-diff-id="ASURA">
+            <span class="diff-label">修羅</span>
+            <div class="diff-intro">這不是為了生存，而是為了證明。<br>每一個「信號」都將襲來、<br>每一秒的遲疑都是坐下。<br><br>若你能在此地存活，你將不再是玩家，<br>——而是「信號」的支配者！</div>
+          </button>
+        </div>
+        <div class="select-actions">
+          <button id="diff-back-desert" class="ghost">返回</button>
+        </div>
+      </div>
     </div>
+        
+        <!-- 遊戲畫面 -->
+        <div id="game-screen" class="screen hidden">
+          <div id="viewport">
+            <canvas id="game-canvas"></canvas>
+        
+            <!-- 遊戲UI（置於遊戲視窗內） -->
+            <div id="game-ui">
+              <div id="player-avatar"><img id="player-avatar-img" src="assets/images/player.png" alt="玩家" /></div>
+              <div id="level-info">
+                <div class="ui-label">等級:</div>
+                <div id="level-text">1</div>
+              </div>
+        
+              <div id="health-bar-container">
+                <div class="ui-label">血量:</div>
+                <div id="health-bar">
+                  <div id="health-fill"></div>
+                </div>
+                <div id="health-text">100/100</div>
+              </div>
+        
+              <div id="exp-bar-container">
+                <div class="ui-label">經驗:</div>
+                <div id="exp-bar">
+                  <div id="exp-fill"></div>
+                </div>
+                <div id="exp-text">0/100</div>
+              </div>
+        
+              <div id="energy-bar-container">
+                <div class="ui-label">能量:</div>
+                <div id="energy-bar">
+                  <div id="energy-fill"></div>
+                </div>
+                <div id="energy-text">0/100</div>
+              </div>
+        
+              <div id="timer">00:00</div>
+              <div id="wave-info">波次: 1</div>
+              
+              <!-- 金幣顯示（右上角） -->
+              <div id="coins-display">
+                <img src="assets/images/money.png" alt="金幣" id="coins-icon">
+                <span id="coins-text">0</span>
+              </div>
+            </div>
+        
+            <!-- 升級選單（置於遊戲視窗內） -->
+            <div id="level-up-menu" class="hidden">
+              <h2>Level up!</h2>
+              <div id="upgrade-options"></div>
+            </div>
+        
+            <!-- 技能頁（ESC觸發，顯示技能清單與音量調整） -->
+            <div id="skills-menu" class="hidden">
+              <div class="skills-title">技能與音量</div>
+              <div class="skills-hint">按 ESC 關閉</div>
+              <!-- 左上角：EXP 音效切換按鈕 -->
+              <button id="exp-sound-toggle" class="top-left-icon-btn" aria-label="切換經驗音效">
+                <span id="exp-sound-toggle-text">EXP音效：開</span>
+              </button>
+              <!-- 左上角：死亡音效切換按鈕（位於 EXP 下方） -->
+              <button id="death-sound-toggle" class="top-left-icon-btn" aria-label="切換死亡音效" style="top: 40px; left: 12px;">
+                <span id="death-sound-toggle-text">死亡音效：開</span>
+              </button>
+              <div class="skills-volume">
+                <div class="volume-row">
+                  <label for="skills-music-volume">音樂</label>
+                  <input type="range" id="skills-music-volume" min="0" max="1" step="0.01" value="0.5">
+                  <span id="skills-music-volume-text">50%</span>
+                </div>
+                <div class="volume-row">
+                  <label for="skills-sound-volume">音效</label>
+                  <input type="range" id="skills-sound-volume" min="0" max="1" step="0.01" value="0.7">
+                  <span id="skills-sound-volume-text">70%</span>
+                </div>
+              </div>
+              <div id="skills-list" class="skills-list" aria-live="polite"></div>
+            </div>
+            <!-- 挑戰模式專用 HUD（獨立容器，避免污染生存模式） -->
+            <div id="challenge-ui" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none;">
+              <!-- 左上：頭像、HP、EXP、能量 -->
+              <div id="challenge-left" style="position:absolute; top:10px; left:10px; display:flex; gap:10px; align-items:flex-start;">
+                <img id="challenge-avatar" alt="avatar" style="width:80px; height:80px; image-rendering:pixelated; border:2px solid #fff; border-radius:6px;" />
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <div class="cbar-row">
+                    <span class="cbar-label">生命</span>
+                    <div id="challenge-health-bar" class="cbar"><div id="challenge-health-fill" class="cbar-fill" style="background:#ff4d4f;"></div></div>
+                    <span id="challenge-health-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">經驗</span>
+                    <div id="challenge-exp-bar" class="cbar"><div id="challenge-exp-fill" class="cbar-fill" style="background:#52c41a;"></div></div>
+                    <span id="challenge-exp-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">能量</span>
+                    <div id="challenge-energy-bar" class="cbar"><div id="challenge-energy-fill" class="cbar-fill" style="background:#40a9ff;"></div></div>
+                    <span id="challenge-energy-text" class="cbar-text">0/0</span>
+                  </div>
+                </div>
+              </div>
+              <!-- 右上：時間、金幣 -->
+              <div id="challenge-right" style="position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+                <div id="challenge-timer" style="font-size:1.4rem; font-weight:bold; color:#fff; text-shadow:0 0 6px rgba(0,0,0,0.6);">00:00</div>
+                <div id="challenge-coins" style="display:flex; align-items:center; gap:6px; color:#ffd700; font-weight:bold; text-shadow:0 0 5px rgba(255,215,0,0.6);">
+                  <img id="challenge-coins-icon" src="assets/images/money.png" alt="金幣" style="width:24px; height:24px;"/>
+                  <span id="challenge-coins-text">0</span>
+                </div>
+              </div>
+              <!-- 右下：操作提示圖例 -->
+              <div id="challenge-legend" style="position:absolute; right:12px; bottom:12px; color:#ffffff; font-size:1.0rem; font-weight:600; text-shadow:0 0 6px rgba(0,0,0,0.6); pointer-events:none;">
+                Z=攻擊&nbsp;&nbsp;X=衝刺
+              </div>
+            </div>
 
-    <div id="hotbar-container"></div>
-</div>
+            <!-- 挑戰模式 ESC 菜單（僅視覺採用生存樣式，避免邏輯污染） -->
+            <div id="challenge-menu" class="hidden">
+              <div class="skills-title">技能與音量</div>
+              <div class="skills-hint">按 ESC 關閉</div>
+              <div class="skills-volume">
+                <div class="volume-row">
+                  <label for="challenge-music-volume">音樂</label>
+                  <input type="range" id="challenge-music-volume" min="0" max="1" step="0.01" value="0.5">
+                  <span id="challenge-music-volume-text">50%</span>
+                </div>
+                <div class="volume-row">
+                  <label for="challenge-sound-volume">音效</label>
+                  <input type="range" id="challenge-sound-volume" min="0" max="1" step="0.01" value="0.7">
+                  <span id="challenge-sound-volume-text">70%</span>
+                </div>
+              </div>
+              <div class="talents-section">
+                <h3 class="talents-title">目前天賦</h3>
+                <ul id="challenge-talents-list" class="talents-list" style="list-style:none; padding:0; margin:0;"></ul>
+              </div>
+            </div>
 
-<!-- 遊戲畫布 -->
-<canvas id="gameCanvas"></canvas>
+            <!-- 闖關模式專用 HUD（獨立容器） -->
+            <div id="stage-ui" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none;">
+              <!-- 左上：頭像、HP、EXP、能量 -->
+              <div id="stage-left" style="position:absolute; top:10px; left:10px; display:flex; gap:10px; align-items:flex-start;">
+                <img id="stage-avatar" alt="avatar" style="width:80px; height:80px; image-rendering:pixelated; border:2px solid #fff; border-radius:6px;" />
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <div class="cbar-row">
+                    <span class="cbar-label">生命</span>
+                    <div id="stage-health-bar" class="cbar"><div id="stage-health-fill" class="cbar-fill" style="background:#ff4d4f;"></div></div>
+                    <span id="stage-health-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">經驗</span>
+                    <div id="stage-exp-bar" class="cbar"><div id="stage-exp-fill" class="cbar-fill" style="background:#52c41a;"></div></div>
+                    <span id="stage-exp-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">能量</span>
+                    <div id="stage-energy-bar" class="cbar"><div id="stage-energy-fill" class="cbar-fill" style="background:#40a9ff;"></div></div>
+                    <span id="stage-energy-text" class="cbar-text">0/0</span>
+                  </div>
+                </div>
+              </div>
+              <!-- 右上：時間、金幣 -->
+              <div id="stage-right" style="position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+                <div id="stage-timer" style="font-size:1.4rem; font-weight:bold; color:#fff; text-shadow:0 0 6px rgba(0,0,0,0.6);">00:00</div>
+                <div id="stage-coins" style="display:flex; align-items:center; gap:6px; color:#ffd700; font-weight:bold; text-shadow:0 0 5px rgba(255,215,0,0.6);">
+                  <img id="stage-coins-icon" src="assets/images/money.png" alt="金幣" style="width:24px; height:24px;"/>
+                  <span id="stage-coins-text">0</span>
+                </div>
+              </div>
+            </div>
 
-<!-- 解析 URL 查詢參數中的角色資訊，提供給 game.js 使用 -->
-<script>
-  // ADVENTURE_SELECTED_CHARACTER_ID：由主體遊戲透過 iframe URL ?char=... 傳入
-  // 目前預期值：'margaret'、'dada'、'lilylinglan'，缺省時視為預設角色（瑪格麗特）。
-  (function(){
-    try {
-      var params = new URLSearchParams(window.location.search || '');
-      var ch = params.get('char') || '';
-      window.ADVENTURE_SELECTED_CHARACTER_ID = ch || 'margaret';
-    } catch(e) {
-      window.ADVENTURE_SELECTED_CHARACTER_ID = 'margaret';
-    }
-  })();
-</script>
+            <!-- 闖關模式 ESC 菜單（複製挑戰樣式） -->
+            <div id="stage-menu" class="hidden">
+              <div class="skills-title">技能與音量</div>
+              <div class="skills-hint">按 ESC 關閉</div>
+              <div class="skills-volume">
+                <div class="volume-row">
+                  <label for="stage-music-volume">音樂</label>
+                  <input type="range" id="stage-music-volume" min="0" max="1" step="0.01" value="0.5">
+                  <span id="stage-music-volume-text">50%</span>
+                </div>
+                <div class="volume-row">
+                  <label for="stage-sound-volume">音效</label>
+                  <input type="range" id="stage-sound-volume" min="0" max="1" step="0.01" value="0.7">
+                  <span id="stage-sound-volume-text">70%</span>
+                </div>
+              </div>
+              <div class="talents-section">
+                <h3 class="talents-title">目前天賦</h3>
+                <ul id="stage-talents-list" class="talents-list" style="list-style:none; padding:0; margin:0;"></ul>
+              </div>
+            </div>
 
-<!-- 冒險模式專用 GIF 疊加層（不影響主體遊戲的 GifOverlay） -->
-<script src="adventure_gif_overlay.js"></script>
+            <!-- 防禦模式專用 HUD（獨立容器） -->
+            <div id="defense-ui" style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none;">
+              <!-- 左上：頭像、HP、EXP、能量 -->
+              <div id="defense-left" style="position:absolute; top:10px; left:10px; display:flex; gap:10px; align-items:flex-start;">
+                <img id="defense-avatar" alt="avatar" style="width:80px; height:80px; image-rendering:pixelated; border:2px solid #fff; border-radius:6px;" />
+                <div style="display:flex; flex-direction:column; gap:6px;">
+                  <div class="cbar-row">
+                    <span class="cbar-label">生命</span>
+                    <div id="defense-health-bar" class="cbar"><div id="defense-health-fill" class="cbar-fill" style="background:#ff4d4f;"></div></div>
+                    <span id="defense-health-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">經驗</span>
+                    <div id="defense-exp-bar" class="cbar"><div id="defense-exp-fill" class="cbar-fill" style="background:#52c41a;"></div></div>
+                    <span id="defense-exp-text" class="cbar-text">0/0</span>
+                  </div>
+                  <div class="cbar-row">
+                    <span class="cbar-label">能量</span>
+                    <div id="defense-energy-bar" class="cbar"><div id="defense-energy-fill" class="cbar-fill" style="background:#40a9ff;"></div></div>
+                    <span id="defense-energy-text" class="cbar-text">0/0</span>
+                  </div>
+                </div>
+              </div>
+              <!-- 右上：時間、金幣 -->
+              <div id="defense-right" style="position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
+                <div id="defense-timer" style="font-size:1.4rem; font-weight:bold; color:#fff; text-shadow:0 0 6px rgba(0,0,0,0.6);">00:00</div>
+                <div id="defense-coins" style="display:flex; align-items:center; gap:6px; color:#ffd700; font-weight:bold; text-shadow:0 0 5px rgba(255,215,0,0.6);">
+                  <img id="defense-coins-icon" src="assets/images/money.png" alt="金幣" style="width:24px; height:24px;"/>
+                  <span id="defense-coins-text">0</span>
+                </div>
+              </div>
+            </div>
 
-<!-- 引用邏輯 -->
-<script src="game.js"></script>
+            <!-- 防禦模式 ESC 菜單（複製挑戰樣式） -->
+            <div id="defense-menu" class="hidden">
+              <div class="skills-title">技能與音量</div>
+              <div class="skills-hint">按 ESC 關閉</div>
+              <div class="skills-volume">
+                <div class="volume-row">
+                  <label for="defense-music-volume">音樂</label>
+                  <input type="range" id="defense-music-volume" min="0" max="1" step="0.01" value="0.5">
+                  <span id="defense-music-volume-text">50%</span>
+                </div>
+                <div class="volume-row">
+                  <label for="defense-sound-volume">音效</label>
+                  <input type="range" id="defense-sound-volume" min="0" max="1" step="0.01" value="0.7">
+                  <span id="defense-sound-volume-text">70%</span>
+                </div>
+              </div>
+              <div class="talents-section">
+                <h3 class="talents-title">目前天賦</h3>
+                <ul id="defense-talents-list" class="talents-list" style="list-style:none; padding:0; margin:0;"></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 失敗畫面 -->
+        <div id="game-over-screen" class="screen hidden">
+          <!-- 遊戲失敗影片 -->
+          <video id="game-over-video" src="assets/videos/game_over.mp4" preload="auto" playsinline></video>
+          
+          <!-- 失敗結算視窗 -->
+          <div class="game-over-summary">
+            <div class="game-over-summary-content">
+              <h2>遊戲結算</h2>
+              <div class="summary-stats">
+                <div class="summary-stat">
+                  <span class="stat-label">遊戲時間(秒):</span>
+                  <span class="stat-value" id="game-over-time">00:00</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">最終等級:</span>
+                  <span class="stat-value" id="game-over-level">0</span>
+                </div>
+        
+                <div class="summary-stat">
+                  <span class="stat-label">獲得金幣:</span>
+                  <span class="stat-value" id="game-over-coins">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">最終波數:</span>
+                  <span class="stat-value" id="game-over-exp">0</span>
+                </div>
+              </div>
+              <div id="game-over-achievements" class="summary-achievements" aria-live="polite" style="margin-top:12px;"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 勝利畫面 -->
+        <div id="victory-screen" class="screen hidden">
+          <video id="victory-video" src="assets/videos/victory.mp4" preload="auto" playsinline></video>
+          <!-- 結算視窗 -->
+          <div id="victory-summary" class="victory-summary">
+            <div class="victory-summary-content">
+              <h2>遊戲勝利</h2>
+              <div class="summary-stats">
+                <div class="summary-stat">
+                  <span class="stat-label">遊戲時間(秒):</span>
+                  <span class="stat-value" id="summary-time">00:00</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">最終等級:</span>
+                  <span class="stat-value" id="summary-level">0</span>
+                </div>
+          
+                <div class="summary-stat">
+                  <span class="stat-label">獲得金幣:</span>
+                  <span class="stat-value" id="summary-coins">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">最終波數:</span>
+                  <span class="stat-value" id="summary-exp">0</span>
+                </div>
+              </div>
+              <div id="victory-achievements" class="summary-achievements" aria-live="polite" style="margin-top:12px;"></div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 防禦模式專用結算畫面：失敗 -->
+        <div id="defense-gameover-screen" class="screen hidden">
+          <video id="defense-gameover-video" src="assets/videos/game_over.mp4" preload="auto" playsinline></video>
+          <div class="game-over-summary">
+            <div class="game-over-summary-content">
+              <h2>防禦模式結算</h2>
+              <div class="summary-stats">
+                <div class="summary-stat">
+                  <span class="stat-label">遊戲時間:</span>
+                  <span class="stat-value" id="defense-failure-time">00:00</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">波次進度:</span>
+                  <span class="stat-value" id="defense-failure-wave">0/30</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">獲得金幣:</span>
+                  <span class="stat-value" id="defense-failure-gold">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">擊殺數:</span>
+                  <span class="stat-value" id="defense-failure-kill">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">建造塔數:</span>
+                  <span class="stat-value" id="defense-failure-tower">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">主堡血量:</span>
+                  <span class="stat-value" id="defense-failure-base">0/0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 防禦模式專用結算畫面：勝利 -->
+        <div id="defense-victory-screen" class="screen hidden">
+          <video id="defense-victory-video" src="assets/videos/victory.mp4" preload="auto" playsinline></video>
+          <div class="victory-summary">
+            <div class="victory-summary-content">
+              <h2>防禦模式勝利</h2>
+              <div class="summary-stats">
+                <div class="summary-stat">
+                  <span class="stat-label">遊戲時間:</span>
+                  <span class="stat-value" id="defense-victory-time">00:00</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">波次進度:</span>
+                  <span class="stat-value" id="defense-victory-wave">0/30</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">獲得金幣:</span>
+                  <span class="stat-value" id="defense-victory-gold">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">擊殺數:</span>
+                  <span class="stat-value" id="defense-victory-kill">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">建造塔數:</span>
+                  <span class="stat-value" id="defense-victory-tower">0</span>
+                </div>
+                <div class="summary-stat">
+                  <span class="stat-label">主堡血量:</span>
+                  <span class="stat-value" id="defense-victory-base">0/0</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 天賦介面 -->
+        <div id="talent-select-screen" class="screen hidden">
+          <div class="char-card-wrap">
+            <div id="talent-coins">
+              <img src="assets/images/money.png" alt="金幣" id="talent-coins-icon">
+              <span id="talent-coins-text">0</span>
+            </div>
+            <!-- 左上角：返回選角介面按鈕（依參考圖移位與調整尺寸） -->
+            <button id="talent-back" class="top-left-icon-btn" aria-label="返回選角介面">
+              <img src="assets/images/talent2.png" alt="返回選角" />
+            </button>
+            <h1 class="char-title">天賦系統</h1>
+            <p class="char-subtitle">提示：選取天賦按空白鍵或雙擊解鎖，最高六階。</p>
+            <div class="char-grid talent-grid">
+              <button class="char-card selectable locked" data-talent-id="hp_boost">
+                <img src="assets/images/test.png" alt="生命強化" class="grayscale" />
+                <div class="char-name">生命強化</div>
+              </button>
+              <!-- 其他 11 個格子 -->
+              <button class="char-card selectable locked" data-talent-id="defense_boost">
+                <img src="assets/images/test2.png" alt="防禦強化" class="grayscale" />
+                <div class="char-name">防禦強化</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="speed_boost">
+                <img src="assets/images/test3.png" alt="移動加速" class="grayscale" />
+                <div class="char-name">移動加速</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="pickup_range_boost">
+                <img src="assets/images/test4.png" alt="拾取範圍增加" class="grayscale" />
+                <div class="char-name">拾取範圍增加</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="damage_boost">
+                <img src="assets/images/test5.png" alt="傷害強化" class="grayscale" />
+                <div class="char-name">傷害強化</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="damage_specialization">
+                <img src="assets/images/test6.png" alt="傷害特化" class="grayscale" />
+                <div class="char-name">傷害特化</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="crit_enhance">
+                <img src="assets/images/test7.png" alt="爆擊強化" class="grayscale" />
+                <div class="char-name">爆擊強化</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="regen_speed_boost">
+                <img src="assets/images/test8.png" alt="回血強化" class="grayscale" />
+                <div class="char-name">回血強化</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="experience_boost">
+                <img src="assets/images/test10.png" alt="經驗值強化" class="grayscale" />
+                <div class="char-name">經驗值強化</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="levelup_action_charges">
+                <img src="assets/images/test9.png" alt="選項次數強化" class="grayscale" />
+                <div class="char-name">選項次數強化</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="dodge_enhance">
+                <img src="assets/images/test12.png" alt="迴避強化" class="grayscale" />
+                <div class="char-name">迴避強化</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="defense_gold_boost">
+                <img src="assets/images/test11.png" alt="消波塊增加" class="grayscale" />
+                <div class="char-name">消波塊增加</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="chicken_blessing_boost">
+                <img src="assets/images/test13.png" alt="雞腿強化" class="grayscale" />
+                <div class="char-name">雞腿強化</div>
+              </button>
+              <button class="char-card selectable locked" data-talent-id="sheep_guard_boost">
+                <img src="assets/images/test14.png" alt="綿羊護體強化" class="grayscale" />
+                <div class="char-name">綿羊護體強化</div>
+              </button>
+              <div class="char-slot empty"></div>
+              <div class="char-slot empty"></div>
+              <div class="char-slot empty"></div>
+              <div class="char-slot empty"></div>
+            </div>
+            <div class="char-preview" id="talent-preview" aria-live="polite">
+              <div class="char-preview-image">
+                <img id="talent-preview-img" src="assets/images/GM.png" alt="預覽" />
+              </div>
+              <div class="char-preview-info">
+                <div class="char-preview-name" id="talent-preview-name">天賦系統</div>
+                <div class="char-preview-desc" id="talent-preview-desc">這裡會顯示天賦介紹。</div>
+                <div class="char-hint">提示：同一個天賦可以透過重複解鎖來升級，請不斷雙擊天賦進行解鎖。</div>
+              </div>
+            </div>
+            
+            <!-- 天賦解鎖確認彈窗 -->
+            <div id="talent-confirm" class="hidden">
+              <div class="talent-dialog">
+                <div class="talent-dialog-title" id="talent-confirm-title">解鎖天賦</div>
+                <div class="talent-dialog-desc" id="talent-confirm-desc">使用500金幣解鎖天賦？</div>
+                <div class="talent-dialog-actions">
+                  <button id="talent-confirm-ok" class="primary">確認</button>
+                  <button id="talent-confirm-cancel" class="ghost">取消</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
+        <!-- 腳本載入 -->
+        <script src="js/utils.js"></script>
+        <script src="js/config.js"></script>
+        <script src="js/event-system.js"></script>
+        <script src="js/damage_system.js"></script>
+        <script src="js/buff-system.js"></script>
+        <script src="js/input.js"></script>
+        <script src="js/entity.js"></script>
+        <script src="js/obstacle.js"></script>
+        <script src="js/audio.js"></script>
+        <script src="js/orbit.js"></script>
+        <script src="js/laser.js"></script>
+        <script src="js/aura_field.js"></script>
+        <script src="js/gravity_wave.js"></script>
+        <script src="js/sing.js"></script>
+        <script src="js/young_dada_glory.js"></script>
+        <script src="js/chain_lightning.js"></script>
+        <script src="js/slash.js"></script>
+        <script src="js/shockwave.js"></script>
+        <script src="js/boss_projectile.js"></script>
+        <script src="js/experience.js"></script>
+        <script src="js/chest.js"></script>
+    <script src="js/ui.js"></script>
+        <!-- GIF 覆蓋層工具：確保玩家 GIF 在 Canvas 上正常動畫 -->
+    <script src="js/gif_overlay.js"></script>
+        <script src="js/wave.js"></script>
+        <script src="js/talent.js"></script>
+    <script src="js/player.js"></script>
+        <script src="js/enemy.js"></script>
+        <script src="js/projectile.js"></script>
+        <script src="js/invincible.js"></script>
+        <script src="js/weapon.js"></script>
+        <script src="js/big_ice_ball.js"></script>
+        <script src="js/frenzy_young_dada_glory.js"></script>
+        <!-- 可選彈幕系統骨架（需在 game.js 之前載入） -->
+        <script src="js/bullet-system.js"></script>
+        <script src="js/achievements.js"></script>
+        <script src="js/game.js"></script>
+        <script src="js/integration.js"></script>
+        <script src="js/save_code.js"></script>
+        <!-- 核心服務與模式管理（不改動 SaveCode；僅新增骨架） -->
+        <script src="js/core/services/save_service.js"></script>
+        <script src="js/core/services/resource_loader.js"></script>
+        <!-- 注意：ModeManager 僅保留作為『回退』用途，請勿在新模式上使用。
+             未來新增/啟動模式請一律改用 GameModeManager.register/start。 -->
+        <script src="js/core/mode_manager.js"></script>
+        <!-- 主用：隔離化 GameModeManager（新模式與主線模式皆走此管理器） -->
+        <script src="js/core/game_mode_manager.js"></script>
+        <!-- 生存模式適配層：封裝既有生存模式為 Mode 介面 -->
+        <script src="js/modes/survival/index.js"></script>
+        <!-- 挑戰模式專屬 GIF 覆蓋層：獨立於生存模式，避免汙染 -->
+        <script src="js/modes/challenge/gif_overlay.js"></script>
+        <!-- 挑戰模式 UI 模組：提供 HUD 與 ESC 菜單 -->
+        <script src="js/modes/challenge/ui.js"></script>
+        <!-- 挑戰模式：專屬彈幕系統 + 樣式庫與 BOSS 控制器（在骨架 index.js 之前） -->
+        <script src="js/modes/challenge/bullet_system.js"></script>
+        <!-- 挑戰模式專用雷射美術，不影響其他模式 -->
+        <script src="js/modes/challenge/laser_art.js"></script>
+        <script src="js/modes/challenge/boss_patterns.js"></script>
+        <script src="js/modes/challenge/boss_patterns2.js"></script>
+        <script src="js/modes/challenge/boss_patterns3.js"></script>
+        <script src="js/modes/challenge/boss_patterns4.js"></script>
+        <!-- 挑戰模式專屬經驗系統：與生存模式的經驗分離 -->
+        <script src="js/modes/challenge/experience.js"></script>
+        <script src="js/modes/challenge/boss.js"></script>
+        <script src="js/modes/challenge/boss2.js"></script>
+        <script src="js/modes/challenge/boss3.js"></script>
+        <script src="js/modes/challenge/boss4.js"></script>
+        <!-- 挑戰模式骨架：接入隔離化 GameModeManager -->
+        <script src="js/modes/challenge/index.js"></script>
+        <!-- 闖關模式 UI 模組：提供 HUD 與 ESC 菜單 -->
+        <script src="js/modes/stage/ui.js"></script>
+        <!-- 闖關模式骨架：接入隔離化 GameModeManager -->
+        <script src="js/modes/stage/index.js"></script>
+        <!-- 防禦模式專用 GIF 疊加層 -->
+        <script src="js/modes/defense/td_gif_overlay.js"></script>
+        <!-- 防禦模式核心組件 -->
+        <script src="js/modes/defense/td_config.js"></script>
+        <script>console.log('td_config.js 加載完成, TD_CONFIG:', typeof TD_CONFIG);</script>
+        <!-- 防禦模式傷害數字系統（獨立於生存模式，避免跨模式污染） -->
+        <script src="js/modes/defense/td_damage_numbers.js"></script>
+        <script>console.log('td_damage_numbers.js 加載完成, TDDamageNumbers:', typeof TDDamageNumbers);</script>
+        <script src="js/modes/defense/td_map.js"></script>
+        <script>console.log('td_map.js 加載完成, TDMap:', typeof TDMap);</script>
+        <script src="js/modes/defense/td_enemy.js"></script>
+        <script>console.log('td_enemy.js 加載完成, TDEnemyManager:', typeof TDEnemyManager);</script>
+        <script src="js/modes/defense/td_tower.js"></script>
+        <script>console.log('td_tower.js 加載完成, TDTowerManager:', typeof TDTowerManager);</script>
+        <script src="js/modes/defense/td_player.js"></script>
+        <script>console.log('td_player.js 加載完成, TDPlayer:', typeof TDPlayer);</script>
+        <script src="js/modes/defense/td_game.js"></script>
+        <script>console.log('td_game.js 加載完成, TDGame:', typeof TDGame);</script>
+        <script src="js/modes/defense/td_ui_enhanced.js"></script>
+        <script>console.log('td_ui_enhanced.js 加載完成, TDEnhancedUI:', typeof TDEnhancedUI);</script>
+        <script src="js/modes/defense/td_dom_ui.js"></script>
+        <script src="js/modes/defense/td_settlement.js"></script>
+        <script>console.log('td_settlement.js 加載完成, TDDefenseSettlement:', typeof TDDefenseSettlement);</script>
+        
+        <!-- TD組件可用性檢查 -->
+        <script>
+        console.log('=== TD組件總結 ===');
+        console.log('TD_CONFIG:', typeof TD_CONFIG);
+        console.log('TDMap:', typeof TDMap);
+        console.log('TDEnemyManager:', typeof TDEnemyManager);
+        console.log('TDTowerManager:', typeof TDTowerManager);
+        console.log('TDPlayer:', typeof TDPlayer);
+        console.log('TDGame:', typeof TDGame);
+        console.log('TDEnhancedUI:', typeof TDEnhancedUI);
+        console.log('================');
+        </script>
+        
+        <!-- 防禦模式 UI 模組：提供 HUD 與 ESC 菜單 --> 
+        <script src="js/modes/defense/ui.js"></script> 
+        <!-- 防禦模式骨架：接入隔離化 GameModeManager --> 
+        <script src="js/modes/defense/index.js"></script>
+        <!-- 主線模式骨架：不分難度，探索 + NPC 對話 -->
+        <script src="js/modes/main/index.js"></script>
+        <!-- 冒險模式引繼碼工具（僅操作 terraria_save，不動主體 SaveCode） -->
+        <script src="js/modes/adventure/adventure_save_code.js"></script>
+        <!-- 冒險模式骨架：以 iframe 掛載獨立 Terraria 風格遊戲 -->
+        <script src="js/modes/adventure/index.js"></script>
+        <script src="js/main.js"></script>
+        
+        <!-- TD組件可用性檢查 -->
+        <script>
+        console.log('=== TD組件總結（最終檢查） ===');
+        console.log('TD_CONFIG:', typeof TD_CONFIG);
+        console.log('TDMap:', typeof TDMap);
+        console.log('TDEnemyManager:', typeof TDEnemyManager);
+        console.log('TDTowerManager:', typeof TDTowerManager);
+        console.log('TDPlayer:', typeof TDPlayer);
+        console.log('TDGame:', typeof TDGame);
+        console.log('TDEnhancedUI:', typeof TDEnhancedUI);
+        console.log('=============================');
+        </script>
+    </div>
 </body>
 </html>
+
