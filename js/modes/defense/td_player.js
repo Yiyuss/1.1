@@ -301,6 +301,7 @@ class TDPlayer {
         
         // 計算基礎傷害（應用天賦系統）
         let finalDamage = this.damage;
+        let critBonusPct = 0;
         
         // 應用天賦系統的傷害加成
         try {
@@ -322,13 +323,54 @@ class TDPlayer {
                         finalDamage += effect.flat;
                     }
                 }
+                
+                // 爆擊率加成
+                const critLv = TalentSystem.getTalentLevel('crit_enhance') || 0;
+                if (critLv > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.crit_enhance) {
+                    const effect = TalentSystem.tieredTalents.crit_enhance.levels[critLv - 1];
+                    if (effect && effect.chancePct) {
+                        critBonusPct = effect.chancePct;
+                    }
+                }
             }
         } catch (error) {
             console.warn('應用天賦系統傷害加成時出錯:', error);
         }
         
-        // 直接套用最終傷害，確保必中（不再使用 DamageSystem 進行命中判定）
-        const died = target.takeDamage(finalDamage, this);
+        // 使用 DamageSystem 計算最終傷害和爆擊（如果可用）
+        let isCrit = false;
+        try {
+            if (typeof DamageSystem !== 'undefined' && DamageSystem.computeHit) {
+                const result = DamageSystem.computeHit(finalDamage, target, {
+                    weaponType: 'PLAYER_ATTACK',
+                    critChanceBonusPct: critBonusPct
+                });
+                finalDamage = result.amount;
+                isCrit = result.isCrit;
+            }
+        } catch (_) {}
+        
+        // 計算攻擊方向（從玩家位置指向目標）
+        const dirX = target.x - this.x;
+        const dirY = target.y - this.y;
+        
+        // 獲取相機對象（用於傷害數字座標轉換）
+        let camera = null;
+        try {
+            if (typeof window !== 'undefined' && window.debugTDGame) {
+                camera = window.debugTDGame.camera;
+            }
+        } catch (_) {}
+        
+        // 對目標造成傷害（傳遞傷害來源信息，包含攻擊方向和爆擊信息）
+        const died = target.takeDamage(finalDamage, {
+            weaponType: 'PLAYER_ATTACK',
+            dirX,
+            dirY,
+            camera,
+            isCrit,
+            finalDamage: finalDamage  // 傳遞已計算的傷害值
+        });
         
         // 播放音效
         if (this.onPlaySound) {
