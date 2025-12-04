@@ -3497,8 +3497,15 @@ function updateWorldLogic() {
             
             // 2. 樹木生長
             if (id === IDS.SAPLING && Math.random() < 0.005) { 
+                // 檢查下方方塊：樹苗必須在草地或泥土上才能生長
+                let belowId = getTile(x, y + 1);
+                if (belowId !== IDS.GRASS && belowId !== IDS.DIRT) {
+                    continue; // 不在草地或泥土上，跳過生長
+                }
+                
                 let treeH = 5 + Math.floor(Math.random() * 5);
                 let canGrow = true;
+                // 檢查上方空間：需要足夠的空間讓樹木生長
                 for(let h=1; h<=treeH+2; h++) {
                     if (y-h < 0 || tiles[(y-h)*CHUNK_W+x] !== IDS.AIR) canGrow = false;
                 }
