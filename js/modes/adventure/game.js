@@ -5726,7 +5726,17 @@ function updateInteraction() {
                         let belowId = getTile(tx, ty + 1);
                         if (belowId !== IDS.GRASS && belowId !== IDS.DIRT) return;
                     }
-                    if ((handItem.id >= 20 && handItem.id < 40) || handItem.id === IDS.WOOD_BOW || handItem.id === IDS.ARROW) return;
+                    // 防止工具、武器、非放置類物品被放置到地上
+                    if ((handItem.id >= 20 && handItem.id < 40) || 
+                        handItem.id === IDS.WOOD_BOW || 
+                        handItem.id === IDS.ARROW ||
+                        def.isTool || 
+                        def.isBow || 
+                        def.isMagic || 
+                        def.isFishingRod ||
+                        handItem.id === IDS.GRAPPLING_HOOK ||
+                        handItem.id === IDS.BOOMERANG ||
+                        handItem.id === IDS.BLADE_OF_GRASS) return;
                     if (def.solid) {
                         if (rectIntersect({ x: bx, y: by, w: TILE_SIZE, h: TILE_SIZE }, player)) collides = true;
                         for (let m of mobs)
