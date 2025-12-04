@@ -5882,9 +5882,10 @@ function updateRecipeGrid() {
                 // 有耐久度的物品不能疊加，每個都是獨立的
                 has = player.inventory.filter(i => i.id === costItem.id && i.count > 0).length;
             } else {
-                // 沒有耐久度的物品可以疊加，計算總數量
-                let item = player.inventory.find(i => i.id === costItem.id);
-                has = item ? item.count : 0;
+                // 沒有耐久度的物品可以疊加，計算所有格的總數量
+                has = player.inventory
+                    .filter(i => i.id === costItem.id && i.count > 0)
+                    .reduce((sum, i) => sum + i.count, 0);
             }
             if (has < costItem.count) canCraft = false; 
         }); 
@@ -5936,9 +5937,10 @@ function selectRecipe(idx) {
             // 有耐久度的物品不能疊加，每個都是獨立的
             has = player.inventory.filter(i => i.id === costItem.id && i.count > 0).length;
         } else {
-            // 沒有耐久度的物品可以疊加，計算總數量
-            let item = player.inventory.find(i => i.id === costItem.id);
-            has = item ? item.count : 0;
+            // 沒有耐久度的物品可以疊加，計算所有格的總數量
+            has = player.inventory
+                .filter(i => i.id === costItem.id && i.count > 0)
+                .reduce((sum, i) => sum + i.count, 0);
         }
         let missing = has < costItem.count ? "missing" : ""; 
         if (has < costItem.count) canCraft = false; 
@@ -5985,9 +5987,11 @@ function craftSelected() {
                 break;
             }
         } else {
-            // 沒有耐久度的物品可以疊加，檢查總數量
-            let item = player.inventory.find(i => i.id === itemId);
-            if (!item || item.count < needed) {
+            // 沒有耐久度的物品可以疊加，計算所有格的總數量
+            let totalCount = player.inventory
+                .filter(i => i.id === itemId && i.count > 0)
+                .reduce((sum, i) => sum + i.count, 0);
+            if (totalCount < needed) {
                 can = false;
                 break;
             }
@@ -6035,11 +6039,16 @@ function craftSelected() {
                 foundItems[i].durability = undefined;
             }
         } else {
-            // 沒有耐久度的物品可以疊加
-            let item = player.inventory.find(i => i.id === itemId);
-            if (item) {
-                // 確保不會變成負數
-                item.count = Math.max(0, item.count - needed);
+            // 沒有耐久度的物品可以疊加，從多個格中消耗
+            let remaining = needed;
+            // 找到所有包含該材料的物品格
+            let items = player.inventory.filter(i => i.id === itemId && i.count > 0);
+            // 從第一個格開始消耗，直到滿足需求
+            for (let item of items) {
+                if (remaining <= 0) break;
+                let consume = Math.min(remaining, item.count);
+                item.count -= consume;
+                remaining -= consume;
                 // 如果数量为0，清空槽位
                 if (item.count <= 0) {
                     item.id = IDS.AIR;
@@ -6840,26 +6849,22 @@ function handleChestClick(idx) {
         // 手上有物品：存入宝箱
         let pItemHasDurability = BLOCKS[pItem.id] && BLOCKS[pItem.id].durability;
         
-        if (cItem.id === IDS.AIR || cItem.id === 0 || cItem.count === 0) {
-            // 空槽：直接放入
-            cItem.id = pItem.id;
-            cItem.count = pItem.count;
-            // 複製耐久度（如果有）
-            if (pItemHasDurability && pItem.durability !== undefined) {
-                cItem.durability = pItem.durability;
-            } else if (pItemHasDurability) {
-                cItem.durability = BLOCKS[pItem.id].durability;
+        // 如果有耐久度，不能疊加，直接交換或放入空槽
+        if (pItemHasDurability) {
+            if (cItem.id === IDS.AIR || cItem.id === 0 || cItem.count === 0) {
+                // 空槽：直接放入
+                cItem.id = pItem.id;
+                cItem.count = pItem.count;
+                if (pItem.durability !== undefined) {
+                    cItem.durability = pItem.durability;
+                } else {
+                    cItem.durability = BLOCKS[pItem.id].durability;
+                }
+                pItem.id = IDS.AIR;
+                pItem.count = 0;
+                pItem.durability = undefined;
             } else {
-                cItem.durability = undefined;
-            }
-            pItem.id = IDS.AIR;
-            pItem.count = 0;
-            pItem.durability = undefined;
-        } else if (cItem.id === pItem.id) {
-            // 相同物品：合併（但如果有耐久度，不能合併，改為交換）
-            let cItemHasDurability = BLOCKS[cItem.id] && BLOCKS[cItem.id].durability;
-            if (pItemHasDurability || cItemHasDurability) {
-                // 有耐久度的物品不能合併，改為交換
+                // 有物品：交換
                 let tempId = pItem.id;
                 let tempCount = pItem.count;
                 let tempDurability = pItem.durability;
@@ -6869,76 +6874,192 @@ function handleChestClick(idx) {
                 cItem.id = tempId;
                 cItem.count = tempCount;
                 cItem.durability = tempDurability;
-            } else {
-                // 沒有耐久度，可以合併
-                const MAX_STACK_SIZE = 999;
-                const newCount = cItem.count + pItem.count;
-                if (newCount > MAX_STACK_SIZE) {
-                    // 超過最大疊加數量，只合併到最大值，剩餘的留在手上
-                    cItem.count = MAX_STACK_SIZE;
-                    pItem.count = newCount - MAX_STACK_SIZE;
-                    spawnFloatText(player.x, player.y, "箱子槽位已達最大疊加數量!", "#ff9800");
-                } else {
-                    cItem.count = newCount;
-                    pItem.id = IDS.AIR;
-                    pItem.count = 0;
-                    pItem.durability = undefined;
-                }
             }
         } else {
-            // 不同物品：交换
-            let tempId = pItem.id;
-            let tempCount = pItem.count;
-            let tempDurability = pItem.durability;
-            pItem.id = cItem.id;
-            pItem.count = cItem.count;
-            pItem.durability = cItem.durability;
-            cItem.id = tempId;
-            cItem.count = tempCount;
-            cItem.durability = tempDurability;
+            // 沒有耐久度的物品可以疊加
+            // 先嘗試疊加到箱子中相同物品的格子上
+            let itemToStore = { id: pItem.id, count: pItem.count };
+            let foundSameItem = false;
+            
+            // 先檢查點擊的槽位是否是相同物品
+            if (cItem.id === pItem.id && cItem.count > 0 && cItem.count < 999) {
+                // 相同物品，嘗試疊加
+                const MAX_STACK_SIZE = 999;
+                let canAdd = Math.min(itemToStore.count, MAX_STACK_SIZE - cItem.count);
+                if (canAdd > 0) {
+                    cItem.count += canAdd;
+                    itemToStore.count -= canAdd;
+                    foundSameItem = true;
+                }
+            }
+            
+            // 如果還有剩餘，繼續找箱子中其他相同物品的格子
+            if (itemToStore.count > 0) {
+                for (let i = 0; i < currentChest.data.length; i++) {
+                    if (i === idx) continue; // 跳過當前點擊的槽位
+                    let slot = currentChest.data[i];
+                    if (slot.id === itemToStore.id && slot.count > 0 && slot.count < 999) {
+                        const MAX_STACK_SIZE = 999;
+                        let canAdd = Math.min(itemToStore.count, MAX_STACK_SIZE - slot.count);
+                        if (canAdd > 0) {
+                            slot.count += canAdd;
+                            itemToStore.count -= canAdd;
+                            foundSameItem = true;
+                            if (itemToStore.count <= 0) break;
+                        }
+                    }
+                }
+            }
+            
+            // 如果還有剩餘，檢查點擊的槽位是否為空
+            if (itemToStore.count > 0) {
+                if (cItem.id === IDS.AIR || cItem.id === 0 || cItem.count === 0) {
+                    // 空槽：放入剩餘物品
+                    cItem.id = itemToStore.id;
+                    cItem.count = itemToStore.count;
+                    cItem.durability = undefined;
+                    itemToStore.count = 0;
+                } else if (cItem.id !== pItem.id) {
+                    // 不同物品：交換（只交換剩餘的部分）
+                    let tempId = pItem.id;
+                    let tempCount = itemToStore.count;
+                    pItem.id = cItem.id;
+                    pItem.count = cItem.count;
+                    pItem.durability = cItem.durability;
+                    cItem.id = tempId;
+                    cItem.count = tempCount;
+                    cItem.durability = undefined;
+                    itemToStore.count = 0;
+                }
+            }
+            
+            // 更新玩家手上的物品
+            if (itemToStore.count > 0) {
+                // 還有剩餘，留在手上
+                pItem.count = itemToStore.count;
+            } else {
+                // 全部放入，清空手上
+                pItem.id = IDS.AIR;
+                pItem.count = 0;
+                pItem.durability = undefined;
+            }
         }
     } else if (cItem && cItem.id !== IDS.AIR && cItem.id !== 0 && cItem.count > 0 && BLOCKS[cItem.id]) {
         // 手上无物品或空槽：从宝箱取出
-        // 檢查背包是否有空槽位（在20格內）
-        let hasEmptySlot = player.inventory.some(s => s.id === IDS.AIR || (s.id === cItem.id && s.count === 0 && !BLOCKS[cItem.id]?.durability));
-        if (!hasEmptySlot) {
-            // 背包已滿，無法取出
-            spawnFloatText(player.x, player.y, "背包已滿，無法取出!", "#ff5252");
-            return;
-        }
+        let cItemHasDurability = BLOCKS[cItem.id] && BLOCKS[cItem.id].durability;
+        let itemToTake = { id: cItem.id, count: cItem.count, durability: cItem.durability };
         
-        if (!pItem) {
-            // 如果槽位不存在，確保它存在（但不超過20格）
-            if (player.inventory.length <= player.hotbarSlot && player.inventory.length < MAX_INVENTORY_SLOTS) {
-                player.inventory.push({id: IDS.AIR, count: 0});
+        // 如果有耐久度，不能疊加，需要空槽位
+        if (cItemHasDurability) {
+            // 檢查背包是否有空槽位
+            let hasEmptySlot = player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+            if (!hasEmptySlot) {
+                spawnFloatText(player.x, player.y, "背包已滿，無法取出!", "#ff5252");
+                return;
             }
-            if (player.inventory.length > player.hotbarSlot) {
-                pItem = player.inventory[player.hotbarSlot];
-            } else {
-                // 如果熱鍵槽位不存在，找一個空槽位
-                let emptySlot = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
-                if (emptySlot) {
-                    pItem = emptySlot;
+            
+            // 找到空槽位並放入
+            let emptySlot = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+            if (emptySlot) {
+                emptySlot.id = itemToTake.id;
+                emptySlot.count = itemToTake.count;
+                if (itemToTake.durability !== undefined) {
+                    emptySlot.durability = itemToTake.durability;
                 } else {
+                    emptySlot.durability = BLOCKS[itemToTake.id].durability;
+                }
+                cItem.id = IDS.AIR;
+                cItem.count = 0;
+                cItem.durability = undefined;
+            }
+        } else {
+            // 沒有耐久度的物品可以疊加，先嘗試疊加到現有物品格
+            let existingItem = player.inventory.find(s => s.id === itemToTake.id && s.count > 0 && s.count < 999);
+            
+            if (existingItem) {
+                // 找到相同物品，嘗試疊加
+                const MAX_STACK_SIZE = 999;
+                let canAdd = Math.min(itemToTake.count, MAX_STACK_SIZE - existingItem.count);
+                
+                if (canAdd > 0) {
+                    existingItem.count += canAdd;
+                    itemToTake.count -= canAdd;
+                    
+                    // 如果還有剩餘，繼續處理
+                    if (itemToTake.count > 0) {
+                        // 繼續找其他相同物品格或空槽位
+                        while (itemToTake.count > 0) {
+                            let nextItem = player.inventory.find(s => 
+                                s.id === itemToTake.id && s.count > 0 && s.count < MAX_STACK_SIZE
+                            );
+                            
+                            if (nextItem) {
+                                let addMore = Math.min(itemToTake.count, MAX_STACK_SIZE - nextItem.count);
+                                nextItem.count += addMore;
+                                itemToTake.count -= addMore;
+                            } else {
+                                // 沒有更多相同物品格，找空槽位
+                                let emptySlot = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+                                if (emptySlot) {
+                                    emptySlot.id = itemToTake.id;
+                                    emptySlot.count = Math.min(itemToTake.count, MAX_STACK_SIZE);
+                                    itemToTake.count -= emptySlot.count;
+                                } else {
+                                    // 背包已滿，無法完全取出
+                                    if (itemToTake.count > 0) {
+                                        spawnFloatText(player.x, player.y, "背包已滿，部分物品無法取出!", "#ff9800");
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 更新箱子中的物品
+                    if (itemToTake.count > 0) {
+                        // 還有剩餘，保留在箱子中
+                        cItem.count = itemToTake.count;
+                    } else {
+                        // 全部取出，清空箱子槽位
+                        cItem.id = IDS.AIR;
+                        cItem.count = 0;
+                        cItem.durability = undefined;
+                    }
+                } else {
+                    // 無法疊加（已達上限），找空槽位
+                    let hasEmptySlot = player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+                    if (!hasEmptySlot) {
+                        spawnFloatText(player.x, player.y, "背包已滿，無法取出!", "#ff5252");
+                        return;
+                    }
+                    
+                    let emptySlot = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+                    if (emptySlot) {
+                        emptySlot.id = itemToTake.id;
+                        emptySlot.count = itemToTake.count;
+                        cItem.id = IDS.AIR;
+                        cItem.count = 0;
+                        cItem.durability = undefined;
+                    }
+                }
+            } else {
+                // 沒有找到相同物品，找空槽位
+                let hasEmptySlot = player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+                if (!hasEmptySlot) {
                     spawnFloatText(player.x, player.y, "背包已滿，無法取出!", "#ff5252");
                     return;
                 }
+                
+                let emptySlot = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+                if (emptySlot) {
+                    emptySlot.id = itemToTake.id;
+                    emptySlot.count = itemToTake.count;
+                    cItem.id = IDS.AIR;
+                    cItem.count = 0;
+                    cItem.durability = undefined;
+                }
             }
         }
-        let cItemHasDurability = BLOCKS[cItem.id] && BLOCKS[cItem.id].durability;
-        pItem.id = cItem.id;
-        pItem.count = cItem.count;
-        // 複製耐久度（如果有）
-        if (cItemHasDurability && cItem.durability !== undefined) {
-            pItem.durability = cItem.durability;
-        } else if (cItemHasDurability) {
-            pItem.durability = BLOCKS[cItem.id].durability;
-        } else {
-            pItem.durability = undefined;
-        }
-        cItem.id = IDS.AIR;
-        cItem.count = 0;
-        cItem.durability = undefined;
     }
     
     updateChestUI(); 
