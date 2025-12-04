@@ -2599,16 +2599,45 @@ function updatePhysics() {
         let speed = 8;
         let dist = Math.sqrt(Math.pow(player.hook.x-(player.x+10), 2) + Math.pow(player.hook.y-(player.y+20), 2));
         if (dist > 10) {
-            player.x += Math.cos(angle) * speed;
-            player.y += Math.sin(angle) * speed;
+            // 分別計算X和Y方向的移動，並分別進行碰撞檢測
+            // 這樣可以避免在狹窄空間卡牆或彈飛
+            let moveX = Math.cos(angle) * speed;
+            let moveY = Math.sin(angle) * speed;
+            
+            // 先移動X軸，檢查碰撞
+            let oldX = player.x;
+            player.x += moveX;
+            handleCollisions(player, true); // X軸碰撞檢測
+            
+            // 如果X軸被阻擋，嘗試只移動Y軸
+            if (player.x === oldX && Math.abs(moveX) > 0.1) {
+                // X軸無法移動，只移動Y軸
+                let oldY = player.y;
+                player.y += moveY;
+                handleCollisions(player, false); // Y軸碰撞檢測
+                
+                // 如果Y軸也被阻擋，可能卡在狹窄空間，取消鉤爪
+                if (player.y === oldY && Math.abs(moveY) > 0.1) {
+                    player.hook.active = false;
+                }
+            } else {
+                // X軸可以移動，繼續移動Y軸
+                let oldY = player.y;
+                player.y += moveY;
+                handleCollisions(player, false); // Y軸碰撞檢測
+            }
+            
             // 防止位置溢出
             if (player.x < 0) player.x = 0;
-            if (player.x > CHUNK_W*TILE_SIZE) player.x = CHUNK_W*TILE_SIZE;
+            if (player.x > CHUNK_W*TILE_SIZE - player.w) player.x = CHUNK_W*TILE_SIZE - player.w;
             if (player.y < 0) player.y = 0;
-            if (player.y > CHUNK_H*TILE_SIZE) {
+            if (player.y > CHUNK_H*TILE_SIZE - player.h) {
                 player.hook.active = false; // 超出边界，取消钩爪
                 takeDamage(999);
             }
+        } else {
+            // 距離太近，自動取消鉤爪
+            player.hook.active = false;
         }
     }
     
