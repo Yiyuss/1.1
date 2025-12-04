@@ -564,20 +564,27 @@ function createTexture(id, colorHex) {
         if(!BLOCKS[id].icon) BLOCKS[id].icon = cvs; 
         return ctx.createPattern(cvs, 'repeat'); 
     }
-    // 門 (關)
+    // 門 (關) - 繪製成兩格高（64像素）
     if (id === IDS.DOOR_CLOSED) { 
-        c.clearRect(0,0,32,32); 
-        c.fillStyle = '#5d4037'; c.fillRect(6,0,20,32); 
-        c.strokeStyle = '#3e2723'; c.lineWidth=2; c.strokeRect(6,0,20,32); 
-        c.fillStyle = '#ffca28'; c.beginPath(); c.arc(22,16,2,0,Math.PI*2); c.fill(); 
+        c.clearRect(0,0,32,64); // 清除兩格高的區域
+        c.fillStyle = '#5d4037'; c.fillRect(6,0,20,64); // 兩格高的門板
+        c.strokeStyle = '#3e2723'; c.lineWidth=2; c.strokeRect(6,0,20,64); 
+        // 門把手（在中間位置）
+        c.fillStyle = '#ffca28'; c.beginPath(); c.arc(22,32,2,0,Math.PI*2); c.fill(); 
+        // 門的橫向分隔線（視覺效果）
+        c.strokeStyle = '#3e2723'; c.lineWidth=1;
+        c.beginPath(); c.moveTo(6,32); c.lineTo(26,32); c.stroke();
         if(!BLOCKS[id].icon) BLOCKS[id].icon = cvs; 
         return ctx.createPattern(cvs, 'repeat'); 
     }
-    // 門 (開)
+    // 門 (開) - 繪製成兩格高（64像素）
     if (id === IDS.DOOR_OPEN) { 
-        c.clearRect(0,0,32,32); 
-        c.fillStyle = 'rgba(93, 64, 55, 0.5)'; c.fillRect(2,0,10,32); 
-        c.strokeStyle = '#3e2723'; c.strokeRect(2,0,10,32); 
+        c.clearRect(0,0,32,64); // 清除兩格高的區域
+        c.fillStyle = 'rgba(93, 64, 55, 0.5)'; c.fillRect(2,0,10,64); // 兩格高的半透明門板
+        c.strokeStyle = '#3e2723'; c.strokeRect(2,0,10,64); 
+        // 門的橫向分隔線（視覺效果）
+        c.strokeStyle = '#3e2723'; c.lineWidth=1;
+        c.beginPath(); c.moveTo(2,32); c.lineTo(12,32); c.stroke();
         if(!BLOCKS[id].icon) BLOCKS[id].icon = cvs; 
         return ctx.createPattern(cvs, 'repeat'); 
     }
@@ -3752,6 +3759,13 @@ function handleCollisions(obj, isX) {
         let id = getTile(x, y);
         // 跳过打开的门（非实体）
         if (id === IDS.DOOR_OPEN) continue;
+        // 檢查關閉的門：如果是門的下半部分，檢查上方是否也是關閉的門
+        if (id === IDS.DOOR_CLOSED) {
+            let aboveId = (y > 0) ? getTile(x, y - 1) : IDS.AIR;
+            // 如果上方也是關閉的門，這是兩格高的門，需要碰撞檢測
+            // 如果上方不是門，這是單獨的門（舊存檔兼容），也需要碰撞檢測
+            // 所以繼續執行碰撞檢測
+        }
         if (BLOCKS[id] && (BLOCKS[id].solid || BLOCKS[id].platform)) {
             let bx = x * TILE_SIZE, by = y * TILE_SIZE;
             // 平台逻辑（工作台和木平台）
@@ -4014,6 +4028,60 @@ function draw() {
             else if (id === IDS.GLASS) { 
                 ctx.fillStyle = textures[id]; ctx.save(); ctx.translate(px, py); ctx.fillRect(0,0,TILE_SIZE,TILE_SIZE); ctx.restore();
             }
+            else if(id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN) {
+                // 門的特殊繪製：檢查上下是否有門，繪製成兩格高
+                let aboveId = (y > 0) ? getTile(x, y - 1) : IDS.AIR;
+                let belowId = (y < CHUNK_H - 1) ? getTile(x, y + 1) : IDS.AIR;
+                let isDoorAbove = (aboveId === IDS.DOOR_CLOSED || aboveId === IDS.DOOR_OPEN);
+                let isDoorBelow = (belowId === IDS.DOOR_CLOSED || belowId === IDS.DOOR_OPEN);
+                
+                // 如果這是門的上半部分（下方有門），繪製完整的兩格高門
+                if (isDoorBelow) {
+                    ctx.save();
+                    ctx.translate(px, py);
+                    if (id === IDS.DOOR_CLOSED) {
+                        ctx.fillStyle = '#5d4037';
+                        ctx.fillRect(6, 0, 20, 64); // 兩格高
+                        ctx.strokeStyle = '#3e2723';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(6, 0, 20, 64);
+                        ctx.fillStyle = '#ffca28';
+                        ctx.beginPath();
+                        ctx.arc(22, 32, 2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#3e2723';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(6, 32);
+                        ctx.lineTo(26, 32);
+                        ctx.stroke();
+                    } else {
+                        ctx.fillStyle = 'rgba(93, 64, 55, 0.5)';
+                        ctx.fillRect(2, 0, 10, 64); // 兩格高
+                        ctx.strokeStyle = '#3e2723';
+                        ctx.strokeRect(2, 0, 10, 64);
+                        ctx.strokeStyle = '#3e2723';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(2, 32);
+                        ctx.lineTo(12, 32);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+                // 如果這是門的下半部分（上方有門），不繪製（由上方繪製）
+                else if (isDoorAbove) {
+                    // 不繪製，由上方繪製完整的門
+                }
+                // 單獨的門（舊存檔兼容），繪製一格高
+                else {
+                    ctx.fillStyle = textures[id];
+                    ctx.save();
+                    ctx.translate(px, py);
+                    ctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
+                    ctx.restore();
+                }
+            }
             else if(textures[id]) {
                 ctx.fillStyle = textures[id]; ctx.save(); ctx.translate(px, py);
                 if(BLOCKS[id].scale) { let s = BLOCKS[id].scale; ctx.translate((1-s)*16, (1-s)*16); ctx.scale(s,s); }
@@ -4029,13 +4097,69 @@ function draw() {
             
             // --- 插入：油漆渲染 (方塊) ---
             // 注意：不要染水或岩漿，會很怪
-            if (paint > 0 && PAINT_COLORS[paint] && id !== IDS.WATER && id !== IDS.LAVA) {
+            // 門的特殊處理：如果是兩格高的門，需要處理兩格高的油漆
+            if (id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN) {
+                let aboveId = (y > 0) ? getTile(x, y - 1) : IDS.AIR;
+                let belowId = (y < CHUNK_H - 1) ? getTile(x, y + 1) : IDS.AIR;
+                let isDoorAbove = (aboveId === IDS.DOOR_CLOSED || aboveId === IDS.DOOR_OPEN);
+                let isDoorBelow = (belowId === IDS.DOOR_CLOSED || belowId === IDS.DOOR_OPEN);
+                
+                // 如果上方是門，這是門的下半部分，跳過油漆處理（由上方處理）
+                if (isDoorAbove) {
+                    // 跳過油漆處理
+                }
+                // 如果下方是門，這是門的上半部分，處理兩格高的油漆
+                else if (isDoorBelow) {
+                    let belowPaint = (y + 1 < CHUNK_H) ? tileColors[(y + 1) * CHUNK_W + x] : 0;
+                    let doorPaint = paint || belowPaint; // 優先使用當前格的顏色
+                    if (doorPaint > 0 && PAINT_COLORS[doorPaint]) {
+                        ctx.fillStyle = PAINT_COLORS[doorPaint];
+                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE * 2); // 兩格高的油漆
+                    }
+                }
+                // 單獨的門（舊存檔兼容），正常處理油漆
+                else if (paint > 0 && PAINT_COLORS[paint]) {
+                    ctx.fillStyle = PAINT_COLORS[paint];
+                    ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                }
+            }
+            // 非門方塊，正常處理油漆
+            else if (paint > 0 && PAINT_COLORS[paint] && id !== IDS.WATER && id !== IDS.LAVA) {
                 // 為了保留紋理，我們使用疊加半透明色
                 ctx.fillStyle = PAINT_COLORS[paint];
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
             }
         }
-        if (light < 1.0) { ctx.fillStyle = `rgba(0,0,0,${1 - light})`; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE); }
+        // 光照處理：如果是門的下半部分（上方有門），跳過光照處理（由上方處理）
+        if (id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN) {
+            let aboveId = (y > 0) ? getTile(x, y - 1) : IDS.AIR;
+            let isDoorAbove = (aboveId === IDS.DOOR_CLOSED || aboveId === IDS.DOOR_OPEN);
+            // 如果上方是門，這是門的下半部分，跳過光照處理（由上方處理兩格高的光照）
+            if (isDoorAbove) {
+                // 跳過光照處理
+            } else {
+                // 如果是門的上半部分（下方有門），需要處理兩格高的光照
+                let belowId = (y < CHUNK_H - 1) ? getTile(x, y + 1) : IDS.AIR;
+                let isDoorBelow = (belowId === IDS.DOOR_CLOSED || belowId === IDS.DOOR_OPEN);
+                if (isDoorBelow) {
+                    let belowLight = (y + 1 < CHUNK_H) ? lightMap[(y + 1) * CHUNK_W + x] : 0;
+                    let doorLight = Math.min(light, belowLight); // 取兩格中較暗的光照
+                    if (doorLight < 1.0) {
+                        ctx.fillStyle = `rgba(0,0,0,${1 - doorLight})`;
+                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE * 2); // 兩格高的陰影
+                    }
+                } else {
+                    // 單獨的門（舊存檔兼容），正常處理光照
+                    if (light < 1.0) {
+                        ctx.fillStyle = `rgba(0,0,0,${1 - light})`;
+                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+        } else {
+            // 非門方塊，正常處理光照
+            if (light < 1.0) { ctx.fillStyle = `rgba(0,0,0,${1 - light})`; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE); }
+        }
         if (mining.active && mining.x === x && mining.y === y) {
             ctx.strokeStyle = "rgba(0,0,0,0.8)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px+16, py+16);
             for(let i=0; i<(mining.progress/BLOCKS[id].hardness)*5; i++) ctx.lineTo(px+Math.random()*32, py+Math.random()*32);
@@ -4939,8 +5063,22 @@ function updateInteraction() {
                 else if (id === IDS.EMERALD_ORE) {
                     spawnDrop(tx * TILE_SIZE + 10, ty * TILE_SIZE + 10, IDS.EMERALD);
                 }
-                // 門的掉落（破壞時掉落門本身）
+                // 門的掉落（破壞時掉落門本身）- 兩格高的門需要同時破壞
                 else if (id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN) {
+                    // 檢查上方是否有門
+                    let aboveId = (ty > 0) ? getTile(tx, ty - 1) : IDS.AIR;
+                    let belowId = (ty < CHUNK_H - 1) ? getTile(tx, ty + 1) : IDS.AIR;
+                    
+                    // 如果上方是門，這是門的下半部分，同時破壞上方
+                    if (aboveId === IDS.DOOR_CLOSED || aboveId === IDS.DOOR_OPEN) {
+                        setTile(tx, ty - 1, IDS.AIR);
+                    }
+                    // 如果下方是門，這是門的上半部分，同時破壞下方
+                    if (belowId === IDS.DOOR_CLOSED || belowId === IDS.DOOR_OPEN) {
+                        setTile(tx, ty + 1, IDS.AIR);
+                    }
+                    
+                    // 只掉落一個門（避免重複掉落）
                     spawnDrop(tx * TILE_SIZE + 10, ty * TILE_SIZE + 10, IDS.DOOR_CLOSED); // 掉落關閉的門
                 }
                 // --- 箱子破壞處理（必須在 setTile 之前）---
@@ -5048,12 +5186,45 @@ function updateInteraction() {
             return;
         }
         
-        // 門開關 (右鍵切換)
+        // 門開關 (右鍵切換) - 兩格高的門需要同時切換
         if (id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN) {
-            if (id === IDS.DOOR_CLOSED) {
-                setTile(tx, ty, IDS.DOOR_OPEN);
-            } else {
-                setTile(tx, ty, IDS.DOOR_CLOSED);
+            // 檢查上方是否有門（可能是門的上半部分）
+            let aboveId = getTile(tx, ty - 1);
+            let belowId = getTile(tx, ty + 1);
+            
+            // 如果上方是門，則這是門的下半部分，切換上方和當前
+            if (aboveId === IDS.DOOR_CLOSED || aboveId === IDS.DOOR_OPEN) {
+                if (aboveId === IDS.DOOR_CLOSED) {
+                    setTile(tx, ty - 1, IDS.DOOR_OPEN);
+                } else {
+                    setTile(tx, ty - 1, IDS.DOOR_CLOSED);
+                }
+                if (id === IDS.DOOR_CLOSED) {
+                    setTile(tx, ty, IDS.DOOR_OPEN);
+                } else {
+                    setTile(tx, ty, IDS.DOOR_CLOSED);
+                }
+            }
+            // 如果下方是門，則這是門的上半部分，切換當前和下方
+            else if (belowId === IDS.DOOR_CLOSED || belowId === IDS.DOOR_OPEN) {
+                if (id === IDS.DOOR_CLOSED) {
+                    setTile(tx, ty, IDS.DOOR_OPEN);
+                } else {
+                    setTile(tx, ty, IDS.DOOR_CLOSED);
+                }
+                if (belowId === IDS.DOOR_CLOSED) {
+                    setTile(tx, ty + 1, IDS.DOOR_OPEN);
+                } else {
+                    setTile(tx, ty + 1, IDS.DOOR_CLOSED);
+                }
+            }
+            // 單獨的門（舊存檔兼容），只切換當前
+            else {
+                if (id === IDS.DOOR_CLOSED) {
+                    setTile(tx, ty, IDS.DOOR_OPEN);
+                } else {
+                    setTile(tx, ty, IDS.DOOR_CLOSED);
+                }
             }
             playSound('mine');
             mouse.right = false;
@@ -5511,10 +5682,40 @@ function updateInteraction() {
                             if (rectIntersect({ x: bx, y: by, w: TILE_SIZE, h: TILE_SIZE }, m)) collides = true;
                     }
                     if (!collides) {
-                        setTile(tx, ty, handItem.id);
-                        handItem.count--;
-                        updateUI();
-                        mouse.right = false;
+                        // 特殊處理：門需要兩格高
+                        if (handItem.id === IDS.DOOR_CLOSED) {
+                            // 檢查下方是否也是空氣，且可以放置
+                            let belowId = getTile(tx, ty + 1);
+                            if (belowId === IDS.AIR) {
+                                // 檢查下方是否有碰撞
+                                let belowCollides = false;
+                                let belowBx = tx * TILE_SIZE;
+                                let belowBy = (ty + 1) * TILE_SIZE;
+                                if (rectIntersect({ x: belowBx, y: belowBy, w: TILE_SIZE, h: TILE_SIZE }, player)) belowCollides = true;
+                                for (let m of mobs) {
+                                    if (rectIntersect({ x: belowBx, y: belowBy, w: TILE_SIZE, h: TILE_SIZE }, m)) belowCollides = true;
+                                }
+                                
+                                if (!belowCollides) {
+                                    // 同時放置上下兩個門
+                                    setTile(tx, ty, IDS.DOOR_CLOSED);
+                                    setTile(tx, ty + 1, IDS.DOOR_CLOSED);
+                                    handItem.count--;
+                                    updateUI();
+                                    mouse.right = false;
+                                } else {
+                                    spawnFloatText(player.x, player.y, "門下方有障礙物!", "#ff5252");
+                                }
+                            } else {
+                                spawnFloatText(player.x, player.y, "門需要兩格高的空間!", "#ff5252");
+                            }
+                        } else {
+                            // 其他方塊正常放置
+                            setTile(tx, ty, handItem.id);
+                            handItem.count--;
+                            updateUI();
+                            mouse.right = false;
+                        }
                     }
                 }
             }
