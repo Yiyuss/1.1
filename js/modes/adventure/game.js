@@ -189,7 +189,7 @@ const BLOCKS = {
     [IDS.HELMET_MINER]: { name: "礦工頭盔", solid: false, defense: 2, light: 10, color: "#ffca28", isArmor: true }, // 自帶光照
     // --- 工藝站 ---
     [IDS.WORKBENCH]: { name: "工作台", solid: false, platform: true, hardness: 15, transparent: true, color: "#8d6e63" }, // 類似平台可跳上去
-    [IDS.ANVIL]: { name: "鐵砧", solid: false, hardness: 50, transparent: true, color: "#78909c" },
+    [IDS.ANVIL]: { name: "鐵砧", solid: false, hardness: 50, transparent: true, color: "#37474f" },
     // --- 材料與裝飾 ---
     [IDS.CLAY]: { name: "黏土", solid: true, hardness: 10, color: "#bcaaa4" },
     [IDS.RED_BRICK]: { name: "紅磚", solid: true, hardness: 40, color: "#d32f2f" },
@@ -965,7 +965,8 @@ function createTexture(id, colorHex) {
     }
     else if (id === IDS.ANVIL) {
         c.clearRect(0,0,32,32);
-        c.fillStyle = '#546e7a'; // 鐵灰色
+        // 鐵砧主體 - 使用更深的鐵灰色，避免與背景融合
+        c.fillStyle = '#263238'; // 深鐵灰色
         c.beginPath(); 
         c.moveTo(2,14); 
         c.lineTo(30,14); 
@@ -977,7 +978,21 @@ function createTexture(id, colorHex) {
         c.lineTo(10,28); 
         c.lineTo(8,20); 
         c.lineTo(6,20); 
+        c.closePath();
         c.fill();
+        // 添加高光效果，增加金屬質感和可見度
+        c.fillStyle = 'rgba(255,255,255,0.15)';
+        c.beginPath();
+        c.moveTo(2,14);
+        c.lineTo(16,14);
+        c.lineTo(12,20);
+        c.lineTo(8,20);
+        c.closePath();
+        c.fill();
+        // 添加邊緣高光
+        c.strokeStyle = 'rgba(255,255,255,0.2)';
+        c.lineWidth = 1;
+        c.stroke();
         if(!BLOCKS[id].icon) BLOCKS[id].icon = cvs;
         return ctx.createPattern(cvs, 'repeat');
     }
