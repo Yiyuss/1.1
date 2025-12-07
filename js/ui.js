@@ -194,7 +194,10 @@ const UI = {
             });
         }
         
-        // 起始頁滑桿與靜音切換
+        // 起始頁音量設置已移除，改為序號輸入系統
+        // 音量控制現在由 AudioManager 直接管理，不再需要開始界面的音量設置選項
+        // 以下代碼保留作為備註，但不再執行（因為對應的 DOM 元素已移除）
+        /*
         const startMusic = container.querySelector('#music-volume');
         const startSound = container.querySelector('#sound-volume');
         const startMusicText = container.querySelector('#music-volume-text');
@@ -230,6 +233,7 @@ const UI = {
                 muteStatus.textContent = muted ? '開' : '關';
             });
         }
+        */
     },
     /**
      * 私有：從結束/勝利畫面返回起始畫面
