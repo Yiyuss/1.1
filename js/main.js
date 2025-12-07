@@ -262,7 +262,9 @@ function createDefaultImages() {
         { name: 'background1-2', src: 'assets/images/background1-2.png' },
         { name: 'background1-3', src: 'assets/images/background1-3.png' },
         // 第4張地圖：花園背景
-        { name: 'background8', src: 'assets/images/background8.png' }
+        { name: 'background8', src: 'assets/images/background8.png' },
+        // 生存模式出口圖片
+        { name: 'exit', src: 'assets/images/exit.png' }
     ];
     
     // 加載所有圖片
