@@ -19,15 +19,24 @@ const RedeemCodeSystem = {
     // ============================================================================
     // 序號配置區（維護備註：在此處新增序號）
     // ============================================================================
-    // 格式：'序號': 金幣數量
-    // 範例：'Yiyuss2025': 10000 表示序號 "Yiyuss2025" 可兌換 10000 金幣
-    // 注意：序號會自動轉為大寫進行比較，所以 'yiyuss2025' 和 'Yiyuss2025' 視為同一序號
+    // 格式1（永久有效）：'序號': 金幣數量
+    // 格式2（有期限）：'序號': { coins: 金幣數量, expires: 過期時間戳 }
+    // 
+    // 範例：
+    // - 'YIYUSS2025': 10000  // 永久有效，可兌換 10000 金幣
+    // - 'LIMITED2025': { coins: 5000, expires: 1735689600000 }  // 有期限，2025-01-01 00:00:00 過期
+    // 
+    // 注意事項：
+    // - 序號會自動轉為大寫進行比較，所以 'yiyuss2025' 和 'Yiyuss2025' 視為同一序號
+    // - 過期時間使用時間戳（毫秒），可用 new Date('2025-01-01').getTime() 獲取
+    // - 過期後系統會自動拒絕，但建議定期清理過期序號以保持代碼整潔
+    // - 手動刪除過期序號：時間到了後直接刪除該行配置即可
     // ============================================================================
     REDEEM_CODES: {
-        'YIYUSS2025': 10000  // 注意：鍵名使用大寫，因為會自動轉換為大寫進行比較
+        'YIYUSS2025': 10000  // 永久有效
         // 在此處新增更多序號：
-        // 'NEWCODE2025': 5000,
-        // 'ANOTHERCODE': 20000,
+        // 'NEWCODE2025': 5000,  // 永久有效
+        // 'LIMITED2025': { coins: 5000, expires: new Date('2025-12-31').getTime() },  // 有期限
     },
     
     // localStorage 鍵名（存儲已使用的序號列表）
@@ -110,16 +119,36 @@ const RedeemCodeSystem = {
             return { success: false, message: '序號不存在' };
         }
         
-        // 使用原始鍵名獲取金幣數量（因為配置中的鍵名可能不是大寫）
+        // 使用原始鍵名獲取配置（因為配置中的鍵名可能不是大寫）
         const originalKey = codeKeys[codeIndex];
+        const codeConfig = this.REDEEM_CODES[originalKey];
+        
+        // 解析配置：支援兩種格式
+        // 格式1：直接是數字（永久有效）
+        // 格式2：對象 { coins: 數字, expires: 時間戳 }
+        let coins, expires;
+        if (typeof codeConfig === 'number') {
+            coins = codeConfig;
+            expires = null; // 永久有效
+        } else if (codeConfig && typeof codeConfig === 'object' && typeof codeConfig.coins === 'number') {
+            coins = codeConfig.coins;
+            expires = codeConfig.expires || null;
+        } else {
+            return { success: false, message: '序號配置錯誤' };
+        }
+        
+        // 檢查是否過期
+        if (expires !== null && typeof expires === 'number') {
+            const now = Date.now();
+            if (now > expires) {
+                return { success: false, message: '此序號已過期' };
+            }
+        }
         
         // 檢查序號是否已被使用
         if (this.isCodeUsed(upperCode)) {
             return { success: false, message: '此序號已使用過，每個序號只能使用一次' };
         }
-        
-        // 獲取金幣數量（使用原始鍵名）
-        const coins = this.REDEEM_CODES[originalKey];
         
         // 標記為已使用
         this.markCodeAsUsed(upperCode);
