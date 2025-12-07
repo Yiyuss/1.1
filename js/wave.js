@@ -43,8 +43,8 @@ const WaveSystem = {
         //     this.spawnMiniBoss();
         //     this.lastMiniBossTime = currentTime;
         // }
-        // 生成大BOSS
-        if (this.currentWave === CONFIG.WAVES.BOSS_WAVE && Game.boss === null) {
+        // 生成大BOSS（僅在第20波且尚未生成出口時生成）
+        if (this.currentWave === CONFIG.WAVES.BOSS_WAVE && Game.boss === null && Game.exit === null) {
             this.spawnBoss();
         }
     },
