@@ -407,6 +407,70 @@ body {
     background: transparent;
     color: #fff;
     border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* 序號輸入表單樣式 */
+.redeem-code-form {
+    margin-top: 16px;
+}
+
+.redeem-code-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.redeem-code-form input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.redeem-code-form input[type="text"]:focus {
+    outline: none;
+    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.redeem-code-form input[type="text"]::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.redeem-code-message {
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 14px;
+    text-align: center;
+    min-height: 20px;
+    transition: all 0.3s;
+}
+
+.redeem-code-message.success {
+    background: rgba(76, 175, 80, 0.2);
+    border: 1px solid rgba(76, 175, 80, 0.5);
+    color: #4caf50;
+}
+
+.redeem-code-message.error {
+    background: rgba(244, 67, 54, 0.2);
+    border: 1px solid rgba(244, 67, 54, 0.5);
+    color: #f44336;
+}
+
+#redeem-code-overlay .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 16px;
+}
     border-radius: 6px;
     cursor: pointer;
 }
