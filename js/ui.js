@@ -1137,7 +1137,7 @@ const skillIcons = {
             // 最終波數（替代經驗）
             let currentWave = WaveSystem.currentWave || 0;
             console.log("WaveSystem.currentWave:", WaveSystem.currentWave);
-            document.getElementById('game-over-exp').textContent = currentWave + "/30";
+            document.getElementById('game-over-exp').textContent = currentWave + "/20";
             // 擊殺數（若可用）
             try {
                 const enemiesKilled = (typeof Game !== 'undefined' && Game.enemiesKilled != null) ? Game.enemiesKilled : 0;
@@ -1232,7 +1232,7 @@ const skillIcons = {
             document.getElementById('summary-time').textContent = gameTimeInSeconds;
             document.getElementById('summary-level').textContent = playerLevel;
             document.getElementById('summary-coins').textContent = coins;
-            document.getElementById('summary-exp').textContent = currentWave + "/30";
+            document.getElementById('summary-exp').textContent = currentWave + "/20";
             // 擊殺數（若可用）
             try {
                 const kills = (typeof Game !== 'undefined' && Game.enemiesKilled != null) ? Game.enemiesKilled : 0;
