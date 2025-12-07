@@ -920,7 +920,16 @@ class Enemy extends Entity {
             Game.addCoins(coinGain);
         }
         if (this.type === 'BOSS' || this.type === 'ELF_BOSS') {
-            Game.victory();
+            // 第20波BOSS死亡時，生成出口而不是立即獲勝
+            const currentWave = (typeof WaveSystem !== 'undefined' && WaveSystem.currentWave) ? WaveSystem.currentWave : 0;
+            const bossWave = (typeof CONFIG !== 'undefined' && CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 20;
+            if (currentWave === bossWave) {
+                // 在地圖中心生成出口
+                Game.spawnExit();
+            } else {
+                // 非第20波（向後兼容），立即獲勝
+                Game.victory();
+            }
         }
         
         // 啟動後退+淡出動畫，延後刪除 0.3 秒
