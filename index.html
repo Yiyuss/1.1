@@ -30,29 +30,18 @@
                             <!-- 左視窗底圖（依紅框位置），半透明不影響操作 -->
                             <div class="content-illustration" aria-hidden="true"></div>
                             <div id="content-body" class="content"></div>
-                            <!-- 音量疊蓋視窗（移入左側視窗內） -->
-                            <div id="settings-overlay" class="modal hidden">
+                            <!-- 序號輸入疊蓋視窗（移入左側視窗內） -->
+                            <div id="redeem-code-overlay" class="modal hidden">
                                 <div class="modal-card">
-                                    <h2>音量設置</h2>
-                                    <div class="settings" id="settings">
-                                        <div class="volume-row">
-                                            <label for="music-volume">音樂</label>
-                                            <input type="range" id="music-volume" min="0" max="1" step="0.01" value="0.5">
-                                            <span id="music-volume-text">50%</span>
-                                        </div>
-                                        <div class="volume-row">
-                                            <label for="sound-volume">音效</label>
-                                            <input type="range" id="sound-volume" min="0" max="1" step="0.01" value="0.7">
-                                            <span id="sound-volume-text">70%</span>
-                                        </div>
-                                        <div class="volume-row">
-                                            <label for="mute-toggle">靜音</label>
-                                            <button id="mute-toggle" class="ghost">切換</button>
-                                            <span id="mute-status">關</span>
-                                        </div>
+                                    <h2>序號兌換</h2>
+                                    <div class="redeem-code-form">
+                                        <label for="redeem-code-input">輸入序號：</label>
+                                        <input type="text" id="redeem-code-input" placeholder="請輸入序號" maxlength="50">
+                                        <div id="redeem-code-message" class="redeem-code-message"></div>
                                     </div>
                                     <div class="modal-actions">
-                                        <button id="settings-close" class="ghost">關閉</button>
+                                        <button id="redeem-code-submit" class="ghost">兌換</button>
+                                        <button id="redeem-code-close" class="ghost">關閉</button>
                                     </div>
                                 </div>
                             </div>
@@ -113,7 +102,7 @@
                         <button class="menu-btn ghost" data-target="gameplay">遊戲玩法</button>
                         <button class="menu-btn ghost" data-target="announce">遊戲公告</button>
                         <button class="menu-btn ghost" data-target="regarding">Regarding</button>
-                        <button class="menu-btn ghost" data-target="settings">音量設置</button>
+                        <button class="menu-btn ghost" data-target="redeem-code">序號輸入</button>
                         <button id="backup-button" class="menu-btn ghost">手動備份</button>
                     </div>
 
@@ -1054,6 +1043,7 @@
         <script src="js/game.js"></script>
         <script src="js/integration.js"></script>
         <script src="js/save_code.js"></script>
+        <script src="js/redeem_code.js"></script>
         <!-- 核心服務與模式管理（不改動 SaveCode；僅新增骨架） -->
         <script src="js/core/services/save_service.js"></script>
         <script src="js/core/services/resource_loader.js"></script>
