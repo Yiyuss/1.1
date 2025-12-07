@@ -33,36 +33,8 @@ document.addEventListener('DOMContentLoaded', function() {
         show(DOMCache.get('character-select-screen')); // 使用輔助函數替換 classList.remove('hidden')
     });
 
-    // 音量設置
-    const musicSlider = document.getElementById('music-volume');
-    const soundSlider = document.getElementById('sound-volume');
-    const musicText = document.getElementById('music-volume-text');
-    const soundText = document.getElementById('sound-volume-text');
-    const muteToggle = document.getElementById('mute-toggle');
-    const muteStatus = document.getElementById('mute-status');
-
-    if (musicSlider && soundSlider) {
-        const updateLabels = () => {
-            musicText.textContent = Math.round(musicSlider.value * 100) + '%';
-            soundText.textContent = Math.round(soundSlider.value * 100) + '%';
-        };
-        updateLabels();
-        musicSlider.addEventListener('input', () => {
-            AudioManager.setMusicVolume && AudioManager.setMusicVolume(parseFloat(musicSlider.value));
-            updateLabels();
-        });
-        soundSlider.addEventListener('input', () => {
-            AudioManager.setSoundVolume && AudioManager.setSoundVolume(parseFloat(soundSlider.value));
-            updateLabels();
-        });
-    }
-
-    if (muteToggle) {
-        muteToggle.addEventListener('click', () => {
-            const muted = AudioManager.toggleMute ? AudioManager.toggleMute() : false;
-            muteStatus.textContent = muted ? '開' : '關';
-        });
-    }
+    // 音量設置已移除，改為序號輸入系統
+    // 音量控制現在由 AudioManager 直接管理，不再需要開始界面的音量設置選項
     
     // 影片結束事件改由 UI.showGameOverScreen / UI.showVictoryScreen 內管理，避免重複綁定與行為衝突
     
@@ -1704,10 +1676,22 @@ document.addEventListener('DOMContentLoaded', function() {
         items.forEach(btn => {
             const target = btn.getAttribute('data-target');
             btn.addEventListener('click', () => {
-                if (target === 'settings') {
+                if (target === 'redeem-code') {
                     playClick();
-                    const overlay = document.getElementById('settings-overlay');
-                    overlay && overlay.classList.remove('hidden');
+                    const overlay = document.getElementById('redeem-code-overlay');
+                    if (overlay) {
+                        overlay.classList.remove('hidden');
+                        // 清空輸入框和訊息
+                        const input = document.getElementById('redeem-code-input');
+                        const message = document.getElementById('redeem-code-message');
+                        if (input) input.value = '';
+                        if (message) {
+                            message.textContent = '';
+                            message.className = 'redeem-code-message';
+                        }
+                        // 聚焦到輸入框
+                        setTimeout(() => input && input.focus(), 100);
+                    }
                 } else {
                     playClick2();
                     render(target);
@@ -1715,25 +1699,91 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        // 關閉音量疊蓋
-        const closeBtn = document.getElementById('settings-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-                const overlay = document.getElementById('settings-overlay');
-                overlay && overlay.classList.add('hidden');
+        // 序號兌換系統事件處理
+        (function setupRedeemCodeSystem() {
+            const overlay = document.getElementById('redeem-code-overlay');
+            const input = document.getElementById('redeem-code-input');
+            const submitBtn = document.getElementById('redeem-code-submit');
+            const closeBtn = document.getElementById('redeem-code-close');
+            const messageEl = document.getElementById('redeem-code-message');
+            
+            if (!overlay || !input || !submitBtn || !closeBtn || !messageEl) {
+                console.warn('[main.js] 序號兌換系統元素未找到');
+                return;
+            }
+            
+            // 顯示訊息
+            function showMessage(text, isSuccess = false) {
+                messageEl.textContent = text;
+                messageEl.className = 'redeem-code-message ' + (isSuccess ? 'success' : 'error');
+            }
+            
+            // 提交序號
+            function submitCode() {
+                const code = input.value.trim();
+                if (!code) {
+                    showMessage('請輸入序號', false);
+                    return;
+                }
+                
+                // 檢查 RedeemCodeSystem 是否可用
+                if (typeof RedeemCodeSystem === 'undefined' || typeof RedeemCodeSystem.redeemCode !== 'function') {
+                    showMessage('序號系統未初始化', false);
+                    return;
+                }
+                
+                // 兌換序號
+                const result = RedeemCodeSystem.redeemCode(code);
+                
+                if (result.success) {
+                    showMessage(result.message, true);
+                    // 清空輸入框
+                    input.value = '';
+                    // 播放音效
+                    try {
+                        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                            AudioManager.playSound('money');
+                        }
+                    } catch (_) {}
+                    // 3秒後自動關閉（可選）
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                    }, 3000);
+                } else {
+                    showMessage(result.message, false);
+                }
+            }
+            
+            // 提交按鈕點擊
+            submitBtn.addEventListener('click', () => {
+                playClick();
+                submitCode();
             });
-        }
-        const overlay = document.getElementById('settings-overlay');
-        if (overlay) {
+            
+            // 輸入框按 Enter 鍵提交
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    submitCode();
+                }
+            });
+            
+            // 關閉按鈕
+            closeBtn.addEventListener('click', () => {
+                playClick();
+                overlay.classList.add('hidden');
+            });
+            
+            // 點擊背景關閉
             overlay.addEventListener('click', (e) => {
-                if (e.target && e.target.id === 'settings-overlay') {
+                if (e.target && e.target.id === 'redeem-code-overlay') {
                     overlay.classList.add('hidden');
                 }
             });
-        }
+        })();
     })();
 
-    // ESC 返回：備份/選圖/選難度（不更動既有返回按鈕）
+    // ESC 返回：備份/選圖/選難度/序號輸入（不更動既有返回按鈕）
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
         const isVisible = (el) => el && !el.classList.contains('hidden');
@@ -1742,6 +1792,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const achievementsScreen = document.getElementById('achievements-screen');
             const mapScreen = document.getElementById('map-select-screen');
             const diffScreen = document.getElementById('difficulty-select-screen');
+            const redeemCodeOverlay = document.getElementById('redeem-code-overlay');
+
+            // 優先關閉序號輸入界面
+            if (isVisible(redeemCodeOverlay)) {
+                redeemCodeOverlay.classList.add('hidden');
+                e.preventDefault();
+                return;
+            }
 
             if (isVisible(backupScreen)) {
                 const backBtn = document.getElementById('backup-back');
