@@ -27,6 +27,7 @@ const Game = {
     isPaused: false,
     isGameOver: false,
     boss: null,
+    exit: null, // 生存模式第20波BOSS死亡後生成的出口
     selectedCharacter: null,
     // 世界與鏡頭
     worldWidth: 0,
@@ -326,6 +327,29 @@ const Game = {
             }
         }
         
+        // 檢查玩家與出口的碰撞（第20波BOSS死亡後）
+        if (this.exit && this.player && !this.isGameOver) {
+            const exitCenterX = this.exit.x;
+            const exitCenterY = this.exit.y;
+            const exitHalfWidth = this.exit.width / 2;
+            const exitHalfHeight = this.exit.height / 2;
+            const playerRadius = this.player.collisionRadius || 16;
+            
+            // 使用矩形與圓形的碰撞檢測
+            const playerX = this.player.x;
+            const playerY = this.player.y;
+            
+            // 計算玩家中心到出口矩形的最短距離
+            const closestX = Math.max(exitCenterX - exitHalfWidth, Math.min(playerX, exitCenterX + exitHalfWidth));
+            const closestY = Math.max(exitCenterY - exitHalfHeight, Math.min(playerY, exitCenterY + exitHalfHeight));
+            const distance = Utils.distance(playerX, playerY, closestX, closestY);
+            
+            if (distance < playerRadius) {
+                // 玩家碰到出口，觸發勝利
+                this.victory();
+            }
+        }
+        
         // 優化：限制實體數量
         this.optimizeEntities();
     },
@@ -453,6 +477,20 @@ const Game = {
         // 繪製寶箱
         for (const chest of this.chests) {
             chest.draw(this.ctx);
+        }
+        
+        // 繪製出口（第20波BOSS死亡後）
+        if (this.exit) {
+            const exitImg = (this.images || Game.images || {})['exit'];
+            const drawX = this.exit.x - this.exit.width / 2;
+            const drawY = this.exit.y - this.exit.height / 2;
+            if (exitImg && exitImg.complete) {
+                this.ctx.drawImage(exitImg, drawX, drawY, this.exit.width, this.exit.height);
+            } else {
+                // 備用：繪製矩形
+                this.ctx.fillStyle = '#00ff00';
+                this.ctx.fillRect(drawX, drawY, this.exit.width, this.exit.height);
+            }
         }
         
         // 繪製投射物（除連鎖閃電/狂熱雷擊/斬擊與幼妲光輝/幼妲天使聖光，延後至敵人之上）
@@ -616,6 +654,20 @@ const Game = {
         this.chests.push(chest);
     },
     
+    // 生成出口（第20波BOSS死亡後）
+    spawnExit: function() {
+        // 在地圖中心生成出口
+        const exitX = (this.worldWidth || CONFIG.CANVAS_WIDTH) / 2;
+        const exitY = (this.worldHeight || CONFIG.CANVAS_HEIGHT) / 2;
+        this.exit = {
+            x: exitX,
+            y: exitY,
+            width: 300,
+            height: 242
+        };
+        console.log('出口已生成在地圖中心');
+    },
+    
     // 優化實體數量
     optimizeEntities: function() {
         // 如果敵人數量超過限制，移除最遠的敵人
@@ -713,6 +765,7 @@ const Game = {
         this.isPaused = false;
         this.isGameOver = false;
         this.boss = null;
+        this.exit = null;
         
         // 重置花園視頻計時器
         this.gardenVideoTimer = 0;
