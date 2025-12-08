@@ -114,8 +114,22 @@ const Game = {
     gameLoop: function(timestamp) {
         // 計算時間差
         const currentTime = Date.now();
-        const deltaTime = currentTime - this.lastUpdateTime;
-        this.lastUpdateTime = currentTime;
+        let deltaTime = currentTime - this.lastUpdateTime;
+        
+        // 如果遊戲暫停，不更新lastUpdateTime，避免恢復時deltaTime過大（修復ESC暫停BUG）
+        if (this.isPaused) {
+            // 暫停時不更新lastUpdateTime，保持暫停前的時間點
+            // 這樣恢復時deltaTime會很小，不會導致技能冷卻時間異常
+            deltaTime = 0; // 暫停時deltaTime設為0
+        } else {
+            // 限制deltaTime的最大值，避免暫停後恢復時時間跳躍過大（修復ESC暫停BUG）
+            // 最大允許100ms（約6幀），超過則視為異常時間跳躍，重置為正常值
+            const MAX_DELTA_TIME = 100;
+            if (deltaTime > MAX_DELTA_TIME) {
+                deltaTime = MAX_DELTA_TIME;
+            }
+            this.lastUpdateTime = currentTime;
+        }
         
         // 檢測CTRL+M快捷鍵觸發勝利條件
         const ctrlDown = Input.isKeyDown('Control');
@@ -719,7 +733,9 @@ const Game = {
     // 恢復遊戲
     resume: function() {
         this.isPaused = false;
-        this.lastUpdateTime = Date.now(); // 重置時間，避免大幅度時間跳躍
+        // 重置時間，避免大幅度時間跳躍（修復ESC暫停BUG）
+        // 這樣恢復時第一次更新的deltaTime會很小，不會導致技能冷卻時間異常
+        this.lastUpdateTime = Date.now();
         if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) {
             // 若升級選單仍打開則保持靜音
             const levelMenu = document.getElementById('level-up-menu');
