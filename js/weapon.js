@@ -6,6 +6,7 @@ class Weapon {
         this.config = CONFIG.WEAPONS[type];
         this.level = 1;
         this.lastFireTime = 0;
+        this.cooldownAccumulator = 0; // 使用累積時間而非絕對時間（修復ESC暫停BUG）
         this.projectileCount = this.config.LEVELS[0].COUNT;
     }
     
@@ -15,12 +16,18 @@ class Weapon {
             return;
         }
         
-        const currentTime = Date.now();
+        // 檢查遊戲是否暫停，如果暫停則不更新冷卻時間（修復ESC暫停取消BUG）
+        if (typeof Game !== 'undefined' && Game.isPaused) {
+            return;
+        }
+        
+        // 使用累積時間而非絕對時間，確保暫停時冷卻時間不會繼續計時
+        this.cooldownAccumulator += deltaTime;
         
         // 檢查是否可以發射
-        if (currentTime - this.lastFireTime >= this.config.COOLDOWN) {
+        if (this.cooldownAccumulator >= this.config.COOLDOWN) {
             this.fire();
-            this.lastFireTime = currentTime;
+            this.cooldownAccumulator = 0; // 重置累積時間
         }
     }
     
