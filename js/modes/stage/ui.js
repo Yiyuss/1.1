@@ -65,6 +65,8 @@
             avatarEl.src = (imgObj && imgObj.src) ? imgObj.src : `assets/images/${sc.hudImageKey}.png`;
           } else if (sc && (sc.id === 'dada' || sc.hudImageKey === 'player2-2')) {
             avatarEl.src = 'assets/images/player2-2.png';
+          } else if (sc && (sc.id === 'rokurost' || sc.hudImageKey === 'player4-2')) {
+            avatarEl.src = 'assets/images/player4-2.png';
           } else {
             const img = ctx && ctx.resources ? ctx.resources.getImage('stage_avatar') : null;
             avatarEl.src = img ? img.src : 'assets/images/player1-2.png';
