@@ -454,6 +454,7 @@ let mining = { active: false, x: 0, y: 0, progress: 0 };
 //   - 瑪格麗特：player.gif（320x320）
 //   - 灰妲 DaDa：player2.png（290x242）
 //   - 森森鈴蘭：player3.gif（320x320）
+//   - 洛可洛斯特：player4.png（500x627）
 // - 主體遊戲在啟動冒險模式時，會在 iframe URL 上附帶 ?char=<id> 參數，
 //   並在 js/modes/adventure/index.html 中設置 window.ADVENTURE_SELECTED_CHARACTER_ID。
 // - 冒險模式只使用此 ID 來選擇對應圖片，沒有讀寫主體存檔或 SaveCode。
@@ -470,6 +471,7 @@ function initPlayerSprite() {
         let key = 'player'; // 預設瑪格麗特
         if (id === 'dada') key = 'player2';
         else if (id === 'lilylinglan') key = 'player3';
+        else if (id === 'rokurost') key = 'player4';
 
         let parentImg = null;
         try {
@@ -482,6 +484,8 @@ function initPlayerSprite() {
         // 預設縮放：維持與原小人高度接近（約 40~50px），各角色可微調
         if (id === 'dada') {
             playerSpriteScale = 0.18; // player2.png 高 242，0.18 ≈ 43px
+        } else if (id === 'rokurost') {
+            playerSpriteScale = 0.08; // player4.png 高 627，0.08 ≈ 50px（與其他角色接近）
         } else {
             playerSpriteScale = 0.16; // player.gif / player3.gif 高 320，0.16 ≈ 51px
         }
@@ -505,6 +509,8 @@ function initPlayerSprite() {
             src = '../../../assets/images/player2.png';
         } else if (id === 'lilylinglan') {
             src = '../../../assets/images/player3.gif';
+        } else if (id === 'rokurost') {
+            src = '../../../assets/images/player4.png';
         }
         const img = new Image();
         img.onload = function(){
