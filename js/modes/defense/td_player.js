@@ -68,13 +68,15 @@ class TDPlayer {
         let src = 'assets/images/player.gif';
         try {
             const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
-            // 依選角角色決定圖片：灰妲DaDa使用player2.png，森森鈴蘭使用player3.gif，其餘角色維持player.gif
+            // 依選角角色決定圖片：灰妲DaDa使用player2.png，森森鈴蘭使用player3.gif，洛可洛斯特使用player4.png，其餘角色維持player.gif
             if (sc && sc.spriteImageKey) {
                 // 根据spriteImageKey判断是gif还是png
                 if (sc.spriteImageKey === 'player3') {
                     src = 'assets/images/player3.gif';
                 } else if (sc.spriteImageKey === 'player2') {
                     src = 'assets/images/player2.png';
+                } else if (sc.spriteImageKey === 'player4') {
+                    src = 'assets/images/player4.png';
                 } else {
                     src = `assets/images/${sc.spriteImageKey}.gif`;
                 }
@@ -82,6 +84,8 @@ class TDPlayer {
                 src = 'assets/images/player2.png';
             } else if (sc && sc.id === 'lilylinglan') {
                 src = 'assets/images/player3.gif';
+            } else if (sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4')) {
+                src = 'assets/images/player4.png';
             }
         } catch(_) {}
         this.sprite = {
@@ -457,13 +461,31 @@ class TDPlayer {
             }
             if (image) {
                 // 繪製玩家（非GIF）
-                ctx.drawImage(
-                    image,
-                    this.x - this.size / 2,
-                    this.y - this.size / 2,
-                    this.size,
-                    this.size
-                );
+                // 特殊處理：player4.png 需要保持 500:627 的寬高比，並放大顯示以與其他角色接近
+                if (this.sprite && this.sprite.src && /player4\.png$/i.test(this.sprite.src)) {
+                    const imgWidth = image.naturalWidth || image.width || 500;
+                    const imgHeight = image.naturalHeight || image.height || 627;
+                    const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+                    // 防禦模式中放大 1.3 倍以與其他角色接近
+                    const renderHeight = Math.max(1, Math.floor(this.size * 1.3));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    ctx.drawImage(
+                        image,
+                        this.x - renderWidth / 2,
+                        this.y - renderHeight / 2,
+                        renderWidth,
+                        renderHeight
+                    );
+                } else {
+                    // 其他角色使用正方形顯示（保持原有行為）
+                    ctx.drawImage(
+                        image,
+                        this.x - this.size / 2,
+                        this.y - this.size / 2,
+                        this.size,
+                        this.size
+                    );
+                }
             } else {
                 // 後備繪製（純色方塊）
                 ctx.fillStyle = this.isBuilding ? '#FFD700' : '#00FF00';
