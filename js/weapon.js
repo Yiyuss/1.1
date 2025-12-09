@@ -7,6 +7,7 @@ class Weapon {
         this.level = 1;
         this.lastFireTime = 0;
         this.cooldownAccumulator = 0; // 使用累積時間而非絕對時間（修復ESC暫停BUG）
+        this._updateFrame = 0; // 追蹤更新幀數，避免雙次更新導致冷卻時間累積兩次
         this.projectileCount = this.config.LEVELS[0].COUNT;
     }
     
@@ -21,10 +22,18 @@ class Weapon {
             return;
         }
         
-        // 使用累積時間而非絕對時間，確保暫停時冷卻時間不會繼續計時
-        this.cooldownAccumulator += deltaTime;
+        // 追蹤更新幀數：由於武器更新被調用兩次（保留歷史節奏），只在第一次更新時累積冷卻時間
+        // 這樣可以避免冷卻時間被累積兩次導致攻擊速度變成2倍
+        this._updateFrame++;
+        const isFirstUpdate = (this._updateFrame % 2 === 1);
         
-        // 檢查是否可以發射
+        // 只在第一次更新時累積冷卻時間
+        if (isFirstUpdate) {
+            // 使用累積時間而非絕對時間，確保暫停時冷卻時間不會繼續計時
+            this.cooldownAccumulator += deltaTime;
+        }
+        
+        // 檢查是否可以發射（兩次更新都檢查，但只在第一次累積時間）
         if (this.cooldownAccumulator >= this.config.COOLDOWN) {
             this.fire();
             this.cooldownAccumulator = 0; // 重置累積時間
