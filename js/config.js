@@ -584,6 +584,31 @@ const CONFIG = {
             exclusiveWeapons: [],
             // 解鎖價格（遊戲金幣）：100萬金幣
             unlockCost: 1000000
+        },
+        {
+            id: 'rokurost',
+            name: '洛可洛斯特',
+            // 第四位角色：初始爆擊率比第一位角色多10%，其他基礎數值與第一位角色完全相同
+            hpMultiplier: 1.0,
+            hpBonus: 0,
+            speedMultiplier: 1.0,
+            critChanceBonusPct: 0.10, // 初始爆擊率+10%
+            description: `角色介紹：氣質鍊金術師，許多人謠傳她的本體是個鬆餅，可變身成胖貓！\n專屬技能：暫無`,
+            // 選角預覽圖（下方角色介紹用）：使用 player4-3.png
+            avatarImageKey: 'player4-2',
+            // 所有模式的 HUD 左上角頭像：使用 player4-2.png
+            hudImageKey: 'player4-2',
+            // 所有模式進入時的玩家主體形象：使用 player4.png
+            spriteImageKey: 'player4',
+            // 生存模式升級介面左側底圖：使用 player4-2.png
+            levelUpBgKey: 'player4-2',
+            // 第四位角色可以使用大絕（Q）
+            canUseUltimate: true,
+            disabledWeapons: [],
+            // 專屬技能：暫無
+            exclusiveWeapons: [],
+            // 解鎖價格（遊戲金幣）：1萬金幣
+            unlockCost: 10000
         }
     ],
     
