@@ -831,6 +831,16 @@ const Game = {
             }
             // 生存模式玩家主體圖像鍵（若未指定則回退到 'player'）
             this.player.spriteImageKey = sc.spriteImageKey || 'player';
+            // 角色初始爆擊率加成（若角色配置中有設定）
+            if (typeof sc.critChanceBonusPct === 'number' && sc.critChanceBonusPct > 0) {
+                // 初始化玩家爆擊率屬性（如果尚未初始化）
+                if (this.player.critChanceBonusPct == null) {
+                    this.player.critChanceBonusPct = 0;
+                }
+                // 應用角色基礎爆擊率加成（此為角色固有屬性，不與天賦/升級疊加，而是作為基礎值）
+                // 注意：此值會在 BuffSystem.applyBuffs 中與天賦/升級加成相加
+                this.player._characterBaseCritBonusPct = sc.critChanceBonusPct;
+            }
         }
         
         // 套用選定難度（若有），供敵人與波次使用
