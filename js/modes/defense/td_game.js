@@ -786,7 +786,24 @@ class TDGame {
                 if (playerIsGif && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
                     const screenX = this.player.x - this.camera.x;
                     const screenY = this.player.y - this.camera.y;
-                    window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, this.player.size);
+                    // 特殊處理：player4.png 需要保持 500:627 的寬高比，並放大顯示以與其他角色接近
+                    const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+                    if (sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4')) {
+                        const imgObj = (Game.images && Game.images['player4']) ? Game.images['player4'] : null;
+                        if (imgObj && imgObj.complete) {
+                            const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
+                            const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
+                            const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+                            // 防禦模式中放大 1.3 倍以與其他角色接近
+                            const renderHeight = Math.max(1, Math.floor(this.player.size * 1.3));
+                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                            window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                        } else {
+                            window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, this.player.size);
+                        }
+                    } else {
+                        window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, this.player.size);
+                    }
                 }
             }
         } catch (_) {}
