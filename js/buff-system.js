@@ -163,7 +163,9 @@ const BuffSystem = {
         const critLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
             ? TalentSystem.getTalentLevel('crit_enhance') : 0;
         const critTalentPct = BuffSystem._getTierEffect('crit_enhance', critLv, 'chancePct', 0) || 0;
-        player.critChanceBonusPct = critTalentPct + player.critChanceUpgradeBonusPct;
+        // 角色基礎爆擊率加成（若角色配置中有設定，例如第四位角色洛可洛斯特+10%）
+        const charBaseCritBonus = (player._characterBaseCritBonusPct != null) ? player._characterBaseCritBonusPct : 0;
+        player.critChanceBonusPct = critTalentPct + player.critChanceUpgradeBonusPct + charBaseCritBonus;
 
         // 新增：生命與防禦升級疊加（與天賦相加，單純加法）
         try {
@@ -272,7 +274,9 @@ const BuffSystem = {
             // 先依當前局內等級重算升級加成，再合併
             this.applyAttributeUpgrades(player);
             const upgradeCritPct = player.critChanceUpgradeBonusPct || 0;
-            player.critChanceBonusPct = critTalentPct + upgradeCritPct;
+            // 角色基礎爆擊率加成（若角色配置中有設定，例如第四位角色洛可洛斯特+10%）
+            const charBaseCritBonus = (player._characterBaseCritBonusPct != null) ? player._characterBaseCritBonusPct : 0;
+            player.critChanceBonusPct = critTalentPct + upgradeCritPct + charBaseCritBonus;
             
             // 迴避強化天賦
             const dodgeLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
