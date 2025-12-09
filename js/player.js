@@ -177,7 +177,6 @@ class Player extends Entity {
         if (imgObj) {
             const baseSize = Math.max(this.width, this.height);
             const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
-            const renderSize = Math.max(1, Math.floor(baseSize * visualScale));
             const camX = (typeof Game !== 'undefined' && Game && Game.camera) ? Game.camera.x : 0;
             const camY = (typeof Game !== 'undefined' && Game && Game.camera) ? Game.camera.y : 0;
             const shakeX = (typeof Game !== 'undefined' && Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetX || 0) : 0;
@@ -185,7 +184,20 @@ class Player extends Entity {
             const screenX = this.x - camX - shakeX;
             const screenY = this.y - camY - shakeY;
             if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
-                window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, renderSize);
+                // 特殊處理：player4.png 需要保持 500:627 的寬高比
+                if (imgKey === 'player4' && imgObj.complete) {
+                    const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
+                    const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
+                    const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+                    // 以高度為基準計算顯示尺寸（保持與其他角色相近的高度）
+                    const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                } else {
+                    // 其他角色使用正方形顯示（保持原有行為）
+                    const renderSize = Math.max(1, Math.floor(baseSize * visualScale));
+                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, renderSize);
+                }
                 // 第二位角色大絕期間：將玩家GIF置於守護領域之上（z-index 5 > 4）
                 if (this.isUltimateActive && this._ultimateImageKey === 'playerN2') {
                     try {
