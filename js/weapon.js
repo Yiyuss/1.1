@@ -6,7 +6,8 @@ class Weapon {
         this.config = CONFIG.WEAPONS[type];
         this.level = 1;
         this.lastFireTime = 0;
-        this.cooldownAccumulator = 0; // 使用累積時間而非絕對時間（修復ESC暫停BUG）
+        // 初始化為COOLDOWN值，確保新武器可以立即發射（升級時初次選新技能後立即生效）
+        this.cooldownAccumulator = this.config.COOLDOWN || 0;
         this._updateFrame = 0; // 追蹤更新幀數，避免雙次更新導致冷卻時間累積兩次
         this.projectileCount = this.config.LEVELS[0].COUNT;
     }
