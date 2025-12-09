@@ -82,7 +82,7 @@ function safePlayStage(ctx) {
       let paused = false;
       const keys = { up:false, down:false, left:false, right:false };
 
-      // 玩家圖片覆蓋：依選角角色決定外觀（預設使用 player.gif，灰妲為 player2.png）
+      // 玩家圖片覆蓋：依選角角色決定外觀（預設使用 player.gif，灰妲為 player2.png，洛可洛斯特為 player4.png）
       let actorSrc;
       try {
         const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
@@ -93,6 +93,8 @@ function safePlayStage(ctx) {
           key = 'player2';
         } else if (sc && sc.id === 'lilylinglan') {
           key = 'player3';
+        } else if (sc && sc.id === 'rokurost') {
+          key = 'player4';
         }
         const imgObj = (Game.images && Game.images[key]) ? Game.images[key] : null;
         if (imgObj && imgObj.src) {
@@ -174,7 +176,28 @@ function safePlayStage(ctx) {
         const bg = ctx.resources.getImage('stage_bg4');
         if (bg) { ctx2d.drawImage(bg, 0, 0, canvas.width, canvas.height); }
         else { ctx2d.fillStyle = '#000'; ctx2d.fillRect(0,0,canvas.width,canvas.height); }
-        try { if (typeof window.GifOverlay !== 'undefined') { window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize); } } catch(_){}
+        // 特殊處理：player4.png 需要保持 500:627 的寬高比
+        try {
+          if (typeof window.GifOverlay !== 'undefined') {
+            const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+            if (sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4')) {
+              // player4.png 保持寬高比
+              const imgObj = (Game.images && Game.images['player4']) ? Game.images['player4'] : null;
+              if (imgObj && imgObj.complete) {
+                const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
+                const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
+                const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+                const renderHeight = actorSize;
+                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+              } else {
+                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
+              }
+            } else {
+              window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
+            }
+          }
+        } catch(_){}
       }
 
       let _prevTs = performance.now();
