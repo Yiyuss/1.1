@@ -113,6 +113,8 @@
         imgKey = sc.spriteImageKey;
       } else if (sc && sc.id === 'dada') {
         imgKey = 'player2';
+      } else if (sc && sc.id === 'rokurost') {
+        imgKey = 'player4';
       }
       const imgObj = (typeof Game !== 'undefined' && Game.images) ? Game.images[imgKey] : null;
       const player = {
@@ -586,9 +588,31 @@
           const size = Math.max(1, Math.floor(baseSize * scale));
           if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
             const src = (player.img && player.img.src) ? player.img.src : null;
-            window.GifOverlay.showOrUpdate('main-player', src, player.x - camera.x, player.y - camera.y, size);
+            // 特殊處理：player4.png 需要保持 500:627 的寬高比
+            const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+            if (sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4') && player.img) {
+              const imgWidth = player.img.naturalWidth || player.img.width || 500;
+              const imgHeight = player.img.naturalHeight || player.img.height || 627;
+              const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+              const renderHeight = size;
+              const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+              window.GifOverlay.showOrUpdate('main-player', src, player.x - camera.x, player.y - camera.y, { width: renderWidth, height: renderHeight });
+            } else {
+              window.GifOverlay.showOrUpdate('main-player', src, player.x - camera.x, player.y - camera.y, size);
+            }
           } else {
-            ctx2d.drawImage(player.img, player.x - size/2 - camera.x, player.y - size/2 - camera.y, size, size);
+            // Canvas 繪製：特殊處理 player4.png 的寬高比
+            const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+            if (sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4') && player.img) {
+              const imgWidth = player.img.naturalWidth || player.img.width || 500;
+              const imgHeight = player.img.naturalHeight || player.img.height || 627;
+              const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+              const renderHeight = size;
+              const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+              ctx2d.drawImage(player.img, player.x - renderWidth/2 - camera.x, player.y - renderHeight/2 - camera.y, renderWidth, renderHeight);
+            } else {
+              ctx2d.drawImage(player.img, player.x - size/2 - camera.x, player.y - size/2 - camera.y, size, size);
+            }
           }
         } else {
           ctx2d.fillStyle = '#4fc3f7';
