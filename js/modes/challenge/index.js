@@ -250,7 +250,7 @@ function safePlayShura(ctx) {
       let sfxShootAcc = 0;
       const sfxShootRateMs = 180;
 
-      // 玩家圖片覆蓋：依選角角色決定圖像（預設瑪格麗特為 player.gif，灰妲為 player2.png，森森鈴蘭為 player3.gif）
+      // 玩家圖片覆蓋：依選角角色決定圖像（預設瑪格麗特為 player.gif，灰妲為 player2.png，森森鈴蘭為 player3.gif，洛可洛斯特為 player4.png）
       let actorSrc;
       try {
         const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
@@ -261,6 +261,8 @@ function safePlayShura(ctx) {
           key = 'player2';
         } else if (sc && sc.id === 'lilylinglan') {
           key = 'player3';
+        } else if (sc && sc.id === 'rokurost') {
+          key = 'player4';
         }
         const imgObj = (Game.images && Game.images[key]) ? Game.images[key] : null;
         if (imgObj && imgObj.src) {
@@ -553,7 +555,28 @@ function safePlayShura(ctx) {
           try { window.CHALLENGE_PLAYER_ON_TOP = onTop; } catch(_){}
         } catch(_){}
         // 使用 GifOverlay 將玩家 GIF 疊於畫面（依 --ui-scale 自動縮放對位）
-        try { if (typeof window.ChallengeGifOverlay !== 'undefined') { window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, actorSize); } } catch(_){}
+        // 特殊處理：player4.png 需要保持 500:627 的寬高比
+        try {
+          if (typeof window.ChallengeGifOverlay !== 'undefined') {
+            const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+            if (sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4')) {
+              // player4.png 保持寬高比
+              const imgObj = (Game.images && Game.images['player4']) ? Game.images['player4'] : null;
+              if (imgObj && imgObj.complete) {
+                const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
+                const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
+                const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+                const renderHeight = actorSize;
+                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+              } else {
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, actorSize);
+              }
+            } else {
+              window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, actorSize);
+            }
+          }
+        } catch(_){}
         // 上層：敵人彈幕（完全不透明，中心白＋漸層＋深色外框）
         try { if (window.ChallengeBulletSystem && enemyBulletCtx) window.ChallengeBulletSystem.drawEnemy(enemyBulletCtx); } catch(_){}
       }
