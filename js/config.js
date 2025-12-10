@@ -292,19 +292,19 @@ const CONFIG = {
             COOLDOWN: 0, // 無冷卻（被動觸發）
             LIFESTEAL_BASE_PCT: 0.001, // LV1 吸血 0.1%
             LIFESTEAL_PER_LEVEL: 0.001, // 每級+0.1%
-            LIFESTEAL_COOLDOWN_MS: 100, // 吸血冷卻0.1秒
+            LIFESTEAL_COOLDOWN_MS: 200, // 吸血冷卻0.2秒
             MIN_HEAL: 1, // 最低回復1HP
             LEVELS: [
-                { COUNT: 1, DESCRIPTION: "傷害吸血0.1%，冷卻0.1秒，最低回復1HP" },
-                { COUNT: 1, DESCRIPTION: "傷害吸血0.2%，冷卻0.1秒，最低回復1HP" },
-                { COUNT: 1, DESCRIPTION: "傷害吸血0.3%，冷卻0.1秒，最低回復1HP" },
-                { COUNT: 1, DESCRIPTION: "傷害吸血0.4%，冷卻0.1秒，最低回復1HP" },
-                { COUNT: 1, DESCRIPTION: "傷害吸血0.5%，冷卻0.1秒，最低回復1HP" },
-                { COUNT: 1, DESCRIPTION: "傷害吸血0.6%，冷卻0.1秒，最低回復1HP" },
-                { COUNT: 1, DESCRIPTION: "傷害吸血0.7%，冷卻0.1秒，最低回復1HP" },
-                { COUNT: 1, DESCRIPTION: "傷害吸血0.8%，冷卻0.1秒，最低回復1HP" },
-                { COUNT: 1, DESCRIPTION: "傷害吸血0.9%，冷卻0.1秒，最低回復1HP" },
-                { COUNT: 1, DESCRIPTION: "傷害吸血1.0%，冷卻0.1秒，最低回復1HP" }
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.1%，冷卻0.2秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.2%，冷卻0.2秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.3%，冷卻0.2秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.4%，冷卻0.2秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.5%，冷卻0.2秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.6%，冷卻0.2秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.7%，冷卻0.2秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.8%，冷卻0.2秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.9%，冷卻0.2秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血1.0%，冷卻0.2秒，最低回復1HP" }
             ]
         },
         LASER: {
@@ -591,6 +591,12 @@ const CONFIG = {
                 EXTRA_DEFENSE: 10, // 大絕期間額外防禦+10
                 AUDIO_KEY: 'playerN2', // 大絕期間播放 playerN2.mp3
                 PLAYER_SIZE_MULTIPLIER: 3.5 // 大絕期間體型放大倍率（比預設2.5更大）
+            },
+            'rokurost': {
+                IMAGE_KEY: 'playerN3', // 使用 playerN3.png 變身圖片（267x300）
+                ULTIMATE_WEAPONS: ['MUFFIN_THROW', 'ROTATING_MUFFIN', 'UNCONTROLLABLE_BEAST'], // LV10的鬆餅投擲、旋轉鬆餅、不獸控制
+                EXTRA_HP: 600, // 大絕期間HP暫時+600
+                PLAYER_SIZE_MULTIPLIER: 2.5 // 使用預設體型放大倍率
             }
             // 'lilylinglan': 第三位角色大招暫未製作
         },
