@@ -30,7 +30,7 @@ const Achievements = (function(){
     },
     COIN_200K: {
       id: 'COIN_200K',
-      name: '引力波解鎖',
+      name: '財富小康',
       desc: '持有金幣達到 200000。',
       icon: 'assets/images/A27.png',
       reward: '解鎖「引力波」技能。'
@@ -49,6 +49,13 @@ const Achievements = (function(){
       icon: 'assets/images/A26.png',
       reward: '解鎖「幼妲天使」技能。'
     },
+    ROKUROST_CITY_CLEAR: {
+      id: 'ROKUROST_CITY_CLEAR',
+      name: '洛可的勝利',
+      desc: '使用洛可洛斯特角色通關廁所。',
+      icon: 'assets/images/A30.png',
+      reward: '解鎖「死線超人」技能。'
+    },
     DEFENSE_LV1_CLEAR: {
       id: 'DEFENSE_LV1_CLEAR',
       name: '煉金坊守護者',
@@ -65,7 +72,8 @@ const Achievements = (function(){
     FRENZY_SLASH: ['COIN_100K'],
     FRENZY_ICE_BALL: ['CHALLENGE_GALAXY_CLEAR'],
     FRENZY_YOUNG_DADA_GLORY: ['CHALLENGE_NEBULA_CLEAR'],
-    GRAVITY_WAVE: ['COIN_200K']
+    GRAVITY_WAVE: ['COIN_200K'],
+    DEATHLINE_SUPERMAN: ['ROKUROST_CITY_CLEAR']
     // 未來：在此加入新融合技能的成就解鎖需求，例如：
     // OTHER_FUSION_SKILL: ['SOME_ACHIEVEMENT', 'ANOTHER_ACHIEVEMENT']
   };
