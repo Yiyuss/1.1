@@ -152,7 +152,7 @@ class Projectile extends Entity {
                 // - 使用 Game.explosionParticles 現有更新/繪製管線，不新增新型別。
                 // - 僅添加視覺粒子與播放 bo.mp3，不更動任何傷害/冷卻/數量等數值。
                 // - 若 AudioManager 不存在，靜默跳過；若 explosionParticles 未初始化，按既有格式建立。
-                if (this.weaponType === 'LIGHTNING') {
+                if (this.weaponType === 'LIGHTNING' || this.weaponType === 'MUFFIN_THROW') {
                     try {
                         const particleCount = 18; // 更顯眼，性能仍安全
                         for (let i = 0; i < particleCount; i++) {
@@ -166,10 +166,10 @@ class Projectile extends Entity {
                                 life: 520 + Math.random() * 280,
                                 maxLife: 520 + Math.random() * 280,
                                 size: 5 + Math.random() * 3,
-                                color: '#ffffff' // 維護：追蹤綿羊命中爆炸粒子改為白色（純視覺，不影響數值與機制）
+                                color: '#ffffff' // 維護：追蹤綿羊/鬆餅投擲命中爆炸粒子改為白色（純視覺，不影響數值與機制）
                             };
                             // 用於繪製階段提高不透明度與尺寸
-                            p.source = 'LIGHTNING';
+                            p.source = this.weaponType === 'LIGHTNING' ? 'LIGHTNING' : 'MUFFIN_THROW';
                             if (!Game.explosionParticles) Game.explosionParticles = [];
                             Game.explosionParticles.push(p);
                         }
@@ -199,6 +199,9 @@ class Projectile extends Entity {
             case 'LIGHTNING':
                 imageName = 'lightning';
                 break;
+            case 'MUFFIN_THROW':
+                imageName = 'muffin2';
+                break;
         }
         
         if (imageName && Game.images && Game.images[imageName]) {
@@ -209,17 +212,19 @@ class Projectile extends Entity {
             let color = '#fff';
             if (this.weaponType === 'FIREBALL') color = '#f50';
             if (this.weaponType === 'LIGHTNING') color = '#0ff';
+            if (this.weaponType === 'MUFFIN_THROW') color = '#0ff'; // 與追蹤綿羊相同的備用顏色
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
             ctx.fill();
         }
         
-        // 繪製尾跡效果（避免蓋在圖片上：LIGHTNING/紳士綿羊(FIREBALL)/應援棒(DAGGER)不畫尾跡）
+        // 繪製尾跡效果（避免蓋在圖片上：LIGHTNING/紳士綿羊(FIREBALL)/應援棒(DAGGER)/鬆餅投擲(MUFFIN_THROW)不畫尾跡）
         const shouldDrawTail = !(
             this.weaponType === 'LIGHTNING' ||
             this.weaponType === 'FIREBALL' ||
-            this.weaponType === 'DAGGER'
+            this.weaponType === 'DAGGER' ||
+            this.weaponType === 'MUFFIN_THROW'
         );
         if (shouldDrawTail) {
             ctx.globalAlpha = 0.5;
