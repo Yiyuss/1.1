@@ -286,6 +286,27 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" }
             ]
         },
+        UNCONTROLLABLE_BEAST: {
+            NAME: "不獸控制",
+            DAMAGE: 0, // 被動技能，不造成直接傷害
+            COOLDOWN: 0, // 無冷卻（被動觸發）
+            LIFESTEAL_BASE_PCT: 0.001, // LV1 吸血 0.1%
+            LIFESTEAL_PER_LEVEL: 0.001, // 每級+0.1%
+            LIFESTEAL_COOLDOWN_MS: 100, // 吸血冷卻0.1秒
+            MIN_HEAL: 1, // 最低回復1HP
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.1%，冷卻0.1秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.2%，冷卻0.1秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.3%，冷卻0.1秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.4%，冷卻0.1秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.5%，冷卻0.1秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.6%，冷卻0.1秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.7%，冷卻0.1秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.8%，冷卻0.1秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血0.9%，冷卻0.1秒，最低回復1HP" },
+                { COUNT: 1, DESCRIPTION: "傷害吸血1.0%，冷卻0.1秒，最低回復1HP" }
+            ]
+        },
         LASER: {
             NAME: "雷射",
             DAMAGE: 10,
@@ -659,7 +680,7 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             critChanceBonusPct: 0.10, // 初始爆擊率+10%
-            description: `角色介紹：氣質鍊金術師，許多人謠傳她的本體是個鬆餅，可變身成胖貓！\n專屬技能：旋轉鬆餅、鬆餅投擲、死線戰士`,
+            description: `角色介紹：氣質鍊金術師，許多人謠傳她的本體是個鬆餅，可變身成胖貓！\n專屬技能：旋轉鬆餅、鬆餅投擲、死線戰士、不獸控制`,
             // 選角預覽圖（下方角色介紹用）：使用 player4-3.png
             avatarImageKey: 'player4-2',
             // 所有模式的 HUD 左上角頭像：使用 player4-2.png
@@ -671,8 +692,8 @@ const CONFIG = {
             // 第四位角色可以使用大絕（Q）
             canUseUltimate: true,
             disabledWeapons: [],
-            // 專屬技能：旋轉鬆餅、鬆餅投擲、死線戰士
-            exclusiveWeapons: ['ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR'],
+            // 專屬技能：旋轉鬆餅、鬆餅投擲、死線戰士、不獸控制
+            exclusiveWeapons: ['ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
         }
