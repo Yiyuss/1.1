@@ -266,8 +266,8 @@ const CONFIG = {
         },
         DEATHLINE_WARRIOR: {
             NAME: "死線戰士",
-            DAMAGE: 15, // LV1基礎傷害為15
-            DAMAGE_PER_LEVEL: 5, // 每級+5
+            DAMAGE: 5, // LV1基礎傷害為5
+            DAMAGE_PER_LEVEL: 10, // 每級+10
             COOLDOWN: 3000, // 3秒冷卻
             DETECT_RADIUS: 600, // 偵測範圍600
             TOTAL_HITS: 3, // 總共3次傷害
@@ -275,15 +275,15 @@ const CONFIG = {
             MIN_TELEPORT_DISTANCE: 300, // 優先選擇300以上距離的敵人
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人" },
-                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
-                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
-                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
-                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
-                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
-                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
-                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
-                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
-                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" }
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升10）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升10）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升10）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升10）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升10）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升10）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升10）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升10）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升10）" }
             ]
         },
         UNCONTROLLABLE_BEAST: {
@@ -305,6 +305,30 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "傷害吸血0.8%，冷卻0.2秒，最低回復1HP" },
                 { COUNT: 1, DESCRIPTION: "傷害吸血0.9%，冷卻0.2秒，最低回復1HP" },
                 { COUNT: 1, DESCRIPTION: "傷害吸血1.0%，冷卻0.2秒，最低回復1HP" }
+            ]
+        },
+        DEATHLINE_SUPERMAN: {
+            NAME: "死線超人",
+            DAMAGE: 40, // LV1基礎傷害為40
+            DAMAGE_PER_LEVEL: 10, // 每級+10
+            COOLDOWN: 3000, // 3秒冷卻
+            DETECT_RADIUS: 600, // 偵測範圍600
+            TOTAL_HITS: 6, // 總共6次傷害（死線戰士是3次）
+            TOTAL_DURATION_MS: 1200, // 1.2秒內完成
+            MIN_TELEPORT_DISTANCE: 300, // 優先選擇300以上距離的敵人
+            AOE_RADIUS: 200, // 範圍傷害半徑200
+            DISPLAY_SCALE: 1.0, // 特效大小100%（死線戰士是50%）
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊6次敵人，範圍傷害" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊6次敵人，範圍傷害，傷害提升10" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊6次敵人，範圍傷害，傷害提升10" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊6次敵人，範圍傷害，傷害提升10" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊6次敵人，範圍傷害，傷害提升10" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊6次敵人，範圍傷害，傷害提升10" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊6次敵人，範圍傷害，傷害提升10" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊6次敵人，範圍傷害，傷害提升10" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊6次敵人，範圍傷害，傷害提升10" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊6次敵人，範圍傷害，傷害提升10" }
             ]
         },
         LASER: {
