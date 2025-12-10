@@ -209,6 +209,7 @@ function createDefaultImages() {
         { name: 'A28', src: 'assets/images/A28.png' }, // 鬆餅投擲技能圖片
         { name: 'A29', src: 'assets/images/A29.png' }, // 死線戰士技能圖片
         { name: 'A32', src: 'assets/images/A32.png' }, // 不獸控制技能圖片
+        { name: 'A30', src: 'assets/images/A30.png' }, // 死線超人技能圖片/成就圖片
         { name: 'muffin', src: 'assets/images/muffin.png' }, // 旋轉鬆餅視覺效果圖片
         { name: 'muffin2', src: 'assets/images/muffin2.png' }, // 鬆餅投擲視覺效果圖片
         { name: 'die', src: 'assets/images/die.png' }, // 死線戰士傷害特效雪碧圖
@@ -526,6 +527,7 @@ const iconMap = {
     MUFFIN_THROW: 'assets/images/A28.png',
     DEATHLINE_WARRIOR: 'assets/images/A29.png',
     UNCONTROLLABLE_BEAST: 'assets/images/A32.png',
+    DEATHLINE_SUPERMAN: 'assets/images/A30.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
