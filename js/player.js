@@ -185,10 +185,19 @@ class Player extends Entity {
             const screenY = this.y - camY - shakeY;
             if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
                 // 特殊處理：player4.png 需要保持 500:627 的寬高比
+                // 特殊處理：playerN3.png 需要保持 267:300 的寬高比
                 if (imgKey === 'player4' && imgObj.complete) {
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
                     const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
                     const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+                    // 以高度為基準計算顯示尺寸（保持與其他角色相近的高度）
+                    const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                } else if (imgKey === 'playerN3' && imgObj.complete) {
+                    const imgWidth = imgObj.naturalWidth || imgObj.width || 267;
+                    const imgHeight = imgObj.naturalHeight || imgObj.height || 300;
+                    const aspectRatio = imgWidth / imgHeight; // 267/300 = 0.89
                     // 以高度為基準計算顯示尺寸（保持與其他角色相近的高度）
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
@@ -447,7 +456,9 @@ class Player extends Entity {
             width: this.width,
             height: this.height,
             collisionRadius: this.collisionRadius,
-            weapons: this.weapons.map(w => ({ type: w.type, level: w.level }))
+            weapons: this.weapons.map(w => ({ type: w.type, level: w.level })),
+            health: this.health, // 保存變身前的血量
+            maxHealth: this.maxHealth // 保存變身前的最大血量
         };
         
         // 取得角色特定的大招配置（若存在）
@@ -478,12 +489,24 @@ class Player extends Entity {
         const sizeMultiplier = (charUltimate && typeof charUltimate.PLAYER_SIZE_MULTIPLIER === 'number')
             ? charUltimate.PLAYER_SIZE_MULTIPLIER
             : CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER;
+        const extraHp = (charUltimate && typeof charUltimate.EXTRA_HP === 'number')
+            ? charUltimate.EXTRA_HP
+            : 0;
         
         // 變身狀態
         this.isUltimateActive = true;
         this.ultimateEndTime = Date.now() + CONFIG.ULTIMATE.DURATION_MS;
         this._ultimateImageKey = ultimateImageKey; // 儲存角色特定圖片鍵
         this._ultimateExtraDefense = extraDefense; // 儲存額外防禦
+        
+        // 洛可洛斯特：大絕期間HP暫時+600
+        if (extraHp > 0) {
+            this.maxHealth += extraHp;
+            this.health += extraHp;
+            if (typeof UI !== 'undefined' && UI.updateHealthBar) {
+                UI.updateHealthBar(this.health, this.maxHealth);
+            }
+        }
         
         // 體型變大（使用角色特定倍率或預設倍率）
         this.width = Math.floor(this.width * sizeMultiplier);
@@ -630,6 +653,22 @@ class Player extends Entity {
             w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
             return w;
         });
+        
+        // 洛可洛斯特：恢復變身前的血量（只要不死亡）
+        if (this._ultimateBackup.health !== undefined && this._ultimateBackup.maxHealth !== undefined) {
+            // 檢查是否死亡
+            if (this.health > 0) {
+                // 未死亡：恢復變身前的血量
+                this.maxHealth = this._ultimateBackup.maxHealth;
+                this.health = Math.min(this.maxHealth, this._ultimateBackup.health);
+            } else {
+                // 已死亡：恢復最大血量，但血量保持為0（由die()處理）
+                this.maxHealth = this._ultimateBackup.maxHealth;
+            }
+            if (typeof UI !== 'undefined' && UI.updateHealthBar) {
+                UI.updateHealthBar(this.health, this.maxHealth);
+            }
+        }
 
         // 大招結束後：移除玩家名下的所有「守護領域」常駐場域
         // 理由：守護領域為常駐效果，避免大招期間的臨時LV10場域在結束後殘留。
