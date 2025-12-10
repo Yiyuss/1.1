@@ -8,10 +8,16 @@ class OrbitBall extends Entity {
         this.damage = damage;
         
         // 根據武器類型決定傷害模式
-        this.weaponType = (imageKey === 'chicken') ? 'CHICKEN_BLESSING' : 'ORBIT';
+        if (imageKey === 'chicken') {
+            this.weaponType = 'CHICKEN_BLESSING';
+        } else if (imageKey === 'muffin') {
+            this.weaponType = 'ROTATING_MUFFIN';
+        } else {
+            this.weaponType = 'ORBIT';
+        }
         
-        // 雞腿庇佑和綿羊護體：改為單次碰撞傷害（移除持續傷害，避免BOSS被秒殺）
-        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT') {
+        // 雞腿庇佑、綿羊護體和旋轉鬆餅：改為單次碰撞傷害（移除持續傷害，避免BOSS被秒殺）
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'ROTATING_MUFFIN') {
             // 單次碰撞傷害模式：每個敵人只造成一次傷害，然後有冷卻時間
             this.collisionCooldown = new Map(); // 記錄每個敵人的最後碰撞時間
             this.collisionCooldownMs = 500; // 每個敵人500ms內只能受到一次傷害
@@ -45,8 +51,8 @@ class OrbitBall extends Entity {
         if (this.trail.length > this.trailMax) this.trail.shift();
 
         // 根據武器類型選擇傷害模式
-        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT') {
-            // 雞腿庇佑和綿羊護體：單次碰撞傷害模式（避免持續傷害導致BOSS被秒殺）
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'ROTATING_MUFFIN') {
+            // 雞腿庇佑、綿羊護體和旋轉鬆餅：單次碰撞傷害模式（避免持續傷害導致BOSS被秒殺）
             const currentTime = Date.now();
             for (const enemy of Game.enemies) {
                 if (this.isColliding(enemy)) {
@@ -121,7 +127,7 @@ class OrbitBall extends Entity {
                 const alpha = 0.08 + (i / this.trail.length) * 0.18;
                 ctx.globalAlpha = alpha;
                 const trailImg = (Game.images && Game.images[this.imageKey]) ? Game.images[this.imageKey] : null;
-                if (trailImg) {
+                if (trailImg && trailImg.complete && (trailImg.naturalWidth > 0 || trailImg.width > 0)) {
                     ctx.drawImage(trailImg, t.x - size / 2, t.y - size / 2, size * (0.9 - i * 0.02), size * (0.9 - i * 0.02));
                 } else {
                     ctx.fillStyle = '#fff59d';
@@ -134,10 +140,16 @@ class OrbitBall extends Entity {
         }
 
         const img = (Game.images && Game.images[this.imageKey]) ? Game.images[this.imageKey] : null;
-        if (img) {
+        if (img && img.complete && (img.naturalWidth > 0 || img.width > 0)) {
             ctx.drawImage(img, this.x - size / 2, this.y - size / 2, size, size);
         } else {
-            // 備用：使用黃色球體
+            // 備用：使用黃色球體（如果圖片未加載完成）
+            // 調試：如果 muffin 圖片未加載，輸出調試信息
+            if (this.imageKey === 'muffin' && !img) {
+                console.warn('[OrbitBall] muffin 圖片未找到於 Game.images，imageKey:', this.imageKey, 'Game.images keys:', Object.keys(Game.images || {}));
+            } else if (this.imageKey === 'muffin' && img && !img.complete) {
+                console.warn('[OrbitBall] muffin 圖片尚未加載完成');
+            }
             ctx.fillStyle = '#ff0';
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
