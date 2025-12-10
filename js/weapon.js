@@ -171,6 +171,33 @@ class Weapon {
             return;
         }
 
+        // 特殊技能：旋轉鬆餅（與綿羊護體邏輯相同，但使用不同圖片）
+        if (this.type === 'ROTATING_MUFFIN') {
+            const count = this.projectileCount;
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2;
+                const baseRadius = this.config.ORBIT_RADIUS;
+                const perLevel = this.config.ORBIT_RADIUS_PER_LEVEL || 0;
+                const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+                const baseSize = this.config.PROJECTILE_SIZE;
+                const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
+                const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
+                const orb = new OrbitBall(
+                    this.player,
+                    angle,
+                    dynamicRadius,
+                    this._computeFinalDamage(levelMul),
+                    dynamicSize,
+                    this.config.DURATION,
+                    this.config.ANGULAR_SPEED,
+                    'muffin' // 使用 muffin.png 作為外觀
+                );
+                Game.addProjectile(orb);
+            }
+            // 旋轉鬆餅技能不需要追蹤敵人角度，直接返回
+            return;
+        }
+
         // 特殊技能：守護領域（常駐場域）
         if (this.type === 'AURA_FIELD') {
             const baseRadius = this.config.FIELD_RADIUS || 60;
@@ -555,6 +582,62 @@ class Weapon {
             return;
         }
 
+        // 鬆餅投擲（與追蹤綿羊邏輯相同，但使用不同圖片）
+        if (this.type === 'MUFFIN_THROW') {
+            const count = this.projectileCount;
+            const baseSize = this.config.PROJECTILE_SIZE;
+            const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
+            const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
+
+            // 取距離玩家最近的前 count 名敵人作為目標
+            const sorted = [...(Game.enemies || [])].sort((a, b) => {
+                const da = Utils.distance(this.player.x, this.player.y, a.x, a.y);
+                const db = Utils.distance(this.player.x, this.player.y, b.x, b.y);
+                return da - db;
+            });
+            const targets = sorted.slice(0, count);
+
+            for (let i = 0; i < count; i++) {
+                const target = targets[i] || null;
+                let angle;
+                if (target) {
+                    const baseAngle = Utils.angle(this.player.x, this.player.y, target.x, target.y);
+                    // 為每個鬆餅加入微小抖動，避免軌跡完全重疊
+                    const jitter = (Math.random() - 0.5) * 0.20; // ±0.1rad
+                    angle = baseAngle + jitter;
+                } else {
+                    // 沒有足夠目標時，平均分布在360度
+                    angle = (i / Math.max(1, count)) * Math.PI * 2;
+                }
+
+                // 起始位置稍作偏移，避免完全疊在玩家身上
+                const spawnOffset = 12;
+                const sx = this.player.x + Math.cos(angle) * spawnOffset;
+                const sy = this.player.y + Math.sin(angle) * spawnOffset;
+                const projectile = new Projectile(
+                    sx,
+                    sy,
+                    angle,
+                    this.type,
+                    this._computeFinalDamage(levelMul),
+                    this.config.PROJECTILE_SPEED,
+                    dynamicSize
+                );
+                projectile.homing = true;
+                projectile.turnRatePerSec = this.level >= 10 ? 6.0 : 3.5; // rad/s
+                if (target) {
+                    projectile.assignedTargetId = target.id;
+                }
+                Game.addProjectile(projectile);
+
+                // 音效（發射一次，使用與追蹤綿羊相同的音效）
+                if (i === 0 && typeof AudioManager !== 'undefined') {
+                    AudioManager.playSound('lightning_shoot');
+                }
+            }
+            return;
+        }
+
         // 一般投射武器：根據武器等級發射不同數量的投射物
         for (let i = 0; i < this.projectileCount; i++) {
             let angle;
@@ -620,11 +703,17 @@ class Weapon {
                     case 'LIGHTNING':
                         // 閃電在專用邏輯中已播放
                         break;
+                    case 'MUFFIN_THROW':
+                        // 鬆餅投擲在專用邏輯中已播放
+                        break;
                     case 'ORBIT':
                         // 可選：為旋球加入音效
                         break;
                     case 'CHICKEN_BLESSING':
                         // 可選：為雞腿庇佑加入音效
+                        break;
+                    case 'ROTATING_MUFFIN':
+                        // 可選：為旋轉鬆餅加入音效
                         break;
                 }
             }
