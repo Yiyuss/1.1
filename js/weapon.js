@@ -13,8 +13,8 @@ class Weapon {
     }
     
     update(deltaTime) {
-        // 抽象化是被動技能，不需要發射
-        if (this.type === 'ABSTRACTION') {
+        // 抽象化和不獸控制是被動技能，不需要發射
+        if (this.type === 'ABSTRACTION' || this.type === 'UNCONTROLLABLE_BEAST') {
             return;
         }
         
