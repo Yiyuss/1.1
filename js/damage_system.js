@@ -47,7 +47,61 @@
 
       // 避免浮點誤差造成顯示奇怪；對外保留整數
       const amount = Math.max(1, Math.round(final));
+      
+      // 應用吸血效果（不獸控制技能）
+      this._applyLifesteal(amount, options);
+      
       return { amount, isCrit };
+    },
+    
+    // 應用吸血效果（不獸控制技能）
+    _applyLifesteal(damageAmount, options) {
+      try {
+        // 檢查玩家是否有不獸控制技能
+        if (!Game || !Game.player || !Game.player.weapons) return;
+        
+        const uncontrollableBeast = Game.player.weapons.find(w => w.type === 'UNCONTROLLABLE_BEAST');
+        if (!uncontrollableBeast) return;
+        
+        const cfg = uncontrollableBeast.config;
+        if (!cfg) return;
+        
+        // 檢查冷卻時間（使用技能實例的冷卻追蹤）
+        const now = Date.now();
+        if (!uncontrollableBeast._lastLifestealTime) {
+          uncontrollableBeast._lastLifestealTime = 0;
+        }
+        const cooldownMs = cfg.LIFESTEAL_COOLDOWN_MS || 100;
+        if (now - uncontrollableBeast._lastLifestealTime < cooldownMs) {
+          return; // 仍在冷卻中
+        }
+        
+        // 計算吸血百分比
+        const basePct = cfg.LIFESTEAL_BASE_PCT || 0.001; // 0.1%
+        const perLevelPct = cfg.LIFESTEAL_PER_LEVEL || 0.001; // 每級+0.1%
+        const level = uncontrollableBeast.level || 1;
+        const lifestealPct = basePct + (perLevelPct * (level - 1));
+        
+        // 計算回復量
+        const healAmount = Math.max(
+          cfg.MIN_HEAL || 1, // 最低回復1HP
+          Math.floor(damageAmount * lifestealPct)
+        );
+        
+        // 應用回復
+        if (healAmount > 0 && Game.player.health < Game.player.maxHealth) {
+          Game.player.health = Math.min(Game.player.maxHealth, Game.player.health + healAmount);
+          uncontrollableBeast._lastLifestealTime = now;
+          
+          // 更新UI
+          if (typeof UI !== 'undefined' && UI.updateHealthBar) {
+            UI.updateHealthBar(Game.player.health, Game.player.maxHealth);
+          }
+        }
+      } catch (e) {
+        // 靜默失敗，不影響遊戲流程
+        console.warn('[DamageSystem] Lifesteal error:', e);
+      }
     }
   };
 
