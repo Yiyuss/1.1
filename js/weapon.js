@@ -422,7 +422,39 @@ class Weapon {
                 detectRadius,
                 totalHits,
                 totalDurationMs,
-                minTeleportDistance
+                minTeleportDistance,
+                'DEATHLINE_WARRIOR', // 武器類型
+                0, // 無範圍傷害
+                0.5 // 特效大小50%
+            );
+            Game.addProjectile(effect);
+            
+            // 注意：音效現在在 DeathlineWarriorEffect._performNextHit() 中播放
+            // 每次造成傷害時都會播放音效，而不是只在技能啟動時播放一次
+            return;
+        }
+
+        // 融合技能：死線超人（應援棒LV10+死線戰士LV10，瞬移6次，範圍傷害150，特效100%大小）
+        if (this.type === 'DEATHLINE_SUPERMAN') {
+            const cfg = this.config;
+            const detectRadius = cfg.DETECT_RADIUS || 600;
+            const totalHits = cfg.TOTAL_HITS || 6; // 6次傷害
+            const totalDurationMs = cfg.TOTAL_DURATION_MS || 1200;
+            const minTeleportDistance = cfg.MIN_TELEPORT_DISTANCE || 300;
+            const aoeRadius = cfg.AOE_RADIUS || 150; // 範圍傷害半徑150
+            const displayScale = cfg.DISPLAY_SCALE || 1.0; // 特效大小100%
+            const dmg = this._computeFinalDamage(levelMul);
+            
+            const effect = new DeathlineWarriorEffect(
+                this.player,
+                dmg,
+                detectRadius,
+                totalHits,
+                totalDurationMs,
+                minTeleportDistance,
+                'DEATHLINE_SUPERMAN', // 武器類型
+                aoeRadius, // 範圍傷害半徑
+                displayScale // 特效大小100%
             );
             Game.addProjectile(effect);
             
@@ -809,6 +841,10 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     const deathlineExtra = (this.type === 'DEATHLINE_WARRIOR' && this.config && this.config.DAMAGE_PER_LEVEL)
         ? (this.config.DAMAGE_PER_LEVEL * Math.max(0, this.level - 1))
         : 0;
+    // 死線超人：每級+2傷害（LV1=25, LV2=27, ..., LV10=43）
+    const deathlineSupermanExtra = (this.type === 'DEATHLINE_SUPERMAN' && this.config && this.config.DAMAGE_PER_LEVEL)
+        ? (this.config.DAMAGE_PER_LEVEL * Math.max(0, this.level - 1))
+        : 0;
     const specFlat = (this.player && this.player.damageSpecializationFlat) ? this.player.damageSpecializationFlat : 0;
     const talentPct = (this.player && this.player.damageTalentBaseBonusPct) ? this.player.damageTalentBaseBonusPct : 0;
     const attrPct = (this.player && this.player.damageAttributeBonusPct) ? this.player.damageAttributeBonusPct : 0; // 升級屬性加成（每級+10%）
@@ -840,7 +876,7 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
