@@ -1,6 +1,7 @@
 // 死線戰士效果：瞬移至不同敵人進行傷害，總共3次傷害，1.2秒內完成
+// 死線超人效果：瞬移至不同敵人進行範圍傷害，總共6次傷害，1.2秒內完成，特效100%大小
 class DeathlineWarriorEffect extends Entity {
-    constructor(player, damage, detectRadius, totalHits, totalDurationMs, minTeleportDistance) {
+    constructor(player, damage, detectRadius, totalHits, totalDurationMs, minTeleportDistance, weaponType, aoeRadius, displayScale) {
         super(player.x, player.y, 2, 2);
         this.player = player;
         this.damage = Math.max(0, damage || 0);
@@ -8,9 +9,11 @@ class DeathlineWarriorEffect extends Entity {
         this.totalHits = totalHits || 3;
         this.totalDurationMs = totalDurationMs || 1200; // 1.2秒
         this.minTeleportDistance = minTeleportDistance || 300; // 優先選擇300以上距離的敵人
+        this.weaponType = weaponType || 'DEATHLINE_WARRIOR'; // 武器類型（DEATHLINE_WARRIOR 或 DEATHLINE_SUPERMAN）
+        this.aoeRadius = aoeRadius || 0; // 範圍傷害半徑（0表示單體傷害）
+        this.displayScale = displayScale || 0.5; // 特效顯示大小（死線戰士50%，死線超人100%）
         
         this.startTime = Date.now();
-        this.weaponType = 'DEATHLINE_WARRIOR';
         this.hitsCompleted = 0;
         this.hitTargets = []; // 記錄已攻擊的敵人ID，避免重複攻擊同一敵人（除非只剩1個）
         this.currentHitIndex = -1; // 從-1開始，因為第一次攻擊會在構造函數中立即執行
@@ -23,7 +26,6 @@ class DeathlineWarriorEffect extends Entity {
         this.totalFrames = 22;
         this.frameWidth = 516;
         this.frameHeight = 528;
-        this.displayScale = 0.5; // 實際呈現的特效大小約50%
         this.displayWidth = this.frameWidth * this.displayScale;
         this.displayHeight = this.frameHeight * this.displayScale;
         this.currentFrame = 0;
@@ -137,31 +139,65 @@ class DeathlineWarriorEffect extends Entity {
             this.hitTargets.push(target.id);
         }
         
-        // 造成傷害
-        if (typeof DamageSystem !== 'undefined') {
-            const result = DamageSystem.computeHit(this.damage, target, {
-                weaponType: this.weaponType,
-                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+        // 造成傷害（死線超人：範圍傷害；死線戰士：單體傷害）
+        if (this.aoeRadius > 0) {
+            // 範圍傷害：對目標周圍150範圍內的所有敵人造成傷害
+            const enemies = (Game && Game.enemies) ? Game.enemies : [];
+            const hitEnemies = enemies.filter(e => {
+                if (!e || e.markedForDeletion || e.health <= 0) return false;
+                const dist = Utils.distance(target.x, target.y, e.x, e.y);
+                return dist <= this.aoeRadius;
             });
-            target.takeDamage(result.amount);
-            if (typeof DamageNumbers !== 'undefined') {
-                DamageNumbers.show(result.amount, target.x, target.y - (target.height||0)/2, result.isCrit, { 
-                    dirX: 0, 
-                    dirY: -1, 
-                    enemyId: target.id 
-                });
+            
+            for (const enemy of hitEnemies) {
+                if (typeof DamageSystem !== 'undefined') {
+                    const result = DamageSystem.computeHit(this.damage, enemy, {
+                        weaponType: this.weaponType,
+                        critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                    });
+                    enemy.takeDamage(result.amount);
+                    if (typeof DamageNumbers !== 'undefined') {
+                        DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height||0)/2, result.isCrit, { 
+                            dirX: 0, 
+                            dirY: -1, 
+                            enemyId: enemy.id 
+                        });
+                    }
+                } else {
+                    enemy.takeDamage(this.damage);
+                }
             }
         } else {
-            target.takeDamage(this.damage);
+            // 單體傷害（死線戰士）
+            if (typeof DamageSystem !== 'undefined') {
+                const result = DamageSystem.computeHit(this.damage, target, {
+                    weaponType: this.weaponType,
+                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                });
+                target.takeDamage(result.amount);
+                if (typeof DamageNumbers !== 'undefined') {
+                    DamageNumbers.show(result.amount, target.x, target.y - (target.height||0)/2, result.isCrit, { 
+                        dirX: 0, 
+                        dirY: -1, 
+                        enemyId: target.id 
+                    });
+                }
+            } else {
+                target.takeDamage(this.damage);
+            }
         }
         
         // 在造成傷害後創建雪碧圖特效（每次攻擊都創建）
         // 每個特效持續時間設為完整動畫時長，確保能完整播放22幀
         // 計算22幀動畫需要的時間（假設30fps，約733ms，但為了安全設為1000ms）
         const effectDuration = 1000; // 固定1000ms，確保能完整播放22幀動畫
+        // 特效偏移：讓玩家居中在特效圓圈中間（向左上偏移）
+        // 根據雪碧圖結構，圓圈中心可能在圖片右下部分，需要向左上偏移約30-40像素
+        const offsetX = -10; // 向左偏移
+        const offsetY = -10; // 向上偏移
         this.hitEffects.push({
-            x: target.x,
-            y: target.y,
+            x: target.x + offsetX,
+            y: target.y + offsetY,
             startTime: Date.now(),
             frame: 0,
             duration: effectDuration // 每個特效持續時間
