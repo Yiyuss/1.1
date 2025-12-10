@@ -264,6 +264,28 @@ const CONFIG = {
                 { COUNT: 10, DESCRIPTION: "每1.5秒發射10個鬆餅投擲" }
             ]
         },
+        DEATHLINE_WARRIOR: {
+            NAME: "死線戰士",
+            DAMAGE: 15, // LV1基礎傷害為15
+            DAMAGE_PER_LEVEL: 5, // 每級+5
+            COOLDOWN: 3000, // 3秒冷卻
+            DETECT_RADIUS: 600, // 偵測範圍600
+            TOTAL_HITS: 3, // 總共3次傷害
+            TOTAL_DURATION_MS: 1200, // 1.2秒內完成
+            MIN_TELEPORT_DISTANCE: 300, // 優先選擇300以上距離的敵人
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" },
+                { COUNT: 1, DESCRIPTION: "每3秒瞬移攻擊3次敵人（傷害提升5）" }
+            ]
+        },
         LASER: {
             NAME: "雷射",
             DAMAGE: 10,
@@ -637,7 +659,7 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             critChanceBonusPct: 0.10, // 初始爆擊率+10%
-            description: `角色介紹：氣質鍊金術師，許多人謠傳她的本體是個鬆餅，可變身成胖貓！\n專屬技能：旋轉鬆餅、鬆餅投擲`,
+            description: `角色介紹：氣質鍊金術師，許多人謠傳她的本體是個鬆餅，可變身成胖貓！\n專屬技能：旋轉鬆餅、鬆餅投擲、死線戰士`,
             // 選角預覽圖（下方角色介紹用）：使用 player4-3.png
             avatarImageKey: 'player4-2',
             // 所有模式的 HUD 左上角頭像：使用 player4-2.png
@@ -649,8 +671,8 @@ const CONFIG = {
             // 第四位角色可以使用大絕（Q）
             canUseUltimate: true,
             disabledWeapons: [],
-            // 專屬技能：旋轉鬆餅、鬆餅投擲
-            exclusiveWeapons: ['ROTATING_MUFFIN', 'MUFFIN_THROW'],
+            // 專屬技能：旋轉鬆餅、鬆餅投擲、死線戰士
+            exclusiveWeapons: ['ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
         }
