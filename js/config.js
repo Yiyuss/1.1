@@ -220,6 +220,50 @@ const CONFIG = {
                 { COUNT: 10, DESCRIPTION: "生成10個雞腿庇佑環繞3秒" }
             ]
         },
+        ROTATING_MUFFIN: {
+            NAME: "旋轉鬆餅",
+            DAMAGE: 10,
+            COOLDOWN: 4000,
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 20,
+            PROJECTILE_SIZE_PER_LEVEL: 2,
+            ORBIT_RADIUS: 60,
+            ORBIT_RADIUS_PER_LEVEL: 10,
+            DURATION: 3000, // 3秒持續
+            ANGULAR_SPEED: 6.283, // 約1圈/秒
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "生成1個旋轉鬆餅環繞3秒" },
+                { COUNT: 2, DESCRIPTION: "生成2個旋轉鬆餅環繞3秒" },
+                { COUNT: 3, DESCRIPTION: "生成3個旋轉鬆餅環繞3秒" },
+                { COUNT: 4, DESCRIPTION: "生成4個旋轉鬆餅環繞3秒" },
+                { COUNT: 5, DESCRIPTION: "生成5個旋轉鬆餅環繞3秒" },
+                { COUNT: 6, DESCRIPTION: "生成6個旋轉鬆餅環繞3秒" },
+                { COUNT: 7, DESCRIPTION: "生成7個旋轉鬆餅環繞3秒" },
+                { COUNT: 8, DESCRIPTION: "生成8個旋轉鬆餅環繞3秒" },
+                { COUNT: 9, DESCRIPTION: "生成9個旋轉鬆餅環繞3秒" },
+                { COUNT: 10, DESCRIPTION: "生成10個旋轉鬆餅環繞3秒" }
+            ]
+        },
+        MUFFIN_THROW: {
+            NAME: "鬆餅投擲",
+            DAMAGE: 15,
+            COOLDOWN: 1500,
+            PROJECTILE_SPEED: 10,
+            PROJECTILE_SIZE: 24,
+            PROJECTILE_SIZE_PER_LEVEL: 3,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每1.5秒發射1個鬆餅投擲" },
+                { COUNT: 2, DESCRIPTION: "每1.5秒發射2個鬆餅投擲" },
+                { COUNT: 3, DESCRIPTION: "每1.5秒發射3個鬆餅投擲" },
+                { COUNT: 4, DESCRIPTION: "每1.5秒發射4個鬆餅投擲" },
+                { COUNT: 5, DESCRIPTION: "每1.5秒發射5個鬆餅投擲" },
+                { COUNT: 6, DESCRIPTION: "每1.5秒發射6個鬆餅投擲" },
+                { COUNT: 7, DESCRIPTION: "每1.5秒發射7個鬆餅投擲" },
+                { COUNT: 8, DESCRIPTION: "每1.5秒發射8個鬆餅投擲" },
+                { COUNT: 9, DESCRIPTION: "每1.5秒發射9個鬆餅投擲" },
+                { COUNT: 10, DESCRIPTION: "每1.5秒發射10個鬆餅投擲" }
+            ]
+        },
         LASER: {
             NAME: "雷射",
             DAMAGE: 10,
@@ -593,7 +637,7 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             critChanceBonusPct: 0.10, // 初始爆擊率+10%
-            description: `角色介紹：氣質鍊金術師，許多人謠傳她的本體是個鬆餅，可變身成胖貓！\n專屬技能：暫無`,
+            description: `角色介紹：氣質鍊金術師，許多人謠傳她的本體是個鬆餅，可變身成胖貓！\n專屬技能：旋轉鬆餅、鬆餅投擲`,
             // 選角預覽圖（下方角色介紹用）：使用 player4-3.png
             avatarImageKey: 'player4-2',
             // 所有模式的 HUD 左上角頭像：使用 player4-2.png
@@ -605,8 +649,8 @@ const CONFIG = {
             // 第四位角色可以使用大絕（Q）
             canUseUltimate: true,
             disabledWeapons: [],
-            // 專屬技能：暫無
-            exclusiveWeapons: [],
+            // 專屬技能：旋轉鬆餅、鬆餅投擲
+            exclusiveWeapons: ['ROTATING_MUFFIN', 'MUFFIN_THROW'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
         }
