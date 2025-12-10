@@ -345,6 +345,7 @@ const skillIcons = {
     FRENZY_ICE_BALL: 'assets/images/A23.png',
     ROTATING_MUFFIN: 'assets/images/A31.png',
     MUFFIN_THROW: 'assets/images/A28.png',
+    DEATHLINE_WARRIOR: 'assets/images/A29.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
@@ -519,7 +520,7 @@ const skillIcons = {
         }
 
         // 新武器選項（基於來源狀態判定）
-        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'ROTATING_MUFFIN', 'MUFFIN_THROW'];
+        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR'];
         // 檢查角色專屬技能（只有特定角色可以看到）
         const exclusiveWeapons = (ch && Array.isArray(ch.exclusiveWeapons)) ? new Set(ch.exclusiveWeapons) : new Set();
         // 找出所有角色的專屬技能
@@ -1611,6 +1612,7 @@ const iconMap = {
     FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
     ROTATING_MUFFIN: 'assets/images/A31.png',
     MUFFIN_THROW: 'assets/images/A28.png',
+    DEATHLINE_WARRIOR: 'assets/images/A29.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
     FRENZY_SLASH: 'assets/images/A18.png',
     GRAVITY_WAVE: 'assets/images/A27.png',
