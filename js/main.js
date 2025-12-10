@@ -204,6 +204,10 @@ function createDefaultImages() {
         { name: 'A25', src: 'assets/images/A25.png' }, // 幼妲天使技能圖片
         { name: 'A26', src: 'assets/images/A26.png' }, // 星雲征服者成就圖片
         { name: 'A27', src: 'assets/images/A27.png' }, // 引力波技能圖片/成就圖片
+        { name: 'A31', src: 'assets/images/A31.png' }, // 旋轉鬆餅技能圖片
+        { name: 'A28', src: 'assets/images/A28.png' }, // 鬆餅投擲技能圖片
+        { name: 'muffin', src: 'assets/images/muffin.png' }, // 旋轉鬆餅視覺效果圖片
+        { name: 'muffin2', src: 'assets/images/muffin2.png' }, // 鬆餅投擲視覺效果圖片
         { name: 'ICE3', src: 'assets/images/ICE3.png' }, // 大波球冰彈圖片
         { name: 'knife', src: 'assets/images/knife.gif' },
         { name: 'knife2', src: 'assets/images/knife2.gif' },
@@ -267,7 +271,9 @@ function createDefaultImages() {
         
         // 圖片加載失敗
         image.onerror = function() {
-            console.warn(`無法加載圖片: ${img.name}，使用預設圖形`);
+            console.warn(`無法加載圖片: ${img.name} (${img.src})，使用預設圖形`);
+            // 即使加載失敗，也將圖片對象存入 Game.images，避免後續重複嘗試
+            Game.images[img.name] = image;
             loadedCount++;
         };
     });
@@ -512,6 +518,8 @@ const iconMap = {
     ABSTRACTION: 'assets/images/A22.png',
     FRENZY_ICE_BALL: 'assets/images/A23.png',
     FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
+    ROTATING_MUFFIN: 'assets/images/A31.png',
+    MUFFIN_THROW: 'assets/images/A28.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
