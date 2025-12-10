@@ -504,12 +504,14 @@ const skillIcons = {
             // 若此武器被角色設定為禁用，則不提供升級選項
             if (disabledWeapons.has(info.type)) continue;
             // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
+            const hasDeathlineSuperman = sourceWeaponsInfo.some(w => w.type === 'DEATHLINE_SUPERMAN');
             if ((hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (info.type === 'DAGGER' || info.type === 'SLASH')) ||
                 (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING')) ||
                 (hasFrenzyIceBall && (info.type === 'DAGGER' || info.type === 'BIG_ICE_BALL')) ||
                 (hasFrenzyYoungDadaGlory && (info.type === 'DAGGER' || info.type === 'YOUNG_DADA_GLORY')) ||
-                (hasGravityWave && (info.type === 'AURA_FIELD' || info.type === 'INVINCIBLE'))) continue;
+                (hasGravityWave && (info.type === 'AURA_FIELD' || info.type === 'INVINCIBLE')) ||
+                (hasDeathlineSuperman && (info.type === 'DAGGER' || info.type === 'DEATHLINE_WARRIOR'))) continue;
             if (info.level < cfg.LEVELS.length) {
                 options.push({
                     type: info.type,
@@ -542,12 +544,14 @@ const skillIcons = {
                 continue; // 其他角色的專屬技能，當前角色不可見
             }
             // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
+            const hasDeathlineSuperman = playerWeaponTypes.includes('DEATHLINE_SUPERMAN');
             if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
                 (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING')) ||
                 (hasFrenzyIceBall && (weaponType === 'DAGGER' || weaponType === 'BIG_ICE_BALL')) ||
                 (hasFrenzyYoungDadaGlory && (weaponType === 'DAGGER' || weaponType === 'YOUNG_DADA_GLORY')) ||
-                (hasGravityWave && (weaponType === 'AURA_FIELD' || weaponType === 'INVINCIBLE'))) continue;
+                (hasGravityWave && (weaponType === 'AURA_FIELD' || weaponType === 'INVINCIBLE')) ||
+                (hasDeathlineSuperman && (weaponType === 'DAGGER' || weaponType === 'DEATHLINE_WARRIOR'))) continue;
             if (!playerWeaponTypes.includes(weaponType)) {
                 const weaponConfig = CONFIG.WEAPONS[weaponType];
                 options.push({
@@ -688,6 +692,28 @@ const skillIcons = {
                         name: cfgFYDG.NAME,
                         level: 1,
                         description: cfgFYDG.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：死線超人（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 死線戰士(DEATHLINE_WARRIOR)）
+        try {
+            const hasDeathlineSupermanFusion = playerWeaponTypes.includes('DEATHLINE_SUPERMAN');
+            const cheer5 = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
+            const deathlineWarrior = sourceWeaponsInfo.find(w => w.type === 'DEATHLINE_WARRIOR');
+            const fusionUnlocked5 = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('DEATHLINE_SUPERMAN')); } catch(_) { return false; }
+            })();
+            const fusionReady5 = (!!cheer5 && !!deathlineWarrior && cheer5.level >= 10 && deathlineWarrior.level >= 10);
+            if (!hasDeathlineSupermanFusion && fusionReady5 && fusionUnlocked5) {
+                const cfgDS = CONFIG.WEAPONS['DEATHLINE_SUPERMAN'];
+                if (cfgDS && Array.isArray(cfgDS.LEVELS) && cfgDS.LEVELS.length > 0) {
+                    options.push({
+                        type: 'DEATHLINE_SUPERMAN',
+                        name: cfgDS.NAME,
+                        level: 1,
+                        description: cfgDS.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -1028,6 +1054,37 @@ const skillIcons = {
                     player.upgradeWeapon('FRENZY_YOUNG_DADA_GLORY');
                 } else {
                     player.addWeapon('FRENZY_YOUNG_DADA_GLORY');
+                }
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        // 融合：死線超人（移除 應援棒(DAGGER)/死線戰士(DEATHLINE_WARRIOR)，加入或升級 DEATHLINE_SUPERMAN）
+        if (weaponType === 'DEATHLINE_SUPERMAN') {
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                // 移除基礎武器
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'DEATHLINE_WARRIOR');
+                // 加入或升級融合武器
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'DEATHLINE_SUPERMAN');
+                const cfgDS = CONFIG.WEAPONS['DEATHLINE_SUPERMAN'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgDS && curLv < cfgDS.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'DEATHLINE_SUPERMAN', level: 1 });
+                }
+            } else {
+                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'DEATHLINE_WARRIOR');
+                const existingDS = player.weapons.find(w => w.type === 'DEATHLINE_SUPERMAN');
+                if (existingDS) {
+                    player.upgradeWeapon('DEATHLINE_SUPERMAN');
+                } else {
+                    player.addWeapon('DEATHLINE_SUPERMAN');
                 }
             }
             try { this.updateSkillsList(); } catch (_) {}
@@ -1615,6 +1672,7 @@ const iconMap = {
     MUFFIN_THROW: 'assets/images/A28.png',
     DEATHLINE_WARRIOR: 'assets/images/A29.png',
     UNCONTROLLABLE_BEAST: 'assets/images/A32.png',
+    DEATHLINE_SUPERMAN: 'assets/images/A30.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
     FRENZY_SLASH: 'assets/images/A18.png',
     GRAVITY_WAVE: 'assets/images/A27.png',
