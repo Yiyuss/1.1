@@ -407,6 +407,30 @@ class Weapon {
             return;
         }
 
+        // 特殊技能：死線戰士（瞬移至不同敵人進行傷害，總共3次傷害，1.2秒內完成）
+        if (this.type === 'DEATHLINE_WARRIOR') {
+            const cfg = this.config;
+            const detectRadius = cfg.DETECT_RADIUS || 600;
+            const totalHits = cfg.TOTAL_HITS || 3;
+            const totalDurationMs = cfg.TOTAL_DURATION_MS || 1200;
+            const minTeleportDistance = cfg.MIN_TELEPORT_DISTANCE || 300;
+            const dmg = this._computeFinalDamage(levelMul);
+            
+            const effect = new DeathlineWarriorEffect(
+                this.player,
+                dmg,
+                detectRadius,
+                totalHits,
+                totalDurationMs,
+                minTeleportDistance
+            );
+            Game.addProjectile(effect);
+            
+            // 注意：音效現在在 DeathlineWarriorEffect._performNextHit() 中播放
+            // 每次造成傷害時都會播放音效，而不是只在技能啟動時播放一次
+            return;
+        }
+
         // 融合技能：狂熱斬擊（雙段斬擊：0.5秒間隔，第一段使用普通斬擊範圍、第二段使用狂熱斬擊範圍）
         if (this.type === 'FRENZY_SLASH') {
             const baseAngle = (this.player && typeof this.player.facingAngle === 'number') ? this.player.facingAngle : 0;
@@ -781,6 +805,10 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     const gravityWaveExtra = (this.type === 'GRAVITY_WAVE')
         ? (1 * Math.max(1, this.level))
         : 0;
+    // 死線戰士：每級+5傷害（LV1=5, LV2=10, ..., LV10=50）
+    const deathlineExtra = (this.type === 'DEATHLINE_WARRIOR' && this.config && this.config.DAMAGE_PER_LEVEL)
+        ? (this.config.DAMAGE_PER_LEVEL * Math.max(0, this.level - 1))
+        : 0;
     const specFlat = (this.player && this.player.damageSpecializationFlat) ? this.player.damageSpecializationFlat : 0;
     const talentPct = (this.player && this.player.damageTalentBaseBonusPct) ? this.player.damageTalentBaseBonusPct : 0;
     const attrPct = (this.player && this.player.damageAttributeBonusPct) ? this.player.damageAttributeBonusPct : 0; // 升級屬性加成（每級+10%）
@@ -812,7 +840,7 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
