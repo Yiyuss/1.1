@@ -393,6 +393,41 @@ class Weapon {
             return;
         }
 
+        // 特殊技能：光芒萬丈（向四面八方射出10條旋轉雷射）
+        if (this.type === 'RADIANT_GLORY') {
+            const baseWidth = this.config.BEAM_WIDTH_BASE || 8;
+            const widthPx = baseWidth; // 固定使用基礎寬度（與LV1雷射相同）
+            const damage = this._computeFinalDamage(levelMul);
+            const beamCount = this.config.BEAM_COUNT || 10;
+            const rotationSpeed = this.config.ROTATION_SPEED || 1.0;
+            
+            // 僅首次生成；升級時同步傷害
+            if (!this._radiantGloryEntity || this._radiantGloryEntity.markedForDeletion) {
+                this._radiantGloryEntity = new RadiantGloryEffect(
+                    this.player,
+                    damage,
+                    widthPx,
+                    this.config.DURATION,
+                    this.config.TICK_INTERVAL_MS || 120,
+                    beamCount,
+                    rotationSpeed
+                );
+                Game.addProjectile(this._radiantGloryEntity);
+            } else {
+                // 升級時同步傷害
+                for (const beam of this._radiantGloryEntity.beams || []) {
+                    if (beam) {
+                        beam.damage = damage;
+                    }
+                }
+            }
+            // 播放雷射音效
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('laser_shoot');
+            }
+            return;
+        }
+
         // 特殊技能：斬擊（扇形瞬時傷害，短暫演出）
         if (this.type === 'SLASH') {
             // 改為依玩家朝向施放（不再自動瞄準最近敵人）
@@ -849,6 +884,10 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     const gravityWaveExtra = (this.type === 'GRAVITY_WAVE')
         ? (1 * Math.max(1, this.level))
         : 0;
+    // 光芒萬丈：每級+1基礎攻擊
+    const radiantGloryExtra = (this.type === 'RADIANT_GLORY' && this.config && this.config.DAMAGE_PER_LEVEL)
+        ? (this.config.DAMAGE_PER_LEVEL * Math.max(0, this.level - 1))
+        : 0;
     // 死線戰士：每級+5傷害（LV1=5, LV2=10, ..., LV10=50）
     const deathlineExtra = (this.type === 'DEATHLINE_WARRIOR' && this.config && this.config.DAMAGE_PER_LEVEL)
         ? (this.config.DAMAGE_PER_LEVEL * Math.max(0, this.level - 1))
@@ -900,7 +939,7 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + rotatingMuffinFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + rotatingMuffinFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
