@@ -563,11 +563,54 @@ const iconMap = {
         };
         refreshCardLockState();
 
+        // 顯示角色解鎖確認對話框
+        const showCharacterConfirm = (card, character) => {
+            const confirmEl = document.getElementById('character-confirm');
+            const titleEl = document.getElementById('character-confirm-title');
+            const descEl = document.getElementById('character-confirm-desc');
+            if (!confirmEl) return;
+            document.querySelectorAll('#character-select-screen .char-card.active').forEach(el => { el.classList.remove('active'); });
+            card.classList.add('active');
+            const price = character.unlockCost || 0;
+            if (titleEl && card.querySelector('.char-name')) {
+                titleEl.textContent = `解鎖${card.querySelector('.char-name').textContent}`;
+            }
+            if (descEl) {
+                descEl.textContent = price > 0 ? `使用${price}金幣解鎖該角色？` : '解鎖該角色？';
+            }
+            confirmEl.classList.remove('hidden');
+        };
+        
+        // 隱藏角色解鎖確認對話框
+        const hideCharacterConfirm = () => {
+            const confirmEl = document.getElementById('character-confirm');
+            if (confirmEl) {
+                confirmEl.classList.add('hidden');
+            }
+        };
+        
         const tryUnlockCharacter = () => {
             const unlocked = isUnlocked(id, ch);
             if (unlocked) return true;
             const price = ch.unlockCost || 0;
             // 若設定了解鎖價格，檢查金幣是否足夠
+            if (price > 0) {
+                const currentCoins = Game.coins || 0;
+                if (currentCoins < price) {
+                    return false;
+                }
+                // 顯示確認對話框
+                showCharacterConfirm(card, ch);
+                return false; // 返回false，等待確認
+            }
+            return true;
+        };
+        
+        // 執行角色解鎖（確認後調用）
+        const executeUnlockCharacter = () => {
+            const unlocked = isUnlocked(id, ch);
+            if (unlocked) return true;
+            const price = ch.unlockCost || 0;
             if (price > 0) {
                 const currentCoins = Game.coins || 0;
                 if (currentCoins < price) {
@@ -579,6 +622,7 @@ const iconMap = {
                 try { if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) UI.updateCoinsDisplay(Game.coins); } catch (_) {}
                 unlockCharacter(id);
                 refreshCardLockState();
+                hideCharacterConfirm();
                 return true;
             }
             return true;
@@ -589,11 +633,16 @@ const iconMap = {
             playClick2();
             updatePreview(ch);
         });
-        // 雙擊：若角色已解鎖則進入選圖；否則嘗試購買解鎖
-        card.addEventListener('dblclick', () => {
+        // 雙擊：若角色已解鎖則進入選圖；否則顯示解鎖確認對話框
+        card.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             if (!isUnlocked(id, ch)) {
-                if (!tryUnlockCharacter()) return;
+                // 顯示確認對話框
+                showCharacterConfirm(card, ch);
+                return; // 不繼續，等待確認
             }
+            // 只有已解鎖才進入選圖
             Game.selectedCharacter = ch;
             show(DOMCache.get('map-select-screen'));
         });
@@ -602,11 +651,12 @@ const iconMap = {
             const now = Date.now();
             if (now - lastTapTime <= 300) {
                 if (!isUnlocked(id, ch)) {
-                    if (!tryUnlockCharacter()) {
-                        lastTapTime = now;
-                        return;
-                    }
+                    // 顯示確認對話框
+                    showCharacterConfirm(card, ch);
+                    lastTapTime = now;
+                    return; // 不繼續，等待確認
                 }
+                // 只有已解鎖才進入選圖
                 Game.selectedCharacter = ch;
                 show(DOMCache.get('map-select-screen'));
             } else {
@@ -615,20 +665,152 @@ const iconMap = {
             lastTapTime = now;
         }, { passive: true });
     });
+    
+    // 綁定角色解鎖確認對話框按鈕事件
+    const characterConfirmOk = document.getElementById('character-confirm-ok');
+    const characterConfirmCancel = document.getElementById('character-confirm-cancel');
+    if (characterConfirmOk) {
+        characterConfirmOk.addEventListener('click', () => {
+            const activeCard = document.querySelector('#character-select-screen .char-card.active');
+            if (activeCard) {
+                const charId = activeCard.getAttribute('data-char-id');
+                const ch = (CONFIG.CHARACTERS || []).find(c => c.id === charId);
+                if (ch) {
+                    // 執行解鎖
+                    const price = ch.unlockCost || 0;
+                    if (price > 0) {
+                        const currentCoins = Game.coins || 0;
+                        if (currentCoins >= price) {
+                            Game.coins = Math.max(0, Math.floor(currentCoins - price));
+                            try { Game.saveCoins(); } catch (_) {}
+                            try { if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) UI.updateCoinsDisplay(Game.coins); } catch (_) {}
+                            // 解鎖角色
+                            const CHAR_UNLOCK_KEY = 'unlocked_characters';
+                            const loadUnlockedCharacters = () => {
+                                try {
+                                    const raw = localStorage.getItem(CHAR_UNLOCK_KEY);
+                                    const arr = raw ? JSON.parse(raw) : [];
+                                    if (!Array.isArray(arr)) return ['margaret'];
+                                    if (!arr.includes('margaret')) arr.push('margaret');
+                                    return arr;
+                                } catch (_) {
+                                    return ['margaret'];
+                                }
+                            };
+                            const saveUnlockedCharacters = (list) => {
+                                try {
+                                    const arr = Array.isArray(list) ? list.slice() : [];
+                                    if (!arr.includes('margaret')) arr.push('margaret');
+                                    localStorage.setItem(CHAR_UNLOCK_KEY, JSON.stringify(arr));
+                                } catch (_) {}
+                            };
+                            const unlockedSet = new Set(loadUnlockedCharacters());
+                            if (!unlockedSet.has(charId)) {
+                                unlockedSet.add(charId);
+                                saveUnlockedCharacters(Array.from(unlockedSet));
+                            }
+                            // 更新卡片狀態
+                            activeCard.classList.remove('locked');
+                            const img = activeCard.querySelector('img');
+                            if (img) img.classList.remove('grayscale');
+                            // 隱藏確認對話框
+                            const confirmEl = document.getElementById('character-confirm');
+                            if (confirmEl) confirmEl.classList.add('hidden');
+                            // 進入選圖
+                            Game.selectedCharacter = ch;
+                            show(DOMCache.get('map-select-screen'));
+                        } else {
+                            // 金幣不足，隱藏確認對話框
+                            const confirmEl = document.getElementById('character-confirm');
+                            if (confirmEl) confirmEl.classList.add('hidden');
+                        }
+                    } else {
+                        // 無需解鎖，直接進入選圖
+                        const confirmEl = document.getElementById('character-confirm');
+                        if (confirmEl) confirmEl.classList.add('hidden');
+                        Game.selectedCharacter = ch;
+                        show(DOMCache.get('map-select-screen'));
+                    }
+                }
+            }
+        });
+    }
+    if (characterConfirmCancel) {
+        characterConfirmCancel.addEventListener('click', () => {
+            const confirmEl = document.getElementById('character-confirm');
+            if (confirmEl) confirmEl.classList.add('hidden');
+        });
+    }
 
-    // 空白鍵：在選角畫面時，若已有 picked，顯示選圖覆蓋層
+    // 空白鍵：在選角畫面時，若已有 picked，檢查是否已解鎖後進入選圖；若確認對話框開啟，則確認解鎖
     KeyboardRouter.register('character-select', 'Space', (e) => {
         e.preventDefault();
+        const confirmDialog = document.getElementById('character-confirm');
+        if (confirmDialog && !confirmDialog.classList.contains('hidden')) {
+            // 若確認對話框開啟，觸發確認按鈕
+            if (characterConfirmOk) characterConfirmOk.click();
+            return;
+        }
         if (picked) {
-            Game.selectedCharacter = picked;
-            playClick();
-            show(DOMCache.get('map-select-screen'));
+            // 檢查角色是否已解鎖
+            const charId = picked.id;
+            const CHAR_UNLOCK_KEY = 'unlocked_characters';
+            const loadUnlockedCharacters = () => {
+                try {
+                    const raw = localStorage.getItem(CHAR_UNLOCK_KEY);
+                    const arr = raw ? JSON.parse(raw) : [];
+                    if (!Array.isArray(arr)) return ['margaret'];
+                    if (!arr.includes('margaret')) arr.push('margaret');
+                    return arr;
+                } catch (_) {
+                    return ['margaret'];
+                }
+            };
+            const unlockedSet = new Set(loadUnlockedCharacters());
+            const isUnlocked = (id, ch) => {
+                if (ch && (!ch.unlockCost || ch.unlockCost <= 0)) return true;
+                return unlockedSet.has(id);
+            };
+            // 只有已解鎖的角色才能進入選圖
+            if (isUnlocked(charId, picked)) {
+                Game.selectedCharacter = picked;
+                playClick();
+                show(DOMCache.get('map-select-screen'));
+            } else {
+                // 未解鎖：顯示確認對話框
+                const activeCard = document.querySelector(`#character-select-screen .char-card[data-char-id="${charId}"]`);
+                if (activeCard) {
+                    const showCharacterConfirm = (card, character) => {
+                        const confirmEl = document.getElementById('character-confirm');
+                        const titleEl = document.getElementById('character-confirm-title');
+                        const descEl = document.getElementById('character-confirm-desc');
+                        if (!confirmEl) return;
+                        document.querySelectorAll('#character-select-screen .char-card.active').forEach(el => { el.classList.remove('active'); });
+                        card.classList.add('active');
+                        const price = character.unlockCost || 0;
+                        if (titleEl && card.querySelector('.char-name')) {
+                            titleEl.textContent = `解鎖${card.querySelector('.char-name').textContent}`;
+                        }
+                        if (descEl) {
+                            descEl.textContent = price > 0 ? `使用${price}金幣解鎖該角色？` : '解鎖該角色？';
+                        }
+                        confirmEl.classList.remove('hidden');
+                    };
+                    showCharacterConfirm(activeCard, picked);
+                }
+            }
         }
     });
     
-    // ESC：返回開始畫面（不影響雙擊/空白鍵）
+    // ESC：返回開始畫面（優先關閉角色確認對話框）
     KeyboardRouter.register('character-select', 'Escape', (e) => {
         e.preventDefault();
+        const confirmDialog = document.getElementById('character-confirm');
+        if (confirmDialog && !confirmDialog.classList.contains('hidden')) {
+            // 若確認對話框開啟，先關閉對話框
+            if (characterConfirmCancel) characterConfirmCancel.click();
+            return;
+        }
         const isVisible = (el) => el && !el.classList.contains('hidden');
         const mapScreen = document.getElementById('map-select-screen');
         const diffScreen = document.getElementById('difficulty-select-screen');
