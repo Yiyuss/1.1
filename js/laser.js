@@ -96,7 +96,8 @@ class LaserBeam extends Entity {
                 if (d <= half + enemy.collisionRadius) {
                     // 光芒萬丈特殊處理：每個敵人最多只能被3條雷射持續傷害
                     // 一旦某個敵人被3條雷射分配，這3條雷射會持續對該敵人造成傷害，其他7條雷射不會傷害該敵人
-                    if (this.weaponType === 'RADIANT_GLORY' && this._radiantGloryAssignment && typeof this._radiantGloryMaxHits === 'number' && typeof this.beamIndex === 'number') {
+                    // 使用全局共享的分配表，確保即使有多個實例，每個敵人也最多只被3條雷射傷害
+                    if (this.weaponType === 'RADIANT_GLORY' && this._radiantGloryAssignment && typeof this._radiantGloryMaxHits === 'number' && this.beamUniqueId) {
                         const enemyId = enemy.id || enemy;
                         let assignedBeams = this._radiantGloryAssignment.get(enemyId);
                         
@@ -109,13 +110,19 @@ class LaserBeam extends Entity {
                         // 如果該敵人已經被分配了3條雷射，檢查這條雷射是否在其中
                         if (assignedBeams.size >= this._radiantGloryMaxHits) {
                             // 如果這條雷射不在分配列表中，跳過傷害
-                            if (!assignedBeams.has(this.beamIndex)) {
+                            if (!assignedBeams.has(this.beamUniqueId)) {
                                 continue;
                             }
                             // 如果這條雷射在分配列表中，繼續造成傷害（持續傷害）
                         } else {
                             // 如果該敵人還沒有被分配滿3條雷射，將這條雷射加入分配列表
-                            assignedBeams.add(this.beamIndex);
+                            // 使用原子操作：先檢查再添加，確保不會超過3條
+                            if (assignedBeams.size < this._radiantGloryMaxHits) {
+                                assignedBeams.add(this.beamUniqueId);
+                            } else {
+                                // 如果已經滿了（可能是在檢查和添加之間被其他雷射填滿），跳過傷害
+                                continue;
+                            }
                         }
                     }
                     
