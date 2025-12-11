@@ -347,6 +347,8 @@ const skillIcons = {
     MUFFIN_THROW: 'assets/images/A28.png',
     DEATHLINE_WARRIOR: 'assets/images/A29.png',
     UNCONTROLLABLE_BEAST: 'assets/images/A32.png',
+    DEATHLINE_SUPERMAN: 'assets/images/A30.png',
+    RADIANT_GLORY: 'assets/images/A33.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
@@ -497,21 +499,23 @@ const skillIcons = {
         const hasMindMagic = sourceWeaponsInfo.some(w => w.type === 'MIND_MAGIC');
         const hasFrenzyIceBall = sourceWeaponsInfo.some(w => w.type === 'FRENZY_ICE_BALL');
         const hasFrenzyYoungDadaGlory = sourceWeaponsInfo.some(w => w.type === 'FRENZY_YOUNG_DADA_GLORY');
-        const hasGravityWave = sourceWeaponsInfo.some(w => w.type === 'GRAVITY_WAVE');
-        for (const info of sourceWeaponsInfo) {
-            const cfg = CONFIG.WEAPONS[info.type];
-            if (!cfg) continue;
-            // 若此武器被角色設定為禁用，則不提供升級選項
-            if (disabledWeapons.has(info.type)) continue;
-            // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
-            const hasDeathlineSuperman = sourceWeaponsInfo.some(w => w.type === 'DEATHLINE_SUPERMAN');
-            if ((hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) ||
-                (hasFrenzySlash && (info.type === 'DAGGER' || info.type === 'SLASH')) ||
-                (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING')) ||
-                (hasFrenzyIceBall && (info.type === 'DAGGER' || info.type === 'BIG_ICE_BALL')) ||
-                (hasFrenzyYoungDadaGlory && (info.type === 'DAGGER' || info.type === 'YOUNG_DADA_GLORY')) ||
-                (hasGravityWave && (info.type === 'AURA_FIELD' || info.type === 'INVINCIBLE')) ||
-                (hasDeathlineSuperman && (info.type === 'DAGGER' || info.type === 'DEATHLINE_WARRIOR'))) continue;
+            const hasGravityWave = sourceWeaponsInfo.some(w => w.type === 'GRAVITY_WAVE');
+            const hasRadiantGlory = sourceWeaponsInfo.some(w => w.type === 'RADIANT_GLORY');
+            for (const info of sourceWeaponsInfo) {
+                const cfg = CONFIG.WEAPONS[info.type];
+                if (!cfg) continue;
+                // 若此武器被角色設定為禁用，則不提供升級選項
+                if (disabledWeapons.has(info.type)) continue;
+                // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
+                const hasDeathlineSuperman = sourceWeaponsInfo.some(w => w.type === 'DEATHLINE_SUPERMAN');
+                if ((hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) ||
+                    (hasFrenzySlash && (info.type === 'DAGGER' || info.type === 'SLASH')) ||
+                    (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING')) ||
+                    (hasFrenzyIceBall && (info.type === 'DAGGER' || info.type === 'BIG_ICE_BALL')) ||
+                    (hasFrenzyYoungDadaGlory && (info.type === 'DAGGER' || info.type === 'YOUNG_DADA_GLORY')) ||
+                    (hasGravityWave && (info.type === 'AURA_FIELD' || info.type === 'INVINCIBLE')) ||
+                    (hasDeathlineSuperman && (info.type === 'DAGGER' || info.type === 'DEATHLINE_WARRIOR')) ||
+                    (hasRadiantGlory && (info.type === 'CHAIN_LIGHTNING' || info.type === 'LASER'))) continue;
             if (info.level < cfg.LEVELS.length) {
                 options.push({
                     type: info.type,
@@ -545,13 +549,15 @@ const skillIcons = {
             }
             // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
             const hasDeathlineSuperman = playerWeaponTypes.includes('DEATHLINE_SUPERMAN');
+            const hasRadiantGlory = playerWeaponTypes.includes('RADIANT_GLORY');
             if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
                 (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING')) ||
                 (hasFrenzyIceBall && (weaponType === 'DAGGER' || weaponType === 'BIG_ICE_BALL')) ||
                 (hasFrenzyYoungDadaGlory && (weaponType === 'DAGGER' || weaponType === 'YOUNG_DADA_GLORY')) ||
                 (hasGravityWave && (weaponType === 'AURA_FIELD' || weaponType === 'INVINCIBLE')) ||
-                (hasDeathlineSuperman && (weaponType === 'DAGGER' || weaponType === 'DEATHLINE_WARRIOR'))) continue;
+                (hasDeathlineSuperman && (weaponType === 'DAGGER' || weaponType === 'DEATHLINE_WARRIOR')) ||
+                (hasRadiantGlory && (weaponType === 'CHAIN_LIGHTNING' || weaponType === 'LASER'))) continue;
             if (!playerWeaponTypes.includes(weaponType)) {
                 const weaponConfig = CONFIG.WEAPONS[weaponType];
                 options.push({
@@ -675,6 +681,28 @@ const skillIcons = {
             }
         } catch (_) {}
 
+        // 融合武器選項：光芒萬丈（需成就解鎖 + 同時持有且等級達標的 連鎖閃電(CHAIN_LIGHTNING) 與 雷射(LASER)）
+        try {
+            const hasRadiantGloryFusion = playerWeaponTypes.includes('RADIANT_GLORY');
+            const chainLightning = sourceWeaponsInfo.find(w => w.type === 'CHAIN_LIGHTNING');
+            const laser = sourceWeaponsInfo.find(w => w.type === 'LASER');
+            const fusionUnlockedRG = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('RADIANT_GLORY')); } catch(_) { return false; }
+            })();
+            const fusionReadyRG = (!!chainLightning && !!laser && chainLightning.level >= 10 && laser.level >= 10);
+            if (!hasRadiantGloryFusion && fusionReadyRG && fusionUnlockedRG) {
+                const cfgRG = CONFIG.WEAPONS['RADIANT_GLORY'];
+                if (cfgRG && Array.isArray(cfgRG.LEVELS) && cfgRG.LEVELS.length > 0) {
+                    options.push({
+                        type: 'RADIANT_GLORY',
+                        name: cfgRG.NAME,
+                        level: 1,
+                        description: cfgRG.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
         // 融合武器選項：幼妲天使（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 幼妲光輝(YOUNG_DADA_GLORY)）
         try {
             const hasFrenzyYoungDadaGloryFusion = playerWeaponTypes.includes('FRENZY_YOUNG_DADA_GLORY');
@@ -714,6 +742,28 @@ const skillIcons = {
                         name: cfgDS.NAME,
                         level: 1,
                         description: cfgDS.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：光芒萬丈（需成就解鎖 + 同時持有且等級達標的 連鎖閃電(CHAIN_LIGHTNING) 與 雷射(LASER)）
+        try {
+            const hasRadiantGloryFusion = playerWeaponTypes.includes('RADIANT_GLORY');
+            const chainLightning = sourceWeaponsInfo.find(w => w.type === 'CHAIN_LIGHTNING');
+            const laser = sourceWeaponsInfo.find(w => w.type === 'LASER');
+            const fusionUnlockedRG = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('RADIANT_GLORY')); } catch(_) { return false; }
+            })();
+            const fusionReadyRG = (!!chainLightning && !!laser && chainLightning.level >= 10 && laser.level >= 10);
+            if (!hasRadiantGloryFusion && fusionReadyRG && fusionUnlockedRG) {
+                const cfgRG = CONFIG.WEAPONS['RADIANT_GLORY'];
+                if (cfgRG && Array.isArray(cfgRG.LEVELS) && cfgRG.LEVELS.length > 0) {
+                    options.push({
+                        type: 'RADIANT_GLORY',
+                        name: cfgRG.NAME,
+                        level: 1,
+                        description: cfgRG.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -1085,6 +1135,62 @@ const skillIcons = {
                     player.upgradeWeapon('DEATHLINE_SUPERMAN');
                 } else {
                     player.addWeapon('DEATHLINE_SUPERMAN');
+                }
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        // 融合：光芒萬丈（移除 連鎖閃電(CHAIN_LIGHTNING)/雷射(LASER)，加入或升級 RADIANT_GLORY）
+        if (weaponType === 'RADIANT_GLORY') {
+            // 先清理連鎖閃電和雷射的投射物（避免重疊）
+            try {
+                if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+                    for (const p of Game.projectiles) {
+                        if (p && (p.weaponType === 'CHAIN_LIGHTNING' || p.weaponType === 'LASER') && p.player === player && !p.markedForDeletion) {
+                            if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
+                        }
+                    }
+                }
+                // 清理武器實例中的投射物引用（正常模式）
+                if (!player.isUltimateActive) {
+                    const chainLightningWeapon = player.weapons.find(w => w.type === 'CHAIN_LIGHTNING');
+                    if (chainLightningWeapon && chainLightningWeapon._chainEntity) {
+                        try {
+                            if (typeof chainLightningWeapon._chainEntity.destroy === 'function') {
+                                chainLightningWeapon._chainEntity.destroy();
+                            } else {
+                                chainLightningWeapon._chainEntity.markedForDeletion = true;
+                            }
+                        } catch(_) {}
+                        chainLightningWeapon._chainEntity = null;
+                    }
+                    // 清理雷射的投射物（LaserBeam是直接添加到projectiles的，没有实体引用）
+                }
+            } catch(_) {}
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                // 移除基礎武器
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'CHAIN_LIGHTNING' && info.type !== 'LASER');
+                // 加入或升級融合武器
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'RADIANT_GLORY');
+                const cfgRG = CONFIG.WEAPONS['RADIANT_GLORY'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgRG && curLv < cfgRG.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'RADIANT_GLORY', level: 1 });
+                }
+            } else {
+                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'CHAIN_LIGHTNING' && w.type !== 'LASER');
+                const existingRG = player.weapons.find(w => w.type === 'RADIANT_GLORY');
+                if (existingRG) {
+                    player.upgradeWeapon('RADIANT_GLORY');
+                } else {
+                    player.addWeapon('RADIANT_GLORY');
                 }
             }
             try { this.updateSkillsList(); } catch (_) {}
