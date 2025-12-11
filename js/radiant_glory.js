@@ -6,6 +6,15 @@
 // 依賴：Entity、Game、DamageSystem、DamageNumbers、CONFIG、Utils、LaserBeam
 // 維護備註：
 // - SaveCode 不涉及武器狀態與臨時武器的存檔，無需變更 SCHEMA_VERSION 或 localStorage 鍵名
+// - 使用全局共享的敵人雷射分配表，確保即使有多個實例，每個敵人也最多只被3條雷射傷害
+
+// 全局共享的敵人雷射分配表（所有RadiantGloryEffect實例共享）
+// enemyId -> Set<beamUniqueId>，記錄哪些雷射可以傷害該敵人
+// 使用全局共享確保即使有多個實例同時存在，每個敵人也最多只被3條雷射傷害
+if (typeof window !== 'undefined' && !window._globalRadiantGloryAssignment) {
+    window._globalRadiantGloryAssignment = new Map();
+}
+
 class RadiantGloryEffect extends Entity {
     constructor(player, damage, widthPx, durationMs, tickIntervalMs, beamCount, rotationSpeed) {
         super(player.x, player.y, 1, 1);
@@ -20,6 +29,10 @@ class RadiantGloryEffect extends Entity {
         this.baseAngle = 0; // 基礎旋轉角度
         this.beams = []; // 存儲所有雷射光束
         this.weaponType = 'RADIANT_GLORY';
+        // 使用全局共享的分配表，確保即使有多個實例，每個敵人也最多只被3條雷射傷害
+        this.enemyBeamAssignment = window._globalRadiantGloryAssignment;
+        // 為這個實例生成唯一ID，用於區分不同實例的雷射
+        this.instanceId = Date.now() + Math.random();
         
         // 初始化所有雷射光束
         this._createBeams();
@@ -35,12 +48,9 @@ class RadiantGloryEffect extends Entity {
         this.beams = [];
         
         // 創建10條雷射，均勻分布在360度
-        // 使用共享的敵人雷射分配表，確保每個敵人最多只能被3條雷射持續傷害
-        // enemyId -> Set<beamIndex>，記錄哪些雷射可以傷害該敵人
-        if (!this.enemyBeamAssignment) {
-            this.enemyBeamAssignment = new Map(); // enemyId -> Set<beamIndex>
-        }
-        this.enemyBeamAssignment.clear(); // 每次重新創建時清除分配
+        // 使用全局共享的敵人雷射分配表，確保每個敵人最多只能被3條雷射持續傷害
+        // enemyId -> Set<beamUniqueId>，記錄哪些雷射可以傷害該敵人
+        // 注意：不清除全局分配表，因為可能有多個實例同時存在
         
         const angleStep = (Math.PI * 2) / this.beamCount;
         for (let i = 0; i < this.beamCount; i++) {
@@ -55,8 +65,9 @@ class RadiantGloryEffect extends Entity {
             );
             beam.weaponType = 'RADIANT_GLORY';
             beam.baseAngle = angle; // 保存初始角度
-            beam.beamIndex = i; // 記錄雷射索引，用於分配
-            // 將共享的敵人雷射分配表傳遞給每條雷射
+            // 使用全局唯一的beamId，格式：instanceId_beamIndex
+            beam.beamUniqueId = `${this.instanceId}_${i}`;
+            // 將全局共享的敵人雷射分配表傳遞給每條雷射
             beam._radiantGloryAssignment = this.enemyBeamAssignment;
             beam._radiantGloryMaxHits = 3; // 每個敵人最多3條雷射
             this.beams.push(beam);
@@ -98,6 +109,7 @@ class RadiantGloryEffect extends Entity {
         // 檢查所有已分配的敵人是否還在任何雷射範圍內
         // 如果敵人離開了所有雷射範圍，清除分配，以便重新靠近時重新分配
         // 這個檢查在每個update週期進行，確保敵人離開後能及時清除分配
+        // 注意：只檢查屬於這個實例的雷射，但清除全局分配（因為是全局共享的）
         if (this.enemyBeamAssignment && this.enemyBeamAssignment.size > 0) {
             const half = this.width / 2;
             
@@ -111,21 +123,48 @@ class RadiantGloryEffect extends Entity {
                     continue;
                 }
                 
-                // 檢查敵人是否還在任何雷射範圍內
+                // 檢查敵人是否還在這個實例的任何雷射範圍內
+                // 同時檢查分配中的雷射是否屬於這個實例
                 let isInAnyBeam = false;
-                for (const beam of this.beams) {
-                    if (beam && !beam.markedForDeletion) {
-                        const d = beam.pointSegmentDistance(enemy.x, enemy.y, beam.startX, beam.startY, beam.endX, beam.endY);
-                        if (d <= half + enemy.collisionRadius) {
-                            isInAnyBeam = true;
-                            break;
-                        }
+                let hasBeamsFromThisInstance = false;
+                
+                // 先檢查分配中是否有屬於這個實例的雷射
+                for (const beamUniqueId of assignedBeams) {
+                    if (typeof beamUniqueId === 'string' && beamUniqueId.startsWith(`${this.instanceId}_`)) {
+                        hasBeamsFromThisInstance = true;
+                        break;
                     }
                 }
                 
-                // 如果敵人不在任何雷射範圍內，清除分配
-                if (!isInAnyBeam) {
-                    this.enemyBeamAssignment.delete(enemyId);
+                // 如果分配中有屬於這個實例的雷射，檢查敵人是否還在範圍內
+                if (hasBeamsFromThisInstance) {
+                    for (const beam of this.beams) {
+                        if (beam && !beam.markedForDeletion) {
+                            const d = beam.pointSegmentDistance(enemy.x, enemy.y, beam.startX, beam.startY, beam.endX, beam.endY);
+                            if (d <= half + enemy.collisionRadius) {
+                                isInAnyBeam = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 如果敵人不在這個實例的任何雷射範圍內，清除屬於這個實例的分配
+                    if (!isInAnyBeam) {
+                        // 只清除屬於這個實例的雷射分配
+                        const toRemove = [];
+                        for (const beamUniqueId of assignedBeams) {
+                            if (typeof beamUniqueId === 'string' && beamUniqueId.startsWith(`${this.instanceId}_`)) {
+                                toRemove.push(beamUniqueId);
+                            }
+                        }
+                        for (const id of toRemove) {
+                            assignedBeams.delete(id);
+                        }
+                        // 如果分配為空，清除整個敵人的分配記錄
+                        if (assignedBeams.size === 0) {
+                            this.enemyBeamAssignment.delete(enemyId);
+                        }
+                    }
                 }
             }
         }
