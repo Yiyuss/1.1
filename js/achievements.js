@@ -39,6 +39,13 @@ const Achievements = (function(){
       id: 'CHALLENGE_GALAXY_CLEAR',
       name: '銀河系征服者',
       desc: '通關挑戰模式中的銀河系關卡。',
+      icon: 'assets/images/A33.png',
+      reward: '解鎖「光芒萬丈」技能。'
+    },
+    DADA_CITY_CLEAR: {
+      id: 'DADA_CITY_CLEAR',
+      name: '灰妲的勝利',
+      desc: '使用灰妲角色通關廁所。',
       icon: 'assets/images/A24.png',
       reward: '解鎖「狂熱大波」技能。'
     },
@@ -70,10 +77,11 @@ const Achievements = (function(){
     FRENZY_LIGHTNING: ['FIRST_CLEAR'],
     MIND_MAGIC: ['HARD_CLEAR'],
     FRENZY_SLASH: ['COIN_100K'],
-    FRENZY_ICE_BALL: ['CHALLENGE_GALAXY_CLEAR'],
+    FRENZY_ICE_BALL: ['DADA_CITY_CLEAR'],
     FRENZY_YOUNG_DADA_GLORY: ['CHALLENGE_NEBULA_CLEAR'],
     GRAVITY_WAVE: ['COIN_200K'],
-    DEATHLINE_SUPERMAN: ['ROKUROST_CITY_CLEAR']
+    DEATHLINE_SUPERMAN: ['ROKUROST_CITY_CLEAR'],
+    RADIANT_GLORY: ['CHALLENGE_GALAXY_CLEAR']
     // 未來：在此加入新融合技能的成就解鎖需求，例如：
     // OTHER_FUSION_SKILL: ['SOME_ACHIEVEMENT', 'ANOTHER_ACHIEVEMENT']
   };
