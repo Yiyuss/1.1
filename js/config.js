@@ -425,6 +425,30 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "基礎攻擊+10" }
             ]
         },
+        // 融合技能：光芒萬丈（連鎖閃電LV10 + 雷射LV10）
+        RADIANT_GLORY: {
+            NAME: "光芒萬丈",
+            DAMAGE: 15, // 
+            COOLDOWN: 5000, // 與LV1雷射相同（5秒）
+            DURATION: 2000, // 與LV1雷射相同（持續2秒）
+            BEAM_WIDTH_BASE: 8, // 與LV1雷射相同
+            TICK_INTERVAL_MS: 120, // 與LV1雷射相同
+            BEAM_COUNT: 10, // 向四面八方射出10條雷射
+            ROTATION_SPEED: 1.0, // 旋轉速度（弧度/秒）
+            DAMAGE_PER_LEVEL: 1, // 每升一級+1基礎攻擊
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "向四面八方射出10條旋轉雷射，基礎攻擊+1" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+2" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+3" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+4" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+5" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+6" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+7" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+8" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+9" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+10" }
+            ]
+        },
         CHAIN_LIGHTNING: {
             NAME: "連鎖閃電",
             DAMAGE: 15, // 與追蹤綿羊相同
