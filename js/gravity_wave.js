@@ -10,7 +10,7 @@
 // - 視覺資源鍵：'field2'（於 main.js 的 createDefaultImages 中載入 assets/images/field2.png，拼接雪碧圖）
 // - 半徑由 CONFIG.WEAPONS.GRAVITY_WAVE.FIELD_RADIUS 決定（固定150，與守護領域LV10相同）
 class GravityWaveField extends Entity {
-    constructor(player, radius, damage) {
+    constructor(player, radius, damage, pushMultiplier = 0) {
         super(player.x, player.y, radius * 2, radius * 2);
         this.player = player;
         this.radius = radius;
@@ -25,6 +25,8 @@ class GravityWaveField extends Entity {
         // 推怪功能：0.5秒觸發一次
         this.pushIntervalMs = 500;
         this.pushAccumulator = 0;
+        // 推力加成（來自天賦系統，0.10 = 10%, 0.20 = 20%, 等）
+        this.pushMultiplier = pushMultiplier || 0;
         // 記錄每個敵人上次被推的時間，避免重複推
         this.enemyLastPushTime = new Map();
 
@@ -95,7 +97,9 @@ class GravityWaveField extends Entity {
                             const dirY = dy / dist;
                             // 推開距離：根據距離場域中心的距離調整，越靠近推得越遠
                             // 使用類似幸存者遊戲的推怪邏輯：推開距離 = 基礎距離 * (1 - 距離/半徑)
-                            const pushDistance = 30 * (1 - Math.min(dist / this.radius, 1));
+                            const basePushDistance = 30 * (1 - Math.min(dist / this.radius, 1));
+                            // 應用天賦加成：推力 = 基礎推力 * (1 + 加成百分比)
+                            const pushDistance = basePushDistance * (1 + (this.pushMultiplier || 0));
                             // 應用推開效果：直接修改敵人位置
                             enemy.x += dirX * pushDistance;
                             enemy.y += dirY * pushDistance;
