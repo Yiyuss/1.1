@@ -94,6 +94,31 @@ class LaserBeam extends Entity {
             for (const enemy of Game.enemies) {
                 const d = this.pointSegmentDistance(enemy.x, enemy.y, this.startX, this.startY, this.endX, this.endY);
                 if (d <= half + enemy.collisionRadius) {
+                    // 光芒萬丈特殊處理：每個敵人最多只能被3條雷射持續傷害
+                    // 一旦某個敵人被3條雷射分配，這3條雷射會持續對該敵人造成傷害，其他7條雷射不會傷害該敵人
+                    if (this.weaponType === 'RADIANT_GLORY' && this._radiantGloryAssignment && typeof this._radiantGloryMaxHits === 'number' && typeof this.beamIndex === 'number') {
+                        const enemyId = enemy.id || enemy;
+                        let assignedBeams = this._radiantGloryAssignment.get(enemyId);
+                        
+                        // 如果該敵人還沒有被分配雷射，創建一個Set
+                        if (!assignedBeams) {
+                            assignedBeams = new Set();
+                            this._radiantGloryAssignment.set(enemyId, assignedBeams);
+                        }
+                        
+                        // 如果該敵人已經被分配了3條雷射，檢查這條雷射是否在其中
+                        if (assignedBeams.size >= this._radiantGloryMaxHits) {
+                            // 如果這條雷射不在分配列表中，跳過傷害
+                            if (!assignedBeams.has(this.beamIndex)) {
+                                continue;
+                            }
+                            // 如果這條雷射在分配列表中，繼續造成傷害（持續傷害）
+                        } else {
+                            // 如果該敵人還沒有被分配滿3條雷射，將這條雷射加入分配列表
+                            assignedBeams.add(this.beamIndex);
+                        }
+                    }
+                    
                     if (typeof DamageSystem !== 'undefined') {
                         const result = DamageSystem.computeHit(this.damage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
                         enemy.takeDamage(result.amount);
