@@ -571,18 +571,14 @@ const iconMap = {
             if (price > 0) {
                 const currentCoins = Game.coins || 0;
                 if (currentCoins < price) {
-                    alert(`需要 ${price} 金幣才能啟動 ${ch.name}，目前金幣不足。`);
                     return false;
                 }
-                const ok = confirm(`是否花費 ${price} 金幣啟動 ${ch.name}？`);
-                if (!ok) return false;
                 // 扣除金幣並即時存檔與更新 UI（金幣鍵名與 SaveCode 結構保持不變）
                 Game.coins = Math.max(0, Math.floor(currentCoins - price));
                 try { Game.saveCoins(); } catch (_) {}
                 try { if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) UI.updateCoinsDisplay(Game.coins); } catch (_) {}
                 unlockCharacter(id);
                 refreshCardLockState();
-                alert(`${ch.name} 已啟動！`);
                 return true;
             }
             return true;
