@@ -771,6 +771,10 @@ const Game = {
                 if (charId === 'rokurost' && mapId === 'city') {
                     Achievements.unlock('ROKUROST_CITY_CLEAR');
                 }
+                // 灰妲通關廁所：解鎖狂熱大波成就
+                if (charId === 'dada' && mapId === 'city') {
+                    Achievements.unlock('DADA_CITY_CLEAR');
+                }
             }
         } catch(_) {}
         UI.showVictoryScreen();
