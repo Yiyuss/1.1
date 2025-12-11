@@ -471,9 +471,6 @@ body {
     gap: 10px;
     margin-top: 16px;
 }
-    border-radius: 6px;
-    cursor: pointer;
-}
 
 .info details {
     margin-top: 12px;
@@ -2218,6 +2215,23 @@ body {
   z-index: 1000;
 }
 #talent-confirm.hidden {
+  display: none;
+}
+
+/* 角色解鎖確認彈窗（與天賦確認彈窗相同樣式） */
+#character-confirm {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+#character-confirm.hidden {
   display: none;
 }
 .talent-dialog {
