@@ -81,6 +81,18 @@ const TalentSystem = {
             name: '綿羊護體強化',
             description: '升級可強化綿羊護體的基礎攻擊。',
             cost: 10000
+        },
+        // 新增：旋轉鬆餅強化（強化旋轉鬆餅的基礎攻擊）
+        rotating_muffin_boost: {
+            name: '旋轉鬆餅強化',
+            description: '升級可強化旋轉鬆餅的基礎攻擊。',
+            cost: 10000
+        },
+        // 新增：引力強化（增加引力波的推力）
+        gravity_wave_boost: {
+            name: '引力強化',
+            description: '升級可增加引力波的推力。',
+            cost: 3000
         }
     },
 
@@ -234,6 +246,28 @@ const TalentSystem = {
                 { flat: 20, cost: 40000 },
                 { flat: 25, cost: 50000 },
                 { flat: 30, cost: 60000 }
+            ]
+        },
+        // 新增：旋轉鬆餅強化（強化旋轉鬆餅的基礎攻擊：+5/+10/+15/+20/+25/+30）
+        rotating_muffin_boost: {
+            levels: [
+                { flat: 5, cost: 10000 },
+                { flat: 10, cost: 20000 },
+                { flat: 15, cost: 30000 },
+                { flat: 20, cost: 40000 },
+                { flat: 25, cost: 50000 },
+                { flat: 30, cost: 60000 }
+            ]
+        },
+        // 新增：引力強化（增加引力波的推力：10%/20%/30%/40%/50%/60%）
+        gravity_wave_boost: {
+            levels: [
+                { pushMultiplier: 0.10, cost: 3000 },
+                { pushMultiplier: 0.20, cost: 6000 },
+                { pushMultiplier: 0.30, cost: 12000 },
+                { pushMultiplier: 0.40, cost: 24000 },
+                { pushMultiplier: 0.50, cost: 35000 },
+                { pushMultiplier: 0.60, cost: 45000 }
             ]
         }
     },
@@ -676,6 +710,13 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'sheep_guard_boost') {
             const flat = eff.flat || 0;
             return `綿羊護體基礎攻擊+${flat}`;
+        } else if (id === 'rotating_muffin_boost') {
+            const flat = eff.flat || 0;
+            return `旋轉鬆餅基礎攻擊+${flat}`;
+        } else if (id === 'gravity_wave_boost') {
+            const multiplier = eff.pushMultiplier || 0;
+            const percent = Math.round(multiplier * 100);
+            return `引力波推力+${percent}%`;
         }
         return base;
     };
