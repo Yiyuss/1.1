@@ -398,12 +398,10 @@ const TalentSystem = {
         const nextCost = this.getNextLevelCost(talentId);
         if (!nextCost) {
             AudioManager.playSound('button_click');
-            alert('已達最高等級');
             return;
         }
         // 金幣檢查
         if (Game.coins < nextCost) {
-            alert('金幣不足！');
             AudioManager.playSound('button_click');
             return;
         }
@@ -431,7 +429,6 @@ const TalentSystem = {
         }
         // 若為操作次數強化，立刻刷新升級操作次數（本局有效）
         try { if (typeof UI !== 'undefined' && UI.applyLevelUpActionChargesFromTalents) UI.applyLevelUpActionChargesFromTalents(); } catch (_) {}
-        alert('天賦已解鎖！');
     },
     
     // 保存已解鎖的天賦
