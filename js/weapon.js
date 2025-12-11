@@ -223,15 +223,27 @@ class Weapon {
             const perLevel = this.config.FIELD_RADIUS_PER_LEVEL || 0;
             const dynamicRadius = baseRadius + perLevel * (this.level - 1);
             const dmg = this._computeFinalDamage(levelMul);
+            // 獲取引力強化天賦的推力加成
+            let pushMultiplier = 0;
+            if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+                const gravityBoostLevel = TalentSystem.getTalentLevel('gravity_wave_boost') || 0;
+                if (gravityBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.gravity_wave_boost) {
+                    const effect = TalentSystem.tieredTalents.gravity_wave_boost.levels[gravityBoostLevel - 1];
+                    if (effect && typeof effect.pushMultiplier === 'number') {
+                        pushMultiplier = effect.pushMultiplier;
+                    }
+                }
+            }
             // 僅首次生成；升級時在 fire 內同步半徑與傷害
             if (!this._auraEntity || this._auraEntity.markedForDeletion) {
-                this._auraEntity = new GravityWaveField(this.player, dynamicRadius, dmg);
+                this._auraEntity = new GravityWaveField(this.player, dynamicRadius, dmg, pushMultiplier);
                 Game.addProjectile(this._auraEntity);
             } else {
                 // 升級或定期同步最新數值
                 this._auraEntity.radius = dynamicRadius;
                 this._auraEntity.damage = dmg;
                 this._auraEntity.tickDamage = Math.max(1, Math.round(dmg));
+                this._auraEntity.pushMultiplier = pushMultiplier; // 同步推力加成
             }
             return;
         }
@@ -874,9 +886,21 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
         }
     }
     
+    // 新增：旋轉鬆餅強化（僅對旋轉鬆餅生效，直接增加基礎攻擊）
+    let rotatingMuffinFlat = 0;
+    if (this.type === 'ROTATING_MUFFIN' && typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+        const rotatingMuffinBoostLevel = TalentSystem.getTalentLevel('rotating_muffin_boost') || 0;
+        if (rotatingMuffinBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.rotating_muffin_boost) {
+            const effect = TalentSystem.tieredTalents.rotating_muffin_boost.levels[rotatingMuffinBoostLevel - 1];
+            if (effect && typeof effect.flat === 'number') {
+                rotatingMuffinFlat = effect.flat;
+            }
+        }
+    }
+    
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + rotatingMuffinFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
