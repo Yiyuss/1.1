@@ -556,6 +556,7 @@ function safePlayShura(ctx) {
         } catch(_){}
         // 使用 GifOverlay 將玩家 GIF 疊於畫面（依 --ui-scale 自動縮放對位）
         // 特殊處理：player4.png 需要保持 500:627 的寬高比
+        // 特殊處理：player3.gif 需要保持原比例（與冒險模式一致）
         try {
           if (typeof window.ChallengeGifOverlay !== 'undefined') {
             const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
@@ -566,6 +567,34 @@ function safePlayShura(ctx) {
                 const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
                 const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
                 const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+                const renderHeight = actorSize;
+                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+              } else {
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, actorSize);
+              }
+            } else if (sc && (sc.id === 'lilylinglan' || sc.spriteImageKey === 'player3')) {
+              // player3.gif 保持原比例（1:1），使用模式原有的尺寸計算
+              const imgObj = (Game.images && Game.images['player3']) ? Game.images['player3'] : null;
+              if (imgObj && imgObj.complete) {
+                const imgWidth = imgObj.naturalWidth || imgObj.width || 320;
+                const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
+                const aspectRatio = imgWidth / imgHeight; // 320/320 = 1.0
+                // 使用模式原有的尺寸計算方式，保持原比例
+                const renderHeight = actorSize;
+                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+              } else {
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, actorSize);
+              }
+            } else if ((!sc || sc.id === 'margaret' || sc.spriteImageKey === 'player') || /player\.gif$/i.test(actorSrc)) {
+              // player.gif 保持原比例（1:1），使用模式原有的尺寸計算
+              const imgObj = (Game.images && Game.images['player']) ? Game.images['player'] : null;
+              if (imgObj && imgObj.complete) {
+                const imgWidth = imgObj.naturalWidth || imgObj.width || 320;
+                const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
+                const aspectRatio = imgWidth / imgHeight; // 320/320 = 1.0
+                // 使用模式原有的尺寸計算方式，保持原比例
                 const renderHeight = actorSize;
                 const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                 window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
