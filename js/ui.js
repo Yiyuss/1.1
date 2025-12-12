@@ -350,9 +350,12 @@ const skillIcons = {
     DEATHLINE_SUPERMAN: 'assets/images/A30.png',
     RADIANT_GLORY: 'assets/images/A33.png',
     SUMMON_AI: 'assets/images/AI.png',
+    FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
     MIND_MAGIC: 'assets/images/A16.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
+    ATTR_HEALTH: 'assets/images/A10.png',
+    ATTR_DEFENSE: 'assets/images/A11.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
 };
             const iconSrc = skillIcons[info.type] || 'assets/images/A1.png';
@@ -1796,6 +1799,7 @@ const iconMap = {
     UNCONTROLLABLE_BEAST: 'assets/images/A32.png',
     DEATHLINE_SUPERMAN: 'assets/images/A30.png',
     SUMMON_AI: 'assets/images/AI.png',
+    RADIANT_GLORY: 'assets/images/A33.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
     FRENZY_SLASH: 'assets/images/A18.png',
     GRAVITY_WAVE: 'assets/images/A27.png',
