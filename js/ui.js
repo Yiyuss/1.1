@@ -558,6 +558,20 @@ const skillIcons = {
                 (hasGravityWave && (weaponType === 'AURA_FIELD' || weaponType === 'INVINCIBLE')) ||
                 (hasDeathlineSuperman && (weaponType === 'DAGGER' || weaponType === 'DEATHLINE_WARRIOR')) ||
                 (hasRadiantGlory && (weaponType === 'CHAIN_LIGHTNING' || weaponType === 'LASER'))) continue;
+            // 召喚AI技能：需要成就解鎖（星雲征服者）
+            if (weaponType === 'SUMMON_AI') {
+                // 檢查是否已解鎖成就「星雲征服者」
+                const isUnlocked = (function(){
+                    try { 
+                        return !!(typeof Achievements !== 'undefined' && Achievements.isUnlocked && Achievements.isUnlocked('CHALLENGE_NEBULA_CLEAR')); 
+                    } catch(_) { 
+                        return false; 
+                    }
+                })();
+                if (!isUnlocked) continue; // 未解鎖，不顯示
+                // 檢查是否已經召喚過AI（一次性技能，只能選一次）
+                if (playerWeaponTypes.includes('SUMMON_AI')) continue; // 已經召喚過，不顯示
+            }
             if (!playerWeaponTypes.includes(weaponType)) {
                 const weaponConfig = CONFIG.WEAPONS[weaponType];
                 options.push({
