@@ -42,19 +42,19 @@ const Achievements = (function(){
       icon: 'assets/images/A33.png',
       reward: '解鎖「光芒萬丈」技能。'
     },
-    DADA_CITY_CLEAR: {
-      id: 'DADA_CITY_CLEAR',
-      name: '灰妲的勝利',
-      desc: '使用灰妲角色通關廁所。',
-      icon: 'assets/images/A24.png',
-      reward: '解鎖「狂熱大波」技能。'
-    },
     CHALLENGE_NEBULA_CLEAR: {
       id: 'CHALLENGE_NEBULA_CLEAR',
       name: '星雲征服者',
       desc: '通關挑戰模式中的星雲關卡。',
       icon: 'assets/images/AI.png',
       reward: '解鎖「召喚AI」技能。'
+    },
+    DADA_CITY_CLEAR: {
+      id: 'DADA_CITY_CLEAR',
+      name: '灰妲的勝利',
+      desc: '使用灰妲角色通關廁所。',
+      icon: 'assets/images/A24.png',
+      reward: '解鎖「狂熱大波」技能。'
     },
     DADA_FOREST_CLEAR: {
       id: 'DADA_FOREST_CLEAR',
