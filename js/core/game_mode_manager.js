@@ -125,12 +125,27 @@
       playMusic(name, options){
         try {
           if (globalAudio && typeof globalAudio.playMusic === 'function') {
-            // 以名稱鍵播放，交由全域 AudioManager 處理 stopAll 與 loop 等邏輯
-            globalAudio.playMusic(name, options);
-            return;
+            // 先檢查 AudioManager 中是否有該音樂
+            if (globalAudio.music && globalAudio.music[name]) {
+              // 以名稱鍵播放，交由全域 AudioManager 處理 stopAll 與 loop 等邏輯
+              // 先停止本地音軌，避免與 AudioManager 重疊
+              try {
+                for (const el of locals) { el.pause(); el.src = ''; }
+                locals.length = 0;
+                if (localCurrent) { localCurrent.pause(); localCurrent.src = ''; localCurrent = null; }
+              } catch(_){}
+              globalAudio.playMusic(name, options);
+              return;
+            }
           }
         } catch(_){}
         // 降級：以 <audio> 單軌播放（僅限該模式），避免每次呼叫疊加音軌
+        // 先停止 AudioManager 的音樂（如果正在播放），避免重疊
+        try {
+          if (globalAudio && typeof globalAudio.stopAllMusic === 'function') {
+            globalAudio.stopAllMusic();
+          }
+        } catch(_){}
         const src = resources.getAudioSrc(name);
         if (!src) return;
         try {
@@ -148,7 +163,11 @@
 
           const el = new Audio(src);
           el.loop = !!(options && options.loop);
-          el.volume = (options && typeof options.volume === 'number') ? options.volume : 1;
+          // 優先使用 options.volume，否則使用 AudioManager 的音樂音量，最後降級為 1
+          const vol = (options && typeof options.volume === 'number') 
+            ? options.volume 
+            : (globalAudio && typeof globalAudio.musicVolume === 'number' ? globalAudio.musicVolume : 1);
+          el.volume = vol;
           el.play().catch(()=>{});
           locals.push(el);
           localCurrent = el;
@@ -172,6 +191,23 @@
         return false;
       },
       setMuted(v){ try { if (globalAudio && typeof globalAudio.setMuted === 'function') globalAudio.setMuted(!!v); } catch(_){} },
+      setMusicVolume(volume){
+        // 同步更新本地音軌的音量
+        try {
+          for (const el of locals) {
+            if (el && typeof el.volume !== 'undefined') el.volume = volume;
+          }
+          if (localCurrent && typeof localCurrent.volume !== 'undefined') {
+            localCurrent.volume = volume;
+          }
+        } catch(_){}
+        // 同時更新 AudioManager 的音量（如果存在）
+        try {
+          if (globalAudio && typeof globalAudio.setMusicVolume === 'function') {
+            globalAudio.setMusicVolume(volume);
+          }
+        } catch(_){}
+      },
     };
   }
 
