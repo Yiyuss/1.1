@@ -507,6 +507,11 @@ const Game = {
             }
         }
         
+        // 繪製AI生命體（使用GifOverlay，在玩家圖層）
+        if (this.player && this.player.aiCompanion) {
+            this.player.aiCompanion.draw(this.ctx);
+        }
+        
         // 繪製投射物（除連鎖閃電/狂熱雷擊/斬擊與幼妲光輝/幼妲天使聖光/死線戰士/死線超人，延後至敵人之上）
         for (const projectile of this.projectiles) {
             if (
@@ -775,6 +780,10 @@ const Game = {
                 if (charId === 'dada' && mapId === 'city') {
                     Achievements.unlock('DADA_CITY_CLEAR');
                 }
+                // 灰妲通關草原：解鎖幼妲天使成就
+                if (charId === 'dada' && mapId === 'forest') {
+                    Achievements.unlock('DADA_FOREST_CLEAR');
+                }
             }
         } catch(_) {}
         UI.showVictoryScreen();
@@ -791,6 +800,15 @@ const Game = {
         this.chests = [];
         this.obstacles = [];
         this.decorations = [];
+        // 清除AI生命體（如果存在）
+        if (this.player && this.player.aiCompanion) {
+            try {
+                if (this.player.aiCompanion.cleanup) {
+                    this.player.aiCompanion.cleanup();
+                }
+            } catch(_) {}
+            this.player.aiCompanion = null;
+        }
         this.gameTime = 0;
         this.isPaused = false;
         this.isGameOver = false;
