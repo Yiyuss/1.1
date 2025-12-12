@@ -98,6 +98,29 @@ class Weapon {
             }
             return;
         }
+        // 特殊技能：召喚AI（一次性召喚，持續到遊戲結束）
+        if (this.type === 'SUMMON_AI') {
+            // 檢查是否已經召喚過AI（避免重複召喚）
+            if (this.player.aiCompanion) {
+                return; // 已經召喚過，不再重複
+            }
+            // 在玩家周遭隨機生成位置
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 100 + Math.random() * 50; // 100-150距離
+            const aiX = this.player.x + Math.cos(angle) * distance;
+            const aiY = this.player.y + Math.sin(angle) * distance;
+            
+            // 創建AI生命體
+            if (typeof AICompanion !== 'undefined') {
+                const ai = new AICompanion(this.player, aiX, aiY);
+                this.player.aiCompanion = ai;
+                // 將AI添加到遊戲實體列表（使用projectiles列表，因為它需要更新和繪製）
+                if (typeof Game !== 'undefined' && Game.addProjectile) {
+                    Game.addProjectile(ai);
+                }
+            }
+            return;
+        }
 
         // 融合技能：幼妲天使（超級加強版，每5秒補血並產生華麗聖光特效）
         if (this.type === 'FRENZY_YOUNG_DADA_GLORY') {
