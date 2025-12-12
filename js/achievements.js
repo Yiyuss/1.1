@@ -169,7 +169,7 @@ const Achievements = (function(){
 
   // 通用：判斷指定成就 ID 陣列是否皆已解鎖
   function areUnlocked(ids){
-    if (!Array.isArray(ids) || !ids.length) return true;
+    if (!Array.isArray(ids) || !ids.length) return false; // 空數組視為未解鎖（更安全）
     return ids.every(id => isUnlocked(id));
   }
 
