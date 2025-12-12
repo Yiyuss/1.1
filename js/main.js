@@ -158,6 +158,7 @@ function createDefaultImages() {
         // - player2-2.png ：所有模式 HUD 左上角頭像 + 生存模式升級介面左側底圖
         // - player2-3.png ：選角介面角色卡片/預覽用圖片
         { name: 'player2', src: 'assets/images/player2.png' },
+        { name: 'player2-1', src: 'assets/images/player2-1.png' }, // player2向右的圖片
         { name: 'player2-2', src: 'assets/images/player2-2.png' },
         { name: 'player2-3', src: 'assets/images/player2-3.png' },
         // 第三位角色圖片：
