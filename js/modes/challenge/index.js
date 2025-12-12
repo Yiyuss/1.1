@@ -979,7 +979,16 @@ function safePlayShura(ctx) {
       // 初始化挑戰彈幕系統與 BOSS（獨立於生存模式）
       try {
         if (typeof window.ChallengeBulletSystem !== 'undefined') {
-          window.ChallengeBulletSystem.init({ canvas, defaultDamage: 20 });
+          // 根據地圖設置不同的子彈傷害值
+          let bulletDamage = 20; // 預設：銀河系地圖 (challenge-1)
+          if (selectedMapId === 'challenge-2') {
+            bulletDamage = 25; // 星雲地圖
+          } else if (selectedMapId === 'challenge-3') {
+            bulletDamage = 30; // 星軌地圖
+          } else if (selectedMapId === 'challenge-4') {
+            bulletDamage = 35; // 黑洞地圖
+          }
+          window.ChallengeBulletSystem.init({ canvas, defaultDamage: bulletDamage });
         }
         const boss1Img = ctx.resources.getImage('challenge_boss_gif');
         const baseW = boss1Img && boss1Img.naturalWidth ? boss1Img.naturalWidth : 223;
