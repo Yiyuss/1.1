@@ -533,6 +533,8 @@ body {
     width: 1280px;
     height: 720px;
     display: block;
+    background-color: #000; /* 填滿黑邊 */
+    overflow: hidden; /* 隱藏溢出內容 */
 }
 
 /* 引繼碼介面：限制卡片高度、隱藏外層卷軸，返回按鈕固定在右下角 */
