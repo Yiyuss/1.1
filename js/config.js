@@ -593,6 +593,15 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "基礎傷害+1" }
             ]
         },
+        // 通用技能：召喚AI（一次性召喚，持續到遊戲結束）
+        SUMMON_AI: {
+            NAME: "召喚AI",
+            DAMAGE: 0, // 召喚技能，不直接造成傷害（AI會使用連鎖閃電）
+            COOLDOWN: 0, // 一次性技能，無冷卻
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "召喚一個AI生命體跟隨玩家，使用LV10連鎖閃電" }
+            ]
+        },
         // 融合技能：幼妲天使（持有並滿級 應援棒(DAGGER) 與 幼妲光輝(YOUNG_DADA_GLORY) 後可獲得）
         FRENZY_YOUNG_DADA_GLORY: {
             NAME: "幼妲天使",
