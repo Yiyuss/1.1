@@ -211,6 +211,9 @@ function createDefaultImages() {
         { name: 'A32', src: 'assets/images/A32.png' }, // 不獸控制技能圖片
         { name: 'A30', src: 'assets/images/A30.png' }, // 死線超人技能圖片/成就圖片
         { name: 'A33', src: 'assets/images/A33.png' }, // 光芒萬丈技能圖片/成就圖片
+        { name: 'AI', src: 'assets/images/AI.png' }, // 召喚AI技能圖片/成就圖片
+        { name: 'AI2', src: 'assets/images/AI2.png' }, // AI生命體往左圖片
+        { name: 'AI3', src: 'assets/images/AI3.png' }, // AI生命體往右圖片
         { name: 'muffin', src: 'assets/images/muffin.png' }, // 旋轉鬆餅視覺效果圖片
         { name: 'muffin2', src: 'assets/images/muffin2.png' }, // 鬆餅投擲視覺效果圖片
         { name: 'die', src: 'assets/images/die.png' }, // 死線戰士傷害特效雪碧圖
