@@ -18,7 +18,9 @@
           { key: 'main_house1', src: 'js/modes/main/04.png' },
           { key: 'main_house2', src: 'js/modes/main/05.png' },
           { key: 'main_house3', src: 'js/modes/main/06.png' },
-          { key: 'main_house4', src: 'js/modes/main/07.png' }
+          { key: 'main_house4', src: 'js/modes/main/07.png' },
+          { key: 'npc_gif', src: 'assets/images/NPC.gif' },
+          { key: 'npc_sprite', src: 'assets/images/001.png' }
         ],
         audio: [
           { name: 'main', src: 'assets/audio/main.mp3' }
@@ -468,6 +470,23 @@
           };
           this.entities.push(home);
 
+          // [NPC] 放在中間建築物外部右下角（位置上的右下，不是建築物內部）
+          // NPC 原始比例 279x320，縮放到接近玩家大小（48x60）
+          // 縮放比例 = 60/320 ≈ 0.1875
+          const NPC_SCALE = 60 / 320; // 以高度為基準縮放
+          const NPC_W = Math.round(279 * NPC_SCALE); // ≈ 52
+          const NPC_H = 60; // 與玩家高度一致
+          // 建築物外部右下角：建築物右邊界 + 偏移，建築物下邊界 + 偏移
+          const npcX = hx + HOME_W + 20; // 建築物右邊界外側，稍微偏移
+          const npcY = hy + HOME_H + 10; // 建築物下邊界外側，稍微偏移
+          let npc = new Entity('npc', npcX, npcY, NPC_W, NPC_H);
+          npc.solid = false; // NPC 不阻擋玩家
+          npc.domId = 'main-npc';
+          npc.layerId = 'npc';
+          npc.spriteSheet = null; // 雪碧圖（001.png），用於滑鼠游標
+          npc.spriteFrame = 0; // 當前雪碧圖幀（0-7）
+          this.entities.push(npc);
+
           // [NPC 房子]
           const h1Img = getImage('main_house1');
           const h2Img = getImage('main_house2');
@@ -546,7 +565,7 @@
       const player = {
         x: CENTER_X, y: CENTER_Y + 200,
         width: PLAYER_W, height: PLAYER_H,
-        speed: 8,
+        speed: 4, // 降低移動速度（原本是8）
         lastDoor: null,
         canExit: true,
         targetX: null, 
@@ -621,6 +640,94 @@
       ctx.events.on(canvas, 'click', onCanvasClick, { capture: true });
       this._onCanvasClick = onCanvasClick;
 
+      // 滑鼠移動檢測（用於 NPC 懸停效果，將滑鼠變成雪碧圖）
+      let cursorSpriteEl = null;
+      let npcHovering = false; // 追蹤是否在NPC上
+      const onCanvasMouseMove = (e) => {
+        try {
+          if (MapSystem.current !== 'outdoor') {
+            // 不在戶外地圖時，隱藏滑鼠雪碧圖
+            if (cursorSpriteEl) {
+              cursorSpriteEl.style.display = 'none';
+            }
+            return;
+          }
+          
+          const rect = canvas.getBoundingClientRect();
+          const scaleX = canvas.width / rect.width;
+          const scaleY = canvas.height / rect.height;
+          const x = ((e.clientX != null ? e.clientX : e.pageX) - rect.left) * scaleX;
+          const y = ((e.clientY != null ? e.clientY : e.pageY) - rect.top) * scaleY;
+          const cam = getCameraOffset();
+          const worldX = x + cam.x;
+          const worldY = y + cam.y;
+          
+          // 檢查滑鼠是否在 NPC 上（使用整個 NPC 區域，不是碰撞區域）
+          let npc = MapSystem.entities.find(e => e.type === 'npc');
+          if (npc) {
+            // 使用整個 NPC 的邊界進行檢測，而不是碰撞區域
+            const isHovering = worldX >= npc.x && worldX <= npc.x + npc.width &&
+                              worldY >= npc.y && worldY <= npc.y + npc.height;
+            
+            if (isHovering) {
+              npcHovering = true;
+              // 載入雪碧圖（如果還沒載入）
+              if (!npc.spriteSheet) {
+                const spriteImg = getImage('npc_sprite');
+                if (spriteImg) {
+                  npc.spriteSheet = spriteImg;
+                }
+              }
+              
+              // 創建或獲取跟隨滑鼠的雪碧圖元素
+              if (!cursorSpriteEl) {
+                const viewport = document.getElementById('viewport');
+                if (viewport) {
+                  cursorSpriteEl = document.createElement('div');
+                  cursorSpriteEl.id = 'main-cursor-sprite';
+                  cursorSpriteEl.style.position = 'fixed';
+                  cursorSpriteEl.style.pointerEvents = 'none';
+                  cursorSpriteEl.style.imageRendering = 'pixelated';
+                  cursorSpriteEl.style.zIndex = '99999'; // 確保在最上層
+                  viewport.appendChild(cursorSpriteEl);
+                }
+              }
+              
+              // 如果雪碧圖已載入，顯示在滑鼠位置（使用當前動畫幀）
+              if (cursorSpriteEl && npc.spriteSheet && npc.spriteSheet.complete) {
+                const spriteW = 32;
+                const spriteH = 32;
+                const spriteCol = npc.spriteFrame % 8; // 0-7（循環）
+                const spriteSrcX = spriteCol * 32; // 每幀32像素寬
+                const spriteSrcY = 0; // 只有1行，所以Y始終為0
+                
+                // 使用滑鼠的螢幕座標（clientX, clientY）
+                cursorSpriteEl.style.backgroundImage = `url(${npc.spriteSheet.src})`;
+                cursorSpriteEl.style.backgroundPosition = `-${spriteSrcX}px -${spriteSrcY}px`;
+                cursorSpriteEl.style.backgroundSize = '256px 32px'; // 總大小：8列*32 = 256，高度32
+                cursorSpriteEl.style.left = (e.clientX || e.pageX) + 'px';
+                cursorSpriteEl.style.top = (e.clientY || e.pageY) + 'px';
+                cursorSpriteEl.style.width = spriteW + 'px';
+                cursorSpriteEl.style.height = spriteH + 'px';
+                cursorSpriteEl.style.display = '';
+                
+                // 隱藏原始滑鼠游標
+                canvas.style.cursor = 'none';
+              }
+            } else {
+              npcHovering = false;
+              // 不在 NPC 上，隱藏雪碧圖並恢復滑鼠游標
+              if (cursorSpriteEl) {
+                cursorSpriteEl.style.display = 'none';
+              }
+              canvas.style.cursor = '';
+            }
+          }
+        } catch(_) {}
+      };
+      ctx.events.on(canvas, 'mousemove', onCanvasMouseMove, { capture: true });
+      this._onCanvasMouseMove = onCanvasMouseMove;
+
       // 鏡頭系統
       function getCameraOffset() {
         let camX, camY;
@@ -644,7 +751,29 @@
       }
 
       // 更新循環
+      let lastFrameTime = 0;
+      const SPRITE_FRAME_INTERVAL = 100; // 每100毫秒切換一幀
       function update() {
+        // 更新雪碧圖動畫幀（如果NPC存在且滑鼠在NPC上）
+        let npc = MapSystem.entities.find(e => e.type === 'npc');
+        if (npc && npc.spriteSheet && npc.spriteSheet.complete) {
+          const now = Date.now();
+          if (now - lastFrameTime >= SPRITE_FRAME_INTERVAL) {
+            npc.spriteFrame = (npc.spriteFrame + 1) % 8; // 循環播放 0-7
+            lastFrameTime = now;
+            
+            // 如果滑鼠在NPC上，更新滑鼠雪碧圖的顯示
+            if (npcHovering) {
+              const cursorSpriteEl = document.getElementById('main-cursor-sprite');
+              if (cursorSpriteEl && cursorSpriteEl.style.display !== 'none') {
+                const spriteCol = npc.spriteFrame % 8; // 0-7（循環）
+                const spriteSrcX = spriteCol * 32; // 每幀32像素寬
+                cursorSpriteEl.style.backgroundPosition = `-${spriteSrcX}px 0px`;
+              }
+            }
+          }
+        }
+        
         let nx = player.x;
         let ny = player.y;
         let moving = false;
@@ -965,7 +1094,7 @@
             ctx2d.fillRect(px, py, PLAYER_W, PLAYER_H);
             ctx2d.fillStyle = '#f1c40f'; 
             ctx2d.fillRect(px + 4, py + 4, PLAYER_W - 8, 20);
-            ctx2d.fillStyle = '#000'; 
+          ctx2d.fillStyle = '#000';
             ctx2d.fillRect(px + 10, py + 10, 4, 4);
             ctx2d.fillRect(px + PLAYER_W - 14, py + 10, 4, 4);
           }
@@ -1047,6 +1176,15 @@
               }
               window.MainGifOverlay.showOrUpdate(obj.domId, obj.img, px, py, { width: obj.width, height: obj.height }, { layerId: obj.layerId || 'default', dynamicZIndex: baseZIndex });
             }
+          } else if (obj.type === 'npc') {
+            // NPC 使用 GIF 動態圖顯示（通過 MainGifOverlay 處理）
+            if (typeof window.MainGifOverlay !== 'undefined') {
+              // 使用 getImage 載入 NPC.gif，然後傳給 MainGifOverlay
+              const npcGifImg = getImage('npc_gif');
+              if (npcGifImg) {
+                window.MainGifOverlay.showOrUpdate(obj.domId, npcGifImg, px, py, { width: obj.width, height: obj.height }, { layerId: obj.layerId || 'npc', dynamicZIndex: baseZIndex });
+              }
+            }
           }
         }
       }
@@ -1070,6 +1208,18 @@
         try { if (window.MainGifOverlay && typeof window.MainGifOverlay.clearAll === 'function') window.MainGifOverlay.clearAll(); } catch(_) {}
         try { if (mainUIEl && mainUIEl.parentNode) mainUIEl.parentNode.removeChild(mainUIEl); } catch(_) {}
         try { if (mainMenuEl && mainMenuEl.parentNode) mainMenuEl.parentNode.removeChild(mainMenuEl); } catch(_) {}
+        // 清理滑鼠雪碧圖元素
+        try {
+          const cursorSpriteEl = document.getElementById('main-cursor-sprite');
+          if (cursorSpriteEl && cursorSpriteEl.parentNode) {
+            cursorSpriteEl.parentNode.removeChild(cursorSpriteEl);
+          }
+          // 恢復滑鼠游標
+          const canvas = document.getElementById('game-canvas');
+          if (canvas) {
+            canvas.style.cursor = '';
+          }
+        } catch(_) {}
         mainUIEl = null;
         mainMenuEl = null;
       };
@@ -1084,6 +1234,19 @@
         if (canvas && typeof this._onCanvasClick === 'function') {
           canvas.removeEventListener('click', this._onCanvasClick, { capture: true });
           this._onCanvasClick = null;
+        }
+        if (canvas && typeof this._onCanvasMouseMove === 'function') {
+          canvas.removeEventListener('mousemove', this._onCanvasMouseMove, { capture: true });
+          this._onCanvasMouseMove = null;
+        }
+        // 清理滑鼠雪碧圖元素
+        const cursorSpriteEl = document.getElementById('main-cursor-sprite');
+        if (cursorSpriteEl && cursorSpriteEl.parentNode) {
+          cursorSpriteEl.parentNode.removeChild(cursorSpriteEl);
+        }
+        // 恢復滑鼠游標
+        if (canvas) {
+          canvas.style.cursor = '';
         }
       } catch(_){}
     }
