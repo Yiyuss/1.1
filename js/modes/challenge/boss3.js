@@ -4,7 +4,7 @@
   function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
   const DEFAULTS = {
-    maxHealth: 200000,
+    maxHealth: 160000,
     size: 140,
     moveSpeed: 1.0,
     beamWidth: 46,
