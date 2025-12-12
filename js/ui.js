@@ -349,6 +349,8 @@ const skillIcons = {
     UNCONTROLLABLE_BEAST: 'assets/images/A32.png',
     DEATHLINE_SUPERMAN: 'assets/images/A30.png',
     RADIANT_GLORY: 'assets/images/A33.png',
+    SUMMON_AI: 'assets/images/AI.png',
+    MIND_MAGIC: 'assets/images/A16.png',
     ATTR_ATTACK: 'assets/images/A8.png',
     ATTR_CRIT: 'assets/images/A9.png',
     ATTR_ATTACK_POWER: 'assets/images/A12.png'
