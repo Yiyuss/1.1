@@ -54,6 +54,8 @@ class Player extends Entity {
 
         // 玩家朝向（以移動方向為基準；停止時保留上一朝向）
         this.facingAngle = 0;
+        // 玩家面向（左右）：true=右，false=左
+        this.facingRight = true;
 
         // 生命自然恢復：每5秒回1HP（不溢出，上限100）
         this.healthRegenIntervalMs = 5000;
@@ -90,6 +92,10 @@ class Player extends Entity {
         // 更新玩家朝向角度：只有在實際存在移動輸入時才更新
         if (direction.x !== 0 || direction.y !== 0) {
             this.facingAngle = Math.atan2(direction.y, direction.x);
+            // 更新面向（左右）：根據X軸方向判斷
+            if (Math.abs(direction.x) > 0.1) {
+                this.facingRight = direction.x > 0;
+            }
         }
         
         // 限制玩家在世界範圍內（透明牆：距離邊界一定距離）
@@ -163,9 +169,15 @@ class Player extends Entity {
         }
         
         // 使用玩家圖片（大招期間使用角色特定圖片或預設 playerN）；改用 GIF 覆蓋層以保證動畫
-        const baseKey = (this.spriteImageKey && Game.images && Game.images[this.spriteImageKey])
+        let baseKey = (this.spriteImageKey && Game.images && Game.images[this.spriteImageKey])
             ? this.spriteImageKey
             : 'player';
+        
+        // 特殊處理：player2根據移動方向切換圖片（左邊player2.png，右邊player2-1.png）
+        if (baseKey === 'player2' && !this.isUltimateActive) {
+            baseKey = this.facingRight ? 'player2-1' : 'player2';
+        }
+        
         // 使用角色特定的大招圖片鍵（若存在），否則使用預設
         const ultimateImgKey = (this.isUltimateActive && this._ultimateImageKey && Game.images && Game.images[this._ultimateImageKey])
             ? this._ultimateImageKey
@@ -217,6 +229,15 @@ class Player extends Entity {
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 320;
                     const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
                     const aspectRatio = imgWidth / imgHeight; // 320/320 = 1.0
+                    // 使用模式原有的尺寸計算方式，保持原比例
+                    const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                } else if ((imgKey === 'player2' || imgKey === 'player2-1') && imgObj.complete) {
+                    // player2.png / player2-1.png 保持原比例（290x242），使用模式原有的尺寸計算
+                    const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
+                    const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
+                    const aspectRatio = imgWidth / imgHeight; // 290/242 ≈ 1.198
                     // 使用模式原有的尺寸計算方式，保持原比例
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
