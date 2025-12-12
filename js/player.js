@@ -186,6 +186,7 @@ class Player extends Entity {
             if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
                 // 特殊處理：player4.png 需要保持 500:627 的寬高比
                 // 特殊處理：playerN3.png 需要保持 267:300 的寬高比
+                // 特殊處理：player3.gif 需要保持原比例（與冒險模式一致）
                 if (imgKey === 'player4' && imgObj.complete) {
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
                     const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
@@ -199,6 +200,24 @@ class Player extends Entity {
                     const imgHeight = imgObj.naturalHeight || imgObj.height || 300;
                     const aspectRatio = imgWidth / imgHeight; // 267/300 = 0.89
                     // 以高度為基準計算顯示尺寸（保持與其他角色相近的高度）
+                    const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                } else if (imgKey === 'player3' && imgObj.complete) {
+                    // player3.gif 保持原比例（1:1），使用模式原有的尺寸計算
+                    const imgWidth = imgObj.naturalWidth || imgObj.width || 320;
+                    const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
+                    const aspectRatio = imgWidth / imgHeight; // 320/320 = 1.0
+                    // 使用模式原有的尺寸計算方式，保持原比例
+                    const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                } else if (imgKey === 'player' && imgObj.complete) {
+                    // player.gif 保持原比例（1:1），使用模式原有的尺寸計算
+                    const imgWidth = imgObj.naturalWidth || imgObj.width || 320;
+                    const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
+                    const aspectRatio = imgWidth / imgHeight; // 320/320 = 1.0
+                    // 使用模式原有的尺寸計算方式，保持原比例
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                     window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
