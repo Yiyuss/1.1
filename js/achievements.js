@@ -53,6 +53,13 @@ const Achievements = (function(){
       id: 'CHALLENGE_NEBULA_CLEAR',
       name: '星雲征服者',
       desc: '通關挑戰模式中的星雲關卡。',
+      icon: 'assets/images/AI.png',
+      reward: '解鎖「召喚AI」技能。'
+    },
+    DADA_FOREST_CLEAR: {
+      id: 'DADA_FOREST_CLEAR',
+      name: '灰妲的大勝利',
+      desc: '使用灰妲角色通關草原。',
       icon: 'assets/images/A26.png',
       reward: '解鎖「幼妲天使」技能。'
     },
@@ -78,7 +85,8 @@ const Achievements = (function(){
     MIND_MAGIC: ['HARD_CLEAR'],
     FRENZY_SLASH: ['COIN_100K'],
     FRENZY_ICE_BALL: ['DADA_CITY_CLEAR'],
-    FRENZY_YOUNG_DADA_GLORY: ['CHALLENGE_NEBULA_CLEAR'],
+    FRENZY_YOUNG_DADA_GLORY: ['DADA_FOREST_CLEAR'],
+    SUMMON_AI: ['CHALLENGE_NEBULA_CLEAR'],
     GRAVITY_WAVE: ['COIN_200K'],
     DEATHLINE_SUPERMAN: ['ROKUROST_CITY_CLEAR'],
     RADIANT_GLORY: ['CHALLENGE_GALAXY_CLEAR']
