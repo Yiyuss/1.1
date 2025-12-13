@@ -247,7 +247,6 @@
                       }
                     } catch(_) {}
                   } catch(e) {
-                    console.error('[MainMode] 返回主選單時出錯:', e);
                   }
                 }, 100);
               } catch(e) {
@@ -279,6 +278,343 @@
             });
           }
         } catch(_) {}
+      }
+
+      // 對話系統
+      let dialogueEl = null;
+      let dialogueState = 0;
+      let youtubeWindowEl = null;
+      
+      // 輔助函數：播放按鈕音效
+      function playButtonSound() {
+        try {
+          if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+            AudioManager.playSound('button_click2');
+          }
+        } catch(_) {}
+      }
+      
+      function showDialogue(npc) {
+        if (player.inDialogue) return;
+        player.inDialogue = true;
+        player.targetX = null;
+        player.movingToNPC = false;
+        player.npcTarget = null;
+        dialogueState = 1;
+        
+        const viewport = document.getElementById('viewport');
+        if (!viewport) return;
+        
+        // 如果已有對話框，先移除
+        if (dialogueEl && dialogueEl.parentNode) {
+          dialogueEl.parentNode.removeChild(dialogueEl);
+        }
+        
+        // 創建人物立繪（在畫布左側，對話框後面）
+        let portraitEl = document.getElementById('main-dialogue-portrait');
+        if (!portraitEl) {
+          portraitEl = document.createElement('div');
+          portraitEl.id = 'main-dialogue-portrait';
+          portraitEl.className = 'dialogue-portrait';
+          portraitEl.innerHTML = `<img src="assets/images/NPC.png" alt="森森鈴蘭" class="dialogue-portrait-img">`;
+          viewport.appendChild(portraitEl);
+        }
+        portraitEl.style.display = 'block';
+        
+        // 創建對話框
+        dialogueEl = document.createElement('div');
+        dialogueEl.id = 'main-dialogue-box';
+        dialogueEl.className = 'main-dialogue-box';
+        dialogueEl.innerHTML = `
+          <div class="dialogue-overlay"></div>
+          <div class="dialogue-container">
+            <div class="dialogue-content">
+              <div class="dialogue-text" id="main-dialogue-text">玩家？我是森森鈴蘭，來自山谷的狼，是個魔女哦！</div>
+              <div class="dialogue-buttons" id="main-dialogue-buttons">
+                <button id="main-dialogue-continue" class="dialogue-btn">繼續對話</button>
+                <button id="main-dialogue-exit" class="dialogue-btn">離開</button>
+              </div>
+            </div>
+          </div>
+        `;
+        viewport.appendChild(dialogueEl);
+        
+        dialogueEl.style.display = 'flex';
+        
+        // 使用事件委托處理按鈕點擊
+        dialogueEl.addEventListener('click', function(e) {
+          const id = e.target.id;
+          if (id === 'main-dialogue-continue') {
+            playButtonSound();
+            nextDialogue();
+          } else if (id === 'main-dialogue-exit') {
+            playButtonSound();
+            closeDialogue();
+          } else if (id === 'main-dialogue-youtube') {
+            playButtonSound();
+            showYouTubeWindow();
+          } else if (id === 'main-dialogue-code') {
+            playButtonSound();
+            showCode();
+          }
+        });
+        
+        // 滑鼠移動檢測（對話框內正常，框外禁止）
+        const dialogueContainer = dialogueEl.querySelector('.dialogue-container');
+        if (dialogueContainer) {
+          dialogueContainer.addEventListener('mousemove', function(e) {
+            canvas.style.cursor = '';
+          });
+        }
+        
+        // 對話框外滑鼠移動
+        const dialogueOverlay = dialogueEl.querySelector('.dialogue-overlay');
+        if (dialogueOverlay) {
+          dialogueOverlay.addEventListener('mousemove', function(e) {
+            canvas.style.cursor = 'not-allowed';
+          });
+        }
+      }
+      
+      function nextDialogue() {
+        dialogueState++;
+        const textEl = document.getElementById('main-dialogue-text');
+        const buttonsEl = document.getElementById('main-dialogue-buttons');
+        
+        if (!textEl || !buttonsEl) return;
+        
+        if (dialogueState === 2) {
+          textEl.textContent = '你有聽過我的歌聲嗎？若還沒有記得去聽聽看最新的原創曲！';
+        } else if (dialogueState === 3) {
+          textEl.textContent = '聽說訂閱我的YouTube頻道可以獲得活動序號，是完全免費的！';
+        } else if (dialogueState === 4) {
+          buttonsEl.innerHTML = `
+            <button id="main-dialogue-youtube" class="dialogue-btn">進入頻道</button>
+            <button id="main-dialogue-code" class="dialogue-btn disabled">領取序號</button>
+            <button id="main-dialogue-exit" class="dialogue-btn">離開</button>
+          `;
+          checkYouTubeSubscription();
+        }
+      }
+      
+      function showYouTubeWindow() {
+        // 暫停BGM，避免與YouTube影片聲音衝突
+        try {
+          if (ctx && ctx.audio && typeof ctx.audio.stopAllMusic === 'function') {
+            ctx.audio.stopAllMusic();
+          }
+        } catch(_) {}
+        
+        const viewport = document.getElementById('viewport');
+        if (!viewport) return;
+        
+        youtubeWindowEl = document.createElement('div');
+        youtubeWindowEl.id = 'main-youtube-window';
+        youtubeWindowEl.className = 'main-youtube-window';
+        youtubeWindowEl.innerHTML = `
+          <div class="youtube-window-overlay"></div>
+          <div class="youtube-window-content">
+            <div class="youtube-window-header">
+              <h2>森森鈴蘭 YouTube 頻道</h2>
+              <button id="main-youtube-close" class="youtube-close-btn">×</button>
+            </div>
+            <div class="youtube-window-body">
+              <div class="youtube-video-container">
+                <iframe 
+                  width="100%" 
+                  height="100%" 
+                  src="https://www.youtube.com/embed/6wTHWUkIBns?si=77DPsSb-F_EeBee-&autoplay=0" 
+                  title="YouTube video player" 
+                  frameborder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                  referrerpolicy="strict-origin-when-cross-origin" 
+                  allowfullscreen
+                  class="youtube-video-iframe">
+                </iframe>
+              </div>
+              <div class="youtube-subscribe-section">
+                <div class="youtube-subscribe-button-container">
+                  <div class="g-ytsubscribe" data-channelid="UC3ZTQ8VZVCpwLHjFKSFe5Uw" data-layout="default" data-count="default"></div>
+                  <div class="youtube-link-hint">
+                    <p><a href="https://www.youtube.com/@%E6%A3%AE%E6%A3%AE%E9%88%B4%E8%98%ADLilyLinglan" target="_blank">前往頻道首頁</a></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        viewport.appendChild(youtubeWindowEl);
+        
+        const closeBtn = document.getElementById('main-youtube-close');
+        const overlay = youtubeWindowEl.querySelector('.youtube-window-overlay');
+        if (closeBtn) {
+          closeBtn.addEventListener('click', function() {
+            playButtonSound();
+            closeYouTubeWindow();
+          });
+        }
+        if (overlay) {
+          overlay.addEventListener('click', closeYouTubeWindow);
+        }
+        
+        // 載入YouTube訂閱按鈕API
+        function loadYouTubeSubscribeButton() {
+          const container = youtubeWindowEl.querySelector('.youtube-subscribe-button-container .g-ytsubscribe');
+          if (!container) return;
+          
+          let existingScript = document.querySelector('script[src="https://apis.google.com/js/platform.js"]');
+          if (!existingScript) {
+            const script = document.createElement('script');
+            script.src = 'https://apis.google.com/js/platform.js';
+            script.async = true;
+            script.defer = true;
+            script.onload = function() {
+              let retries = 0;
+              const maxRetries = 20;
+              const checkGapi = setInterval(function() {
+                if (window.gapi && typeof window.gapi.ytsubscribe === 'object' && typeof window.gapi.ytsubscribe.go === 'function') {
+                  clearInterval(checkGapi);
+                  try {
+                    window.gapi.ytsubscribe.go();
+                  } catch(e) {}
+                } else if (retries++ >= maxRetries) {
+                  clearInterval(checkGapi);
+                }
+              }, 200);
+            };
+            document.head.appendChild(script);
+          } else {
+            if (window.gapi && typeof window.gapi.ytsubscribe === 'object' && typeof window.gapi.ytsubscribe.go === 'function') {
+              try {
+                window.gapi.ytsubscribe.go();
+              } catch(e) {
+                setTimeout(loadYouTubeSubscribeButton, 500);
+              }
+            } else {
+              setTimeout(loadYouTubeSubscribeButton, 500);
+            }
+          }
+        }
+        setTimeout(loadYouTubeSubscribeButton, 300);
+      }
+      
+      function closeYouTubeWindow() {
+        if (youtubeWindowEl && youtubeWindowEl.parentNode) {
+          youtubeWindowEl.parentNode.removeChild(youtubeWindowEl);
+          youtubeWindowEl = null;
+        }
+        
+        // 恢復BGM播放
+        try {
+          if (ctx && ctx.audio && typeof ctx.audio.unmuteAndPlay === 'function') {
+            ctx.audio.unmuteAndPlay('main', { loop: true });
+          }
+        } catch(_) {}
+      }
+      
+      function checkYouTubeSubscription() {
+        const codeBtn = document.getElementById('main-dialogue-code');
+        if (!codeBtn) return;
+        try {
+          const hasSubscribed = localStorage.getItem('youtube_subscribed_lilylinglan') === 'true';
+          const isLoggedIn = document.cookie.includes('VISITOR_INFO1_LIVE') || 
+                            localStorage.getItem('youtube_logged_in') === 'true';
+          if (hasSubscribed && isLoggedIn) {
+            codeBtn.classList.remove('disabled');
+            codeBtn.disabled = false;
+          } else {
+            codeBtn.classList.add('disabled');
+            codeBtn.disabled = true;
+          }
+        } catch(_) {
+          codeBtn.classList.add('disabled');
+          codeBtn.disabled = true;
+        }
+      }
+      
+      function showCode() {
+        // 顯示序號彈窗
+        const codeWindow = document.createElement('div');
+        codeWindow.id = 'main-code-window';
+        codeWindow.className = 'main-code-window';
+        codeWindow.innerHTML = `
+          <div class="code-window-overlay"></div>
+          <div class="code-window-content">
+            <div class="code-window-header">
+              <h2>活動序號</h2>
+              <button id="main-code-close" class="code-close-btn">×</button>
+            </div>
+            <div class="code-window-body">
+              <div class="code-display">LINGLAN2025</div>
+            </div>
+          </div>
+        `;
+        const viewport = document.getElementById('viewport');
+        if (viewport) {
+          viewport.appendChild(codeWindow);
+          
+          const closeBtn = document.getElementById('main-code-close');
+          const overlay = codeWindow.querySelector('.code-window-overlay');
+          
+          if (closeBtn) {
+            closeBtn.addEventListener('click', function() {
+              if (codeWindow.parentNode) {
+                codeWindow.parentNode.removeChild(codeWindow);
+              }
+            });
+          }
+          
+          if (overlay) {
+            overlay.addEventListener('click', function() {
+              if (codeWindow.parentNode) {
+                codeWindow.parentNode.removeChild(codeWindow);
+              }
+            });
+          }
+        }
+      }
+      
+      function closeDialogue() {
+        if (dialogueEl && dialogueEl.parentNode) {
+          dialogueEl.parentNode.removeChild(dialogueEl);
+          dialogueEl = null;
+        }
+        
+        // 隱藏人物立繪
+        const portraitEl = document.getElementById('main-dialogue-portrait');
+        if (portraitEl) {
+          portraitEl.style.display = 'none';
+        }
+        
+        player.inDialogue = false;
+        dialogueState = 0;
+        canvas.style.cursor = '';
+        
+        // 關閉對話框後，強制將玩家移出NPC範圍，避免立即再次觸發
+        let npc = MapSystem.entities.find(e => e.type === 'npc');
+        if (npc) {
+          const npcCenterX = npc.x + npc.width / 2;
+          const npcCenterY = npc.y + npc.height / 2;
+          const playerCenterX = player.x + player.width / 2;
+          const playerCenterY = player.y + player.height / 2;
+          const dx = playerCenterX - npcCenterX;
+          const dy = playerCenterY - npcCenterY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist <= 55) {
+            const angle = Math.atan2(dy, dx);
+            player.x = npcCenterX + Math.cos(angle) * 65 - player.width / 2;
+            player.y = npcCenterY + Math.sin(angle) * 65 - player.height / 2;
+            player.targetX = null;
+            player.movingToNPC = false;
+            player.npcTarget = null;
+          }
+        }
+        
+        // 關閉YouTube窗口（如果打開）
+        if (youtubeWindowEl && youtubeWindowEl.parentNode) {
+          youtubeWindowEl.parentNode.removeChild(youtubeWindowEl);
+          youtubeWindowEl = null;
+        }
       }
 
       function toggleMainMenu(skipSound) {
@@ -570,7 +906,10 @@
         canExit: true,
         targetX: null, 
         targetY: null,
-        facingRight: true // 面向右側（用於 player2 方向切換）
+        facingRight: true, // 面向右側（用於 player2 方向切換）
+        inDialogue: false, // 是否在對話中
+        movingToNPC: false, // 是否正在移動到NPC
+        npcTarget: null // 目標NPC（用於自動移動）
       };
 
       // 根據選角角色決定玩家圖片（支援 player2 方向切換）
@@ -612,28 +951,76 @@
       ctx.events.on(document, 'keydown', (e) => keyHandler(e, true), { capture: true });
       ctx.events.on(document, 'keyup', (e) => keyHandler(e, false), { capture: true });
 
-      // 點擊移動
+      // 點擊移動（包含NPC點擊檢測）
       const onCanvasClick = (e) => {
         try {
-        const rect = canvas.getBoundingClientRect();
-        const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+          // 如果正在對話中，不處理點擊
+          if (player.inDialogue) {
+            try { e.preventDefault(); e.stopPropagation(); } catch(_) {}
+            return;
+          }
+          
+          const rect = canvas.getBoundingClientRect();
+          const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
           let x, y;
-        if (rotatedPortrait) {
+          if (rotatedPortrait) {
             const u = ((e.clientX != null ? e.clientX : e.pageX) - rect.left) / rect.width;
             const v = ((e.clientY != null ? e.clientY : e.pageY) - rect.top) / rect.height;
             x = v * canvas.width;
             y = (1 - u) * canvas.height;
-        } else {
-          const scaleX = canvas.width / rect.width;
-          const scaleY = canvas.height / rect.height;
+          } else {
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
             x = (((e.clientX != null ? e.clientX : e.pageX) - rect.left) * scaleX);
             y = (((e.clientY != null ? e.clientY : e.pageY) - rect.top) * scaleY);
           }
           const cam = getCameraOffset();
           const worldX = x + cam.x;
           const worldY = y + cam.y;
+          
+          // 檢查是否點擊了NPC
+          let npc = MapSystem.entities.find(e => e.type === 'npc');
+          if (npc) {
+            const npcCenterX = npc.x + npc.width / 2;
+            const npcCenterY = npc.y + npc.height / 2;
+            const playerCenterX = player.x + player.width / 2;
+            const playerCenterY = player.y + player.height / 2;
+            const distToNPC = Math.sqrt((playerCenterX - npcCenterX) ** 2 + (playerCenterY - npcCenterY) ** 2);
+            
+            // 檢查點擊是否在NPC範圍內（擴大檢測範圍，確保點擊檢測可靠）
+            // 使用NPC的完整碰撞區域進行檢測
+            const clickOnNPC = worldX >= npc.x && worldX <= npc.x + npc.width &&
+                              worldY >= npc.y && worldY <= npc.y + npc.height;
+            
+            if (clickOnNPC) {
+              player.npcTarget = npc;
+              if (distToNPC <= 55) {
+                showDialogue(npc);
+                player.movingToNPC = false;
+                player.targetX = null;
+                player.npcTarget = null;
+              } else {
+                player.movingToNPC = true;
+                // 計算目標位置（距離NPC 45，確保到達後一定在50以內）
+                const dx = npcCenterX - playerCenterX;
+                const dy = npcCenterY - playerCenterY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const targetDist = 45; // 改為45，確保到達後一定在50以內
+                const targetX = npcCenterX - (dx / dist) * targetDist - PLAYER_W / 2;
+                const targetY = npcCenterY - (dy / dist) * targetDist - PLAYER_H / 2;
+                player.targetX = targetX;
+                player.targetY = targetY;
+              }
+              try { e.preventDefault(); e.stopPropagation(); } catch(_) {}
+              return;
+            }
+          }
+          
+          // 普通點擊移動（不清除npcTarget，讓持續檢查邏輯可以工作）
           player.targetX = worldX - PLAYER_W / 2;
           player.targetY = worldY - PLAYER_H / 2;
+          player.movingToNPC = false;
+          // 不清除 player.npcTarget，讓持續檢查邏輯可以工作
           try { e.preventDefault(); e.stopPropagation(); } catch(_) {}
         } catch(_){}
       };
@@ -809,8 +1196,47 @@
           if (dist <= player.speed) {
             nx = player.targetX;
             ny = player.targetY;
-            player.targetX = null; 
+            player.targetX = null;
+            
+            // 如果正在移動到NPC，檢查距離並顯示對話框
+            if (player.movingToNPC && player.npcTarget) {
+              const npc = player.npcTarget;
+              const npcCenterX = npc.x + npc.width / 2;
+              const npcCenterY = npc.y + npc.height / 2;
+              const playerCenterX = nx + player.width / 2;
+              const playerCenterY = ny + player.height / 2;
+              const distToNPC = Math.sqrt((playerCenterX - npcCenterX) ** 2 + (playerCenterY - npcCenterY) ** 2);
+              
+              // 使用55作為容錯範圍，避免邊界問題（例如50.79這種情況）
+              if (distToNPC <= 55) {
+                showDialogue(npc);
+                player.movingToNPC = false;
+                player.npcTarget = null;
+              }
+            } else {
+              player.movingToNPC = false;
+              player.npcTarget = null;
+            }
           } else {
+            // 移動過程中持續檢查距離（修復某些角度無法觸發的問題）
+            if (player.movingToNPC && player.npcTarget) {
+              const npc = player.npcTarget;
+              const npcCenterX = npc.x + npc.width / 2;
+              const npcCenterY = npc.y + npc.height / 2;
+              const playerCenterX = nx + player.width / 2;
+              const playerCenterY = ny + player.height / 2;
+              const distToNPC = Math.sqrt((playerCenterX - npcCenterX) ** 2 + (playerCenterY - npcCenterY) ** 2);
+              
+              // 使用55作為容錯範圍，避免邊界問題
+              if (distToNPC <= 55) {
+                player.targetX = null;
+                player.movingToNPC = false;
+                player.npcTarget = null;
+                showDialogue(npc);
+                return; // 不更新位置，直接顯示對話框
+              }
+            }
+            
             nx += (dx / dist) * player.speed;
             ny += (dy / dist) * player.speed;
             moving = true;
@@ -821,6 +1247,18 @@
           }
         }
 
+        // 如果正在對話中，不允許移動
+        if (player.inDialogue) {
+          return;
+        }
+        
+        // 移除自動觸發邏輯，改為只在點擊NPC或移動到NPC目標時才觸發對話
+        // 這樣可以避免邏輯衝突和重複觸發問題（特別是關閉對話框後立即再次觸發）
+        // 對話觸發現在只在以下情況發生：
+        // 1. 點擊NPC時（onCanvasClick）
+        // 2. 移動到NPC目標位置時（update中的movingToNPC檢查）
+        // 不再有持續的自動檢查，避免邏輯衝突
+        
         if (!moving && player.targetX === null) return;
 
         // 碰撞矩形（參考 rpg_map.html）
