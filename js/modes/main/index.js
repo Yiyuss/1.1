@@ -1111,7 +1111,7 @@
 
         generateIndoor(mapId) {
           let cols, rows;
-          if (mapId === 'indoor_home') { cols = 60; rows = 40; } 
+          if (mapId === 'indoor_home') { cols = 30; rows = 20; } 
           else { cols = 20; rows = 15; }
 
           this.width = cols; this.height = rows;
