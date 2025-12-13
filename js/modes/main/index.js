@@ -531,6 +531,17 @@
               </ul>
               <p><strong>安全性：</strong></p>
               <p>此授權過程由Google官方提供，完全安全，不會影響您的帳號安全或隱私。</p>
+              <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 8px; padding: 12px; margin: 16px 0;">
+                <p style="margin: 0 0 8px 0; font-weight: bold; color: #ffc107;">⚠️ 重要提示：</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px;">點擊「開始授權」後，可能會看到「未經驗證的應用程式」警告。</p>
+                <p style="margin: 0; font-size: 14px; font-weight: bold; color: #4CAF50;">✅ 這是正常的！請按照以下步驟操作：</p>
+                <ol style="margin: 8px 0 0 0; padding-left: 20px; font-size: 14px;">
+                  <li>點擊警告頁面上的「<strong>進階</strong>」按鈕</li>
+                  <li>然後點擊「<strong>繼續前往 [應用程式名稱]（不安全）</strong>」</li>
+                  <li>即可完成授權</li>
+                </ol>
+                <p style="margin: 8px 0 0 0; font-size: 13px; color: rgba(255, 255, 255, 0.7);">這是Google的安全機制，不會影響功能使用，您可以放心繼續。</p>
+              </div>
               <button id="auth-hint-authorize" class="dialogue-btn">開始授權</button>
             </div>
           </div>
