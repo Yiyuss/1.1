@@ -751,6 +751,17 @@
             console.error('檢查訂閱狀態失敗:', error);
             codeBtn.classList.add('disabled');
             codeBtn.disabled = true;
+            
+            // 檢查是否為配額用盡錯誤
+            const errorMessage = error.message || error.error?.message || '';
+            const errorCode = error.code || error.error?.code;
+            
+            if (errorCode === 403 || errorMessage.includes('quotaExceeded') || errorMessage.includes('quota') || errorMessage.includes('配額')) {
+              // 配額用盡，顯示提示
+              console.warn('YouTube API 配額已用盡，請稍後再試');
+              // 可以在這裡添加用戶提示，例如：
+              // alert('今日檢測次數已達上限，請明天再試');
+            }
           });
         } else {
           // API未載入
