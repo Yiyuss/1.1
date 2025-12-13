@@ -61,6 +61,7 @@ function safePlayShura(ctx) {
           { key: 'challenge_bg7', src: 'assets/images/background7.jpg' },
           { key: 'challenge_player', src: 'assets/images/player.gif' },
           { key: 'challenge_avatar', src: 'assets/images/player1-2.png' },
+          { key: 'player2-1', src: 'assets/images/player2-1.png' }, // 灰妲右向圖片
           { key: 'challenge_boss_gif', src: 'assets/images/challengeBOSS-1.gif' },
           { key: 'challenge_boss2_img', src: 'assets/images/challengeBOSS-2.png' },
           { key: 'challenge_boss3_img', src: 'assets/images/challengeBOSS-3.png' },
@@ -227,7 +228,7 @@ function safePlayShura(ctx) {
       const visualScale = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
       const speedBase = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER && CONFIG.PLAYER.SPEED) ? CONFIG.PLAYER.SPEED : 3;
       const EXTRA_SPEED_SCALE = 1.15; // 小幅提速：+15%
-      const player = { x: canvas.width/2, y: canvas.height/2, width: size, height: size, speed: speedBase };
+      const player = { x: canvas.width/2, y: canvas.height/2, width: size, height: size, speed: speedBase, facingRight: true }; // facingRight用於player2方向切換
       // 套用天賦的移速倍率（speed_boost），再乘上本模式的小幅提速
       try {
         if (typeof BuffSystem !== 'undefined' && BuffSystem.initPlayerBuffs && BuffSystem.applyBuffsFromTalents) {
@@ -587,6 +588,29 @@ function safePlayShura(ctx) {
               } else {
                 window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, actorSize);
               }
+            } else if (sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2')) {
+              // player2.png / player2-1.png 保持原比例（290x242），使用模式原有的尺寸計算
+              // 根據方向切換圖片（參考生存模式）
+              const player2Key = player.facingRight ? 'player2-1' : 'player2';
+              const imgObj = (Game.images && Game.images[player2Key]) ? Game.images[player2Key] : null;
+              let player2Src = actorSrc;
+              if (imgObj && imgObj.src) {
+                player2Src = imgObj.src;
+              } else {
+                player2Src = player.facingRight ? 'assets/images/player2-1.png' : 'assets/images/player2.png';
+              }
+              const baseImgObj = (Game.images && Game.images['player2']) ? Game.images['player2'] : null;
+              if (baseImgObj && baseImgObj.complete) {
+                const imgWidth = baseImgObj.naturalWidth || baseImgObj.width || 290;
+                const imgHeight = baseImgObj.naturalHeight || baseImgObj.height || 242;
+                const aspectRatio = imgWidth / imgHeight; // 290/242 ≈ 1.198
+                // 使用模式原有的尺寸計算方式，保持原比例
+                const renderHeight = actorSize;
+                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', player2Src, player.x, player.y, { width: renderWidth, height: renderHeight });
+              } else {
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', player2Src, player.x, player.y, actorSize);
+              }
             } else if ((!sc || sc.id === 'margaret' || sc.spriteImageKey === 'player') || /player\.gif$/i.test(actorSrc)) {
               // player.gif 保持原比例（1:1），使用模式原有的尺寸計算
               const imgObj = (Game.images && Game.images['player']) ? Game.images['player'] : null;
@@ -721,6 +745,10 @@ function safePlayShura(ctx) {
             const s = player.speed * 0.8;
             player.x += (dx / len) * s;
             player.y += (dy / len) * s;
+            // 根據點擊移動方向更新面向（參考生存模式）
+            if (Math.abs(dx) > 0.1) {
+              player.facingRight = dx > 0;
+            }
             if (Math.hypot(dx, dy) < Math.max(8, size/3)) clickTarget = null;
           }
           // 鍵盤移動（WASD / ↑↓←→）
@@ -737,6 +765,10 @@ function safePlayShura(ctx) {
               // 記錄最近移動方向供衝刺使用
               player.lastMoveX = mx / len;
               player.lastMoveY = my / len;
+              // 根據水平移動方向更新面向（參考生存模式：優先水平方向）
+              if (Math.abs(mx) > 0.1) {
+                player.facingRight = mx > 0;
+              }
             }
           }
           // 在主迴圈中處理衝刺，確保即時性
