@@ -459,6 +459,7 @@ let mining = { active: false, x: 0, y: 0, progress: 0 };
 //   並在 js/modes/adventure/index.html 中設置 window.ADVENTURE_SELECTED_CHARACTER_ID。
 // - 冒險模式只使用此 ID 來選擇對應圖片，沒有讀寫主體存檔或 SaveCode。
 let playerSpriteImg = null;
+let playerSpriteImg2 = null; // player2-1.png（用於方向切換）
 let playerSpriteReady = false;
 let playerSpriteOffsetX = 0;
 let playerSpriteOffsetY = 0;
@@ -499,6 +500,21 @@ function initPlayerSprite() {
             playerSpriteOffsetY = 38 - h;
             // 水平：以 player.x+10 為角色中心（原本矩形身體中心）
             playerSpriteOffsetX = 10 - w / 2;
+            
+            // 如果是player2，同時從父視窗載入player2-1.png（用於方向切換）
+            if (id === 'dada') {
+                try {
+                    const parentWin = (window.parent && window.parent !== window) ? window.parent : null;
+                    if (parentWin && parentWin.Game && parentWin.Game.images && parentWin.Game.images['player2-1']) {
+                        playerSpriteImg2 = parentWin.Game.images['player2-1'];
+                    } else {
+                        const img2 = new Image();
+                        img2.onload = function(){ playerSpriteImg2 = img2; };
+                        img2.onerror = function(){ playerSpriteImg2 = null; };
+                        img2.src = '../../../assets/images/player2-1.png';
+                    }
+                } catch(_){}
+            }
             return;
         }
 
@@ -520,6 +536,14 @@ function initPlayerSprite() {
             const h = img.height * playerSpriteScale;
             playerSpriteOffsetY = 38 - h;
             playerSpriteOffsetX = 10 - w / 2;
+            
+            // 如果是player2，同時載入player2-1.png（用於方向切換）
+            if (id === 'dada') {
+                const img2 = new Image();
+                img2.onload = function(){ playerSpriteImg2 = img2; };
+                img2.onerror = function(){ playerSpriteImg2 = null; };
+                img2.src = '../../../assets/images/player2-1.png';
+            }
         };
         img.onerror = function(){
             playerSpriteImg = null;
@@ -4461,16 +4485,45 @@ function draw() {
     // 玩家本體（矩形 → 角色 GIF 立繪）
     // - 若 AdventureGifOverlay 可用且有角色圖，使用 GIF 疊加顯示。
     // - 否則回退為原本的矩形小人繪製（保持完全相容）。
-    if (playerSpriteReady && playerSpriteImg && typeof AdventureGifOverlay !== 'undefined' && typeof AdventureGifOverlay.showOrUpdate === 'function') {
-        const w = playerSpriteImg.width * playerSpriteScale;
-        const h = playerSpriteImg.height * playerSpriteScale;
+    // 只有灰妲（player2）需要根據方向動態切換圖片（參考生存模式）
+    let id = (typeof window !== 'undefined' && window.ADVENTURE_SELECTED_CHARACTER_ID) ? String(window.ADVENTURE_SELECTED_CHARACTER_ID) : 'margaret';
+    const isPlayer2 = (id === 'dada');
+    let imgToUse = playerSpriteImg;
+    let imgSrc = playerSpriteImg ? playerSpriteImg.src : null;
+    
+    if (isPlayer2 && playerSpriteImg2) {
+        // 灰妲：根據方向切換player2和player2-1（參考生存模式）
+        if (player.facingRight && playerSpriteImg2.complete) {
+            imgToUse = playerSpriteImg2;
+            imgSrc = playerSpriteImg2.src;
+        } else if (!player.facingRight && playerSpriteImg && playerSpriteImg.complete) {
+            imgToUse = playerSpriteImg;
+            imgSrc = playerSpriteImg.src;
+        }
+    }
+    
+    if (playerSpriteReady && imgToUse && typeof AdventureGifOverlay !== 'undefined' && typeof AdventureGifOverlay.showOrUpdate === 'function') {
+        let w, h;
+        if (isPlayer2) {
+            // player2.png / player2-1.png 保持原比例（290x242）
+            const imgWidth = imgToUse.width || 290;
+            const imgHeight = imgToUse.height || 242;
+            const aspectRatio = imgWidth / imgHeight; // 290/242 ≈ 1.198
+            h = Math.max(1, Math.floor(imgHeight * playerSpriteScale));
+            w = Math.max(1, Math.floor(h * aspectRatio));
+        } else {
+            w = imgToUse.width * playerSpriteScale;
+            h = imgToUse.height * playerSpriteScale;
+        }
         const screenX = (player.x - camera.x) + playerSpriteOffsetX + w / 2;
         const screenY = (player.y - camera.y) + playerSpriteOffsetY + h / 2;
         if (player.invincibleTimer > 0 && Math.floor(Date.now() / 50) % 2 === 0) {
             // 無敵閃爍：簡單處理為暫時隱藏 GIF
             try { AdventureGifOverlay.hide('player'); } catch(_) {}
         } else {
-            AdventureGifOverlay.showOrUpdate('player', playerSpriteImg.src, screenX, screenY, { width: w, height: h });
+            if (imgSrc) {
+                AdventureGifOverlay.showOrUpdate('player', imgSrc, screenX, screenY, { width: w, height: h });
+            }
         }
     } else {
         if (player.invincibleTimer > 0 && Math.floor(Date.now() / 50) % 2 === 0) {
