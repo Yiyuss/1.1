@@ -2722,3 +2722,349 @@ body {
   }
 }
 
+/* 主線模式對話框樣式 */
+/* 人物立繪（畫布左側，對話框後面） */
+.dialogue-portrait {
+  position: fixed;
+  left: 50px;
+  bottom: 0px;
+  z-index: 100001;
+  pointer-events: none;
+  display: none;
+  will-change: transform;
+  transform: translateZ(0);
+  isolation: isolate;
+}
+.dialogue-portrait-img {
+  width: 600px;
+  height: auto;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+  -ms-interpolation-mode: nearest-neighbor;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+  opacity: 1;
+}
+
+.main-dialogue-box {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 20px;
+  pointer-events: auto;
+}
+.dialogue-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+}
+.dialogue-container {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: 90%;
+  max-width: 1000px;
+  background: linear-gradient(180deg, rgba(20, 30, 40, 0.95) 0%, rgba(15, 25, 35, 0.95) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  animation: dialogueSlideIn 0.3s ease-out;
+  margin-left: 320px;
+}
+@keyframes dialogueSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+/* 移除對話框內的立繪樣式（立繪已移到畫布左側） */
+.dialogue-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.dialogue-text {
+  font-size: 18px;
+  line-height: 1.6;
+  color: #fff;
+  margin-bottom: 16px;
+  font-family: "Microsoft JhengHei", sans-serif;
+  min-height: 80px;
+}
+.dialogue-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-start;
+}
+.dialogue-btn {
+  padding: 10px 20px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  font-family: "Microsoft JhengHei", sans-serif;
+  transition: all 0.2s;
+}
+.dialogue-btn:hover:not(.disabled) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.1) 100%);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+.dialogue-btn.disabled {
+  background: rgba(100, 100, 100, 0.3);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: not-allowed;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* YouTube 窗口樣式 */
+.main-youtube-window {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100001; /* 高於對話框（100000）和雪碧圖（99999） */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+}
+.youtube-window-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+}
+.youtube-window-content {
+  position: relative;
+  z-index: 1;
+  width: 90%;
+  max-width: 1200px;
+  background: linear-gradient(180deg, rgba(20, 30, 40, 0.98) 0%, rgba(15, 25, 35, 0.98) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
+  animation: dialogueSlideIn 0.3s ease-out;
+}
+.youtube-window-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.youtube-window-header h2 {
+  color: #fff;
+  font-size: 20px;
+  font-family: "Microsoft JhengHei", sans-serif;
+  margin: 0;
+}
+.youtube-close-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.youtube-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+.youtube-window-body {
+  padding: 24px;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+}
+.youtube-video-container {
+  width: 100%;
+  height: 500px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+}
+.youtube-video-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+.youtube-subscribe-section {
+  margin-top: 20px;
+}
+.youtube-subscribe-button-container {
+  text-align: center;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  min-height: 50px;
+}
+.youtube-subscribe-button-container .g-ytsubscribe {
+  display: inline-block;
+  margin: 0 auto;
+}
+.youtube-link-hint {
+  margin-top: 16px;
+  text-align: center;
+  padding: 12px;
+}
+.youtube-link-hint p {
+  color: #fff;
+  font-size: 14px;
+  font-family: "Microsoft JhengHei", sans-serif;
+  margin: 0;
+}
+.youtube-link-hint a {
+  color: #4CAF50;
+  text-decoration: underline;
+  font-weight: bold;
+}
+.youtube-link-hint a:hover {
+  color: #66BB6A;
+}
+
+/* 序號窗口樣式 */
+.main-code-window {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100001; /* 高於對話框（100000）和雪碧圖（99999） */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+}
+.code-window-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+}
+.code-window-content {
+  position: relative;
+  z-index: 1;
+  width: 90%;
+  max-width: 500px;
+  background: linear-gradient(180deg, rgba(20, 30, 40, 0.98) 0%, rgba(15, 25, 35, 0.98) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
+  animation: dialogueSlideIn 0.3s ease-out;
+}
+.code-window-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.code-window-header h2 {
+  color: #fff;
+  font-size: 20px;
+  font-family: "Microsoft JhengHei", sans-serif;
+  margin: 0;
+}
+.code-close-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.code-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+.code-window-body {
+  padding: 40px 24px;
+  text-align: center;
+}
+.code-display {
+  font-size: 32px;
+  font-weight: bold;
+  color: #4CAF50;
+  font-family: "Courier New", monospace;
+  letter-spacing: 4px;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  border: 2px solid rgba(76, 175, 80, 0.3);
+}
+
+/* RWD：手機版對話框調整 */
+@media (max-width: 700px) {
+  .dialogue-portrait {
+    left: 30px; /* 手機版也往右移一點 */
+    bottom: 0px; /* 手機版也往下移到底部，避免底部斷面露出 */
+  }
+  .dialogue-portrait-img {
+    width: 400px; /* 手機版也增大 */
+  }
+  .dialogue-overlay {
+    /* 手機版不需要排除左側區域 */
+    clip-path: none;
+    -webkit-clip-path: none;
+  }
+  .dialogue-container {
+    flex-direction: column;
+    width: 95%;
+    padding: 16px;
+    margin-left: 0; /* 手機版不需要左側留白 */
+  }
+  .dialogue-text {
+    font-size: 16px;
+    min-height: 60px;
+  }
+  .dialogue-buttons {
+    flex-direction: column;
+  }
+  .youtube-window-content {
+    width: 95%;
+  }
+}
+
