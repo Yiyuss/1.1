@@ -2883,6 +2883,26 @@ body {
   font-family: "Microsoft JhengHei", sans-serif;
   margin: 0;
 }
+.youtube-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.youtube-channel-link {
+  color: #4A9EFF;
+  text-decoration: none;
+  font-size: 14px;
+  font-family: "Microsoft JhengHei", sans-serif;
+  padding: 6px 12px;
+  border: 1px solid rgba(74, 158, 255, 0.3);
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+.youtube-channel-link:hover {
+  background: rgba(74, 158, 255, 0.1);
+  border-color: rgba(74, 158, 255, 0.5);
+  color: #6BB0FF;
+}
 .youtube-close-btn {
   width: 32px;
   height: 32px;
@@ -2932,28 +2952,127 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
   min-height: 50px;
 }
+.youtube-subscribe-button-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
 .youtube-subscribe-button-container .g-ytsubscribe {
   display: inline-block;
   margin: 0 auto;
 }
-.youtube-link-hint {
-  margin-top: 16px;
-  text-align: center;
-  padding: 12px;
-}
-.youtube-link-hint p {
+.youtube-auth-hint-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  line-height: 1;
+  padding: 0;
+}
+.youtube-auth-hint-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+/* 授權說明窗口樣式 */
+.youtube-auth-hint-window {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 100002;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+}
+.auth-hint-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+}
+.auth-hint-content {
+  position: relative;
+  z-index: 1;
+  width: 90%;
+  max-width: 600px;
+  background: linear-gradient(180deg, rgba(20, 30, 40, 0.98) 0%, rgba(15, 25, 35, 0.98) 100%);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
+  animation: dialogueSlideIn 0.3s ease-out;
+}
+.auth-hint-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+.auth-hint-header h3 {
+  color: #fff;
+  font-size: 20px;
   font-family: "Microsoft JhengHei", sans-serif;
   margin: 0;
 }
-.youtube-link-hint a {
-  color: #4CAF50;
-  text-decoration: underline;
-  font-weight: bold;
+.auth-hint-close-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
-.youtube-link-hint a:hover {
-  color: #66BB6A;
+.auth-hint-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+.auth-hint-body {
+  padding: 24px;
+  color: #fff;
+  font-family: "Microsoft JhengHei", sans-serif;
+}
+.auth-hint-body p {
+  margin: 12px 0;
+  line-height: 1.6;
+  font-size: 14px;
+}
+.auth-hint-body strong {
+  color: #4CAF50;
+}
+.auth-hint-body ul {
+  margin: 12px 0;
+  padding-left: 24px;
+}
+.auth-hint-body li {
+  margin: 8px 0;
+  line-height: 1.6;
+  font-size: 14px;
+}
+.auth-hint-body .dialogue-btn {
+  margin-top: 20px;
+  width: 100%;
 }
 
 /* 序號窗口樣式 */
