@@ -386,8 +386,10 @@
         if (dialogueState === 2) {
           textEl.textContent = '你有聽過我的歌聲嗎？若還沒有記得去聽聽看最新的原創曲！';
         } else if (dialogueState === 3) {
-          textEl.textContent = '聽說訂閱我的YouTube頻道可以獲得活動序號，是完全免費的！';
+          textEl.textContent = '訂閱我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！';
         } else if (dialogueState === 4) {
+          textEl.textContent = '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！';
+        } else if (dialogueState === 5) {
           buttonsEl.innerHTML = `
             <button id="main-dialogue-youtube" class="dialogue-btn">進入頻道</button>
             <button id="main-dialogue-code" class="dialogue-btn disabled">領取序號</button>
