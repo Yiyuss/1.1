@@ -781,15 +781,45 @@ class TDGame {
                     }
                 });
                 
-                // 最後統一處理玩家GIF（在clearAll之後，確保玩家GIF顯示在最上層）
+                // 最後統一處理玩家GIF、player4和player2（在clearAll之後，確保玩家圖顯示在最上層）
                 const playerIsGif = this.player.sprite && this.player.sprite.src && /\.gif$/i.test(this.player.sprite.src);
-                if (playerIsGif && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
+                const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+                const isPlayer4 = sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4');
+                const isPlayer2 = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2');
+                
+                if ((playerIsGif || isPlayer4 || isPlayer2) && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
                     const screenX = this.player.x - this.camera.x;
                     const screenY = this.player.y - this.camera.y;
-                    // 特殊處理：player4.png 需要保持 500:627 的寬高比，並放大顯示以與其他角色接近
-                    // 特殊處理：player3.gif 需要保持原比例（與冒險模式一致）
-                    const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
-                    if (sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4')) {
+                    
+                    // player2需要根據方向動態切換圖片（參考生存模式）
+                    let playerSrc = this.player.sprite.src;
+                    let player2ImgObj = null;
+                    if (isPlayer2) {
+                        const player2Key = this.player.facingRight ? 'player2-1' : 'player2';
+                        player2ImgObj = (Game.images && Game.images[player2Key]) ? Game.images[player2Key] : null;
+                        if (player2ImgObj && player2ImgObj.src) {
+                            playerSrc = player2ImgObj.src;
+                        } else {
+                            playerSrc = this.player.facingRight ? 'assets/images/player2-1.png' : 'assets/images/player2.png';
+                        }
+                    }
+                    
+                    if (isPlayer2) {
+                        // player2.png / player2-1.png 保持原比例（290x242），使用模式原有的尺寸計算
+                        const imgObj = player2ImgObj || ((Game.images && Game.images['player2']) ? Game.images['player2'] : null);
+                        if (imgObj && imgObj.complete) {
+                            const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
+                            const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
+                            const aspectRatio = imgWidth / imgHeight; // 290/242 ≈ 1.198
+                            // 使用模式原有的尺寸計算方式，保持原比例
+                            const renderHeight = this.player.size;
+                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
+                        } else {
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
+                        }
+                    } else if (isPlayer4) {
+                        // player4.png 需要保持 500:627 的寬高比，並放大顯示以與其他角色接近
                         const imgObj = (Game.images && Game.images['player4']) ? Game.images['player4'] : null;
                         if (imgObj && imgObj.complete) {
                             const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
@@ -798,9 +828,9 @@ class TDGame {
                             // 防禦模式中放大 1.3 倍以與其他角色接近
                             const renderHeight = Math.max(1, Math.floor(this.player.size * 1.3));
                             const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
                         } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, this.player.size);
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
                         }
                     } else if (sc && (sc.id === 'lilylinglan' || sc.spriteImageKey === 'player3')) {
                         // player3.gif 保持原比例（1:1），使用模式原有的尺寸計算
@@ -812,11 +842,11 @@ class TDGame {
                             // 使用模式原有的尺寸計算方式，保持原比例
                             const renderHeight = this.player.size;
                             const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
                         } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, this.player.size);
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
                         }
-                    } else if ((!sc || sc.id === 'margaret' || sc.spriteImageKey === 'player') || (this.player.sprite && this.player.sprite.src && /player\.gif$/i.test(this.player.sprite.src))) {
+                    } else if ((!sc || sc.id === 'margaret' || sc.spriteImageKey === 'player') || /player\.gif$/i.test(playerSrc)) {
                         // player.gif 保持原比例（1:1），使用模式原有的尺寸計算
                         const imgObj = (Game.images && Game.images['player']) ? Game.images['player'] : null;
                         if (imgObj && imgObj.complete) {
@@ -826,12 +856,12 @@ class TDGame {
                             // 使用模式原有的尺寸計算方式，保持原比例
                             const renderHeight = this.player.size;
                             const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
                         } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, this.player.size);
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
                         }
                     } else {
-                        window.TDGifOverlay.showOrUpdate('td-player', this.player.sprite.src, screenX, screenY, this.player.size);
+                        window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
                     }
                 }
             }
