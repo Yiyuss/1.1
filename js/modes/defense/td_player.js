@@ -36,6 +36,7 @@ class TDPlayer {
         this.sprite = null;
         this.animationTime = 0;
         this.direction = 0; // 0: 右, 1: 下, 2: 左, 3: 上
+        this.facingRight = true; // 面向右側（用於 player2 方向切換）
         
         // 音效
         this.attackSound = TD_CONFIG.SOUNDS.PLAYER_ATTACK;
@@ -176,6 +177,11 @@ class TDPlayer {
             this.direction = vy > 0 ? 1 : 3;
         }
         
+        // 根據水平移動方向更新面向（參考生存模式：優先水平方向）
+        if (Math.abs(vx) > 0.1) {
+            this.facingRight = vx > 0;
+        }
+        
         this.x = nextX;
         this.y = nextY;
     }
@@ -217,6 +223,11 @@ class TDPlayer {
             this.direction = dx > 0 ? 0 : 2; // 右或左
         } else {
             this.direction = dy > 0 ? 1 : 3; // 下或上
+        }
+        
+        // 根據點擊移動方向更新面向（參考生存模式）
+        if (Math.abs(dx) > 0.1) {
+            this.facingRight = dx > 0;
         }
         
         if (distance < 5) {
@@ -439,13 +450,17 @@ class TDPlayer {
     }
     
     
-    // 渲染玩家（GIF由TDGifOverlay在td_game.js中統一處理，這裡只繪製非GIF和其他元素）
+    // 渲染玩家（GIF、player4和player2由TDGifOverlay在td_game.js中統一處理，這裡只繪製其他元素）
     render(ctx, resources) {
         ctx.save();
         
-        // 如果是GIF，跳過Canvas繪製（由TDGifOverlay處理）
+        // 如果是GIF、player4或player2，跳過Canvas繪製（由TDGifOverlay處理）
         const isGif = this.sprite && this.sprite.src && /\.gif$/i.test(this.sprite.src);
-        if (!isGif) {
+        const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+        const isPlayer4 = sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4');
+        const isPlayer2 = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2');
+        
+        if (!isGif && !isPlayer4 && !isPlayer2) {
             // 載入圖片：依 this.sprite.src 推導資源鍵（支援 player / player2）
             let image = null;
             if (this.sprite && this.sprite.src) {
