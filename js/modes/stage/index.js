@@ -208,6 +208,20 @@ function safePlayStage(ctx) {
               } else {
                 window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
               }
+            } else if (sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2')) {
+              // player2.png / player2-1.png 保持原比例（290x242），使用模式原有的尺寸計算
+              const imgObj = (Game.images && Game.images['player2']) ? Game.images['player2'] : null;
+              if (imgObj && imgObj.complete) {
+                const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
+                const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
+                const aspectRatio = imgWidth / imgHeight; // 290/242 ≈ 1.198
+                // 使用模式原有的尺寸計算方式，保持原比例
+                const renderHeight = actorSize;
+                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+              } else {
+                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
+              }
             } else if ((!sc || sc.id === 'margaret' || sc.spriteImageKey === 'player') || /player\.gif$/i.test(actorSrc)) {
               // player.gif 保持原比例（1:1），使用模式原有的尺寸計算
               const imgObj = (Game.images && Game.images['player']) ? Game.images['player'] : null;
