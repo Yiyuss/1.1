@@ -791,6 +791,29 @@ const Game = {
     
     // 重置遊戲
     reset: function() {
+        // 先清理所有投射物的 DOM 元素（避免視覺污染）
+        try {
+            // 清理守護領域和引力波等使用 DOM 的投射物
+            if (Array.isArray(this.projectiles)) {
+                for (const p of this.projectiles) {
+                    if (p && typeof p.destroy === 'function') {
+                        try {
+                            p.destroy();
+                        } catch(_) {}
+                    }
+                }
+            }
+            if (Array.isArray(this.bossProjectiles)) {
+                for (const p of this.bossProjectiles) {
+                    if (p && typeof p.destroy === 'function') {
+                        try {
+                            p.destroy();
+                        } catch(_) {}
+                    }
+                }
+            }
+        } catch (_) {}
+        
         // 重置遊戲狀態
         this.enemies = [];
         this.projectiles = [];
@@ -830,13 +853,54 @@ const Game = {
             } catch(_) {}
         }
 
-        // 清除技能視覺覆蓋層與樣式（例如 INVINCIBLE 護盾）
+        // 清除技能視覺覆蓋層與樣式（例如 INVINCIBLE 護盾、守護領域、引力波等）
         try {
-            const layer = document.getElementById('skill-effects-layer');
-            if (layer && layer.parentNode) layer.parentNode.removeChild(layer);
+            // 清理 skill-effects-layer（用於 INVINCIBLE、SING、SLASH 等技能）
+            const skillLayer = document.getElementById('skill-effects-layer');
+            if (skillLayer && skillLayer.parentNode) {
+                // 先清理層內所有子元素
+                while (skillLayer.firstChild) {
+                    skillLayer.removeChild(skillLayer.firstChild);
+                }
+                skillLayer.parentNode.removeChild(skillLayer);
+            }
+            // 清理 aura-effects-layer（用於 AURA_FIELD 守護領域）
+            const auraLayer = document.getElementById('aura-effects-layer');
+            if (auraLayer && auraLayer.parentNode) {
+                // 先清理層內所有子元素
+                while (auraLayer.firstChild) {
+                    auraLayer.removeChild(auraLayer.firstChild);
+                }
+                auraLayer.parentNode.removeChild(auraLayer);
+            }
+            // 清理 gravity-wave-effects-layer（用於 GRAVITY_WAVE 引力波）
+            const gravityLayer = document.getElementById('gravity-wave-effects-layer');
+            if (gravityLayer && gravityLayer.parentNode) {
+                // 先清理層內所有子元素
+                while (gravityLayer.firstChild) {
+                    gravityLayer.removeChild(gravityLayer.firstChild);
+                }
+                gravityLayer.parentNode.removeChild(gravityLayer);
+            }
+            // 清理 INVINCIBLE 樣式標籤
             const styleTag = document.getElementById('invincible-style');
             if (styleTag && styleTag.parentNode) styleTag.parentNode.removeChild(styleTag);
         } catch (_) {}
+
+        // 清理舊玩家的大招備份狀態（避免武器數據殘留到新遊戲）
+        if (this.player) {
+            try {
+                if (this.player.isUltimateActive && this.player._ultimateBackup) {
+                    // 如果舊玩家還在大招狀態，先結束大招以清理狀態
+                    if (typeof this.player.deactivateUltimate === 'function') {
+                        this.player.deactivateUltimate();
+                    }
+                }
+                // 確保清理所有大招相關狀態
+                this.player._ultimateBackup = null;
+                this.player.isUltimateActive = false;
+            } catch (_) {}
+        }
 
         // 世界大小無需重算（保持init設定）。重新置中玩家
         this.player = new Player(this.worldWidth / 2, this.worldHeight / 2);
