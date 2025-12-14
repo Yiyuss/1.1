@@ -490,13 +490,26 @@ const skillIcons = {
         const player = Game.player;
 
         // 在大招期間，升級選項基於「大招前的武器狀態」生成，避免因LV10臨時武器導致無選項
-        const sourceWeaponsInfo = (player.isUltimateActive && player._ultimateBackup)
+        // 安全檢查：確保 _ultimateBackup 存在且是有效的陣列，且玩家確實在大招狀態
+        const sourceWeaponsInfo = (player.isUltimateActive && player._ultimateBackup && Array.isArray(player._ultimateBackup.weapons))
             ? player._ultimateBackup.weapons // [{ type, level }]
-            : player.weapons.map(w => ({ type: w.type, level: w.level }));
+            : (Array.isArray(player.weapons) ? player.weapons.map(w => ({ type: w.type, level: w.level })) : []);
 
         // 針對角色設定：可選擇性隱藏部分武器（例如第二位角色禁用綿羊系技能）
         const ch = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
         const disabledWeapons = (ch && Array.isArray(ch.disabledWeapons)) ? new Set(ch.disabledWeapons) : new Set();
+        
+        // 檢查角色專屬技能（用於過濾現有武器升級選項）
+        const exclusiveWeapons = (ch && Array.isArray(ch.exclusiveWeapons)) ? new Set(ch.exclusiveWeapons) : new Set();
+        // 找出所有角色的專屬技能
+        const allExclusiveWeapons = new Set();
+        if (CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) {
+            CONFIG.CHARACTERS.forEach(char => {
+                if (char.exclusiveWeapons && Array.isArray(char.exclusiveWeapons)) {
+                    char.exclusiveWeapons.forEach(weapon => allExclusiveWeapons.add(weapon));
+                }
+            });
+        }
 
         // 現有武器升級選項（使用CONFIG計算下一級描述）
         const hasFrenzy = sourceWeaponsInfo.some(w => w.type === 'FRENZY_LIGHTNING');
@@ -504,15 +517,19 @@ const skillIcons = {
         const hasMindMagic = sourceWeaponsInfo.some(w => w.type === 'MIND_MAGIC');
         const hasFrenzyIceBall = sourceWeaponsInfo.some(w => w.type === 'FRENZY_ICE_BALL');
         const hasFrenzyYoungDadaGlory = sourceWeaponsInfo.some(w => w.type === 'FRENZY_YOUNG_DADA_GLORY');
-            const hasGravityWave = sourceWeaponsInfo.some(w => w.type === 'GRAVITY_WAVE');
-            const hasRadiantGlory = sourceWeaponsInfo.some(w => w.type === 'RADIANT_GLORY');
-            for (const info of sourceWeaponsInfo) {
-                const cfg = CONFIG.WEAPONS[info.type];
-                if (!cfg) continue;
-                // 若此武器被角色設定為禁用，則不提供升級選項
-                if (disabledWeapons.has(info.type)) continue;
-                // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
-                const hasDeathlineSuperman = sourceWeaponsInfo.some(w => w.type === 'DEATHLINE_SUPERMAN');
+        const hasGravityWave = sourceWeaponsInfo.some(w => w.type === 'GRAVITY_WAVE');
+        const hasRadiantGlory = sourceWeaponsInfo.some(w => w.type === 'RADIANT_GLORY');
+        const hasDeathlineSuperman = sourceWeaponsInfo.some(w => w.type === 'DEATHLINE_SUPERMAN');
+        for (const info of sourceWeaponsInfo) {
+            const cfg = CONFIG.WEAPONS[info.type];
+            if (!cfg) continue;
+            // 若此武器被角色設定為禁用，則不提供升級選項
+            if (disabledWeapons.has(info.type)) continue;
+            // 若此武器為專屬技能，只有擁有該專屬技能的角色可以看到升級選項
+            if (allExclusiveWeapons.has(info.type) && !exclusiveWeapons.has(info.type)) {
+                continue; // 其他角色的專屬技能，當前角色不可見
+            }
+            // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
                 if ((hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) ||
                     (hasFrenzySlash && (info.type === 'DAGGER' || info.type === 'SLASH')) ||
                     (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING')) ||
@@ -533,18 +550,9 @@ const skillIcons = {
 
         // 新武器選項（基於來源狀態判定）
         const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST', 'SUMMON_AI'];
-        // 檢查角色專屬技能（只有特定角色可以看到）
-        const exclusiveWeapons = (ch && Array.isArray(ch.exclusiveWeapons)) ? new Set(ch.exclusiveWeapons) : new Set();
-        // 找出所有角色的專屬技能
-        const allExclusiveWeapons = new Set();
-        if (CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) {
-            CONFIG.CHARACTERS.forEach(char => {
-                if (char.exclusiveWeapons && Array.isArray(char.exclusiveWeapons)) {
-                    char.exclusiveWeapons.forEach(weapon => allExclusiveWeapons.add(weapon));
-                }
-            });
-        }
+        // 檢查角色專屬技能（使用上面已定義的 exclusiveWeapons 和 allExclusiveWeapons）
         const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
+        // 使用上面已定義的 hasDeathlineSuperman 和 hasRadiantGlory（避免重複定義）
         for (const weaponType of availableWeapons) {
             // 若此武器被角色設定為禁用，則完全不顯示於升級選項中
             if (disabledWeapons.has(weaponType)) continue;
@@ -553,8 +561,6 @@ const skillIcons = {
                 continue; // 其他角色的專屬技能，當前角色不可見
             }
             // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
-            const hasDeathlineSuperman = playerWeaponTypes.includes('DEATHLINE_SUPERMAN');
-            const hasRadiantGlory = playerWeaponTypes.includes('RADIANT_GLORY');
             if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
                 (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING')) ||
@@ -597,8 +603,10 @@ const skillIcons = {
             const fusionUnlocked = (function(){
                 try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_LIGHTNING')); } catch(_) { return false; }
             })();
-            // 需求：兩者皆達到 LV10
-            const fusionReady = (!!cheer && !!cl && cheer.level >= 10 && cl.level >= 10);
+            // 需求：兩者皆達到 LV10（嚴格驗證：確保 level 是有效的數字類型）
+            const cheerLevel = (cheer && typeof cheer.level === 'number') ? cheer.level : 0;
+            const clLevel = (cl && typeof cl.level === 'number') ? cl.level : 0;
+            const fusionReady = (!!cheer && !!cl && cheerLevel >= 10 && clLevel >= 10);
             if (!hasFrenzyFusion && fusionReady && fusionUnlocked) {
                 const cfgF = CONFIG.WEAPONS['FRENZY_LIGHTNING'];
                 if (cfgF && Array.isArray(cfgF.LEVELS) && cfgF.LEVELS.length > 0) {
@@ -620,7 +628,10 @@ const skillIcons = {
             const fusionUnlockedS = (function(){
                 try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_SLASH')); } catch(_) { return false; }
             })();
-            const fusionReadyS = (!!cheerS && !!slashS && cheerS.level >= 10 && slashS.level >= 10);
+            // 嚴格驗證：確保 level 是有效的數字類型
+            const cheerSLevel = (cheerS && typeof cheerS.level === 'number') ? cheerS.level : 0;
+            const slashSLevel = (slashS && typeof slashS.level === 'number') ? slashS.level : 0;
+            const fusionReadyS = (!!cheerS && !!slashS && cheerSLevel >= 10 && slashSLevel >= 10);
             if (!hasFrenzySlashFusion && fusionReadyS && fusionUnlockedS) {
                 const cfgFS = CONFIG.WEAPONS['FRENZY_SLASH'];
                 if (cfgFS && Array.isArray(cfgFS.LEVELS) && cfgFS.LEVELS.length > 0) {
@@ -642,7 +653,10 @@ const skillIcons = {
             const fusionUnlocked2 = (function(){
                 try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('MIND_MAGIC')); } catch(_) { return false; }
             })();
-            const fusionReady2 = (!!cheer2 && !!sing2 && cheer2.level >= 10 && sing2.level >= 10);
+            // 嚴格驗證：確保 level 是有效的數字類型
+            const cheer2Level = (cheer2 && typeof cheer2.level === 'number') ? cheer2.level : 0;
+            const sing2Level = (sing2 && typeof sing2.level === 'number') ? sing2.level : 0;
+            const fusionReady2 = (!!cheer2 && !!sing2 && cheer2Level >= 10 && sing2Level >= 10);
             if (!hasMindFusion && fusionReady2 && fusionUnlocked2) {
                 const cfgM = CONFIG.WEAPONS['MIND_MAGIC'];
                 if (cfgM && Array.isArray(cfgM.LEVELS) && cfgM.LEVELS.length > 0) {
@@ -664,7 +678,10 @@ const skillIcons = {
             const fusionUnlocked3 = (function(){
                 try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_ICE_BALL')); } catch(_) { return false; }
             })();
-            const fusionReady3 = (!!cheer3 && !!iceBall && cheer3.level >= 10 && iceBall.level >= 10);
+            // 嚴格驗證：確保 level 是有效的數字類型
+            const cheer3Level = (cheer3 && typeof cheer3.level === 'number') ? cheer3.level : 0;
+            const iceBallLevel = (iceBall && typeof iceBall.level === 'number') ? iceBall.level : 0;
+            const fusionReady3 = (!!cheer3 && !!iceBall && cheer3Level >= 10 && iceBallLevel >= 10);
             if (!hasFrenzyIceBallFusion && fusionReady3 && fusionUnlocked3) {
                 const cfgFIB = CONFIG.WEAPONS['FRENZY_ICE_BALL'];
                 if (cfgFIB && Array.isArray(cfgFIB.LEVELS) && cfgFIB.LEVELS.length > 0) {
@@ -686,7 +703,10 @@ const skillIcons = {
             const fusionUnlockedGW = (function(){
                 try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('GRAVITY_WAVE')); } catch(_) { return false; }
             })();
-            const fusionReadyGW = (!!auraField && !!invincible && auraField.level >= 10 && invincible.level >= 10);
+            // 嚴格驗證：確保 level 是有效的數字類型
+            const auraFieldLevel = (auraField && typeof auraField.level === 'number') ? auraField.level : 0;
+            const invincibleLevel = (invincible && typeof invincible.level === 'number') ? invincible.level : 0;
+            const fusionReadyGW = (!!auraField && !!invincible && auraFieldLevel >= 10 && invincibleLevel >= 10);
             if (!hasGravityWaveFusion && fusionReadyGW && fusionUnlockedGW) {
                 const cfgGW = CONFIG.WEAPONS['GRAVITY_WAVE'];
                 if (cfgGW && Array.isArray(cfgGW.LEVELS) && cfgGW.LEVELS.length > 0) {
@@ -708,7 +728,10 @@ const skillIcons = {
             const fusionUnlockedRG = (function(){
                 try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('RADIANT_GLORY')); } catch(_) { return false; }
             })();
-            const fusionReadyRG = (!!chainLightning && !!laser && chainLightning.level >= 10 && laser.level >= 10);
+            // 嚴格驗證：確保 level 是有效的數字類型
+            const chainLightningLevel = (chainLightning && typeof chainLightning.level === 'number') ? chainLightning.level : 0;
+            const laserLevel = (laser && typeof laser.level === 'number') ? laser.level : 0;
+            const fusionReadyRG = (!!chainLightning && !!laser && chainLightningLevel >= 10 && laserLevel >= 10);
             if (!hasRadiantGloryFusion && fusionReadyRG && fusionUnlockedRG) {
                 const cfgRG = CONFIG.WEAPONS['RADIANT_GLORY'];
                 if (cfgRG && Array.isArray(cfgRG.LEVELS) && cfgRG.LEVELS.length > 0) {
@@ -730,7 +753,10 @@ const skillIcons = {
             const fusionUnlocked4 = (function(){
                 try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_YOUNG_DADA_GLORY')); } catch(_) { return false; }
             })();
-            const fusionReady4 = (!!cheer4 && !!youngDadaGlory && cheer4.level >= 10 && youngDadaGlory.level >= 10);
+            // 嚴格驗證：確保 level 是有效的數字類型
+            const cheer4Level = (cheer4 && typeof cheer4.level === 'number') ? cheer4.level : 0;
+            const youngDadaGloryLevel = (youngDadaGlory && typeof youngDadaGlory.level === 'number') ? youngDadaGlory.level : 0;
+            const fusionReady4 = (!!cheer4 && !!youngDadaGlory && cheer4Level >= 10 && youngDadaGloryLevel >= 10);
             if (!hasFrenzyYoungDadaGloryFusion && fusionReady4 && fusionUnlocked4) {
                 const cfgFYDG = CONFIG.WEAPONS['FRENZY_YOUNG_DADA_GLORY'];
                 if (cfgFYDG && Array.isArray(cfgFYDG.LEVELS) && cfgFYDG.LEVELS.length > 0) {
@@ -752,7 +778,10 @@ const skillIcons = {
             const fusionUnlocked5 = (function(){
                 try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('DEATHLINE_SUPERMAN')); } catch(_) { return false; }
             })();
-            const fusionReady5 = (!!cheer5 && !!deathlineWarrior && cheer5.level >= 10 && deathlineWarrior.level >= 10);
+            // 嚴格驗證：確保兩個武器都存在，且 level 是有效的數字類型，且都 >= 10
+            const cheer5Level = (cheer5 && typeof cheer5.level === 'number') ? cheer5.level : 0;
+            const deathlineWarriorLevel = (deathlineWarrior && typeof deathlineWarrior.level === 'number') ? deathlineWarrior.level : 0;
+            const fusionReady5 = (!!cheer5 && !!deathlineWarrior && cheer5Level >= 10 && deathlineWarriorLevel >= 10);
             if (!hasDeathlineSupermanFusion && fusionReady5 && fusionUnlocked5) {
                 const cfgDS = CONFIG.WEAPONS['DEATHLINE_SUPERMAN'];
                 if (cfgDS && Array.isArray(cfgDS.LEVELS) && cfgDS.LEVELS.length > 0) {
@@ -774,7 +803,10 @@ const skillIcons = {
             const fusionUnlockedRG = (function(){
                 try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('RADIANT_GLORY')); } catch(_) { return false; }
             })();
-            const fusionReadyRG = (!!chainLightning && !!laser && chainLightning.level >= 10 && laser.level >= 10);
+            // 嚴格驗證：確保 level 是有效的數字類型
+            const chainLightningLevel2 = (chainLightning && typeof chainLightning.level === 'number') ? chainLightning.level : 0;
+            const laserLevel2 = (laser && typeof laser.level === 'number') ? laser.level : 0;
+            const fusionReadyRG = (!!chainLightning && !!laser && chainLightningLevel2 >= 10 && laserLevel2 >= 10);
             if (!hasRadiantGloryFusion && fusionReadyRG && fusionUnlockedRG) {
                 const cfgRG = CONFIG.WEAPONS['RADIANT_GLORY'];
                 if (cfgRG && Array.isArray(cfgRG.LEVELS) && cfgRG.LEVELS.length > 0) {
