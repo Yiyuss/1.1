@@ -51,6 +51,9 @@
       try { if (typeof Game !== 'undefined' && Game.pause) Game.pause(true); } catch(_){}
       
       // 播放主線模式 BGM
+      // 註記：mainBgmSuspendedByYouTube 用來標記是否因為「進入頻道」而暫停 BGM
+      // 只要這個旗標為 true，就不要因為切換分頁 / 視窗聚焦而自動恢復 BGM
+      let mainBgmSuspendedByYouTube = false;
       try {
         if (ctx && ctx.audio && typeof ctx.audio.unmuteAndPlay === 'function') {
           ctx.audio.unmuteAndPlay('main', { loop: true });
@@ -62,14 +65,16 @@
         if (ctx && ctx.events) {
           ctx.events.on(document, 'visibilitychange', function(){
             try {
-              if (!document.hidden && ctx && ctx.audio && typeof ctx.audio.unmuteAndPlay === 'function') {
+              // 只有在「沒有被 YouTube 視窗暫停」的情況下，才自動恢復 BGM
+              if (!document.hidden && !mainBgmSuspendedByYouTube && ctx && ctx.audio && typeof ctx.audio.unmuteAndPlay === 'function') {
                 ctx.audio.unmuteAndPlay('main', { loop: true });
               }
             } catch(_){}
           });
           ctx.events.on(window, 'focus', function(){
             try {
-              if (ctx && ctx.audio && typeof ctx.audio.unmuteAndPlay === 'function') {
+              // 同樣尊重 mainBgmSuspendedByYouTube 旗標
+              if (!mainBgmSuspendedByYouTube && ctx && ctx.audio && typeof ctx.audio.unmuteAndPlay === 'function') {
                 ctx.audio.unmuteAndPlay('main', { loop: true });
               }
             } catch(_){}
@@ -400,8 +405,9 @@
       }
       
       function showYouTubeWindow() {
-        // 暫停BGM，避免與YouTube影片聲音衝突
+        // 暫停BGM，避免與YouTube影片聲音衝突，並標記為被 YouTube 視窗暫停
         try {
+          mainBgmSuspendedByYouTube = true;
           if (ctx && ctx.audio && typeof ctx.audio.stopAllMusic === 'function') {
             ctx.audio.stopAllMusic();
           }
@@ -716,9 +722,10 @@
           youtubeWindowEl.parentNode.removeChild(youtubeWindowEl);
           youtubeWindowEl = null;
         }
-        
-        // 恢復BGM播放
+
+        // 解除 YouTube 暫停標記，並恢復 BGM 播放
         try {
+          mainBgmSuspendedByYouTube = false;
           if (ctx && ctx.audio && typeof ctx.audio.unmuteAndPlay === 'function') {
             ctx.audio.unmuteAndPlay('main', { loop: true });
           }
