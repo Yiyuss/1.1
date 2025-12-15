@@ -301,6 +301,19 @@
       
       function showDialogue(npc) {
         if (player.inDialogue) return;
+        
+        // 進入對話：先關閉 NPC 雪碧圖滑鼠游標，恢復正常游標
+        try {
+          if (typeof npcHovering !== 'undefined') {
+            npcHovering = false;
+          }
+          const tmpCursorEl = document.getElementById('main-cursor-sprite');
+          if (tmpCursorEl) {
+            tmpCursorEl.style.display = 'none';
+          }
+          canvas.style.cursor = '';
+        } catch(_) {}
+
         player.inDialogue = true;
         player.targetX = null;
         player.movingToNPC = false;
@@ -1283,6 +1296,16 @@
       let npcHovering = false; // 追蹤是否在NPC上
       const onCanvasMouseMove = (e) => {
         try {
+          // 對話期間不顯示雪碧圖游標，維持正常 / 禁止游標邏輯
+          if (player.inDialogue) {
+            npcHovering = false;
+            if (cursorSpriteEl) {
+              cursorSpriteEl.style.display = 'none';
+            }
+            canvas.style.cursor = '';
+            return;
+          }
+
           if (MapSystem.current !== 'outdoor') {
             // 不在戶外地圖時，隱藏滑鼠雪碧圖
             if (cursorSpriteEl) {
