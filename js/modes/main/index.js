@@ -544,6 +544,12 @@
                 </ol>
                 <p style="margin: 8px 0 0 0; font-size: 13px; color: rgba(255, 255, 255, 0.7);">這是Google的安全機制，不會影響功能使用，您可以放心繼續。</p>
               </div>
+              <p style="margin: 8px 0 0 0; font-size: 13px;">
+                詳細隱私權政策請參考：
+                <a href="https://sites.google.com/view/privacy-policy-yi/" target="_blank" rel="noopener noreferrer" style="color: #4FC3F7; text-decoration: underline;">
+                  隱私權政策
+                </a>
+              </p>
               <button id="auth-hint-authorize" class="dialogue-btn">開始授權</button>
             </div>
           </div>
