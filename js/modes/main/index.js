@@ -54,6 +54,56 @@
       };
     },
     enter(params, ctx){
+      // ========== 載入畫面（只在第一次進入時顯示）==========
+      let loadingScreenEl = null;
+      function showLoadingScreen() {
+        try {
+          const viewport = document.getElementById('viewport');
+          if (!viewport) return;
+          
+          // 如果已經有載入畫面，先移除
+          const existing = document.getElementById('main-loading-screen');
+          if (existing && existing.parentNode) {
+            existing.parentNode.removeChild(existing);
+          }
+          
+          loadingScreenEl = document.createElement('div');
+          loadingScreenEl.id = 'main-loading-screen';
+          loadingScreenEl.className = 'main-loading-screen';
+          loadingScreenEl.innerHTML = `
+            <div class="main-loading-overlay"></div>
+            <div class="main-loading-content">
+              <div class="main-loading-title">冒險村莊</div>
+              <div class="main-loading-subtitle">載入中...</div>
+              <div class="main-loading-spinner">
+                <div class="spinner-dot"></div>
+                <div class="spinner-dot"></div>
+                <div class="spinner-dot"></div>
+              </div>
+            </div>
+          `;
+          viewport.appendChild(loadingScreenEl);
+        } catch(_) {}
+      }
+      
+      function hideLoadingScreen() {
+        try {
+          if (loadingScreenEl && loadingScreenEl.parentNode) {
+            loadingScreenEl.style.opacity = '0';
+            loadingScreenEl.style.transition = 'opacity 0.3s ease-out';
+            setTimeout(() => {
+              if (loadingScreenEl && loadingScreenEl.parentNode) {
+                loadingScreenEl.parentNode.removeChild(loadingScreenEl);
+              }
+              loadingScreenEl = null;
+            }, 300);
+          }
+        } catch(_) {}
+      }
+      
+      // 立即顯示載入畫面
+      showLoadingScreen();
+      
       try {
         // 隱藏所有覆蓋視窗與前置畫面
         const diffScreen = document.getElementById('difficulty-select-screen');
@@ -2510,7 +2560,16 @@
         draw(); 
         rafId = requestAnimationFrame(loop); 
       }
-      loop();
+      
+      // 等待一幀後啟動主循環，確保所有初始化完成
+      requestAnimationFrame(() => {
+        loop();
+        // 主循環啟動後，隱藏載入畫面
+        // 使用 setTimeout 確保所有初始化（包括地圖生成、家具載入等）都完成
+        setTimeout(() => {
+          hideLoadingScreen();
+        }, 100);
+      });
 
       // 儲存 cleanup 入口
       this._cleanup = () => {
@@ -2537,6 +2596,13 @@
     },
     exit(ctx){
       try { if (typeof this._cleanup === 'function') this._cleanup(); } catch(_){}
+      // 清理載入畫面（如果還在顯示）
+      try {
+        const loadingScreen = document.getElementById('main-loading-screen');
+        if (loadingScreen && loadingScreen.parentNode) {
+          loadingScreen.parentNode.removeChild(loadingScreen);
+        }
+      } catch(_){}
       // 恢復 HUD 顯示（若離開主線模式返回生存）
       try { const gameUI = document.getElementById('game-ui'); if (gameUI) gameUI.style.display = ''; } catch(_){}
       // 解除主線模式的 canvas 點擊捕獲，避免影響生存模式輸入
