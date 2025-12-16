@@ -21,6 +21,8 @@
           { key: 'main_house4', src: 'js/modes/main/07.png' },
           { key: 'npc_gif', src: 'assets/images/NPC.gif' },
           { key: 'npc_sprite', src: 'assets/images/001.png' },
+          { key: 'npc2', src: 'assets/images/NPC2.png' },
+          { key: 'npc2_portrait', src: 'assets/images/NPC2-2.png' },
           // 主屋室內家具（JSON 中使用的所有家具）
           { key: 'f_bed_front', src: 'js/modes/main/bed-front-273x289.png' },
           { key: 'f_big_bookcase', src: 'js/modes/main/big bookcase-245x289.png' },
@@ -325,6 +327,12 @@
       function showDialogue(npc) {
         if (player.inDialogue) return;
         
+        // 檢查NPC類型，如果是伊鬱則使用專用對話函數
+        if (npc && npc.npcType === 'yiyu') {
+          showDialogueYiYu(npc);
+          return;
+        }
+        
         // 進入對話：先關閉 NPC 雪碧圖滑鼠游標，恢復正常游標
         try {
           if (typeof npcHovering !== 'undefined') {
@@ -414,6 +422,125 @@
           dialogueOverlay.addEventListener('mousemove', function(e) {
             canvas.style.cursor = 'not-allowed';
           });
+        }
+      }
+      
+      // 伊鬱NPC專用對話函數
+      function showDialogueYiYu(npc) {
+        if (player.inDialogue) return;
+        
+        // 進入對話：先關閉 NPC 雪碧圖滑鼠游標，恢復正常游標
+        try {
+          if (typeof npcHovering !== 'undefined') {
+            npcHovering = false;
+          }
+          const tmpCursorEl = document.getElementById('main-cursor-sprite');
+          if (tmpCursorEl) {
+            tmpCursorEl.style.display = 'none';
+          }
+          canvas.style.cursor = '';
+        } catch(_) {}
+
+        player.inDialogue = true;
+        player.targetX = null;
+        player.movingToNPC = false;
+        player.npcTarget = null;
+        dialogueState = 1;
+        
+        const viewport = document.getElementById('viewport');
+        if (!viewport) return;
+        
+        // 如果已有對話框，先移除
+        if (dialogueEl && dialogueEl.parentNode) {
+          dialogueEl.parentNode.removeChild(dialogueEl);
+        }
+        
+        // 創建人物立繪（在畫布左側，對話框後面）
+        let portraitEl = document.getElementById('main-dialogue-portrait');
+        if (!portraitEl) {
+          portraitEl = document.createElement('div');
+          portraitEl.id = 'main-dialogue-portrait';
+          portraitEl.className = 'dialogue-portrait';
+          viewport.appendChild(portraitEl);
+        }
+        portraitEl.innerHTML = `<img src="assets/images/NPC2-2.png" alt="伊鬱" class="dialogue-portrait-img">`;
+        portraitEl.style.display = 'block';
+        
+        // 創建對話框
+        dialogueEl = document.createElement('div');
+        dialogueEl.id = 'main-dialogue-box';
+        dialogueEl.className = 'main-dialogue-box';
+        dialogueEl.innerHTML = `
+          <div class="dialogue-overlay"></div>
+          <div class="dialogue-container">
+            <div class="dialogue-content">
+              <div class="dialogue-text" id="main-dialogue-text">歡迎光臨，冒險者，這裡是冒險村莊。</div>
+              <div class="dialogue-buttons" id="main-dialogue-buttons">
+                <button id="main-dialogue-continue" class="dialogue-btn">繼續對話</button>
+                <button id="main-dialogue-exit" class="dialogue-btn">離開</button>
+              </div>
+            </div>
+          </div>
+        `;
+        viewport.appendChild(dialogueEl);
+        
+        dialogueEl.style.display = 'flex';
+        
+        // 使用事件委托處理按鈕點擊
+        dialogueEl.addEventListener('click', function(e) {
+          const id = e.target.id;
+          if (id === 'main-dialogue-continue') {
+            playButtonSound();
+            nextDialogueYiYu();
+          } else if (id === 'main-dialogue-exit') {
+            playButtonSound();
+            closeDialogue();
+          } else if (id === 'main-dialogue-twitter') {
+            playButtonSound();
+            showTwitterWindow();
+          } else if (id === 'main-dialogue-code-yiyu') {
+            playButtonSound();
+            showCodeYiYu();
+          }
+        });
+        
+        // 滑鼠移動檢測（對話框內正常，框外禁止）
+        const dialogueContainer = dialogueEl.querySelector('.dialogue-container');
+        if (dialogueContainer) {
+          dialogueContainer.addEventListener('mousemove', function(e) {
+            canvas.style.cursor = '';
+          });
+        }
+        
+        // 對話框外滑鼠移動
+        const dialogueOverlay = dialogueEl.querySelector('.dialogue-overlay');
+        if (dialogueOverlay) {
+          dialogueOverlay.addEventListener('mousemove', function(e) {
+            canvas.style.cursor = 'not-allowed';
+          });
+        }
+      }
+      
+      // 伊鬱對話進度
+      function nextDialogueYiYu() {
+        dialogueState++;
+        const textEl = document.getElementById('main-dialogue-text');
+        const buttonsEl = document.getElementById('main-dialogue-buttons');
+        
+        if (!textEl || !buttonsEl) return;
+        
+        if (dialogueState === 2) {
+          textEl.textContent = '我是接待人員伊鬱，若有任何問題都能向我詢問。';
+        } else if (dialogueState === 3) {
+          textEl.textContent = '若向我回報BUG，還可以獲取對應程度的序號獎勵！';
+        } else if (dialogueState === 4) {
+          textEl.textContent = '作為見面禮，免費給您一份序號。';
+        } else if (dialogueState === 5) {
+          buttonsEl.innerHTML = `
+            <button id="main-dialogue-twitter" class="dialogue-btn">進入推特</button>
+            <button id="main-dialogue-code-yiyu" class="dialogue-btn">領取序號</button>
+            <button id="main-dialogue-exit" class="dialogue-btn">離開</button>
+          `;
         }
       }
       
@@ -768,6 +895,122 @@
         } catch(_) {}
       }
       
+      // 推特視窗（類似YouTube視窗但不需要授權）
+      let twitterWindowEl = null;
+      function showTwitterWindow() {
+        // 暫停BGM，避免與推特內容聲音衝突
+        try {
+          if (ctx && ctx.audio && typeof ctx.audio.stopAllMusic === 'function') {
+            ctx.audio.stopAllMusic();
+          }
+        } catch(_) {}
+        
+        const viewport = document.getElementById('viewport');
+        if (!viewport) return;
+        
+        twitterWindowEl = document.createElement('div');
+        twitterWindowEl.id = 'main-twitter-window';
+        twitterWindowEl.className = 'main-youtube-window'; // 使用相同的樣式類
+        twitterWindowEl.innerHTML = `
+          <div class="youtube-window-overlay"></div>
+          <div class="youtube-window-content">
+            <div class="youtube-window-header">
+              <h2>伊鬱 Twitter</h2>
+              <div class="youtube-header-right">
+                <a href="https://x.com/Yi_yuss" target="_blank" class="youtube-channel-link">前往推特首頁</a>
+                <button id="main-twitter-close" class="youtube-close-btn">×</button>
+              </div>
+            </div>
+            <div class="youtube-window-body">
+              <div class="youtube-video-container" style="height: 600px;">
+                <iframe 
+                  width="100%" 
+                  height="100%" 
+                  src="https://x.com/Yi_yuss" 
+                  title="Twitter" 
+                  frameborder="0" 
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                  referrerpolicy="strict-origin-when-cross-origin" 
+                  allowfullscreen
+                  class="youtube-video-iframe">
+                </iframe>
+              </div>
+            </div>
+          </div>
+        `;
+        viewport.appendChild(twitterWindowEl);
+        
+        const closeBtn = document.getElementById('main-twitter-close');
+        const overlay = twitterWindowEl.querySelector('.youtube-window-overlay');
+        if (closeBtn) {
+          closeBtn.addEventListener('click', function() {
+            playButtonSound();
+            closeTwitterWindow();
+          });
+        }
+        if (overlay) {
+          overlay.addEventListener('click', closeTwitterWindow);
+        }
+      }
+      
+      function closeTwitterWindow() {
+        if (twitterWindowEl && twitterWindowEl.parentNode) {
+          twitterWindowEl.parentNode.removeChild(twitterWindowEl);
+          twitterWindowEl = null;
+        }
+
+        // 恢復 BGM 播放
+        try {
+          if (ctx && ctx.audio && typeof ctx.audio.unmuteAndPlay === 'function') {
+            ctx.audio.unmuteAndPlay('main', { loop: true });
+          }
+        } catch(_) {}
+      }
+      
+      // 伊鬱領取序號（類似森森鈴蘭的showCode）
+      function showCodeYiYu() {
+        // 顯示序號彈窗
+        const codeWindow = document.createElement('div');
+        codeWindow.id = 'main-code-window-yiyu';
+        codeWindow.className = 'main-code-window';
+        codeWindow.innerHTML = `
+          <div class="code-window-overlay"></div>
+          <div class="code-window-content">
+            <div class="code-window-header">
+              <h2>活動序號</h2>
+              <button id="main-code-close-yiyu" class="code-close-btn">×</button>
+            </div>
+            <div class="code-window-body">
+              <div class="code-display">YIYUSS2025</div>
+            </div>
+          </div>
+        `;
+        const viewport = document.getElementById('viewport');
+        if (viewport) {
+          viewport.appendChild(codeWindow);
+          
+          const closeBtn = document.getElementById('main-code-close-yiyu');
+          const overlay = codeWindow.querySelector('.code-window-overlay');
+          
+          if (closeBtn) {
+            closeBtn.addEventListener('click', function() {
+              playButtonSound();
+              if (codeWindow.parentNode) {
+                codeWindow.parentNode.removeChild(codeWindow);
+              }
+            });
+          }
+          
+          if (overlay) {
+            overlay.addEventListener('click', function() {
+              if (codeWindow.parentNode) {
+                codeWindow.parentNode.removeChild(codeWindow);
+              }
+            });
+          }
+        }
+      }
+      
       function checkYouTubeSubscription() {
         const codeBtn = document.getElementById('main-dialogue-code');
         if (!codeBtn) return;
@@ -1031,7 +1274,7 @@
         current: 'outdoor',
         width: MAP_COLS, height: MAP_ROWS,
         data: [],     
-        entities: [],
+        entities: [], 
         materialData: [], // 儲存原始建材 ID（用於繪製不同顏色） 
         
         load(targetMap) {
@@ -1218,27 +1461,27 @@
               }
             } else {
               // 如果沒有 mapData，使用預設（外牆+地板）
-              for(let y=0; y<this.height; y++) {
-                this.data[y] = [];
+          for(let y=0; y<this.height; y++) {
+            this.data[y] = [];
                 this.materialData[y] = [];
-                for(let x=0; x<this.width; x++) {
-                  if (x===0 || x===cols-1 || y===0 || y===rows-1) {
-                    const centerX = cols / 2;
-                    if (y===rows-1 && (x <= centerX + 1 && x >= centerX - 2)) {
-                      this.data[y][x] = T_EXIT;
+            for(let x=0; x<this.width; x++) {
+              if (x===0 || x===cols-1 || y===0 || y===rows-1) {
+                const centerX = cols / 2;
+                if (y===rows-1 && (x <= centerX + 1 && x >= centerX - 2)) {
+                  this.data[y][x] = T_EXIT;
                       this.materialData[y][x] = 'floor_brown';
-                    } else {
-                      this.data[y][x] = T_WALL;
+                } else {
+                  this.data[y][x] = T_WALL;
                       this.materialData[y][x] = 'wall_gray';
-                    }
-                  } else {
-                    this.data[y][x] = T_FLOOR;
+                }
+              } else {
+                this.data[y][x] = T_FLOOR;
                     this.materialData[y][x] = 'floor_brown';
                   }
-                }
               }
             }
-            
+          }
+
             this.addIndoorFurniture();
           } else {
             // 其他室內地圖：使用預設
@@ -1444,6 +1687,31 @@
           });
           
           console.log(`[家具載入完成] 成功: ${loadedCount}, 跳過: ${skippedCount}, 總計: ${layoutData.furniture.length}`);
+          
+          // [室內NPC] 伊鬱 - 放在櫃台中間後方
+          // 找到櫃台位置
+          const counterItem = layoutData.furniture.find(item => item.key === 'counter-833x351');
+          if (counterItem) {
+            // NPC 原始比例與森森鈴蘭相同（279x320），縮放到接近玩家大小（48x60）
+            const NPC_SCALE = 60 / 320; // 以高度為基準縮放
+            const NPC_W = Math.round(279 * NPC_SCALE); // ≈ 52
+            const NPC_H = 60; // 與玩家高度一致
+            
+            // 櫃台中間後方：櫃台中心x，櫃台y上方（降低高度，讓NPC更靠近櫃台）
+            const counterCenterX = counterItem.x + counterItem.w / 2;
+            const npcX = counterCenterX - NPC_W / 2; // 居中對齊
+            const npcY = counterItem.y - NPC_H + 25; // 降低高度，讓NPC更靠近櫃台（原本是-10，改為+25）
+            
+            let npc = new Entity('npc_indoor', npcX, npcY, NPC_W, NPC_H);
+            npc.solid = false; // NPC 不阻擋玩家
+            npc.domId = 'main-npc-indoor-yiyu';
+            npc.layerId = 'npc-indoor';
+            npc.spriteSheet = null; // 雪碧圖（001.png），用於滑鼠游標
+            npc.spriteFrame = 0; // 當前雪碧圖幀（0-7）
+            npc.npcType = 'yiyu'; // 標記為伊鬱NPC
+            this.entities.push(npc);
+            console.log(`[室內NPC] 伊鬱已放置在櫃台後方 (${npcX}, ${npcY})`);
+          }
         }
       };
 
@@ -1528,8 +1796,8 @@
           const worldX = x + cam.x;
           const worldY = y + cam.y;
           
-          // 檢查是否點擊了NPC
-          let npc = MapSystem.entities.find(e => e.type === 'npc');
+          // 檢查是否點擊了NPC（支持戶外和室內NPC）
+          let npc = MapSystem.entities.find(e => e.type === 'npc' || e.type === 'npc_indoor');
           if (npc) {
             const npcCenterX = npc.x + npc.width / 2;
             const npcCenterY = npc.y + npc.height / 2;
@@ -1544,18 +1812,25 @@
             
             if (clickOnNPC) {
               player.npcTarget = npc;
-              if (distToNPC <= 55) {
+              // 伊鬱NPC專屬：因為有櫃台阻隔，需要增加觸發距離
+              // 計算：櫃台高度(95) + NPC高度的一半(30) + 誤差(30) = 約155像素
+              // 考慮對角線距離，設置為160像素
+              const triggerDistance = (npc.npcType === 'yiyu') ? 160 : 55;
+              
+              if (distToNPC <= triggerDistance) {
                 showDialogue(npc);
                 player.movingToNPC = false;
                 player.targetX = null;
                 player.npcTarget = null;
               } else {
                 player.movingToNPC = true;
-                // 計算目標位置（距離NPC 45，確保到達後一定在50以內）
+                // 計算目標位置
+                // 伊鬱NPC：目標距離設為150（考慮櫃台阻隔）
+                // 森森鈴蘭：目標距離設為45（原本邏輯）
+                const targetDist = (npc.npcType === 'yiyu') ? 150 : 45;
                 const dx = npcCenterX - playerCenterX;
                 const dy = npcCenterY - playerCenterY;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-                const targetDist = 45; // 改為45，確保到達後一定在50以內
                 const targetX = npcCenterX - (dx / dist) * targetDist - PLAYER_W / 2;
                 const targetY = npcCenterY - (dy / dist) * targetDist - PLAYER_H / 2;
                 player.targetX = targetX;
@@ -1591,14 +1866,6 @@
             canvas.style.cursor = '';
             return;
           }
-
-          if (MapSystem.current !== 'outdoor') {
-            // 不在戶外地圖時，隱藏滑鼠雪碧圖
-            if (cursorSpriteEl) {
-              cursorSpriteEl.style.display = 'none';
-            }
-            return;
-          }
           
           const rect = canvas.getBoundingClientRect();
           const scaleX = canvas.width / rect.width;
@@ -1609,8 +1876,8 @@
           const worldX = x + cam.x;
           const worldY = y + cam.y;
           
-          // 檢查滑鼠是否在 NPC 上（使用整個 NPC 區域，不是碰撞區域）
-          let npc = MapSystem.entities.find(e => e.type === 'npc');
+          // 檢查滑鼠是否在 NPC 上（支持戶外和室內NPC）
+          let npc = MapSystem.entities.find(e => e.type === 'npc' || e.type === 'npc_indoor');
           if (npc) {
             // 使用整個 NPC 的邊界進行檢測，而不是碰撞區域
             const isHovering = worldX >= npc.x && worldX <= npc.x + npc.width &&
@@ -1701,8 +1968,8 @@
       let lastFrameTime = 0;
       const SPRITE_FRAME_INTERVAL = 100; // 每100毫秒切換一幀
       function update() {
-        // 更新雪碧圖動畫幀（如果NPC存在且滑鼠在NPC上）
-        let npc = MapSystem.entities.find(e => e.type === 'npc');
+        // 更新雪碧圖動畫幀（支持戶外和室內NPC）
+        let npc = MapSystem.entities.find(e => e.type === 'npc' || e.type === 'npc_indoor');
         if (npc && npc.spriteSheet && npc.spriteSheet.complete) {
           const now = Date.now();
           if (now - lastFrameTime >= SPRITE_FRAME_INTERVAL) {
@@ -1767,8 +2034,10 @@
               const playerCenterY = ny + player.height / 2;
               const distToNPC = Math.sqrt((playerCenterX - npcCenterX) ** 2 + (playerCenterY - npcCenterY) ** 2);
               
-              // 使用55作為容錯範圍，避免邊界問題（例如50.79這種情況）
-              if (distToNPC <= 55) {
+              // 伊鬱NPC專屬：因為有櫃台阻隔，需要增加觸發距離
+              const triggerDistance = (npc.npcType === 'yiyu') ? 160 : 55;
+              
+              if (distToNPC <= triggerDistance) {
                 showDialogue(npc);
                 player.movingToNPC = false;
                 player.npcTarget = null;
@@ -1787,8 +2056,10 @@
               const playerCenterY = ny + player.height / 2;
               const distToNPC = Math.sqrt((playerCenterX - npcCenterX) ** 2 + (playerCenterY - npcCenterY) ** 2);
               
-              // 使用55作為容錯範圍，避免邊界問題
-              if (distToNPC <= 55) {
+              // 伊鬱NPC專屬：因為有櫃台阻隔，需要增加觸發距離
+              const triggerDistance = (npc.npcType === 'yiyu') ? 160 : 55;
+              
+              if (distToNPC <= triggerDistance) {
                 player.targetX = null;
                 player.movingToNPC = false;
                 player.npcTarget = null;
@@ -1986,7 +2257,7 @@
           ctx.fillRect(x, y, size, size);
         }
       }
-      
+
       // 繪製循環
       function draw() {
         ctx2d.fillStyle = "#000"; 
@@ -2035,7 +2306,7 @@
               const materialId = MapSystem.materialData && MapSystem.materialData[y] && MapSystem.materialData[y][x] 
                 ? MapSystem.materialData[y][x] 
                 : null;
-              
+
               if (t === T_PATH) {
                 ctx2d.fillStyle = '#eecfa1'; 
                 ctx2d.fillRect(px,py,TILE+1,TILE+1);
@@ -2241,6 +2512,10 @@
               if (typeof window.MainGifOverlay !== 'undefined' && obj.domId) {
                 window.MainGifOverlay.hide(obj.domId);
               }
+            } else if (obj.type === 'npc' || obj.type === 'npc_indoor') {
+              if (typeof window.MainGifOverlay !== 'undefined' && obj.domId) {
+                window.MainGifOverlay.hide(obj.domId);
+              }
             }
             continue;
           }
@@ -2291,6 +2566,15 @@
               const npcGifImg = getImage('npc_gif');
               if (npcGifImg) {
                 window.MainGifOverlay.showOrUpdate(obj.domId, npcGifImg, px, py, { width: obj.width, height: obj.height }, { layerId: obj.layerId || 'npc', dynamicZIndex: baseZIndex });
+              }
+            }
+          } else if (obj.type === 'npc_indoor') {
+            // 室內NPC（伊鬱）使用靜態圖片顯示（通過 MainGifOverlay 處理）
+            if (typeof window.MainGifOverlay !== 'undefined') {
+              // 使用 getImage 載入 NPC2.png，然後傳給 MainGifOverlay
+              const npcImg = getImage('npc2');
+              if (npcImg) {
+                window.MainGifOverlay.showOrUpdate(obj.domId, npcImg, px, py, { width: obj.width, height: obj.height }, { layerId: obj.layerId || 'npc-indoor', dynamicZIndex: baseZIndex });
               }
             }
           } else if (obj.type === 'furniture') {
