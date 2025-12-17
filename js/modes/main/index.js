@@ -438,7 +438,7 @@
               { id: 'main-dialogue-exit', text: '離開', action: 'exit' }
             ],
             code: 'MARGARETNORTH2025',
-            youtubeUrl: 'https://youtu.be/Obff_CJzY-k?si=vzzJpP3-WXSXJXgU',
+            youtubeUrl: 'https://youtu.be/4lc1X8J5yhA?si=atQPvRZLxJW9MIdj',
             channelId: 'UCbh7KHPMgYGgpISdbF6l0Kw', // 瑪格麗特的頻道ID
             channelName: '瑪格麗特 YouTube 頻道',
             channelLink: 'https://www.youtube.com/@%E7%91%AA%E6%A0%BC%E9%BA%97%E7%89%B9margaretnorth/',
