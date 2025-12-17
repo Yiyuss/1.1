@@ -505,6 +505,12 @@
           portraitEl.className = 'dialogue-portrait';
           viewport.appendChild(portraitEl);
         }
+        // 為瑪格麗特添加特殊樣式（立繪往右移）
+        if (npc && npc.npcType === 'margaret') {
+          portraitEl.className = 'dialogue-portrait dialogue-portrait-margaret';
+        } else {
+          portraitEl.className = 'dialogue-portrait';
+        }
         portraitEl.innerHTML = `<img src="${config.portraitImage}" alt="${config.portraitAlt}" class="dialogue-portrait-img">`;
         portraitEl.style.display = 'block';
         
