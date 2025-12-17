@@ -2861,6 +2861,10 @@ body {
   will-change: transform;
   opacity: 1;
 }
+/* 瑪格麗特立繪往右移 */
+.dialogue-portrait-margaret {
+  left: 100px; /* 從50px移到100px，往右移50px */
+}
 
 .main-dialogue-box {
   position: fixed;
@@ -3273,6 +3277,9 @@ body {
   .dialogue-portrait {
     left: 30px; /* 手機版也往右移一點 */
     bottom: 0px; /* 手機版也往下移到底部，避免底部斷面露出 */
+  }
+  .dialogue-portrait-margaret {
+    left: 50px; /* 手機版瑪格麗特立繪也往右移 */
   }
   .dialogue-portrait-img {
     width: 400px; /* 手機版也增大 */
