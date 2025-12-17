@@ -23,6 +23,8 @@
           { key: 'npc_sprite', src: 'assets/images/001.png' },
           { key: 'npc2', src: 'assets/images/NPC2.png' },
           { key: 'npc2_portrait', src: 'assets/images/NPC2-2.png' },
+          { key: 'npc3_gif', src: 'assets/images/NPC3.gif' },
+          { key: 'npc3_portrait', src: 'assets/images/NPC3-2.png' },
           // 主屋室內家具（JSON 中使用的所有家具）
           { key: 'f_bed_front', src: 'js/modes/main/bed-front-273x289.png' },
           { key: 'f_big_bookcase', src: 'js/modes/main/big bookcase-245x289.png' },
@@ -414,6 +416,34 @@
             code: 'YIYUSS2025',
             onFinalState: null
           }
+        },
+        'margaret': { // 瑪格麗特（室內NPC）
+          type: 'npc_indoor',
+          imageKey: 'npc3_gif',
+          portraitImage: 'assets/images/NPC3-2.png',
+          portraitAlt: '瑪格麗特',
+          spriteSheetKey: 'npc_sprite',
+          triggerDistance: 55, // 與森森鈴蘭相同
+          targetDistance: 45,
+          dialogue: {
+            messages: [
+              '早安！我今天吃了早餐，你呢？',
+              '我是瑪格麗特，是諾爾絲家族的大小姐！',
+              '訂閱我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
+            ],
+            finalButtons: [
+              { id: 'main-dialogue-youtube-margaret', text: '進入頻道', action: 'youtube' },
+              { id: 'main-dialogue-code-margaret', text: '領取序號', action: 'code', disabled: true },
+              { id: 'main-dialogue-exit', text: '離開', action: 'exit' }
+            ],
+            code: 'MARGARETNORTH2025',
+            youtubeUrl: 'https://youtu.be/Obff_CJzY-k?si=vzzJpP3-WXSXJXgU',
+            channelId: 'UC3ZTQ8VZVCpwLHjFKSFe5Uw', // 需要從頻道URL獲取實際的channelId
+            channelName: '瑪格麗特 YouTube 頻道',
+            channelLink: 'https://www.youtube.com/@%E7%91%AA%E6%A0%BC%E9%BA%97%E7%89%B9margaretnorth/',
+            onFinalState: () => checkYouTubeSubscriptionMargaret()
+          }
         }
       };
       
@@ -507,10 +537,10 @@
           } else if (id === 'main-dialogue-exit') {
             playButtonSound();
             closeDialogue();
-          } else if (id === 'main-dialogue-youtube') {
+          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret') {
             playButtonSound();
-            showYouTubeWindow();
-          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu') {
+            showYouTubeWindow(currentDialogueNPC);
+          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret') {
             playButtonSound();
             showCode(config.dialogue.code);
           } else if (id === 'main-dialogue-twitter') {
@@ -567,7 +597,7 @@
         }
       }
       
-      function showYouTubeWindow() {
+      function showYouTubeWindow(npc) {
         // 暫停BGM，避免與YouTube影片聲音衝突，並標記為被 YouTube 視窗暫停
         try {
           mainBgmSuspendedByYouTube = true;
@@ -575,6 +605,26 @@
             ctx.audio.stopAllMusic();
           }
         } catch(_) {}
+        
+        // 獲取NPC配置以確定YouTube URL和頻道信息
+        const config = npc ? getNPCConfig(npc) : NPC_CONFIG['lilylinglan'];
+        const youtubeUrl = config.dialogue.youtubeUrl || 'https://www.youtube.com/embed/6wTHWUkIBns?si=77DPsSb-F_EeBee-&autoplay=0';
+        const channelId = config.dialogue.channelId || 'UC3ZTQ8VZVCpwLHjFKSFe5Uw';
+        const channelName = config.dialogue.channelName || '森森鈴蘭 YouTube 頻道';
+        const channelLink = config.dialogue.channelLink || 'https://www.youtube.com/@%E6%A3%AE%E6%A3%AE%E9%88%B4%E8%98%ADLilyLinglan';
+        
+        // 從完整URL提取embed ID
+        let embedUrl = youtubeUrl;
+        if (youtubeUrl.includes('youtu.be/')) {
+          const videoId = youtubeUrl.split('youtu.be/')[1].split('?')[0];
+          embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=0`;
+        } else if (youtubeUrl.includes('youtube.com/watch')) {
+          const urlParams = new URLSearchParams(youtubeUrl.split('?')[1]);
+          const videoId = urlParams.get('v') || youtubeUrl.split('v=')[1]?.split('&')[0];
+          if (videoId) {
+            embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=0`;
+          }
+        }
         
         const viewport = document.getElementById('viewport');
         if (!viewport) return;
@@ -586,9 +636,9 @@
           <div class="youtube-window-overlay"></div>
           <div class="youtube-window-content">
             <div class="youtube-window-header">
-              <h2>森森鈴蘭 YouTube 頻道</h2>
+              <h2>${channelName}</h2>
               <div class="youtube-header-right">
-                <a href="https://www.youtube.com/@%E6%A3%AE%E6%A3%AE%E9%88%B4%E8%98%ADLilyLinglan" target="_blank" class="youtube-channel-link">前往頻道首頁</a>
+                <a href="${channelLink}" target="_blank" class="youtube-channel-link">前往頻道首頁</a>
                 <button id="main-youtube-close" class="youtube-close-btn">×</button>
               </div>
             </div>
@@ -597,7 +647,7 @@
                 <iframe 
                   width="100%" 
                   height="100%" 
-                  src="https://www.youtube.com/embed/6wTHWUkIBns?si=77DPsSb-F_EeBee-&autoplay=0" 
+                  src="${embedUrl}" 
                   title="YouTube video player" 
                   frameborder="0" 
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
@@ -608,7 +658,7 @@
               </div>
               <div class="youtube-subscribe-section">
                 <div class="youtube-subscribe-button-container">
-                  <div class="g-ytsubscribe" data-channelid="UC3ZTQ8VZVCpwLHjFKSFe5Uw" data-layout="default" data-count="default"></div>
+                  <div class="g-ytsubscribe" data-channelid="${channelId}" data-layout="default" data-count="default"></div>
                   <button id="youtube-auth-hint" class="youtube-auth-hint-btn" title="點擊查看授權說明">?</button>
                 </div>
               </div>
@@ -1053,6 +1103,58 @@
               console.warn('YouTube API 配額已用盡，請稍後再試');
               // 可以在這裡添加用戶提示，例如：
               // alert('今日檢測次數已達上限，請明天再試');
+            }
+          });
+        } else {
+          // API未載入
+          codeBtn.classList.add('disabled');
+          codeBtn.disabled = true;
+        }
+      }
+      
+      function checkYouTubeSubscriptionMargaret() {
+        const codeBtn = document.getElementById('main-dialogue-code-margaret');
+        if (!codeBtn) return;
+        
+        // 使用YouTube Data API檢測訂閱狀態
+        if (window.gapi && window.gapi.client && window.gapi.client.youtube) {
+          // 檢查是否有有效的 access token
+          const token = window.gapi.client.getToken();
+          if (!token || !token.access_token) {
+            codeBtn.classList.add('disabled');
+            codeBtn.disabled = true;
+            return;
+          }
+          
+          // 已授權，檢查訂閱狀態（使用瑪格麗特的頻道ID）
+          const config = NPC_CONFIG['margaret'];
+          const channelId = config.dialogue.channelId || 'UC3ZTQ8VZVCpwLHjFKSFe5Uw';
+          
+          window.gapi.client.youtube.subscriptions.list({
+            part: 'snippet',
+            mine: true,
+            forChannelId: channelId
+          }).then(function(response) {
+            const items = response.result.items || [];
+            if (items.length > 0) {
+              codeBtn.classList.remove('disabled');
+              codeBtn.disabled = false;
+            } else {
+              codeBtn.classList.add('disabled');
+              codeBtn.disabled = true;
+            }
+          }).catch(function(error) {
+            console.error('檢查訂閱狀態失敗:', error);
+            codeBtn.classList.add('disabled');
+            codeBtn.disabled = true;
+            
+            // 檢查是否為配額用盡錯誤
+            const errorMessage = error.message || error.error?.message || '';
+            const errorCode = error.code || error.error?.code;
+            
+            if (errorCode === 403 || errorMessage.includes('quotaExceeded') || errorMessage.includes('quota') || errorMessage.includes('配額')) {
+              // 配額用盡，顯示提示
+              console.warn('YouTube API 配額已用盡，請稍後再試');
             }
           });
         } else {
@@ -1663,6 +1765,30 @@
             this.entities.push(npc);
             console.log(`[室內NPC] 伊鬱已放置在櫃台後方 (${npcX}, ${npcY})`);
           }
+          
+          // [室內NPC] 瑪格麗特 - 放在Bigsofa左側
+          // 找到Bigsofa位置
+          const bigsofaItem = layoutData.furniture.find(item => item.key === 'Bigsofa-286x301');
+          if (bigsofaItem) {
+            // NPC 原始比例 242x320，縮放到接近玩家大小（48x60）
+            const NPC_SCALE = 60 / 320; // 以高度為基準縮放
+            const NPC_W = Math.round(242 * NPC_SCALE); // ≈ 45
+            const NPC_H = 60; // 與玩家高度一致
+            
+            // Bigsofa左側：Bigsofa左邊界左側，Bigsofa中心y
+            const npcX = bigsofaItem.x - NPC_W - 20; // Bigsofa左側，留20像素間距
+            const npcY = bigsofaItem.y + (bigsofaItem.h / 2) - NPC_H / 2; // 垂直居中對齊Bigsofa
+            
+            let npc = new Entity('npc_indoor', npcX, npcY, NPC_W, NPC_H);
+            npc.solid = false; // NPC 不阻擋玩家
+            npc.domId = 'main-npc-indoor-margaret';
+            npc.layerId = 'npc-indoor';
+            npc.spriteSheet = null; // 雪碧圖（001.png），用於滑鼠游標
+            npc.spriteFrame = 0; // 當前雪碧圖幀（0-7）
+            npc.npcType = 'margaret'; // 標記為瑪格麗特NPC
+            this.entities.push(npc);
+            console.log(`[室內NPC] 瑪格麗特已放置在Bigsofa左側 (${npcX}, ${npcY})`);
+          }
         }
       };
 
@@ -1748,50 +1874,57 @@
           const worldY = y + cam.y;
           
           // 檢查是否點擊了NPC（支持戶外和室內NPC）
-          let npc = MapSystem.entities.find(e => e.type === 'npc' || e.type === 'npc_indoor');
-          if (npc) {
+          // 檢查所有NPC，找到被點擊的那個
+          const allNPCs = MapSystem.entities.filter(e => e.type === 'npc' || e.type === 'npc_indoor');
+          let clickedNPC = null;
+          
+          for (let npc of allNPCs) {
+            // 檢查點擊是否在NPC範圍內（使用NPC的完整碰撞區域進行檢測）
+            const clickOnNPC = worldX >= npc.x && worldX <= npc.x + npc.width &&
+                              worldY >= npc.y && worldY <= npc.y + npc.height;
+            if (clickOnNPC) {
+              clickedNPC = npc;
+              break;
+            }
+          }
+          
+          if (clickedNPC) {
+            const npc = clickedNPC;
             const npcCenterX = npc.x + npc.width / 2;
             const npcCenterY = npc.y + npc.height / 2;
             const playerCenterX = player.x + player.width / 2;
             const playerCenterY = player.y + player.height / 2;
             const distToNPC = Math.sqrt((playerCenterX - npcCenterX) ** 2 + (playerCenterY - npcCenterY) ** 2);
             
-            // 檢查點擊是否在NPC範圍內（擴大檢測範圍，確保點擊檢測可靠）
-            // 使用NPC的完整碰撞區域進行檢測
-            const clickOnNPC = worldX >= npc.x && worldX <= npc.x + npc.width &&
-                              worldY >= npc.y && worldY <= npc.y + npc.height;
+            player.npcTarget = npc;
+            // 使用NPC配置系統獲取觸發距離
+            const config = getNPCConfig(npc);
+            const triggerDistance = config.triggerDistance;
             
-            if (clickOnNPC) {
-              player.npcTarget = npc;
-              // 使用NPC配置系統獲取觸發距離
-              const config = getNPCConfig(npc);
-              const triggerDistance = config.triggerDistance;
-              
-              // 檢查對話冷卻時間
-              const now = Date.now();
-              const cooldownEnd = npc.dialogueCooldown || 0;
-              const isInCooldown = now < cooldownEnd;
-              
-              if (distToNPC <= triggerDistance && !isInCooldown) {
-                showDialogue(npc);
-                player.movingToNPC = false;
-                player.targetX = null;
-                player.npcTarget = null;
-              } else {
-                player.movingToNPC = true;
-                // 使用NPC配置系統獲取目標距離
-                const targetDist = config.targetDistance;
-                const dx = npcCenterX - playerCenterX;
-                const dy = npcCenterY - playerCenterY;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const targetX = npcCenterX - (dx / dist) * targetDist - PLAYER_W / 2;
-                const targetY = npcCenterY - (dy / dist) * targetDist - PLAYER_H / 2;
-                player.targetX = targetX;
-                player.targetY = targetY;
-              }
-              try { e.preventDefault(); e.stopPropagation(); } catch(_) {}
-              return;
+            // 檢查對話冷卻時間
+            const now = Date.now();
+            const cooldownEnd = npc.dialogueCooldown || 0;
+            const isInCooldown = now < cooldownEnd;
+            
+            if (distToNPC <= triggerDistance && !isInCooldown) {
+              showDialogue(npc);
+              player.movingToNPC = false;
+              player.targetX = null;
+              player.npcTarget = null;
+            } else {
+              player.movingToNPC = true;
+              // 使用NPC配置系統獲取目標距離
+              const targetDist = config.targetDistance;
+              const dx = npcCenterX - playerCenterX;
+              const dy = npcCenterY - playerCenterY;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              const targetX = npcCenterX - (dx / dist) * targetDist - PLAYER_W / 2;
+              const targetY = npcCenterY - (dy / dist) * targetDist - PLAYER_H / 2;
+              player.targetX = targetX;
+              player.targetY = targetY;
             }
+            try { e.preventDefault(); e.stopPropagation(); } catch(_) {}
+            return;
           }
           
           // 普通點擊移動（不清除npcTarget，讓持續檢查邏輯可以工作）
@@ -1808,11 +1941,13 @@
       // 滑鼠移動檢測（用於 NPC 懸停效果，將滑鼠變成雪碧圖）
       let cursorSpriteEl = null;
       let npcHovering = false; // 追蹤是否在NPC上
+      let currentHoveringNPC = null; // 追蹤當前懸停的NPC
       const onCanvasMouseMove = (e) => {
         try {
           // 對話期間不顯示雪碧圖游標，維持正常 / 禁止游標邏輯
           if (player.inDialogue) {
             npcHovering = false;
+            currentHoveringNPC = null;
             if (cursorSpriteEl) {
               cursorSpriteEl.style.display = 'none';
             }
@@ -1829,67 +1964,75 @@
           const worldX = x + cam.x;
           const worldY = y + cam.y;
           
-          // 檢查滑鼠是否在 NPC 上（支持戶外和室內NPC）
-          let npc = MapSystem.entities.find(e => e.type === 'npc' || e.type === 'npc_indoor');
-          if (npc) {
+          // 檢查所有NPC，找到滑鼠正在懸停的那個（支持戶外和室內NPC）
+          let hoveredNPC = null;
+          const allNPCs = MapSystem.entities.filter(e => e.type === 'npc' || e.type === 'npc_indoor');
+          for (let npc of allNPCs) {
             // 使用整個 NPC 的邊界進行檢測，而不是碰撞區域
             const isHovering = worldX >= npc.x && worldX <= npc.x + npc.width &&
                               worldY >= npc.y && worldY <= npc.y + npc.height;
-            
             if (isHovering) {
-              npcHovering = true;
-              // 載入雪碧圖（如果還沒載入）- 使用NPC配置系統
-              if (!npc.spriteSheet) {
-                const config = getNPCConfig(npc);
-                const spriteImg = getImage(config.spriteSheetKey);
-                if (spriteImg) {
-                  npc.spriteSheet = spriteImg;
-                }
-              }
-              
-              // 創建或獲取跟隨滑鼠的雪碧圖元素
-              if (!cursorSpriteEl) {
-                const viewport = document.getElementById('viewport');
-                if (viewport) {
-                  cursorSpriteEl = document.createElement('div');
-                  cursorSpriteEl.id = 'main-cursor-sprite';
-                  cursorSpriteEl.style.position = 'fixed';
-                  cursorSpriteEl.style.pointerEvents = 'none';
-                  cursorSpriteEl.style.imageRendering = 'pixelated';
-                  cursorSpriteEl.style.zIndex = '99999'; // 確保在最上層
-                  viewport.appendChild(cursorSpriteEl);
-                }
-              }
-              
-              // 如果雪碧圖已載入，顯示在滑鼠位置（使用當前動畫幀）
-              if (cursorSpriteEl && npc.spriteSheet && npc.spriteSheet.complete) {
-                const spriteW = 32;
-                const spriteH = 32;
-                const spriteCol = npc.spriteFrame % 8; // 0-7（循環）
-                const spriteSrcX = spriteCol * 32; // 每幀32像素寬
-                const spriteSrcY = 0; // 只有1行，所以Y始終為0
-                
-                // 使用滑鼠的螢幕座標（clientX, clientY）
-                cursorSpriteEl.style.backgroundImage = `url(${npc.spriteSheet.src})`;
-                cursorSpriteEl.style.backgroundPosition = `-${spriteSrcX}px -${spriteSrcY}px`;
-                cursorSpriteEl.style.backgroundSize = '256px 32px'; // 總大小：8列*32 = 256，高度32
-                cursorSpriteEl.style.left = (e.clientX || e.pageX) + 'px';
-                cursorSpriteEl.style.top = (e.clientY || e.pageY) + 'px';
-                cursorSpriteEl.style.width = spriteW + 'px';
-                cursorSpriteEl.style.height = spriteH + 'px';
-                cursorSpriteEl.style.display = '';
-                
-                // 隱藏原始滑鼠游標
-                canvas.style.cursor = 'none';
-              }
-            } else {
-              npcHovering = false;
-              // 不在 NPC 上，隱藏雪碧圖並恢復滑鼠游標
-              if (cursorSpriteEl) {
-                cursorSpriteEl.style.display = 'none';
-              }
-              canvas.style.cursor = '';
+              hoveredNPC = npc;
+              break;
             }
+          }
+          
+          if (hoveredNPC) {
+            npcHovering = true;
+            currentHoveringNPC = hoveredNPC;
+            
+            // 載入雪碧圖（如果還沒載入）- 使用NPC配置系統
+            if (!hoveredNPC.spriteSheet) {
+              const config = getNPCConfig(hoveredNPC);
+              const spriteImg = getImage(config.spriteSheetKey);
+              if (spriteImg) {
+                hoveredNPC.spriteSheet = spriteImg;
+              }
+            }
+            
+            // 創建或獲取跟隨滑鼠的雪碧圖元素
+            if (!cursorSpriteEl) {
+              const viewport = document.getElementById('viewport');
+              if (viewport) {
+                cursorSpriteEl = document.createElement('div');
+                cursorSpriteEl.id = 'main-cursor-sprite';
+                cursorSpriteEl.style.position = 'fixed';
+                cursorSpriteEl.style.pointerEvents = 'none';
+                cursorSpriteEl.style.imageRendering = 'pixelated';
+                cursorSpriteEl.style.zIndex = '99999'; // 確保在最上層
+                viewport.appendChild(cursorSpriteEl);
+              }
+            }
+            
+            // 如果雪碧圖已載入，顯示在滑鼠位置（使用當前動畫幀）
+            if (cursorSpriteEl && hoveredNPC.spriteSheet && hoveredNPC.spriteSheet.complete) {
+              const spriteW = 32;
+              const spriteH = 32;
+              const spriteCol = hoveredNPC.spriteFrame % 8; // 0-7（循環）
+              const spriteSrcX = spriteCol * 32; // 每幀32像素寬
+              const spriteSrcY = 0; // 只有1行，所以Y始終為0
+              
+              // 使用滑鼠的螢幕座標（clientX, clientY）
+              cursorSpriteEl.style.backgroundImage = `url(${hoveredNPC.spriteSheet.src})`;
+              cursorSpriteEl.style.backgroundPosition = `-${spriteSrcX}px -${spriteSrcY}px`;
+              cursorSpriteEl.style.backgroundSize = '256px 32px'; // 總大小：8列*32 = 256，高度32
+              cursorSpriteEl.style.left = (e.clientX || e.pageX) + 'px';
+              cursorSpriteEl.style.top = (e.clientY || e.pageY) + 'px';
+              cursorSpriteEl.style.width = spriteW + 'px';
+              cursorSpriteEl.style.height = spriteH + 'px';
+              cursorSpriteEl.style.display = '';
+              
+              // 隱藏原始滑鼠游標
+              canvas.style.cursor = 'none';
+            }
+          } else {
+            npcHovering = false;
+            currentHoveringNPC = null;
+            // 不在 NPC 上，隱藏雪碧圖並恢復滑鼠游標
+            if (cursorSpriteEl) {
+              cursorSpriteEl.style.display = 'none';
+            }
+            canvas.style.cursor = '';
           }
         } catch(_) {}
       };
@@ -1923,21 +2066,26 @@
       const SPRITE_FRAME_INTERVAL = 100; // 每100毫秒切換一幀
       function update() {
         // 更新雪碧圖動畫幀（支持戶外和室內NPC）
-        let npc = MapSystem.entities.find(e => e.type === 'npc' || e.type === 'npc_indoor');
-        if (npc && npc.spriteSheet && npc.spriteSheet.complete) {
-          const now = Date.now();
-          if (now - lastFrameTime >= SPRITE_FRAME_INTERVAL) {
-            npc.spriteFrame = (npc.spriteFrame + 1) % 8; // 循環播放 0-7
-            lastFrameTime = now;
-            
-            // 如果滑鼠在NPC上，更新滑鼠雪碧圖的顯示
-            if (npcHovering) {
-              const cursorSpriteEl = document.getElementById('main-cursor-sprite');
-              if (cursorSpriteEl && cursorSpriteEl.style.display !== 'none') {
-                const spriteCol = npc.spriteFrame % 8; // 0-7（循環）
-                const spriteSrcX = spriteCol * 32; // 每幀32像素寬
-                cursorSpriteEl.style.backgroundPosition = `-${spriteSrcX}px 0px`;
-              }
+        // 更新所有NPC的動畫幀，但只更新當前懸停的NPC的游標顯示
+        const allNPCs = MapSystem.entities.filter(e => e.type === 'npc' || e.type === 'npc_indoor');
+        const now = Date.now();
+        if (now - lastFrameTime >= SPRITE_FRAME_INTERVAL) {
+          lastFrameTime = now;
+          
+          // 更新所有NPC的動畫幀
+          for (let npc of allNPCs) {
+            if (npc.spriteSheet && npc.spriteSheet.complete) {
+              npc.spriteFrame = (npc.spriteFrame + 1) % 8; // 循環播放 0-7
+            }
+          }
+          
+          // 如果滑鼠在NPC上，更新滑鼠雪碧圖的顯示
+          if (npcHovering && currentHoveringNPC && currentHoveringNPC.spriteSheet && currentHoveringNPC.spriteSheet.complete) {
+            const cursorSpriteEl = document.getElementById('main-cursor-sprite');
+            if (cursorSpriteEl && cursorSpriteEl.style.display !== 'none') {
+              const spriteCol = currentHoveringNPC.spriteFrame % 8; // 0-7（循環）
+              const spriteSrcX = spriteCol * 32; // 每幀32像素寬
+              cursorSpriteEl.style.backgroundPosition = `-${spriteSrcX}px 0px`;
             }
           }
         }
