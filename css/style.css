@@ -3076,6 +3076,34 @@ body {
   justify-content: center;
   gap: 10px;
 }
+.youtube-subscribe-link {
+  text-decoration: none;
+  display: inline-block;
+}
+
+.youtube-subscribe-btn {
+  background: #FF0000;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.youtube-subscribe-btn:hover {
+  background: #CC0000;
+}
+
+.youtube-subscribe-btn:active {
+  background: #AA0000;
+}
+
 .youtube-subscribe-button-container .g-ytsubscribe {
   display: inline-block;
   margin: 0 auto;
