@@ -439,7 +439,7 @@
             ],
             code: 'MARGARETNORTH2025',
             youtubeUrl: 'https://youtu.be/Obff_CJzY-k?si=vzzJpP3-WXSXJXgU',
-            channelId: 'UC3ZTQ8VZVCpwLHjFKSFe5Uw', // 需要從頻道URL獲取實際的channelId
+            channelId: 'UCbh7KHPMgYGgpISdbF6l0Kw', // 瑪格麗特的頻道ID
             channelName: '瑪格麗特 YouTube 頻道',
             channelLink: 'https://www.youtube.com/@%E7%91%AA%E6%A0%BC%E9%BA%97%E7%89%B9margaretnorth/',
             onFinalState: () => checkYouTubeSubscriptionMargaret()
@@ -1134,7 +1134,7 @@
           
           // 已授權，檢查訂閱狀態（使用瑪格麗特的頻道ID）
           const config = NPC_CONFIG['margaret'];
-          const channelId = config.dialogue.channelId || 'UC3ZTQ8VZVCpwLHjFKSFe5Uw';
+          const channelId = config.dialogue.channelId || 'UCbh7KHPMgYGgpISdbF6l0Kw';
           
           window.gapi.client.youtube.subscriptions.list({
             part: 'snippet',
