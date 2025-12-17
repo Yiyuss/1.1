@@ -664,7 +664,9 @@
               </div>
               <div class="youtube-subscribe-section">
                 <div class="youtube-subscribe-button-container">
-                  <div class="g-ytsubscribe" data-channelid="${channelId}" data-layout="default" data-count="default"></div>
+                  <a href="https://www.youtube.com/channel/${channelId}?sub_confirmation=1" target="_blank" rel="noopener noreferrer" class="youtube-subscribe-link">
+                    <button class="youtube-subscribe-btn">訂閱頻道</button>
+                  </a>
                   <button id="youtube-auth-hint" class="youtube-auth-hint-btn" title="點擊查看授權說明">?</button>
                 </div>
               </div>
@@ -685,45 +687,7 @@
           overlay.addEventListener('click', closeYouTubeWindow);
         }
         
-        // 載入YouTube訂閱按鈕API
-        function loadYouTubeSubscribeButton() {
-          const container = youtubeWindowEl.querySelector('.youtube-subscribe-button-container .g-ytsubscribe');
-          if (!container) return;
-          
-          let existingScript = document.querySelector('script[src="https://apis.google.com/js/platform.js"]');
-          if (!existingScript) {
-            const script = document.createElement('script');
-            script.src = 'https://apis.google.com/js/platform.js';
-            script.async = true;
-            script.defer = true;
-            script.onload = function() {
-              let retries = 0;
-              const maxRetries = 20;
-              const checkGapi = setInterval(function() {
-                if (window.gapi && typeof window.gapi.ytsubscribe === 'object' && typeof window.gapi.ytsubscribe.go === 'function') {
-                  clearInterval(checkGapi);
-                  try {
-                    window.gapi.ytsubscribe.go();
-                  } catch(e) {}
-                } else if (retries++ >= maxRetries) {
-                  clearInterval(checkGapi);
-                }
-              }, 200);
-            };
-            document.head.appendChild(script);
-          } else {
-            if (window.gapi && typeof window.gapi.ytsubscribe === 'object' && typeof window.gapi.ytsubscribe.go === 'function') {
-              try {
-                window.gapi.ytsubscribe.go();
-              } catch(e) {
-                setTimeout(loadYouTubeSubscribeButton, 500);
-              }
-            } else {
-              setTimeout(loadYouTubeSubscribeButton, 500);
-            }
-          }
-        }
-        setTimeout(loadYouTubeSubscribeButton, 300);
+        // 訂閱按鈕點擊事件（已通過target="_blank"在新分頁打開，無需額外處理）
         
         // 授權按鈕
         const authHintBtn = document.getElementById('youtube-auth-hint');
