@@ -694,12 +694,18 @@
         if (authHintBtn) {
           authHintBtn.addEventListener('click', function(e) {
             e.stopPropagation(); // 防止事件冒泡
-            showAuthHint();
+            showAuthHint(config);
           });
         }
       }
       
-      function showAuthHint() {
+      function showAuthHint(npcConfig) {
+        // 獲取頻道名稱，如果沒有傳入配置則使用默認值
+        const currentNPCConfig = npcConfig || NPC_CONFIG['lilylinglan'];
+        const channelName = currentNPCConfig.dialogue.channelName || '森森鈴蘭 YouTube 頻道';
+        // 從頻道名稱中提取頻道名稱（去掉「 YouTube 頻道」後綴）
+        const displayName = channelName.replace(' YouTube 頻道', '').trim();
+        
         const hintWindow = document.createElement('div');
         hintWindow.id = 'youtube-auth-hint-window';
         hintWindow.className = 'youtube-auth-hint-window';
@@ -714,7 +720,7 @@
               <p>為了自動檢測您是否已訂閱頻道，我們需要您的授權。</p>
               <p><strong>授權內容：</strong></p>
               <ul>
-                <li>僅查看您是否訂閱了「森森鈴蘭」頻道</li>
+                <li>僅查看您是否訂閱了「${displayName}」頻道</li>
                 <li>不會收集您的任何個人資訊</li>
                 <li>不會查看您的其他訂閱或觀看記錄</li>
                 <li>授權僅在您的瀏覽器中生效</li>
@@ -809,7 +815,12 @@
                       window.gapi.client.setToken({
                         access_token: response.access_token
                       });
-                      checkYouTubeSubscription();
+                      // 根據NPC配置調用對應的訂閱檢查函數
+                      if (currentNPCConfig && currentNPCConfig.dialogue && currentNPCConfig.dialogue.onFinalState) {
+                        currentNPCConfig.dialogue.onFinalState();
+                      } else {
+                        checkYouTubeSubscription();
+                      }
                       closeHint();
                     } else {
                       alert('YouTube API 尚未載入，請稍候再試');
