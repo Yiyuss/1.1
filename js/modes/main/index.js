@@ -25,6 +25,10 @@
           { key: 'npc2_portrait', src: 'assets/images/NPC2-2.png' },
           { key: 'npc3_gif', src: 'assets/images/NPC3.gif' },
           { key: 'npc3_portrait', src: 'assets/images/NPC3-2.png' },
+          { key: 'npc4', src: 'assets/images/NPC4.png' },
+          { key: 'npc4_portrait', src: 'assets/images/NPC4-2.png' },
+          { key: 'npc5', src: 'assets/images/NPC5.png' },
+          { key: 'npc5_portrait', src: 'assets/images/NPC5-2.png' },
           // 主屋室內家具（JSON 中使用的所有家具）
           { key: 'f_bed_front', src: 'js/modes/main/bed-front-273x289.png' },
           { key: 'f_big_bookcase', src: 'js/modes/main/big bookcase-245x289.png' },
@@ -444,6 +448,62 @@
             channelLink: 'https://www.youtube.com/@%E7%91%AA%E6%A0%BC%E9%BA%97%E7%89%B9margaretnorth/',
             onFinalState: () => checkYouTubeSubscriptionMargaret()
           }
+        },
+        'dada': { // 灰妲（戶外NPC）
+          type: 'npc',
+          imageKey: 'npc4',
+          portraitImage: 'assets/images/NPC4-2.png',
+          portraitAlt: '灰妲',
+          spriteSheetKey: 'npc_sprite',
+          triggerDistance: 55, // 與森森鈴蘭相同
+          targetDistance: 45,
+          dialogue: {
+            messages: [
+              '米呼米桑(•͈⌔•͈⑅) 我是ReLive一期生灰鸚鵡「灰妲」',
+              '絕對不是什麼雞腿，也不是企鵝！',
+              '訂閱我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
+            ],
+            finalButtons: [
+              { id: 'main-dialogue-youtube-dada', text: '進入頻道', action: 'youtube' },
+              { id: 'main-dialogue-code-dada', text: '領取序號', action: 'code', disabled: true },
+              { id: 'main-dialogue-exit', text: '離開', action: 'exit' }
+            ],
+            code: 'DADA2025',
+            youtubeUrl: 'https://youtu.be/j7moC4Veujo?si=DpHkj8h5UD0JIDXh',
+            channelId: 'UCx7GU8C3cr7vqp_SbS-8P-w', // 灰妲的頻道ID
+            channelName: '灰妲 YouTube 頻道',
+            channelLink: 'https://www.youtube.com/@ReLiveDaDa',
+            onFinalState: () => checkYouTubeSubscriptionDada()
+          }
+        },
+        'loco': { // 洛可洛斯特（戶外NPC）
+          type: 'npc',
+          imageKey: 'npc5',
+          portraitImage: 'assets/images/NPC5-2.png',
+          portraitAlt: '洛可洛斯特',
+          spriteSheetKey: 'npc_sprite',
+          triggerDistance: 55, // 與森森鈴蘭相同
+          targetDistance: 45,
+          dialogue: {
+            messages: [
+              '鬆餅真的很好吃，你不覺得嗎？',
+              '旁邊那隻雞腿好像也很香！',
+              '訂閱我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
+            ],
+            finalButtons: [
+              { id: 'main-dialogue-youtube-loco', text: '進入頻道', action: 'youtube' },
+              { id: 'main-dialogue-code-loco', text: '領取序號', action: 'code', disabled: true },
+              { id: 'main-dialogue-exit', text: '離開', action: 'exit' }
+            ],
+            code: 'LOCO2025',
+            youtubeUrl: 'https://youtu.be/O3L7f4Ktvqc?si=Gx9bT6TsrfJUgIu6',
+            channelId: 'UCT1kajmUhayQ4QaLlDbK23g', // 洛可洛斯特的頻道ID
+            channelName: '洛可洛斯特 YouTube 頻道',
+            channelLink: 'https://www.youtube.com/@Locolost65',
+            onFinalState: () => checkYouTubeSubscriptionLoco()
+          }
         }
       };
       
@@ -543,10 +603,10 @@
           } else if (id === 'main-dialogue-exit') {
             playButtonSound();
             closeDialogue();
-          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret') {
+          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco') {
             playButtonSound();
             showYouTubeWindow(currentDialogueNPC);
-          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret') {
+          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco') {
             playButtonSound();
             showCode(config.dialogue.code);
           } else if (id === 'main-dialogue-twitter') {
@@ -1145,6 +1205,110 @@
         }
       }
       
+      function checkYouTubeSubscriptionDada() {
+        const codeBtn = document.getElementById('main-dialogue-code-dada');
+        if (!codeBtn) return;
+        
+        // 使用YouTube Data API檢測訂閱狀態
+        if (window.gapi && window.gapi.client && window.gapi.client.youtube) {
+          // 檢查是否有有效的 access token
+          const token = window.gapi.client.getToken();
+          if (!token || !token.access_token) {
+            codeBtn.classList.add('disabled');
+            codeBtn.disabled = true;
+            return;
+          }
+          
+          // 已授權，檢查訂閱狀態（使用灰妲的頻道ID）
+          const config = NPC_CONFIG['dada'];
+          const channelId = config.dialogue.channelId || 'UCx7GU8C3cr7vqp_SbS-8P-w';
+          
+          window.gapi.client.youtube.subscriptions.list({
+            part: 'snippet',
+            mine: true,
+            forChannelId: channelId
+          }).then(function(response) {
+            const items = response.result.items || [];
+            if (items.length > 0) {
+              codeBtn.classList.remove('disabled');
+              codeBtn.disabled = false;
+            } else {
+              codeBtn.classList.add('disabled');
+              codeBtn.disabled = true;
+            }
+          }).catch(function(error) {
+            console.error('檢查訂閱狀態失敗:', error);
+            codeBtn.classList.add('disabled');
+            codeBtn.disabled = true;
+            
+            // 檢查是否為配額用盡錯誤
+            const errorMessage = error.message || error.error?.message || '';
+            const errorCode = error.code || error.error?.code;
+            
+            if (errorCode === 403 || errorMessage.includes('quotaExceeded') || errorMessage.includes('quota') || errorMessage.includes('配額')) {
+              // 配額用盡，顯示提示
+              console.warn('YouTube API 配額已用盡，請稍後再試');
+            }
+          });
+        } else {
+          // API未載入
+          codeBtn.classList.add('disabled');
+          codeBtn.disabled = true;
+        }
+      }
+      
+      function checkYouTubeSubscriptionLoco() {
+        const codeBtn = document.getElementById('main-dialogue-code-loco');
+        if (!codeBtn) return;
+        
+        // 使用YouTube Data API檢測訂閱狀態
+        if (window.gapi && window.gapi.client && window.gapi.client.youtube) {
+          // 檢查是否有有效的 access token
+          const token = window.gapi.client.getToken();
+          if (!token || !token.access_token) {
+            codeBtn.classList.add('disabled');
+            codeBtn.disabled = true;
+            return;
+          }
+          
+          // 已授權，檢查訂閱狀態（使用洛可洛斯特的頻道ID）
+          const config = NPC_CONFIG['loco'];
+          const channelId = config.dialogue.channelId || 'UCT1kajmUhayQ4QaLlDbK23g';
+          
+          window.gapi.client.youtube.subscriptions.list({
+            part: 'snippet',
+            mine: true,
+            forChannelId: channelId
+          }).then(function(response) {
+            const items = response.result.items || [];
+            if (items.length > 0) {
+              codeBtn.classList.remove('disabled');
+              codeBtn.disabled = false;
+            } else {
+              codeBtn.classList.add('disabled');
+              codeBtn.disabled = true;
+            }
+          }).catch(function(error) {
+            console.error('檢查訂閱狀態失敗:', error);
+            codeBtn.classList.add('disabled');
+            codeBtn.disabled = true;
+            
+            // 檢查是否為配額用盡錯誤
+            const errorMessage = error.message || error.error?.message || '';
+            const errorCode = error.code || error.error?.code;
+            
+            if (errorCode === 403 || errorMessage.includes('quotaExceeded') || errorMessage.includes('quota') || errorMessage.includes('配額')) {
+              // 配額用盡，顯示提示
+              console.warn('YouTube API 配額已用盡，請稍後再試');
+            }
+          });
+        } else {
+          // API未載入
+          codeBtn.classList.add('disabled');
+          codeBtn.disabled = true;
+        }
+      }
+      
       function closeDialogue() {
         if (dialogueEl && dialogueEl.parentNode) {
           dialogueEl.parentNode.removeChild(dialogueEl);
@@ -1396,7 +1560,47 @@
           if (h1Img) this.addImageHouse(CENTER_X - 750, CENTER_Y - 350, h1Img, 268, 300, 'indoor_A', 'house-A');
           if (h2Img) this.addImageHouse(CENTER_X + 1000, CENTER_Y - 500, h2Img, 266, 300, 'indoor_B', 'house-B');
           if (h3Img) this.addImageHouse(CENTER_X - 600, CENTER_Y + 500, h3Img, 300, 190, 'indoor_C', 'house-C');
-          if (h4Img) this.addImageHouse(CENTER_X + 600, CENTER_Y + 500, h4Img, 284, 400, 'indoor_A', 'house-D');
+          if (h4Img) {
+            const house4X = CENTER_X + 600;
+            const house4Y = CENTER_Y + 500;
+            const house4W = 284;
+            const house4H = 400;
+            this.addImageHouse(house4X, house4Y, h4Img, house4W, house4H, 'indoor_A', 'house-D');
+            
+            // [NPC] 灰妲 - 放在07.png建築左側
+            // NPC 原始比例 279x320，縮放到接近玩家大小（48x60）
+            const NPC_SCALE_DADA = 60 / 320; // 以高度為基準縮放
+            const NPC_W_DADA = Math.round(279 * NPC_SCALE_DADA); // ≈ 52
+            const NPC_H_DADA = 60; // 與玩家高度一致
+            const npcX_dada = house4X - NPC_W_DADA - 20; // 建築物左側，留20像素間距
+            const npcY_dada = house4Y + (house4H / 2) - NPC_H_DADA / 2 + 150; // 垂直居中對齊建築物，往下移動150像素
+            let npcDada = new Entity('npc', npcX_dada, npcY_dada, NPC_W_DADA, NPC_H_DADA);
+            npcDada.solid = false;
+            npcDada.domId = 'main-npc-dada';
+            npcDada.layerId = 'npc';
+            npcDada.spriteSheet = null;
+            npcDada.spriteFrame = 0;
+            npcDada.npcType = 'dada';
+            this.entities.push(npcDada);
+            console.log(`[戶外NPC] 灰妲已放置在07.png建築左側 (${npcX_dada}, ${npcY_dada})`);
+            
+            // [NPC] 洛可洛斯特 - 放在灰妲NPC左側
+            // NPC 原始比例 279x320，縮放到接近玩家大小（48x60）
+            const NPC_SCALE_LOCO = 60 / 320; // 以高度為基準縮放
+            const NPC_W_LOCO = Math.round(279 * NPC_SCALE_LOCO); // ≈ 52
+            const NPC_H_LOCO = 60; // 與玩家高度一致
+            const npcX_loco = npcX_dada - NPC_W_LOCO - 10; // 灰妲左側，留10像素間距
+            const npcY_loco = npcY_dada; // 與灰妲相同的Y座標
+            let npcLoco = new Entity('npc', npcX_loco, npcY_loco, NPC_W_LOCO, NPC_H_LOCO);
+            npcLoco.solid = false;
+            npcLoco.domId = 'main-npc-loco';
+            npcLoco.layerId = 'npc';
+            npcLoco.spriteSheet = null;
+            npcLoco.spriteFrame = 0;
+            npcLoco.npcType = 'loco';
+            this.entities.push(npcLoco);
+            console.log(`[戶外NPC] 洛可洛斯特已放置在灰妲左側 (${npcX_loco}, ${npcY_loco})`);
+          }
 
           // 樹木（每棵樹獨立圖層）
           const treeImg = getImage('main_tree');
