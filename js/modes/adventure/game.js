@@ -4534,7 +4534,8 @@ function draw() {
         if (player.invincibleTimer > 0 && Math.floor(Date.now() / 50) % 2 === 0) {
             // 無敵閃爍：暫時不畫玩家（沿用原本行為）
         } else {
-            // 後備：維持原本的矩形人物繪製
+            // 後備方案：僅在 AdventureGifOverlay 不可用時才使用 Canvas 繪製（會導致畫質降低，應避免）
+            // 正常情況下應使用 AdventureGifOverlay 以保持最佳畫質
             ctx.fillStyle = "#1565c0"; ctx.fillRect(player.x+4, player.y+20, 12, 18);
             ctx.fillStyle = "#ef5350"; ctx.fillRect(player.x+2, player.y+8, 16, 12);
             ctx.fillStyle = "#ffcc80"; ctx.fillRect(player.x+2, player.y-4, 16, 14);
