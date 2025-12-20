@@ -11,7 +11,22 @@
     // 提前顯示載入畫面（在資源加載之前，避免網路延遲導致黑屏）
     willEnter(params, ctx) {
       // 立即顯示載入畫面，避免網路延遲導致黑屏
+      // 使用同步方式立即執行，避免任何延遲導致黑屏
       try {
+        // 第一步：立即隱藏所有可能的屏幕，避免黑屏
+        const gameScreen = document.getElementById('game-screen');
+        if (gameScreen) {
+          gameScreen.classList.add('hidden');
+        }
+        // 隱藏其他可能的屏幕
+        const charScreen = document.getElementById('character-select-screen');
+        if (charScreen) charScreen.classList.add('hidden');
+        const mapScreen = document.getElementById('map-select-screen');
+        if (mapScreen) mapScreen.classList.add('hidden');
+        const diffScreen = document.getElementById('difficulty-select-screen');
+        if (diffScreen) diffScreen.classList.add('hidden');
+        
+        // 第二步：立即顯示載入畫面（同步執行，無延遲）
         const viewport = document.getElementById('viewport');
         if (!viewport) return;
         
@@ -21,17 +36,12 @@
           existing.parentNode.removeChild(existing);
         }
         
-        // 確保遊戲畫面在載入期間保持隱藏，避免黑屏
-        const gameScreen = document.getElementById('game-screen');
-        if (gameScreen) {
-          gameScreen.classList.add('hidden');
-        }
-        
+        // 創建載入畫面元素
         const loadingScreenEl = document.createElement('div');
         loadingScreenEl.id = 'main-loading-screen';
         loadingScreenEl.className = 'main-loading-screen';
-        // 確保載入畫面在最上層，z-index 設為很高，覆蓋整個屏幕
-        loadingScreenEl.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;';
+        // 確保載入畫面在最上層，z-index 設為很高，覆蓋整個屏幕，並設置背景色避免透出黑屏
+        loadingScreenEl.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: rgba(0, 0, 0, 0.9);';
         loadingScreenEl.innerHTML = `
           <div class="main-loading-overlay"></div>
           <div class="main-loading-content">
@@ -44,7 +54,10 @@
             </div>
           </div>
         `;
+        // 立即添加到DOM（同步執行）
         viewport.appendChild(loadingScreenEl);
+        // 強制同步樣式更新，確保立即顯示
+        loadingScreenEl.offsetHeight; // 觸發重排
       } catch(_) {}
     },
     // 宣告模式資源（冒險村莊地圖所需圖片）
