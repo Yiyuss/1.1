@@ -249,28 +249,16 @@
   const TransitionLayer = {
     show(){
       try {
-        console.log('[TransitionLayer] 開始顯示過渡層');
         const el = document.getElementById('transition-layer');
-        if (!el) {
-          console.error('[TransitionLayer] 找不到 transition-layer 元素');
-          return;
-        }
-        console.log('[TransitionLayer] 找到過渡層元素:', el);
+        if (!el) return;
         
         // 如果過渡層已經顯示，跳過（避免重複調用導致視頻播放衝突）
-        if (!el.classList.contains('hidden')) {
-          console.log('[TransitionLayer] 過渡層已經顯示，跳過');
-          return;
-        }
+        if (!el.classList.contains('hidden')) return;
         
         const video = document.getElementById('transition-video');
         if (video) {
-          console.log('[TransitionLayer] 找到視頻元素:', video);
           // 先暫停視頻（如果正在播放），避免播放衝突
-          if (!video.paused) {
-            console.log('[TransitionLayer] 視頻正在播放，先暫停');
-            video.pause();
-          }
+          if (!video.paused) video.pause();
           // 重置視頻到開始
           video.currentTime = 0;
           // 顯示過渡層
@@ -278,12 +266,6 @@
           el.style.display = 'flex';
           el.style.visibility = 'visible';
           el.style.opacity = '1';
-          console.log('[TransitionLayer] 過渡層樣式已更新:', {
-            hasHidden: el.classList.contains('hidden'),
-            display: el.style.display,
-            visibility: el.style.visibility,
-            opacity: el.style.opacity
-          });
           // 強制同步樣式更新，確保過渡層已渲染
           el.offsetHeight;
           // 等待一幀後再播放視頻，確保過渡層已完全顯示
@@ -292,18 +274,11 @@
             if (!el.classList.contains('hidden')) {
               const playPromise = video.play();
               if (playPromise !== undefined) {
-                playPromise
-                  .then(() => {
-                    console.log('[TransitionLayer] 視頻播放成功');
-                  })
-                  .catch(e => {
-                    console.warn('[TransitionLayer] 視頻播放失敗:', e);
-                  });
+                playPromise.catch(() => {});
               }
             }
           });
         } else {
-          console.warn('[TransitionLayer] 找不到 transition-video 元素，僅顯示過渡層');
           // 如果沒有視頻元素，至少顯示過渡層
           el.classList.remove('hidden');
           el.style.display = 'flex';
@@ -312,23 +287,15 @@
         }
         // 強制同步樣式更新
         el.offsetHeight;
-        console.log('[TransitionLayer] 過渡層顯示完成');
-      } catch(e) {
-        console.error('[TransitionLayer] show error:', e);
-      }
+      } catch(e) {}
     },
     hide(){
       try {
-        console.log('[TransitionLayer] 開始隱藏過渡層');
         const el = document.getElementById('transition-layer');
-        if (!el) {
-          console.warn('[TransitionLayer] 找不到 transition-layer 元素');
-          return;
-        }
+        if (!el) return;
         
         const video = document.getElementById('transition-video');
         if (video) {
-          console.log('[TransitionLayer] 停止並重置視頻');
           // 停止並重置視頻
           video.pause();
           video.currentTime = 0;
@@ -339,16 +306,7 @@
         el.style.display = 'none';
         el.style.visibility = 'hidden';
         el.style.opacity = '0';
-        console.log('[TransitionLayer] 過渡層已隱藏:', {
-          hasHidden: el.classList.contains('hidden'),
-          display: el.style.display,
-          visibility: el.style.visibility,
-          opacity: el.style.opacity
-        });
-        console.log('[TransitionLayer] 過渡層隱藏完成');
-      } catch(e) {
-        console.error('[TransitionLayer] hide error:', e);
-      }
+      } catch(e) {}
     }
   };
 
@@ -383,23 +341,17 @@
       // 9. 移除過渡層並清理視頻
       
       // 🔴 Step 1-2：無論是否有舊模式，都先顯示過渡層並播放 LOAD.mp4
-      console.log('[GameModeManager] 啟動模式:', id, '當前模式:', _current ? _current.id : '無');
       TransitionLayer.show();
       
       // 🔑 Step 3：關鍵一幀 - 確保過渡層被渲染穩定
-      console.log('[GameModeManager] 等待一幀以確保過渡層渲染穩定');
       await new Promise(r => requestAnimationFrame(r));
-      console.log('[GameModeManager] 一幀等待完成');
       
       // 🔴 Step 4：現在才安全停止舊模式（過渡層已穩定，不會黑屏）
       if (_current) {
-        console.log('[GameModeManager] 停止舊模式:', _current.id);
         try { await this.stop(); } catch(_){}
-        console.log('[GameModeManager] 舊模式已停止');
       }
       
       // 🔴 Step 5：建立新 ctx
-      console.log('[GameModeManager] 建立新模式上下文');
       const ctx = createModeContext();
       
       // 存檔相容升級：保持 SaveCode 向下相容，不改鍵名或簽章；僅補齊缺失欄位
@@ -412,43 +364,32 @@
       // 🔴 Step 6：新模式 willEnter（只做準備，不顯示 UI）
       try {
         if (typeof mode.willEnter === 'function') {
-          console.log('[GameModeManager] 調用新模式 willEnter');
           mode.willEnter(params, ctx);
         }
-      } catch(e){ console.warn('[GameModeManager] willEnter warn:', e); }
+      } catch(e){}
       
       // 🔴 Step 7：背景載入 Mode B
-      console.log('[GameModeManager] 開始載入新模式資源');
       const manifest = (typeof mode.getManifest === 'function') ? mode.getManifest(params, ctx) : null;
       try { 
         await ctx.resources.loadManifest(manifest);
-        console.log('[GameModeManager] 新模式資源載入完成');
-      } catch(e){ 
-        console.error('[GameModeManager] 資源載入失敗:', e);
-      }
+      } catch(e){}
       
       // 🔴 Step 8：Mode B 就緒，切顯示到 Mode B
       _current = { id, mode, ctx };
-      console.log('[GameModeManager] 進入新模式:', id);
       if (typeof mode.enter === 'function') {
         try { 
           mode.enter(params, ctx);
-          console.log('[GameModeManager] 新模式 enter 完成');
-        } catch(e){ console.error('[GameModeManager] enter error:', e); }
+        } catch(e){}
       }
       
       // 🔴 Step 9：enter 結束後延遲關掉過渡層並清理視頻（默認行為）
       // 如果模式需要更晚隱藏（如主線模式在主循環啟動後），可以在 enter() 中自己處理
-      console.log('[GameModeManager] 設置過渡層自動隱藏（200ms後）');
       setTimeout(() => {
         // 檢查模式是否已經自己隱藏了過渡層（通過檢查 hidden 類）
         const transitionEl = document.getElementById('transition-layer');
         if (transitionEl && !transitionEl.classList.contains('hidden')) {
-          console.log('[GameModeManager] 過渡層仍在顯示，執行自動隱藏');
           // 如果過渡層還在顯示，則隱藏它並清理視頻（默認行為）
           TransitionLayer.hide();
-        } else {
-          console.log('[GameModeManager] 過渡層已被模式自己隱藏，跳過自動隱藏');
         }
       }, 200); // 給模式 200ms 的時間來自己處理
     },
