@@ -2764,7 +2764,8 @@
               // 使用動態 z-index
               window.MainGifOverlay.showOrUpdate('main-player', currentPlayerImg.src, renderX, renderY, { width: renderWidth, height: renderHeight }, { layerId: 'player', dynamicZIndex: playerZIndex });
               } else {
-              // 後備：Canvas 繪製（GIF 不會動）
+              // 後備方案：僅在 MainGifOverlay 不可用時才使用 Canvas 繪製（會導致畫質降低，應避免）
+              // 正常情況下應使用 MainGifOverlay 以保持最佳畫質
               const adjustedPx = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2') 
                 ? Math.round(px + (PLAYER_W - renderWidth) / 2)
                 : px;
