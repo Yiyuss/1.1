@@ -95,6 +95,8 @@ function safePlayStage(ctx) {
           key = 'player3';
         } else if (sc && sc.id === 'rokurost') {
           key = 'player4';
+        } else if (sc && sc.id === 'rabi') {
+          key = 'player5';
         }
         const imgObj = (Game.images && Game.images[key]) ? Game.images[key] : null;
         if (imgObj && imgObj.src) {
@@ -177,6 +179,7 @@ function safePlayStage(ctx) {
         if (bg) { ctx2d.drawImage(bg, 0, 0, canvas.width, canvas.height); }
         else { ctx2d.fillStyle = '#000'; ctx2d.fillRect(0,0,canvas.width,canvas.height); }
         // 特殊處理：player4.png 需要保持 500:627 的寬高比
+        // 特殊處理：player5.png 需要保持 500:467 的寬高比
         // 特殊處理：player3.gif 需要保持原比例（與冒險模式一致）
         try {
           if (typeof window.GifOverlay !== 'undefined') {
@@ -188,6 +191,19 @@ function safePlayStage(ctx) {
                 const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
                 const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
                 const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+                const renderHeight = actorSize;
+                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+              } else {
+                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
+              }
+            } else if (sc && (sc.id === 'rabi' || sc.spriteImageKey === 'player5')) {
+              // player5.png 保持寬高比 (500:467)
+              const imgObj = (Game.images && Game.images['player5']) ? Game.images['player5'] : null;
+              if (imgObj && imgObj.complete) {
+                const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
+                const imgHeight = imgObj.naturalHeight || imgObj.height || 467;
+                const aspectRatio = imgWidth / imgHeight; // 500/467 ≈ 1.071
                 const renderHeight = actorSize;
                 const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                 window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
