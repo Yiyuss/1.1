@@ -244,6 +244,39 @@
   }
 
   // ————————————————————————————————————————————————————————————————
+  // 獨立的過渡層管理器（不屬於任何模式，避免黑屏）
+  // 關鍵：過渡層必須在舊模式還活著時顯示，至少撐過一幀
+  const TransitionLayer = {
+    show(title, subtitle){
+      try {
+        const el = document.getElementById('transition-layer');
+        if (!el) return;
+        
+        // 更新標題和副標題（如果提供）
+        if (title) {
+          const titleEl = el.querySelector('.main-loading-title');
+          if (titleEl) titleEl.textContent = title;
+        }
+        if (subtitle) {
+          const subtitleEl = el.querySelector('.main-loading-subtitle');
+          if (subtitleEl) subtitleEl.textContent = subtitle;
+        }
+        
+        // 顯示過渡層
+        el.classList.remove('hidden');
+        // 強制同步樣式更新，確保立即顯示
+        el.offsetHeight; // 觸發重排
+      } catch(_) {}
+    },
+    hide(){
+      try {
+        const el = document.getElementById('transition-layer');
+        if (el) el.classList.add('hidden');
+      } catch(_) {}
+    }
+  };
+
+  // ————————————————————————————————————————————————————————————————
   // GameModeManager 主體
   const _modes = new Map();
   let _current = null; // { id, mode, ctx }
@@ -260,34 +293,48 @@
       const mode = _modes.get(id);
       if (!mode) throw new Error(`Mode '${id}' not registered`);
       
-      // ========== 過渡層方案：在停止舊模式之前先顯示過渡層，避免黑屏 ==========
+      // ========== 過渡層方案（正確的執行順序）==========
+      // 關鍵原則：過渡層必須在舊模式還活著時顯示，至少撐過一幀
       // 流程：
       // 1. Mode A（仍在顯示）
-      // 2. 顯示「過渡層」（Fade / Loading UI）← 一定要先出現
-      // 3. 開始背景卸載 Mode A
-      // 4. 背景載入 Mode B
-      // 5. Mode B 就緒
-      // 6. 切顯示到 Mode B
-      // 7. 移除過渡層
+      // 2. 顯示「過渡層」（舊模式還活著）← 關鍵：先出現
+      // 3. 等待一幀（requestAnimationFrame）← 關鍵：確保過渡層被渲染
+      // 4. 開始背景卸載 Mode A（此時過渡層已穩定，不會黑屏）
+      // 5. 建立新 ctx
+      // 6. 新模式 willEnter（只做準備，不顯示 UI）
+      // 7. 背景載入 Mode B
+      // 8. Mode B 就緒，切顯示到 Mode B
+      // 9. 移除過渡層
       
-      const ctx = createModeContext();
-      let transitionLayerShown = false;
-      
-      // 步驟 2：如果有舊模式，先顯示過渡層（在舊模式還在顯示時就出現）
+      // 🔴 Step 1-2：如果有舊模式，先顯示過渡層（舊模式還活著時）
       if (_current) {
+        // 獲取新模式的標題（用於過渡層顯示）
+        let transitionTitle = '載入中...';
+        let transitionSubtitle = '請稍候';
         try {
-          // 讓新模式的 willEnter 顯示過渡層（載入畫面）
-          if (typeof mode.willEnter === 'function') {
-            mode.willEnter(params, ctx);
-            transitionLayerShown = true;
+          // 嘗試從新模式獲取標題（如果有的話）
+          if (typeof mode.getTransitionTitle === 'function') {
+            const titles = mode.getTransitionTitle(params);
+            if (titles) {
+              transitionTitle = titles.title || transitionTitle;
+              transitionSubtitle = titles.subtitle || transitionSubtitle;
+            }
           }
-        } catch(e){ console.warn('[GameModeManager] willEnter (transition) warn:', e); }
+        } catch(_) {}
+        
+        TransitionLayer.show(transitionTitle, transitionSubtitle);
+        
+        // 🔑 Step 3：關鍵一幀 - 確保過渡層被渲染穩定
+        await new Promise(r => requestAnimationFrame(r));
       }
       
-      // 步驟 3：背景卸載 Mode A（此時過渡層已經覆蓋，不會黑屏）
+      // 🔴 Step 4：現在才安全停止舊模式（過渡層已穩定，不會黑屏）
       if (_current) {
         try { await this.stop(); } catch(_){}
       }
+      
+      // 🔴 Step 5：建立新 ctx
+      const ctx = createModeContext();
       
       // 存檔相容升級：保持 SaveCode 向下相容，不改鍵名或簽章；僅補齊缺失欄位
       try {
@@ -296,24 +343,28 @@
         }
       } catch(_){}
       
-      // 如果沒有舊模式，現在才調用 willEnter（顯示過渡層）
-      if (!transitionLayerShown) {
-        try {
-          if (typeof mode.willEnter === 'function') { mode.willEnter(params, ctx); }
-        } catch(e){ console.warn('[GameModeManager] willEnter warn:', e); }
-      }
+      // 🔴 Step 6：新模式 willEnter（只做準備，不顯示 UI）
+      // 注意：willEnter 不再負責顯示過渡層，只做準備工作
+      try {
+        if (typeof mode.willEnter === 'function') {
+          mode.willEnter(params, ctx);
+        }
+      } catch(e){ console.warn('[GameModeManager] willEnter warn:', e); }
       
-      // 步驟 4：背景載入 Mode B
+      // 🔴 Step 7：背景載入 Mode B
       const manifest = (typeof mode.getManifest === 'function') ? mode.getManifest(params, ctx) : null;
       try { await ctx.resources.loadManifest(manifest); } catch(_){}
       
-      // 步驟 5-6：Mode B 就緒，切顯示到 Mode B
+      // 🔴 Step 8：Mode B 就緒，切顯示到 Mode B
       _current = { id, mode, ctx };
       if (typeof mode.enter === 'function') {
         try { mode.enter(params, ctx); } catch(e){ console.error('[GameModeManager] enter error:', e); }
       }
       
-      // 步驟 7：移除過渡層（由 enter() 完成後處理，見各模式的 enter() 實現）
+      // 🔴 Step 9：enter 結束後關掉過渡層
+      // 注意：如果新模式有自己的載入畫面，應該在 enter() 中處理
+      // 這裡只是確保過渡層被關閉
+      TransitionLayer.hide();
     },
     async stop(){
       if (!_current) return;
