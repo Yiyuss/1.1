@@ -1017,28 +1017,18 @@ function setupMapAndDifficultySelection() {
         // 若目前顯示的是主線模式 grid，直接啟動主線模式，不進入難度選擇
         const isMainMode = mainGrid && !mainGrid.classList.contains('hidden');
         if (isMainMode) {
-            // 關鍵：先顯示過渡層，再隱藏選單屏幕，避免黑屏
-            // 過渡層由 GameModeManager 統一管理，但這裡需要提前顯示（在隱藏選單之前）
+            // 關鍵：先顯示過渡層並播放 LOAD.mp4，再隱藏選單屏幕，避免黑屏
+            console.log('[main.js] 準備進入主線模式，先顯示過渡層');
             try {
-              // 使用全域 TransitionLayer（如果可用）
               if (typeof window !== 'undefined' && window.TransitionLayer && typeof window.TransitionLayer.show === 'function') {
-                window.TransitionLayer.show('冒險村莊', '載入中...');
+                window.TransitionLayer.show();
+                console.log('[main.js] 過渡層已顯示');
               } else {
-                // 降級方案：直接操作 DOM
-                const transitionEl = document.getElementById('transition-layer');
-                if (transitionEl) {
-                  transitionEl.classList.remove('hidden');
-                  transitionEl.style.display = 'block';
-                  transitionEl.style.visibility = 'visible';
-                  transitionEl.style.opacity = '1';
-                  const titleEl = transitionEl.querySelector('.main-loading-title');
-                  const subtitleEl = transitionEl.querySelector('.main-loading-subtitle');
-                  if (titleEl) titleEl.textContent = '冒險村莊';
-                  if (subtitleEl) subtitleEl.textContent = '載入中...';
-                  transitionEl.offsetHeight; // 觸發重排
-                }
+                console.warn('[main.js] TransitionLayer 不可用');
               }
-            } catch(_) {}
+            } catch(e) {
+              console.error('[main.js] 顯示過渡層失敗:', e);
+            }
             
             // 過渡層已顯示後，再隱藏選單屏幕
             hide(mapScreen);
