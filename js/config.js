@@ -759,6 +759,30 @@ const CONFIG = {
             exclusiveWeapons: ['ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
+        },
+        {
+            id: 'rabi',
+            name: '艾比Rabi',
+            // 第五位角色：初始血量比瑪格麗特多50，其他基礎數值與瑪格麗特完全相同
+            hpMultiplier: 1.0,
+            hpBonus: 50,
+            speedMultiplier: 1.0,
+            description: `角色介紹：常常迷路的神界教主，是隻小兔子，偶爾會星爆？\n專屬技能：暫無`,
+            // 選角預覽圖（下方角色介紹用）：使用 player5-3.png
+            avatarImageKey: 'player5-2',
+            // 所有模式的 HUD 左上角頭像：使用 player5-2.png
+            hudImageKey: 'player5-2',
+            // 所有模式進入時的玩家主體形象：使用 player5.png (500X467)
+            spriteImageKey: 'player5',
+            // 生存模式升級介面左側底圖：使用 player5-2.png
+            levelUpBgKey: 'player5-2',
+            // 第五位角色可以使用大絕（Q），但這次先不更新專屬大絕
+            canUseUltimate: true,
+            disabledWeapons: [],
+            // 專屬技能：暫無
+            exclusiveWeapons: [],
+            // 解鎖價格（遊戲金幣）：1萬金幣
+            unlockCost: 10000
         }
     ],
     
