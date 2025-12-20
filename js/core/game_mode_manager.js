@@ -257,9 +257,20 @@
         }
         console.log('[TransitionLayer] 找到過渡層元素:', el);
         
+        // 如果過渡層已經顯示，跳過（避免重複調用導致視頻播放衝突）
+        if (!el.classList.contains('hidden')) {
+          console.log('[TransitionLayer] 過渡層已經顯示，跳過');
+          return;
+        }
+        
         const video = document.getElementById('transition-video');
         if (video) {
           console.log('[TransitionLayer] 找到視頻元素:', video);
+          // 先暫停視頻（如果正在播放），避免播放衝突
+          if (!video.paused) {
+            console.log('[TransitionLayer] 視頻正在播放，先暫停');
+            video.pause();
+          }
           // 重置視頻到開始
           video.currentTime = 0;
           // 顯示過渡層
@@ -273,17 +284,24 @@
             visibility: el.style.visibility,
             opacity: el.style.opacity
           });
-          // 播放視頻
-          const playPromise = video.play();
-          if (playPromise !== undefined) {
-            playPromise
-              .then(() => {
-                console.log('[TransitionLayer] 視頻播放成功');
-              })
-              .catch(e => {
-                console.warn('[TransitionLayer] 視頻播放失敗:', e);
-              });
-          }
+          // 強制同步樣式更新，確保過渡層已渲染
+          el.offsetHeight;
+          // 等待一幀後再播放視頻，確保過渡層已完全顯示
+          requestAnimationFrame(() => {
+            // 再次檢查過渡層是否還顯示（避免在等待期間被隱藏）
+            if (!el.classList.contains('hidden')) {
+              const playPromise = video.play();
+              if (playPromise !== undefined) {
+                playPromise
+                  .then(() => {
+                    console.log('[TransitionLayer] 視頻播放成功');
+                  })
+                  .catch(e => {
+                    console.warn('[TransitionLayer] 視頻播放失敗:', e);
+                  });
+              }
+            }
+          });
         } else {
           console.warn('[TransitionLayer] 找不到 transition-video 元素，僅顯示過渡層');
           // 如果沒有視頻元素，至少顯示過渡層
