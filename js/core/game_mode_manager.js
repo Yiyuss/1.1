@@ -260,42 +260,60 @@
       const mode = _modes.get(id);
       if (!mode) throw new Error(`Mode '${id}' not registered`);
       
-      // 關鍵：在停止舊模式之前，先讓新模式的 willEnter 顯示載入畫面，避免黑屏
-      // 這是多模式隔離的必然缺陷：停止舊模式時會清理屏幕，導致短暫黑屏
-      // 解決方案：先讓新模式的 willEnter 顯示載入畫面，再停止舊模式
-      const ctx = createModeContext();
-      let loadingScreenShown = false;
-      try {
-        if (typeof mode.willEnter === 'function') {
-          mode.willEnter(params, ctx);
-          loadingScreenShown = true;
-        }
-      } catch(e){ console.warn('[GameModeManager] willEnter (pre-stop) warn:', e); }
+      // ========== 過渡層方案：在停止舊模式之前先顯示過渡層，避免黑屏 ==========
+      // 流程：
+      // 1. Mode A（仍在顯示）
+      // 2. 顯示「過渡層」（Fade / Loading UI）← 一定要先出現
+      // 3. 開始背景卸載 Mode A
+      // 4. 背景載入 Mode B
+      // 5. Mode B 就緒
+      // 6. 切顯示到 Mode B
+      // 7. 移除過渡層
       
-      // 若已有以本管理器啟動的模式，先乾淨退出
-      // 注意：此時載入畫面應該已經顯示，避免黑屏
+      const ctx = createModeContext();
+      let transitionLayerShown = false;
+      
+      // 步驟 2：如果有舊模式，先顯示過渡層（在舊模式還在顯示時就出現）
+      if (_current) {
+        try {
+          // 讓新模式的 willEnter 顯示過渡層（載入畫面）
+          if (typeof mode.willEnter === 'function') {
+            mode.willEnter(params, ctx);
+            transitionLayerShown = true;
+          }
+        } catch(e){ console.warn('[GameModeManager] willEnter (transition) warn:', e); }
+      }
+      
+      // 步驟 3：背景卸載 Mode A（此時過渡層已經覆蓋，不會黑屏）
       if (_current) {
         try { await this.stop(); } catch(_){}
       }
+      
       // 存檔相容升級：保持 SaveCode 向下相容，不改鍵名或簽章；僅補齊缺失欄位
       try {
         if (ctx.services && ctx.services.save && typeof ctx.services.save.upgradeSchemaIfNeeded === 'function') {
           ctx.services.save.upgradeSchemaIfNeeded();
         }
       } catch(_){}
-      // 同步 willEnter：保留使用者手勢鏈供模式提前觸發（如 BGM）
-      // 注意：如果已經在停止舊模式之前調用過 willEnter，這裡就不需要再調用了
-      if (!loadingScreenShown) {
+      
+      // 如果沒有舊模式，現在才調用 willEnter（顯示過渡層）
+      if (!transitionLayerShown) {
         try {
           if (typeof mode.willEnter === 'function') { mode.willEnter(params, ctx); }
         } catch(e){ console.warn('[GameModeManager] willEnter warn:', e); }
       }
+      
+      // 步驟 4：背景載入 Mode B
       const manifest = (typeof mode.getManifest === 'function') ? mode.getManifest(params, ctx) : null;
       try { await ctx.resources.loadManifest(manifest); } catch(_){}
+      
+      // 步驟 5-6：Mode B 就緒，切顯示到 Mode B
       _current = { id, mode, ctx };
       if (typeof mode.enter === 'function') {
         try { mode.enter(params, ctx); } catch(e){ console.error('[GameModeManager] enter error:', e); }
       }
+      
+      // 步驟 7：移除過渡層（由 enter() 完成後處理，見各模式的 enter() 實現）
     },
     async stop(){
       if (!_current) return;
