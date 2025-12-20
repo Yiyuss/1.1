@@ -197,12 +197,22 @@ class Player extends Entity {
             const screenY = this.y - camY - shakeY;
             if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
                 // 特殊處理：player4.png 需要保持 500:627 的寬高比
+                // 特殊處理：player5.png 需要保持 500:467 的寬高比
                 // 特殊處理：playerN3.png 需要保持 267:300 的寬高比
                 // 特殊處理：player3.gif 需要保持原比例（與冒險模式一致）
                 if (imgKey === 'player4' && imgObj.complete) {
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
                     const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
                     const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+                    // 以高度為基準計算顯示尺寸（保持與其他角色相近的高度）
+                    const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                } else if (imgKey === 'player5' && imgObj.complete) {
+                    // player5.png 保持寬高比 (500:467)
+                    const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
+                    const imgHeight = imgObj.naturalHeight || imgObj.height || 467;
+                    const aspectRatio = imgWidth / imgHeight; // 500/467 ≈ 1.071
                     // 以高度為基準計算顯示尺寸（保持與其他角色相近的高度）
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
@@ -265,7 +275,9 @@ class Player extends Entity {
                     } catch (_) {}
                 }
             } else {
-                // 後備：仍以 Canvas 繪製（GIF 可能不動，但不影響功能）
+                // 後備方案：僅在 GifOverlay 不可用時才使用 Canvas 繪製（會導致畫質降低，應避免）
+                // 正常情況下應使用 GifOverlay 以保持最佳畫質
+                const renderSize = Math.max(1, Math.floor(baseSize * visualScale));
                 ctx.drawImage(imgObj, this.x - renderSize / 2, this.y - renderSize / 2, renderSize, renderSize);
             }
         } else {
