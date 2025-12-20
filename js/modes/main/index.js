@@ -8,46 +8,19 @@
 
   const MainMode = {
     id: MODE_ID,
-    // 過渡層：在停止舊模式之前顯示，避免黑屏
-    // 這是過渡層方案的核心：在舊模式還在顯示時就出現過渡層，覆蓋整個屏幕
+    // willEnter：只做準備工作，不顯示 UI
+    // 注意：過渡層由 GameModeManager 的 TransitionLayer 統一管理
+    // 這裡只做模式特定的準備工作（如獲取標題等）
     willEnter(params, ctx) {
-      // 立即顯示過渡層（載入畫面），覆蓋整個屏幕
-      // 關鍵：不隱藏任何屏幕，讓過渡層直接覆蓋在舊模式之上
-      try {
-        const viewport = document.getElementById('viewport');
-        if (!viewport) return;
-        
-        // 如果已經有過渡層，先移除
-        const existing = document.getElementById('main-loading-screen');
-        if (existing && existing.parentNode) {
-          existing.parentNode.removeChild(existing);
-        }
-        
-        // 創建過渡層（載入畫面）
-        // 關鍵：使用 fixed 定位，z-index 設為很高，覆蓋整個屏幕
-        // 不隱藏舊模式，讓過渡層直接覆蓋在上面
-        const loadingScreenEl = document.createElement('div');
-        loadingScreenEl.id = 'main-loading-screen';
-        loadingScreenEl.className = 'main-loading-screen';
-        // 確保過渡層在最上層，覆蓋整個屏幕，背景色設為不透明避免透出舊模式
-        loadingScreenEl.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; background: rgba(0, 0, 0, 0.95);';
-        loadingScreenEl.innerHTML = `
-          <div class="main-loading-overlay"></div>
-          <div class="main-loading-content">
-            <div class="main-loading-title">冒險村莊</div>
-            <div class="main-loading-subtitle">載入中...</div>
-            <div class="main-loading-spinner">
-              <div class="spinner-dot"></div>
-              <div class="spinner-dot"></div>
-              <div class="spinner-dot"></div>
-            </div>
-          </div>
-        `;
-        // 立即添加到DOM（同步執行）
-        viewport.appendChild(loadingScreenEl);
-        // 強制同步樣式更新，確保立即顯示
-        loadingScreenEl.offsetHeight; // 觸發重排
-      } catch(_) {}
+      // 只做準備工作，不顯示 UI
+      // 過渡層已經由 GameModeManager 在停止舊模式之前顯示了
+    },
+    // 可選：提供過渡層標題（用於 TransitionLayer.show()）
+    getTransitionTitle(params) {
+      return {
+        title: '冒險村莊',
+        subtitle: '載入中...'
+      };
     },
     // 宣告模式資源（冒險村莊地圖所需圖片）
     getManifest(){
