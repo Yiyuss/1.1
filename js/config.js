@@ -655,6 +655,11 @@ const CONFIG = {
                 ULTIMATE_WEAPONS: ['MUFFIN_THROW', 'ROTATING_MUFFIN', 'UNCONTROLLABLE_BEAST'], // LV10的鬆餅投擲、旋轉鬆餅、不獸控制
                 EXTRA_HP: 600, // 大絕期間HP暫時+600
                 PLAYER_SIZE_MULTIPLIER: 2.5 // 使用預設體型放大倍率
+            },
+            'rabi': {
+                // 艾比大绝：不变身，直接施放全地图爆炸
+                IS_EXPLOSION_ULTIMATE: true, // 标记为爆炸大绝
+                AUDIO_KEY: 'Explosion' // 使用Explosion.mp3音效
             }
             // 'lilylinglan': 第三位角色大招暫未製作
         },
