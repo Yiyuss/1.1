@@ -1,9 +1,9 @@
 // AI生命體（召喚AI技能專用）
-// 功能：跟隨玩家，使用LV10連鎖閃電攻擊敵人
+// 功能：跟隨玩家，使用LV10連鎖閃電或LV10狂熱雷擊攻擊敵人
 // 注意：僅在生存模式使用，不污染其他模式
 
 class AICompanion extends Entity {
-    constructor(player, x, y) {
+    constructor(player, x, y, summonAILevel = 1) {
         super(x, y, CONFIG.PLAYER.SIZE, CONFIG.PLAYER.SIZE);
         this.player = player;
         this.targetDistance = 150; // 目標距離
@@ -16,15 +16,28 @@ class AICompanion extends Entity {
         this.facingRight = true; // 面向右側
         this._loadImages();
         
-        // 連鎖閃電相關（LV10配置）
+        // 召喚AI等級（決定使用哪個技能）
+        this.summonAILevel = summonAILevel || 1;
+        
+        // 連鎖閃電相關（LV10配置，僅在召喚AI LV1時使用）
         this.chainLightningCooldown = 0;
         this.chainLightningCooldownMax = 1500; // 1.5秒冷卻
         this.chainLightningLevel = 10; // 固定LV10
         this.chainLightningMaxChains = 10; // LV10的連鎖次數
         
+        // 狂熱雷擊相關（LV10配置，僅在召喚AI LV2時使用）
+        this.frenzyLightningCooldown = 0;
+        this.frenzyLightningCooldownMax = 1500; // 1.5秒冷卻
+        this.frenzyLightningLevel = 10; // 固定LV10
+        
         // 無血量，不會受傷
         this.health = Infinity;
         this.maxHealth = Infinity;
+    }
+    
+    // 設置技能等級（用於合成後更新）
+    setSkillLevel(level) {
+        this.summonAILevel = level || 1;
     }
     
     _loadImages() {
@@ -66,11 +79,21 @@ class AICompanion extends Entity {
     update(deltaTime) {
         if (!this.player || !Game || Game.isGameOver) return;
         
-        // 更新連鎖閃電冷卻
-        this.chainLightningCooldown += deltaTime;
-        if (this.chainLightningCooldown >= this.chainLightningCooldownMax) {
-            this._castChainLightning();
-            this.chainLightningCooldown = 0;
+        // 根據召喚AI等級決定使用哪個技能
+        if (this.summonAILevel >= 2) {
+            // 召喚AI LV2：使用狂熱雷擊
+            this.frenzyLightningCooldown += deltaTime;
+            if (this.frenzyLightningCooldown >= this.frenzyLightningCooldownMax) {
+                this._castFrenzyLightning();
+                this.frenzyLightningCooldown = 0;
+            }
+        } else {
+            // 召喚AI LV1：使用連鎖閃電
+            this.chainLightningCooldown += deltaTime;
+            if (this.chainLightningCooldown >= this.chainLightningCooldownMax) {
+                this._castChainLightning();
+                this.chainLightningCooldown = 0;
+            }
         }
         
         // 跟隨玩家邏輯
@@ -112,7 +135,7 @@ class AICompanion extends Entity {
     }
     
     _castChainLightning() {
-        // 使用LV10連鎖閃電
+        // 使用LV10連鎖閃電（僅在召喚AI LV1時使用）
         try {
             if (typeof ChainLightningEffect === 'undefined') return;
             
@@ -140,6 +163,42 @@ class AICompanion extends Entity {
             }
         } catch(e) {
             console.warn('AI連鎖閃電施放失敗:', e);
+        }
+    }
+    
+    _castFrenzyLightning() {
+        // 使用LV10狂熱雷擊（僅在召喚AI LV2時使用）
+        try {
+            if (typeof FrenzyLightningEffect === 'undefined') return;
+            
+            // 計算傷害（LV10的傷害）
+            const baseDamage = (CONFIG.WEAPONS && CONFIG.WEAPONS.FRENZY_LIGHTNING && CONFIG.WEAPONS.FRENZY_LIGHTNING.DAMAGE) ? CONFIG.WEAPONS.FRENZY_LIGHTNING.DAMAGE : 15;
+            const levelMul = (typeof DamageSystem !== 'undefined' && DamageSystem.levelMultiplier) 
+                ? DamageSystem.levelMultiplier(this.frenzyLightningLevel) 
+                : (1 + 0.05 * Math.max(0, this.frenzyLightningLevel - 1));
+            const damage = baseDamage * levelMul;
+            
+            // 創建狂熱雷擊效果（從AI位置發出）
+            const durationMs = (CONFIG.WEAPONS && CONFIG.WEAPONS.FRENZY_LIGHTNING && CONFIG.WEAPONS.FRENZY_LIGHTNING.DURATION) 
+                ? CONFIG.WEAPONS.FRENZY_LIGHTNING.DURATION 
+                : 1000;
+            const chainRadius = (CONFIG.WEAPONS && CONFIG.WEAPONS.FRENZY_LIGHTNING && CONFIG.WEAPONS.FRENZY_LIGHTNING.CHAIN_RADIUS) 
+                ? CONFIG.WEAPONS.FRENZY_LIGHTNING.CHAIN_RADIUS 
+                : 220;
+            
+            // 狂熱雷擊配置：10條分支，每條10次連鎖
+            const branchCount = 10;
+            const chainsPerBranch = 10;
+            
+            // 創建狂熱雷擊效果，使用AI作為"玩家"（這樣會從AI位置開始連鎖）
+            const effect = new FrenzyLightningEffect(this, damage, durationMs, branchCount, chainsPerBranch, chainRadius);
+            
+            // 添加到遊戲投射物列表
+            if (typeof Game !== 'undefined' && Game.addProjectile) {
+                Game.addProjectile(effect);
+            }
+        } catch(e) {
+            console.warn('AI狂熱雷擊施放失敗:', e);
         }
     }
     
