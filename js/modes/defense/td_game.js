@@ -781,13 +781,14 @@ class TDGame {
                     }
                 });
                 
-                // 最後統一處理玩家GIF、player4和player2（在clearAll之後，確保玩家圖顯示在最上層）
+                // 最後統一處理玩家GIF、player4、player5和player2（在clearAll之後，確保玩家圖顯示在最上層）
                 const playerIsGif = this.player.sprite && this.player.sprite.src && /\.gif$/i.test(this.player.sprite.src);
                 const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
                 const isPlayer4 = sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4');
+                const isPlayer5 = sc && (sc.id === 'rabi' || sc.spriteImageKey === 'player5');
                 const isPlayer2 = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2');
                 
-                if ((playerIsGif || isPlayer4 || isPlayer2) && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
+                if ((playerIsGif || isPlayer4 || isPlayer5 || isPlayer2) && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
                     const screenX = this.player.x - this.camera.x;
                     const screenY = this.player.y - this.camera.y;
                     
@@ -825,6 +826,20 @@ class TDGame {
                             const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
                             const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
                             const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+                            // 防禦模式中放大 1.3 倍以與其他角色接近
+                            const renderHeight = Math.max(1, Math.floor(this.player.size * 1.3));
+                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
+                        } else {
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
+                        }
+                    } else if (isPlayer5) {
+                        // player5.png 需要保持 500:467 的寬高比，並放大顯示以與其他角色接近
+                        const imgObj = (Game.images && Game.images['player5']) ? Game.images['player5'] : null;
+                        if (imgObj && imgObj.complete) {
+                            const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
+                            const imgHeight = imgObj.naturalHeight || imgObj.height || 467;
+                            const aspectRatio = imgWidth / imgHeight; // 500/467 ≈ 1.071
                             // 防禦模式中放大 1.3 倍以與其他角色接近
                             const renderHeight = Math.max(1, Math.floor(this.player.size * 1.3));
                             const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
