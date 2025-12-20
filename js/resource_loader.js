@@ -357,8 +357,17 @@ async function preloadAllResources() {
         if (!AudioManager.sounds) AudioManager.sounds = {};
         if (!AudioManager.music) AudioManager.music = {};
         
-        // 確保AudioManager已初始化（設置音量等）
-        if (typeof AudioManager.init === 'function') {
+        // 關鍵：先停止所有BGM，避免主選單切換分頁恢復的BGM殘留
+        try {
+            if (typeof AudioManager !== 'undefined' && typeof AudioManager.stopAllMusic === 'function') {
+                AudioManager.stopAllMusic();
+            }
+        } catch (_) {}
+        
+        // 注意：不要重複調用 AudioManager.init()，因為它會在 main.js 中已經初始化過
+        // 重複調用會重新創建所有BGM實例，導致舊實例殘留造成污染
+        // 只在 AudioManager 完全未初始化時才調用
+        if (typeof AudioManager.init === 'function' && (!AudioManager.music || Object.keys(AudioManager.music).length === 0)) {
             AudioManager.init();
         }
         
@@ -369,7 +378,7 @@ async function preloadAllResources() {
         hide(DOMCache.get('loading-screen'));
         show(DOMCache.get('character-select-screen'));
         
-        // 播放選單音樂
+        // 播放選單音樂（確保使用統一的BGM實例）
         if (AudioManager.playMusic) {
             AudioManager.isMuted = false;
             try {
@@ -385,6 +394,13 @@ async function preloadAllResources() {
         // 即使加載失敗，也進入選角介面
         hide(DOMCache.get('loading-screen'));
         show(DOMCache.get('character-select-screen'));
+        
+        // 關鍵：先停止所有BGM，避免殘留
+        try {
+            if (typeof AudioManager !== 'undefined' && typeof AudioManager.stopAllMusic === 'function') {
+                AudioManager.stopAllMusic();
+            }
+        } catch (_) {}
         
         // 嘗試播放選單音樂（即使加載失敗）
         try {
