@@ -1017,54 +1017,13 @@ function setupMapAndDifficultySelection() {
         // 若目前顯示的是主線模式 grid，直接啟動主線模式，不進入難度選擇
         const isMainMode = mainGrid && !mainGrid.classList.contains('hidden');
         if (isMainMode) {
-            // 關鍵：先顯示載入畫面，再隱藏其他屏幕，避免黑屏
-            // 必須在隱藏任何屏幕之前就顯示載入畫面
-            try {
-              const viewport = document.getElementById('viewport');
-              if (viewport) {
-                // 如果已經有載入畫面，先移除
-                const existing = document.getElementById('main-loading-screen');
-                if (existing && existing.parentNode) {
-                  existing.parentNode.removeChild(existing);
-                }
-                
-                // 立即創建並顯示載入畫面（在隱藏其他屏幕之前）
-                const loadingScreenEl = document.createElement('div');
-                loadingScreenEl.id = 'main-loading-screen';
-                loadingScreenEl.className = 'main-loading-screen';
-                loadingScreenEl.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: rgba(0, 0, 0, 0.95);';
-                loadingScreenEl.innerHTML = `
-                  <div class="main-loading-overlay"></div>
-                  <div class="main-loading-content">
-                    <div class="main-loading-title">冒險村莊</div>
-                    <div class="main-loading-subtitle">載入中...</div>
-                    <div class="main-loading-spinner">
-                      <div class="spinner-dot"></div>
-                      <div class="spinner-dot"></div>
-                      <div class="spinner-dot"></div>
-                    </div>
-                  </div>
-                `;
-                // 立即添加到DOM（同步執行）
-                viewport.appendChild(loadingScreenEl);
-                // 強制同步樣式更新，確保立即顯示
-                loadingScreenEl.offsetHeight;
-              }
-            } catch(_) {}
-            
-            // 載入畫面已顯示後，再隱藏其他屏幕
+            // 關閉地圖/難度視窗與選角畫面
+            // 注意：過渡層由 GameModeManager 的 TransitionLayer 統一管理
+            // 這裡只需要隱藏選單屏幕，過渡層會在 GameModeManager.start() 中顯示
             hide(mapScreen);
             hide(diffScreen);
             if (desertDiffScreen) hide(desertDiffScreen);
             hide(DOMCache.get('character-select-screen'));
-            
-            // 隱藏遊戲畫面（載入畫面已覆蓋，不會黑屏）
-            try {
-              const gameScreen = document.getElementById('game-screen');
-              if (gameScreen) {
-                gameScreen.classList.add('hidden');
-              }
-            } catch(_) {}
             
             // 透過 GameModeManager 啟動主線模式（不分難度）；若不可用則回退至 ModeManager
             if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
