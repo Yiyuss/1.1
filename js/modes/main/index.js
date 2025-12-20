@@ -8,9 +8,9 @@
 
   const MainMode = {
     id: MODE_ID,
-    // 提前顯示載入畫面（在資源加載之前）
+    // 提前顯示載入畫面（在資源加載之前，避免網路延遲導致黑屏）
     willEnter(params, ctx) {
-      // 立即顯示載入畫面，避免黑屏
+      // 立即顯示載入畫面，避免網路延遲導致黑屏
       try {
         const viewport = document.getElementById('viewport');
         if (!viewport) return;
@@ -21,9 +21,17 @@
           existing.parentNode.removeChild(existing);
         }
         
+        // 確保遊戲畫面在載入期間保持隱藏，避免黑屏
+        const gameScreen = document.getElementById('game-screen');
+        if (gameScreen) {
+          gameScreen.classList.add('hidden');
+        }
+        
         const loadingScreenEl = document.createElement('div');
         loadingScreenEl.id = 'main-loading-screen';
         loadingScreenEl.className = 'main-loading-screen';
+        // 確保載入畫面在最上層，z-index 設為很高，覆蓋整個屏幕
+        loadingScreenEl.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;';
         loadingScreenEl.innerHTML = `
           <div class="main-loading-overlay"></div>
           <div class="main-loading-content">
@@ -91,7 +99,7 @@
       };
     },
     enter(params, ctx){
-      // ========== 載入畫面（已在 willEnter 中顯示，這裡只獲取引用）==========
+      // ========== 載入畫面（只在第一次進入時顯示）==========
       let loadingScreenEl = null;
       function showLoadingScreen() {
         try {
@@ -139,7 +147,7 @@
       }
       
       // 檢查載入畫面是否已在 willEnter 中顯示
-      // 如果沒有，則顯示載入畫面（向後兼容）
+      // 如果沒有，則顯示載入畫面（向後兼容，避免網路延遲時黑屏）
       const existingLoading = document.getElementById('main-loading-screen');
       if (!existingLoading) {
         showLoadingScreen();
