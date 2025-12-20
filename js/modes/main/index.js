@@ -8,6 +8,37 @@
 
   const MainMode = {
     id: MODE_ID,
+    // 提前顯示載入畫面（在資源加載之前）
+    willEnter(params, ctx) {
+      // 立即顯示載入畫面，避免黑屏
+      try {
+        const viewport = document.getElementById('viewport');
+        if (!viewport) return;
+        
+        // 如果已經有載入畫面，先移除
+        const existing = document.getElementById('main-loading-screen');
+        if (existing && existing.parentNode) {
+          existing.parentNode.removeChild(existing);
+        }
+        
+        const loadingScreenEl = document.createElement('div');
+        loadingScreenEl.id = 'main-loading-screen';
+        loadingScreenEl.className = 'main-loading-screen';
+        loadingScreenEl.innerHTML = `
+          <div class="main-loading-overlay"></div>
+          <div class="main-loading-content">
+            <div class="main-loading-title">冒險村莊</div>
+            <div class="main-loading-subtitle">載入中...</div>
+            <div class="main-loading-spinner">
+              <div class="spinner-dot"></div>
+              <div class="spinner-dot"></div>
+              <div class="spinner-dot"></div>
+            </div>
+          </div>
+        `;
+        viewport.appendChild(loadingScreenEl);
+      } catch(_) {}
+    },
     // 宣告模式資源（冒險村莊地圖所需圖片）
     getManifest(){
       return {
@@ -60,7 +91,7 @@
       };
     },
     enter(params, ctx){
-      // ========== 載入畫面（只在第一次進入時顯示）==========
+      // ========== 載入畫面（已在 willEnter 中顯示，這裡只獲取引用）==========
       let loadingScreenEl = null;
       function showLoadingScreen() {
         try {
@@ -107,8 +138,15 @@
         } catch(_) {}
       }
       
-      // 立即顯示載入畫面
-      showLoadingScreen();
+      // 檢查載入畫面是否已在 willEnter 中顯示
+      // 如果沒有，則顯示載入畫面（向後兼容）
+      const existingLoading = document.getElementById('main-loading-screen');
+      if (!existingLoading) {
+        showLoadingScreen();
+      } else {
+        // 如果已存在，更新引用
+        loadingScreenEl = existingLoading;
+      }
       
       try {
         // 隱藏所有覆蓋視窗與前置畫面
