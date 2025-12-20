@@ -2004,6 +2004,8 @@
           imgKey = 'player3';
       } else if (sc && sc.id === 'rokurost') {
         imgKey = 'player4';
+      } else if (sc && sc.id === 'rabi') {
+        imgKey = 'player5';
       }
         
         // 特殊處理：player2根據移動方向切換圖片（左邊player2.png，右邊player2-1.png）
@@ -2670,6 +2672,13 @@
               // player4.png 保持寬高比 (500:627)
               const imgWidth = currentPlayerImg.naturalWidth || currentPlayerImg.width || 500;
               const imgHeight = currentPlayerImg.naturalHeight || currentPlayerImg.height || 627;
+              const aspectRatio = imgWidth / imgHeight;
+              renderHeight = PLAYER_H;
+              renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+            } else if (sc && (sc.id === 'rabi' || sc.spriteImageKey === 'player5')) {
+              // player5.png 保持寬高比 (500:467)
+              const imgWidth = currentPlayerImg.naturalWidth || currentPlayerImg.width || 500;
+              const imgHeight = currentPlayerImg.naturalHeight || currentPlayerImg.height || 467;
               const aspectRatio = imgWidth / imgHeight;
               renderHeight = PLAYER_H;
               renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
