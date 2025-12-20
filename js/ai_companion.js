@@ -144,7 +144,18 @@ class AICompanion extends Entity {
             const levelMul = (typeof DamageSystem !== 'undefined' && DamageSystem.levelMultiplier) 
                 ? DamageSystem.levelMultiplier(this.chainLightningLevel) 
                 : (1 + 0.05 * Math.max(0, this.chainLightningLevel - 1));
-            const damage = baseDamage * levelMul;
+            let damage = baseDamage * levelMul;
+            
+            // 應用AI強化天賦（只影響AI傷害，不影響玩家）
+            if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+                const aiBoostLevel = TalentSystem.getTalentLevel('ai_boost') || 0;
+                if (aiBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.ai_boost) {
+                    const effect = TalentSystem.tieredTalents.ai_boost.levels[aiBoostLevel - 1];
+                    if (effect && typeof effect.multiplier === 'number') {
+                        damage *= effect.multiplier;
+                    }
+                }
+            }
             
             // 創建連鎖閃電效果（從AI位置發出）
             const durationMs = (CONFIG.WEAPONS && CONFIG.WEAPONS.CHAIN_LIGHTNING && CONFIG.WEAPONS.CHAIN_LIGHTNING.DURATION) 
@@ -176,7 +187,18 @@ class AICompanion extends Entity {
             const levelMul = (typeof DamageSystem !== 'undefined' && DamageSystem.levelMultiplier) 
                 ? DamageSystem.levelMultiplier(this.frenzyLightningLevel) 
                 : (1 + 0.05 * Math.max(0, this.frenzyLightningLevel - 1));
-            const damage = baseDamage * levelMul;
+            let damage = baseDamage * levelMul;
+            
+            // 應用AI強化天賦（只影響AI傷害，不影響玩家）
+            if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+                const aiBoostLevel = TalentSystem.getTalentLevel('ai_boost') || 0;
+                if (aiBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.ai_boost) {
+                    const effect = TalentSystem.tieredTalents.ai_boost.levels[aiBoostLevel - 1];
+                    if (effect && typeof effect.multiplier === 'number') {
+                        damage *= effect.multiplier;
+                    }
+                }
+            }
             
             // 創建狂熱雷擊效果（從AI位置發出）
             const durationMs = (CONFIG.WEAPONS && CONFIG.WEAPONS.FRENZY_LIGHTNING && CONFIG.WEAPONS.FRENZY_LIGHTNING.DURATION) 
