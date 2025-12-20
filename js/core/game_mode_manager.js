@@ -250,7 +250,10 @@
     show(title, subtitle){
       try {
         const el = document.getElementById('transition-layer');
-        if (!el) return;
+        if (!el) {
+          console.warn('[TransitionLayer] transition-layer element not found');
+          return;
+        }
         
         // 更新標題和副標題（如果提供）
         if (title) {
@@ -264,9 +267,24 @@
         
         // 顯示過渡層
         el.classList.remove('hidden');
+        // 確保樣式正確應用
+        el.style.display = 'block';
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
         // 強制同步樣式更新，確保立即顯示
         el.offsetHeight; // 觸發重排
-      } catch(_) {}
+        
+        // 調試：確認過渡層已顯示
+        console.log('[TransitionLayer] 過渡層已顯示', {
+          hasHidden: el.classList.contains('hidden'),
+          display: el.style.display,
+          visibility: el.style.visibility,
+          opacity: el.style.opacity,
+          zIndex: el.style.zIndex
+        });
+      } catch(e) {
+        console.error('[TransitionLayer] show error:', e);
+      }
     },
     hide(){
       try {
