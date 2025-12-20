@@ -1194,31 +1194,12 @@
         console.log('=============================');
         </script>
     </div>
-    <!-- 獨立的過渡層（不屬於任何模式，避免黑屏） -->
-    <!-- 注意：背景色改為半透明，讓內容更明顯，避免看起來像黑屏 -->
-    <div id="transition-layer" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; background: rgba(20, 20, 30, 0.98); pointer-events: none; display: none;">
-        <div class="main-loading-overlay"></div>
-        <div class="main-loading-content" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #ffffff; z-index: 100000;">
-            <div class="main-loading-title" style="font-size: 32px; font-weight: bold; margin-bottom: 10px; color: #ffffff; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">載入中...</div>
-            <div class="main-loading-subtitle" style="font-size: 18px; margin-bottom: 20px; color: #cccccc; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">請稍候</div>
-            <div class="main-loading-spinner" style="display: flex; justify-content: center; gap: 10px;">
-                <div class="spinner-dot" style="width: 12px; height: 12px; background: #ffffff; border-radius: 50%; animation: pulse 1.4s ease-in-out infinite;"></div>
-                <div class="spinner-dot" style="width: 12px; height: 12px; background: #ffffff; border-radius: 50%; animation: pulse 1.4s ease-in-out 0.2s infinite;"></div>
-                <div class="spinner-dot" style="width: 12px; height: 12px; background: #ffffff; border-radius: 50%; animation: pulse 1.4s ease-in-out 0.4s infinite;"></div>
-            </div>
-        </div>
+    <!-- 統一的過渡層（所有模式共用，播放 LOAD.mp4） -->
+    <div id="transition-layer" class="hidden">
+        <video id="transition-video" autoplay muted playsinline>
+            <source src="assets/videos/LOAD.mp4" type="video/mp4">
+        </video>
     </div>
-    <style>
-        @keyframes pulse {
-            0%, 100% { opacity: 0.3; transform: scale(0.8); }
-            50% { opacity: 1; transform: scale(1.2); }
-        }
-        #transition-layer.hidden {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-        }
-    </style>
 </body>
 </html>
 
