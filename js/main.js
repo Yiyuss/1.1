@@ -1022,6 +1022,46 @@ function setupMapAndDifficultySelection() {
             hide(diffScreen);
             if (desertDiffScreen) hide(desertDiffScreen);
             hide(DOMCache.get('character-select-screen'));
+            
+            // 立即隱藏遊戲畫面並顯示載入畫面，避免黑屏
+            // 在 GameModeManager.start() 之前就顯示，確保無黑屏
+            try {
+              const gameScreen = document.getElementById('game-screen');
+              if (gameScreen) {
+                gameScreen.classList.add('hidden');
+              }
+              
+              const viewport = document.getElementById('viewport');
+              if (viewport) {
+                // 如果已經有載入畫面，先移除
+                const existing = document.getElementById('main-loading-screen');
+                if (existing && existing.parentNode) {
+                  existing.parentNode.removeChild(existing);
+                }
+                
+                // 創建載入畫面元素
+                const loadingScreenEl = document.createElement('div');
+                loadingScreenEl.id = 'main-loading-screen';
+                loadingScreenEl.className = 'main-loading-screen';
+                loadingScreenEl.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: rgba(0, 0, 0, 0.9);';
+                loadingScreenEl.innerHTML = `
+                  <div class="main-loading-overlay"></div>
+                  <div class="main-loading-content">
+                    <div class="main-loading-title">冒險村莊</div>
+                    <div class="main-loading-subtitle">載入中...</div>
+                    <div class="main-loading-spinner">
+                      <div class="spinner-dot"></div>
+                      <div class="spinner-dot"></div>
+                      <div class="spinner-dot"></div>
+                    </div>
+                  </div>
+                `;
+                viewport.appendChild(loadingScreenEl);
+                // 強制同步樣式更新
+                loadingScreenEl.offsetHeight;
+              }
+            } catch(_) {}
+            
             // 透過 GameModeManager 啟動主線模式（不分難度）；若不可用則回退至 ModeManager
             if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
                 window.GameModeManager.start('main', {
