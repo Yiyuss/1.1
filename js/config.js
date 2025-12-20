@@ -380,7 +380,7 @@ const CONFIG = {
         // 融合斬擊：持有並滿級 應援棒(DAGGER) 與 斬擊(SLASH) 後可獲得
         FRENZY_SLASH: {
             NAME: "狂熱斬擊",
-            DAMAGE: 15,
+            DAMAGE: 30,
             COOLDOWN: 1200,
             DURATION: 1200,
             ARC_DEG_BASE: 365,
@@ -490,7 +490,7 @@ const CONFIG = {
         // 新武器：心靈魔法（擴散震波環狀傷害）
         MIND_MAGIC: {
             NAME: "心靈魔法",
-            DAMAGE: 50,
+            DAMAGE: 150,
             COOLDOWN: 5000,
             DURATION: 2000, // 與唱歌相同的演出持續（毫秒）
             WAVE_MAX_RADIUS_BASE: 220,
