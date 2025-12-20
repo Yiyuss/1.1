@@ -1017,20 +1017,9 @@ function setupMapAndDifficultySelection() {
         // 若目前顯示的是主線模式 grid，直接啟動主線模式，不進入難度選擇
         const isMainMode = mainGrid && !mainGrid.classList.contains('hidden');
         if (isMainMode) {
-            // 關閉地圖/難度視窗與選角畫面
-            hide(mapScreen);
-            hide(diffScreen);
-            if (desertDiffScreen) hide(desertDiffScreen);
-            hide(DOMCache.get('character-select-screen'));
-            
-            // 立即隱藏遊戲畫面並顯示載入畫面，避免黑屏
-            // 在 GameModeManager.start() 之前就顯示，確保無黑屏
+            // 關鍵：先顯示載入畫面，再隱藏其他屏幕，避免黑屏
+            // 必須在隱藏任何屏幕之前就顯示載入畫面
             try {
-              const gameScreen = document.getElementById('game-screen');
-              if (gameScreen) {
-                gameScreen.classList.add('hidden');
-              }
-              
               const viewport = document.getElementById('viewport');
               if (viewport) {
                 // 如果已經有載入畫面，先移除
@@ -1039,11 +1028,11 @@ function setupMapAndDifficultySelection() {
                   existing.parentNode.removeChild(existing);
                 }
                 
-                // 創建載入畫面元素
+                // 立即創建並顯示載入畫面（在隱藏其他屏幕之前）
                 const loadingScreenEl = document.createElement('div');
                 loadingScreenEl.id = 'main-loading-screen';
                 loadingScreenEl.className = 'main-loading-screen';
-                loadingScreenEl.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: rgba(0, 0, 0, 0.9);';
+                loadingScreenEl.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background: rgba(0, 0, 0, 0.95);';
                 loadingScreenEl.innerHTML = `
                   <div class="main-loading-overlay"></div>
                   <div class="main-loading-content">
@@ -1056,9 +1045,24 @@ function setupMapAndDifficultySelection() {
                     </div>
                   </div>
                 `;
+                // 立即添加到DOM（同步執行）
                 viewport.appendChild(loadingScreenEl);
-                // 強制同步樣式更新
+                // 強制同步樣式更新，確保立即顯示
                 loadingScreenEl.offsetHeight;
+              }
+            } catch(_) {}
+            
+            // 載入畫面已顯示後，再隱藏其他屏幕
+            hide(mapScreen);
+            hide(diffScreen);
+            if (desertDiffScreen) hide(desertDiffScreen);
+            hide(DOMCache.get('character-select-screen'));
+            
+            // 隱藏遊戲畫面（載入畫面已覆蓋，不會黑屏）
+            try {
+              const gameScreen = document.getElementById('game-screen');
+              if (gameScreen) {
+                gameScreen.classList.add('hidden');
               }
             } catch(_) {}
             
