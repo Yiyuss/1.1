@@ -454,17 +454,18 @@ class TDPlayer {
     }
     
     
-    // 渲染玩家（GIF、player4和player2由TDGifOverlay在td_game.js中統一處理，這裡只繪製其他元素）
+    // 渲染玩家（GIF、player4、player5和player2由TDGifOverlay在td_game.js中統一處理，這裡只繪製其他元素）
     render(ctx, resources) {
         ctx.save();
         
-        // 如果是GIF、player4或player2，跳過Canvas繪製（由TDGifOverlay處理）
+        // 如果是GIF、player4、player5或player2，跳過Canvas繪製（由TDGifOverlay處理，避免畫質降低）
         const isGif = this.sprite && this.sprite.src && /\.gif$/i.test(this.sprite.src);
         const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
         const isPlayer4 = sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4');
+        const isPlayer5 = sc && (sc.id === 'rabi' || sc.spriteImageKey === 'player5');
         const isPlayer2 = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2');
         
-        if (!isGif && !isPlayer4 && !isPlayer2) {
+        if (!isGif && !isPlayer4 && !isPlayer5 && !isPlayer2) {
             // 載入圖片：依 this.sprite.src 推導資源鍵（支援 player / player2）
             let image = null;
             if (this.sprite && this.sprite.src) {
@@ -479,13 +480,24 @@ class TDPlayer {
                 image = resources.getImage('player');
             }
             if (image) {
-                // 繪製玩家（非GIF）
+                // 後備方案：僅在 TDGifOverlay 不可用時才使用 Canvas 繪製（會導致畫質降低，應避免）
+                // 正常情況下應使用 TDGifOverlay 以保持最佳畫質
                 // 特殊處理：player4.png 需要保持 500:627 的寬高比，並放大顯示以與其他角色接近
                 // 特殊處理：player5.png 需要保持 500:467 的寬高比，並放大顯示以與其他角色接近
                 if (this.sprite && this.sprite.src && /player4\.png$/i.test(this.sprite.src)) {
                     const imgWidth = image.naturalWidth || image.width || 500;
                     const imgHeight = image.naturalHeight || image.height || 627;
                     const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
+                    // 防禦模式中放大 1.3 倍以與其他角色接近
+                    const renderHeight = Math.max(1, Math.floor(this.size * 1.3));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    ctx.drawImage(
+                        image,
+                        this.x - renderWidth / 2,
+                        this.y - renderHeight / 2,
+                        renderWidth,
+                        renderHeight
+                    );
                 } else if (this.sprite && this.sprite.src && /player5\.png$/i.test(this.sprite.src)) {
                     const imgWidth = image.naturalWidth || image.width || 500;
                     const imgHeight = image.naturalHeight || image.height || 467;
@@ -511,7 +523,7 @@ class TDPlayer {
                     );
                 }
             } else {
-                // 後備繪製（純色方塊）
+                // 最終後備繪製（純色方塊，僅在圖片載入失敗時使用）
                 ctx.fillStyle = this.isBuilding ? '#FFD700' : '#00FF00';
                 ctx.fillRect(
                     this.x - this.size / 2,
