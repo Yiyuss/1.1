@@ -93,6 +93,12 @@ const TalentSystem = {
             name: '引力強化',
             description: '升級可增加引力波的推力。',
             cost: 3000
+        },
+        // 新增：AI強化（提升召喚AI的傷害）
+        ai_boost: {
+            name: 'AI強化',
+            description: '升級可提升召喚AI的傷害。',
+            cost: 3000
         }
     },
 
@@ -268,6 +274,17 @@ const TalentSystem = {
                 { pushMultiplier: 0.40, cost: 24000 },
                 { pushMultiplier: 0.50, cost: 35000 },
                 { pushMultiplier: 0.60, cost: 45000 }
+            ]
+        },
+        // 新增：AI強化（提升召喚AI的傷害：10%/20%/30%/50%/70%/100%）
+        ai_boost: {
+            levels: [
+                { multiplier: 1.10, cost: 3000 },
+                { multiplier: 1.20, cost: 6000 },
+                { multiplier: 1.30, cost: 12000 },
+                { multiplier: 1.50, cost: 24000 },
+                { multiplier: 1.70, cost: 35000 },
+                { multiplier: 2.00, cost: 45000 }
             ]
         }
     },
@@ -714,6 +731,9 @@ if (!TalentSystem.getHighestTierDescription) {
             const multiplier = eff.pushMultiplier || 0;
             const percent = Math.round(multiplier * 100);
             return `引力波推力+${percent}%`;
+        } else if (id === 'ai_boost') {
+            const pct = Math.round((eff.multiplier - 1) * 100);
+            return `召喚AI傷害+${pct}%`;
         }
         return base;
     };
