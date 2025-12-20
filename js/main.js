@@ -1018,17 +1018,11 @@ function setupMapAndDifficultySelection() {
         const isMainMode = mainGrid && !mainGrid.classList.contains('hidden');
         if (isMainMode) {
             // 關鍵：先顯示過渡層並播放 LOAD.mp4，再隱藏選單屏幕，避免黑屏
-            console.log('[main.js] 準備進入主線模式，先顯示過渡層');
             try {
               if (typeof window !== 'undefined' && window.TransitionLayer && typeof window.TransitionLayer.show === 'function') {
                 window.TransitionLayer.show();
-                console.log('[main.js] 過渡層已顯示');
-              } else {
-                console.warn('[main.js] TransitionLayer 不可用');
               }
-            } catch(e) {
-              console.error('[main.js] 顯示過渡層失敗:', e);
-            }
+            } catch(e) {}
             
             // 過渡層已顯示後，再隱藏選單屏幕
             hide(mapScreen);
