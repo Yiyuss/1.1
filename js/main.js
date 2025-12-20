@@ -1017,9 +1017,30 @@ function setupMapAndDifficultySelection() {
         // 若目前顯示的是主線模式 grid，直接啟動主線模式，不進入難度選擇
         const isMainMode = mainGrid && !mainGrid.classList.contains('hidden');
         if (isMainMode) {
-            // 關閉地圖/難度視窗與選角畫面
-            // 注意：過渡層由 GameModeManager 的 TransitionLayer 統一管理
-            // 這裡只需要隱藏選單屏幕，過渡層會在 GameModeManager.start() 中顯示
+            // 關鍵：先顯示過渡層，再隱藏選單屏幕，避免黑屏
+            // 過渡層由 GameModeManager 統一管理，但這裡需要提前顯示（在隱藏選單之前）
+            try {
+              // 使用全域 TransitionLayer（如果可用）
+              if (typeof window !== 'undefined' && window.TransitionLayer && typeof window.TransitionLayer.show === 'function') {
+                window.TransitionLayer.show('冒險村莊', '載入中...');
+              } else {
+                // 降級方案：直接操作 DOM
+                const transitionEl = document.getElementById('transition-layer');
+                if (transitionEl) {
+                  transitionEl.classList.remove('hidden');
+                  transitionEl.style.display = 'block';
+                  transitionEl.style.visibility = 'visible';
+                  transitionEl.style.opacity = '1';
+                  const titleEl = transitionEl.querySelector('.main-loading-title');
+                  const subtitleEl = transitionEl.querySelector('.main-loading-subtitle');
+                  if (titleEl) titleEl.textContent = '冒險村莊';
+                  if (subtitleEl) subtitleEl.textContent = '載入中...';
+                  transitionEl.offsetHeight; // 觸發重排
+                }
+              }
+            } catch(_) {}
+            
+            // 過渡層已顯示後，再隱藏選單屏幕
             hide(mapScreen);
             hide(diffScreen);
             if (desertDiffScreen) hide(desertDiffScreen);
