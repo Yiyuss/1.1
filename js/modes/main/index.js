@@ -2861,18 +2861,12 @@
         loop();
         // 主循環啟動後，隱藏過渡層（由 GameModeManager 的 TransitionLayer 管理）
         // 使用 setTimeout 確保所有初始化（包括地圖生成、家具載入等）都完成
-        console.log('[MainMode] 主循環已啟動，準備隱藏過渡層');
         setTimeout(() => {
           try {
             if (typeof window !== 'undefined' && window.TransitionLayer && typeof window.TransitionLayer.hide === 'function') {
-              console.log('[MainMode] 隱藏過渡層');
               window.TransitionLayer.hide();
-            } else {
-              console.warn('[MainMode] TransitionLayer 不可用');
             }
-          } catch(e) {
-            console.error('[MainMode] 隱藏過渡層失敗:', e);
-          }
+          } catch(e) {}
         }, 100);
       });
 
