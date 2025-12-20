@@ -228,6 +228,7 @@ function createDefaultImages() {
         { name: 'ICE3', src: 'assets/images/ICE3.png' }, // 大波球冰彈圖片
         { name: 'knife', src: 'assets/images/knife.gif' },
         { name: 'knife2', src: 'assets/images/knife2.gif' },
+        { name: 'Explosion', src: 'assets/images/Explosion.png' }, // 艾比大绝爆炸雪碧图
         { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
 // 新增：守護領域場域圖片
         { name: 'field', src: 'assets/images/field.png' },
