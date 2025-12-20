@@ -259,11 +259,24 @@
     async start(id, params){
       const mode = _modes.get(id);
       if (!mode) throw new Error(`Mode '${id}' not registered`);
+      
+      // 關鍵：在停止舊模式之前，先讓新模式的 willEnter 顯示載入畫面，避免黑屏
+      // 這是多模式隔離的必然缺陷：停止舊模式時會清理屏幕，導致短暫黑屏
+      // 解決方案：先讓新模式的 willEnter 顯示載入畫面，再停止舊模式
+      const ctx = createModeContext();
+      let loadingScreenShown = false;
+      try {
+        if (typeof mode.willEnter === 'function') {
+          mode.willEnter(params, ctx);
+          loadingScreenShown = true;
+        }
+      } catch(e){ console.warn('[GameModeManager] willEnter (pre-stop) warn:', e); }
+      
       // 若已有以本管理器啟動的模式，先乾淨退出
+      // 注意：此時載入畫面應該已經顯示，避免黑屏
       if (_current) {
         try { await this.stop(); } catch(_){}
       }
-      const ctx = createModeContext();
       // 存檔相容升級：保持 SaveCode 向下相容，不改鍵名或簽章；僅補齊缺失欄位
       try {
         if (ctx.services && ctx.services.save && typeof ctx.services.save.upgradeSchemaIfNeeded === 'function') {
@@ -271,9 +284,12 @@
         }
       } catch(_){}
       // 同步 willEnter：保留使用者手勢鏈供模式提前觸發（如 BGM）
-      try {
-        if (typeof mode.willEnter === 'function') { mode.willEnter(params, ctx); }
-      } catch(e){ console.warn('[GameModeManager] willEnter warn:', e); }
+      // 注意：如果已經在停止舊模式之前調用過 willEnter，這裡就不需要再調用了
+      if (!loadingScreenShown) {
+        try {
+          if (typeof mode.willEnter === 'function') { mode.willEnter(params, ctx); }
+        } catch(e){ console.warn('[GameModeManager] willEnter warn:', e); }
+      }
       const manifest = (typeof mode.getManifest === 'function') ? mode.getManifest(params, ctx) : null;
       try { await ctx.resources.loadManifest(manifest); } catch(_){}
       _current = { id, mode, ctx };
