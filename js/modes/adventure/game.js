@@ -473,6 +473,7 @@ function initPlayerSprite() {
         if (id === 'dada') key = 'player2';
         else if (id === 'lilylinglan') key = 'player3';
         else if (id === 'rokurost') key = 'player4';
+        else if (id === 'rabi') key = 'player5';
 
         let parentImg = null;
         try {
@@ -487,6 +488,8 @@ function initPlayerSprite() {
             playerSpriteScale = 0.18; // player2.png 高 242，0.18 ≈ 43px
         } else if (id === 'rokurost') {
             playerSpriteScale = 0.08; // player4.png 高 627，0.08 ≈ 50px（與其他角色接近）
+        } else if (id === 'rabi') {
+            playerSpriteScale = 0.11; // player5.png 高 467，0.11 ≈ 51px（與其他角色接近）
         } else {
             playerSpriteScale = 0.16; // player.gif / player3.gif 高 320，0.16 ≈ 51px
         }
@@ -527,6 +530,8 @@ function initPlayerSprite() {
             src = '../../../assets/images/player3.gif';
         } else if (id === 'rokurost') {
             src = '../../../assets/images/player4.png';
+        } else if (id === 'rabi') {
+            src = '../../../assets/images/player5.png';
         }
         const img = new Image();
         img.onload = function(){
