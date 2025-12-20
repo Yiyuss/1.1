@@ -324,27 +324,27 @@
       // 8. Mode B 就緒，切顯示到 Mode B
       // 9. 移除過渡層
       
-      // 🔴 Step 1-2：如果有舊模式，先顯示過渡層（舊模式還活著時）
-      if (_current) {
-        // 獲取新模式的標題（用於過渡層顯示）
-        let transitionTitle = '載入中...';
-        let transitionSubtitle = '請稍候';
-        try {
-          // 嘗試從新模式獲取標題（如果有的話）
-          if (typeof mode.getTransitionTitle === 'function') {
-            const titles = mode.getTransitionTitle(params);
-            if (titles) {
-              transitionTitle = titles.title || transitionTitle;
-              transitionSubtitle = titles.subtitle || transitionSubtitle;
-            }
+      // 🔴 Step 1-2：無論是否有舊模式，都先顯示過渡層
+      // 關鍵：即使沒有舊模式（從選角界面進入），也要顯示過渡層，避免黑屏
+      // 獲取新模式的標題（用於過渡層顯示）
+      let transitionTitle = '載入中...';
+      let transitionSubtitle = '請稍候';
+      try {
+        // 嘗試從新模式獲取標題（如果有的話）
+        if (typeof mode.getTransitionTitle === 'function') {
+          const titles = mode.getTransitionTitle(params);
+          if (titles) {
+            transitionTitle = titles.title || transitionTitle;
+            transitionSubtitle = titles.subtitle || transitionSubtitle;
           }
-        } catch(_) {}
-        
-        TransitionLayer.show(transitionTitle, transitionSubtitle);
-        
-        // 🔑 Step 3：關鍵一幀 - 確保過渡層被渲染穩定
-        await new Promise(r => requestAnimationFrame(r));
-      }
+        }
+      } catch(_) {}
+      
+      // 顯示過渡層（無論是否有舊模式）
+      TransitionLayer.show(transitionTitle, transitionSubtitle);
+      
+      // 🔑 Step 3：關鍵一幀 - 確保過渡層被渲染穩定
+      await new Promise(r => requestAnimationFrame(r));
       
       // 🔴 Step 4：現在才安全停止舊模式（過渡層已穩定，不會黑屏）
       if (_current) {
@@ -395,4 +395,6 @@
 
   // 導出至全域（不覆蓋既有 ModeManager）
   if (!global.GameModeManager) global.GameModeManager = GameModeManager;
+  // 導出 TransitionLayer 到全域，允許外部提前顯示（如從選角界面進入時）
+  if (!global.TransitionLayer) global.TransitionLayer = TransitionLayer;
 })(typeof window !== 'undefined' ? window : globalThis);
