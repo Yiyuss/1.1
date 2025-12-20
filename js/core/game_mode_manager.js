@@ -299,6 +299,10 @@
           // 停止並重置視頻
           video.pause();
           video.currentTime = 0;
+          // 清空視頻緩衝區，釋放內存（保留 src，下次播放時會重新加載）
+          try {
+            video.load();
+          } catch(e) {}
         }
         
         // 隱藏過渡層
