@@ -245,52 +245,92 @@
 
   // ————————————————————————————————————————————————————————————————
   // 獨立的過渡層管理器（不屬於任何模式，避免黑屏）
-  // 關鍵：過渡層必須在舊模式還活著時顯示，至少撐過一幀
+  // 統一載入畫面：播放 LOAD.mp4
   const TransitionLayer = {
-    show(title, subtitle){
+    show(){
       try {
+        console.log('[TransitionLayer] 開始顯示過渡層');
         const el = document.getElementById('transition-layer');
         if (!el) {
-          console.warn('[TransitionLayer] transition-layer element not found');
+          console.error('[TransitionLayer] 找不到 transition-layer 元素');
           return;
         }
+        console.log('[TransitionLayer] 找到過渡層元素:', el);
         
-        // 更新標題和副標題（如果提供）
-        if (title) {
-          const titleEl = el.querySelector('.main-loading-title');
-          if (titleEl) titleEl.textContent = title;
+        const video = document.getElementById('transition-video');
+        if (video) {
+          console.log('[TransitionLayer] 找到視頻元素:', video);
+          // 重置視頻到開始
+          video.currentTime = 0;
+          // 顯示過渡層
+          el.classList.remove('hidden');
+          el.style.display = 'flex';
+          el.style.visibility = 'visible';
+          el.style.opacity = '1';
+          console.log('[TransitionLayer] 過渡層樣式已更新:', {
+            hasHidden: el.classList.contains('hidden'),
+            display: el.style.display,
+            visibility: el.style.visibility,
+            opacity: el.style.opacity
+          });
+          // 播放視頻
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                console.log('[TransitionLayer] 視頻播放成功');
+              })
+              .catch(e => {
+                console.warn('[TransitionLayer] 視頻播放失敗:', e);
+              });
+          }
+        } else {
+          console.warn('[TransitionLayer] 找不到 transition-video 元素，僅顯示過渡層');
+          // 如果沒有視頻元素，至少顯示過渡層
+          el.classList.remove('hidden');
+          el.style.display = 'flex';
+          el.style.visibility = 'visible';
+          el.style.opacity = '1';
         }
-        if (subtitle) {
-          const subtitleEl = el.querySelector('.main-loading-subtitle');
-          if (subtitleEl) subtitleEl.textContent = subtitle;
-        }
-        
-        // 顯示過渡層
-        el.classList.remove('hidden');
-        // 確保樣式正確應用
-        el.style.display = 'block';
-        el.style.visibility = 'visible';
-        el.style.opacity = '1';
-        // 強制同步樣式更新，確保立即顯示
-        el.offsetHeight; // 觸發重排
-        
-        // 調試：確認過渡層已顯示
-        console.log('[TransitionLayer] 過渡層已顯示', {
-          hasHidden: el.classList.contains('hidden'),
-          display: el.style.display,
-          visibility: el.style.visibility,
-          opacity: el.style.opacity,
-          zIndex: el.style.zIndex
-        });
+        // 強制同步樣式更新
+        el.offsetHeight;
+        console.log('[TransitionLayer] 過渡層顯示完成');
       } catch(e) {
         console.error('[TransitionLayer] show error:', e);
       }
     },
     hide(){
       try {
+        console.log('[TransitionLayer] 開始隱藏過渡層');
         const el = document.getElementById('transition-layer');
-        if (el) el.classList.add('hidden');
-      } catch(_) {}
+        if (!el) {
+          console.warn('[TransitionLayer] 找不到 transition-layer 元素');
+          return;
+        }
+        
+        const video = document.getElementById('transition-video');
+        if (video) {
+          console.log('[TransitionLayer] 停止並重置視頻');
+          // 停止並重置視頻
+          video.pause();
+          video.currentTime = 0;
+        }
+        
+        // 隱藏過渡層
+        el.classList.add('hidden');
+        el.style.display = 'none';
+        el.style.visibility = 'hidden';
+        el.style.opacity = '0';
+        console.log('[TransitionLayer] 過渡層已隱藏:', {
+          hasHidden: el.classList.contains('hidden'),
+          display: el.style.display,
+          visibility: el.style.visibility,
+          opacity: el.style.opacity
+        });
+        console.log('[TransitionLayer] 過渡層隱藏完成');
+      } catch(e) {
+        console.error('[TransitionLayer] hide error:', e);
+      }
     }
   };
 
@@ -315,43 +355,33 @@
       // 關鍵原則：過渡層必須在舊模式還活著時顯示，至少撐過一幀
       // 流程：
       // 1. Mode A（仍在顯示）
-      // 2. 顯示「過渡層」（舊模式還活著）← 關鍵：先出現
+      // 2. 顯示「過渡層」並播放 LOAD.mp4（舊模式還活著）← 關鍵：先出現
       // 3. 等待一幀（requestAnimationFrame）← 關鍵：確保過渡層被渲染
       // 4. 開始背景卸載 Mode A（此時過渡層已穩定，不會黑屏）
       // 5. 建立新 ctx
       // 6. 新模式 willEnter（只做準備，不顯示 UI）
       // 7. 背景載入 Mode B
       // 8. Mode B 就緒，切顯示到 Mode B
-      // 9. 移除過渡層
+      // 9. 移除過渡層並清理視頻
       
-      // 🔴 Step 1-2：無論是否有舊模式，都先顯示過渡層
-      // 關鍵：即使沒有舊模式（從選角界面進入），也要顯示過渡層，避免黑屏
-      // 獲取新模式的標題（用於過渡層顯示）
-      let transitionTitle = '載入中...';
-      let transitionSubtitle = '請稍候';
-      try {
-        // 嘗試從新模式獲取標題（如果有的話）
-        if (typeof mode.getTransitionTitle === 'function') {
-          const titles = mode.getTransitionTitle(params);
-          if (titles) {
-            transitionTitle = titles.title || transitionTitle;
-            transitionSubtitle = titles.subtitle || transitionSubtitle;
-          }
-        }
-      } catch(_) {}
-      
-      // 顯示過渡層（無論是否有舊模式）
-      TransitionLayer.show(transitionTitle, transitionSubtitle);
+      // 🔴 Step 1-2：無論是否有舊模式，都先顯示過渡層並播放 LOAD.mp4
+      console.log('[GameModeManager] 啟動模式:', id, '當前模式:', _current ? _current.id : '無');
+      TransitionLayer.show();
       
       // 🔑 Step 3：關鍵一幀 - 確保過渡層被渲染穩定
+      console.log('[GameModeManager] 等待一幀以確保過渡層渲染穩定');
       await new Promise(r => requestAnimationFrame(r));
+      console.log('[GameModeManager] 一幀等待完成');
       
       // 🔴 Step 4：現在才安全停止舊模式（過渡層已穩定，不會黑屏）
       if (_current) {
+        console.log('[GameModeManager] 停止舊模式:', _current.id);
         try { await this.stop(); } catch(_){}
+        console.log('[GameModeManager] 舊模式已停止');
       }
       
       // 🔴 Step 5：建立新 ctx
+      console.log('[GameModeManager] 建立新模式上下文');
       const ctx = createModeContext();
       
       // 存檔相容升級：保持 SaveCode 向下相容，不改鍵名或簽章；僅補齊缺失欄位
@@ -362,27 +392,47 @@
       } catch(_){}
       
       // 🔴 Step 6：新模式 willEnter（只做準備，不顯示 UI）
-      // 注意：willEnter 不再負責顯示過渡層，只做準備工作
       try {
         if (typeof mode.willEnter === 'function') {
+          console.log('[GameModeManager] 調用新模式 willEnter');
           mode.willEnter(params, ctx);
         }
       } catch(e){ console.warn('[GameModeManager] willEnter warn:', e); }
       
       // 🔴 Step 7：背景載入 Mode B
+      console.log('[GameModeManager] 開始載入新模式資源');
       const manifest = (typeof mode.getManifest === 'function') ? mode.getManifest(params, ctx) : null;
-      try { await ctx.resources.loadManifest(manifest); } catch(_){}
+      try { 
+        await ctx.resources.loadManifest(manifest);
+        console.log('[GameModeManager] 新模式資源載入完成');
+      } catch(e){ 
+        console.error('[GameModeManager] 資源載入失敗:', e);
+      }
       
       // 🔴 Step 8：Mode B 就緒，切顯示到 Mode B
       _current = { id, mode, ctx };
+      console.log('[GameModeManager] 進入新模式:', id);
       if (typeof mode.enter === 'function') {
-        try { mode.enter(params, ctx); } catch(e){ console.error('[GameModeManager] enter error:', e); }
+        try { 
+          mode.enter(params, ctx);
+          console.log('[GameModeManager] 新模式 enter 完成');
+        } catch(e){ console.error('[GameModeManager] enter error:', e); }
       }
       
-      // 🔴 Step 9：enter 結束後關掉過渡層
-      // 注意：如果新模式有自己的載入畫面，應該在 enter() 中處理
-      // 這裡只是確保過渡層被關閉
-      TransitionLayer.hide();
+      // 🔴 Step 9：enter 結束後延遲關掉過渡層並清理視頻（默認行為）
+      // 如果模式需要更晚隱藏（如主線模式在主循環啟動後），可以在 enter() 中自己處理
+      console.log('[GameModeManager] 設置過渡層自動隱藏（200ms後）');
+      setTimeout(() => {
+        // 檢查模式是否已經自己隱藏了過渡層（通過檢查 hidden 類）
+        const transitionEl = document.getElementById('transition-layer');
+        if (transitionEl && !transitionEl.classList.contains('hidden')) {
+          console.log('[GameModeManager] 過渡層仍在顯示，執行自動隱藏');
+          // 如果過渡層還在顯示，則隱藏它並清理視頻（默認行為）
+          TransitionLayer.hide();
+        } else {
+          console.log('[GameModeManager] 過渡層已被模式自己隱藏，跳過自動隱藏');
+        }
+      }, 200); // 給模式 200ms 的時間來自己處理
     },
     async stop(){
       if (!_current) return;
