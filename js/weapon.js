@@ -110,9 +110,10 @@ class Weapon {
             const aiX = this.player.x + Math.cos(angle) * distance;
             const aiY = this.player.y + Math.sin(angle) * distance;
             
-            // 創建AI生命體
+            // 創建AI生命體（傳遞召喚AI的等級）
             if (typeof AICompanion !== 'undefined') {
-                const ai = new AICompanion(this.player, aiX, aiY);
+                const summonAILevel = this.level || 1; // 獲取召喚AI的等級
+                const ai = new AICompanion(this.player, aiX, aiY, summonAILevel);
                 this.player.aiCompanion = ai;
                 // 將AI添加到遊戲實體列表（使用projectiles列表，因為它需要更新和繪製）
                 if (typeof Game !== 'undefined' && Game.addProjectile) {
