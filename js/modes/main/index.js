@@ -8,20 +8,6 @@
 
   const MainMode = {
     id: MODE_ID,
-    // willEnter：只做準備工作，不顯示 UI
-    // 注意：過渡層由 GameModeManager 的 TransitionLayer 統一管理
-    // 這裡只做模式特定的準備工作（如獲取標題等）
-    willEnter(params, ctx) {
-      // 只做準備工作，不顯示 UI
-      // 過渡層已經由 GameModeManager 在停止舊模式之前顯示了
-    },
-    // 可選：提供過渡層標題（用於 TransitionLayer.show()）
-    getTransitionTitle(params) {
-      return {
-        title: '冒險村莊',
-        subtitle: '載入中...'
-      };
-    },
     // 宣告模式資源（冒險村莊地圖所需圖片）
     getManifest(){
       return {
@@ -74,62 +60,7 @@
       };
     },
     enter(params, ctx){
-      // ========== 載入畫面（只在第一次進入時顯示）==========
-      let loadingScreenEl = null;
-      function showLoadingScreen() {
-        try {
-          const viewport = document.getElementById('viewport');
-          if (!viewport) return;
-          
-          // 如果已經有載入畫面，先移除
-          const existing = document.getElementById('main-loading-screen');
-          if (existing && existing.parentNode) {
-            existing.parentNode.removeChild(existing);
-          }
-          
-          loadingScreenEl = document.createElement('div');
-          loadingScreenEl.id = 'main-loading-screen';
-          loadingScreenEl.className = 'main-loading-screen';
-          loadingScreenEl.innerHTML = `
-            <div class="main-loading-overlay"></div>
-            <div class="main-loading-content">
-              <div class="main-loading-title">冒險村莊</div>
-              <div class="main-loading-subtitle">載入中...</div>
-              <div class="main-loading-spinner">
-                <div class="spinner-dot"></div>
-                <div class="spinner-dot"></div>
-                <div class="spinner-dot"></div>
-              </div>
-            </div>
-          `;
-          viewport.appendChild(loadingScreenEl);
-        } catch(_) {}
-      }
-      
-      function hideLoadingScreen() {
-        try {
-          if (loadingScreenEl && loadingScreenEl.parentNode) {
-            loadingScreenEl.style.opacity = '0';
-            loadingScreenEl.style.transition = 'opacity 0.3s ease-out';
-            setTimeout(() => {
-              if (loadingScreenEl && loadingScreenEl.parentNode) {
-                loadingScreenEl.parentNode.removeChild(loadingScreenEl);
-              }
-              loadingScreenEl = null;
-            }, 300);
-          }
-        } catch(_) {}
-      }
-      
-      // 檢查載入畫面是否已在 willEnter 中顯示
-      // 如果沒有，則顯示載入畫面（向後兼容，避免網路延遲時黑屏）
-      const existingLoading = document.getElementById('main-loading-screen');
-      if (!existingLoading) {
-        showLoadingScreen();
-      } else {
-        // 如果已存在，更新引用
-        loadingScreenEl = existingLoading;
-      }
+      // 注意：載入畫面已由 GameModeManager 的 TransitionLayer 統一管理（播放 LOAD.mp4）
       
       try {
         // 隱藏所有覆蓋視窗與前置畫面
@@ -142,9 +73,10 @@
         if (mapScreen) mapScreen.classList.add('hidden');
         if (charScreen) charScreen.classList.add('hidden');
 
-        // 先不顯示遊戲畫面，等到主循環啟動後再顯示，避免黑屏
-        // 遊戲畫面將在主循環啟動時顯示（見下方 requestAnimationFrame）
+        // 顯示遊戲畫面並隱藏生存模式的 HUD（主線僅保留畫布與簡易對話）
+        const gameScreen = document.getElementById('game-screen');
         const gameUI = document.getElementById('game-ui');
+        if (gameScreen) gameScreen.classList.remove('hidden');
         if (gameUI) gameUI.style.display = 'none';
       } catch(_){}
 
@@ -2926,19 +2858,21 @@
       
       // 等待一幀後啟動主循環，確保所有初始化完成
       requestAnimationFrame(() => {
-        // 主循環啟動前，先顯示遊戲畫面（此時內容已準備好，不會黑屏）
-        try {
-          const gameScreen = document.getElementById('game-screen');
-          if (gameScreen) {
-            gameScreen.classList.remove('hidden');
-          }
-        } catch(_) {}
-        
         loop();
-        // 主循環啟動後，隱藏載入畫面
+        // 主循環啟動後，隱藏過渡層（由 GameModeManager 的 TransitionLayer 管理）
         // 使用 setTimeout 確保所有初始化（包括地圖生成、家具載入等）都完成
+        console.log('[MainMode] 主循環已啟動，準備隱藏過渡層');
         setTimeout(() => {
-          hideLoadingScreen();
+          try {
+            if (typeof window !== 'undefined' && window.TransitionLayer && typeof window.TransitionLayer.hide === 'function') {
+              console.log('[MainMode] 隱藏過渡層');
+              window.TransitionLayer.hide();
+            } else {
+              console.warn('[MainMode] TransitionLayer 不可用');
+            }
+          } catch(e) {
+            console.error('[MainMode] 隱藏過渡層失敗:', e);
+          }
         }, 100);
       });
 
@@ -2967,13 +2901,7 @@
     },
     exit(ctx){
       try { if (typeof this._cleanup === 'function') this._cleanup(); } catch(_){}
-      // 清理載入畫面（如果還在顯示）
-      try {
-        const loadingScreen = document.getElementById('main-loading-screen');
-        if (loadingScreen && loadingScreen.parentNode) {
-          loadingScreen.parentNode.removeChild(loadingScreen);
-        }
-      } catch(_){}
+      // 注意：過渡層由 GameModeManager 的 TransitionLayer 統一管理，不需要在這裡清理
       // 恢復 HUD 顯示（若離開主線模式返回生存）
       try { const gameUI = document.getElementById('game-ui'); if (gameUI) gameUI.style.display = ''; } catch(_){}
       // 解除主線模式的 canvas 點擊捕獲，避免影響生存模式輸入
