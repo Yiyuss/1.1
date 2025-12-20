@@ -33,6 +33,9 @@ class AICompanion extends Entity {
         // 無血量，不會受傷
         this.health = Infinity;
         this.maxHealth = Infinity;
+        
+        // 基礎爆擊率10%（與玩家相同）
+        this.critChanceBonusPct = 0.10;
     }
     
     // 設置技能等級（用於合成後更新）
@@ -139,12 +142,33 @@ class AICompanion extends Entity {
         try {
             if (typeof ChainLightningEffect === 'undefined') return;
             
-            // 計算傷害（LV10的傷害）
+            // 計算傷害（LV10的傷害，與玩家相同的計算方式）
             const baseDamage = (CONFIG.WEAPONS && CONFIG.WEAPONS.CHAIN_LIGHTNING && CONFIG.WEAPONS.CHAIN_LIGHTNING.DAMAGE) ? CONFIG.WEAPONS.CHAIN_LIGHTNING.DAMAGE : 15;
             const levelMul = (typeof DamageSystem !== 'undefined' && DamageSystem.levelMultiplier) 
                 ? DamageSystem.levelMultiplier(this.chainLightningLevel) 
                 : (1 + 0.05 * Math.max(0, this.chainLightningLevel - 1));
-            let damage = baseDamage * levelMul;
+            
+            // 應用玩家的傷害倍率（與玩家相同）
+            let damage = baseDamage;
+            if (this.player) {
+                // 傷害強化天賦（百分比加成）
+                const talentPct = (this.player.damageTalentBaseBonusPct != null) ? this.player.damageTalentBaseBonusPct : 0;
+                // 升級屬性加成（每級+10%）
+                const attrPct = (this.player.damageAttributeBonusPct != null) ? this.player.damageAttributeBonusPct : 0;
+                // 傷害特化（固定值）
+                const specFlat = (this.player.damageSpecializationFlat != null) ? this.player.damageSpecializationFlat : 0;
+                // 攻擊力上升（每級+2，單純加法）
+                const attrFlat = (this.player.attackPowerUpgradeFlat != null) ? this.player.attackPowerUpgradeFlat : 0;
+                
+                // 先加固定值，再乘百分比（與玩家計算方式一致）
+                const lvPct = Math.max(0, (levelMul || 1) - 1);
+                const percentSum = lvPct + talentPct + attrPct;
+                const baseFlat = baseDamage + specFlat + attrFlat;
+                damage = baseFlat * (1 + percentSum);
+            } else {
+                // 如果沒有玩家引用，使用基礎計算
+                damage = baseDamage * levelMul;
+            }
             
             // 應用AI強化天賦（只影響AI傷害，不影響玩家）
             if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
@@ -155,6 +179,11 @@ class AICompanion extends Entity {
                         damage *= effect.multiplier;
                     }
                 }
+            }
+            
+            // 更新AI的爆擊率（基礎10% + 玩家的爆擊加成）
+            if (this.player && this.player.critChanceBonusPct != null) {
+                this.critChanceBonusPct = 0.10 + this.player.critChanceBonusPct;
             }
             
             // 創建連鎖閃電效果（從AI位置發出）
@@ -182,12 +211,36 @@ class AICompanion extends Entity {
         try {
             if (typeof FrenzyLightningEffect === 'undefined') return;
             
-            // 計算傷害（LV10的傷害）
+            // 計算傷害（LV10的傷害，與玩家相同的計算方式）
             const baseDamage = (CONFIG.WEAPONS && CONFIG.WEAPONS.FRENZY_LIGHTNING && CONFIG.WEAPONS.FRENZY_LIGHTNING.DAMAGE) ? CONFIG.WEAPONS.FRENZY_LIGHTNING.DAMAGE : 15;
             const levelMul = (typeof DamageSystem !== 'undefined' && DamageSystem.levelMultiplier) 
                 ? DamageSystem.levelMultiplier(this.frenzyLightningLevel) 
                 : (1 + 0.05 * Math.max(0, this.frenzyLightningLevel - 1));
-            let damage = baseDamage * levelMul;
+            
+            // 狂熱雷擊：每級+3基礎傷害（LV10累計+30）
+            const frenzyExtra = 3 * Math.max(1, this.frenzyLightningLevel);
+            
+            // 應用玩家的傷害倍率（與玩家相同）
+            let damage = baseDamage;
+            if (this.player) {
+                // 傷害強化天賦（百分比加成）
+                const talentPct = (this.player.damageTalentBaseBonusPct != null) ? this.player.damageTalentBaseBonusPct : 0;
+                // 升級屬性加成（每級+10%）
+                const attrPct = (this.player.damageAttributeBonusPct != null) ? this.player.damageAttributeBonusPct : 0;
+                // 傷害特化（固定值）
+                const specFlat = (this.player.damageSpecializationFlat != null) ? this.player.damageSpecializationFlat : 0;
+                // 攻擊力上升（每級+2，單純加法）
+                const attrFlat = (this.player.attackPowerUpgradeFlat != null) ? this.player.attackPowerUpgradeFlat : 0;
+                
+                // 先加固定值，再乘百分比（與玩家計算方式一致）
+                const lvPct = Math.max(0, (levelMul || 1) - 1);
+                const percentSum = lvPct + talentPct + attrPct;
+                const baseFlat = baseDamage + frenzyExtra + specFlat + attrFlat;
+                damage = baseFlat * (1 + percentSum);
+            } else {
+                // 如果沒有玩家引用，使用基礎計算
+                damage = (baseDamage + frenzyExtra) * levelMul;
+            }
             
             // 應用AI強化天賦（只影響AI傷害，不影響玩家）
             if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
@@ -198,6 +251,11 @@ class AICompanion extends Entity {
                         damage *= effect.multiplier;
                     }
                 }
+            }
+            
+            // 更新AI的爆擊率（基礎10% + 玩家的爆擊加成）
+            if (this.player && this.player.critChanceBonusPct != null) {
+                this.critChanceBonusPct = 0.10 + this.player.critChanceBonusPct;
             }
             
             // 創建狂熱雷擊效果（從AI位置發出）
