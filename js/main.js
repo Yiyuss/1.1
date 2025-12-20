@@ -16,21 +16,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const startButton = document.getElementById('start-button');
     startButton.addEventListener('click', function() {
         playClick(); // 使用輔助函數替換 AudioManager.playSound('button_click')
-        // 在選單/選角階段使用主選單音樂
-        if (AudioManager.playMusic) {
-            // 確保選單介面不靜音
-            AudioManager.isMuted = false;
-            try {
-                if (typeof AudioScene !== 'undefined' && AudioScene.enterMenu) {
-                    AudioScene.enterMenu();
-                } else {
-                    AudioManager.playMusic('menu_music');
-                }
-            } catch (_) {}
-        }
-        // 進入選角介面而非直接開始
-        hide(DOMCache.get('start-screen')); // 使用輔助函數替換 classList.add('hidden')
-        show(DOMCache.get('character-select-screen')); // 使用輔助函數替換 classList.remove('hidden')
+        // 進入加載頁面
+        hide(DOMCache.get('start-screen'));
+        show(DOMCache.get('loading-screen'));
+        // 開始預加載資源
+        preloadAllResources();
     });
 
     // 音量設置已移除，改為序號輸入系統
