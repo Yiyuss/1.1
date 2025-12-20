@@ -525,6 +525,12 @@ class Player extends Entity {
             ? CONFIG.CHARACTER_ULTIMATES[characterId] 
             : null;
         
+        // 艾比大绝：不变身，直接施放全地图爆炸
+        if (charUltimate && charUltimate.IS_EXPLOSION_ULTIMATE) {
+            this._activateExplosionUltimate(charUltimate);
+            return;
+        }
+        
         // 使用角色特定配置或預設配置
         const ultimateImageKey = (charUltimate && charUltimate.IMAGE_KEY) 
             ? charUltimate.IMAGE_KEY 
@@ -753,5 +759,38 @@ class Player extends Entity {
         this._ultimateBackup = null;
         this.ultimateEndTime = 0;
         this._ultimateImageKey = null;
+    }
+    
+    // 艾比大绝：不变身，直接施放全地图爆炸
+    _activateExplosionUltimate(charUltimate) {
+        // 消耗能量
+        this.energy = 0;
+        UI.updateEnergyBar(this.energy, this.maxEnergy);
+        
+        // 播放爆炸音效
+        const audioKey = (charUltimate && charUltimate.AUDIO_KEY) ? charUltimate.AUDIO_KEY : 'Explosion';
+        if (typeof AudioManager !== 'undefined' && AudioManager.sounds && AudioManager.sounds[audioKey]) {
+            try {
+                AudioManager.playSound(audioKey);
+            } catch (e) {
+                console.warn('播放爆炸音效失敗:', e);
+            }
+        }
+        
+        // 创建爆炸效果（在玩家中心位置）
+        if (typeof ExplosionEffect !== 'undefined' && typeof Game !== 'undefined' && Game.addProjectile) {
+            const explosion = new ExplosionEffect(this, this.x, this.y);
+            Game.addProjectile(explosion);
+        }
+        
+        // 镜头震动
+        try {
+            if (!Game.cameraShake) {
+                Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+            }
+            Game.cameraShake.active = true;
+            Game.cameraShake.intensity = 10; // 比普通大绝更强的震动
+            Game.cameraShake.duration = 300; // 300毫秒
+        } catch (_) {}
     }
 }
