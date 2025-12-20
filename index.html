@@ -1194,6 +1194,19 @@
         console.log('=============================');
         </script>
     </div>
+    <!-- 獨立的過渡層（不屬於任何模式，避免黑屏） -->
+    <div id="transition-layer" class="hidden" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 99999; background: rgba(0, 0, 0, 0.95); pointer-events: none;">
+        <div class="main-loading-overlay"></div>
+        <div class="main-loading-content">
+            <div class="main-loading-title">載入中...</div>
+            <div class="main-loading-subtitle">請稍候</div>
+            <div class="main-loading-spinner">
+                <div class="spinner-dot"></div>
+                <div class="spinner-dot"></div>
+                <div class="spinner-dot"></div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 
