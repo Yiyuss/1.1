@@ -520,6 +520,14 @@ const skillIcons = {
         const hasGravityWave = sourceWeaponsInfo.some(w => w.type === 'GRAVITY_WAVE');
         const hasRadiantGlory = sourceWeaponsInfo.some(w => w.type === 'RADIANT_GLORY');
         const hasDeathlineSuperman = sourceWeaponsInfo.some(w => w.type === 'DEATHLINE_SUPERMAN');
+        // 檢查召喚AI LV2：如果已合成召喚AI LV2，則隱藏連鎖閃電的升級選項
+        const hasSummonAILv2 = sourceWeaponsInfo.some(w => w.type === 'SUMMON_AI' && typeof w.level === 'number' && w.level >= 2);
+        // 檢查召喚AI LV1升級到LV2的條件（需要連鎖閃電LV10）
+        const summonAIInfo = sourceWeaponsInfo.find(w => w.type === 'SUMMON_AI');
+        const chainLightningForUpgrade = sourceWeaponsInfo.find(w => w.type === 'CHAIN_LIGHTNING');
+        const summonAILevelForUpgrade = (summonAIInfo && typeof summonAIInfo.level === 'number') ? summonAIInfo.level : 0;
+        const chainLightningLevelForUpgrade = (chainLightningForUpgrade && typeof chainLightningForUpgrade.level === 'number') ? chainLightningForUpgrade.level : 0;
+        const canUpgradeSummonAIToLv2 = (summonAILevelForUpgrade === 1 && chainLightningLevelForUpgrade >= 10);
         for (const info of sourceWeaponsInfo) {
             const cfg = CONFIG.WEAPONS[info.type];
             if (!cfg) continue;
@@ -537,7 +545,12 @@ const skillIcons = {
                     (hasFrenzyYoungDadaGlory && (info.type === 'DAGGER' || info.type === 'YOUNG_DADA_GLORY')) ||
                     (hasGravityWave && (info.type === 'AURA_FIELD' || info.type === 'INVINCIBLE')) ||
                     (hasDeathlineSuperman && (info.type === 'DAGGER' || info.type === 'DEATHLINE_WARRIOR')) ||
-                    (hasRadiantGlory && (info.type === 'CHAIN_LIGHTNING' || info.type === 'LASER'))) continue;
+                    (hasRadiantGlory && (info.type === 'CHAIN_LIGHTNING' || info.type === 'LASER')) ||
+                    (hasSummonAILv2 && info.type === 'CHAIN_LIGHTNING')) continue;
+            // 召喚AI特殊處理：只有滿足合成條件（連鎖閃電LV10）才能升級到LV2
+            if (info.type === 'SUMMON_AI' && info.level === 1 && !canUpgradeSummonAIToLv2) {
+                continue; // 不滿足合成條件，不顯示LV2升級選項
+            }
             if (info.level < cfg.LEVELS.length) {
                 options.push({
                     type: info.type,
@@ -561,6 +574,8 @@ const skillIcons = {
                 continue; // 其他角色的專屬技能，當前角色不可見
             }
             // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
+            // 檢查召喚AI LV2：如果已合成召喚AI LV2，則隱藏連鎖閃電的新增選項
+            const hasSummonAILv2ForNew = sourceWeaponsInfo.some(w => w.type === 'SUMMON_AI' && typeof w.level === 'number' && w.level >= 2);
             if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
                 (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING')) ||
@@ -568,7 +583,8 @@ const skillIcons = {
                 (hasFrenzyYoungDadaGlory && (weaponType === 'DAGGER' || weaponType === 'YOUNG_DADA_GLORY')) ||
                 (hasGravityWave && (weaponType === 'AURA_FIELD' || weaponType === 'INVINCIBLE')) ||
                 (hasDeathlineSuperman && (weaponType === 'DAGGER' || weaponType === 'DEATHLINE_WARRIOR')) ||
-                (hasRadiantGlory && (weaponType === 'CHAIN_LIGHTNING' || weaponType === 'LASER'))) continue;
+                (hasRadiantGlory && (weaponType === 'CHAIN_LIGHTNING' || weaponType === 'LASER')) ||
+                (hasSummonAILv2ForNew && weaponType === 'CHAIN_LIGHTNING')) continue;
             // 召喚AI技能：需要成就解鎖（星雲征服者）
             if (weaponType === 'SUMMON_AI') {
                 // 檢查是否已解鎖成就「星雲征服者」
@@ -740,6 +756,30 @@ const skillIcons = {
                         name: cfgRG.NAME,
                         level: 1,
                         description: cfgRG.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：召喚AI LV2（需同時持有且等級達標的 連鎖閃電(CHAIN_LIGHTNING) LV10 與 召喚AI(SUMMON_AI) LV1）
+        try {
+            const summonAI = sourceWeaponsInfo.find(w => w.type === 'SUMMON_AI');
+            const chainLightningForAI = sourceWeaponsInfo.find(w => w.type === 'CHAIN_LIGHTNING');
+            // 檢查是否已有召喚AI LV2
+            const hasSummonAILv2 = (summonAI && typeof summonAI.level === 'number' && summonAI.level >= 2);
+            // 嚴格驗證：確保 level 是有效的數字類型
+            const summonAILevel = (summonAI && typeof summonAI.level === 'number') ? summonAI.level : 0;
+            const chainLightningForAILevel = (chainLightningForAI && typeof chainLightningForAI.level === 'number') ? chainLightningForAI.level : 0;
+            // 需求：召喚AI LV1 且 連鎖閃電 LV10
+            const fusionReadyAI = (!!summonAI && !!chainLightningForAI && summonAILevel === 1 && chainLightningForAILevel >= 10);
+            if (!hasSummonAILv2 && fusionReadyAI) {
+                const cfgAI = CONFIG.WEAPONS['SUMMON_AI'];
+                if (cfgAI && Array.isArray(cfgAI.LEVELS) && cfgAI.LEVELS.length > 1) {
+                    options.push({
+                        type: 'SUMMON_AI',
+                        name: cfgAI.NAME,
+                        level: 2,
+                        description: cfgAI.LEVELS[1].DESCRIPTION
                     });
                 }
             }
@@ -1192,6 +1232,79 @@ const skillIcons = {
             this._playClick();
             this.hideLevelUpMenu();
             return;
+        }
+
+        // 融合：召喚AI LV2（移除 連鎖閃電(CHAIN_LIGHTNING)，升級 召喚AI(SUMMON_AI) 至 LV2）
+        // 檢查是否為升級到LV2的情況（需要檢查玩家是否已有召喚AI LV1且連鎖閃電LV10）
+        if (weaponType === 'SUMMON_AI') {
+            const summonAIWeapon = player.weapons.find(w => w.type === 'SUMMON_AI');
+            const chainLightningWeapon = player.weapons.find(w => w.type === 'CHAIN_LIGHTNING');
+            const summonAILevel = (summonAIWeapon && typeof summonAIWeapon.level === 'number') ? summonAIWeapon.level : 0;
+            const chainLightningLevel = (chainLightningWeapon && typeof chainLightningWeapon.level === 'number') ? chainLightningWeapon.level : 0;
+            if (summonAILevel === 1 && chainLightningLevel >= 10) {
+                // 這是合成召喚AI LV2的情況
+                // 先清理連鎖閃電的投射物（避免重疊）
+                try {
+                    if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+                        for (const p of Game.projectiles) {
+                            if (p && p.weaponType === 'CHAIN_LIGHTNING' && p.player === player && !p.markedForDeletion) {
+                                if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
+                            }
+                        }
+                    }
+                    // 清理武器實例中的投射物引用（正常模式）
+                    if (!player.isUltimateActive) {
+                        const chainLightningWeapon = player.weapons.find(w => w.type === 'CHAIN_LIGHTNING');
+                        if (chainLightningWeapon && chainLightningWeapon._chainEntity) {
+                            try {
+                                if (typeof chainLightningWeapon._chainEntity.destroy === 'function') {
+                                    chainLightningWeapon._chainEntity.destroy();
+                                } else {
+                                    chainLightningWeapon._chainEntity.markedForDeletion = true;
+                                }
+                            } catch(_) {}
+                            chainLightningWeapon._chainEntity = null;
+                        }
+                    }
+                } catch(_) {}
+                
+                if (player.isUltimateActive && player._ultimateBackup) {
+                    const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                    // 移除連鎖閃電
+                    player._ultimateBackup.weapons = list.filter(info => info.type !== 'CHAIN_LIGHTNING');
+                    // 升級召喚AI至LV2
+                    const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'SUMMON_AI');
+                    if (idx >= 0) {
+                        player._ultimateBackup.weapons[idx].level = 2;
+                    }
+                } else {
+                    // 正常期間：保持 Weapon 實例陣列，直接移除連鎖閃電
+                    player.weapons = (player.weapons || []).filter(w => w.type !== 'CHAIN_LIGHTNING');
+                    // 升級召喚AI至LV2
+                    const summonAIWeapon = player.weapons.find(w => w.type === 'SUMMON_AI');
+                    if (summonAIWeapon) {
+                        // 直接設置等級為2（因為召喚AI只有2級）
+                        summonAIWeapon.level = 2;
+                        // 如果AI已經被召喚，更新AI的技能
+                        if (player.aiCompanion && typeof player.aiCompanion.setSkillLevel === 'function') {
+                            player.aiCompanion.setSkillLevel(2);
+                        }
+                    }
+                }
+                try { this.updateSkillsList(); } catch (_) {}
+                this._playClick();
+                this.hideLevelUpMenu();
+                return;
+            }
+            
+            // 如果玩家選擇升級召喚AI，但等級是1且不滿足合成條件，則阻止升級
+            if (summonAILevel === 1 && chainLightningLevel < 10) {
+                // 不滿足合成條件，不允許升級（召喚AI LV2只能通過合成獲得）
+                try { this.updateSkillsList(); } catch (_) {}
+                this._playClick();
+                this.hideLevelUpMenu();
+                return;
+            }
         }
 
         // 融合：光芒萬丈（移除 連鎖閃電(CHAIN_LIGHTNING)/雷射(LASER)，加入或升級 RADIANT_GLORY）
