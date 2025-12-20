@@ -123,6 +123,31 @@
             </div>
         </div>
 
+        <!-- 新增：資源加載頁面 -->
+        <div id="loading-screen" class="screen hidden">
+            <div class="start-bg"></div>
+            <div class="start-overlay"></div>
+            <div class="start-card">
+                <div class="start-grid">
+                    <div class="start-main" style="text-align: center;">
+                        <div class="start-header">
+                            <img src="assets/images/LOGO.png" alt="LOGO" class="start-logo">
+                        </div>
+                        <div style="margin-top: 40px;">
+                            <h2 style="color: #fff; margin-bottom: 20px;">正在載入資源...</h2>
+                            <div style="width: 400px; max-width: 90%; margin: 0 auto;">
+                                <div id="loading-progress-bar" style="width: 100%; height: 20px; background: rgba(255,255,255,0.2); border-radius: 10px; overflow: hidden; margin-bottom: 10px;">
+                                    <div id="loading-progress-fill" style="width: 0%; height: 100%; background: linear-gradient(90deg, #4CAF50, #8BC34A); transition: width 0.3s ease;"></div>
+                                </div>
+                                <div id="loading-status" style="color: #fff; font-size: 14px; margin-top: 10px;">準備中...</div>
+                                <div id="loading-details" style="color: rgba(255,255,255,0.7); font-size: 12px; margin-top: 5px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 新增：引繼碼介面（生成/輸入/教學），保持既有版型 -->
         <div id="backup-screen" class="screen hidden">
             <div class="select-card">
@@ -1024,6 +1049,7 @@
         <!-- 腳本載入 -->
         <script src="js/utils.js"></script>
         <script src="js/config.js"></script>
+        <script src="js/resource_loader.js"></script>
         <script src="js/event-system.js"></script>
         <script src="js/damage_system.js"></script>
         <script src="js/buff-system.js"></script>
