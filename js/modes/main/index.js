@@ -167,10 +167,9 @@
         if (mapScreen) mapScreen.classList.add('hidden');
         if (charScreen) charScreen.classList.add('hidden');
 
-        // 顯示遊戲畫面並隱藏生存模式的 HUD（主線僅保留畫布與簡易對話）
-        const gameScreen = document.getElementById('game-screen');
+        // 先不顯示遊戲畫面，等到主循環啟動後再顯示，避免黑屏
+        // 遊戲畫面將在主循環啟動時顯示（見下方 requestAnimationFrame）
         const gameUI = document.getElementById('game-ui');
-        if (gameScreen) gameScreen.classList.remove('hidden');
         if (gameUI) gameUI.style.display = 'none';
       } catch(_){}
 
@@ -2952,6 +2951,14 @@
       
       // 等待一幀後啟動主循環，確保所有初始化完成
       requestAnimationFrame(() => {
+        // 主循環啟動前，先顯示遊戲畫面（此時內容已準備好，不會黑屏）
+        try {
+          const gameScreen = document.getElementById('game-screen');
+          if (gameScreen) {
+            gameScreen.classList.remove('hidden');
+          }
+        } catch(_) {}
+        
         loop();
         // 主循環啟動後，隱藏載入畫面
         // 使用 setTimeout 確保所有初始化（包括地圖生成、家具載入等）都完成
