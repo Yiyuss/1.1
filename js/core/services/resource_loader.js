@@ -10,6 +10,21 @@
     json: new Map()
   };
 
+  const TIMEOUT_MS = 10000; // 10秒超時
+  
+  // 超時包裝函數：為 Promise 添加超時機制
+  function withTimeout(promise, timeoutMs, resourceName, resourceType){
+    return Promise.race([
+      promise,
+      new Promise((resolve) => {
+        setTimeout(() => {
+          console.warn(`[ResourceLoader] 資源載入超時 (${timeoutMs}ms): ${resourceType} "${resourceName}"`);
+          resolve(null); // 超時後 resolve，不阻塞其他資源
+        }, timeoutMs);
+      })
+    ]);
+  }
+
   function loadImage(key, src){
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -18,16 +33,28 @@
         try { if (typeof Game !== 'undefined') { Game.images = Game.images || {}; if (!Game.images[key]) Game.images[key] = img; } } catch(_){ }
         resolve(img);
       };
-      img.onerror = (e) => reject(e);
+      img.onerror = (e) => {
+        console.warn(`[ResourceLoader] 圖片載入失敗: ${key} (${src})`);
+        resolve(null); // 改為 resolve，不阻塞其他資源
+      };
       img.src = src;
     });
   }
 
   async function loadJSON(key, url){
-    const res = await fetch(url);
-    const data = await res.json();
-    cache.json.set(key, data);
-    return data;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        console.warn(`[ResourceLoader] JSON 載入失敗: ${key} (${url}) - HTTP ${res.status}`);
+        return null;
+      }
+      const data = await res.json();
+      cache.json.set(key, data);
+      return data;
+    } catch(e) {
+      console.warn(`[ResourceLoader] JSON 載入失敗: ${key} (${url})`, e);
+      return null;
+    }
   }
 
   // 音訊載入可由 AudioManager 代理；此處僅保留占位
@@ -44,7 +71,7 @@
     const jsons = manifest.json || [];
     imgs.forEach(item => {
       if (!item || !item.key || !item.src) return;
-      tasks.push(loadImage(item.key, item.src));
+      tasks.push(withTimeout(loadImage(item.key, item.src), TIMEOUT_MS, item.key, '圖片'));
     });
     auds.forEach(item => {
       if (!item || !item.key || !item.src) return;
@@ -52,9 +79,16 @@
     });
     jsons.forEach(item => {
       if (!item || !item.key || !item.src) return;
-      tasks.push(loadJSON(item.key, item.src));
+      tasks.push(withTimeout(loadJSON(item.key, item.src), TIMEOUT_MS, item.key, 'JSON'));
     });
-    try { await Promise.all(tasks); } catch(e){ console.warn('[ResourceLoader] 模式資源載入失敗', modeId, e); }
+    // 使用 Promise.allSettled 而不是 Promise.all，避免單個資源失敗阻塞整個載入
+    const results = await Promise.allSettled(tasks);
+    // 統計成功和失敗的資源數量
+    const succeeded = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    if (failed > 0 || succeeded < tasks.length) {
+      console.warn(`[ResourceLoader] 模式資源載入完成 (${modeId}): ${succeeded} 成功, ${failed} 失敗, ${tasks.length - succeeded - failed} 超時/跳過`);
+    }
   }
 
   window.ResourceLoader = { loadForMode, cache };
