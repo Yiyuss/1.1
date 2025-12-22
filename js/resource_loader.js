@@ -50,7 +50,6 @@ const ResourceLoader = {
                 promise,
                 new Promise((resolve) => {
                     setTimeout(() => {
-                        console.warn(`[ResourceLoader] 資源載入超時 (${timeoutMs}ms): ${resourceType} "${resourceName}"`);
                         resolve(); // 超時後 resolve，不阻塞其他資源
                     }, timeoutMs);
                 })
@@ -112,14 +111,7 @@ const ResourceLoader = {
         });
         
         // 使用 Promise.allSettled 而不是 Promise.all，避免單個資源失敗阻塞整個載入
-        const results = await Promise.allSettled(allPromises);
-        
-        // 統計成功和失敗的資源數量
-        const succeeded = results.filter(r => r.status === 'fulfilled').length;
-        const failed = results.filter(r => r.status === 'rejected').length;
-        if (failed > 0 || succeeded < allPromises.length) {
-            console.warn(`[ResourceLoader] 資源預加載完成: ${succeeded} 成功, ${failed} 失敗, ${allPromises.length - succeeded - failed} 超時/跳過`);
-        }
+        await Promise.allSettled(allPromises);
         
         this.updateProgress('載入完成！', '所有資源已準備就緒');
         
