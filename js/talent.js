@@ -82,6 +82,12 @@ const TalentSystem = {
             description: '升級可強化綿羊護體的基礎攻擊。',
             cost: 10000
         },
+        // 新增：心意相隨強化（強化心意相隨的基礎攻擊）
+        heart_companion_boost: {
+            name: '心意相隨強化',
+            description: '升級可強化心意相隨的基礎攻擊。',
+            cost: 10000
+        },
         // 新增：旋轉鬆餅強化（強化旋轉鬆餅的基礎攻擊）
         rotating_muffin_boost: {
             name: '旋轉鬆餅強化',
@@ -245,6 +251,17 @@ const TalentSystem = {
         },
         // 新增：綿羊護體強化（強化綿羊護體的基礎攻擊：+5/+10/+15/+20/+25/+30）
         sheep_guard_boost: {
+            levels: [
+                { flat: 5, cost: 10000 },
+                { flat: 10, cost: 20000 },
+                { flat: 15, cost: 30000 },
+                { flat: 20, cost: 40000 },
+                { flat: 25, cost: 50000 },
+                { flat: 30, cost: 60000 }
+            ]
+        },
+        // 新增：心意相隨強化（強化心意相隨的基礎攻擊：+5/+10/+15/+20/+25/+30）
+        heart_companion_boost: {
             levels: [
                 { flat: 5, cost: 10000 },
                 { flat: 10, cost: 20000 },
@@ -724,6 +741,9 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'sheep_guard_boost') {
             const flat = eff.flat || 0;
             return `綿羊護體基礎攻擊+${flat}`;
+        } else if (id === 'heart_companion_boost') {
+            const flat = eff.flat || 0;
+            return `心意相隨基礎攻擊+${flat}`;
         } else if (id === 'rotating_muffin_boost') {
             const flat = eff.flat || 0;
             return `旋轉鬆餅基礎攻擊+${flat}`;
