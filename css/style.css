@@ -2412,8 +2412,11 @@ body {
 #achievements-screen .char-card,
 #achievements-screen .char-slot { aspect-ratio: 1 / 1; padding: 0; overflow: hidden; }
 #achievements-screen .char-card img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block; }
-/* Achievements 使用天賦格線，但行高改為自動以維持正方形 */
-#achievements-screen .talent-grid { grid-auto-rows: auto; }
+/* Achievements 使用天賦格線，但行高改為自動以維持正方形，並改回6列 */
+#achievements-screen .talent-grid { 
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  grid-auto-rows: auto; 
+}
 /* 成就格子不顯示名稱，避免文字溢出 */
 #achievements-screen .char-name { display: none !important; }
 /* 未解鎖以灰階呈現（格子圖片） */
