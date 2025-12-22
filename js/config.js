@@ -196,6 +196,48 @@ const CONFIG = {
                 { COUNT: 10, DESCRIPTION: "生成10個綿羊護體環繞3秒" }
             ]
         },
+        HEART_COMPANION: {
+            NAME: "心意相隨",
+            DAMAGE: 10,
+            COOLDOWN: 4000,
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 20,
+            PROJECTILE_SIZE_PER_LEVEL: 2,
+            ORBIT_RADIUS: 60,
+            ORBIT_RADIUS_PER_LEVEL: 10,
+            DURATION: 3000, // 3秒持續
+            ANGULAR_SPEED: 6.283, // 約1圈/秒
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "生成1個心意相隨環繞3秒" },
+                { COUNT: 2, DESCRIPTION: "生成2個心意相隨環繞3秒" },
+                { COUNT: 3, DESCRIPTION: "生成3個心意相隨環繞3秒" },
+                { COUNT: 4, DESCRIPTION: "生成4個心意相隨環繞3秒" },
+                { COUNT: 5, DESCRIPTION: "生成5個心意相隨環繞3秒" },
+                { COUNT: 6, DESCRIPTION: "生成6個心意相隨環繞3秒" },
+                { COUNT: 7, DESCRIPTION: "生成7個心意相隨環繞3秒" },
+                { COUNT: 8, DESCRIPTION: "生成8個心意相隨環繞3秒" },
+                { COUNT: 9, DESCRIPTION: "生成9個心意相隨環繞3秒" },
+                { COUNT: 10, DESCRIPTION: "生成10個心意相隨環繞3秒" }
+            ]
+        },
+        HEART_CONNECTION: {
+            NAME: "心意相通",
+            DAMAGE: 0, // 被動技能，不造成傷害
+            COOLDOWN: 0, // 被動技能，無冷卻
+            REGEN_SPEED_BOOST_PER_LEVEL: 0.20, // 每級+20%回血速度
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "回血速度+20%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+40%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+60%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+80%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+100%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+120%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+140%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+160%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+180%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+200%" }
+            ]
+        },
         CHICKEN_BLESSING: {
             NAME: "雞腿庇佑",
             DAMAGE: 10,
@@ -773,7 +815,7 @@ const CONFIG = {
             hpMultiplier: 1.0,
             hpBonus: 50,
             speedMultiplier: 1.0,
-            description: `角色介紹：常常迷路的神界教主，是隻小兔子，偶爾會星爆？\n專屬技能：暫無`,
+            description: `角色介紹：常常迷路的神界教主，是隻小兔子，偶爾會星爆？\n專屬技能：心意相隨、心意相通`,
             // 選角預覽圖（下方角色介紹用）：使用 player5-3.png
             avatarImageKey: 'player5-2',
             // 所有模式的 HUD 左上角頭像：使用 player5-2.png
@@ -785,8 +827,8 @@ const CONFIG = {
             // 第五位角色可以使用大絕（Q），但這次先不更新專屬大絕
             canUseUltimate: true,
             disabledWeapons: [],
-            // 專屬技能：暫無
-            exclusiveWeapons: [],
+            // 專屬技能：心意相隨、心意相通
+            exclusiveWeapons: ['HEART_COMPANION', 'HEART_CONNECTION'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
         }
