@@ -484,6 +484,11 @@ class Player extends Entity {
             const newWeapon = new Weapon(this, weaponType);
             this.weapons.push(newWeapon);
         }
+        
+        // 如果添加的是心意相通技能，需要重新應用buff以更新回血速度
+        if (weaponType === 'HEART_CONNECTION' && typeof BuffSystem !== 'undefined' && typeof BuffSystem.applyBuffsFromTalents === 'function') {
+            BuffSystem.applyBuffsFromTalents(this);
+        }
     }
     
     // 升級武器
@@ -491,6 +496,10 @@ class Player extends Entity {
         const weapon = this.weapons.find(w => w.type === weaponType);
         if (weapon) {
             weapon.levelUp();
+            // 如果升級的是心意相通技能，需要重新應用buff以更新回血速度
+            if (weaponType === 'HEART_CONNECTION' && typeof BuffSystem !== 'undefined' && typeof BuffSystem.applyBuffsFromTalents === 'function') {
+                BuffSystem.applyBuffsFromTalents(this);
+            }
         }
     }
 
