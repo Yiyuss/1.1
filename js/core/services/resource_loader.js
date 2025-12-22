@@ -18,7 +18,6 @@
       promise,
       new Promise((resolve) => {
         setTimeout(() => {
-          console.warn(`[ResourceLoader] 資源載入超時 (${timeoutMs}ms): ${resourceType} "${resourceName}"`);
           resolve(null); // 超時後 resolve，不阻塞其他資源
         }, timeoutMs);
       })
@@ -82,13 +81,7 @@
       tasks.push(withTimeout(loadJSON(item.key, item.src), TIMEOUT_MS, item.key, 'JSON'));
     });
     // 使用 Promise.allSettled 而不是 Promise.all，避免單個資源失敗阻塞整個載入
-    const results = await Promise.allSettled(tasks);
-    // 統計成功和失敗的資源數量
-    const succeeded = results.filter(r => r.status === 'fulfilled').length;
-    const failed = results.filter(r => r.status === 'rejected').length;
-    if (failed > 0 || succeeded < tasks.length) {
-      console.warn(`[ResourceLoader] 模式資源載入完成 (${modeId}): ${succeeded} 成功, ${failed} 失敗, ${tasks.length - succeeded - failed} 超時/跳過`);
-    }
+    await Promise.allSettled(tasks);
   }
 
   window.ResourceLoader = { loadForMode, cache };
