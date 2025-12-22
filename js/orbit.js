@@ -12,12 +12,14 @@ class OrbitBall extends Entity {
             this.weaponType = 'CHICKEN_BLESSING';
         } else if (imageKey === 'muffin') {
             this.weaponType = 'ROTATING_MUFFIN';
+        } else if (imageKey === 'heart') {
+            this.weaponType = 'HEART_COMPANION';
         } else {
             this.weaponType = 'ORBIT';
         }
         
-        // 雞腿庇佑、綿羊護體和旋轉鬆餅：改為單次碰撞傷害（移除持續傷害，避免BOSS被秒殺）
-        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'ROTATING_MUFFIN') {
+        // 雞腿庇佑、綿羊護體、旋轉鬆餅和心意相隨：改為單次碰撞傷害（移除持續傷害，避免BOSS被秒殺）
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION') {
             // 單次碰撞傷害模式：每個敵人只造成一次傷害，然後有冷卻時間
             this.collisionCooldown = new Map(); // 記錄每個敵人的最後碰撞時間
             this.collisionCooldownMs = 500; // 每個敵人500ms內只能受到一次傷害
@@ -51,8 +53,8 @@ class OrbitBall extends Entity {
         if (this.trail.length > this.trailMax) this.trail.shift();
 
         // 根據武器類型選擇傷害模式
-        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'ROTATING_MUFFIN') {
-            // 雞腿庇佑、綿羊護體和旋轉鬆餅：單次碰撞傷害模式（避免持續傷害導致BOSS被秒殺）
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION') {
+            // 雞腿庇佑、綿羊護體、旋轉鬆餅和心意相隨：單次碰撞傷害模式（避免持續傷害導致BOSS被秒殺）
             const currentTime = Date.now();
             for (const enemy of Game.enemies) {
                 if (this.isColliding(enemy)) {
@@ -122,11 +124,16 @@ class OrbitBall extends Entity {
 
         // 視覺：拖尾繪製（輕量、僅顯示）
         if (this.trail && this.trail.length) {
+            // 處理圖片鍵映射：heart 對應 A34
+            let actualImageKey = this.imageKey;
+            if (this.imageKey === 'heart') {
+                actualImageKey = 'A34';
+            }
             for (let i = 0; i < this.trail.length; i++) {
                 const t = this.trail[i];
                 const alpha = 0.08 + (i / this.trail.length) * 0.18;
                 ctx.globalAlpha = alpha;
-                const trailImg = (Game.images && Game.images[this.imageKey]) ? Game.images[this.imageKey] : null;
+                const trailImg = (Game.images && Game.images[actualImageKey]) ? Game.images[actualImageKey] : null;
                 if (trailImg && trailImg.complete && (trailImg.naturalWidth > 0 || trailImg.width > 0)) {
                     ctx.drawImage(trailImg, t.x - size / 2, t.y - size / 2, size * (0.9 - i * 0.02), size * (0.9 - i * 0.02));
                 } else {
@@ -139,7 +146,12 @@ class OrbitBall extends Entity {
             ctx.globalAlpha = 1;
         }
 
-        const img = (Game.images && Game.images[this.imageKey]) ? Game.images[this.imageKey] : null;
+        // 處理圖片鍵映射：heart 對應 A34
+        let actualImageKey = this.imageKey;
+        if (this.imageKey === 'heart') {
+            actualImageKey = 'A34';
+        }
+        const img = (Game.images && Game.images[actualImageKey]) ? Game.images[actualImageKey] : null;
         if (img && img.complete && (img.naturalWidth > 0 || img.width > 0)) {
             ctx.drawImage(img, this.x - size / 2, this.y - size / 2, size, size);
         } else {
