@@ -326,11 +326,14 @@ class TDPlayer {
         try {
             if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
                 // 傷害強化（百分比加成）
+                // 改為加算：將倍率轉換為加成百分比，以便未來多個來源可以相加
                 const damageBoostLevel = TalentSystem.getTalentLevel('damage_boost') || 0;
                 if (damageBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.damage_boost) {
                     const effect = TalentSystem.tieredTalents.damage_boost.levels[damageBoostLevel - 1];
                     if (effect && effect.multiplier) {
-                        finalDamage *= effect.multiplier;
+                        // 將倍率轉換為加成百分比（例如 2.0 → +100%）
+                        const damageBoost = effect.multiplier - 1.0;
+                        finalDamage = finalDamage * (1.0 + damageBoost);
                     }
                 }
                 
