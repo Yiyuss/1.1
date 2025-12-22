@@ -209,6 +209,8 @@ function createDefaultImages() {
         { name: 'A32', src: 'assets/images/A32.png' }, // 不獸控制技能圖片
         { name: 'A30', src: 'assets/images/A30.png' }, // 死線超人技能圖片/成就圖片
         { name: 'A33', src: 'assets/images/A33.png' }, // 光芒萬丈技能圖片/成就圖片
+        { name: 'A34', src: 'assets/images/A34.png' }, // 心意相隨技能圖片（艾比專屬）
+        { name: 'A35', src: 'assets/images/A35.png' }, // 心意相通技能圖片（艾比專屬）
         { name: 'AI', src: 'assets/images/AI.png' }, // 召喚AI技能圖片/成就圖片
         { name: 'AI2', src: 'assets/images/AI2.png' }, // AI生命體往左圖片
         { name: 'AI3', src: 'assets/images/AI3.png' }, // AI生命體往右圖片
@@ -532,6 +534,8 @@ const iconMap = {
     UNCONTROLLABLE_BEAST: 'assets/images/A32.png',
     DEATHLINE_SUPERMAN: 'assets/images/A30.png',
     RADIANT_GLORY: 'assets/images/A33.png',
+    HEART_COMPANION: 'assets/images/A34.png',
+    HEART_CONNECTION: 'assets/images/A35.png',
     SUMMON_AI: 'assets/images/AI.png',
     MIND_MAGIC: 'assets/images/A16.png',
     ATTR_ATTACK: 'assets/images/A8.png',
