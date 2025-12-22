@@ -978,6 +978,18 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
         }
     }
     
+    // 新增：心意相隨強化（僅對心意相隨生效，直接增加基礎攻擊）
+    let heartCompanionFlat = 0;
+    if (this.type === 'HEART_COMPANION' && typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+        const heartCompanionBoostLevel = TalentSystem.getTalentLevel('heart_companion_boost') || 0;
+        if (heartCompanionBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.heart_companion_boost) {
+            const effect = TalentSystem.tieredTalents.heart_companion_boost.levels[heartCompanionBoostLevel - 1];
+            if (effect && typeof effect.flat === 'number') {
+                heartCompanionFlat = effect.flat;
+            }
+        }
+    }
+    
     // 新增：旋轉鬆餅強化（僅對旋轉鬆餅生效，直接增加基礎攻擊）
     let rotatingMuffinFlat = 0;
     if (this.type === 'ROTATING_MUFFIN' && typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
@@ -992,7 +1004,7 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + rotatingMuffinFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
