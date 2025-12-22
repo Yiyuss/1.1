@@ -79,7 +79,7 @@
           promise,
           new Promise((resolve) => {
             setTimeout(() => {
-              console.warn(`[ResourceLoader] 資源載入超時 (${timeoutMs}ms): ${resourceType} "${resourceName}"`);
+
               resolve(); // 超時後 resolve，不阻塞其他資源
             }, timeoutMs);
           })
@@ -126,13 +126,7 @@
         }
       }
       // 使用 Promise.allSettled 而不是 Promise.all，避免單個資源失敗阻塞整個載入
-      const results = await Promise.allSettled(tasks);
-      // 統計成功和失敗的資源數量
-      const succeeded = results.filter(r => r.status === 'fulfilled').length;
-      const failed = results.filter(r => r.status === 'rejected').length;
-      if (failed > 0) {
-        console.warn(`[ResourceLoader] 資源載入完成: ${succeeded} 成功, ${failed} 失敗`);
-      }
+      await Promise.allSettled(tasks);
     }
 
     return {
@@ -445,5 +439,4 @@
   if (!global.GameModeManager) global.GameModeManager = GameModeManager;
   // 導出 TransitionLayer 到全域，允許外部提前顯示（如從選角界面進入時）
   if (!global.TransitionLayer) global.TransitionLayer = TransitionLayer;
-})(typeof window !== 'undefined' ? window : globalThis);
 })(typeof window !== 'undefined' ? window : globalThis);
