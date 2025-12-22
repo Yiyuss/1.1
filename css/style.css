@@ -110,7 +110,7 @@ body {
     height: 720px;
     padding: 24px;
     border-radius: 12px;
-    background: linear-gradient(rgba(20,20,20,0.50), rgba(20,20,20,0.65)), url('../assets/images/Background3.jpg') center/cover no-repeat, url('../assets/images/background3.jpg') center/cover no-repeat;
+    background: linear-gradient(rgba(20,20,20,0.50), rgba(20,20,20,0.65)), url('../assets/images/background3.jpg') center/cover no-repeat;
     box-shadow: 0 12px 40px rgba(0,0,0,0.6);
     backdrop-filter: blur(6px);
     overflow: hidden; /* 隱藏整個開始介面的捲軸 */
@@ -1187,7 +1187,6 @@ body {
 /* 內框（char-card-wrap）：半透明面板疊加兩層底圖，含陰影與模糊 */
 .char-card-wrap { width: min(1100px, 92vw); max-height: 92vh; overflow: auto; padding: 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(6px); background:
   var(--panel-grad),
-  url('../assets/images/Background3.jpg') center/cover no-repeat,
   url('../assets/images/background3.jpg') center/cover no-repeat;
 }
 .char-title { font-size: clamp(26px, 4vw, 40px); letter-spacing: 1px; margin-bottom: 8px; text-align: center; background: rgba(128,128,128,0.35); border-radius: 10px; padding: 8px 12px; display: block; width: fit-content; margin: 0 auto 8px; }
@@ -1433,7 +1432,6 @@ body {
   position: relative;
   background:
     var(--panel-grad),
-    url('../assets/images/Background3.jpg') center/cover no-repeat,
     url('../assets/images/background3.jpg') center/cover no-repeat;
 }
 #backup-screen #backup-back {
@@ -2395,7 +2393,7 @@ body {
 }
 
 /* 成就介面容器：沿用天賦的半透明面板背景 */
-#achievements-screen .char-card-wrap { position: relative; background: var(--panel-grad), url('../assets/images/Background3.jpg') center/cover no-repeat, url('../assets/images/background3.jpg') center/cover no-repeat; }
+#achievements-screen .char-card-wrap { position: relative; background: var(--panel-grad), url('../assets/images/background3.jpg') center/cover no-repeat; }
 #achievements-screen #achievements-back { position: absolute; right: 14px; bottom: 14px; margin: 0; }
 
 /* 成就介面背景：與其他介面一致使用 background2.jpg */
