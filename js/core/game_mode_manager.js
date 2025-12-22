@@ -71,16 +71,39 @@
     async function loadManifest(manifest){
       if (!manifest) return;
       const tasks = [];
+      const TIMEOUT_MS = 10000; // 10秒超時
+      
+      // 超時包裝函數：為 Promise 添加超時機制
+      function withTimeout(promise, timeoutMs, resourceName, resourceType){
+        return Promise.race([
+          promise,
+          new Promise((resolve) => {
+            setTimeout(() => {
+              console.warn(`[ResourceLoader] 資源載入超時 (${timeoutMs}ms): ${resourceType} "${resourceName}"`);
+              resolve(); // 超時後 resolve，不阻塞其他資源
+            }, timeoutMs);
+          })
+        ]);
+      }
+      
       // 圖片：以 <img> 載入並快取在 Bucket，避免影響全域資源表
       if (Array.isArray(manifest.images)) {
         for (const it of manifest.images) {
           if (!it || !it.key || !it.src) continue;
-          tasks.push(new Promise((resolve) => {
+          const imgPromise = new Promise((resolve) => {
             const img = new Image();
-            img.onload = () => { images.set(it.key, img); resolve(); };
-            img.onerror = () => { resolve(); };
+            img.onload = () => { 
+              images.set(it.key, img); 
+              resolve(); 
+            };
+            img.onerror = () => { 
+              console.warn(`[ResourceLoader] 圖片載入失敗: ${it.key} (${it.src})`);
+              resolve(); 
+            };
             img.src = it.src;
-          }));
+          });
+          // 添加超時機制
+          tasks.push(withTimeout(imgPromise, TIMEOUT_MS, it.key, '圖片'));
         }
       }
       // 音訊：保留路徑映射於 Bucket；具體播放由 audioAdapter 決定
@@ -94,10 +117,22 @@
       if (Array.isArray(manifest.json)) {
         for (const it of manifest.json) {
           if (!it || !it.key || !it.src) continue;
-          tasks.push(fetch(it.src).then(r=>r.ok?r.json():null).catch(()=>null).then(data=>{ if (data) json.set(it.key, data); }));
+          const jsonPromise = fetch(it.src)
+            .then(r=>r.ok?r.json():null)
+            .catch(()=>null)
+            .then(data=>{ if (data) json.set(it.key, data); });
+          // 添加超時機制
+          tasks.push(withTimeout(jsonPromise, TIMEOUT_MS, it.key, 'JSON'));
         }
       }
-      await Promise.all(tasks);
+      // 使用 Promise.allSettled 而不是 Promise.all，避免單個資源失敗阻塞整個載入
+      const results = await Promise.allSettled(tasks);
+      // 統計成功和失敗的資源數量
+      const succeeded = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+      if (failed > 0) {
+        console.warn(`[ResourceLoader] 資源載入完成: ${succeeded} 成功, ${failed} 失敗`);
+      }
     }
 
     return {
@@ -410,4 +445,5 @@
   if (!global.GameModeManager) global.GameModeManager = GameModeManager;
   // 導出 TransitionLayer 到全域，允許外部提前顯示（如從選角界面進入時）
   if (!global.TransitionLayer) global.TransitionLayer = TransitionLayer;
+})(typeof window !== 'undefined' ? window : globalThis);
 })(typeof window !== 'undefined' ? window : globalThis);
