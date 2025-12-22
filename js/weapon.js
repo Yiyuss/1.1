@@ -13,8 +13,11 @@ class Weapon {
     }
     
     update(deltaTime) {
-        // 抽象化和不獸控制是被動技能，不需要發射
-        if (this.type === 'ABSTRACTION' || this.type === 'UNCONTROLLABLE_BEAST') {
+        // 抽象化、不獸控制和心意相通是被動技能，不需要發射
+        if (this.type === 'ABSTRACTION' || this.type === 'UNCONTROLLABLE_BEAST' || this.type === 'HEART_CONNECTION') {
+            // 心意相通：被動提升回血速度（倍率由 BuffSystem 統一管理）
+            // 注意：心意相通的倍率應該在 BuffSystem.applyBuffsFromTalents 中統一管理
+            // 這裡不需要額外設置，避免與 BuffSystem 的邏輯衝突
             return;
         }
         
@@ -219,6 +222,32 @@ class Weapon {
                 Game.addProjectile(orb);
             }
             // 旋轉鬆餅技能不需要追蹤敵人角度，直接返回
+            return;
+        }
+        // 特殊技能：心意相隨（與綿羊護體邏輯相同，但使用不同圖片）
+        if (this.type === 'HEART_COMPANION') {
+            const count = this.projectileCount;
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2;
+                const baseRadius = this.config.ORBIT_RADIUS;
+                const perLevel = this.config.ORBIT_RADIUS_PER_LEVEL || 0;
+                const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+                const baseSize = this.config.PROJECTILE_SIZE;
+                const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
+                const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
+                const orb = new OrbitBall(
+                    this.player,
+                    angle,
+                    dynamicRadius,
+                    this._computeFinalDamage(levelMul),
+                    dynamicSize,
+                    this.config.DURATION,
+                    this.config.ANGULAR_SPEED,
+                    'heart' // 使用 A34.png 作為外觀
+                );
+                Game.addProjectile(orb);
+            }
+            // 心意相隨技能不需要追蹤敵人角度，直接返回
             return;
         }
 
