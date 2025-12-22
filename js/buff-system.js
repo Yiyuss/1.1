@@ -26,8 +26,18 @@ const BuffSystem = {
                 const baseMax = (player && typeof player.baseMaxHealth === 'number')
                     ? player.baseMaxHealth
                     : CONFIG.PLAYER.MAX_HEALTH;
+                const oldMaxHealth = player.maxHealth || baseMax;
                 player.maxHealth = baseMax + healthBoost;
-                player.health = player.maxHealth;
+                // 只有在最大血量增加时才按比例增加当前血量，而不是直接满血
+                // 如果最大血量减少，则保持当前血量但不超过新上限
+                if (player.maxHealth > oldMaxHealth) {
+                    // 最大血量增加：按比例增加当前血量
+                    const healthRatio = player.health / oldMaxHealth;
+                    player.health = Math.min(player.maxHealth, Math.floor(player.health + (player.maxHealth - oldMaxHealth) * healthRatio));
+                } else {
+                    // 最大血量减少或不变：保持当前血量但不超过新上限
+                    player.health = Math.min(player.health, player.maxHealth);
+                }
                 if (typeof UI !== 'undefined' && UI.updateHealthBar) {
                     UI.updateHealthBar(player.health, player.maxHealth);
                 }
@@ -95,17 +105,35 @@ const BuffSystem = {
                 player.experienceGainMultiplier = 1.0;
             }
         },
-        // 新增：回血強化（階梯，乘算速度）
+        // 新增：回血強化（階梯，加算速度）
         regen_speed_boost: {
             name: '回血強化',
             apply: function(player) {
                 const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                     ? TalentSystem.getTalentLevel('regen_speed_boost') : 0;
                 const mul = BuffSystem._getTierEffect('regen_speed_boost', lv, 'multiplier', 1.0) || 1.0;
-                player.healthRegenSpeedMultiplier = mul;
+                // 將倍率轉換為加成百分比（例如 2.30 → +130%）
+                const talentBoost = mul - 1.0;
+                // 與心意相通技能疊加（加算，不是乘算）
+                // 確保心意相通倍率存在且有效（如果沒有該技能，應該是 1.0）
+                const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 0) 
+                    ? player._heartConnectionRegenMultiplier 
+                    : 1.0;
+                const heartConnectionBoost = heartConnectionMul - 1.0;
+                // 最終倍率 = 基礎(1.0) + 天賦加成 + 心意相通加成
+                const oldMultiplier = player.healthRegenSpeedMultiplier || 1.0;
+                player.healthRegenSpeedMultiplier = 1.0 + talentBoost + heartConnectionBoost;
+                // 當回血速度倍率改變時，重置回血累積器，避免瞬間回滿血
+                if (oldMultiplier !== player.healthRegenSpeedMultiplier && player.healthRegenAccumulator != null) {
+                    player.healthRegenAccumulator = 0;
+                }
             },
             remove: function(player) {
-                player.healthRegenSpeedMultiplier = 1.0;
+                // 移除時，如果還有心意相通，保留心意相通的倍率
+                const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 0) 
+                    ? player._heartConnectionRegenMultiplier 
+                    : 1.0;
+                player.healthRegenSpeedMultiplier = heartConnectionMul;
             }
         },
         // 已移除 damage_boost：邏輯整合於統一傷害公式
@@ -123,6 +151,8 @@ const BuffSystem = {
         if (player.damageReductionFlat == null) player.damageReductionFlat = 0;
         if (player.healthRegenSpeedMultiplier == null) player.healthRegenSpeedMultiplier = 1.0;
         if (player.experienceGainMultiplier == null) player.experienceGainMultiplier = 1.0;
+        // 初始化心意相通倍率為1.0（確保沒有殘留值）
+        if (player._heartConnectionRegenMultiplier == null) player._heartConnectionRegenMultiplier = 1.0;
         // 新增：傷害與爆擊相關屬性（不影響UI與數值，僅初始化）
         if (player.damageTalentBaseBonusPct == null) player.damageTalentBaseBonusPct = 0;
         if (player.damageSpecializationFlat == null) player.damageSpecializationFlat = 0;
@@ -262,6 +292,39 @@ const BuffSystem = {
             if (prLv > 0) this.applyBuff(player, 'pickup_range_boost');
             if (regenLv > 0) this.applyBuff(player, 'regen_speed_boost');
             if (expLv > 0) this.applyBuff(player, 'experience_boost');
+            
+            // 心意相通技能：檢查玩家是否擁有該技能並應用回血速度提升
+            // 先清除心意相通的倍率（確保沒有殘留值）
+            player._heartConnectionRegenMultiplier = 1.0;
+            if (player.weapons && Array.isArray(player.weapons)) {
+                const heartConnectionWeapon = player.weapons.find(w => w && w.type === 'HEART_CONNECTION');
+                if (heartConnectionWeapon) {
+                    // 確保 config 存在（如果沒有，從 CONFIG.WEAPONS 獲取）
+                    const config = heartConnectionWeapon.config || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.HEART_CONNECTION) ? CONFIG.WEAPONS.HEART_CONNECTION : null;
+                    if (config) {
+                        const boostPerLevel = config.REGEN_SPEED_BOOST_PER_LEVEL || 0.20;
+                        const level = heartConnectionWeapon.level || 1;
+                        // 計算心意相通的倍率（例如 LV10: 1.0 + 0.20 * 10 = 3.0）
+                        const totalBoost = 1.0 + (boostPerLevel * level);
+                        player._heartConnectionRegenMultiplier = totalBoost;
+                    }
+                }
+            }
+            // 觸發回血強化buff更新（會自動與天賦和心意相通加算）
+            const oldMultiplier = player.healthRegenSpeedMultiplier || 1.0;
+            if (regenLv > 0) {
+                this.applyBuff(player, 'regen_speed_boost');
+            } else {
+                // 如果沒有天賦，檢查是否有心意相通
+                const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 1.0) 
+                    ? player._heartConnectionRegenMultiplier 
+                    : 1.0;
+                player.healthRegenSpeedMultiplier = heartConnectionMul;
+            }
+            // 當回血速度倍率改變時，重置回血累積器，避免瞬間回滿血
+            if (oldMultiplier !== player.healthRegenSpeedMultiplier && player.healthRegenAccumulator != null) {
+                player.healthRegenAccumulator = 0;
+            }
             
             // 統一讀取六階：基礎傷害%、傷害特化平值、爆擊率%
             player.damageTalentBaseBonusPct = BuffSystem._getTierEffect('damage_boost', dmgLv, 'multiplier', 1.0) - 1.0 || 0;
