@@ -42,41 +42,84 @@ const ResourceLoader = {
         this.totalResources = imageList.length + soundList.length + musicList.length;
         this.updateProgress('準備載入資源...', `共 ${this.totalResources} 個資源`);
         
+        const TIMEOUT_MS = 10000; // 10秒超時
+        
+        // 超時包裝函數：為 Promise 添加超時機制
+        const withTimeout = (promise, timeoutMs, resourceName, resourceType) => {
+            return Promise.race([
+                promise,
+                new Promise((resolve) => {
+                    setTimeout(() => {
+                        console.warn(`[ResourceLoader] 資源載入超時 (${timeoutMs}ms): ${resourceType} "${resourceName}"`);
+                        resolve(); // 超時後 resolve，不阻塞其他資源
+                    }, timeoutMs);
+                })
+            ]);
+        };
+        
         // 並行加載所有資源
         const allPromises = [];
         
         // 加載圖片
         this.updateProgress('載入圖片資源...', `0 / ${imageList.length} 圖片`);
         imageList.forEach((img, index) => {
-            const promise = this.loadImage(img.name, img.src).then(() => {
-                this.loadedResources++;
-                this.updateProgress('載入圖片資源...', `${index + 1} / ${imageList.length} 圖片`);
-            });
-            allPromises.push(promise);
+            const promise = this.loadImage(img.name, img.src)
+                .then(() => {
+                    this.loadedResources++;
+                    this.updateProgress('載入圖片資源...', `${index + 1} / ${imageList.length} 圖片`);
+                })
+                .catch((err) => {
+                    console.warn(`[ResourceLoader] 圖片載入錯誤: ${img.name}`, err);
+                    this.loadedResources++;
+                    this.updateProgress('載入圖片資源...', `${index + 1} / ${imageList.length} 圖片`);
+                });
+            // 添加超時機制
+            allPromises.push(withTimeout(promise, TIMEOUT_MS, img.name, '圖片'));
         });
         
         // 加載音效
         this.updateProgress('載入音效資源...', `0 / ${soundList.length} 音效`);
         soundList.forEach((sound, index) => {
-            const promise = this.loadSound(sound.name, sound.src).then(() => {
-                this.loadedResources++;
-                this.updateProgress('載入音效資源...', `${index + 1} / ${soundList.length} 音效`);
-            });
-            allPromises.push(promise);
+            const promise = this.loadSound(sound.name, sound.src)
+                .then(() => {
+                    this.loadedResources++;
+                    this.updateProgress('載入音效資源...', `${index + 1} / ${soundList.length} 音效`);
+                })
+                .catch((err) => {
+                    console.warn(`[ResourceLoader] 音效載入錯誤: ${sound.name}`, err);
+                    this.loadedResources++;
+                    this.updateProgress('載入音效資源...', `${index + 1} / ${soundList.length} 音效`);
+                });
+            // 添加超時機制
+            allPromises.push(withTimeout(promise, TIMEOUT_MS, sound.name, '音效'));
         });
         
         // 加載BGM
         this.updateProgress('載入背景音樂...', `0 / ${musicList.length} 音樂`);
         musicList.forEach((music, index) => {
-            const promise = this.loadMusic(music.name, music.src).then(() => {
-                this.loadedResources++;
-                this.updateProgress('載入背景音樂...', `${index + 1} / ${musicList.length} 音樂`);
-            });
-            allPromises.push(promise);
+            const promise = this.loadMusic(music.name, music.src)
+                .then(() => {
+                    this.loadedResources++;
+                    this.updateProgress('載入背景音樂...', `${index + 1} / ${musicList.length} 音樂`);
+                })
+                .catch((err) => {
+                    console.warn(`[ResourceLoader] BGM載入錯誤: ${music.name}`, err);
+                    this.loadedResources++;
+                    this.updateProgress('載入背景音樂...', `${index + 1} / ${musicList.length} 音樂`);
+                });
+            // 添加超時機制
+            allPromises.push(withTimeout(promise, TIMEOUT_MS, music.name, 'BGM'));
         });
         
-        // 等待所有資源加載完成
-        await Promise.all(allPromises);
+        // 使用 Promise.allSettled 而不是 Promise.all，避免單個資源失敗阻塞整個載入
+        const results = await Promise.allSettled(allPromises);
+        
+        // 統計成功和失敗的資源數量
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+        if (failed > 0 || succeeded < allPromises.length) {
+            console.warn(`[ResourceLoader] 資源預加載完成: ${succeeded} 成功, ${failed} 失敗, ${allPromises.length - succeeded - failed} 超時/跳過`);
+        }
         
         this.updateProgress('載入完成！', '所有資源已準備就緒');
         
