@@ -171,12 +171,15 @@ class AICompanion extends Entity {
             }
             
             // 應用AI強化天賦（只影響AI傷害，不影響玩家）
+            // 改為加算：將倍率轉換為加成百分比，以便未來多個來源可以相加
             if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
                 const aiBoostLevel = TalentSystem.getTalentLevel('ai_boost') || 0;
                 if (aiBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.ai_boost) {
                     const effect = TalentSystem.tieredTalents.ai_boost.levels[aiBoostLevel - 1];
                     if (effect && typeof effect.multiplier === 'number') {
-                        damage *= effect.multiplier;
+                        // 將倍率轉換為加成百分比（例如 2.0 → +100%）
+                        const aiBoost = effect.multiplier - 1.0;
+                        damage = damage * (1.0 + aiBoost);
                     }
                 }
             }
@@ -243,12 +246,15 @@ class AICompanion extends Entity {
             }
             
             // 應用AI強化天賦（只影響AI傷害，不影響玩家）
+            // 改為加算：將倍率轉換為加成百分比，以便未來多個來源可以相加
             if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
                 const aiBoostLevel = TalentSystem.getTalentLevel('ai_boost') || 0;
                 if (aiBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.ai_boost) {
                     const effect = TalentSystem.tieredTalents.ai_boost.levels[aiBoostLevel - 1];
                     if (effect && typeof effect.multiplier === 'number') {
-                        damage *= effect.multiplier;
+                        // 將倍率轉換為加成百分比（例如 2.0 → +100%）
+                        const aiBoost = effect.multiplier - 1.0;
+                        damage = damage * (1.0 + aiBoost);
                     }
                 }
             }
