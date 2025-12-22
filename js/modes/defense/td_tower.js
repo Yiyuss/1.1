@@ -523,11 +523,14 @@ class TDProjectile {
             try {
                 if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel && TalentSystem.tieredTalents) {
                     // 傷害強化（百分比）
+                    // 改為加算：將倍率轉換為加成百分比，以便未來多個來源可以相加
                     const dmgBoostLv = TalentSystem.getTalentLevel('damage_boost') || 0;
                     if (dmgBoostLv > 0 && TalentSystem.tieredTalents.damage_boost) {
                         const eff = TalentSystem.tieredTalents.damage_boost.levels[dmgBoostLv - 1];
                         if (eff && eff.multiplier) {
-                            dmg *= eff.multiplier;
+                            // 將倍率轉換為加成百分比（例如 2.0 → +100%）
+                            const damageBoost = eff.multiplier - 1.0;
+                            dmg = dmg * (1.0 + damageBoost);
                         }
                     }
                     // 傷害特化（固定值）
