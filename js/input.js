@@ -9,7 +9,6 @@ const Input = {
         // 監聽按鍵按下事件
         window.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
-            console.log('按鍵按下:', e.key); // 調試信息
             
             // 處理特殊按鍵組合
             if (e.ctrlKey && e.key === 'o') {
@@ -28,7 +27,6 @@ const Input = {
         // 監聽按鍵釋放事件
         window.addEventListener('keyup', (e) => {
             this.keys[e.key] = false;
-            console.log('按鍵釋放:', e.key); // 調試信息
         });
         
         // 禁止右鍵與非左鍵點擊（避免觸發瀏覽器選單或異常行為）
