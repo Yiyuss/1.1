@@ -359,9 +359,49 @@
 
           // 设置动画混合器
           if (gltf.animations && gltf.animations.length > 0) {
+            // ===== 关键：剔除「非骨骼节点」的位移/旋转轨道，避免跳完后角色被动画带着转圈 =====
+            // 现实物理 + 本模式设计：移动/转向由代码控制；动画只负责骨架姿势，不应改动根节点的transform。
+            const collectBoneNames = (root) => {
+              const set = new Set();
+              root.traverse((obj) => {
+                if (obj && obj.isBone && typeof obj.name === 'string') {
+                  set.add(obj.name);
+                }
+              });
+              return set;
+            };
+
+            const sanitizeClip = (clip, boneNames) => {
+              // 过滤掉非骨骼节点的 transform 轨道（position/quaternion/rotation）
+              // 这样可以避免某些动画（尤其Jump）把 Armature/Scene 根节点旋转一圈导致“落地转圈”。
+              const keptTracks = clip.tracks.filter((track) => {
+                const name = track && track.name ? String(track.name) : '';
+                const dot = name.indexOf('.');
+                if (dot <= 0) return true;
+                const nodeName = name.slice(0, dot);
+                const prop = name.slice(dot + 1);
+
+                const isTransform =
+                  prop === 'position' ||
+                  prop === 'quaternion' ||
+                  prop === 'rotation';
+
+                // 非骨骼节点的 transform 一律剔除（由代码控制）
+                if (isTransform && nodeName && !boneNames.has(nodeName)) {
+                  return false;
+                }
+                return true;
+              });
+
+              const sanitized = new THREE.AnimationClip(clip.name, clip.duration, keptTracks);
+              return sanitized;
+            };
+
+            const boneNames = collectBoneNames(playerModel);
             playerMixer = new THREE.AnimationMixer(playerModel);
             gltf.animations.forEach((clip) => {
-              const action = playerMixer.clipAction(clip);
+              const safeClip = sanitizeClip(clip, boneNames);
+              const action = playerMixer.clipAction(safeClip);
               playerActions[clip.name] = action;
               console.log('[3D Mode] Found animation:', clip.name);
             });
