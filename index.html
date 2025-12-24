@@ -321,6 +321,7 @@
                 <button id="mode-defense" class="mode-btn" aria-label="防禦模式">防禦模式</button>
                 <button id="mode-main" class="mode-btn" aria-label="主線模式">主線模式</button>
                 <button id="mode-adventure" class="mode-btn" aria-label="冒險模式">冒險模式</button>
+                <button id="mode-3d" class="mode-btn" aria-label="3D模式">3D模式</button>
               </div>
 
               <!-- 右：地圖格與下方介紹 -->
@@ -493,6 +494,34 @@
                   </button>
                 </div>
 
+                <!-- 3D模式：DEMO城市 -->
+                <div class="map-grid hidden" id="grid-3d">
+                  <button class="map-card selectable" data-map-id="3d-demo-city">
+                    <img src="assets/images/background11.jpg" alt="DEMO城市">
+                    <div class="map-name">DEMO城市</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="3d-2">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="3d-3">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="3d-4">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="3d-5">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                  <button class="map-card disabled" data-map-id="3d-6">
+                    <img src="assets/images/background3.jpg" alt="尚未開放">
+                    <div class="map-name">尚未開放</div>
+                  </button>
+                </div>
+
                 <!-- 下方資訊區：左側 GM.png、右側介紹文字 -->
                 <div class="map-info">
                   <div class="map-preview" aria-hidden="true">
@@ -506,6 +535,22 @@
             <!-- 右下角美化返回鍵 -->
             <button id="map-cancel" class="return-btn ghost" aria-label="返回">返回</button>
           </div>
+        </div>
+
+        <!-- 3D模式密碼輸入疊蓋視窗（放在map-select-screen外面，確保能覆蓋整個屏幕） -->
+        <div id="password-overlay" class="modal hidden" style="position: fixed; z-index: 10000; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;">
+            <div class="modal-card" style="width: min(420px, 92vw); padding: 16px; background: var(--panel-bg); border: var(--border-soft); border-radius: 12px; box-shadow: var(--shadow-lg); backdrop-filter: blur(var(--blur-6));">
+                <h2>輸入密碼</h2>
+                <div class="redeem-code-form">
+                    <label for="password-input">請輸入密碼以進入DEMO城市：</label>
+                    <input type="password" id="password-input" placeholder="請輸入密碼" maxlength="50">
+                    <div id="password-message" class="redeem-code-message"></div>
+                </div>
+                <div class="modal-actions">
+                    <button id="password-submit" class="ghost">確認</button>
+                    <button id="password-close" class="ghost">取消</button>
+                </div>
+            </div>
         </div>
 
     <!-- 難度選擇介面 -->
@@ -1103,6 +1148,22 @@
         <script src="js/core/mode_manager.js"></script>
         <!-- 主用：隔離化 GameModeManager（新模式與主線模式皆走此管理器） -->
         <script src="js/core/game_mode_manager.js"></script>
+        <!-- Three.js 庫（3D模式需要） -->
+        <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+        <!-- GLTFLoader (使用ES6模块导入) -->
+        <script type="module">
+        // 动态加载GLTFLoader并挂载到全局
+        import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js').then(module => {
+          window.GLTFLoader = module.GLTFLoader;
+          window.GLTFLoaderReady = true;
+          console.log('[3D Mode] GLTFLoader loaded successfully');
+          window.dispatchEvent(new CustomEvent('gltfloader-ready'));
+        }).catch(err => {
+          console.error('[3D Mode] Failed to load GLTFLoader:', err);
+          window.GLTFLoaderError = err;
+          window.dispatchEvent(new CustomEvent('gltfloader-error', { detail: err }));
+        });
+        </script>
         <!-- 生存模式適配層：封裝既有生存模式為 Mode 介面 -->
         <script src="js/modes/survival/index.js"></script>
         <!-- 挑戰模式專屬 GIF 覆蓋層：獨立於生存模式，避免汙染 -->
@@ -1182,6 +1243,8 @@
         <script src="js/modes/adventure/adventure_save_code.js"></script>
         <!-- 冒險模式骨架：以 iframe 掛載獨立 Terraria 風格遊戲 -->
         <script src="js/modes/adventure/index.js"></script>
+        <!-- 3D模式骨架：使用Three.js載入3D模型並實現角色控制 -->
+        <script src="js/modes/3d/index.js"></script>
         <script src="js/main.js"></script>
         
         <!-- TD組件可用性檢查 -->
