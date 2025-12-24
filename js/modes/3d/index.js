@@ -301,6 +301,11 @@
       const PLAYER_Y_OFFSET = -0;
       let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
       let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
+      // 跑步鍵“防衝突”備援：
+      // 有些鍵盤會發生 Shift+W+Space 的 ghosting（導致跑步時按空白沒反應）。
+      // 這裡保留 Shift 按住跑步，但額外提供 R 切換跑步（不用一直按 Shift，也能跑+跳）。
+      let runToggle = false;
+      let lastRunToggleKeyState = false;
 
       // 输入状态
       const keys = {
@@ -313,7 +318,8 @@
         arrowLeft: false,
         arrowRight: false,
         shift: false,
-        space: false
+        space: false,
+        r: false
       };
 
       // 加载地图模型
@@ -549,6 +555,9 @@
         
         // 空格键
         if (key === ' ' || key === 'space' || code === 'space') { keys.space = true; e.preventDefault(); e.stopPropagation(); }
+
+        // R 键：切换跑步（防 ghosting 备援）
+        if (key === 'r' || code === 'keyr') { keys.r = true; }
         
         // 方向键
         if (e.key === 'ArrowUp' || code === 'arrowup') { keys.arrowUp = true; e.preventDefault(); e.stopPropagation(); }
@@ -572,6 +581,9 @@
         
         // 空格键
         if (key === ' ' || key === 'space' || code === 'space') { keys.space = false; }
+
+        // R 键
+        if (key === 'r' || code === 'keyr') { keys.r = false; }
         
         // 方向键
         if (e.key === 'ArrowUp' || code === 'arrowup') { keys.arrowUp = false; }
@@ -760,7 +772,15 @@
 
         const moveLength = moveDir.length();
         const isMoving = moveLength > 0;
-        const isRunning = keys.shift && isMoving;
+        // R 切換跑步（按一次切換狀態）
+        const runTogglePressed = keys.r && !lastRunToggleKeyState;
+        lastRunToggleKeyState = keys.r;
+        if (runTogglePressed) {
+          runToggle = !runToggle;
+          console.log('[3D Mode] Run toggle:', runToggle ? 'ON' : 'OFF');
+        }
+
+        const isRunning = (keys.shift || runToggle) && isMoving;
         
         // 归一化移动方向
         if (isMoving) {
