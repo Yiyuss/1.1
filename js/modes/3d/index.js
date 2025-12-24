@@ -215,7 +215,7 @@
       
       // 相机控制变量
       let cameraDistance = 10;
-      let cameraHeight = 5;
+      let cameraHeight = 3; // 降低摄影机高度（从5改为3）
       let cameraAngleX = 0; // 水平旋转角度
       let cameraAngleY = Math.PI / 6; // 垂直角度（俯视角度）
       let isRightMouseDown = false;
@@ -580,12 +580,43 @@
           return;
         }
         
-        if (currentAction === newAction) return;
-
-        if (currentAction) {
-          currentAction.fadeOut(0.2);
+        // 如果是同一个动作，不切换（但如果是跳跃动画，必须强制停止）
+        if (currentAction === newAction) {
+          // 如果当前是跳跃动画，必须强制停止并切换
+          const currentClipName = currentAction ? currentAction.getClip().name.toLowerCase() : '';
+          if (currentClipName.includes('jump')) {
+            console.log('[3D Mode] Force stopping jump animation and switching to:', actionName);
+            if (currentAction) {
+              currentAction.stop();
+              currentAction.reset();
+            }
+            // 继续执行切换逻辑，不return
+          } else {
+            return; // 非跳跃动画，如果相同就不切换
+          }
         }
-        newAction.reset().fadeIn(0.2).setLoop(THREE.LoopRepeat).play();
+
+        // 停止当前动画
+        if (currentAction) {
+          // 如果当前是跳跃动画，立即停止，不淡出
+          const currentClipName = currentAction.getClip().name.toLowerCase();
+          if (currentClipName.includes('jump')) {
+            currentAction.stop();
+            currentAction.reset();
+          } else {
+            currentAction.fadeOut(0.1); // 非跳跃动画，淡出切换
+          }
+        }
+        
+        // 播放新动画（跳跃动画设置为LoopOnce，其他设置为LoopRepeat）
+        const isJumpAnimation = actionName.toLowerCase().includes('jump');
+        newAction.reset().fadeIn(0.1);
+        if (isJumpAnimation) {
+          newAction.setLoop(THREE.LoopOnce); // 跳跃动画不循环
+        } else {
+          newAction.setLoop(THREE.LoopRepeat); // 其他动画循环
+        }
+        newAction.play();
         currentAction = newAction;
       };
 
@@ -706,18 +737,20 @@
               // 现实物理：跳跃动画完全结束 = 落地完成 → 重置状态，允许下一次跳跃
               console.log('[3D Mode] Jump animation finished. Progress:', jumpProgress.toFixed(2), 'Running:', currentAction.isRunning());
               
-              // 停止跳跃动画（确保动画完全停止）
-              if (currentAction) {
-                currentAction.stop();
-              }
-              
-              // 现实物理：落地后，立即重置跳跃状态（关键：必须在切换动画之前重置）
-              // 这样下次按下跳跃键时，isJumping已经是false，可以响应
+              // 现实物理：落地后，立即重置跳跃状态（关键：必须在停止动画和切换动画之前重置）
+              // 这样即使后续逻辑有问题，状态也已经重置，不会导致循环跳跃
               isJumping = false;
               wasRunningWhenJumped = false;
               
+              // 停止跳跃动画（确保动画完全停止）
+              if (currentAction) {
+                currentAction.stop();
+                currentAction.reset(); // 重置动画到开始状态，确保完全停止
+              }
+              
               // 现实物理：落地后，根据当前状态切换回Idle或Walking/Running
               // 玩家落地后，如果还在移动，就切换到Walking/Running；如果静止，就切换到Idle
+              // 关键：必须强制切换动画，确保跳跃动画完全停止
               if (isMoving) {
                 switchAction(isRunning ? 'Running' : 'Walking');
               } else {
@@ -732,17 +765,14 @@
             console.warn('[3D Mode] Jump state mismatch: isJumping=true but current animation is not jump, resetting state');
             isJumping = false;
             wasRunningWhenJumped = false;
-            if (isMoving) {
-              switchAction(isRunning ? 'Running' : 'Walking');
-            } else {
-              switchAction('Idle');
-            }
+            // 不切换动画，因为当前动画已经是正确的了
           } else if (!currentAction.isRunning()) {
             // 现实物理：如果跳跃动画已经停止但isJumping还是true，说明状态未重置
             // 强制重置状态，允许下一次跳跃
             console.warn('[3D Mode] Jump animation stopped but isJumping=true, resetting state');
             isJumping = false;
             wasRunningWhenJumped = false;
+            // 强制切换回Idle或Walking/Running
             if (isMoving) {
               switchAction(isRunning ? 'Running' : 'Walking');
             } else {
