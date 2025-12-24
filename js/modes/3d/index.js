@@ -210,15 +210,10 @@
         75,
         webglCanvas.width / webglCanvas.height,
         0.1,
-        220 // 視距（類似麥快 render distance）：超過這個距離的東西不會被渲染（可大幅省效能）
+        1000
       );
-      // 確保相機只渲染 layer 0（地圖視距裁切用 layer 切換，而不是 mesh.visible，避免 raycast 失效）
-      camera.layers.set(0);
       
       // 相机控制变量
-      const CAMERA_MIN_DISTANCE = 3;
-      const CAMERA_MAX_DISTANCE = 18; // 滾輪最遠距離再縮短（更接近「麥快」視覺距離）
-      const MAP_RENDER_DISTANCE = 140; // 地圖「渲染距離」：視線外的 mesh 直接設 visible=false，避免整張地圖一直吃渲染資源
       let cameraDistance = 10;
       let cameraHeight = 2; // 降低摄影机高度（从5改为2）
       let cameraAngleX = 0; // 水平旋转角度
@@ -270,9 +265,7 @@
       };
       ctx.events.on(window, 'resize', handleResize);
       // 禁用阴影以优化性能（3D探索模式不需要阴影）
-      // 重新开阴影（但保持低成本设置，避免性能炸裂）
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFShadowMap;
+      renderer.shadowMap.enabled = false;
 
       // 添加光源
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -280,20 +273,8 @@
 
       const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
       directionalLight.position.set(10, 10, 5);
-      directionalLight.castShadow = true;
-      // 低成本阴影参数（重点：小 shadow map + 小范围）
-      directionalLight.shadow.mapSize.width = 1024;
-      directionalLight.shadow.mapSize.height = 1024;
-      directionalLight.shadow.camera.near = 0.5;
-      directionalLight.shadow.camera.far = 80;
-      directionalLight.shadow.camera.left = -25;
-      directionalLight.shadow.camera.right = 25;
-      directionalLight.shadow.camera.top = 25;
-      directionalLight.shadow.camera.bottom = -25;
-      directionalLight.shadow.bias = -0.0001;
-      directionalLight.shadow.normalBias = 0.02;
+      directionalLight.castShadow = false; // 禁用阴影以优化性能
       scene.add(directionalLight);
-      scene.add(directionalLight.target);
 
       // 玩家状态
       let playerModel = null;
@@ -306,108 +287,8 @@
       let playerVelocity = new THREE.Vector3(0, 0, 0);
       let playerPosition = new THREE.Vector3(0, 0, 0);
       let playerRotation = 0;
-      // 模型朝向修正：
-      // - 我们的 playerRotation 代表「面向移动方向」的世界朝向
-      // - 但 GLB 模型本身的“正前方轴”可能是反的或偏 90 度
-      // 如果出现「往左走但身体朝右」这种情况，用这个偏移量修正外观即可
-      // 常见值：
-      // - Math.PI    ：前后相反（180 度）
-      // - Math.PI/2  ：偏 90 度
-      // - -Math.PI/2 ：偏 -90 度
-      const MODEL_FACING_YAW_OFFSET = Math.PI;
       let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
       let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
-
-      // ===== 地面贴合（关键：解决「腾空」&「跑到屋顶」）=====
-      // 你的要求是「偵測地面高度 + 偵測玩家高度」，而不是硬黏到某個 y。
-      // 因此这里的逻辑是：从地图几何体中“选出地面”那一层（而不是屋顶/墙/装饰），然后把玩家脚底放到该高度。
-      let playerFootOffsetY = 0; // root -> 脚底的偏移
-      const computeFootOffset = (model) => {
-        try {
-          // 只以 Mesh 的包围盒计算脚底，避免 Bone/辅助节点导致 box 夸张 -> “越黏越高”
-          const box = new THREE.Box3();
-          let hasMesh = false;
-          model.updateWorldMatrix(true, true);
-          model.traverse((obj) => {
-            if (!obj || !obj.isMesh) return;
-            hasMesh = true;
-            box.expandByObject(obj);
-          });
-          if (!hasMesh || !isFinite(box.min.y)) return 0;
-          return -box.min.y; // 把脚底推到 y=0 所需的偏移量
-        } catch (_) {
-          return 0;
-        }
-      };
-
-      const groundRaycaster = new THREE.Raycaster();
-      const GROUND_RAY_MIN_Y = -200;
-      const GROUND_RAY_MAX_Y = 300;
-      let mapRaycastRoot = null; // mapModel loaded 后赋值
-      const tmpV3 = new THREE.Vector3();
-      const tmpN = new THREE.Vector3();
-      // 地图视距裁切用 layer（0=渲染层，2=裁切层但仍参与 raycast）
-      const MAP_RENDER_LAYER = 0;
-      const MAP_CULLED_LAYER = 2;
-      // 地面筛选：只接受“向上”的面，避免命中墙面/侧面
-      const GROUND_NORMAL_MIN_Y = 0.55;
-      // 若地图存在屋顶/多层结构，这个 band 用来优先挑“街道高度”附近的那一层（避免踩到屋顶）
-      const GROUND_BAND_MIN_Y = -10;
-      const GROUND_BAND_MAX_Y = 25;
-
-      // 取地面高度：
-      // - 用射线拿到所有交点
-      // - 过滤出“地面”（法线朝上）
-      // - 优先选在合理高度 band 内且“最低”的那层（避免屋顶），否则选最低地面
-      const sampleGroundY = (x, z) => {
-        if (!mapRaycastRoot) return null;
-        try {
-          // raycaster 必须命中被裁切(layer=2)的网格，否则会“黏不到地”
-          groundRaycaster.layers.enable(MAP_RENDER_LAYER);
-          groundRaycaster.layers.enable(MAP_CULLED_LAYER);
-
-          // 从上往下射线，拿到交点列表
-          tmpV3.set(x, GROUND_RAY_MAX_Y, z);
-          groundRaycaster.set(tmpV3, new THREE.Vector3(0, -1, 0));
-          const hits = groundRaycaster.intersectObject(mapRaycastRoot, true);
-          if (!hits || hits.length === 0) return null;
-
-          const candidates = [];
-          for (const h of hits) {
-            if (!h || !h.face || !h.face.normal) continue;
-            // face.normal 是局部空间，需要转到世界空间再判断 y
-            tmpN.copy(h.face.normal).transformDirection(h.object.matrixWorld);
-            if (tmpN.y < GROUND_NORMAL_MIN_Y) continue;
-            candidates.push(h);
-          }
-          if (candidates.length === 0) return null;
-
-          // 先找 band 内最低的地面
-          let best = null;
-          for (const h of candidates) {
-            const y = h.point.y;
-            if (y < GROUND_BAND_MIN_Y || y > GROUND_BAND_MAX_Y) continue;
-            if (!best || y < best.point.y) best = h;
-          }
-          if (best) return best.point.y;
-
-          // 否则找所有地面里最低的（fallback）
-          best = candidates[0];
-          for (const h of candidates) {
-            if (h.point.y < best.point.y) best = h;
-          }
-          return best.point.y;
-        } catch (_) {
-          return null;
-        }
-      };
-
-      // 控制贴地更新频率（避免 raycast 每帧吃 CPU）
-      let lastGroundSnapTime = 0;
-      let lastGroundSnapX = 999999;
-      let lastGroundSnapZ = 999999;
-      const GROUND_SNAP_INTERVAL_MS = 120;
-      const GROUND_SNAP_MOVE_EPS2 = 0.15 * 0.15;
 
       // 输入状态
       const keys = {
@@ -426,113 +307,17 @@
       // 加载地图模型
       const mapLoader = new GLTFLoader();
       let mapLoaded = false;
-      let mapModel = null;
-      // 「香蕉皮」提醒：
-      // - 你看到的性能问题，很多不是“算逻辑”，而是“整张地图一直在渲染/投影/走 GPU”。
-      // - 本模式的目标是「像麥快」：視距變短 + 視距外的 mesh 直接 visible=false（不吃 draw call）。
-      //   但注意：GLB 是单一文件，下载/解码无法只读一部分（做不到真正“只读可视区域”），
-      //   我们能做的是：不渲染视距外的网格、减少阴影/材质成本，来显著降低运行开销。
-      // ===== 地图“视距”裁切（CPU 优化版）=====
-      // 旧实现：每 250ms 遍历所有 mesh 算距离 -> 大地图会吃爆 CPU
-      // 新实现：预先把 mesh 按网格 cell 分桶，只切换附近 cell 的 visible（大幅减少遍历量）
-      const MAP_CELL_SIZE = 35; // 越大 CPU 越省，但裁切越粗
-      let mapCellBuckets = new Map(); // key -> Mesh[]
-      let visibleCellKeys = new Set();
-      let lastCullCellX = null;
-      let lastCullCellZ = null;
-      let lastCullTime = 0;
-      const CULL_INTERVAL_MS = 200;
-
-      const cellKey = (cx, cz) => `${cx},${cz}`;
-
-      const buildMapCellBuckets = () => {
-        mapCellBuckets = new Map();
-        visibleCellKeys = new Set();
-        if (!mapModel) return;
-        try {
-          mapModel.updateWorldMatrix(true, true);
-          mapModel.traverse((obj) => {
-            if (!obj || !obj.isMesh || !obj.geometry) return;
-            const geo = obj.geometry;
-            if (!geo.boundingSphere) geo.computeBoundingSphere();
-            if (!geo.boundingSphere) return;
-            const center = geo.boundingSphere.center.clone();
-            const centerWorld = obj.localToWorld(center);
-            const cx = Math.floor(centerWorld.x / MAP_CELL_SIZE);
-            const cz = Math.floor(centerWorld.z / MAP_CELL_SIZE);
-            const key = cellKey(cx, cz);
-            const arr = mapCellBuckets.get(key) || [];
-            arr.push(obj);
-            mapCellBuckets.set(key, arr);
-          });
-        } catch (_) {}
-      };
-
-      const updateMapCulling = (px, pz) => {
-        if (!mapCellBuckets || mapCellBuckets.size === 0) return;
-        const now = performance.now ? performance.now() : Date.now();
-        if ((now - lastCullTime) < CULL_INTERVAL_MS) return;
-        lastCullTime = now;
-
-        const pcx = Math.floor(px / MAP_CELL_SIZE);
-        const pcz = Math.floor(pz / MAP_CELL_SIZE);
-        // 只有玩家跨 cell 或第一次才更新，避免站着不动也在做大量工作
-        if (lastCullCellX === pcx && lastCullCellZ === pcz) return;
-        lastCullCellX = pcx;
-        lastCullCellZ = pcz;
-
-        const rCells = Math.ceil(MAP_RENDER_DISTANCE / MAP_CELL_SIZE);
-        const maxDist2 = MAP_RENDER_DISTANCE * MAP_RENDER_DISTANCE;
-        const nextVisible = new Set();
-
-        for (let dx = -rCells; dx <= rCells; dx++) {
-          for (let dz = -rCells; dz <= rCells; dz++) {
-            // circle approx in world units
-            const wx = dx * MAP_CELL_SIZE;
-            const wz = dz * MAP_CELL_SIZE;
-            if ((wx * wx + wz * wz) > maxDist2) continue;
-            nextVisible.add(cellKey(pcx + dx, pcz + dz));
-          }
-        }
-
-        // hide cells that are no longer visible
-        for (const key of visibleCellKeys) {
-          if (nextVisible.has(key)) continue;
-          const meshes = mapCellBuckets.get(key);
-          if (meshes) {
-            for (const m of meshes) m.layers.set(MAP_CULLED_LAYER);
-          }
-        }
-
-        // show newly visible cells
-        for (const key of nextVisible) {
-          if (visibleCellKeys.has(key)) continue;
-          const meshes = mapCellBuckets.get(key);
-          if (meshes) {
-            for (const m of meshes) m.layers.set(MAP_RENDER_LAYER);
-          }
-        }
-
-        visibleCellKeys = nextVisible;
-      };
-
       mapLoader.load(
         'js/modes/3d/map/invasion_map_-_miniroyale.io.glb',
         (gltf) => {
-          mapModel = gltf.scene;
+          const mapModel = gltf.scene;
           mapModel.traverse((child) => {
             if (child.isMesh) {
-              // 性能优先：地图不投影，只接收（玩家投影到地面/地图即可）
-              child.castShadow = false;
+              child.castShadow = true;
               child.receiveShadow = true;
-              child.frustumCulled = true;
-              // 默认先放到「裁切层」，等 updateMapCulling 再开渲染层
-              child.layers.set(MAP_CULLED_LAYER);
             }
           });
           scene.add(mapModel);
-          mapRaycastRoot = mapModel;
-          buildMapCellBuckets();
           mapLoaded = true;
           console.log('[3D Mode] Map loaded successfully');
         },
@@ -550,7 +335,6 @@
           const ground = new THREE.Mesh(groundGeometry, groundMaterial);
           ground.rotation.x = -Math.PI / 2;
           ground.position.y = 0;
-          ground.castShadow = false;
           ground.receiveShadow = true;
           scene.add(ground);
           console.log('[3D Mode] Created fallback ground plane');
@@ -568,22 +352,21 @@
           playerModel.position.set(0, 0, 0);
           playerModel.traverse((child) => {
             if (child.isMesh) {
-              // 开阴影：玩家投影，自己不必接收（较省）
-              child.castShadow = true;
+              child.castShadow = false; // 禁用阴影以优化性能
               child.receiveShadow = false;
             }
           });
-          // 记录脚底偏移（后续根据地面高度贴地）
-          playerFootOffsetY = computeFootOffset(playerModel);
 
           // 设置动画混合器
           if (gltf.animations && gltf.animations.length > 0) {
-            // ===== 关键：剔除「非骨骼节点」的位移/旋转轨道，避免跳完后角色被动画带着转圈 =====
-            // 现实物理 + 本模式设计：移动/转向由代码控制；动画只负责骨架姿势，不应改动根节点的transform。
-            // 【香蕉皮備註（請勿移除）】
-            // - “跳完轉一圈”不是我們的 playerRotation 算錯，而是動畫 clip 夾帶了「根節點/非骨骼」的旋轉軌道；
-            // - 未來若改動畫系統，優先檢查：AnimationClip.tracks 是否包含 Armature/SceneRoot 的 quaternion/rotation/position；
-            // - 本段 sanitizeClip 的存在目的就是把「香蕉皮」剝掉：讓 transform 永遠由程式控制，動畫只影響骨架姿勢。
+            // ===== 香蕉皮（請勿移除）=====
+            // 問題本質：
+            // - 很多 GLB 動畫（尤其 Jump）會夾帶「根節點/非骨骼」的 position/quaternion/rotation 軌道
+            // - 這會污染我們用程式控制的移動/轉向，造成落地後轉圈、位移飄移等「看似物理錯誤」的現象
+            // 正確做法（本模式設計）：
+            // - 角色的「位移/轉向」永遠由程式控制（符合現實物理/操作手感）
+            // - 動畫只負責骨架姿勢（Bone tracks），不要動根節點 transform
+            // 因此：建立 action 前，先把非骨骼節點的 transform tracks 剔除（把香蕉皮剝掉）
             const collectBoneNames = (root) => {
               const set = new Set();
               root.traverse((obj) => {
@@ -595,8 +378,6 @@
             };
 
             const sanitizeClip = (clip, boneNames) => {
-              // 过滤掉非骨骼节点的 transform 轨道（position/quaternion/rotation）
-              // 这样可以避免某些动画（尤其Jump）把 Armature/Scene 根节点旋转一圈导致“落地转圈”。
               const keptTracks = clip.tracks.filter((track) => {
                 const name = track && track.name ? String(track.name) : '';
                 const dot = name.indexOf('.');
@@ -604,20 +385,16 @@
                 const nodeName = name.slice(0, dot);
                 const prop = name.slice(dot + 1);
 
-                const isTransform =
-                  prop === 'position' ||
-                  prop === 'quaternion' ||
-                  prop === 'rotation';
-
-                // 非骨骼节点的 transform 一律剔除（由代码控制）
+                const isTransform = (prop === 'position' || prop === 'quaternion' || prop === 'rotation');
+                // 非骨骼節點的 transform 一律剔除（由程式控制）
                 if (isTransform && nodeName && !boneNames.has(nodeName)) {
                   return false;
                 }
                 return true;
               });
 
-              const sanitized = new THREE.AnimationClip(clip.name, clip.duration, keptTracks);
-              return sanitized;
+              // 用新 clip 取代原 clip（名稱維持不變，方便既有 switchAction 模糊匹配）
+              return new THREE.AnimationClip(clip.name, clip.duration, keptTracks);
             };
 
             const boneNames = collectBoneNames(playerModel);
@@ -659,14 +436,6 @@
           scene.add(playerModel);
           playerLoaded = true;
           console.log('[3D Mode] Player model loaded successfully');
-
-          // 如果地图已经加载，立刻贴到真实地面（避免出生点在屋顶/腾空）
-          if (mapRaycastRoot) {
-            const gy = sampleGroundY(playerModel.position.x, playerModel.position.z);
-            if (gy !== null) {
-              playerModel.position.y = gy + playerFootOffsetY;
-            }
-          }
         },
         (progress) => {
           if (progress.total > 0) {
@@ -753,7 +522,7 @@
       const handleMouseWheel = (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? 1.1 : 0.9;
-        cameraDistance = Math.max(CAMERA_MIN_DISTANCE, Math.min(CAMERA_MAX_DISTANCE, cameraDistance * delta));
+        cameraDistance = Math.max(3, Math.min(50, cameraDistance * delta));
       };
       
       const handleMouseDown = (e) => {
@@ -1130,7 +899,7 @@
         // 应用移动
         playerModel.position.x += playerVelocity.x * deltaTime;
         playerModel.position.z += playerVelocity.z * deltaTime;
-        playerModel.rotation.y = playerRotation + MODEL_FACING_YAW_OFFSET;
+        playerModel.rotation.y = playerRotation;
 
         // 更新相机跟随（第三人称视角，支持鼠标控制）
         const playerX = playerModel.position.x;
@@ -1146,32 +915,6 @@
         camera.position.z = playerZ + horizontalDistance * Math.cos(cameraAngleX);
         
         camera.lookAt(playerX, playerY + cameraHeight, playerZ);
-
-        // 阴影灯跟随玩家（小范围阴影，性能更稳）
-        // 方向光位置：保持一个固定偏移，target 指向玩家
-        directionalLight.position.set(playerX + 12, playerY + 25, playerZ + 12);
-        directionalLight.target.position.set(playerX, playerY, playerZ);
-        directionalLight.target.updateMatrixWorld();
-
-        // 麥快式「渲染距離」：只切換附近 cell，避免遍历整张地图吃 CPU
-        updateMapCulling(playerX, playerZ);
-
-        // 贴地（非跳跃时）：用“从下往上”的射线取最低表面，避免被屋顶挡住导致踩到上面去
-        if (!isJumping && mapRaycastRoot) {
-          const now = performance.now ? performance.now() : Date.now();
-          const dx = playerX - lastGroundSnapX;
-          const dz = playerZ - lastGroundSnapZ;
-          if ((now - lastGroundSnapTime) > GROUND_SNAP_INTERVAL_MS || (dx * dx + dz * dz) > GROUND_SNAP_MOVE_EPS2) {
-            lastGroundSnapTime = now;
-            lastGroundSnapX = playerX;
-            lastGroundSnapZ = playerZ;
-            const gy = sampleGroundY(playerX, playerZ);
-            if (gy !== null) {
-              // 把脚底贴到地面
-              playerModel.position.y = gy + playerFootOffsetY;
-            }
-          }
-        }
       };
 
       // 动画循环（优化：限制帧率，避免CPU过载）
