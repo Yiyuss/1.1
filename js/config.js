@@ -848,7 +848,9 @@ const CONFIG = {
         // 主線模式地圖（不分難度）：測試用地圖
         { id: 'main-test', name: '測試用地圖', backgroundKey: 'background3' },
         // 冒險模式地圖：異世界（獨立於主體遊戲的世界）
-        { id: 'adventure-isekai', name: '異世界', backgroundKey: 'background9' }
+        { id: 'adventure-isekai', name: '異世界', backgroundKey: 'background9' },
+        // 3D模式地圖：DEMO城市
+        { id: '3d-demo-city', name: 'DEMO城市', backgroundKey: 'background11' }
     ],
 
     // 難度模式倍率（影響生成速度、生成數量、移動速度等）
