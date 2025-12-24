@@ -301,6 +301,12 @@
       const PLAYER_Y_OFFSET = -0;
       let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
       let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
+      // 跑步鍵“防衝突”備援（不影響走路）：
+      // - 預設：走路（WASD）
+      // - 按住 Shift：跑步
+      // - Shift 連按兩下：切換「跑步鎖定」（避免某些鍵盤 Shift+W+Space ghosting 導致跑步時按不出跳）
+      let runLock = false;
+      let lastShiftTapAt = 0;
 
       // 输入状态
       const keys = {
@@ -545,7 +551,20 @@
         if (key === 'd' || code === 'keyd') { keys.d = true; e.preventDefault(); e.stopPropagation(); }
         
         // Shift键
-        if (key === 'shift' || code === 'shiftleft' || code === 'shiftright') { keys.shift = true; }
+        if (key === 'shift' || code === 'shiftleft' || code === 'shiftright') {
+          // Shift 連按兩下：切換跑步鎖定（不會影響一般按住 Shift 跑步）
+          if (!keys.shift) { // 只在“按下瞬间”处理，避免 key repeat
+            const now = (performance && performance.now) ? performance.now() : Date.now();
+            if (now - lastShiftTapAt <= 260) {
+              runLock = !runLock;
+              lastShiftTapAt = 0;
+              console.log('[3D Mode] Run lock:', runLock ? 'ON (ghosting fallback)' : 'OFF');
+            } else {
+              lastShiftTapAt = now;
+            }
+          }
+          keys.shift = true;
+        }
         
         // 空格键
         if (key === ' ' || key === 'space' || code === 'space') { keys.space = true; e.preventDefault(); e.stopPropagation(); }
@@ -760,7 +779,7 @@
 
         const moveLength = moveDir.length();
         const isMoving = moveLength > 0;
-        const isRunning = keys.shift && isMoving;
+        const isRunning = (keys.shift || runLock) && isMoving;
         
         // 归一化移动方向
         if (isMoving) {
