@@ -1149,20 +1149,26 @@
         <!-- 主用：隔離化 GameModeManager（新模式與主線模式皆走此管理器） -->
         <script src="js/core/game_mode_manager.js"></script>
         <!-- Three.js 庫（3D模式需要） -->
-        <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-        <!-- GLTFLoader (使用ES6模块导入) -->
+        <!-- 使用ES6模块版本的Three.js，以便GLTFLoader可以正确导入 -->
+        <script type="importmap">
+        {
+          "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+          }
+        }
+        </script>
         <script type="module">
-        // 动态加载GLTFLoader并挂载到全局
-        import('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js').then(module => {
-          window.GLTFLoader = module.GLTFLoader;
-          window.GLTFLoaderReady = true;
-          console.log('[3D Mode] GLTFLoader loaded successfully');
-          window.dispatchEvent(new CustomEvent('gltfloader-ready'));
-        }).catch(err => {
-          console.error('[3D Mode] Failed to load GLTFLoader:', err);
-          window.GLTFLoaderError = err;
-          window.dispatchEvent(new CustomEvent('gltfloader-error', { detail: err }));
-        });
+        // 导入Three.js和GLTFLoader
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        
+        // 挂载到全局，供非模块代码使用
+        window.THREE = THREE;
+        window.GLTFLoader = GLTFLoader;
+        window.GLTFLoaderReady = true;
+        console.log('[3D Mode] Three.js and GLTFLoader loaded successfully');
+        window.dispatchEvent(new CustomEvent('gltfloader-ready'));
         </script>
         <!-- 生存模式適配層：封裝既有生存模式為 Mode 介面 -->
         <script src="js/modes/survival/index.js"></script>
