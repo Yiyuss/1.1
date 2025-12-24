@@ -297,9 +297,8 @@
       // - 180° 相反：Math.PI
       // - 90° 偏移：Math.PI / 2 或 -Math.PI / 2
       const MODEL_FACING_YAW_OFFSET = Math.PI;
-      // 角色贴地微调：你说的「往下一格」先按 1 世界单位处理
-      // 如果你的地图比例不同，可以把 -1 调成 -0.5 或 -2 或 -0
-      const PLAYER_Y_OFFSET = -0 ;
+      // 角色贴地微调：地图比例不同，可以把 -1 调成 -0.5 或 -2 或 -0
+      const PLAYER_Y_OFFSET = -0;
       let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
       let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
 
@@ -702,7 +701,6 @@
             console.log('[3D Mode] Force stopping jump animation and switching to:', actionName);
             if (currentAction) {
               currentAction.stop();
-              currentAction.reset();
             }
             // 继续执行切换逻辑，不return
           } else {
@@ -716,7 +714,6 @@
           const currentClipName = currentAction.getClip().name.toLowerCase();
           if (currentClipName.includes('jump')) {
             currentAction.stop();
-            currentAction.reset();
           } else {
             currentAction.fadeOut(0.1); // 非跳跃动画，淡出切换
           }
@@ -732,6 +729,10 @@
         }
         newAction.play();
         currentAction = newAction;
+        // 关键：立刻评估一次 mixer，让本帧就应用新动作姿势，避免“跳完瞬间T字形”
+        // 原因：当前主循环中 mixer.update 在 updatePlayer 之前执行，所以切换动作后如果不补一次评估，
+        // 渲染这一帧可能会短暂显示 bind pose（T pose）。
+        try { playerMixer.update(0); } catch (_) {}
       };
 
       // 更新玩家逻辑
@@ -791,7 +792,7 @@
             const jumpAction = playerActions[jumpActionName];
             if (jumpAction) {
               jumpAction.setLoop(THREE.LoopOnce);
-              jumpAction.clampWhenFinished = false; // 不停留在最后一帧，让动画自然结束
+              jumpAction.clampWhenFinished = true; // 防止结束瞬间回到 bind pose（T pose）
             }
             switchAction(jumpActionName);
             console.log('[3D Mode] Starting jump animation:', jumpActionName);
@@ -860,7 +861,6 @@
               // 停止跳跃动画（确保动画完全停止）
               if (currentAction) {
                 currentAction.stop();
-                currentAction.reset(); // 重置动画到开始状态，确保完全停止
               }
               
               // 现实物理：落地后，根据当前状态切换回Idle或Walking/Running
@@ -1250,5 +1250,4 @@
     window.GameModeManager.register(MODE_ID, Mode3D);
   }
 })();
-
 
