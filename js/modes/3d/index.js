@@ -321,6 +321,7 @@
           renderer.setSize(displayWidth, displayHeight);
           camera.aspect = displayWidth / displayHeight;
           camera.updateProjectionMatrix();
+          layoutHudSprite();
         } else {
           renderer.setSize(webglCanvas.width, webglCanvas.height);
         }
@@ -381,6 +382,9 @@
       blobShadow.rotation.x = -Math.PI / 2;
       blobShadow.renderOrder = 1;
       scene.add(blobShadow);
+
+      // 初始化 HUD（Sprite on camera）
+      initHudSprite();
 
       // 玩家状态
       let playerModel = null;
