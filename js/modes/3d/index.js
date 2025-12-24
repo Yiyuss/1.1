@@ -316,16 +316,50 @@
       let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
       let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
 
-      // 自动对齐到地面：用包围盒把模型脚底贴到 y=0，解决「人物騰空」问题
-      const placeModelOnGround = (model, groundY = 0) => {
+      // ===== 地面贴合（关键：解决「腾空」&「跑到屋顶」）=====
+      // 之前的问题：把 ground 当 y=0，会把玩家放到地图原点高度；如果地图的 y=0 对应屋顶，就会“跑到上面去”。
+      // 正确做法：用射线在玩家 (x,z) 位置取“最低可碰撞面”的 y（类似 MC 的贴地），再加上角色脚底偏移。
+      let playerFootOffsetY = 0; // root -> 脚底的偏移
+      const computeFootOffset = (model) => {
         try {
           model.updateWorldMatrix(true, true);
           const box = new THREE.Box3().setFromObject(model);
-          if (!isFinite(box.min.y) || !isFinite(box.max.y)) return;
-          const dy = groundY - box.min.y;
-          if (isFinite(dy)) model.position.y += dy;
-        } catch (_) {}
+          if (!isFinite(box.min.y)) return 0;
+          // 如果 root 在模型中间，脚底通常是负值；把 root 往上抬到脚底贴地即可
+          return -box.min.y;
+        } catch (_) {
+          return 0;
+        }
       };
+
+      const groundRaycaster = new THREE.Raycaster();
+      const GROUND_RAY_MIN_Y = -200;
+      const GROUND_RAY_MAX_Y = 300;
+      let mapRaycastRoot = null; // mapModel loaded 后赋值
+      const tmpV3 = new THREE.Vector3();
+
+      // 取地面高度：从下往上打射线，拿到“最低的交点”
+      // 这样即使头顶有屋顶，也会优先得到街道/地面的高度（避免落在屋顶上）
+      const sampleGroundY = (x, z) => {
+        if (!mapRaycastRoot) return null;
+        try {
+          tmpV3.set(x, GROUND_RAY_MIN_Y, z);
+          groundRaycaster.set(tmpV3, new THREE.Vector3(0, 1, 0));
+          const hits = groundRaycaster.intersectObject(mapRaycastRoot, true);
+          if (!hits || hits.length === 0) return null;
+          // upward ray: first hit is the lowest surface
+          return hits[0].point.y;
+        } catch (_) {
+          return null;
+        }
+      };
+
+      // 控制贴地更新频率（避免 raycast 每帧吃 CPU）
+      let lastGroundSnapTime = 0;
+      let lastGroundSnapX = 999999;
+      let lastGroundSnapZ = 999999;
+      const GROUND_SNAP_INTERVAL_MS = 120;
+      const GROUND_SNAP_MOVE_EPS2 = 0.15 * 0.15;
 
       // 输入状态
       const keys = {
@@ -350,10 +384,22 @@
       // - 本模式的目标是「像麥快」：視距變短 + 視距外的 mesh 直接 visible=false（不吃 draw call）。
       //   但注意：GLB 是单一文件，下载/解码无法只读一部分（做不到真正“只读可视区域”），
       //   我们能做的是：不渲染视距外的网格、减少阴影/材质成本，来显著降低运行开销。
-      let mapMeshes = []; // { mesh, centerWorld }
-      let lastMapCullTime = 0;
-      const buildMapMeshCache = () => {
-        mapMeshes = [];
+      // ===== 地图“视距”裁切（CPU 优化版）=====
+      // 旧实现：每 250ms 遍历所有 mesh 算距离 -> 大地图会吃爆 CPU
+      // 新实现：预先把 mesh 按网格 cell 分桶，只切换附近 cell 的 visible（大幅减少遍历量）
+      const MAP_CELL_SIZE = 35; // 越大 CPU 越省，但裁切越粗
+      let mapCellBuckets = new Map(); // key -> Mesh[]
+      let visibleCellKeys = new Set();
+      let lastCullCellX = null;
+      let lastCullCellZ = null;
+      let lastCullTime = 0;
+      const CULL_INTERVAL_MS = 200;
+
+      const cellKey = (cx, cz) => `${cx},${cz}`;
+
+      const buildMapCellBuckets = () => {
+        mapCellBuckets = new Map();
+        visibleCellKeys = new Set();
         if (!mapModel) return;
         try {
           mapModel.updateWorldMatrix(true, true);
@@ -364,9 +410,62 @@
             if (!geo.boundingSphere) return;
             const center = geo.boundingSphere.center.clone();
             const centerWorld = obj.localToWorld(center);
-            mapMeshes.push({ mesh: obj, centerWorld });
+            const cx = Math.floor(centerWorld.x / MAP_CELL_SIZE);
+            const cz = Math.floor(centerWorld.z / MAP_CELL_SIZE);
+            const key = cellKey(cx, cz);
+            const arr = mapCellBuckets.get(key) || [];
+            arr.push(obj);
+            mapCellBuckets.set(key, arr);
           });
         } catch (_) {}
+      };
+
+      const updateMapCulling = (px, pz) => {
+        if (!mapCellBuckets || mapCellBuckets.size === 0) return;
+        const now = performance.now ? performance.now() : Date.now();
+        if ((now - lastCullTime) < CULL_INTERVAL_MS) return;
+        lastCullTime = now;
+
+        const pcx = Math.floor(px / MAP_CELL_SIZE);
+        const pcz = Math.floor(pz / MAP_CELL_SIZE);
+        // 只有玩家跨 cell 或第一次才更新，避免站着不动也在做大量工作
+        if (lastCullCellX === pcx && lastCullCellZ === pcz) return;
+        lastCullCellX = pcx;
+        lastCullCellZ = pcz;
+
+        const rCells = Math.ceil(MAP_RENDER_DISTANCE / MAP_CELL_SIZE);
+        const maxDist2 = MAP_RENDER_DISTANCE * MAP_RENDER_DISTANCE;
+        const nextVisible = new Set();
+
+        for (let dx = -rCells; dx <= rCells; dx++) {
+          for (let dz = -rCells; dz <= rCells; dz++) {
+            // circle approx in world units
+            const wx = dx * MAP_CELL_SIZE;
+            const wz = dz * MAP_CELL_SIZE;
+            if ((wx * wx + wz * wz) > maxDist2) continue;
+            nextVisible.add(cellKey(pcx + dx, pcz + dz));
+          }
+        }
+
+        // hide cells that are no longer visible
+        for (const key of visibleCellKeys) {
+          if (nextVisible.has(key)) continue;
+          const meshes = mapCellBuckets.get(key);
+          if (meshes) {
+            for (const m of meshes) m.visible = false;
+          }
+        }
+
+        // show newly visible cells
+        for (const key of nextVisible) {
+          if (visibleCellKeys.has(key)) continue;
+          const meshes = mapCellBuckets.get(key);
+          if (meshes) {
+            for (const m of meshes) m.visible = true;
+          }
+        }
+
+        visibleCellKeys = nextVisible;
       };
 
       mapLoader.load(
@@ -382,7 +481,8 @@
             }
           });
           scene.add(mapModel);
-          buildMapMeshCache();
+          mapRaycastRoot = mapModel;
+          buildMapCellBuckets();
           mapLoaded = true;
           console.log('[3D Mode] Map loaded successfully');
         },
@@ -423,8 +523,8 @@
               child.receiveShadow = false;
             }
           });
-          // 解决「人物有點騰空」：把脚底贴到地面 y=0
-          placeModelOnGround(playerModel, 0);
+          // 记录脚底偏移（后续根据地面高度贴地）
+          playerFootOffsetY = computeFootOffset(playerModel);
 
           // 设置动画混合器
           if (gltf.animations && gltf.animations.length > 0) {
@@ -509,6 +609,14 @@
           scene.add(playerModel);
           playerLoaded = true;
           console.log('[3D Mode] Player model loaded successfully');
+
+          // 如果地图已经加载，立刻贴到真实地面（避免出生点在屋顶/腾空）
+          if (mapRaycastRoot) {
+            const gy = sampleGroundY(playerModel.position.x, playerModel.position.z);
+            if (gy !== null) {
+              playerModel.position.y = gy + playerFootOffsetY;
+            }
+          }
         },
         (progress) => {
           if (progress.total > 0) {
@@ -995,18 +1103,23 @@
         directionalLight.target.position.set(playerX, playerY, playerZ);
         directionalLight.target.updateMatrixWorld();
 
-        // 麥快式「渲染距離」：視距外的 mesh 直接不渲染（visible=false），避免整張地圖一直吃 draw calls
-        // 注意：这不会减少 GLB 的下载/解码（单文件无法分块读），但会显著减少 GPU/CPU 渲染开销。
-        const now = performance.now ? performance.now() : Date.now();
-        if (mapMeshes && mapMeshes.length > 0 && (now - lastMapCullTime) > 250) { // 每 250ms 更新一次，避免每帧遍历太重
-          lastMapCullTime = now;
-          const px = playerX, pz = playerZ;
-          const maxDist2 = MAP_RENDER_DISTANCE * MAP_RENDER_DISTANCE;
-          for (const item of mapMeshes) {
-            const c = item.centerWorld;
-            const dx = c.x - px;
-            const dz = c.z - pz;
-            item.mesh.visible = (dx * dx + dz * dz) <= maxDist2;
+        // 麥快式「渲染距離」：只切換附近 cell，避免遍历整张地图吃 CPU
+        updateMapCulling(playerX, playerZ);
+
+        // 贴地（非跳跃时）：用“从下往上”的射线取最低表面，避免被屋顶挡住导致踩到上面去
+        if (!isJumping && mapRaycastRoot) {
+          const now = performance.now ? performance.now() : Date.now();
+          const dx = playerX - lastGroundSnapX;
+          const dz = playerZ - lastGroundSnapZ;
+          if ((now - lastGroundSnapTime) > GROUND_SNAP_INTERVAL_MS || (dx * dx + dz * dz) > GROUND_SNAP_MOVE_EPS2) {
+            lastGroundSnapTime = now;
+            lastGroundSnapX = playerX;
+            lastGroundSnapZ = playerZ;
+            const gy = sampleGroundY(playerX, playerZ);
+            if (gy !== null) {
+              // 把脚底贴到地面
+              playerModel.position.y = gy + playerFootOffsetY;
+            }
           }
         }
       };
