@@ -336,51 +336,6 @@
       // 碰撞用：只把“需要碰撞”的网格放进来，避免 raycast 扫整张场景吃 CPU
       const collidableObjects = [];
 
-      // ===== CPU 优化：碰撞物件空間分桶（Spatial Hash Grid）=====
-      // Raycaster 的瓶頸通常不是射線本身，而是「每次 intersectObjects 掃過一大堆 mesh」。
-      // 這裡把可碰撞 mesh 依 (x,z) 分桶，只取玩家附近的桶來做 raycast，可大幅降 CPU。
-      const COLLIDER_CELL_SIZE = 12; // 越大每桶物件越多(較慢)；越小桶越多(建表較慢)。12~20 通常 OK
-      const colliderGrid = new Map(); // key -> Mesh[]
-      const _gridTmpV = new THREE.Vector3(); // 建表用暫存向量（避免 new）
-      const _gridKey = (cx, cz) => `${cx},${cz}`;
-      const buildColliderGrid = () => {
-        colliderGrid.clear();
-        if (!mapModel) return;
-        try { mapModel.updateWorldMatrix(true, true); } catch(_) {}
-
-        for (const m of collidableObjects) {
-          try {
-            if (!m || !m.isMesh || !m.geometry) continue;
-            const g = m.geometry;
-            if (!g.boundingSphere) g.computeBoundingSphere();
-            if (!g.boundingSphere) continue;
-            _gridTmpV.copy(g.boundingSphere.center).applyMatrix4(m.matrixWorld);
-            const cx = Math.floor(_gridTmpV.x / COLLIDER_CELL_SIZE);
-            const cz = Math.floor(_gridTmpV.z / COLLIDER_CELL_SIZE);
-            const key = _gridKey(cx, cz);
-            const arr = colliderGrid.get(key) || [];
-            arr.push(m);
-            colliderGrid.set(key, arr);
-          } catch(_) {}
-        }
-      };
-
-      const queryNearbyColliders = (x, z, radius, outArr) => {
-        outArr.length = 0;
-        if (colliderGrid.size === 0) return outArr;
-        const minCx = Math.floor((x - radius) / COLLIDER_CELL_SIZE);
-        const maxCx = Math.floor((x + radius) / COLLIDER_CELL_SIZE);
-        const minCz = Math.floor((z - radius) / COLLIDER_CELL_SIZE);
-        const maxCz = Math.floor((z + radius) / COLLIDER_CELL_SIZE);
-        for (let cx = minCx; cx <= maxCx; cx++) {
-          for (let cz = minCz; cz <= maxCz; cz++) {
-            const bucket = colliderGrid.get(_gridKey(cx, cz));
-            if (bucket && bucket.length) outArr.push(...bucket);
-          }
-        }
-        return outArr;
-      };
-
       // 碰撞过滤（可微调）：排除小碎件/装饰物，避免 raycast 命中一堆无意义物件
       const filterColliders = (mesh) => {
         try {
@@ -444,20 +399,11 @@
               if (child.geometry && filterColliders(child)) {
                 collidableObjects.push(child);
               }
-
-              // 靜態凍結：地圖不會動，關掉 matrixAutoUpdate 可省不少 CPU
-              child.matrixAutoUpdate = false;
-              try { child.updateMatrix(); } catch(_) {}
             }
           });
-          // map root 也凍結（避免整棵樹每幀做矩陣更新）
-          mapModel.matrixAutoUpdate = false;
-          try { mapModel.updateMatrix(); } catch(_) {}
-
           scene.add(mapModel);
           mapLoaded = true;
           console.log('[3D Mode] Collidable meshes:', collidableObjects.length);
-          buildColliderGrid();
           console.log('[3D Mode] Map loaded successfully');
         },
         (progress) => {
@@ -1080,13 +1026,10 @@
         const shouldSnapGround = (!isJumping) && (Math.abs(dx) + Math.abs(dz) > 0.0001 || (nowMs - lastGroundSnapAt) > 80);
         if (shouldSnapGround && collidableObjects.length > 0) {
           lastGroundSnapAt = nowMs;
-          const near = updatePlayer._nearColliders || (updatePlayer._nearColliders = []);
-          // 只取腳下附近的碰撞物件（半徑 4m）
-          queryNearbyColliders(playerModel.position.x, playerModel.position.z, 4, near);
           tmpOrigin.set(playerModel.position.x, playerModel.position.y + COLLISION.groundRayOriginY, playerModel.position.z);
           rayDown.set(tmpOrigin, tmpDir.set(0, -1, 0));
           rayDown.far = COLLISION.groundRayDistance;
-          const hits = rayDown.intersectObjects(near.length ? near : collidableObjects, false);
+          const hits = rayDown.intersectObjects(collidableObjects, false);
           if (hits && hits.length > 0) {
             // 找第一个“像地面”的命中（法线朝上）
             let groundHit = null;
@@ -1119,10 +1062,7 @@
             tmpOrigin.set(playerModel.position.x, playerModel.position.y + COLLISION.wallRayOriginY, playerModel.position.z);
             rayForward.set(tmpOrigin, tmpDir);
             rayForward.far = COLLISION.wallRayDistance;
-            const near = updatePlayer._nearColliders || (updatePlayer._nearColliders = []);
-            // 只取玩家附近的碰撞物件（半徑 6m）再做探路
-            queryNearbyColliders(playerModel.position.x, playerModel.position.z, 6, near);
-            const wallHits = rayForward.intersectObjects(near.length ? near : collidableObjects, false);
+            const wallHits = rayForward.intersectObjects(collidableObjects, false);
             let blocked = false;
             if (wallHits && wallHits.length > 0) {
               for (const h of wallHits) {
@@ -1144,9 +1084,7 @@
               tmpOrigin.set(playerModel.position.x + dx, playerModel.position.y + COLLISION.groundRayOriginY, playerModel.position.z + dz);
               rayDown.set(tmpOrigin, tmpDir.set(0, -1, 0));
               rayDown.far = COLLISION.groundRayDistance;
-              const near2 = updatePlayer._nearColliders2 || (updatePlayer._nearColliders2 = []);
-              queryNearbyColliders(playerModel.position.x + dx, playerModel.position.z + dz, 4, near2);
-              const nextHits = rayDown.intersectObjects(near2.length ? near2 : collidableObjects, false);
+              const nextHits = rayDown.intersectObjects(collidableObjects, false);
               if (nextHits && nextHits.length > 0 && lastGroundHitY !== null) {
                 let nextGround = null;
                 for (const h of nextHits) {
