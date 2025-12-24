@@ -1446,6 +1446,12 @@
         if (escMenu && escMenu.parentNode) {
           escMenu.parentNode.removeChild(escMenu);
         }
+        // 釋放 HUD sprite（畫布內）
+        try {
+          if (hudSprite && hudSprite.parent) hudSprite.parent.remove(hudSprite);
+          if (hudSprite && hudSprite.material) hudSprite.material.dispose();
+          if (hudTex) hudTex.dispose();
+        } catch(_) {}
         // 恢复Game的canvas引用（如果需要）
         try {
           if (typeof Game !== 'undefined' && canvas) {
