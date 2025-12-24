@@ -547,9 +547,23 @@
         if (keys.a || keys.arrowLeft) moveX -= 1;
         if (keys.d || keys.arrowRight) moveX += 1;
 
-        const moveDir = new THREE.Vector3(moveX, 0, moveZ).normalize();
-        const isMoving = moveDir.length() > 0;
+        // 调试：输出按键状态（只在第一次检测到移动时输出，避免日志过多）
+        if ((moveX !== 0 || moveZ !== 0) && !updatePlayer._lastMoveState) {
+          console.log('[3D Mode] Movement input detected:', { moveX, moveZ, keys: { w: keys.w, a: keys.a, s: keys.s, d: keys.d, arrowUp: keys.arrowUp, arrowDown: keys.arrowDown, arrowLeft: keys.arrowLeft, arrowRight: keys.arrowRight } });
+          updatePlayer._lastMoveState = true;
+        } else if (moveX === 0 && moveZ === 0) {
+          updatePlayer._lastMoveState = false;
+        }
+
+        const moveDir = new THREE.Vector3(moveX, 0, moveZ);
+        const moveLength = moveDir.length();
+        const isMoving = moveLength > 0;
         const isRunning = keys.shift && isMoving;
+        
+        // 归一化移动方向
+        if (isMoving) {
+          moveDir.normalize();
+        }
 
         // 跳跃处理（只有在有Jump动画时才处理）
         if (keys.space && !isJumping) {
@@ -647,8 +661,14 @@
             }
           }
         }
-        // 正常移动（非跳跃状态）
-        else if (!isJumping) {
+        
+        // 正常移动（独立判断，不依赖跳跃状态）
+        // 只有在非跳跃状态或跳跃动画不在控制阶段时才执行正常移动
+        const isJumpControlling = isJumping && currentAction && 
+          currentAction.getClip().name.toLowerCase().includes('jump') && 
+          currentAction.isRunning();
+        
+        if (!isJumpControlling) {
           if (isMoving) {
             const speed = isRunning ? 5.0 : 2.5; // 跑步速度是走路的两倍
             playerVelocity.x = moveDir.x * speed;
@@ -657,12 +677,17 @@
             // 转向
             playerRotation = Math.atan2(moveDir.x, moveDir.z);
             
-            // 切换动画
-            switchAction(isRunning ? 'Run' : 'Walk');
+            // 切换动画（只有在非跳跃状态时才切换）
+            if (!isJumping) {
+              switchAction(isRunning ? 'Run' : 'Walk');
+            }
           } else {
-            playerVelocity.x = 0;
-            playerVelocity.z = 0;
-            switchAction('Idle');
+            // 只有在非跳跃状态时才停止移动和切换动画
+            if (!isJumping) {
+              playerVelocity.x = 0;
+              playerVelocity.z = 0;
+              switchAction('Idle');
+            }
           }
         }
 
