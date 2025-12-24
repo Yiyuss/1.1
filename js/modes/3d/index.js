@@ -28,11 +28,38 @@
     },
 
     async enter(params, ctx){
-      // 停止主體遊戲邏輯與音樂
-      try { if (typeof Game !== 'undefined' && Game.pause) Game.pause(true); } catch(_){}
+      // ========== 完全停止其他模式，确保3D模式独立运行 ==========
+      
+      // 1. 停止Game的主循环（生存模式）
+      try {
+        if (typeof Game !== 'undefined') {
+          // 暂停游戏
+          if (Game.pause) Game.pause(true);
+          // 停止游戏循环
+          if (Game.isPaused !== undefined) Game.isPaused = true;
+          if (Game.isGameOver !== undefined) Game.isGameOver = true;
+          // 清除Game的canvas引用，避免冲突
+          if (Game.canvas) {
+            try {
+              // 尝试释放2D上下文
+              const oldCtx = Game.ctx;
+              if (oldCtx) {
+                // 清除canvas内容
+                oldCtx.clearRect(0, 0, Game.canvas.width, Game.canvas.height);
+              }
+            } catch(_){}
+            Game.canvas = null;
+            Game.ctx = null;
+          }
+        }
+      } catch(e) {
+        console.warn('[3D Mode] Error stopping Game:', e);
+      }
+      
+      // 2. 停止所有音乐
       try { if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) AudioManager.stopAllMusic(); } catch(_){}
-
-      // 隐藏所有覆盖窗口
+      
+      // 3. 隐藏所有覆盖窗口
       const diffScreen = document.getElementById('difficulty-select-screen');
       const desertDiffScreen = document.getElementById('desert-difficulty-select-screen');
       const mapScreen = document.getElementById('map-select-screen');
@@ -42,23 +69,64 @@
       if (mapScreen) mapScreen.classList.add('hidden');
       if (charScreen) charScreen.classList.add('hidden');
 
-      // 显示游戏画面
+      // 4. 显示游戏画面，隐藏所有其他UI
       const gameScreen = document.getElementById('game-screen');
       const gameUI = document.getElementById('game-ui');
       if (gameScreen) gameScreen.classList.remove('hidden');
       if (gameUI) gameUI.style.display = 'none';
+      
+      // 隐藏其他模式的UI
+      try {
+        const stageUI = document.getElementById('stage-ui');
+        if (stageUI) stageUI.style.display = 'none';
+      } catch(_){}
+      try {
+        const challengeUI = document.getElementById('challenge-ui');
+        if (challengeUI) challengeUI.style.display = 'none';
+      } catch(_){}
 
-      // 清除其他模式的GIF图层残留
+      // 5. 清除其他模式的GIF图层残留
       try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.clearAll === 'function') window.GifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.ChallengeGifOverlay !== 'undefined' && typeof window.ChallengeGifOverlay.clearAll === 'function') window.ChallengeGifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.MainGifOverlay !== 'undefined' && typeof window.MainGifOverlay.clearAll === 'function') window.MainGifOverlay.clearAll(); } catch(_){}
 
-      // 获取canvas元素
+      // 6. 获取canvas元素并清理2D上下文
       const canvas = ctx.dom.canvas;
       if (!canvas) {
         console.error('[3D Mode] Canvas not found');
         return;
+      }
+      
+      // 关键：canvas可能已经有2D上下文，需要重新创建canvas或使用新的canvas
+      // 方案：创建一个新的canvas元素替换旧的
+      let webglCanvas = canvas;
+      const existingContext = canvas.getContext('2d') || canvas.getContext('webgl') || canvas.getContext('webgl2');
+      
+      if (existingContext) {
+        console.log('[3D Mode] Canvas has existing context, creating new canvas for WebGL');
+        // 创建新的canvas元素用于WebGL
+        webglCanvas = document.createElement('canvas');
+        webglCanvas.id = 'game-canvas-3d';
+        webglCanvas.width = canvas.width || 1280;
+        webglCanvas.height = canvas.height || 720;
+        webglCanvas.style.width = '100%';
+        webglCanvas.style.height = '100%';
+        webglCanvas.style.display = 'block';
+        
+        // 替换原canvas
+        const viewport = document.getElementById('viewport');
+        if (viewport) {
+          // 隐藏原canvas
+          canvas.style.display = 'none';
+          // 添加新canvas
+          viewport.appendChild(webglCanvas);
+        } else {
+          // 如果没有viewport，直接替换
+          canvas.parentNode.replaceChild(webglCanvas, canvas);
+        }
+        
+        console.log('[3D Mode] Created new WebGL canvas');
       }
 
       // 检查Three.js是否已加载（通过importmap加载的ES6模块版本）
@@ -124,6 +192,9 @@
       
       console.log('[3D Mode] GLTFLoader ready, initializing 3D scene...');
 
+      // 使用全局THREE（通过importmap加载的ES6模块版本）
+      const THREE = THREE_NS;
+
       // 初始化3D场景
       const scene = new THREE.Scene();
       scene.background = new THREE.Color(0x87CEEB); // 天蓝色背景
@@ -131,19 +202,20 @@
       // 相机设置
       const camera = new THREE.PerspectiveCamera(
         75,
-        canvas.width / canvas.height,
+        webglCanvas.width / webglCanvas.height,
         0.1,
         1000
       );
       camera.position.set(0, 5, 10);
       camera.lookAt(0, 0, 0);
 
-      // 渲染器设置
+      // 渲染器设置（使用新的WebGL canvas）
       const renderer = new THREE.WebGLRenderer({
-        canvas: canvas,
-        antialias: true
+        canvas: webglCanvas,
+        antialias: true,
+        alpha: false
       });
-      renderer.setSize(canvas.width, canvas.height);
+      renderer.setSize(webglCanvas.width, webglCanvas.height);
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -433,10 +505,13 @@
         playerModel.position.z += playerVelocity.z * deltaTime;
         playerModel.rotation.y = playerRotation;
 
-        // 更新相机跟随
+        // 更新相机跟随（第三人称视角）
+        const cameraDistance = 10;
+        const cameraHeight = 5;
         camera.position.x = playerModel.position.x;
-        camera.position.z = playerModel.position.z + 10;
-        camera.lookAt(playerModel.position);
+        camera.position.y = playerModel.position.y + cameraHeight;
+        camera.position.z = playerModel.position.z + cameraDistance;
+        camera.lookAt(playerModel.position.x, playerModel.position.y, playerModel.position.z);
       };
 
       // 动画循环
@@ -512,6 +587,7 @@
         // 清理Three.js资源
         if (renderer) {
           renderer.dispose();
+          renderer.forceContextLoss();
         }
         if (scene) {
           scene.traverse((object) => {
@@ -525,10 +601,25 @@
             }
           });
         }
+        // 移除3D canvas（如果创建了新的）
+        if (webglCanvas && webglCanvas.id === 'game-canvas-3d' && webglCanvas.parentNode) {
+          webglCanvas.parentNode.removeChild(webglCanvas);
+          // 恢复原canvas显示
+          if (canvas && canvas.style) {
+            canvas.style.display = '';
+          }
+        }
         // 移除ESC菜单
         if (escMenu && escMenu.parentNode) {
           escMenu.parentNode.removeChild(escMenu);
         }
+        // 恢复Game的canvas引用（如果需要）
+        try {
+          if (typeof Game !== 'undefined' && canvas) {
+            Game.canvas = canvas;
+            Game.ctx = canvas.getContext('2d');
+          }
+        } catch(_){}
       };
     },
 
