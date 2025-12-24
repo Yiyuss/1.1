@@ -108,11 +108,17 @@
         // 创建新的canvas元素用于WebGL
         webglCanvas = document.createElement('canvas');
         webglCanvas.id = 'game-canvas-3d';
-        webglCanvas.width = canvas.width || 1280;
-        webglCanvas.height = canvas.height || 720;
+        // 设置3D画布为1920x1080
+        webglCanvas.width = 1920;
+        webglCanvas.height = 1080;
         webglCanvas.style.width = '100%';
         webglCanvas.style.height = '100%';
         webglCanvas.style.display = 'block';
+        webglCanvas.style.position = 'absolute';
+        webglCanvas.style.top = '50%';
+        webglCanvas.style.left = '50%';
+        webglCanvas.style.transform = 'translate(-50%, -50%)';
+        webglCanvas.style.objectFit = 'contain';
         
         // 替换原canvas
         const viewport = document.getElementById('viewport');
@@ -206,7 +212,17 @@
         0.1,
         1000
       );
-      camera.position.set(0, 5, 10);
+      
+      // 相机控制变量
+      let cameraDistance = 10;
+      let cameraHeight = 5;
+      let cameraAngleX = 0; // 水平旋转角度
+      let cameraAngleY = Math.PI / 6; // 垂直角度（俯视角度）
+      let isRightMouseDown = false;
+      let lastMouseX = 0;
+      let lastMouseY = 0;
+      
+      camera.position.set(0, cameraHeight, cameraDistance);
       camera.lookAt(0, 0, 0);
 
       // 渲染器设置（使用新的WebGL canvas）
@@ -215,8 +231,39 @@
         antialias: true,
         alpha: false
       });
-      renderer.setSize(webglCanvas.width, webglCanvas.height);
-      renderer.setPixelRatio(window.devicePixelRatio);
+      // 设置渲染器大小（使用实际显示大小，而不是canvas分辨率）
+      const updateRendererSize = () => {
+        const container = webglCanvas.parentElement;
+        if (container) {
+          const containerWidth = container.clientWidth;
+          const containerHeight = container.clientHeight;
+          const aspect = webglCanvas.width / webglCanvas.height;
+          
+          let displayWidth, displayHeight;
+          if (containerWidth / containerHeight > aspect) {
+            displayHeight = containerHeight;
+            displayWidth = displayHeight * aspect;
+          } else {
+            displayWidth = containerWidth;
+            displayHeight = displayWidth / aspect;
+          }
+          
+          renderer.setSize(displayWidth, displayHeight);
+          camera.aspect = displayWidth / displayHeight;
+          camera.updateProjectionMatrix();
+        } else {
+          renderer.setSize(webglCanvas.width, webglCanvas.height);
+        }
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 限制像素比，优化性能
+      };
+      
+      updateRendererSize();
+      
+      // 监听窗口大小变化
+      const handleResize = () => {
+        updateRendererSize();
+      };
+      ctx.events.on(window, 'resize', handleResize);
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -371,19 +418,24 @@
 
       // 键盘事件处理
       const handleKeyDown = (e) => {
+        // 如果焦点在输入框等元素上，不处理移动键
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+          return;
+        }
+        
         switch(e.key.toLowerCase()) {
-          case 'w': keys.w = true; break;
-          case 'a': keys.a = true; break;
-          case 's': keys.s = true; break;
-          case 'd': keys.d = true; break;
+          case 'w': keys.w = true; e.preventDefault(); break;
+          case 'a': keys.a = true; e.preventDefault(); break;
+          case 's': keys.s = true; e.preventDefault(); break;
+          case 'd': keys.d = true; e.preventDefault(); break;
           case 'shift': keys.shift = true; break;
-          case ' ': keys.space = true; break;
+          case ' ': keys.space = true; e.preventDefault(); break;
         }
         switch(e.key) {
-          case 'ArrowUp': keys.arrowUp = true; break;
-          case 'ArrowDown': keys.arrowDown = true; break;
-          case 'ArrowLeft': keys.arrowLeft = true; break;
-          case 'ArrowRight': keys.arrowRight = true; break;
+          case 'ArrowUp': keys.arrowUp = true; e.preventDefault(); break;
+          case 'ArrowDown': keys.arrowDown = true; e.preventDefault(); break;
+          case 'ArrowLeft': keys.arrowLeft = true; e.preventDefault(); break;
+          case 'ArrowRight': keys.arrowRight = true; e.preventDefault(); break;
         }
       };
 
@@ -404,9 +456,53 @@
         }
       };
 
-      // 绑定键盘事件
-      ctx.events.on(window, 'keydown', handleKeyDown);
-      ctx.events.on(window, 'keyup', handleKeyUp);
+      // 绑定键盘事件（使用capture确保能捕获）
+      ctx.events.on(window, 'keydown', handleKeyDown, { capture: true });
+      ctx.events.on(window, 'keyup', handleKeyUp, { capture: true });
+      
+      // 鼠标控制：滚轮缩放，右键旋转视角
+      const handleMouseWheel = (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? 1.1 : 0.9;
+        cameraDistance = Math.max(3, Math.min(50, cameraDistance * delta));
+      };
+      
+      const handleMouseDown = (e) => {
+        if (e.button === 2) { // 右键
+          e.preventDefault();
+          isRightMouseDown = true;
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        }
+      };
+      
+      const handleMouseMove = (e) => {
+        if (isRightMouseDown) {
+          const deltaX = e.clientX - lastMouseX;
+          const deltaY = e.clientY - lastMouseY;
+          
+          // 水平旋转
+          cameraAngleX -= deltaX * 0.01;
+          // 垂直角度限制
+          cameraAngleY = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraAngleY - deltaY * 0.01));
+          
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        }
+      };
+      
+      const handleMouseUp = (e) => {
+        if (e.button === 2) {
+          isRightMouseDown = false;
+        }
+      };
+      
+      ctx.events.on(webglCanvas, 'wheel', handleMouseWheel);
+      ctx.events.on(webglCanvas, 'mousedown', handleMouseDown);
+      ctx.events.on(window, 'mousemove', handleMouseMove);
+      ctx.events.on(window, 'mouseup', handleMouseUp);
+      // 禁用右键菜单
+      ctx.events.on(webglCanvas, 'contextmenu', (e) => e.preventDefault());
 
       // 切换动画
       const switchAction = (actionName) => {
@@ -559,13 +655,20 @@
         playerModel.position.z += playerVelocity.z * deltaTime;
         playerModel.rotation.y = playerRotation;
 
-        // 更新相机跟随（第三人称视角）
-        const cameraDistance = 10;
-        const cameraHeight = 5;
-        camera.position.x = playerModel.position.x;
-        camera.position.y = playerModel.position.y + cameraHeight;
-        camera.position.z = playerModel.position.z + cameraDistance;
-        camera.lookAt(playerModel.position.x, playerModel.position.y, playerModel.position.z);
+        // 更新相机跟随（第三人称视角，支持鼠标控制）
+        const playerX = playerModel.position.x;
+        const playerY = playerModel.position.y;
+        const playerZ = playerModel.position.z;
+        
+        // 根据角度计算相机位置
+        const horizontalDistance = cameraDistance * Math.cos(cameraAngleY);
+        const verticalDistance = cameraDistance * Math.sin(cameraAngleY);
+        
+        camera.position.x = playerX + horizontalDistance * Math.sin(cameraAngleX);
+        camera.position.y = playerY + cameraHeight + verticalDistance;
+        camera.position.z = playerZ + horizontalDistance * Math.cos(cameraAngleX);
+        
+        camera.lookAt(playerX, playerY + cameraHeight, playerZ);
       };
 
       // 动画循环
