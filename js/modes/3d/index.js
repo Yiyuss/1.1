@@ -212,6 +212,8 @@
         0.1,
         220 // 視距（類似麥快 render distance）：超過這個距離的東西不會被渲染（可大幅省效能）
       );
+      // 確保相機只渲染 layer 0（地圖視距裁切用 layer 切換，而不是 mesh.visible，避免 raycast 失效）
+      camera.layers.set(0);
       
       // 相机控制变量
       const CAMERA_MIN_DISTANCE = 3;
@@ -317,16 +319,22 @@
       let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
 
       // ===== 地面贴合（关键：解决「腾空」&「跑到屋顶」）=====
-      // 之前的问题：把 ground 当 y=0，会把玩家放到地图原点高度；如果地图的 y=0 对应屋顶，就会“跑到上面去”。
-      // 正确做法：用射线在玩家 (x,z) 位置取“最低可碰撞面”的 y（类似 MC 的贴地），再加上角色脚底偏移。
+      // 你的要求是「偵測地面高度 + 偵測玩家高度」，而不是硬黏到某個 y。
+      // 因此这里的逻辑是：从地图几何体中“选出地面”那一层（而不是屋顶/墙/装饰），然后把玩家脚底放到该高度。
       let playerFootOffsetY = 0; // root -> 脚底的偏移
       const computeFootOffset = (model) => {
         try {
+          // 只以 Mesh 的包围盒计算脚底，避免 Bone/辅助节点导致 box 夸张 -> “越黏越高”
+          const box = new THREE.Box3();
+          let hasMesh = false;
           model.updateWorldMatrix(true, true);
-          const box = new THREE.Box3().setFromObject(model);
-          if (!isFinite(box.min.y)) return 0;
-          // 如果 root 在模型中间，脚底通常是负值；把 root 往上抬到脚底贴地即可
-          return -box.min.y;
+          model.traverse((obj) => {
+            if (!obj || !obj.isMesh) return;
+            hasMesh = true;
+            box.expandByObject(obj);
+          });
+          if (!hasMesh || !isFinite(box.min.y)) return 0;
+          return -box.min.y; // 把脚底推到 y=0 所需的偏移量
         } catch (_) {
           return 0;
         }
@@ -337,18 +345,58 @@
       const GROUND_RAY_MAX_Y = 300;
       let mapRaycastRoot = null; // mapModel loaded 后赋值
       const tmpV3 = new THREE.Vector3();
+      const tmpN = new THREE.Vector3();
+      // 地图视距裁切用 layer（0=渲染层，2=裁切层但仍参与 raycast）
+      const MAP_RENDER_LAYER = 0;
+      const MAP_CULLED_LAYER = 2;
+      // 地面筛选：只接受“向上”的面，避免命中墙面/侧面
+      const GROUND_NORMAL_MIN_Y = 0.55;
+      // 若地图存在屋顶/多层结构，这个 band 用来优先挑“街道高度”附近的那一层（避免踩到屋顶）
+      const GROUND_BAND_MIN_Y = -10;
+      const GROUND_BAND_MAX_Y = 25;
 
-      // 取地面高度：从下往上打射线，拿到“最低的交点”
-      // 这样即使头顶有屋顶，也会优先得到街道/地面的高度（避免落在屋顶上）
+      // 取地面高度：
+      // - 用射线拿到所有交点
+      // - 过滤出“地面”（法线朝上）
+      // - 优先选在合理高度 band 内且“最低”的那层（避免屋顶），否则选最低地面
       const sampleGroundY = (x, z) => {
         if (!mapRaycastRoot) return null;
         try {
-          tmpV3.set(x, GROUND_RAY_MIN_Y, z);
-          groundRaycaster.set(tmpV3, new THREE.Vector3(0, 1, 0));
+          // raycaster 必须命中被裁切(layer=2)的网格，否则会“黏不到地”
+          groundRaycaster.layers.enable(MAP_RENDER_LAYER);
+          groundRaycaster.layers.enable(MAP_CULLED_LAYER);
+
+          // 从上往下射线，拿到交点列表
+          tmpV3.set(x, GROUND_RAY_MAX_Y, z);
+          groundRaycaster.set(tmpV3, new THREE.Vector3(0, -1, 0));
           const hits = groundRaycaster.intersectObject(mapRaycastRoot, true);
           if (!hits || hits.length === 0) return null;
-          // upward ray: first hit is the lowest surface
-          return hits[0].point.y;
+
+          const candidates = [];
+          for (const h of hits) {
+            if (!h || !h.face || !h.face.normal) continue;
+            // face.normal 是局部空间，需要转到世界空间再判断 y
+            tmpN.copy(h.face.normal).transformDirection(h.object.matrixWorld);
+            if (tmpN.y < GROUND_NORMAL_MIN_Y) continue;
+            candidates.push(h);
+          }
+          if (candidates.length === 0) return null;
+
+          // 先找 band 内最低的地面
+          let best = null;
+          for (const h of candidates) {
+            const y = h.point.y;
+            if (y < GROUND_BAND_MIN_Y || y > GROUND_BAND_MAX_Y) continue;
+            if (!best || y < best.point.y) best = h;
+          }
+          if (best) return best.point.y;
+
+          // 否则找所有地面里最低的（fallback）
+          best = candidates[0];
+          for (const h of candidates) {
+            if (h.point.y < best.point.y) best = h;
+          }
+          return best.point.y;
         } catch (_) {
           return null;
         }
@@ -452,7 +500,7 @@
           if (nextVisible.has(key)) continue;
           const meshes = mapCellBuckets.get(key);
           if (meshes) {
-            for (const m of meshes) m.visible = false;
+            for (const m of meshes) m.layers.set(MAP_CULLED_LAYER);
           }
         }
 
@@ -461,7 +509,7 @@
           if (visibleCellKeys.has(key)) continue;
           const meshes = mapCellBuckets.get(key);
           if (meshes) {
-            for (const m of meshes) m.visible = true;
+            for (const m of meshes) m.layers.set(MAP_RENDER_LAYER);
           }
         }
 
@@ -478,6 +526,8 @@
               child.castShadow = false;
               child.receiveShadow = true;
               child.frustumCulled = true;
+              // 默认先放到「裁切层」，等 updateMapCulling 再开渲染层
+              child.layers.set(MAP_CULLED_LAYER);
             }
           });
           scene.add(mapModel);
