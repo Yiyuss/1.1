@@ -159,8 +159,8 @@ const Game = {
                             ? ModeManager.getActiveModeId()
                             : null);
                 } catch(_) {}
-                if (activeId === 'main' || activeId === 'challenge' || activeId === 'defense') {
-                    // 在主線/挑戰/防禦模式下不執行生存邏輯更新
+                if (activeId === 'main' || activeId === 'challenge' || activeId === 'defense' || activeId === '3d') {
+                    // 在主線/挑戰/防禦/3D模式下不執行生存邏輯更新
                 } else {
                     this.update(deltaTime);
                 }
