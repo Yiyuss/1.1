@@ -720,24 +720,44 @@
       const updatePlayer = (deltaTime) => {
         if (!playerModel) return;
 
-        // 计算移动方向
-        let moveX = 0;
-        let moveZ = 0;
+        // ==============================
+        // Camera-Relative Movement（攝影機相對移動）
+        // - WASD 不再是世界座標方向，而是相對於攝影機視角的 forward/right
+        // - forward/right 需投射到地面（y=0），避免角色往上/往下鑽
+        // ==============================
+        const inputV = (keys.w || keys.arrowUp ? 1 : 0) - (keys.s || keys.arrowDown ? 1 : 0);   // W=+1, S=-1
+        const inputH = (keys.d || keys.arrowRight ? 1 : 0) - (keys.a || keys.arrowLeft ? 1 : 0); // D=+1, A=-1
 
-        if (keys.w || keys.arrowUp) moveZ -= 1;
-        if (keys.s || keys.arrowDown) moveZ += 1;
-        if (keys.a || keys.arrowLeft) moveX -= 1;
-        if (keys.d || keys.arrowRight) moveX += 1;
+        // 复用向量，减少 GC（CPU 更稳）
+        const camForward = updatePlayer._camForward || (updatePlayer._camForward = new THREE.Vector3());
+        const camRight = updatePlayer._camRight || (updatePlayer._camRight = new THREE.Vector3());
+        const moveDir = updatePlayer._moveDir || (updatePlayer._moveDir = new THREE.Vector3());
+
+        // 摄影机 forward（相机看向方向）；投射到 XZ 平面
+        camera.getWorldDirection(camForward);
+        camForward.y = 0;
+        if (camForward.lengthSq() < 1e-6) camForward.set(0, 0, 1);
+        camForward.normalize();
+
+        // 摄影机 right（forward x up）
+        camRight.crossVectors(camForward, camera.up);
+        camRight.y = 0;
+        if (camRight.lengthSq() < 1e-6) camRight.set(1, 0, 0);
+        camRight.normalize();
+
+        // 组合输入得到相对方向
+        moveDir.set(0, 0, 0);
+        if (inputV !== 0) moveDir.addScaledVector(camForward, inputV);
+        if (inputH !== 0) moveDir.addScaledVector(camRight, inputH);
 
         // 调试：输出按键状态（只在第一次检测到移动时输出，避免日志过多）
-        if ((moveX !== 0 || moveZ !== 0) && !updatePlayer._lastMoveState) {
-          console.log('[3D Mode] Movement input detected:', { moveX, moveZ, keys: { w: keys.w, a: keys.a, s: keys.s, d: keys.d, arrowUp: keys.arrowUp, arrowDown: keys.arrowDown, arrowLeft: keys.arrowLeft, arrowRight: keys.arrowRight } });
+        if ((inputH !== 0 || inputV !== 0) && !updatePlayer._lastMoveState) {
+          console.log('[3D Mode] Movement input detected (camera-relative):', { inputH, inputV, keys: { w: keys.w, a: keys.a, s: keys.s, d: keys.d, arrowUp: keys.arrowUp, arrowDown: keys.arrowDown, arrowLeft: keys.arrowLeft, arrowRight: keys.arrowRight } });
           updatePlayer._lastMoveState = true;
-        } else if (moveX === 0 && moveZ === 0) {
+        } else if (inputH === 0 && inputV === 0) {
           updatePlayer._lastMoveState = false;
         }
 
-        const moveDir = new THREE.Vector3(moveX, 0, moveZ);
         const moveLength = moveDir.length();
         const isMoving = moveLength > 0;
         const isRunning = keys.shift && isMoving;
