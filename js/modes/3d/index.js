@@ -61,12 +61,15 @@
         return;
       }
 
-      // 检查Three.js是否已加载
-      if (typeof THREE === 'undefined') {
+      // 检查Three.js是否已加载（通过importmap加载的ES6模块版本）
+      if (typeof window.THREE === 'undefined' && typeof THREE === 'undefined') {
         console.error('[3D Mode] Three.js is not loaded. Please include Three.js library.');
         alert('3D模式需要Three.js库，请确保已加载Three.js');
         return;
       }
+      
+      // 使用全局THREE（通过importmap加载的ES6模块版本）
+      const THREE_NS = window.THREE || THREE;
 
       // 等待GLTFLoader加载
       let GLTFLoader = null;
