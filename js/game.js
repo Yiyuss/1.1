@@ -171,7 +171,18 @@ const Game = {
         
         // 繪製遊戲（加入防呆）
         try {
-            this.draw();
+            // 檢查當前模式，如果是3D模式則不執行draw
+            let activeId = null;
+            try {
+                activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+            } catch(_) {}
+            if (activeId !== '3d') {
+                this.draw();
+            }
         } catch (e) {
             console.error('Game.draw 發生錯誤，跳過本幀：', e);
         }
