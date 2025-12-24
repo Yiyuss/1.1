@@ -297,6 +297,9 @@
       // - 180° 相反：Math.PI
       // - 90° 偏移：Math.PI / 2 或 -Math.PI / 2
       const MODEL_FACING_YAW_OFFSET = Math.PI;
+      // 角色贴地微调：你说的「往下一格」先按 1 世界单位处理
+      // 如果你的地图比例不同，可以把 -1 调成 -0.5 或 -2
+      const PLAYER_Y_OFFSET = -1;
       let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
       let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
 
@@ -359,7 +362,7 @@
         (gltf) => {
           playerModel = gltf.scene;
           playerModel.scale.set(1, 1, 1);
-          playerModel.position.set(0, 0, 0);
+          playerModel.position.set(0, PLAYER_Y_OFFSET, 0);
           playerModel.traverse((child) => {
             if (child.isMesh) {
               child.castShadow = false; // 禁用阴影以优化性能
@@ -459,7 +462,7 @@
           const playerGeometry = new THREE.BoxGeometry(1, 2, 1);
           const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
           playerModel = new THREE.Mesh(playerGeometry, playerMaterial);
-          playerModel.position.set(0, 1, 0);
+          playerModel.position.set(0, 1 + PLAYER_Y_OFFSET, 0);
           playerModel.castShadow = true;
           scene.add(playerModel);
           console.log('[3D Mode] Created fallback player cube');
