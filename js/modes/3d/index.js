@@ -214,6 +214,9 @@
       );
       
       // 相机控制变量
+      const CAMERA_MIN_DISTANCE = 3;
+      const CAMERA_MAX_DISTANCE = 30; // 滾輪最遠距離縮短（原本是 50）
+      const LOD_SWITCH_DISTANCE = 22; // 遠距離時切換到低成本地圖代理
       let cameraDistance = 10;
       let cameraHeight = 2; // 降低摄影机高度（从5改为2）
       let cameraAngleX = 0; // 水平旋转角度
@@ -265,7 +268,9 @@
       };
       ctx.events.on(window, 'resize', handleResize);
       // 禁用阴影以优化性能（3D探索模式不需要阴影）
-      renderer.shadowMap.enabled = false;
+      // 重新开阴影（但保持低成本设置，避免性能炸裂）
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFShadowMap;
 
       // 添加光源
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -273,8 +278,20 @@
 
       const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
       directionalLight.position.set(10, 10, 5);
-      directionalLight.castShadow = false; // 禁用阴影以优化性能
+      directionalLight.castShadow = true;
+      // 低成本阴影参数（重点：小 shadow map + 小范围）
+      directionalLight.shadow.mapSize.width = 1024;
+      directionalLight.shadow.mapSize.height = 1024;
+      directionalLight.shadow.camera.near = 0.5;
+      directionalLight.shadow.camera.far = 80;
+      directionalLight.shadow.camera.left = -25;
+      directionalLight.shadow.camera.right = 25;
+      directionalLight.shadow.camera.top = 25;
+      directionalLight.shadow.camera.bottom = -25;
+      directionalLight.shadow.bias = -0.0001;
+      directionalLight.shadow.normalBias = 0.02;
       scene.add(directionalLight);
+      scene.add(directionalLight.target);
 
       // 玩家状态
       let playerModel = null;
@@ -287,6 +304,15 @@
       let playerVelocity = new THREE.Vector3(0, 0, 0);
       let playerPosition = new THREE.Vector3(0, 0, 0);
       let playerRotation = 0;
+      // 模型朝向修正：
+      // - 我们的 playerRotation 代表「面向移动方向」的世界朝向
+      // - 但 GLB 模型本身的“正前方轴”可能是反的或偏 90 度
+      // 如果出现「往左走但身体朝右」这种情况，用这个偏移量修正外观即可
+      // 常见值：
+      // - Math.PI    ：前后相反（180 度）
+      // - Math.PI/2  ：偏 90 度
+      // - -Math.PI/2 ：偏 -90 度
+      const MODEL_FACING_YAW_OFFSET = Math.PI;
       let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
       let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
 
@@ -307,14 +333,32 @@
       // 加载地图模型
       const mapLoader = new GLTFLoader();
       let mapLoaded = false;
+      let mapModel = null;
+      let mapProxy = null; // 低成本代理（远距离显示，避免高模吃资源）
+
+      // 先创建低成本代理（不依赖 GLB）
+      {
+        const proxyGeo = new THREE.PlaneGeometry(250, 250, 1, 1);
+        const proxyMat = new THREE.MeshStandardMaterial({ color: 0x6f6f6f });
+        mapProxy = new THREE.Mesh(proxyGeo, proxyMat);
+        mapProxy.rotation.x = -Math.PI / 2;
+        mapProxy.position.y = 0;
+        mapProxy.receiveShadow = true;
+        mapProxy.castShadow = false;
+        mapProxy.visible = false; // 默认先隐藏，近距离用高模
+        scene.add(mapProxy);
+      }
+
       mapLoader.load(
         'js/modes/3d/map/invasion_map_-_miniroyale.io.glb',
         (gltf) => {
-          const mapModel = gltf.scene;
+          mapModel = gltf.scene;
           mapModel.traverse((child) => {
             if (child.isMesh) {
-              child.castShadow = true;
+              // 性能优先：地图不投影，只接收（玩家投影到地面/地图即可）
+              child.castShadow = false;
               child.receiveShadow = true;
+              child.frustumCulled = true;
             }
           });
           scene.add(mapModel);
@@ -335,6 +379,7 @@
           const ground = new THREE.Mesh(groundGeometry, groundMaterial);
           ground.rotation.x = -Math.PI / 2;
           ground.position.y = 0;
+          ground.castShadow = false;
           ground.receiveShadow = true;
           scene.add(ground);
           console.log('[3D Mode] Created fallback ground plane');
@@ -352,7 +397,8 @@
           playerModel.position.set(0, 0, 0);
           playerModel.traverse((child) => {
             if (child.isMesh) {
-              child.castShadow = false; // 禁用阴影以优化性能
+              // 开阴影：玩家投影，自己不必接收（较省）
+              child.castShadow = true;
               child.receiveShadow = false;
             }
           });
@@ -522,7 +568,7 @@
       const handleMouseWheel = (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? 1.1 : 0.9;
-        cameraDistance = Math.max(3, Math.min(50, cameraDistance * delta));
+        cameraDistance = Math.max(CAMERA_MIN_DISTANCE, Math.min(CAMERA_MAX_DISTANCE, cameraDistance * delta));
       };
       
       const handleMouseDown = (e) => {
@@ -899,7 +945,7 @@
         // 应用移动
         playerModel.position.x += playerVelocity.x * deltaTime;
         playerModel.position.z += playerVelocity.z * deltaTime;
-        playerModel.rotation.y = playerRotation;
+        playerModel.rotation.y = playerRotation + MODEL_FACING_YAW_OFFSET;
 
         // 更新相机跟随（第三人称视角，支持鼠标控制）
         const playerX = playerModel.position.x;
@@ -915,6 +961,17 @@
         camera.position.z = playerZ + horizontalDistance * Math.cos(cameraAngleX);
         
         camera.lookAt(playerX, playerY + cameraHeight, playerZ);
+
+        // 阴影灯跟随玩家（小范围阴影，性能更稳）
+        // 方向光位置：保持一个固定偏移，target 指向玩家
+        directionalLight.position.set(playerX + 12, playerY + 25, playerZ + 12);
+        directionalLight.target.position.set(playerX, playerY, playerZ);
+        directionalLight.target.updateMatrixWorld();
+
+        // 距离型 LOD：镜头远时只显示低成本代理，隐藏高模地图避免吃资源
+        const farView = cameraDistance >= LOD_SWITCH_DISTANCE;
+        if (mapProxy) mapProxy.visible = farView;
+        if (mapModel) mapModel.visible = !farView;
       };
 
       // 动画循环（优化：限制帧率，避免CPU过载）
