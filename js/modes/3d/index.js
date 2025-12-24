@@ -219,6 +219,8 @@
         0.1,
         1000
       );
+      // HUD（Sprite 掛在 camera）需要把 camera 加進 scene graph，否則不會被 renderer traverse 到
+      scene.add(camera);
       
       // 相机控制变量
       let cameraDistance = 10;
@@ -238,30 +240,66 @@
         antialias: true,
         alpha: false
       });
-      
-      // ===== HUD（真正畫在 WebGL Canvas 內，不是 DOM overlay）=====
-      // 做法：第二個 HUD Scene + OrthographicCamera，render 主場景後再 render HUD。
-      // 這樣 HUD 會跟著 WebGL 畫面一起縮放，不會跑到 letterbox（黑邊）區域。
-      let hudScene = null;
-      let hudCamera = null;
-      let hudPlane = null;
-      let hudTexture = null;
-      let hudMaterial = null;
-      let hudGeometry = null;
-      const layoutHud = () => {
-        if (!hudCamera || !hudPlane) return;
-        const a = camera.aspect || 1;
-        hudCamera.left = -a;
-        hudCamera.right = a;
-        hudCamera.top = 1;
-        hudCamera.bottom = -1;
-        hudCamera.updateProjectionMatrix();
-        // 右上角排版（在 NDC 風格座標系中）
-        const margin = 0.06;
-        const w = 1.25; // HUD 寬（可微調）
-        const h = 0.46; // HUD 高（可微調）
-        hudPlane.scale.set(w, h, 1);
-        hudPlane.position.set(hudCamera.right - w / 2 - margin, hudCamera.top - h / 2 - margin, 0);
+
+      // ===== HUD（畫在 WebGL Canvas 內，Sprite 掛在 camera；不做第二次 render）=====
+      // 修正點：HUD 位置用相機 FOV/Aspect 計算，確保永遠在可視區（不會跑到黑邊）
+      let hudSprite = null;
+      let hudTex = null;
+      let hudCanvas = null;
+      const layoutHudSprite = () => {
+        if (!hudSprite) return;
+        const d = 2.0; // HUD 距離相機（越大越“遠”，但仍是 UI）
+        const halfH = Math.tan((camera.fov * Math.PI / 180) / 2) * d;
+        const halfW = halfH * (camera.aspect || 1);
+        const margin = 0.08; // 世界單位邊距（與 d/fov 相關）
+
+        // HUD 尺寸（以畫面比例表示，比較穩）
+        const w = halfW * 0.78;
+        const h = halfH * 0.48;
+
+        hudSprite.position.set(halfW - w / 2 - margin, halfH - h / 2 - margin, -d);
+        hudSprite.scale.set(w, h, 1);
+      };
+
+      const initHudSprite = () => {
+        const w = 700, h = 280;
+        hudCanvas = document.createElement('canvas');
+        hudCanvas.width = w;
+        hudCanvas.height = h;
+        const g = hudCanvas.getContext('2d');
+        g.clearRect(0, 0, w, h);
+        // 背景
+        g.fillStyle = 'rgba(0,0,0,0.55)';
+        g.fillRect(0, 0, w, h);
+        // 文字
+        g.fillStyle = '#fff';
+        g.font = 'bold 28px sans-serif';
+        g.textBaseline = 'top';
+        const lines = [
+          '右鍵：調視角',
+          '滾輪：縮放',
+          'SHIFT：跑步（連按兩次可常駐跑步）',
+          '空白鍵：跳'
+        ];
+        let y = 18;
+        for (const line of lines) {
+          g.fillText(line, 18, y);
+          y += 36;
+        }
+
+        hudTex = new THREE.CanvasTexture(hudCanvas);
+        hudTex.anisotropy = 1;
+        hudTex.needsUpdate = true;
+        const mat = new THREE.SpriteMaterial({
+          map: hudTex,
+          transparent: true,
+          depthTest: false,
+          depthWrite: false
+        });
+        hudSprite = new THREE.Sprite(mat);
+        hudSprite.renderOrder = 9999;
+        camera.add(hudSprite);
+        layoutHudSprite();
       };
       // 设置渲染器大小（使用实际显示大小，而不是canvas分辨率）
       const updateRendererSize = () => {
@@ -283,7 +321,6 @@
           renderer.setSize(displayWidth, displayHeight);
           camera.aspect = displayWidth / displayHeight;
           camera.updateProjectionMatrix();
-          layoutHud();
         } else {
           renderer.setSize(webglCanvas.width, webglCanvas.height);
         }
@@ -344,53 +381,6 @@
       blobShadow.rotation.x = -Math.PI / 2;
       blobShadow.renderOrder = 1;
       scene.add(blobShadow);
-
-      // 建立 HUD（一次即可）
-      (function initHud(){
-        hudScene = new THREE.Scene();
-        hudCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10);
-        hudCamera.position.z = 1;
-
-        const w = 512, h = 256;
-        const c = document.createElement('canvas');
-        c.width = w; c.height = h;
-        const g = c.getContext('2d');
-        g.clearRect(0, 0, w, h);
-        // 背景
-        g.fillStyle = 'rgba(0,0,0,0.55)';
-        g.fillRect(0, 0, w, h);
-        // 文字
-        g.fillStyle = '#fff';
-        g.font = 'bold 26px sans-serif';
-        g.textBaseline = 'top';
-        const lines = [
-          '右鍵：調視角',
-          '滾輪：縮放',
-          'SHIFT：跑步（連按兩次可常駐跑步）',
-          '空白鍵：跳'
-        ];
-        let y = 18;
-        for (const line of lines) {
-          g.fillText(line, 18, y);
-          y += 34;
-        }
-
-        hudTexture = new THREE.CanvasTexture(c);
-        hudTexture.anisotropy = 1;
-        hudTexture.needsUpdate = true;
-        hudMaterial = new THREE.MeshBasicMaterial({
-          map: hudTexture,
-          transparent: true,
-          depthTest: false,
-          depthWrite: false
-        });
-        hudGeometry = new THREE.PlaneGeometry(1, 1);
-        hudPlane = new THREE.Mesh(hudGeometry, hudMaterial);
-        hudPlane.renderOrder = 9999;
-        hudScene.add(hudPlane);
-
-        layoutHud();
-      })();
 
       // 玩家状态
       let playerModel = null;
@@ -1287,11 +1277,6 @@
         const timeSinceLastRender = currentTime - lastRenderTime;
         if (timeSinceLastRender >= frameInterval) {
           renderer.render(scene, camera);
-          // HUD pass（疊在同一個 WebGL 畫布上）
-          if (hudScene && hudCamera) {
-            renderer.clearDepth();
-            renderer.render(hudScene, hudCamera);
-          }
           lastRenderTime = currentTime;
         }
 
@@ -1457,13 +1442,6 @@
         if (escMenu && escMenu.parentNode) {
           escMenu.parentNode.removeChild(escMenu);
         }
-        // 釋放 HUD（WebGL 內）
-        try {
-          if (hudPlane && hudPlane.parent) hudPlane.parent.remove(hudPlane);
-          if (hudGeometry) hudGeometry.dispose();
-          if (hudMaterial) hudMaterial.dispose();
-          if (hudTexture) hudTexture.dispose();
-        } catch(_) {}
         // 恢复Game的canvas引用（如果需要）
         try {
           if (typeof Game !== 'undefined' && canvas) {
