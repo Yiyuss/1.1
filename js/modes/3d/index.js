@@ -255,7 +255,8 @@
       hud.style.whiteSpace = 'pre-line';
       hud.style.maxWidth = '360px';
       hud.textContent =
-        '右鍵：調視角 / 滾輪：縮放 / 空白鍵：跳\n'
+        '右鍵：調視角 / 滾輪：縮放\n'
+        'WASD：移動 / 空白鍵：跳\n'
         'SHIFT：跑步 (連按兩次可常駐跑步)';
       document.body.appendChild(hud);
 
@@ -1447,5 +1448,6 @@
     window.GameModeManager.register(MODE_ID, Mode3D);
   }
 })();
+
 
 
