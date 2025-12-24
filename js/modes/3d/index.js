@@ -219,8 +219,6 @@
         0.1,
         1000
       );
-      // 讓 camera 成為 scene graph 的一部分，方便把 HUD 掛在 camera 上（HUD 會渲染在同一個 WebGL 畫布內）
-      scene.add(camera);
       
       // 相机控制变量
       let cameraDistance = 10;
@@ -240,6 +238,31 @@
         antialias: true,
         alpha: false
       });
+      
+      // ===== HUD（真正畫在 WebGL Canvas 內，不是 DOM overlay）=====
+      // 做法：第二個 HUD Scene + OrthographicCamera，render 主場景後再 render HUD。
+      // 這樣 HUD 會跟著 WebGL 畫面一起縮放，不會跑到 letterbox（黑邊）區域。
+      let hudScene = null;
+      let hudCamera = null;
+      let hudPlane = null;
+      let hudTexture = null;
+      let hudMaterial = null;
+      let hudGeometry = null;
+      const layoutHud = () => {
+        if (!hudCamera || !hudPlane) return;
+        const a = camera.aspect || 1;
+        hudCamera.left = -a;
+        hudCamera.right = a;
+        hudCamera.top = 1;
+        hudCamera.bottom = -1;
+        hudCamera.updateProjectionMatrix();
+        // 右上角排版（在 NDC 風格座標系中）
+        const margin = 0.06;
+        const w = 1.25; // HUD 寬（可微調）
+        const h = 0.46; // HUD 高（可微調）
+        hudPlane.scale.set(w, h, 1);
+        hudPlane.position.set(hudCamera.right - w / 2 - margin, hudCamera.top - h / 2 - margin, 0);
+      };
       // 设置渲染器大小（使用实际显示大小，而不是canvas分辨率）
       const updateRendererSize = () => {
         const container = webglCanvas.parentElement;
@@ -260,6 +283,7 @@
           renderer.setSize(displayWidth, displayHeight);
           camera.aspect = displayWidth / displayHeight;
           camera.updateProjectionMatrix();
+          layoutHud();
         } else {
           renderer.setSize(webglCanvas.width, webglCanvas.height);
         }
@@ -321,52 +345,52 @@
       blobShadow.renderOrder = 1;
       scene.add(blobShadow);
 
-      // ===== HUD（畫在 WebGL Canvas 內）=====
-      // 用 Sprite + CanvasTexture，掛在 camera 上，避免用 DOM overlay（你要求「放進畫布裡面」）
-      const makeHudSprite = (text) => {
+      // 建立 HUD（一次即可）
+      (function initHud(){
+        hudScene = new THREE.Scene();
+        hudCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 10);
+        hudCamera.position.z = 1;
+
         const w = 512, h = 256;
         const c = document.createElement('canvas');
         c.width = w; c.height = h;
         const g = c.getContext('2d');
-        // 背景（半透明黑 + 模糊感）
+        g.clearRect(0, 0, w, h);
+        // 背景
         g.fillStyle = 'rgba(0,0,0,0.55)';
         g.fillRect(0, 0, w, h);
         // 文字
         g.fillStyle = '#fff';
         g.font = 'bold 26px sans-serif';
         g.textBaseline = 'top';
-        const lines = String(text).split('\n');
+        const lines = [
+          '右鍵：調視角',
+          '滾輪：縮放',
+          'SHIFT：跑步（連按兩次可常駐跑步）',
+          '空白鍵：跳'
+        ];
         let y = 18;
         for (const line of lines) {
           g.fillText(line, 18, y);
           y += 34;
         }
 
-        const tex = new THREE.CanvasTexture(c);
-        tex.anisotropy = 1;
-        tex.needsUpdate = true;
-        const mat = new THREE.SpriteMaterial({
-          map: tex,
+        hudTexture = new THREE.CanvasTexture(c);
+        hudTexture.anisotropy = 1;
+        hudTexture.needsUpdate = true;
+        hudMaterial = new THREE.MeshBasicMaterial({
+          map: hudTexture,
           transparent: true,
           depthTest: false,
           depthWrite: false
         });
-        const spr = new THREE.Sprite(mat);
-        spr.renderOrder = 9999;
-        // 大小/位置：以 camera local space 來做右上角 HUD
-        // camera 面向 -Z，所以 HUD 放在 z=-2 前方
-        spr.position.set(1.15, 0.72, -2);
-        spr.scale.set(1.6, 0.8, 1);
-        return { spr, tex, canvas: c };
-      };
+        hudGeometry = new THREE.PlaneGeometry(1, 1);
+        hudPlane = new THREE.Mesh(hudGeometry, hudMaterial);
+        hudPlane.renderOrder = 9999;
+        hudScene.add(hudPlane);
 
-      const hudText =
-        '右鍵：調視角\n' +
-        '滾輪：縮放\n' +
-        'SHIFT：跑步（連按兩次可常駐跑步）\n' +
-        '空白鍵：跳';
-      const hudObj = makeHudSprite(hudText);
-      camera.add(hudObj.spr);
+        layoutHud();
+      })();
 
       // 玩家状态
       let playerModel = null;
@@ -1263,6 +1287,11 @@
         const timeSinceLastRender = currentTime - lastRenderTime;
         if (timeSinceLastRender >= frameInterval) {
           renderer.render(scene, camera);
+          // HUD pass（疊在同一個 WebGL 畫布上）
+          if (hudScene && hudCamera) {
+            renderer.clearDepth();
+            renderer.render(hudScene, hudCamera);
+          }
           lastRenderTime = currentTime;
         }
 
@@ -1428,17 +1457,12 @@
         if (escMenu && escMenu.parentNode) {
           escMenu.parentNode.removeChild(escMenu);
         }
-        // 移除 HUD sprite 並釋放貼圖
+        // 釋放 HUD（WebGL 內）
         try {
-          if (hudObj && hudObj.spr && hudObj.spr.parent) {
-            hudObj.spr.parent.remove(hudObj.spr);
-          }
-          if (hudObj && hudObj.spr && hudObj.spr.material) {
-            hudObj.spr.material.dispose();
-          }
-          if (hudObj && hudObj.tex) {
-            hudObj.tex.dispose();
-          }
+          if (hudPlane && hudPlane.parent) hudPlane.parent.remove(hudPlane);
+          if (hudGeometry) hudGeometry.dispose();
+          if (hudMaterial) hudMaterial.dispose();
+          if (hudTexture) hudTexture.dispose();
         } catch(_) {}
         // 恢复Game的canvas引用（如果需要）
         try {
