@@ -571,6 +571,21 @@ body {
     image-rendering: pixelated;
 }
 
+/* 3D模式专用canvas样式 */
+#game-canvas-3d {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 1920px;
+    height: 1080px;
+    max-width: 100vw;
+    max-height: 100vh;
+    object-fit: contain;
+    z-index: 1;
+    display: block;
+}
+
 /* UI覆蓋在viewport之上，元素絕對定位到角落 */
 #game-ui {
     position: absolute;
