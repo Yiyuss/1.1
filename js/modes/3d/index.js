@@ -1204,9 +1204,62 @@
       if (returnBtn) {
         ctx.events.on(returnBtn, 'click', () => {
           try {
-            if (window.GameModeManager && typeof window.GameModeManager.stop === 'function') {
-              window.GameModeManager.stop();
-            }
+            // 參考主線模式的回選單流程：先關閉菜單 → stop 模式 → 還原 UI → 切回選單音樂
+            try {
+              if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                AudioManager.playSound('button_click2');
+              }
+            } catch(_) {}
+
+            menuOpen = false;
+            escMenu.style.display = 'none';
+
+            setTimeout(() => {
+              try {
+                const stopPromise =
+                  (window.GameModeManager && typeof window.GameModeManager.stop === 'function')
+                    ? window.GameModeManager.stop()
+                    : (window.ModeManager && typeof window.ModeManager.stop === 'function')
+                      ? window.ModeManager.stop()
+                      : null;
+
+                Promise.resolve(stopPromise).finally(() => {
+                  try {
+                    // 隱藏遊戲畫面
+                    const gameScreen = document.getElementById('game-screen');
+                    if (gameScreen) gameScreen.classList.add('hidden');
+                    // 也隱藏遊戲 UI（避免殘留）
+                    const gameUI = document.getElementById('game-ui');
+                    if (gameUI) gameUI.classList.add('hidden');
+                    // 顯示開始畫面
+                    const startScreen = document.getElementById('start-screen');
+                    if (startScreen) startScreen.classList.remove('hidden');
+                    // 保險：把其他選單/選角畫面先隱藏（避免疊層狀態錯）
+                    const mapScreen = document.getElementById('map-select-screen');
+                    if (mapScreen) mapScreen.classList.add('hidden');
+                    const charScreen = document.getElementById('character-select-screen');
+                    if (charScreen) charScreen.classList.add('hidden');
+                    const diffScreen = document.getElementById('difficulty-select-screen');
+                    if (diffScreen) diffScreen.classList.add('hidden');
+                    const desertDiff = document.getElementById('desert-difficulty-select-screen');
+                    if (desertDiff) desertDiff.classList.add('hidden');
+                  } catch(_) {}
+
+                  // 回到選單音樂（避免污染其他模式）
+                  try { if (typeof AudioManager !== 'undefined') { AudioManager.isMuted = false; } } catch(_) {}
+                  try { if (typeof AudioManager !== 'undefined' && AudioManager.stopAllMusic) { AudioManager.stopAllMusic(); } } catch(_) {}
+                  try {
+                    if (typeof AudioScene !== 'undefined' && AudioScene.enterMenu) {
+                      AudioScene.enterMenu();
+                    } else if (typeof AudioManager !== 'undefined' && AudioManager.playMusic) {
+                      AudioManager.playMusic('menu_music');
+                    }
+                  } catch(_) {}
+                });
+              } catch(e) {
+                console.error('[3D Mode] 返回主選單時出錯:', e);
+              }
+            }, 100);
           } catch(_){}
         });
       }
