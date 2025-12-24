@@ -283,6 +283,42 @@
       directionalLight.castShadow = false; // 禁用阴影以优化性能
       scene.add(directionalLight);
 
+      // ===== 陰影優化（只做這一塊）=====
+      // 真實陰影（shadowMap）在 Web 端非常吃效能，尤其是大地圖 + 動態角色。
+      // 這裡採用「blob shadow」（腳下貼圖陰影）取代真實陰影：視覺有陰影、但成本極低。
+      // - renderer.shadowMap.enabled 保持 false
+      // - 地圖/物件的 castShadow/receiveShadow 統一關閉，避免未來有人誤開 shadowMap 直接炸機
+      const makeBlobShadowTexture = () => {
+        const size = 128;
+        const c = document.createElement('canvas');
+        c.width = size; c.height = size;
+        const g = c.getContext('2d');
+        const cx = size / 2, cy = size / 2;
+        const r = size * 0.45;
+        const grd = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+        grd.addColorStop(0, 'rgba(0,0,0,0.35)');
+        grd.addColorStop(1, 'rgba(0,0,0,0.0)');
+        g.fillStyle = grd;
+        g.fillRect(0, 0, size, size);
+        const tex = new THREE.CanvasTexture(c);
+        tex.anisotropy = 1;
+        tex.needsUpdate = true;
+        return tex;
+      };
+
+      const blobShadowTex = makeBlobShadowTexture();
+      const blobShadowMat = new THREE.MeshBasicMaterial({
+        map: blobShadowTex,
+        transparent: true,
+        opacity: 0.55,
+        depthWrite: false
+      });
+      const blobShadowGeo = new THREE.PlaneGeometry(1.6, 1.6);
+      const blobShadow = new THREE.Mesh(blobShadowGeo, blobShadowMat);
+      blobShadow.rotation.x = -Math.PI / 2;
+      blobShadow.renderOrder = 1;
+      scene.add(blobShadow);
+
       // 玩家状态
       let playerModel = null;
       let playerMixer = null;
@@ -393,8 +429,9 @@
           collidableObjects.length = 0;
           mapModel.traverse((child) => {
             if (child.isMesh) {
-              child.castShadow = true;
-              child.receiveShadow = true;
+              // 陰影優化：真實陰影關閉時，統一關掉 cast/receive，避免不必要的陰影管線開銷
+              child.castShadow = false;
+              child.receiveShadow = false;
               // 建立碰撞列表（只收“可碰撞”的 mesh）
               if (child.geometry && filterColliders(child)) {
                 collidableObjects.push(child);
@@ -420,7 +457,7 @@
           const ground = new THREE.Mesh(groundGeometry, groundMaterial);
           ground.rotation.x = -Math.PI / 2;
           ground.position.y = 0;
-          ground.receiveShadow = true;
+          ground.receiveShadow = false;
           scene.add(ground);
           mapLoaded = true; // fallback 也算就緒，避免卡在載入層
           console.log('[3D Mode] Created fallback ground plane');
@@ -536,7 +573,7 @@
           const playerMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00 });
           playerModel = new THREE.Mesh(playerGeometry, playerMaterial);
           playerModel.position.set(0, 1 + PLAYER_Y_OFFSET, 0);
-          playerModel.castShadow = true;
+          playerModel.castShadow = false;
           scene.add(playerModel);
           playerLoaded = true; // fallback 也算就緒，避免卡在載入層
           console.log('[3D Mode] Created fallback player cube');
@@ -1052,6 +1089,13 @@
             }
           }
         }
+
+        // blob shadow 跟隨：放在最後一次地面命中點上（更貼地），跳躍時淡一點
+        try {
+          const shadowY = (lastGroundHitY !== null) ? (lastGroundHitY + 0.02) : (playerModel.position.y + 0.02);
+          blobShadow.position.set(playerModel.position.x, shadowY, playerModel.position.z);
+          blobShadow.material.opacity = isJumping ? 0.28 : 0.55;
+        } catch(_) {}
 
         // 2) 水平墙壁偵測（Wall Collision）
         // 在移动方向发射射线（约 0.5m），若命中墙面则阻止位移
