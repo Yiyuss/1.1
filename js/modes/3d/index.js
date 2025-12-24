@@ -287,6 +287,16 @@
       let playerVelocity = new THREE.Vector3(0, 0, 0);
       let playerPosition = new THREE.Vector3(0, 0, 0);
       let playerRotation = 0;
+      // 身体朝向修正（模型轴向 vs 代码朝向）
+      // 说明：
+      // - 我们的 playerRotation 是「面向移动方向」的世界 yaw（atan2(moveDir.x, moveDir.z)）
+      // - 但 GLB 模型自身的“正前方”轴可能不是 +Z（常见：朝 -Z 或朝 +X）
+      // 现象：
+      // - 往左走但身体朝右、或走向与身体偏 90°，都属于这个问题
+      // 用法：
+      // - 180° 相反：Math.PI
+      // - 90° 偏移：Math.PI / 2 或 -Math.PI / 2
+      const MODEL_FACING_YAW_OFFSET = Math.PI;
       let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
       let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
 
@@ -899,7 +909,7 @@
         // 应用移动
         playerModel.position.x += playerVelocity.x * deltaTime;
         playerModel.position.z += playerVelocity.z * deltaTime;
-        playerModel.rotation.y = playerRotation;
+        playerModel.rotation.y = playerRotation + MODEL_FACING_YAW_OFFSET;
 
         // 更新相机跟随（第三人称视角，支持鼠标控制）
         const playerX = playerModel.position.x;
