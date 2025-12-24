@@ -320,18 +320,78 @@
       // 加载地图模型
       const mapLoader = new GLTFLoader();
       let mapLoaded = false;
+      let mapModel = null;
+      // 碰撞用：只把“需要碰撞”的网格放进来，避免 raycast 扫整张场景吃 CPU
+      const collidableObjects = [];
+
+      // 碰撞过滤（可微调）：排除小碎件/装饰物，避免 raycast 命中一堆无意义物件
+      const filterColliders = (mesh) => {
+        try {
+          const n = (mesh && mesh.name) ? String(mesh.name) : '';
+          const mn = (mesh && mesh.material && mesh.material.name) ? String(mesh.material.name) : '';
+          // 常见装饰名（按需继续加）
+          if (/(grass|leaf|leaves|bush|foliage|particle|fx|spark|smoke|decal|icon|ui)/i.test(n)) return false;
+          if (/(grass|leaf|leaves|bush|foliage|particle|fx|spark|smoke|decal|icon|ui)/i.test(mn)) return false;
+          // 过小的 mesh 直接排除（避免碰撞被细碎件干扰）
+          const g = mesh.geometry;
+          if (!g) return false;
+          if (!g.boundingBox) g.computeBoundingBox();
+          if (g.boundingBox) {
+            const sizeX = g.boundingBox.max.x - g.boundingBox.min.x;
+            const sizeY = g.boundingBox.max.y - g.boundingBox.min.y;
+            const sizeZ = g.boundingBox.max.z - g.boundingBox.min.z;
+            const maxDim = Math.max(sizeX, sizeY, sizeZ);
+            if (maxDim < 0.2) return false; // 小于 20cm 的碎件不算碰撞
+          }
+          return true;
+        } catch (_) {
+          return true;
+        }
+      };
+
+      // Raycaster 碰撞常数（可微调）
+      const COLLISION = {
+        // 垂直贴地：从“角色中心”往下打
+        groundRayOriginY: 1.4,
+        groundRayDistance: 6,
+        groundNormalMinY: 0.55, // >0.55 认为是地面/斜坡（法线朝上）
+        groundSnapMaxSpeed: 20, // 防止瞬间被拉到奇怪高度（单位/秒）
+
+        // 墙体探路：往移动方向打（0.5m）
+        wallRayOriginY: 1.0,
+        wallRayDistance: 0.6, // 你说约 0.5 公尺，这里留一点余量
+        wallNormalMaxY: 0.5,  // <=0.5 认为更像墙/侧面（避免地面误判成墙）
+
+        // 爬坡阈值：前方地面突然抬升太多 = 当墙
+        maxStepUp: 0.6
+      };
+
+      // Raycaster 实例复用（避免每帧 new）
+      const rayDown = new THREE.Raycaster();
+      const rayForward = new THREE.Raycaster();
+      const tmpOrigin = new THREE.Vector3();
+      const tmpDir = new THREE.Vector3();
+      const tmpNormal = new THREE.Vector3();
+      let lastGroundHitY = null;
+      let lastGroundSnapAt = 0;
       mapLoader.load(
         'js/modes/3d/map/invasion_map_-_miniroyale.io.glb',
         (gltf) => {
-          const mapModel = gltf.scene;
+          mapModel = gltf.scene;
+          collidableObjects.length = 0;
           mapModel.traverse((child) => {
             if (child.isMesh) {
               child.castShadow = true;
               child.receiveShadow = true;
+              // 建立碰撞列表（只收“可碰撞”的 mesh）
+              if (child.geometry && filterColliders(child)) {
+                collidableObjects.push(child);
+              }
             }
           });
           scene.add(mapModel);
           mapLoaded = true;
+          console.log('[3D Mode] Collidable meshes:', collidableObjects.length);
           console.log('[3D Mode] Map loaded successfully');
         },
         (progress) => {
@@ -909,9 +969,108 @@
           }
         }
 
+        // ==============================
+        // Raycaster 碰撞系统（贴地 + 穿墙阻挡）
+        // 设计原则：不破坏既有跳跃时间轴逻辑（0.3/0.7/1.0）
+        // - 贴地：仅在非跳跃状态下进行（跳跃期间保持动画表现）
+        // - 穿墙：无论跳跃与否，都在“应用位移前”探路阻挡
+        // ==============================
+
+        // 计算本帧计划位移（XZ）
+        let dx = playerVelocity.x * deltaTime;
+        let dz = playerVelocity.z * deltaTime;
+
+        // 1) 垂直地面偵測（Ground Snap）
+        // 从角色中心往下射线，命中地面后把 Y 对齐到 hit.point.y + PLAYER_Y_OFFSET
+        // 为了避免 CPU 过高：只在非跳跃 & (移动中 或 每 80ms) 才更新一次
+        const nowMs = (performance && performance.now) ? performance.now() : Date.now();
+        const shouldSnapGround = (!isJumping) && (Math.abs(dx) + Math.abs(dz) > 0.0001 || (nowMs - lastGroundSnapAt) > 80);
+        if (shouldSnapGround && collidableObjects.length > 0) {
+          lastGroundSnapAt = nowMs;
+          tmpOrigin.set(playerModel.position.x, playerModel.position.y + COLLISION.groundRayOriginY, playerModel.position.z);
+          rayDown.set(tmpOrigin, tmpDir.set(0, -1, 0));
+          rayDown.far = COLLISION.groundRayDistance;
+          const hits = rayDown.intersectObjects(collidableObjects, false);
+          if (hits && hits.length > 0) {
+            // 找第一个“像地面”的命中（法线朝上）
+            let groundHit = null;
+            for (const h of hits) {
+              if (!h || !h.face || !h.face.normal) { groundHit = h; break; }
+              tmpNormal.copy(h.face.normal).transformDirection(h.object.matrixWorld);
+              if (tmpNormal.y >= COLLISION.groundNormalMinY) { groundHit = h; break; }
+            }
+            if (groundHit) {
+              const targetY = groundHit.point.y + PLAYER_Y_OFFSET;
+              // 限制单帧修正幅度，避免“硬黏”拉飞
+              const maxDeltaY = COLLISION.groundSnapMaxSpeed * deltaTime;
+              const dy = targetY - playerModel.position.y;
+              if (Math.abs(dy) <= maxDeltaY) {
+                playerModel.position.y = targetY;
+              } else {
+                playerModel.position.y += Math.sign(dy) * maxDeltaY;
+              }
+              lastGroundHitY = groundHit.point.y;
+            }
+          }
+        }
+
+        // 2) 水平墙壁偵測（Wall Collision）
+        // 在移动方向发射射线（约 0.5m），若命中墙面则阻止位移
+        if ((Math.abs(dx) + Math.abs(dz) > 0.000001) && collidableObjects.length > 0) {
+          const dirLen = Math.hypot(dx, dz);
+          if (dirLen > 0) {
+            tmpDir.set(dx / dirLen, 0, dz / dirLen);
+            tmpOrigin.set(playerModel.position.x, playerModel.position.y + COLLISION.wallRayOriginY, playerModel.position.z);
+            rayForward.set(tmpOrigin, tmpDir);
+            rayForward.far = COLLISION.wallRayDistance;
+            const wallHits = rayForward.intersectObjects(collidableObjects, false);
+            let blocked = false;
+            if (wallHits && wallHits.length > 0) {
+              for (const h of wallHits) {
+                if (!h) continue;
+                // 过滤掉“地面/斜坡”误判（法线太朝上就不是墙）
+                if (h.face && h.face.normal) {
+                  tmpNormal.copy(h.face.normal).transformDirection(h.object.matrixWorld);
+                  if (tmpNormal.y > COLLISION.wallNormalMaxY) continue;
+                }
+                if (h.distance < 0.5) { // 你给的参考值
+                  blocked = true;
+                  break;
+                }
+              }
+            }
+
+            // 3) 爬坡/台阶判断：前方地面抬升过大，当墙处理（仅非跳跃）
+            if (!blocked && !isJumping) {
+              tmpOrigin.set(playerModel.position.x + dx, playerModel.position.y + COLLISION.groundRayOriginY, playerModel.position.z + dz);
+              rayDown.set(tmpOrigin, tmpDir.set(0, -1, 0));
+              rayDown.far = COLLISION.groundRayDistance;
+              const nextHits = rayDown.intersectObjects(collidableObjects, false);
+              if (nextHits && nextHits.length > 0 && lastGroundHitY !== null) {
+                let nextGround = null;
+                for (const h of nextHits) {
+                  if (!h || !h.face || !h.face.normal) { nextGround = h; break; }
+                  tmpNormal.copy(h.face.normal).transformDirection(h.object.matrixWorld);
+                  if (tmpNormal.y >= COLLISION.groundNormalMinY) { nextGround = h; break; }
+                }
+                if (nextGround) {
+                  const stepUp = nextGround.point.y - lastGroundHitY;
+                  if (stepUp > COLLISION.maxStepUp) blocked = true;
+                }
+              }
+            }
+
+            if (blocked) {
+              dx = 0; dz = 0;
+              playerVelocity.x = 0;
+              playerVelocity.z = 0;
+            }
+          }
+        }
+
         // 应用移动
-        playerModel.position.x += playerVelocity.x * deltaTime;
-        playerModel.position.z += playerVelocity.z * deltaTime;
+        playerModel.position.x += dx;
+        playerModel.position.z += dz;
         playerModel.rotation.y = playerRotation + MODEL_FACING_YAW_OFFSET;
 
         // 更新相机跟随（第三人称视角，支持鼠标控制）
@@ -1091,5 +1250,4 @@
     window.GameModeManager.register(MODE_ID, Mode3D);
   }
 })();
-
 
