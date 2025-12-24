@@ -298,8 +298,8 @@
       // - 90° 偏移：Math.PI / 2 或 -Math.PI / 2
       const MODEL_FACING_YAW_OFFSET = Math.PI;
       // 角色贴地微调：你说的「往下一格」先按 1 世界单位处理
-      // 如果你的地图比例不同，可以把 -1 调成 -0.5 或 -2
-      const PLAYER_Y_OFFSET = -0.5;
+      // 如果你的地图比例不同，可以把 -1 调成 -0.5 或 -2 或 -0
+      const PLAYER_Y_OFFSET = -0 ;
       let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
       let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
 
@@ -1250,4 +1250,5 @@
     window.GameModeManager.register(MODE_ID, Mode3D);
   }
 })();
+
 
