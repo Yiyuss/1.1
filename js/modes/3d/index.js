@@ -1275,6 +1275,30 @@
       `;
       document.body.appendChild(escMenu);
 
+      // 右上角 HUD：簡單操作教學（只屬於 3D 模式，exit 時會清掉）
+      const hud = document.createElement('div');
+      hud.id = '3d-hud-help';
+      hud.style.position = 'fixed';
+      hud.style.top = '12px';
+      hud.style.right = '12px';
+      hud.style.zIndex = '10000';
+      hud.style.pointerEvents = 'none';
+      hud.style.padding = '10px 12px';
+      hud.style.borderRadius = '10px';
+      hud.style.background = 'rgba(0,0,0,0.55)';
+      hud.style.color = '#fff';
+      hud.style.fontSize = '14px';
+      hud.style.lineHeight = '1.5';
+      hud.style.whiteSpace = 'pre-line';
+      hud.style.maxWidth = '360px';
+      hud.style.backdropFilter = 'blur(4px)';
+      hud.textContent =
+        '右鍵：調視角\n' +
+        '滾輪：縮放\n' +
+        'SHIFT：跑步（連按兩次可常駐跑步）\n' +
+        '空白鍵：跳';
+      document.body.appendChild(hud);
+
       const returnBtn = document.getElementById('3d-menu-return');
       if (returnBtn) {
         ctx.events.on(returnBtn, 'click', () => {
@@ -1378,6 +1402,10 @@
         // 移除ESC菜单
         if (escMenu && escMenu.parentNode) {
           escMenu.parentNode.removeChild(escMenu);
+        }
+        // 移除HUD
+        if (hud && hud.parentNode) {
+          hud.parentNode.removeChild(hud);
         }
         // 恢复Game的canvas引用（如果需要）
         try {
