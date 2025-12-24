@@ -287,6 +287,7 @@
       let playerVelocity = new THREE.Vector3(0, 0, 0);
       let playerPosition = new THREE.Vector3(0, 0, 0);
       let playerRotation = 0;
+      let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
 
       // 输入状态
       const keys = {
@@ -621,7 +622,11 @@
 
         // 跳跃处理（严格按照JUMP邏輯.txt的逻辑D：防止空中重复触发）
         // 现实物理：只有在完全落地（isJumping=false）时，才能响应新的跳跃按键
-        if (keys.space && !isJumping) {
+        // 关键：检测按键"按下"事件（从false变为true），而不是持续状态
+        const spaceKeyPressed = keys.space && !lastSpaceKeyState; // 检测按键按下事件
+        lastSpaceKeyState = keys.space; // 更新上一次的状态
+        
+        if (spaceKeyPressed && !isJumping) {
           // 尝试查找跳跃动画（不区分大小写）
           let jumpActionName = null;
           for (const name in playerActions) {
