@@ -693,45 +693,26 @@
           return;
         }
         
-        // 如果是同一个动作，不切换（但如果是跳跃动画，必须强制停止）
-        if (currentAction === newAction) {
-          // 如果当前是跳跃动画，必须强制停止并切换
-          const currentClipName = currentAction ? currentAction.getClip().name.toLowerCase() : '';
-          if (currentClipName.includes('jump')) {
-            console.log('[3D Mode] Force stopping jump animation and switching to:', actionName);
-            if (currentAction) {
-              currentAction.stop();
-            }
-            // 继续执行切换逻辑，不return
-          } else {
-            return; // 非跳跃动画，如果相同就不切换
-          }
-        }
+        // 如果是同一个动作，不切换
+        if (currentAction === newAction) return;
 
-        // 停止当前动画
-        if (currentAction) {
-          // 如果当前是跳跃动画，立即停止，不淡出
-          const currentClipName = currentAction.getClip().name.toLowerCase();
-          if (currentClipName.includes('jump')) {
-            currentAction.stop();
-          } else {
-            currentAction.fadeOut(0.1); // 非跳跃动画，淡出切换
-          }
+        // ===== 標準 Crossfade 切換（避免 T-Pose 閃爍）=====
+        // 關鍵：不要在切換時對舊動作做 reset()，reset 會把骨架拉回 bind pose（T 字形）
+        const FADE_SEC = 0.2;
+        const prevAction = currentAction;
+        if (prevAction) {
+          prevAction.fadeOut(FADE_SEC);
         }
-        
-        // 播放新动画（跳跃动画设置为LoopOnce，其他设置为LoopRepeat）
-        const isJumpAnimation = actionName.toLowerCase().includes('jump');
-        newAction.reset().fadeIn(0.1);
-        if (isJumpAnimation) {
-          newAction.setLoop(THREE.LoopOnce); // 跳跃动画不循环
-        } else {
-          newAction.setLoop(THREE.LoopRepeat); // 其他动画循环
-        }
-        newAction.play();
+        newAction
+          .reset()
+          .setEffectiveTimeScale(1)
+          .setEffectiveWeight(1)
+          .fadeIn(FADE_SEC)
+          .play();
+
         currentAction = newAction;
-        // 关键：立刻评估一次 mixer，让本帧就应用新动作姿势，避免“跳完瞬间T字形”
-        // 原因：当前主循环中 mixer.update 在 updatePlayer 之前执行，所以切换动作后如果不补一次评估，
-        // 渲染这一帧可能会短暂显示 bind pose（T pose）。
+
+        // 立刻評估一次 mixer，讓本幀就套用新姿勢（主循環 mixer.update 在 updatePlayer 之前）
         try { playerMixer.update(0); } catch (_) {}
       };
 
@@ -787,6 +768,8 @@
             isJumping = true;
             wasRunningWhenJumped = isRunning;
             jumpStartTime = Date.now();
+            // 用于解决“跳完闪T字”：在跳跃末段提前 Crossfade 回 Idle/Walk/Run
+            updatePlayer._jumpLandingBlendStarted = false;
             
             // 设置跳跃动画为不循环，播放一次后停止（按照JUMP邏輯.txt）
             const jumpAction = playerActions[jumpActionName];
@@ -844,6 +827,14 @@
               if (Math.abs(playerVelocity.z) < 0.1) playerVelocity.z = 0;
             }
 
+            // 在跳跃接近结束时（例如 >90%），提前淡入 Idle/Walk/Run，避免 mixer 在结束瞬间“调色盘清空”出现 T-Pose
+            if (jumpProgress >= 0.9 && !updatePlayer._jumpLandingBlendStarted) {
+              updatePlayer._jumpLandingBlendStarted = true;
+              // 根据当前输入决定落地后的目标动作
+              const target = isMoving ? (isRunning ? 'Running' : 'Walking') : 'Idle';
+              switchAction(target);
+            }
+
             // 现实物理：检查跳跃是否完全结束（动画播放完成 = 落地完成）
             // 关键：动画进度 >= 100% 表示动画播放完成，此时应该落地
             const jumpAnimationFinished = jumpProgress >= 1.0;
@@ -857,8 +848,8 @@
               isJumping = false;
               wasRunningWhenJumped = false;
               justFinishedJump = true; // 标记刚刚完成跳跃，防止落地瞬间错误更新旋转
-              
-              // 停止跳跃动画（确保动画完全停止）
+              // 注意：不要 reset()，reset 会瞬间回到 bind pose 导致 T 字闪烁。
+              // 我们已经在 90% 时提前切回 Idle/Walk/Run，这里只需要停止跳跃动作即可。
               if (currentAction) {
                 currentAction.stop();
               }
