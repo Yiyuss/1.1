@@ -420,7 +420,9 @@
       setTimeout(() => {
         // 檢查模式是否已經自己隱藏了過渡層（通過檢查 hidden 類）
         const transitionEl = document.getElementById('transition-layer');
-        if (transitionEl && !transitionEl.classList.contains('hidden')) {
+        // 若模式鎖定過渡層（例如 3D 模式等待地圖/角色載入），則不要在這裡提前關掉，避免出現「藍色畫面」閃爍
+        const locked = !!(transitionEl && transitionEl.dataset && transitionEl.dataset.lock === '1');
+        if (transitionEl && !transitionEl.classList.contains('hidden') && !locked) {
           // 如果過渡層還在顯示，則隱藏它並清理視頻（默認行為）
           TransitionLayer.hide();
         }
