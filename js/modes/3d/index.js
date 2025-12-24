@@ -520,17 +520,71 @@
       // 禁用右键菜单
       ctx.events.on(webglCanvas, 'contextmenu', (e) => e.preventDefault());
 
-      // 切换动画
+      // 切换动画（支持模糊匹配，因为用户说每个动作都有命名，很好辨认）
       const switchAction = (actionName) => {
-        if (!playerMixer || !playerActions[actionName]) return;
+        if (!playerMixer) {
+          console.warn('[3D Mode] switchAction: playerMixer not available');
+          return;
+        }
         
-        const newAction = playerActions[actionName];
+        // 首先尝试精确匹配
+        let newAction = playerActions[actionName];
+        
+        // 如果精确匹配失败，尝试模糊匹配（支持常见的命名变体）
+        if (!newAction) {
+          const nameLower = actionName.toLowerCase();
+          
+          // 映射常见的动作名称变体
+          const nameMappings = {
+            'walk': ['walking', 'walk'],
+            'run': ['running', 'run'],
+            'idle': ['idle'],
+            'jump': ['jump']
+          };
+          
+          // 查找匹配的动画名称
+          for (const key in playerActions) {
+            const keyLower = key.toLowerCase();
+            
+            // 精确匹配或包含匹配
+            if (keyLower === nameLower || keyLower.includes(nameLower) || nameLower.includes(keyLower)) {
+              newAction = playerActions[key];
+              console.log(`[3D Mode] Matched animation: "${key}" for requested "${actionName}"`);
+              break;
+            }
+          }
+          
+          // 如果还是没找到，尝试通过映射查找
+          if (!newAction) {
+            for (const [baseName, variants] of Object.entries(nameMappings)) {
+              if (variants.includes(nameLower)) {
+                for (const variant of variants) {
+                  for (const key in playerActions) {
+                    if (key.toLowerCase().includes(variant)) {
+                      newAction = playerActions[key];
+                      console.log(`[3D Mode] Matched animation via mapping: "${key}" for "${actionName}"`);
+                      break;
+                    }
+                  }
+                  if (newAction) break;
+                }
+                if (newAction) break;
+              }
+            }
+          }
+        }
+        
+        if (!newAction) {
+          console.warn(`[3D Mode] Animation not found: "${actionName}". Available:`, Object.keys(playerActions));
+          return;
+        }
+        
         if (currentAction === newAction) return;
 
         if (currentAction) {
           currentAction.fadeOut(0.2);
         }
-        newAction.reset().fadeIn(0.2).play();
+        newAction.reset().fadeIn(0.2).setLoop(THREE.LoopRepeat).play();
         currentAction = newAction;
       };
 
@@ -565,7 +619,7 @@
           moveDir.normalize();
         }
 
-        // 跳跃处理（只有在有Jump动画时才处理）
+        // 跳跃处理（严格按照JUMP邏輯.txt的逻辑D：防止空中重复触发）
         if (keys.space && !isJumping) {
           // 尝试查找跳跃动画（不区分大小写）
           let jumpActionName = null;
@@ -580,11 +634,11 @@
             isJumping = true;
             wasRunningWhenJumped = isRunning;
             jumpStartTime = Date.now();
-            // 设置跳跃动画为不循环，播放一次后停止
+            // 设置跳跃动画为不循环，播放一次后停止（按照JUMP邏輯.txt）
             const jumpAction = playerActions[jumpActionName];
             if (jumpAction) {
               jumpAction.setLoop(THREE.LoopOnce);
-              jumpAction.clampWhenFinished = true; // 播放完成后停留在最后一帧
+              jumpAction.clampWhenFinished = false; // 不停留在最后一帧，让动画自然结束
             }
             switchAction(jumpActionName);
             console.log('[3D Mode] Starting jump animation:', jumpActionName);
@@ -594,7 +648,7 @@
           }
         }
 
-        // 跳跃动画控制（基于JUMP邏輯.txt）
+        // 跳跃动画控制（严格按照JUMP邏輯.txt实现）
         if (isJumping && currentAction) {
           const jumpClipName = currentAction.getClip().name.toLowerCase();
           const isJumpAnimation = jumpClipName.includes('jump');
@@ -602,11 +656,13 @@
           if (isJumpAnimation && currentAction.isRunning()) {
             const jumpProgress = currentAction.time / currentAction.getClip().duration;
 
-            // 逻辑A：起跳锁定 (0% ~ 30%)
+            // 逻辑A：起跳锁定 (0% ~ 30%) - 绝对不执行位移
             if (jumpProgress < JUMP_CONFIG.controlStart) {
-              // 绝对不执行位移
+              // 什么都不做，位移自然停止
+              playerVelocity.x = 0;
+              playerVelocity.z = 0;
             }
-            // 逻辑B：空中控制 (30% ~ 70%)
+            // 逻辑B：空中控制 (30% ~ 70%) - 可以控制移动
             else if (jumpProgress >= JUMP_CONFIG.controlStart && jumpProgress < JUMP_CONFIG.landPoint) {
               if (isMoving) {
                 const finalSpeed = wasRunningWhenJumped
@@ -620,32 +676,56 @@
                 if (moveDir.length() > 0) {
                   playerRotation = Math.atan2(moveDir.x, moveDir.z);
                 }
+              } else {
+                // 如果没有输入，保持当前速度（不强制停止）
+                // 这样可以实现惯性效果
               }
             }
-            // 逻辑C：落地即停 (70% ~ 100%)
+            // 逻辑C：落地即停 (70% ~ 100%) - 位移自然停止
             else if (jumpProgress >= JUMP_CONFIG.landPoint) {
-              // 位移自然停止
-              playerVelocity.x = 0;
-              playerVelocity.z = 0;
+              // 位移自然停止（什么都不写，速度会自然衰减）
+              playerVelocity.x *= 0.9; // 逐渐减速
+              playerVelocity.z *= 0.9;
+              if (Math.abs(playerVelocity.x) < 0.1) playerVelocity.x = 0;
+              if (Math.abs(playerVelocity.z) < 0.1) playerVelocity.z = 0;
             }
 
             // 检查跳跃是否结束（动画播放完成）
+            // 注意：使用 >= 1.0 而不是 > 1.0，因为动画可能正好在1.0时结束
             if (jumpProgress >= 1.0 || !currentAction.isRunning()) {
+              // 跳跃结束，重置状态
               isJumping = false;
+              wasRunningWhenJumped = false;
+              
               // 停止跳跃动画
               if (currentAction) {
                 currentAction.stop();
               }
-              // 切换回Idle或Walk
+              
+              // 切换回Idle或Walk/Running（使用模糊匹配）
               if (isMoving) {
-                switchAction(isRunning ? 'Run' : 'Walk');
+                switchAction(isRunning ? 'Running' : 'Walking');
               } else {
                 switchAction('Idle');
               }
+              
+              console.log('[3D Mode] Jump ended, switched to:', isMoving ? (isRunning ? 'Running' : 'Walking') : 'Idle');
             }
           } else if (!isJumpAnimation) {
-            // 如果不是跳跃动画，重置跳跃状态
+            // 如果不是跳跃动画，但isJumping还是true，说明状态异常，强制重置
+            console.warn('[3D Mode] Jump state mismatch: isJumping=true but current animation is not jump');
             isJumping = false;
+            wasRunningWhenJumped = false;
+          } else if (!currentAction.isRunning()) {
+            // 跳跃动画已经停止但isJumping还是true，强制重置
+            console.warn('[3D Mode] Jump animation stopped but isJumping=true, resetting state');
+            isJumping = false;
+            wasRunningWhenJumped = false;
+            if (isMoving) {
+              switchAction(isRunning ? 'Running' : 'Walking');
+            } else {
+              switchAction('Idle');
+            }
           }
         }
         
@@ -662,13 +742,9 @@
           }
         }
         
-        // 正常移动（独立判断，不依赖跳跃状态）
-        // 只有在非跳跃状态或跳跃动画不在控制阶段时才执行正常移动
-        const isJumpControlling = isJumping && currentAction && 
-          currentAction.getClip().name.toLowerCase().includes('jump') && 
-          currentAction.isRunning();
-        
-        if (!isJumpControlling) {
+        // 正常移动（严格按照JUMP邏輯.txt的逻辑D：防止空中重复触发）
+        // 如果正在跳跃，不执行正常移动逻辑
+        if (!isJumping) {
           if (isMoving) {
             const speed = isRunning ? 5.0 : 2.5; // 跑步速度是走路的两倍
             playerVelocity.x = moveDir.x * speed;
@@ -677,17 +753,13 @@
             // 转向
             playerRotation = Math.atan2(moveDir.x, moveDir.z);
             
-            // 切换动画（只有在非跳跃状态时才切换）
-            if (!isJumping) {
-              switchAction(isRunning ? 'Run' : 'Walk');
-            }
+            // 切换动画（使用模糊匹配，支持Walking和Running）
+            switchAction(isRunning ? 'Running' : 'Walking');
           } else {
-            // 只有在非跳跃状态时才停止移动和切换动画
-            if (!isJumping) {
-              playerVelocity.x = 0;
-              playerVelocity.z = 0;
-              switchAction('Idle');
-            }
+            // 停止移动
+            playerVelocity.x = 0;
+            playerVelocity.z = 0;
+            switchAction('Idle');
           }
         }
 
