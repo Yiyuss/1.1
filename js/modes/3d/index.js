@@ -210,13 +210,13 @@
         75,
         webglCanvas.width / webglCanvas.height,
         0.1,
-        1000
+        220 // 視距（類似麥快 render distance）：超過這個距離的東西不會被渲染（可大幅省效能）
       );
       
       // 相机控制变量
       const CAMERA_MIN_DISTANCE = 3;
-      const CAMERA_MAX_DISTANCE = 30; // 滾輪最遠距離縮短（原本是 50）
-      const LOD_SWITCH_DISTANCE = 22; // 遠距離時切換到低成本地圖代理
+      const CAMERA_MAX_DISTANCE = 18; // 滾輪最遠距離再縮短（更接近「麥快」視覺距離）
+      const MAP_RENDER_DISTANCE = 140; // 地圖「渲染距離」：視線外的 mesh 直接設 visible=false，避免整張地圖一直吃渲染資源
       let cameraDistance = 10;
       let cameraHeight = 2; // 降低摄影机高度（从5改为2）
       let cameraAngleX = 0; // 水平旋转角度
@@ -316,6 +316,17 @@
       let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
       let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
 
+      // 自动对齐到地面：用包围盒把模型脚底贴到 y=0，解决「人物騰空」问题
+      const placeModelOnGround = (model, groundY = 0) => {
+        try {
+          model.updateWorldMatrix(true, true);
+          const box = new THREE.Box3().setFromObject(model);
+          if (!isFinite(box.min.y) || !isFinite(box.max.y)) return;
+          const dy = groundY - box.min.y;
+          if (isFinite(dy)) model.position.y += dy;
+        } catch (_) {}
+      };
+
       // 输入状态
       const keys = {
         w: false,
@@ -334,20 +345,29 @@
       const mapLoader = new GLTFLoader();
       let mapLoaded = false;
       let mapModel = null;
-      let mapProxy = null; // 低成本代理（远距离显示，避免高模吃资源）
-
-      // 先创建低成本代理（不依赖 GLB）
-      {
-        const proxyGeo = new THREE.PlaneGeometry(250, 250, 1, 1);
-        const proxyMat = new THREE.MeshStandardMaterial({ color: 0x6f6f6f });
-        mapProxy = new THREE.Mesh(proxyGeo, proxyMat);
-        mapProxy.rotation.x = -Math.PI / 2;
-        mapProxy.position.y = 0;
-        mapProxy.receiveShadow = true;
-        mapProxy.castShadow = false;
-        mapProxy.visible = false; // 默认先隐藏，近距离用高模
-        scene.add(mapProxy);
-      }
+      // 「香蕉皮」提醒：
+      // - 你看到的性能问题，很多不是“算逻辑”，而是“整张地图一直在渲染/投影/走 GPU”。
+      // - 本模式的目标是「像麥快」：視距變短 + 視距外的 mesh 直接 visible=false（不吃 draw call）。
+      //   但注意：GLB 是单一文件，下载/解码无法只读一部分（做不到真正“只读可视区域”），
+      //   我们能做的是：不渲染视距外的网格、减少阴影/材质成本，来显著降低运行开销。
+      let mapMeshes = []; // { mesh, centerWorld }
+      let lastMapCullTime = 0;
+      const buildMapMeshCache = () => {
+        mapMeshes = [];
+        if (!mapModel) return;
+        try {
+          mapModel.updateWorldMatrix(true, true);
+          mapModel.traverse((obj) => {
+            if (!obj || !obj.isMesh || !obj.geometry) return;
+            const geo = obj.geometry;
+            if (!geo.boundingSphere) geo.computeBoundingSphere();
+            if (!geo.boundingSphere) return;
+            const center = geo.boundingSphere.center.clone();
+            const centerWorld = obj.localToWorld(center);
+            mapMeshes.push({ mesh: obj, centerWorld });
+          });
+        } catch (_) {}
+      };
 
       mapLoader.load(
         'js/modes/3d/map/invasion_map_-_miniroyale.io.glb',
@@ -362,6 +382,7 @@
             }
           });
           scene.add(mapModel);
+          buildMapMeshCache();
           mapLoaded = true;
           console.log('[3D Mode] Map loaded successfully');
         },
@@ -402,11 +423,17 @@
               child.receiveShadow = false;
             }
           });
+          // 解决「人物有點騰空」：把脚底贴到地面 y=0
+          placeModelOnGround(playerModel, 0);
 
           // 设置动画混合器
           if (gltf.animations && gltf.animations.length > 0) {
             // ===== 关键：剔除「非骨骼节点」的位移/旋转轨道，避免跳完后角色被动画带着转圈 =====
             // 现实物理 + 本模式设计：移动/转向由代码控制；动画只负责骨架姿势，不应改动根节点的transform。
+            // 【香蕉皮備註（請勿移除）】
+            // - “跳完轉一圈”不是我們的 playerRotation 算錯，而是動畫 clip 夾帶了「根節點/非骨骼」的旋轉軌道；
+            // - 未來若改動畫系統，優先檢查：AnimationClip.tracks 是否包含 Armature/SceneRoot 的 quaternion/rotation/position；
+            // - 本段 sanitizeClip 的存在目的就是把「香蕉皮」剝掉：讓 transform 永遠由程式控制，動畫只影響骨架姿勢。
             const collectBoneNames = (root) => {
               const set = new Set();
               root.traverse((obj) => {
@@ -968,10 +995,20 @@
         directionalLight.target.position.set(playerX, playerY, playerZ);
         directionalLight.target.updateMatrixWorld();
 
-        // 距离型 LOD：镜头远时只显示低成本代理，隐藏高模地图避免吃资源
-        const farView = cameraDistance >= LOD_SWITCH_DISTANCE;
-        if (mapProxy) mapProxy.visible = farView;
-        if (mapModel) mapModel.visible = !farView;
+        // 麥快式「渲染距離」：視距外的 mesh 直接不渲染（visible=false），避免整張地圖一直吃 draw calls
+        // 注意：这不会减少 GLB 的下载/解码（单文件无法分块读），但会显著减少 GPU/CPU 渲染开销。
+        const now = performance.now ? performance.now() : Date.now();
+        if (mapMeshes && mapMeshes.length > 0 && (now - lastMapCullTime) > 250) { // 每 250ms 更新一次，避免每帧遍历太重
+          lastMapCullTime = now;
+          const px = playerX, pz = playerZ;
+          const maxDist2 = MAP_RENDER_DISTANCE * MAP_RENDER_DISTANCE;
+          for (const item of mapMeshes) {
+            const c = item.centerWorld;
+            const dx = c.x - px;
+            const dz = c.z - pz;
+            item.mesh.visible = (dx * dx + dz * dz) <= maxDist2;
+          }
+        }
       };
 
       // 动画循环（优化：限制帧率，避免CPU过载）
