@@ -316,17 +316,33 @@
             gltf.animations.forEach((clip) => {
               const action = playerMixer.clipAction(clip);
               playerActions[clip.name] = action;
+              console.log('[3D Mode] Found animation:', clip.name);
             });
 
-            // 默认播放Idle动画
-            if (playerActions['Idle']) {
-              currentAction = playerActions['Idle'];
-              currentAction.play();
-            } else if (Object.keys(playerActions).length > 0) {
+            // 输出所有可用的动画名称，方便调试
+            console.log('[3D Mode] Available animations:', Object.keys(playerActions));
+
+            // 默认播放Idle动画（尝试多种可能的名称）
+            const idleNames = ['Idle', 'idle', 'IDLE', 'Idle_1', 'idle_1'];
+            let idleFound = false;
+            for (const name of idleNames) {
+              if (playerActions[name]) {
+                currentAction = playerActions[name];
+                currentAction.setLoop(THREE.LoopRepeat);
+                currentAction.play();
+                idleFound = true;
+                console.log('[3D Mode] Playing idle animation:', name);
+                break;
+              }
+            }
+            
+            if (!idleFound && Object.keys(playerActions).length > 0) {
               // 如果没有Idle，播放第一个动画
               const firstActionName = Object.keys(playerActions)[0];
               currentAction = playerActions[firstActionName];
+              currentAction.setLoop(THREE.LoopRepeat);
               currentAction.play();
+              console.log('[3D Mode] Playing first available animation:', firstActionName);
             }
           }
 
@@ -425,22 +441,40 @@
 
         // 跳跃处理（只有在有Jump动画时才处理）
         if (keys.space && !isJumping) {
-          if (playerActions['Jump']) {
+          // 尝试查找跳跃动画（不区分大小写）
+          let jumpActionName = null;
+          for (const name in playerActions) {
+            if (name.toLowerCase().includes('jump')) {
+              jumpActionName = name;
+              break;
+            }
+          }
+          
+          if (jumpActionName) {
             isJumping = true;
             wasRunningWhenJumped = isRunning;
             jumpStartTime = Date.now();
-            switchAction('Jump');
+            // 设置跳跃动画为不循环，播放一次后停止
+            const jumpAction = playerActions[jumpActionName];
+            if (jumpAction) {
+              jumpAction.setLoop(THREE.LoopOnce);
+              jumpAction.clampWhenFinished = true; // 播放完成后停留在最后一帧
+            }
+            switchAction(jumpActionName);
+            console.log('[3D Mode] Starting jump animation:', jumpActionName);
           } else {
             // 如果没有Jump动画，使用简单的跳跃（仅用于fallback立方体）
-            console.log('[3D Mode] No Jump animation, using simple jump');
+            console.log('[3D Mode] No Jump animation found, available:', Object.keys(playerActions));
           }
         }
 
         // 跳跃动画控制（基于JUMP邏輯.txt）
-        if (isJumping && currentAction && currentAction.getClip().name === 'Jump') {
-          const jumpAction = currentAction;
-          if (jumpAction.isRunning()) {
-            const jumpProgress = jumpAction.time / jumpAction.getClip().duration;
+        if (isJumping && currentAction) {
+          const jumpClipName = currentAction.getClip().name.toLowerCase();
+          const isJumpAnimation = jumpClipName.includes('jump');
+          
+          if (isJumpAnimation && currentAction.isRunning()) {
+            const jumpProgress = currentAction.time / currentAction.getClip().duration;
 
             // 逻辑A：起跳锁定 (0% ~ 30%)
             if (jumpProgress < JUMP_CONFIG.controlStart) {
@@ -469,15 +503,35 @@
               playerVelocity.z = 0;
             }
 
-            // 检查跳跃是否结束
-            if (jumpProgress >= 1.0) {
+            // 检查跳跃是否结束（动画播放完成）
+            if (jumpProgress >= 1.0 || !currentAction.isRunning()) {
               isJumping = false;
+              // 停止跳跃动画
+              if (currentAction) {
+                currentAction.stop();
+              }
               // 切换回Idle或Walk
               if (isMoving) {
                 switchAction(isRunning ? 'Run' : 'Walk');
               } else {
                 switchAction('Idle');
               }
+            }
+          } else if (!isJumpAnimation) {
+            // 如果不是跳跃动画，重置跳跃状态
+            isJumping = false;
+          }
+        }
+        
+        // 防止连续跳跃：如果不在跳跃状态但还在播放跳跃动画，强制停止
+        if (!isJumping && currentAction) {
+          const clipName = currentAction.getClip().name.toLowerCase();
+          if (clipName.includes('jump') && currentAction.isRunning()) {
+            currentAction.stop();
+            if (isMoving) {
+              switchAction(isRunning ? 'Run' : 'Walk');
+            } else {
+              switchAction('Idle');
             }
           }
         }
