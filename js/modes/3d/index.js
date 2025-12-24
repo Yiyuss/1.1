@@ -254,7 +254,7 @@
         } else {
           renderer.setSize(webglCanvas.width, webglCanvas.height);
         }
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 限制像素比，优化性能
+        renderer.setPixelRatio(1); // 固定像素比为1，大幅优化性能
       };
       
       updateRendererSize();
@@ -264,8 +264,8 @@
         updateRendererSize();
       };
       ctx.events.on(window, 'resize', handleResize);
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      // 禁用阴影以优化性能（3D探索模式不需要阴影）
+      renderer.shadowMap.enabled = false;
 
       // 添加光源
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -273,9 +273,7 @@
 
       const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
       directionalLight.position.set(10, 10, 5);
-      directionalLight.castShadow = true;
-      directionalLight.shadow.mapSize.width = 2048;
-      directionalLight.shadow.mapSize.height = 2048;
+      directionalLight.castShadow = false; // 禁用阴影以优化性能
       scene.add(directionalLight);
 
       // 玩家状态
@@ -352,8 +350,8 @@
           playerModel.position.set(0, 0, 0);
           playerModel.traverse((child) => {
             if (child.isMesh) {
-              child.castShadow = true;
-              child.receiveShadow = true;
+              child.castShadow = false; // 禁用阴影以优化性能
+              child.receiveShadow = false;
             }
           });
 
@@ -419,46 +417,64 @@
       // 键盘事件处理
       const handleKeyDown = (e) => {
         // 如果焦点在输入框等元素上，不处理移动键
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) {
           return;
         }
         
-        switch(e.key.toLowerCase()) {
-          case 'w': keys.w = true; e.preventDefault(); break;
-          case 'a': keys.a = true; e.preventDefault(); break;
-          case 's': keys.s = true; e.preventDefault(); break;
-          case 'd': keys.d = true; e.preventDefault(); break;
-          case 'shift': keys.shift = true; break;
-          case ' ': keys.space = true; e.preventDefault(); break;
-        }
-        switch(e.key) {
-          case 'ArrowUp': keys.arrowUp = true; e.preventDefault(); break;
-          case 'ArrowDown': keys.arrowDown = true; e.preventDefault(); break;
-          case 'ArrowLeft': keys.arrowLeft = true; e.preventDefault(); break;
-          case 'ArrowRight': keys.arrowRight = true; e.preventDefault(); break;
-        }
+        const key = e.key.toLowerCase();
+        const code = e.code.toLowerCase();
+        
+        // WASD键
+        if (key === 'w' || code === 'keyw') { keys.w = true; e.preventDefault(); e.stopPropagation(); }
+        if (key === 'a' || code === 'keya') { keys.a = true; e.preventDefault(); e.stopPropagation(); }
+        if (key === 's' || code === 'keys') { keys.s = true; e.preventDefault(); e.stopPropagation(); }
+        if (key === 'd' || code === 'keyd') { keys.d = true; e.preventDefault(); e.stopPropagation(); }
+        
+        // Shift键
+        if (key === 'shift' || code === 'shiftleft' || code === 'shiftright') { keys.shift = true; }
+        
+        // 空格键
+        if (key === ' ' || key === 'space' || code === 'space') { keys.space = true; e.preventDefault(); e.stopPropagation(); }
+        
+        // 方向键
+        if (e.key === 'ArrowUp' || code === 'arrowup') { keys.arrowUp = true; e.preventDefault(); e.stopPropagation(); }
+        if (e.key === 'ArrowDown' || code === 'arrowdown') { keys.arrowDown = true; e.preventDefault(); e.stopPropagation(); }
+        if (e.key === 'ArrowLeft' || code === 'arrowleft') { keys.arrowLeft = true; e.preventDefault(); e.stopPropagation(); }
+        if (e.key === 'ArrowRight' || code === 'arrowright') { keys.arrowRight = true; e.preventDefault(); e.stopPropagation(); }
       };
 
       const handleKeyUp = (e) => {
-        switch(e.key.toLowerCase()) {
-          case 'w': keys.w = false; break;
-          case 'a': keys.a = false; break;
-          case 's': keys.s = false; break;
-          case 'd': keys.d = false; break;
-          case 'shift': keys.shift = false; break;
-          case ' ': keys.space = false; break;
-        }
-        switch(e.key) {
-          case 'ArrowUp': keys.arrowUp = false; break;
-          case 'ArrowDown': keys.arrowDown = false; break;
-          case 'ArrowLeft': keys.arrowLeft = false; break;
-          case 'ArrowRight': keys.arrowRight = false; break;
-        }
+        const key = e.key.toLowerCase();
+        const code = e.code.toLowerCase();
+        
+        // WASD键
+        if (key === 'w' || code === 'keyw') { keys.w = false; }
+        if (key === 'a' || code === 'keya') { keys.a = false; }
+        if (key === 's' || code === 'keys') { keys.s = false; }
+        if (key === 'd' || code === 'keyd') { keys.d = false; }
+        
+        // Shift键
+        if (key === 'shift' || code === 'shiftleft' || code === 'shiftright') { keys.shift = false; }
+        
+        // 空格键
+        if (key === ' ' || key === 'space' || code === 'space') { keys.space = false; }
+        
+        // 方向键
+        if (e.key === 'ArrowUp' || code === 'arrowup') { keys.arrowUp = false; }
+        if (e.key === 'ArrowDown' || code === 'arrowdown') { keys.arrowDown = false; }
+        if (e.key === 'ArrowLeft' || code === 'arrowleft') { keys.arrowLeft = false; }
+        if (e.key === 'ArrowRight' || code === 'arrowright') { keys.arrowRight = false; }
       };
 
-      // 绑定键盘事件（使用capture确保能捕获）
-      ctx.events.on(window, 'keydown', handleKeyDown, { capture: true });
-      ctx.events.on(window, 'keyup', handleKeyUp, { capture: true });
+      // 绑定键盘事件（使用capture确保能捕获，并直接绑定到document）
+      document.addEventListener('keydown', handleKeyDown, true);
+      document.addEventListener('keyup', handleKeyUp, true);
+      
+      // 存储清理函数
+      Mode3D._keyboardCleanup = () => {
+        document.removeEventListener('keydown', handleKeyDown, true);
+        document.removeEventListener('keyup', handleKeyUp, true);
+      };
       
       // 鼠标控制：滚轮缩放，右键旋转视角
       const handleMouseWheel = (e) => {
@@ -483,8 +499,8 @@
           
           // 水平旋转
           cameraAngleX -= deltaX * 0.01;
-          // 垂直角度限制
-          cameraAngleY = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraAngleY - deltaY * 0.01));
+          // 垂直角度限制（上下角度反过来）
+          cameraAngleY = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraAngleY + deltaY * 0.01));
           
           lastMouseX = e.clientX;
           lastMouseY = e.clientY;
@@ -671,24 +687,57 @@
         camera.lookAt(playerX, playerY + cameraHeight, playerZ);
       };
 
-      // 动画循环
+      // 动画循环（优化：限制帧率，避免CPU过载）
       let lastTime = 0;
+      let frameCount = 0;
+      let lastFpsTime = 0;
+      const targetFPS = 60;
+      const frameInterval = 1000 / targetFPS;
+      let accumulatedTime = 0;
+      let lastRenderTime = 0;
+      
       const animate = (currentTime) => {
-        const deltaTime = (currentTime - lastTime) / 1000; // 转换为秒
+        if (lastTime === 0) {
+          lastTime = currentTime;
+          lastFpsTime = currentTime;
+          lastRenderTime = currentTime;
+        }
+        
+        const deltaTime = currentTime - lastTime;
         lastTime = currentTime;
+        accumulatedTime += deltaTime;
+        
+        // 限制更新频率，避免CPU过载
+        if (accumulatedTime >= frameInterval) {
+          const deltaTimeSeconds = accumulatedTime / 1000;
+          accumulatedTime = 0;
+          
+          // 更新动画混合器
+          if (playerMixer) {
+            playerMixer.update(deltaTimeSeconds);
+          }
 
-        // 更新动画混合器
-        if (playerMixer) {
-          playerMixer.update(deltaTime);
+          // 更新玩家逻辑（只有在玩家模型存在时才更新）
+          if (playerModel) {
+            updatePlayer(deltaTimeSeconds);
+          }
         }
-
-        // 更新玩家逻辑（只有在玩家模型存在时才更新）
-        if (playerModel) {
-          updatePlayer(deltaTime);
+        
+        // 限制渲染频率（最多60fps）
+        const timeSinceLastRender = currentTime - lastRenderTime;
+        if (timeSinceLastRender >= frameInterval) {
+          renderer.render(scene, camera);
+          lastRenderTime = currentTime;
         }
-
-        // 渲染场景（无论模型是否加载完成都渲染）
-        renderer.render(scene, camera);
+        
+        // FPS统计（每5秒钟输出一次，减少日志）
+        frameCount++;
+        if (currentTime - lastFpsTime >= 5000) {
+          const fps = Math.round(frameCount / 5);
+          console.log('[3D Mode] Average FPS (last 5s):', fps);
+          frameCount = 0;
+          lastFpsTime = currentTime;
+        }
 
         // 继续动画循环
         const rafId = ctx.timers.requestAnimationFrame(animate);
@@ -777,6 +826,12 @@
             Game.ctx = canvas.getContext('2d');
           }
         } catch(_){}
+        
+        // 清理键盘事件监听器
+        if (Mode3D._keyboardCleanup) {
+          Mode3D._keyboardCleanup();
+          Mode3D._keyboardCleanup = null;
+        }
       };
     },
 
