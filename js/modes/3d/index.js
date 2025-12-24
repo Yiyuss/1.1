@@ -620,6 +620,7 @@
         }
 
         // 跳跃处理（严格按照JUMP邏輯.txt的逻辑D：防止空中重复触发）
+        // 现实物理：只有在完全落地（isJumping=false）时，才能响应新的跳跃按键
         if (keys.space && !isJumping) {
           // 尝试查找跳跃动画（不区分大小写）
           let jumpActionName = null;
@@ -631,9 +632,11 @@
           }
           
           if (jumpActionName) {
+            // 现实物理：按下跳跃键 → 起跳
             isJumping = true;
             wasRunningWhenJumped = isRunning;
             jumpStartTime = Date.now();
+            
             // 设置跳跃动画为不循环，播放一次后停止（按照JUMP邏輯.txt）
             const jumpAction = playerActions[jumpActionName];
             if (jumpAction) {
@@ -690,34 +693,48 @@
               if (Math.abs(playerVelocity.z) < 0.1) playerVelocity.z = 0;
             }
 
-            // 检查跳跃是否结束（动画播放完成）
-            // 注意：使用 >= 1.0 而不是 > 1.0，因为动画可能正好在1.0时结束
-            if (jumpProgress >= 1.0 || !currentAction.isRunning()) {
-              // 跳跃结束，重置状态
-              isJumping = false;
-              wasRunningWhenJumped = false;
+            // 现实物理：检查跳跃是否完全结束（动画播放完成 = 落地完成）
+            // 关键：动画进度 >= 100% 表示动画播放完成，此时应该落地
+            const jumpAnimationFinished = jumpProgress >= 1.0;
+            
+            if (jumpAnimationFinished) {
+              // 现实物理：跳跃动画完全结束 = 落地完成 → 重置状态，允许下一次跳跃
+              console.log('[3D Mode] Jump animation finished. Progress:', jumpProgress.toFixed(2), 'Running:', currentAction.isRunning());
               
-              // 停止跳跃动画
+              // 停止跳跃动画（确保动画完全停止）
               if (currentAction) {
                 currentAction.stop();
               }
               
-              // 切换回Idle或Walk/Running（使用模糊匹配）
+              // 现实物理：落地后，立即重置跳跃状态（关键：必须在切换动画之前重置）
+              // 这样下次按下跳跃键时，isJumping已经是false，可以响应
+              isJumping = false;
+              wasRunningWhenJumped = false;
+              
+              // 现实物理：落地后，根据当前状态切换回Idle或Walking/Running
+              // 玩家落地后，如果还在移动，就切换到Walking/Running；如果静止，就切换到Idle
               if (isMoving) {
                 switchAction(isRunning ? 'Running' : 'Walking');
               } else {
                 switchAction('Idle');
               }
               
-              console.log('[3D Mode] Jump ended, switched to:', isMoving ? (isRunning ? 'Running' : 'Walking') : 'Idle');
+              console.log('[3D Mode] Jump ended, isJumping reset to false, switched to:', isMoving ? (isRunning ? 'Running' : 'Walking') : 'Idle');
             }
           } else if (!isJumpAnimation) {
-            // 如果不是跳跃动画，但isJumping还是true，说明状态异常，强制重置
-            console.warn('[3D Mode] Jump state mismatch: isJumping=true but current animation is not jump');
+            // 现实物理：如果isJumping=true但当前动画不是跳跃动画，说明跳跃已经结束但状态未重置
+            // 强制重置状态，允许下一次跳跃
+            console.warn('[3D Mode] Jump state mismatch: isJumping=true but current animation is not jump, resetting state');
             isJumping = false;
             wasRunningWhenJumped = false;
+            if (isMoving) {
+              switchAction(isRunning ? 'Running' : 'Walking');
+            } else {
+              switchAction('Idle');
+            }
           } else if (!currentAction.isRunning()) {
-            // 跳跃动画已经停止但isJumping还是true，强制重置
+            // 现实物理：如果跳跃动画已经停止但isJumping还是true，说明状态未重置
+            // 强制重置状态，允许下一次跳跃
             console.warn('[3D Mode] Jump animation stopped but isJumping=true, resetting state');
             isJumping = false;
             wasRunningWhenJumped = false;
@@ -727,15 +744,28 @@
               switchAction('Idle');
             }
           }
+        } else if (isJumping && !currentAction) {
+          // 现实物理：如果isJumping=true但没有当前动画，说明状态异常
+          // 强制重置状态，允许下一次跳跃
+          console.warn('[3D Mode] Jump state mismatch: isJumping=true but no current action, resetting state');
+          isJumping = false;
+          wasRunningWhenJumped = false;
+          if (isMoving) {
+            switchAction(isRunning ? 'Running' : 'Walking');
+          } else {
+            switchAction('Idle');
+          }
         }
         
-        // 防止连续跳跃：如果不在跳跃状态但还在播放跳跃动画，强制停止
+        // 现实物理：防止状态不一致
+        // 如果isJumping=false但还在播放跳跃动画，说明状态异常，强制同步
         if (!isJumping && currentAction) {
           const clipName = currentAction.getClip().name.toLowerCase();
           if (clipName.includes('jump') && currentAction.isRunning()) {
+            console.warn('[3D Mode] State inconsistency: isJumping=false but jump animation is running, stopping animation');
             currentAction.stop();
             if (isMoving) {
-              switchAction(isRunning ? 'Run' : 'Walk');
+              switchAction(isRunning ? 'Running' : 'Walking');
             } else {
               switchAction('Idle');
             }
