@@ -841,7 +841,8 @@ function setupMapAndDifficultySelection() {
     const mapScreen = document.getElementById('map-select-screen');
     const diffScreen = document.getElementById('difficulty-select-screen');
     const desertDiffScreen = document.getElementById('desert-difficulty-select-screen');
-    const mapCards = mapScreen.querySelectorAll('.map-card.selectable');
+    // 获取所有地图卡片（包括隐藏的3D模式卡片）
+    const mapCards = mapScreen.querySelectorAll('.map-card.selectable, .map-card.disabled');
     // 修正：正確的地圖介紹元素ID為 map-desc（避免更新失效）
     const mapDescEl = document.getElementById('map-desc');
     const mapCancel = document.getElementById('map-cancel');
@@ -858,12 +859,14 @@ function setupMapAndDifficultySelection() {
     const defenseGrid = document.getElementById('grid-defense');
     const mainGrid = document.getElementById('grid-main');
     const adventureGrid = document.getElementById('grid-adventure');
+    const grid3d = document.getElementById('grid-3d');
     const modeSurvival = document.getElementById('mode-survival');
     const modeChallenge = document.getElementById('mode-challenge');
     const modeStage = document.getElementById('mode-stage');
     const modeDefense = document.getElementById('mode-defense');
     const modeMain = document.getElementById('mode-main');
     const modeAdventure = document.getElementById('mode-adventure');
+    const mode3d = document.getElementById('mode-3d');
 
     const switchMode = (mode) => {
         // 播放模式切換音效（button_click2）
@@ -937,6 +940,7 @@ function setupMapAndDifficultySelection() {
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) hide(mainGrid);
             if (adventureGrid) show(adventureGrid);
+            if (grid3d) hide(grid3d);
             if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
@@ -945,6 +949,24 @@ function setupMapAndDifficultySelection() {
             if (modeDefense) modeDefense.classList.remove('primary');
             if (modeMain) modeMain.classList.remove('primary');
             if (modeAdventure) modeAdventure.classList.add('primary');
+            if (mode3d) mode3d.classList.remove('primary');
+        } else if (mode === '3d') {
+            if (survivalGrid) hide(survivalGrid);
+            if (challengeGrid) hide(challengeGrid);
+            if (stageGrid) hide(stageGrid);
+            if (defenseGrid) hide(defenseGrid);
+            if (mainGrid) hide(mainGrid);
+            if (adventureGrid) hide(adventureGrid);
+            if (grid3d) show(grid3d);
+            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
+            selectedMapCfg = null;
+            if (modeSurvival) modeSurvival.classList.remove('primary');
+            if (modeChallenge) modeChallenge.classList.remove('primary');
+            if (modeStage) modeStage.classList.remove('primary');
+            if (modeDefense) modeDefense.classList.remove('primary');
+            if (modeMain) modeMain.classList.remove('primary');
+            if (modeAdventure) modeAdventure.classList.remove('primary');
+            if (mode3d) mode3d.classList.add('primary');
         } else {
             if (survivalGrid) show(survivalGrid);
             if (challengeGrid) hide(challengeGrid);
@@ -952,6 +974,7 @@ function setupMapAndDifficultySelection() {
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) hide(mainGrid);
             if (adventureGrid) hide(adventureGrid);
+            if (grid3d) hide(grid3d);
             if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.add('primary');
@@ -960,6 +983,7 @@ function setupMapAndDifficultySelection() {
             if (modeDefense) modeDefense.classList.remove('primary');
             if (modeMain) modeMain.classList.remove('primary');
             if (modeAdventure) modeAdventure.classList.remove('primary');
+            if (mode3d) mode3d.classList.remove('primary');
         }
     };
     // 綁定模式按鈕
@@ -969,6 +993,7 @@ function setupMapAndDifficultySelection() {
     if (modeDefense) modeDefense.addEventListener('click', () => switchMode('defense'));
     if (modeMain) modeMain.addEventListener('click', () => switchMode('main'));
     if (modeAdventure) modeAdventure.addEventListener('click', () => switchMode('adventure'));
+    if (mode3d) mode3d.addEventListener('click', () => switchMode('3d'));
 
     const showMapDesc = (cfg, card) => {
         Game.selectedMap = cfg || null;
@@ -1001,6 +1026,9 @@ function setupMapAndDifficultySelection() {
             } else if (cfg && (cfg.id === 'adventure-isekai' || (typeof cfg.name === 'string' && cfg.name.includes('異世界')))) {
                 // 冒險模式「異世界」介紹
                 mapDescEl.textContent = '從主體遊戲前往另一個世界，請手動F2存檔，遊戲不會自動存檔。';
+            } else if (cfg && (cfg.id === '3d-demo-city' || (typeof cfg.name === 'string' && cfg.name.includes('DEMO城市')))) {
+                // 3D模式「DEMO城市」介紹
+                mapDescEl.textContent = '3D城市探索模式，使用WASD或方向鍵移動，SHIFT跑步，空白鍵跳躍。';
             }
         }
     };
@@ -1162,6 +1190,96 @@ function setupMapAndDifficultySelection() {
             return;
         }
 
+        // 若目前顯示的是3D模式 grid，需要先驗證密碼
+        const is3dMode = grid3d && !grid3d.classList.contains('hidden');
+        if (is3dMode) {
+            // 檢查是否為DEMO城市地圖
+            if (selectedMapCfg && selectedMapCfg.id === '3d-demo-city') {
+                // 顯示密碼輸入對話框
+                const passwordOverlay = document.getElementById('password-overlay');
+                const passwordInput = document.getElementById('password-input');
+                const passwordMessage = document.getElementById('password-message');
+                const passwordSubmit = document.getElementById('password-submit');
+                const passwordClose = document.getElementById('password-close');
+                
+                if (passwordOverlay) {
+                    passwordOverlay.classList.remove('hidden');
+                    if (passwordInput) {
+                        passwordInput.value = '';
+                        passwordInput.focus();
+                    }
+                    if (passwordMessage) passwordMessage.textContent = '';
+                    
+                    // 處理密碼驗證
+                    const handlePasswordSubmit = () => {
+                        const password = passwordInput ? passwordInput.value.trim() : '';
+                        if (password === 'DEMO') {
+                            // 密碼正確，關閉對話框並啟動3D模式
+                            passwordOverlay.classList.add('hidden');
+                            hide(mapScreen);
+                            hide(diffScreen);
+                            if (desertDiffScreen) hide(desertDiffScreen);
+                            hide(DOMCache.get('character-select-screen'));
+                            
+                            // 啟動3D模式
+                            try {
+                                if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
+                                    window.GameModeManager.start('3d', {
+                                        selectedCharacter: Game.selectedCharacter,
+                                        selectedMap: Game.selectedMap
+                                    });
+                                } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
+                                    window.ModeManager.start('3d', {
+                                        selectedCharacter: Game.selectedCharacter,
+                                        selectedMap: Game.selectedMap
+                                    });
+                                }
+                            } catch(e) {
+                                console.error('啟動3D模式失敗:', e);
+                            }
+                            
+                            // 移除事件監聽器
+                            if (passwordSubmit) passwordSubmit.removeEventListener('click', handlePasswordSubmit);
+                            if (passwordClose) passwordClose.removeEventListener('click', handlePasswordClose);
+                            if (passwordInput) passwordInput.removeEventListener('keypress', handlePasswordKeyPress);
+                        } else {
+                            // 密碼錯誤
+                            if (passwordMessage) passwordMessage.textContent = '密碼錯誤，請重新輸入';
+                            if (passwordInput) {
+                                passwordInput.value = '';
+                                passwordInput.focus();
+                            }
+                        }
+                    };
+                    
+                    const handlePasswordClose = () => {
+                        passwordOverlay.classList.add('hidden');
+                        if (passwordInput) passwordInput.value = '';
+                        if (passwordMessage) passwordMessage.textContent = '';
+                        // 移除事件監聽器
+                        if (passwordSubmit) passwordSubmit.removeEventListener('click', handlePasswordSubmit);
+                        if (passwordClose) passwordClose.removeEventListener('click', handlePasswordClose);
+                        if (passwordInput) passwordInput.removeEventListener('keypress', handlePasswordKeyPress);
+                    };
+                    
+                    const handlePasswordKeyPress = (e) => {
+                        if (e.key === 'Enter') {
+                            handlePasswordSubmit();
+                        }
+                    };
+                    
+                    // 綁定事件
+                    if (passwordSubmit) passwordSubmit.addEventListener('click', handlePasswordSubmit);
+                    if (passwordClose) passwordClose.addEventListener('click', handlePasswordClose);
+                    if (passwordInput) passwordInput.addEventListener('keypress', handlePasswordKeyPress);
+                }
+            } else {
+                // 其他3D地圖（尚未開放）
+                playClick();
+            }
+            return;
+        }
+
         // 顯示正確的難度視窗；第三張地圖改為與其他地圖一致，隱藏地圖視窗以避免上下文混淆
         if (selectedMapCfg && selectedMapCfg.id === 'desert' && desertDiffScreen) {
             // 宇宙地圖：僅困難/修羅；預設困難，避免沿用上一輪的 ASURA
@@ -1179,7 +1297,9 @@ function setupMapAndDifficultySelection() {
         }
     };
 
-    mapCards.forEach(card => {
+    // 获取所有地图卡片（包括3D模式的地图卡片）
+    const allMapCards = mapScreen.querySelectorAll('.map-card.selectable, .map-card.disabled');
+    allMapCards.forEach(card => {
         const id = card.getAttribute('data-map-id');
         const cfg = (CONFIG.MAPS || []).find(m => m.id === id);
         const disabled = card.classList.contains('disabled');
