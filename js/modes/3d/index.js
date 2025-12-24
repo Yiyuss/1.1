@@ -75,6 +75,13 @@
       if (gameScreen) gameScreen.classList.remove('hidden');
       if (gameUI) gameUI.style.display = 'none';
       
+      // 穩定化：鎖定過渡層，直到 3D 地圖與角色至少「就緒」（避免偶發看到藍色背景）
+      // 依賴：GameModeManager.start() 已經 show 了 TransitionLayer；這裡只是阻止其 200ms 的自動 hide。
+      try {
+        const tl = document.getElementById('transition-layer');
+        if (tl) tl.dataset.lock = '1';
+      } catch(_) {}
+      
       // 隐藏其他模式的UI
       try {
         const stageUI = document.getElementById('stage-ui');
@@ -415,6 +422,7 @@
           ground.position.y = 0;
           ground.receiveShadow = true;
           scene.add(ground);
+          mapLoaded = true; // fallback 也算就緒，避免卡在載入層
           console.log('[3D Mode] Created fallback ground plane');
         }
       );
@@ -530,6 +538,7 @@
           playerModel.position.set(0, 1 + PLAYER_Y_OFFSET, 0);
           playerModel.castShadow = true;
           scene.add(playerModel);
+          playerLoaded = true; // fallback 也算就緒，避免卡在載入層
           console.log('[3D Mode] Created fallback player cube');
         }
       );
@@ -1127,6 +1136,8 @@
       const frameInterval = 1000 / targetFPS;
       let accumulatedTime = 0;
       let lastRenderTime = 0;
+      let transitionHidden = false;
+      const transitionStartAt = (performance && performance.now) ? performance.now() : Date.now();
       
       const animate = (currentTime) => {
         if (lastTime === 0) {
@@ -1160,6 +1171,26 @@
         if (timeSinceLastRender >= frameInterval) {
           renderer.render(scene, camera);
           lastRenderTime = currentTime;
+        }
+
+        // 過渡層穩定化：等地圖與角色 ready 後才關掉（或最多等 6 秒）
+        // 避免偶發「過渡層太快被關掉」導致看到藍色背景（scene.background）
+        if (!transitionHidden) {
+          const now = (performance && performance.now) ? performance.now() : Date.now();
+          const ready = !!(mapLoaded && playerLoaded);
+          const timeout = (now - transitionStartAt) > 6000;
+          if (ready || timeout) {
+            transitionHidden = true;
+            try {
+              const tl = document.getElementById('transition-layer');
+              if (tl) tl.dataset.lock = '0';
+            } catch(_) {}
+            try {
+              if (typeof window !== 'undefined' && window.TransitionLayer && typeof window.TransitionLayer.hide === 'function') {
+                window.TransitionLayer.hide();
+              }
+            } catch(_) {}
+          }
         }
         
         // FPS统计（每5秒钟输出一次，减少日志）
