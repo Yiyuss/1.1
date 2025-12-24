@@ -219,6 +219,8 @@
         0.1,
         1000
       );
+      // 讓 camera 成為 scene graph 的一部分，方便把 HUD 掛在 camera 上（HUD 會渲染在同一個 WebGL 畫布內）
+      scene.add(camera);
       
       // 相机控制变量
       let cameraDistance = 10;
@@ -318,6 +320,53 @@
       blobShadow.rotation.x = -Math.PI / 2;
       blobShadow.renderOrder = 1;
       scene.add(blobShadow);
+
+      // ===== HUD（畫在 WebGL Canvas 內）=====
+      // 用 Sprite + CanvasTexture，掛在 camera 上，避免用 DOM overlay（你要求「放進畫布裡面」）
+      const makeHudSprite = (text) => {
+        const w = 512, h = 256;
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const g = c.getContext('2d');
+        // 背景（半透明黑 + 模糊感）
+        g.fillStyle = 'rgba(0,0,0,0.55)';
+        g.fillRect(0, 0, w, h);
+        // 文字
+        g.fillStyle = '#fff';
+        g.font = 'bold 26px sans-serif';
+        g.textBaseline = 'top';
+        const lines = String(text).split('\n');
+        let y = 18;
+        for (const line of lines) {
+          g.fillText(line, 18, y);
+          y += 34;
+        }
+
+        const tex = new THREE.CanvasTexture(c);
+        tex.anisotropy = 1;
+        tex.needsUpdate = true;
+        const mat = new THREE.SpriteMaterial({
+          map: tex,
+          transparent: true,
+          depthTest: false,
+          depthWrite: false
+        });
+        const spr = new THREE.Sprite(mat);
+        spr.renderOrder = 9999;
+        // 大小/位置：以 camera local space 來做右上角 HUD
+        // camera 面向 -Z，所以 HUD 放在 z=-2 前方
+        spr.position.set(1.15, 0.72, -2);
+        spr.scale.set(1.6, 0.8, 1);
+        return { spr, tex, canvas: c };
+      };
+
+      const hudText =
+        '右鍵：調視角\n' +
+        '滾輪：縮放\n' +
+        'SHIFT：跑步（連按兩次可常駐跑步）\n' +
+        '空白鍵：跳';
+      const hudObj = makeHudSprite(hudText);
+      camera.add(hudObj.spr);
 
       // 玩家状态
       let playerModel = null;
@@ -1275,30 +1324,6 @@
       `;
       document.body.appendChild(escMenu);
 
-      // 右上角 HUD：簡單操作教學（只屬於 3D 模式，exit 時會清掉）
-      const hud = document.createElement('div');
-      hud.id = '3d-hud-help';
-      hud.style.position = 'fixed';
-      hud.style.top = '12px';
-      hud.style.right = '12px';
-      hud.style.zIndex = '10000';
-      hud.style.pointerEvents = 'none';
-      hud.style.padding = '10px 12px';
-      hud.style.borderRadius = '10px';
-      hud.style.background = 'rgba(0,0,0,0.55)';
-      hud.style.color = '#fff';
-      hud.style.fontSize = '14px';
-      hud.style.lineHeight = '1.5';
-      hud.style.whiteSpace = 'pre-line';
-      hud.style.maxWidth = '360px';
-      hud.style.backdropFilter = 'blur(4px)';
-      hud.textContent =
-        '右鍵：調視角\n' +
-        '滾輪：縮放\n' +
-        'SHIFT：跑步（連按兩次可常駐跑步）\n' +
-        '空白鍵：跳';
-      document.body.appendChild(hud);
-
       const returnBtn = document.getElementById('3d-menu-return');
       if (returnBtn) {
         ctx.events.on(returnBtn, 'click', () => {
@@ -1403,10 +1428,18 @@
         if (escMenu && escMenu.parentNode) {
           escMenu.parentNode.removeChild(escMenu);
         }
-        // 移除HUD
-        if (hud && hud.parentNode) {
-          hud.parentNode.removeChild(hud);
-        }
+        // 移除 HUD sprite 並釋放貼圖
+        try {
+          if (hudObj && hudObj.spr && hudObj.spr.parent) {
+            hudObj.spr.parent.remove(hudObj.spr);
+          }
+          if (hudObj && hudObj.spr && hudObj.spr.material) {
+            hudObj.spr.material.dispose();
+          }
+          if (hudObj && hudObj.tex) {
+            hudObj.tex.dispose();
+          }
+        } catch(_) {}
         // 恢复Game的canvas引用（如果需要）
         try {
           if (typeof Game !== 'undefined' && canvas) {
