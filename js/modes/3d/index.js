@@ -215,7 +215,7 @@
       
       // 相机控制变量
       let cameraDistance = 10;
-      let cameraHeight = 3; // 降低摄影机高度（从5改为3）
+      let cameraHeight = 2; // 降低摄影机高度（从5改为2）
       let cameraAngleX = 0; // 水平旋转角度
       let cameraAngleY = Math.PI / 6; // 垂直角度（俯视角度）
       let isRightMouseDown = false;
@@ -288,6 +288,7 @@
       let playerPosition = new THREE.Vector3(0, 0, 0);
       let playerRotation = 0;
       let lastSpaceKeyState = false; // 记录上一次空格键的状态，用于检测按键按下事件
+      let justFinishedJump = false; // 标记刚刚完成跳跃，用于防止落地瞬间错误更新旋转
 
       // 输入状态
       const keys = {
@@ -741,6 +742,7 @@
               // 这样即使后续逻辑有问题，状态也已经重置，不会导致循环跳跃
               isJumping = false;
               wasRunningWhenJumped = false;
+              justFinishedJump = true; // 标记刚刚完成跳跃，防止落地瞬间错误更新旋转
               
               // 停止跳跃动画（确保动画完全停止）
               if (currentAction) {
@@ -751,6 +753,7 @@
               // 现实物理：落地后，根据当前状态切换回Idle或Walking/Running
               // 玩家落地后，如果还在移动，就切换到Walking/Running；如果静止，就切换到Idle
               // 关键：必须强制切换动画，确保跳跃动画完全停止
+              // 重要：不在这里改变playerRotation，保持跳跃前的方向（现实物理：落地后方向不变）
               if (isMoving) {
                 switchAction(isRunning ? 'Running' : 'Walking');
               } else {
@@ -810,21 +813,46 @@
         // 正常移动（严格按照JUMP邏輯.txt的逻辑D：防止空中重复触发）
         // 如果正在跳跃，不执行正常移动逻辑
         if (!isJumping) {
-          if (isMoving) {
-            const speed = isRunning ? 5.0 : 2.5; // 跑步速度是走路的两倍
-            playerVelocity.x = moveDir.x * speed;
-            playerVelocity.z = moveDir.z * speed;
-            
-            // 转向
-            playerRotation = Math.atan2(moveDir.x, moveDir.z);
-            
-            // 切换动画（使用模糊匹配，支持Walking和Running）
-            switchAction(isRunning ? 'Running' : 'Walking');
+          // 现实物理：如果刚刚完成跳跃，在落地后的第一帧，不更新旋转方向
+          // 这样可以防止落地瞬间因为moveDir计算错误导致的方向重置（转一圈的问题）
+          if (justFinishedJump) {
+            justFinishedJump = false; // 重置标记，下一帧可以正常更新旋转
+            // 落地后的第一帧，只处理移动和动画切换，不更新旋转方向
+            if (isMoving) {
+              const speed = isRunning ? 5.0 : 2.5;
+              playerVelocity.x = moveDir.x * speed;
+              playerVelocity.z = moveDir.z * speed;
+              // 不更新 playerRotation，保持跳跃前的方向
+              switchAction(isRunning ? 'Running' : 'Walking');
+            } else {
+              playerVelocity.x = 0;
+              playerVelocity.z = 0;
+              // 不更新 playerRotation，保持跳跃前的方向
+              switchAction('Idle');
+            }
           } else {
-            // 停止移动
-            playerVelocity.x = 0;
-            playerVelocity.z = 0;
-            switchAction('Idle');
+            // 正常移动逻辑（落地后的第二帧开始）
+            if (isMoving) {
+              const speed = isRunning ? 5.0 : 2.5; // 跑步速度是走路的两倍
+              playerVelocity.x = moveDir.x * speed;
+              playerVelocity.z = moveDir.z * speed;
+              
+              // 现实物理：只有在有移动输入时才更新旋转方向
+              // 这样落地后如果没有移动输入，方向保持不变（不会转一圈）
+              if (moveDir.length() > 0) {
+                playerRotation = Math.atan2(moveDir.x, moveDir.z);
+              }
+              
+              // 切换动画（使用模糊匹配，支持Walking和Running）
+              switchAction(isRunning ? 'Running' : 'Walking');
+            } else {
+              // 停止移动
+              playerVelocity.x = 0;
+              playerVelocity.z = 0;
+              // 现实物理：停止移动时，方向保持不变（不会转一圈）
+              // 不改变 playerRotation
+              switchAction('Idle');
+            }
           }
         }
 
