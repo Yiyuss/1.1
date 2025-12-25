@@ -211,6 +211,8 @@ function createDefaultImages() {
         { name: 'A33', src: 'assets/images/A33.png' }, // 光芒萬丈技能圖片/成就圖片
         { name: 'A34', src: 'assets/images/A34.png' }, // 心意相隨技能圖片（艾比專屬）
         { name: 'A35', src: 'assets/images/A35.png' }, // 心意相通技能圖片（艾比專屬）
+        { name: 'A36', src: 'assets/images/A36.png' }, // 心意傳遞效果圖片（艾比專屬，310x290）
+        { name: 'A37', src: 'assets/images/A37.png' }, // 心意傳遞技能圖片（艾比專屬）
         { name: 'AI', src: 'assets/images/AI.png' }, // 召喚AI技能圖片/成就圖片
         { name: 'AI2', src: 'assets/images/AI2.png' }, // AI生命體往左圖片
         { name: 'AI3', src: 'assets/images/AI3.png' }, // AI生命體往右圖片
@@ -536,6 +538,7 @@ const iconMap = {
     RADIANT_GLORY: 'assets/images/A33.png',
     HEART_COMPANION: 'assets/images/A34.png',
     HEART_CONNECTION: 'assets/images/A35.png',
+    HEART_TRANSMISSION: 'assets/images/A37.png',
     SUMMON_AI: 'assets/images/AI.png',
     MIND_MAGIC: 'assets/images/A16.png',
     ATTR_ATTACK: 'assets/images/A8.png',
