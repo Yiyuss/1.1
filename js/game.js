@@ -264,8 +264,14 @@ const Game = {
             const projectile = this.projectiles[i];
             projectile.update(deltaTime);
             
-            // 移除標記為刪除的投射物
+            // 移除標記為刪除的投射物（對於有 DOM 元素的特效，先調用 destroy 清理）
             if (projectile.markedForDeletion) {
+                // 對於 JudgmentEffect 等使用 DOM 的特效，確保清理 DOM 元素
+                if (projectile.weaponType === 'JUDGMENT' && typeof projectile.destroy === 'function') {
+                    try {
+                        projectile.destroy();
+                    } catch (_) {}
+                }
                 this.projectiles.splice(i, 1);
             }
         }
@@ -601,7 +607,7 @@ const Game = {
             }
         }
         
-        // 前景層：連鎖閃電/狂熱雷擊/斬擊效果（電弧與火花/GIF）以及幼妲光輝/幼妲天使聖光特效/死線戰士特效/死線超人特效
+        // 前景層：連鎖閃電/狂熱雷擊/斬擊效果（電弧與火花/GIF）以及幼妲光輝/幼妲天使聖光特效/死線戰士特效/死線超人特效/裁決特效
         for (const projectile of this.projectiles) {
             if (
                 projectile &&
@@ -612,7 +618,8 @@ const Game = {
                     projectile.weaponType === 'YOUNG_DADA_GLORY' ||
                     projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
                     projectile.weaponType === 'DEATHLINE_WARRIOR' ||
-                    projectile.weaponType === 'DEATHLINE_SUPERMAN'
+                    projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
+                    projectile.weaponType === 'JUDGMENT'
                 )
             ) {
                 projectile.draw(this.ctx);
