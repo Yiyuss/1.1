@@ -260,6 +260,30 @@ const CONFIG = {
                 { COUNT: 10, DESCRIPTION: "每1.5秒發射10道心意傳遞" }
             ]
         },
+        JUDGMENT: {
+            NAME: "裁決",
+            DAMAGE: 15, // 基礎傷害
+            COOLDOWN: 2400, // 每2.4秒施放一次
+            DETECT_RADIUS: 400, // 以玩家為中心向外400範圍
+            BASE_AOE_RADIUS: 100, // 基礎傷害範圍100像素
+            AOE_RADIUS_PER_LEVEL: 12, // 每一級+12範圍
+            SWORD_IMAGE_WIDTH: 83, // 武器圖片寬度
+            SWORD_IMAGE_HEIGHT: 200, // 武器圖片高度
+            FALL_DURATION_MS: 250, // 劍下落時間（毫秒）
+            FADE_OUT_DURATION_MS: 300, // 淡出時間（毫秒）
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每2.4秒在最近敵人上方生成1把劍下落" },
+                { COUNT: 2, DESCRIPTION: "每2.4秒在最近敵人上方生成2把劍下落" },
+                { COUNT: 3, DESCRIPTION: "每2.4秒在最近敵人上方生成3把劍下落" },
+                { COUNT: 4, DESCRIPTION: "每2.4秒在最近敵人上方生成4把劍下落" },
+                { COUNT: 5, DESCRIPTION: "每2.4秒在最近敵人上方生成5把劍下落" },
+                { COUNT: 6, DESCRIPTION: "每2.4秒在最近敵人上方生成6把劍下落" },
+                { COUNT: 7, DESCRIPTION: "每2.4秒在最近敵人上方生成7把劍下落" },
+                { COUNT: 8, DESCRIPTION: "每2.4秒在最近敵人上方生成8把劍下落" },
+                { COUNT: 9, DESCRIPTION: "每2.4秒在最近敵人上方生成9把劍下落" },
+                { COUNT: 10, DESCRIPTION: "每2.4秒在最近敵人上方生成10把劍下落" }
+            ]
+        },
         CHICKEN_BLESSING: {
             NAME: "雞腿庇佑",
             DAMAGE: 10,
@@ -837,7 +861,7 @@ const CONFIG = {
             hpMultiplier: 1.0,
             hpBonus: 50,
             speedMultiplier: 1.0,
-            description: `角色介紹：常常迷路的神界教主，是隻小兔子，偶爾會星爆？\n專屬技能：心意相隨、心意相通、心意傳遞`,
+            description: `角色介紹：常常迷路的神界教主，是隻小兔子，偶爾會星爆？\n專屬技能：心意相隨、心意相通、心意傳遞、裁決`,
             // 選角預覽圖（下方角色介紹用）：使用 player5-3.png
             avatarImageKey: 'player5-2',
             // 所有模式的 HUD 左上角頭像：使用 player5-2.png
@@ -849,8 +873,8 @@ const CONFIG = {
             // 第五位角色可以使用大絕（Q），但這次先不更新專屬大絕
             canUseUltimate: true,
             disabledWeapons: [],
-            // 專屬技能：心意相隨、心意相通、心意傳遞
-            exclusiveWeapons: ['HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION'],
+            // 專屬技能：心意相隨、心意相通、心意傳遞、裁決
+            exclusiveWeapons: ['HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION', 'JUDGMENT'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
         }
