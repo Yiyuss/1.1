@@ -238,6 +238,28 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "回血速度+200%" }
             ]
         },
+        HEART_TRANSMISSION: {
+            NAME: "心意傳遞",
+            DAMAGE: 15, // 與追蹤綿羊相同
+            COOLDOWN: 1500, // 與追蹤綿羊相同
+            PROJECTILE_SPEED: 10, // 與追蹤綿羊相同
+            PROJECTILE_SIZE: 24, // 與追蹤綿羊相同
+            PROJECTILE_SIZE_PER_LEVEL: 3, // 與追蹤綿羊相同
+            EFFECT_IMAGE_WIDTH: 310, // 效果圖片寬度
+            EFFECT_IMAGE_HEIGHT: 290, // 效果圖片高度
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每1.5秒發射1道心意傳遞" },
+                { COUNT: 2, DESCRIPTION: "每1.5秒發射2道心意傳遞" },
+                { COUNT: 3, DESCRIPTION: "每1.5秒發射3道心意傳遞" },
+                { COUNT: 4, DESCRIPTION: "每1.5秒發射4道心意傳遞" },
+                { COUNT: 5, DESCRIPTION: "每1.5秒發射5道心意傳遞" },
+                { COUNT: 6, DESCRIPTION: "每1.5秒發射6道心意傳遞" },
+                { COUNT: 7, DESCRIPTION: "每1.5秒發射7道心意傳遞" },
+                { COUNT: 8, DESCRIPTION: "每1.5秒發射8道心意傳遞" },
+                { COUNT: 9, DESCRIPTION: "每1.5秒發射9道心意傳遞" },
+                { COUNT: 10, DESCRIPTION: "每1.5秒發射10道心意傳遞" }
+            ]
+        },
         CHICKEN_BLESSING: {
             NAME: "雞腿庇佑",
             DAMAGE: 10,
@@ -815,7 +837,7 @@ const CONFIG = {
             hpMultiplier: 1.0,
             hpBonus: 50,
             speedMultiplier: 1.0,
-            description: `角色介紹：常常迷路的神界教主，是隻小兔子，偶爾會星爆？\n專屬技能：心意相隨、心意相通`,
+            description: `角色介紹：常常迷路的神界教主，是隻小兔子，偶爾會星爆？\n專屬技能：心意相隨、心意相通、心意傳遞`,
             // 選角預覽圖（下方角色介紹用）：使用 player5-3.png
             avatarImageKey: 'player5-2',
             // 所有模式的 HUD 左上角頭像：使用 player5-2.png
@@ -827,8 +849,8 @@ const CONFIG = {
             // 第五位角色可以使用大絕（Q），但這次先不更新專屬大絕
             canUseUltimate: true,
             disabledWeapons: [],
-            // 專屬技能：心意相隨、心意相通
-            exclusiveWeapons: ['HEART_COMPANION', 'HEART_CONNECTION'],
+            // 專屬技能：心意相隨、心意相通、心意傳遞
+            exclusiveWeapons: ['HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
         }
