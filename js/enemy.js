@@ -195,6 +195,26 @@ class Enemy extends Entity {
     }
     
     update(deltaTime) {
+        // 更新特效位置
+        if (this._judgmentEffects) {
+            const canvas = Game.canvas;
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = rect.width / canvas.width;
+                const scaleY = rect.height / canvas.height;
+                const camX = Game.camera ? Game.camera.x : 0;
+                const camY = Game.camera ? Game.camera.y : 0;
+                for (const el of this._judgmentEffects) {
+                    if (el && el.parentNode) {
+                        const sx = (this.x - camX) * scaleX;
+                        const sy = (this.y - camY) * scaleY;
+                        el.style.left = sx + 'px';
+                        el.style.top = sy + 'px';
+                    }
+                }
+            }
+        }
+        
         // 若進入死亡特效，僅處理後退與淡出，完成後再刪除
         if (this.isDying) {
             const deltaMul = deltaTime / 16.67;
@@ -877,16 +897,92 @@ class Enemy extends Entity {
     }
     
     // 受到傷害
-    takeDamage(amount) {
+    takeDamage(amount, options = {}) {
         // 死亡淡出期間不再受傷，避免重複死亡觸發
         if (this.isDying) return;
+        
         this.health -= amount;
         // 啟動紅閃
         this.hitFlashTime = this.hitFlashDuration;
         
+        // 如果受到 JUDGMENT 傷害，創建 knife2.gif 特效
+        if (options && options.weaponType === 'JUDGMENT') {
+            this._createJudgmentHitEffect();
+        }
+        
         if (this.health <= 0) {
             this.health = 0;
             this.die();
+        }
+    }
+    
+    // 創建裁決技能的特效
+    _createJudgmentHitEffect() {
+        const viewport = document.getElementById('viewport');
+        if (!viewport) return;
+        let layer = document.getElementById('skill-effects-layer');
+        if (!layer) {
+            layer = document.createElement('div');
+            layer.id = 'skill-effects-layer';
+            layer.style.position = 'absolute';
+            layer.style.left = '0';
+            layer.style.top = '0';
+            layer.style.width = '100%';
+            layer.style.height = '100%';
+            layer.style.pointerEvents = 'none';
+            layer.style.zIndex = '7';
+            viewport.appendChild(layer);
+        }
+        
+        const hitImg = (Game && Game.images) ? Game.images['knife2'] : null;
+        if (!hitImg) return;
+        
+        const el = document.createElement('img');
+        el.src = hitImg.src + (hitImg.src.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+        el.style.position = 'absolute';
+        el.style.width = '48px';
+        el.style.height = '62px';
+        el.style.transform = 'translate(-50%, -50%)';
+        el.style.imageRendering = 'pixelated';
+        el.style.pointerEvents = 'none';
+        el.addEventListener('load', () => { el.style.visibility = 'visible'; }, { once: true });
+        el.style.visibility = 'hidden';
+        layer.appendChild(el);
+        
+        if (!this._judgmentEffects) this._judgmentEffects = [];
+        this._judgmentEffects.push(el);
+        
+        // 更新位置
+        const canvas = Game.canvas;
+        if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = rect.width / canvas.width;
+            const scaleY = rect.height / canvas.height;
+            const camX = Game.camera ? Game.camera.x : 0;
+            const camY = Game.camera ? Game.camera.y : 0;
+            const sx = (this.x - camX) * scaleX;
+            const sy = (this.y - camY) * scaleY;
+            el.style.left = sx + 'px';
+            el.style.top = sy + 'px';
+        }
+        
+        // 480ms 後刪除（縮短時間，避免延續到死亡後）
+        setTimeout(() => {
+            if (el.parentNode) el.parentNode.removeChild(el);
+            if (this._judgmentEffects) {
+                const idx = this._judgmentEffects.indexOf(el);
+                if (idx >= 0) this._judgmentEffects.splice(idx, 1);
+            }
+        }, 480);
+    }
+    
+    // 清理所有 JUDGMENT 特效
+    _clearJudgmentEffects() {
+        if (this._judgmentEffects) {
+            for (const el of this._judgmentEffects) {
+                if (el && el.parentNode) el.parentNode.removeChild(el);
+            }
+            this._judgmentEffects = [];
         }
     }
     
