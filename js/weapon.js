@@ -794,6 +794,34 @@ class Weapon {
             return;
         }
 
+        // 裁決（在敵人上方生成劍下落）
+        if (this.type === 'JUDGMENT') {
+            const swordCount = this.projectileCount;
+            const detectRadius = this.config.DETECT_RADIUS || 400;
+            const baseAoeRadius = this.config.BASE_AOE_RADIUS || 100;
+            const aoeRadiusPerLevel = this.config.AOE_RADIUS_PER_LEVEL || 12;
+            const aoeRadius = baseAoeRadius + aoeRadiusPerLevel * (this.level - 1);
+            const swordImageWidth = this.config.SWORD_IMAGE_WIDTH || 550;
+            const swordImageHeight = this.config.SWORD_IMAGE_HEIGHT || 1320;
+            const fallDurationMs = this.config.FALL_DURATION_MS || 500;
+            const fadeOutDurationMs = this.config.FADE_OUT_DURATION_MS || 300;
+            const dmg = this._computeFinalDamage(levelMul);
+            
+            const effect = new JudgmentEffect(
+                this.player,
+                dmg,
+                swordCount,
+                detectRadius,
+                aoeRadius,
+                swordImageWidth,
+                swordImageHeight,
+                fallDurationMs,
+                fadeOutDurationMs
+            );
+            Game.addProjectile(effect);
+            return;
+        }
+
         // 鬆餅投擲（與追蹤綿羊邏輯相同，但使用不同圖片）
         if (this.type === 'MUFFIN_THROW') {
             const count = this.projectileCount;
