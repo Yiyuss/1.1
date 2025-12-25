@@ -213,6 +213,8 @@ function createDefaultImages() {
         { name: 'A35', src: 'assets/images/A35.png' }, // 心意相通技能圖片（艾比專屬）
         { name: 'A36', src: 'assets/images/A36.png' }, // 心意傳遞效果圖片（艾比專屬，310x290）
         { name: 'A37', src: 'assets/images/A37.png' }, // 心意傳遞技能圖片（艾比專屬）
+        { name: 'A38', src: 'assets/images/A38.png' }, // 裁決技能圖片（艾比專屬）
+        { name: 'A39', src: 'assets/images/A39.png' }, // 裁決武器圖片（艾比專屬，550x1320）
         { name: 'AI', src: 'assets/images/AI.png' }, // 召喚AI技能圖片/成就圖片
         { name: 'AI2', src: 'assets/images/AI2.png' }, // AI生命體往左圖片
         { name: 'AI3', src: 'assets/images/AI3.png' }, // AI生命體往右圖片
@@ -539,6 +541,7 @@ const iconMap = {
     HEART_COMPANION: 'assets/images/A34.png',
     HEART_CONNECTION: 'assets/images/A35.png',
     HEART_TRANSMISSION: 'assets/images/A37.png',
+    JUDGMENT: 'assets/images/A38.png',
     SUMMON_AI: 'assets/images/AI.png',
     MIND_MAGIC: 'assets/images/A16.png',
     ATTR_ATTACK: 'assets/images/A8.png',
