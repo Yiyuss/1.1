@@ -18,6 +18,7 @@ const Game = {
     projectiles: [],
     bossProjectiles: [],
     explosionParticles: [],
+    heartTransmissionEffects: [], // 心意傳遞效果圖片列表
     experienceOrbs: [],
     chests: [],
     obstacles: [],
@@ -565,15 +566,38 @@ const Game = {
                 this.ctx.save();
                 const baseAlpha = particle.life / particle.maxLife;
                 const isLightning = particle && particle.source === 'LIGHTNING';
-                // 追蹤綿羊命中粒子更不透明，且稍微放大
-                const alpha = isLightning ? Math.min(1, 0.5 + baseAlpha * 0.6) : baseAlpha;
-                const drawSize = isLightning ? particle.size * 1.3 : particle.size;
+                const isHeartTransmission = particle && particle.source === 'HEART_TRANSMISSION';
+                // 追蹤綿羊/心意傳遞命中粒子更不透明，且稍微放大
+                const alpha = (isLightning || isHeartTransmission) ? Math.min(1, 0.5 + baseAlpha * 0.6) : baseAlpha;
+                const drawSize = (isLightning || isHeartTransmission) ? particle.size * 1.3 : particle.size;
                 this.ctx.globalAlpha = alpha;
                 this.ctx.fillStyle = particle.color;
                 this.ctx.beginPath();
                 this.ctx.arc(particle.x, particle.y, drawSize, 0, Math.PI * 2);
                 this.ctx.fill();
                 this.ctx.restore();
+            }
+        }
+        
+        // 前景層：心意傳遞效果圖片（A36.png，310x290比例）
+        if (this.heartTransmissionEffects) {
+            for (let i = this.heartTransmissionEffects.length - 1; i >= 0; i--) {
+                const effect = this.heartTransmissionEffects[i];
+                effect.life -= 16.67; // 假設60fps，每幀約16.67ms
+                if (effect.life <= 0) {
+                    this.heartTransmissionEffects.splice(i, 1);
+                    continue;
+                }
+                const alpha = effect.life / effect.maxLife;
+                const img = (this.images || Game.images || {})['A36'];
+                if (img && img.complete) {
+                    this.ctx.save();
+                    this.ctx.globalAlpha = alpha;
+                    const drawX = effect.x - effect.width / 2;
+                    const drawY = effect.y - effect.height / 2;
+                    this.ctx.drawImage(img, drawX, drawY, effect.width, effect.height);
+                    this.ctx.restore();
+                }
             }
         }
         
@@ -830,6 +854,7 @@ const Game = {
         this.projectiles = [];
         this.bossProjectiles = [];
         this.explosionParticles = [];
+        this.heartTransmissionEffects = [];
         this.experienceOrbs = [];
         this.chests = [];
         this.obstacles = [];
