@@ -352,6 +352,7 @@ const skillIcons = {
     HEART_COMPANION: 'assets/images/A34.png',
     HEART_CONNECTION: 'assets/images/A35.png',
     HEART_TRANSMISSION: 'assets/images/A37.png',
+    JUDGMENT: 'assets/images/A38.png',
     SUMMON_AI: 'assets/images/AI.png',
     FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
     MIND_MAGIC: 'assets/images/A16.png',
@@ -565,7 +566,7 @@ const skillIcons = {
         }
 
         // 新武器選項（基於來源狀態判定）
-        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST', 'HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION', 'SUMMON_AI'];
+        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST', 'HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION', 'JUDGMENT', 'SUMMON_AI'];
         // 檢查角色專屬技能（使用上面已定義的 exclusiveWeapons 和 allExclusiveWeapons）
         const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
         // 使用上面已定義的 hasDeathlineSuperman 和 hasRadiantGlory（避免重複定義）
@@ -1953,6 +1954,7 @@ const iconMap = {
     HEART_COMPANION: 'assets/images/A34.png',
     HEART_CONNECTION: 'assets/images/A35.png',
     HEART_TRANSMISSION: 'assets/images/A37.png',
+    JUDGMENT: 'assets/images/A38.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
     FRENZY_SLASH: 'assets/images/A18.png',
     GRAVITY_WAVE: 'assets/images/A27.png',
