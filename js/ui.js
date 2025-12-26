@@ -324,45 +324,7 @@ const UI = {
             const name = cfg ? cfg.NAME : info.type;
             const div = document.createElement('div');
             div.className = 'skill-item';
-const skillIcons = {
-    SING: 'assets/images/A1.png',
-    DAGGER: 'assets/images/A2.png',
-    SLASH: 'assets/images/A17.png',
-    LASER: 'assets/images/A3.png',
-    CHAIN_LIGHTNING: 'assets/images/A4.png',
-    FRENZY_LIGHTNING: 'assets/images/A15.png',
-    FRENZY_SLASH: 'assets/images/A18.png',
-    FIREBALL: 'assets/images/A5.png',
-    LIGHTNING: 'assets/images/A6.png',
-    ORBIT: 'assets/images/A7.png',
-    AURA_FIELD: 'assets/images/A13.png',
-    INVINCIBLE: 'assets/images/A14.png',
-    GRAVITY_WAVE: 'assets/images/A27.png',
-    CHICKEN_BLESSING: 'assets/images/A19.png',
-    YOUNG_DADA_GLORY: 'assets/images/A20.png',
-    BIG_ICE_BALL: 'assets/images/A21.png',
-    ABSTRACTION: 'assets/images/A22.png',
-    FRENZY_ICE_BALL: 'assets/images/A23.png',
-    ROTATING_MUFFIN: 'assets/images/A31.png',
-    MUFFIN_THROW: 'assets/images/A28.png',
-    DEATHLINE_WARRIOR: 'assets/images/A29.png',
-    UNCONTROLLABLE_BEAST: 'assets/images/A32.png',
-    DEATHLINE_SUPERMAN: 'assets/images/A30.png',
-    RADIANT_GLORY: 'assets/images/A33.png',
-    HEART_COMPANION: 'assets/images/A34.png',
-    HEART_CONNECTION: 'assets/images/A35.png',
-    HEART_TRANSMISSION: 'assets/images/A37.png',
-    JUDGMENT: 'assets/images/A38.png',
-    DIVINE_JUDGMENT: 'assets/images/A40.png',
-    SUMMON_AI: 'assets/images/AI.png',
-    FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
-    MIND_MAGIC: 'assets/images/A16.png',
-    ATTR_ATTACK: 'assets/images/A8.png',
-    ATTR_CRIT: 'assets/images/A9.png',
-    ATTR_HEALTH: 'assets/images/A10.png',
-    ATTR_DEFENSE: 'assets/images/A11.png',
-    ATTR_ATTACK_POWER: 'assets/images/A12.png'
-};
+            const skillIcons = (CONFIG && CONFIG.UI && CONFIG.UI.SKILL_ICONS) ? CONFIG.UI.SKILL_ICONS : {};
             const iconSrc = skillIcons[info.type] || 'assets/images/A1.png';
             div.innerHTML = `<div class="skill-icon"><img src="${iconSrc}" alt="${name}"></div><div class="skill-name">${name}</div><div class="skill-level">Lv.${info.level}</div>`;
             this.skillsList.appendChild(div);
@@ -1986,45 +1948,7 @@ _createOptionCard: function(option, index) {
   const optionElement = document.createElement('div');
   optionElement.className = 'upgrade-option';
   optionElement.dataset.index = index;
-const iconMap = {
-    SING: 'assets/images/A1.png',
-    DAGGER: 'assets/images/A2.png',
-    SLASH: 'assets/images/A17.png',
-    LASER: 'assets/images/A3.png',
-    CHAIN_LIGHTNING: 'assets/images/A4.png',
-    FIREBALL: 'assets/images/A5.png',
-    LIGHTNING: 'assets/images/A6.png',
-    ORBIT: 'assets/images/A7.png',
-    AURA_FIELD: 'assets/images/A13.png',
-    INVINCIBLE: 'assets/images/A14.png',
-    CHICKEN_BLESSING: 'assets/images/A19.png',
-    YOUNG_DADA_GLORY: 'assets/images/A20.png',
-    BIG_ICE_BALL: 'assets/images/A21.png',
-    ABSTRACTION: 'assets/images/A22.png',
-    FRENZY_ICE_BALL: 'assets/images/A23.png',
-    FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
-    ROTATING_MUFFIN: 'assets/images/A31.png',
-    MUFFIN_THROW: 'assets/images/A28.png',
-    DEATHLINE_WARRIOR: 'assets/images/A29.png',
-    UNCONTROLLABLE_BEAST: 'assets/images/A32.png',
-    DEATHLINE_SUPERMAN: 'assets/images/A30.png',
-    SUMMON_AI: 'assets/images/AI.png',
-    RADIANT_GLORY: 'assets/images/A33.png',
-    HEART_COMPANION: 'assets/images/A34.png',
-    HEART_CONNECTION: 'assets/images/A35.png',
-    HEART_TRANSMISSION: 'assets/images/A37.png',
-    JUDGMENT: 'assets/images/A38.png',
-    DIVINE_JUDGMENT: 'assets/images/A40.png',
-    FRENZY_LIGHTNING: 'assets/images/A15.png',
-    FRENZY_SLASH: 'assets/images/A18.png',
-    GRAVITY_WAVE: 'assets/images/A27.png',
-    MIND_MAGIC: 'assets/images/A16.png',
-    ATTR_ATTACK: 'assets/images/A8.png',
-    ATTR_CRIT: 'assets/images/A9.png',
-    ATTR_HEALTH: 'assets/images/A10.png',
-    ATTR_DEFENSE: 'assets/images/A11.png',
-    ATTR_ATTACK_POWER: 'assets/images/A12.png'
-};
+  const iconMap = (CONFIG && CONFIG.UI && CONFIG.UI.SKILL_ICONS) ? CONFIG.UI.SKILL_ICONS : {};
   const iconSrc = iconMap[option.type] || 'assets/images/A1.png';
   const iconWrap = document.createElement('div');
   iconWrap.className = 'uop-icon';
