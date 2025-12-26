@@ -134,135 +134,29 @@ function createDefaultVideo(videoId, text) {
     }, 3000);
 }
 
-// 創建預設圖片資源
+// 創建預設圖片資源（Legacy fallback）
+// 重要備註（避免未來維護/AI 誤導）：
+// - 目前「正式的全域資源預載」已集中在 `js/resource_loader.js`：
+//   - `preloadAllResources()` → `ResourceLoader.preloadAll()` → `ResourceLoader.getImageList()`
+// - 本函數屬於歷史遺留的 Game.images 初始化/後備預載，內容與 ResourceLoader 的 imageList 高度重疊。
+// - 若你新增的是「UI 圖示」(技能卡/成就卡)：通常直接用 `<img src="assets/...">`，不需要加到這裡。
+// - 若你新增的是「Canvas/特效要用 Game.images[key]」：請加到 `ResourceLoader.getImageList()`（而不是改這裡），避免兩套清單越來越難維護。
 function createDefaultImages() {
     // 初始化遊戲圖片對象
     Game.images = {};
     
-    // 定義需要加載的圖片
-    const imagesToLoad = [
-        { name: 'player', src: 'assets/images/player.gif' },
-        { name: 'player1-2', src: 'assets/images/player1-2.png' },
-        // 新增：第二位角色（灰妲DaDa）相關圖片
-        // - player2.png   ：所有模式中玩家進入戰場時的主體形象
-        // - player2-2.png ：所有模式 HUD 左上角頭像 + 生存模式升級介面左側底圖
-        // - player2-3.png ：選角介面角色卡片/預覽用圖片
-        { name: 'player2', src: 'assets/images/player2.png' },
-        { name: 'player2-1', src: 'assets/images/player2-1.png' }, // player2向右的圖片
-        { name: 'player2-2', src: 'assets/images/player2-2.png' },
-        { name: 'player2-3', src: 'assets/images/player2-3.png' },
-        // 第三位角色圖片：
-        // - player3.gif   ：所有模式中玩家進入戰場時的主體形象
-        // - player3-2.png  ：所有模式 HUD 左上角頭像 + 生存模式升級介面左側底圖
-        // - player3-3.png  ：選角介面角色卡片/預覽用圖片
-        { name: 'player3', src: 'assets/images/player3.gif' },
-        { name: 'player3-2', src: 'assets/images/player3-2.png' },
-        { name: 'player3-3', src: 'assets/images/player3-3.png' },
-        // 第四位角色圖片：
-        // - player4.png   ：所有模式中玩家進入戰場時的主體形象（500x627）
-        // - player4-2.png ：所有模式 HUD 左上角頭像 + 生存模式升級介面左側底圖
-        // - player4-3.png ：選角介面角色卡片/預覽用圖片
-        { name: 'player4', src: 'assets/images/player4.png' },
-        { name: 'player4-2', src: 'assets/images/player4-2.png' },
-        { name: 'player4-3', src: 'assets/images/player4-3.png' },
-        // 第五位角色圖片：
-        // - player5.png   ：所有模式中玩家進入戰場時的主體形象（500x467）
-        // - player5-2.png ：所有模式 HUD 左上角頭像 + 生存模式升級介面左側底圖
-        // - player5-3.png ：選角介面角色卡片/預覽用圖片
-        { name: 'player5', src: 'assets/images/player5.png' },
-        { name: 'player5-2', src: 'assets/images/player5-2.png' },
-        { name: 'player5-3', src: 'assets/images/player5-3.png' },
-        { name: 'playerN', src: 'assets/images/playerN.png' },
-        { name: 'playerN2', src: 'assets/images/playerN2.gif' }, // 第二位角色大絕專用動態圖片
-        { name: 'playerN3', src: 'assets/images/playerN3.png' }, // 第四位角色大絕專用圖片（267x300）
-        { name: 'zombie', src: 'assets/images/zombie.png' },
-        { name: 'zombie2', src: 'assets/images/zombie2.png' },
-        { name: 'zombie3', src: 'assets/images/zombie3.png' },
-        { name: 'skeleton', src: 'assets/images/skeleton.png' },
-        { name: 'skeleton2', src: 'assets/images/skeleton2.png' },
-        { name: 'skeleton3', src: 'assets/images/skeleton3.png' },
-        { name: 'ghost', src: 'assets/images/ghost.png' },
-        { name: 'ghost2', src: 'assets/images/ghost2.png' },
-        { name: 'ghost3', src: 'assets/images/ghost3.png' },
-        { name: 'mini_boss', src: 'assets/images/mini_boss.png' },
-        { name: 'boss', src: 'assets/images/boss.png' },
-        // 第4張地圖：花園 - 花精靈系列敵人
-        { name: 'elf', src: 'assets/images/Elf.png' },
-        { name: 'elf2', src: 'assets/images/Elf2.png' },
-        { name: 'elf3', src: 'assets/images/Elf3.png' },
-        { name: 'elf_mini_boss', src: 'assets/images/Elf_mini_boss.png' },
-        { name: 'elfboss', src: 'assets/images/Elfboss.png' },
-        { name: 'dagger', src: 'assets/images/dagger.png' },
-        { name: 'fireball', src: 'assets/images/fireball.png' },
-        { name: 'lightning', src: 'assets/images/lightning.png' },
-        { name: 'chicken', src: 'assets/images/chicken.png' }, // 雞腿庇佑專用圖片
-        { name: 'A21', src: 'assets/images/A21.png' }, // 大波球技能圖片
-        { name: 'A22', src: 'assets/images/A22.png' }, // 抽象化技能圖片
-        { name: 'A23', src: 'assets/images/A23.png' }, // 狂熱大波技能圖片
-        { name: 'A24', src: 'assets/images/A24.png' }, // 銀河系征服者成就圖片
-        { name: 'A25', src: 'assets/images/A25.png' }, // 幼妲天使技能圖片
-        { name: 'A26', src: 'assets/images/A26.png' }, // 星雲征服者成就圖片
-        { name: 'A27', src: 'assets/images/A27.png' }, // 引力波技能圖片/成就圖片
-        { name: 'A31', src: 'assets/images/A31.png' }, // 旋轉鬆餅技能圖片
-        { name: 'A28', src: 'assets/images/A28.png' }, // 鬆餅投擲技能圖片
-        { name: 'A29', src: 'assets/images/A29.png' }, // 死線戰士技能圖片
-        { name: 'A32', src: 'assets/images/A32.png' }, // 不獸控制技能圖片
-        { name: 'A30', src: 'assets/images/A30.png' }, // 死線超人技能圖片/成就圖片
-        { name: 'A33', src: 'assets/images/A33.png' }, // 光芒萬丈技能圖片/成就圖片
-        { name: 'A34', src: 'assets/images/A34.png' }, // 心意相隨技能圖片（艾比專屬）
-        { name: 'A35', src: 'assets/images/A35.png' }, // 心意相通技能圖片（艾比專屬）
-        { name: 'A36', src: 'assets/images/A36.png' }, // 心意傳遞效果圖片（艾比專屬，310x290）
-        { name: 'A37', src: 'assets/images/A37.png' }, // 心意傳遞技能圖片（艾比專屬）
-        { name: 'A38', src: 'assets/images/A38.png' }, // 裁決技能圖片（艾比專屬）
-        { name: 'A39', src: 'assets/images/A39.png' }, // 裁決武器圖片（艾比專屬，550x1320）
-        { name: 'AI', src: 'assets/images/AI.png' }, // 召喚AI技能圖片/成就圖片
-        { name: 'AI2', src: 'assets/images/AI2.png' }, // AI生命體往左圖片
-        { name: 'AI3', src: 'assets/images/AI3.png' }, // AI生命體往右圖片
-        { name: 'muffin', src: 'assets/images/muffin.png' }, // 旋轉鬆餅視覺效果圖片
-        { name: 'muffin2', src: 'assets/images/muffin2.png' }, // 鬆餅投擲視覺效果圖片
-        { name: 'die', src: 'assets/images/die.png' }, // 死線戰士傷害特效雪碧圖
-        { name: 'ICE3', src: 'assets/images/ICE3.png' }, // 大波球冰彈圖片
-        { name: 'knife', src: 'assets/images/knife.gif' },
-        { name: 'knife2', src: 'assets/images/knife2.gif' },
-        { name: 'Explosion', src: 'assets/images/Explosion.png' }, // 艾比大绝爆炸雪碧图
-        { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
-// 新增：守護領域場域圖片
-        { name: 'field', src: 'assets/images/field.png' },
-        { name: 'field2', src: 'assets/images/field2.png' }, // 引力波場域圖片
-        { name: 'box', src: 'assets/images/BOX.png' },
-        // 唱歌技能特效圖片（GIF 與 PNG 後備）
-        { name: 'LA', src: 'assets/images/LA.png' },
-        // 障礙物素材
-        { name: 'S1', src: 'assets/images/S1.png' },
-        { name: 'S2', src: 'assets/images/S2.png' },
-        { name: 'S3', src: 'assets/images/S3.png' },
-        { name: 'S4', src: 'assets/images/S4.png' },
-        { name: 'S5', src: 'assets/images/S5.png' },
-        { name: 'S6', src: 'assets/images/S6.png' },
-        { name: 'S7', src: 'assets/images/S7.png' },
-        { name: 'S8', src: 'assets/images/S8.png' },
-        { name: 'S9', src: 'assets/images/S9.png' },
-        // 第4張地圖：花園 - 裝飾物素材
-        { name: 'S10', src: 'assets/images/S10.png' },
-        { name: 'S11', src: 'assets/images/S11.png' },
-        { name: 'S12', src: 'assets/images/S12.png' },
-        { name: 'S13', src: 'assets/images/S13.png' },
-        { name: 'S14', src: 'assets/images/S14.png' },
-        { name: 'S15', src: 'assets/images/S15.png' },
-        { name: 'S16', src: 'assets/images/S16.png' },
-        // 背景素材（多地圖）
-        { name: 'background', src: 'assets/images/background.jpg' },
-        { name: 'background2', src: 'assets/images/background2.jpg' },
-        { name: 'background3', src: 'assets/images/background3.jpg' },
-        // 新增：挑戰模式「銀河系」地圖背景
-        { name: 'background4', src: 'assets/images/background4.png' },
-        { name: 'background1-2', src: 'assets/images/background1-2.png' },
-        { name: 'background1-3', src: 'assets/images/background1-3.png' },
-        // 第4張地圖：花園背景
-        { name: 'background8', src: 'assets/images/background8.png' },
-        // 生存模式出口圖片
-        { name: 'exit', src: 'assets/images/exit.png' }
-    ];
+    // 定義需要加載的圖片（去除重複：以 ResourceLoader.getImageList() 為唯一來源）
+    // 不變式：仍會把同一批圖片預載到 Game.images，確保現有流程不變。
+    let imagesToLoad = [];
+    try {
+        if (typeof ResourceLoader !== 'undefined' && typeof ResourceLoader.getImageList === 'function') {
+            imagesToLoad = ResourceLoader.getImageList() || [];
+        }
+    } catch (_) {}
+    // 後備：若 ResourceLoader 不可用，至少保留玩家圖以避免空集合
+    if (!Array.isArray(imagesToLoad) || imagesToLoad.length === 0) {
+        imagesToLoad = [{ name: 'player', src: 'assets/images/player.gif' }];
+    }
     
     // 加載所有圖片
     let loadedCount = 0;
@@ -515,39 +409,9 @@ function setupCharacterSelection() {
                     if (cfg && cfg.NAME) nameToType[cfg.NAME] = t;
                 });
             } catch (_) {}
-const iconMap = {
-    SING: 'assets/images/A1.png',
-    DAGGER: 'assets/images/A2.png',
-    SLASH: 'assets/images/A17.png',
-    LASER: 'assets/images/A3.png',
-    CHAIN_LIGHTNING: 'assets/images/A4.png',
-    FIREBALL: 'assets/images/A5.png',
-    LIGHTNING: 'assets/images/A6.png',
-    ORBIT: 'assets/images/A7.png',
-    AURA_FIELD: 'assets/images/A13.png',
-    INVINCIBLE: 'assets/images/A14.png',
-    CHICKEN_BLESSING: 'assets/images/A19.png',
-    YOUNG_DADA_GLORY: 'assets/images/A20.png',
-    BIG_ICE_BALL: 'assets/images/A21.png',
-    ABSTRACTION: 'assets/images/A22.png',
-    FRENZY_ICE_BALL: 'assets/images/A23.png',
-    FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
-    ROTATING_MUFFIN: 'assets/images/A31.png',
-    MUFFIN_THROW: 'assets/images/A28.png',
-    DEATHLINE_WARRIOR: 'assets/images/A29.png',
-    UNCONTROLLABLE_BEAST: 'assets/images/A32.png',
-    DEATHLINE_SUPERMAN: 'assets/images/A30.png',
-    RADIANT_GLORY: 'assets/images/A33.png',
-    HEART_COMPANION: 'assets/images/A34.png',
-    HEART_CONNECTION: 'assets/images/A35.png',
-    HEART_TRANSMISSION: 'assets/images/A37.png',
-    JUDGMENT: 'assets/images/A38.png',
-    SUMMON_AI: 'assets/images/AI.png',
-    MIND_MAGIC: 'assets/images/A16.png',
-    ATTR_ATTACK: 'assets/images/A8.png',
-    ATTR_CRIT: 'assets/images/A9.png',
-    ATTR_ATTACK_POWER: 'assets/images/A12.png'
-};
+            // iconMap 是「角色預覽用 UI 圖示」：走 <img src="assets/..."> 直接載入，與 Game.images 預載無直接關係
+            // 集中由 CONFIG.UI.SKILL_ICONS 提供，避免 main.js / ui.js 各自維護一份造成誤導
+            const iconMap = (CONFIG && CONFIG.UI && CONFIG.UI.SKILL_ICONS) ? CONFIG.UI.SKILL_ICONS : {};
             names.filter(n => nameToType[n]).forEach(n => {
                 const type = nameToType[n];
                 const iconSrc = iconMap[type] || 'assets/images/A1.png';
