@@ -92,7 +92,7 @@ const CONFIG = {
         },
         AURA_FIELD: {
             NAME: "守護領域",
-            DAMAGE: 5,
+            DAMAGE: 3,
             COOLDOWN: 1000,
             PROJECTILE_SPEED: 0,
             // 場域半徑（以像素計算），升級逐步擴大
@@ -219,7 +219,7 @@ const CONFIG = {
         },
         ORBIT: {
             NAME: "綿羊護體",
-            DAMAGE: 10,
+            DAMAGE: 8,
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
@@ -243,7 +243,7 @@ const CONFIG = {
         },
         HEART_COMPANION: {
             NAME: "心意相隨",
-            DAMAGE: 10,
+            DAMAGE: 8,
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
@@ -334,7 +334,7 @@ const CONFIG = {
         // - 每級：基礎攻擊 +3、攻擊範圍 +20、傷害範圍 +20，最高10級
         DIVINE_JUDGMENT: {
             NAME: "神界裁決",
-            DAMAGE: 15, // 基礎傷害（沿用裁決）
+            DAMAGE: 20, // 基礎傷害
             DAMAGE_PER_LEVEL: 3, // 每級+3（LV10 累計 +27）
             COOLDOWN: 100, // 0.1秒：不停落下（移動/下落/停留/抬起才是主要節奏）
             // 攻擊範圍（偵測半徑）：LV1=400，每級+20
@@ -352,7 +352,7 @@ const CONFIG = {
             MOVE_DURATION_MS: 600, // 移動到下一個目標頭上的時間（加快一些）
             PATROL_SPEED_FACTOR: 0.35, // 無怪巡邏速度（相對於攻擊移動）
             LEVELS: [
-                { COUNT: 5, DESCRIPTION: "常駐5把劍巡守，落下裁決（冷卻0.1秒，基礎攻擊+0，攻擊範圍+0px，傷害範圍+0px）" },
+                { COUNT: 5, DESCRIPTION: "常駐5把劍巡守，落下裁決（冷卻0.1秒）" },
                 { COUNT: 5, DESCRIPTION: "基礎攻擊+3，攻擊範圍+20px，傷害範圍+20px" },
                 { COUNT: 5, DESCRIPTION: "基礎攻擊+6，攻擊範圍+40px，傷害範圍+40px" },
                 { COUNT: 5, DESCRIPTION: "基礎攻擊+9，攻擊範圍+60px，傷害範圍+60px" },
@@ -366,7 +366,7 @@ const CONFIG = {
         },
         CHICKEN_BLESSING: {
             NAME: "雞腿庇佑",
-            DAMAGE: 10,
+            DAMAGE: 8,
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
@@ -390,7 +390,7 @@ const CONFIG = {
         },
         ROTATING_MUFFIN: {
             NAME: "旋轉鬆餅",
-            DAMAGE: 10,
+            DAMAGE: 8,
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
@@ -1246,7 +1246,14 @@ const CONFIG = {
         SIZE: 16,
         VALUE: 5,
         LEVEL_UP_BASE: 80,
-        LEVEL_UP_MULTIPLIER: 1.12
+        LEVEL_UP_MULTIPLIER: 1.12,
+        // 升級經驗曲線調整（避免後期指數爆炸）
+        // - Lv1~SOFTCAP_LEVEL：沿用舊公式 LEVEL_UP_BASE * LEVEL_UP_MULTIPLIER^(level-1)
+        // - Lv(SOFTCAP_LEVEL+1)+：改用較緩的增長（小倍率 + 線性補償），讓後期不會跨太誇張
+        SOFTCAP_LEVEL: 20,
+        // 目標：20波左右等級由 ~55 拉近到 ~70（降低 20+ 後期成長斜率）
+        LEVEL_UP_MULTIPLIER_LATE: 1.055,
+        LEVEL_UP_LINEAR_LATE: 0
     },
     
     // 波次設置
