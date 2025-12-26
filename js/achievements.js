@@ -70,6 +70,13 @@ const Achievements = (function(){
       icon: 'assets/images/A30.png',
       reward: '解鎖「死線超人」技能。'
     },
+    RABI_CITY_CLEAR: {
+      id: 'RABI_CITY_CLEAR',
+      name: '艾比的勝利',
+      desc: '使用艾比角色通關廁所。',
+      icon: 'assets/images/A40.png',
+      reward: '解鎖「神界裁決」技能。'
+    },
     DEFENSE_LV1_CLEAR: {
       id: 'DEFENSE_LV1_CLEAR',
       name: '煉金坊守護者',
@@ -89,7 +96,8 @@ const Achievements = (function(){
     SUMMON_AI: ['CHALLENGE_NEBULA_CLEAR'],
     GRAVITY_WAVE: ['COIN_200K'],
     DEATHLINE_SUPERMAN: ['ROKUROST_CITY_CLEAR'],
-    RADIANT_GLORY: ['CHALLENGE_GALAXY_CLEAR']
+    RADIANT_GLORY: ['CHALLENGE_GALAXY_CLEAR'],
+    DIVINE_JUDGMENT: ['RABI_CITY_CLEAR']
     // 未來：在此加入新融合技能的成就解鎖需求，例如：
     // OTHER_FUSION_SKILL: ['SOME_ACHIEVEMENT', 'ANOTHER_ACHIEVEMENT']
   };
