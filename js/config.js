@@ -284,6 +284,41 @@ const CONFIG = {
                 { COUNT: 10, DESCRIPTION: "每2.4秒在最近敵人上方生成10把劍下落" }
             ]
         },
+        // 合成技能：神界裁決（裁決LV10 + 斬擊LV10）
+        // - 常駐 5 把劍；命中邏輯/特效與裁決相同，但不會消失
+        // - 每級：基礎攻擊 +3、攻擊範圍 +20、傷害範圍 +20，最高10級
+        DIVINE_JUDGMENT: {
+            NAME: "神界裁決",
+            DAMAGE: 15, // 基礎傷害（沿用裁決）
+            DAMAGE_PER_LEVEL: 3, // 每級+3（LV10 累計 +27）
+            COOLDOWN: 100, // 0.1秒：不停落下（移動/下落/停留/抬起才是主要節奏）
+            // 攻擊範圍（偵測半徑）：LV1=400，每級+20
+            DETECT_RADIUS_BASE: 400,
+            DETECT_RADIUS_PER_LEVEL: 20,
+            // 傷害範圍（AOE 半徑）：LV1=100，每級+20
+            AOE_RADIUS_BASE: 100,
+            AOE_RADIUS_PER_LEVEL: 20,
+            SWORD_COUNT: 5,
+            SWORD_IMAGE_WIDTH: 83,
+            SWORD_IMAGE_HEIGHT: 200,
+            FALL_DURATION_MS: 250, // 與裁決一致：下落時間
+            HEAD_WAIT_MS: 100, // 單一目標不移動時：頭上等待0.1秒再落下（形成0.8秒循環）
+            HOLD_ON_ENEMY_MS: 200, // 落地後停留 0.2 秒
+            MOVE_DURATION_MS: 600, // 移動到下一個目標頭上的時間（加快一些）
+            PATROL_SPEED_FACTOR: 0.35, // 無怪巡邏速度（相對於攻擊移動）
+            LEVELS: [
+                { COUNT: 5, DESCRIPTION: "常駐5把劍巡守，落下裁決（冷卻0.1秒，基礎攻擊+0，攻擊範圍+0px，傷害範圍+0px）" },
+                { COUNT: 5, DESCRIPTION: "基礎攻擊+3，攻擊範圍+20px，傷害範圍+20px" },
+                { COUNT: 5, DESCRIPTION: "基礎攻擊+6，攻擊範圍+40px，傷害範圍+40px" },
+                { COUNT: 5, DESCRIPTION: "基礎攻擊+9，攻擊範圍+60px，傷害範圍+60px" },
+                { COUNT: 5, DESCRIPTION: "基礎攻擊+12，攻擊範圍+80px，傷害範圍+80px" },
+                { COUNT: 5, DESCRIPTION: "基礎攻擊+15，攻擊範圍+100px，傷害範圍+100px" },
+                { COUNT: 5, DESCRIPTION: "基礎攻擊+18，攻擊範圍+120px，傷害範圍+120px" },
+                { COUNT: 5, DESCRIPTION: "基礎攻擊+21，攻擊範圍+140px，傷害範圍+140px" },
+                { COUNT: 5, DESCRIPTION: "基礎攻擊+24，攻擊範圍+160px，傷害範圍+160px" },
+                { COUNT: 5, DESCRIPTION: "基礎攻擊+27，攻擊範圍+180px，傷害範圍+180px" }
+            ]
+        },
         CHICKEN_BLESSING: {
             NAME: "雞腿庇佑",
             DAMAGE: 10,
