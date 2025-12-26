@@ -88,18 +88,13 @@ const WaveSystem = {
             return;
         }
 
-        // 計算本次生成數量隨波次增加（第5波後顯著提高）並套用難度倍率
-        // 第4張地圖（花園）不使用第5波後的額外生成加成
+        // 計算本次生成數量隨波次增加並套用難度倍率
+        // 調整：取消「第5波後的額外生成加成」，讓所有地圖行為與花園一致（永遠使用前期加成）
         const base = CONFIG.WAVES.SPAWN_COUNT.INITIAL;
         const earlyInc = CONFIG.WAVES.SPAWN_COUNT.INCREASE_PER_WAVE;
         const earlyMax = CONFIG.WAVES.SPAWN_COUNT.MAXIMUM;
-        const lateInc = CONFIG.WAVES.SPAWN_COUNT.INCREASE_PER_WAVE_LATE || earlyInc;
-        const lateMax = CONFIG.WAVES.SPAWN_COUNT.MAXIMUM_LATE || earlyMax;
-        // 第4張地圖（花園）始終使用前期加成，不使用第5波後的額外加成
-        const isGarden = Game.selectedMap && Game.selectedMap.id === 'garden';
-        const useLate = !isGarden && this.currentWave >= 5;
-        const inc = useLate ? lateInc : earlyInc;
-        const max = useLate ? lateMax : earlyMax;
+        const inc = earlyInc;
+        const max = earlyMax;
         const countBase = Math.min(Math.floor(base + (this.currentWave - 1) * inc), max);
         const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.EASY) || {});
         const countMult = diff.spawnCountMultiplier || 1;
