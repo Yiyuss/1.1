@@ -13,7 +13,7 @@ class Player extends Entity {
         this.collisionRadius = CONFIG.PLAYER.COLLISION_RADIUS;
         this.level = 1;
         this.experience = 0;
-        this.experienceToNextLevel = CONFIG.EXPERIENCE.LEVEL_UP_BASE;
+        this.experienceToNextLevel = Player.computeExperienceToNextLevel(1);
         this.weapons = [];
         this.isInvulnerable = false;
         this.invulnerabilityTime = 0;
@@ -63,6 +63,33 @@ class Player extends Entity {
         
         // 初始武器 - 飛鏢
         this.addWeapon('DAGGER');
+    }
+
+    /**
+     * 計算「目前等級 level -> 下一級」所需經驗
+     * 需求：Lv1~SOFTCAP_LEVEL 完全沿用舊公式，避免影響前期手感；Lv20+ 後放緩增長避免後期跨太誇張。
+     */
+    static computeExperienceToNextLevel(level) {
+        const cfg = (typeof CONFIG !== 'undefined' && CONFIG.EXPERIENCE) ? CONFIG.EXPERIENCE : null;
+        const base = cfg ? (cfg.LEVEL_UP_BASE || 80) : 80;
+        const mult = cfg ? (cfg.LEVEL_UP_MULTIPLIER || 1.12) : 1.12;
+        const softcap = cfg ? (cfg.SOFTCAP_LEVEL || 20) : 20;
+        const lateMult = cfg ? (cfg.LEVEL_UP_MULTIPLIER_LATE || 1.07) : 1.07;
+        const lateLinear = cfg ? (cfg.LEVEL_UP_LINEAR_LATE || 30) : 30;
+
+        const lv = Math.max(1, Math.floor(level || 1));
+
+        // 1) 前期：完全沿用舊公式（確保 1~20 手感不變）
+        if (lv <= softcap) {
+            return Math.floor(base * Math.pow(mult, lv - 1));
+        }
+
+        // 2) 後期：以 softcap 當錨點，改用較緩的倍率 + 線性補償（仍會越來越難，但不再指數爆炸）
+        const xpAtSoftcap = Math.floor(base * Math.pow(mult, softcap - 1));
+        const n = lv - softcap; // 從 softcap 後第 n 級開始
+        const value = xpAtSoftcap * Math.pow(lateMult, n) + lateLinear * n;
+        // 保底至少比 softcap 時更高，且至少 1
+        return Math.max(1, Math.floor(value));
     }
     
     update(deltaTime) {
@@ -456,7 +483,7 @@ class Player extends Entity {
     levelUp() {
         this.level++;
         this.experience -= this.experienceToNextLevel;
-        this.experienceToNextLevel = Math.floor(CONFIG.EXPERIENCE.LEVEL_UP_BASE * Math.pow(CONFIG.EXPERIENCE.LEVEL_UP_MULTIPLIER, this.level - 1));
+        this.experienceToNextLevel = Player.computeExperienceToNextLevel(this.level);
         
         // 更新UI
         UI.updateLevel(this.level);
