@@ -353,6 +353,7 @@ const skillIcons = {
     HEART_CONNECTION: 'assets/images/A35.png',
     HEART_TRANSMISSION: 'assets/images/A37.png',
     JUDGMENT: 'assets/images/A38.png',
+    DIVINE_JUDGMENT: 'assets/images/A40.png',
     SUMMON_AI: 'assets/images/AI.png',
     FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
     MIND_MAGIC: 'assets/images/A16.png',
@@ -518,6 +519,7 @@ const skillIcons = {
         // 現有武器升級選項（使用CONFIG計算下一級描述）
         const hasFrenzy = sourceWeaponsInfo.some(w => w.type === 'FRENZY_LIGHTNING');
         const hasFrenzySlash = sourceWeaponsInfo.some(w => w.type === 'FRENZY_SLASH');
+        const hasDivineJudgment = sourceWeaponsInfo.some(w => w.type === 'DIVINE_JUDGMENT');
         const hasMindMagic = sourceWeaponsInfo.some(w => w.type === 'MIND_MAGIC');
         const hasFrenzyIceBall = sourceWeaponsInfo.some(w => w.type === 'FRENZY_ICE_BALL');
         const hasFrenzyYoungDadaGlory = sourceWeaponsInfo.some(w => w.type === 'FRENZY_YOUNG_DADA_GLORY');
@@ -544,6 +546,7 @@ const skillIcons = {
             // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
                 if ((hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) ||
                     (hasFrenzySlash && (info.type === 'DAGGER' || info.type === 'SLASH')) ||
+                    (hasDivineJudgment && (info.type === 'JUDGMENT' || info.type === 'SLASH')) ||
                     (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING')) ||
                     (hasFrenzyIceBall && (info.type === 'DAGGER' || info.type === 'BIG_ICE_BALL')) ||
                     (hasFrenzyYoungDadaGlory && (info.type === 'DAGGER' || info.type === 'YOUNG_DADA_GLORY')) ||
@@ -582,6 +585,7 @@ const skillIcons = {
             const hasSummonAILv2ForNew = sourceWeaponsInfo.some(w => w.type === 'SUMMON_AI' && typeof w.level === 'number' && w.level >= 2);
             if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
                 (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
+                (hasDivineJudgment && (weaponType === 'JUDGMENT' || weaponType === 'SLASH')) ||
                 (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING')) ||
                 (hasFrenzyIceBall && (weaponType === 'DAGGER' || weaponType === 'BIG_ICE_BALL')) ||
                 (hasFrenzyYoungDadaGlory && (weaponType === 'DAGGER' || weaponType === 'YOUNG_DADA_GLORY')) ||
@@ -660,6 +664,30 @@ const skillIcons = {
                         name: cfgFS.NAME,
                         level: 1,
                         description: cfgFS.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：神界裁決（需成就解鎖 + 同時持有且等級達標的 裁決(JUDGMENT) 與 斬擊(SLASH)）
+        try {
+            const hasDivineJudgmentFusion = playerWeaponTypes.includes('DIVINE_JUDGMENT');
+            const judgment = sourceWeaponsInfo.find(w => w.type === 'JUDGMENT');
+            const slash = sourceWeaponsInfo.find(w => w.type === 'SLASH');
+            const fusionUnlockedDJ = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('DIVINE_JUDGMENT')); } catch(_) { return false; }
+            })();
+            const judgmentLevel = (judgment && typeof judgment.level === 'number') ? judgment.level : 0;
+            const slashLevel = (slash && typeof slash.level === 'number') ? slash.level : 0;
+            const fusionReadyDJ = (!!judgment && !!slash && judgmentLevel >= 10 && slashLevel >= 10);
+            if (!hasDivineJudgmentFusion && fusionReadyDJ && fusionUnlockedDJ) {
+                const cfgDJ = CONFIG.WEAPONS['DIVINE_JUDGMENT'];
+                if (cfgDJ && Array.isArray(cfgDJ.LEVELS) && cfgDJ.LEVELS.length > 0) {
+                    options.push({
+                        type: 'DIVINE_JUDGMENT',
+                        name: cfgDJ.NAME,
+                        level: 1,
+                        description: cfgDJ.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -1050,6 +1078,37 @@ const skillIcons = {
                     player.upgradeWeapon('FRENZY_SLASH');
                 } else {
                     player.addWeapon('FRENZY_SLASH');
+                }
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        // 融合：神界裁決（移除 裁決(JUDGMENT)/斬擊(SLASH)，加入或升級 DIVINE_JUDGMENT）
+        if (weaponType === 'DIVINE_JUDGMENT') {
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                // 移除基礎武器
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'JUDGMENT' && info.type !== 'SLASH');
+                // 加入或升級融合武器
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'DIVINE_JUDGMENT');
+                const cfgDJ = CONFIG.WEAPONS['DIVINE_JUDGMENT'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgDJ && curLv < cfgDJ.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'DIVINE_JUDGMENT', level: 1 });
+                }
+            } else {
+                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'JUDGMENT' && w.type !== 'SLASH');
+                const existingDJ = player.weapons.find(w => w.type === 'DIVINE_JUDGMENT');
+                if (existingDJ) {
+                    player.upgradeWeapon('DIVINE_JUDGMENT');
+                } else {
+                    player.addWeapon('DIVINE_JUDGMENT');
                 }
             }
             try { this.updateSkillsList(); } catch (_) {}
@@ -1955,6 +2014,7 @@ const iconMap = {
     HEART_CONNECTION: 'assets/images/A35.png',
     HEART_TRANSMISSION: 'assets/images/A37.png',
     JUDGMENT: 'assets/images/A38.png',
+    DIVINE_JUDGMENT: 'assets/images/A40.png',
     FRENZY_LIGHTNING: 'assets/images/A15.png',
     FRENZY_SLASH: 'assets/images/A18.png',
     GRAVITY_WAVE: 'assets/images/A27.png',
