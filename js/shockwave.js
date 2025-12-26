@@ -47,9 +47,9 @@ class ShockwaveEffect extends Entity {
                         critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
                     });
                     enemy.takeDamage(result.amount);
-                    // 命中後施加暫時緩速：100%固定原地1.5秒
+                    // 命中後施加暫時緩速：99% 超慢但仍可移動（1.5秒）
                     if (enemy && typeof enemy.applySlow === 'function') {
-                        try { enemy.applySlow(1500, 0); } catch (_) {}
+                        try { enemy.applySlow(1500, 0.01); } catch (_) {}
                     }
                     if (typeof DamageNumbers !== 'undefined') {
                         const dirX = enemy.x - this.cx;
@@ -58,9 +58,9 @@ class ShockwaveEffect extends Entity {
                     }
                 } else {
                     enemy.takeDamage(this.damage);
-                    // 命中後施加暫時緩速：100%固定原地1.5秒
+                    // 命中後施加暫時緩速：99% 超慢但仍可移動（1.5秒）
                     if (enemy && typeof enemy.applySlow === 'function') {
-                        try { enemy.applySlow(1500, 0); } catch (_) {}
+                        try { enemy.applySlow(1500, 0.01); } catch (_) {}
                     }
                 }
                 this.hitEnemies.add(enemy.id);
