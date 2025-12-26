@@ -572,7 +572,7 @@ const CONFIG = {
         // 融合技能：引力波（守護領域LV10 + 無敵LV10）
         GRAVITY_WAVE: {
             NAME: "引力波",
-            DAMAGE: 5, // 與守護領域LV10相同
+            DAMAGE: 5, 
             COOLDOWN: 1000,
             PROJECTILE_SPEED: 0,
             // 場域半徑：與守護領域LV10相同（60 + 10*9 = 150）
