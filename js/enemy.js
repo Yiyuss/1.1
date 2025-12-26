@@ -1048,7 +1048,10 @@ class Enemy extends Entity {
     
     // 新增：套用暫時減速效果（藍色並降速）
     applySlow(durationMs, speedFactor) {
-        const factor = Math.max(0, speedFactor || 0.5);
+        // speedFactor：0~1（0=完全定住，1=不減速）
+        // 注意：不可用 `speedFactor || 0.5`，因為 0 會被當成 falsy，導致無法做到 100% 緩速
+        const raw = (typeof speedFactor === 'number') ? speedFactor : 0.5;
+        const factor = Math.max(0, Math.min(1, raw));
         this.isSlowed = true;
         this.slowEndTime = Date.now() + (durationMs || 1000);
         this.speed = this.baseSpeed * factor;
