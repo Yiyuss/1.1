@@ -22,6 +22,51 @@ const CONFIG = {
         // 視覺放大倍率（不影響碰撞與邏輯尺寸）
         VISUAL_SCALE: 1.25
     },
+
+    // UI 顯示用（不要與 Game.images 預載混為一談）
+    // - 這裡的 SKILL_ICONS 是給 UI <img src="..."> 使用的靜態路徑表
+    // - 若是 Canvas/特效需要使用 Game.images[key]，請改走 ResourceLoader.getImageList() 預載
+    UI: {
+        SKILL_ICONS: {
+            SING: 'assets/images/A1.png',
+            DAGGER: 'assets/images/A2.png',
+            SLASH: 'assets/images/A17.png',
+            LASER: 'assets/images/A3.png',
+            CHAIN_LIGHTNING: 'assets/images/A4.png',
+            FRENZY_LIGHTNING: 'assets/images/A15.png',
+            FRENZY_SLASH: 'assets/images/A18.png',
+            FIREBALL: 'assets/images/A5.png',
+            LIGHTNING: 'assets/images/A6.png',
+            ORBIT: 'assets/images/A7.png',
+            AURA_FIELD: 'assets/images/A13.png',
+            INVINCIBLE: 'assets/images/A14.png',
+            GRAVITY_WAVE: 'assets/images/A27.png',
+            CHICKEN_BLESSING: 'assets/images/A19.png',
+            YOUNG_DADA_GLORY: 'assets/images/A20.png',
+            BIG_ICE_BALL: 'assets/images/A21.png',
+            ABSTRACTION: 'assets/images/A22.png',
+            FRENZY_ICE_BALL: 'assets/images/A23.png',
+            FRENZY_YOUNG_DADA_GLORY: 'assets/images/A25.png',
+            ROTATING_MUFFIN: 'assets/images/A31.png',
+            MUFFIN_THROW: 'assets/images/A28.png',
+            DEATHLINE_WARRIOR: 'assets/images/A29.png',
+            UNCONTROLLABLE_BEAST: 'assets/images/A32.png',
+            DEATHLINE_SUPERMAN: 'assets/images/A30.png',
+            RADIANT_GLORY: 'assets/images/A33.png',
+            HEART_COMPANION: 'assets/images/A34.png',
+            HEART_CONNECTION: 'assets/images/A35.png',
+            HEART_TRANSMISSION: 'assets/images/A37.png',
+            JUDGMENT: 'assets/images/A38.png',
+            DIVINE_JUDGMENT: 'assets/images/A40.png',
+            SUMMON_AI: 'assets/images/AI.png',
+            MIND_MAGIC: 'assets/images/A16.png',
+            ATTR_ATTACK: 'assets/images/A8.png',
+            ATTR_CRIT: 'assets/images/A9.png',
+            ATTR_HEALTH: 'assets/images/A10.png',
+            ATTR_DEFENSE: 'assets/images/A11.png',
+            ATTR_ATTACK_POWER: 'assets/images/A12.png'
+        }
+    },
     
     // 武器設置
     WEAPONS: {
