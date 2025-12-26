@@ -822,6 +822,65 @@ class Weapon {
             return;
         }
 
+        // 合成技能：神界裁決（常駐 5 把劍巡守；命中邏輯/特效與裁決一致）
+        if (this.type === 'DIVINE_JUDGMENT') {
+            const cfg = this.config || {};
+            const detectBase = (typeof cfg.DETECT_RADIUS_BASE === 'number') ? cfg.DETECT_RADIUS_BASE : 400;
+            const detectPer = (typeof cfg.DETECT_RADIUS_PER_LEVEL === 'number') ? cfg.DETECT_RADIUS_PER_LEVEL : 20;
+            const detectRadius = detectBase + detectPer * (this.level - 1);
+
+            const aoeBase = (typeof cfg.AOE_RADIUS_BASE === 'number') ? cfg.AOE_RADIUS_BASE : 100;
+            const aoePer = (typeof cfg.AOE_RADIUS_PER_LEVEL === 'number') ? cfg.AOE_RADIUS_PER_LEVEL : 20;
+            const aoeRadius = aoeBase + aoePer * (this.level - 1);
+
+            const swordImageWidth = cfg.SWORD_IMAGE_WIDTH || 83;
+            const swordImageHeight = cfg.SWORD_IMAGE_HEIGHT || 200;
+            const fallDurationMs = cfg.FALL_DURATION_MS || 250;
+            const moveDurationMs = cfg.MOVE_DURATION_MS || cfg.COOLDOWN || 2400;
+            const holdOnEnemyMs = cfg.HOLD_ON_ENEMY_MS || 200;
+            const headWaitMs = cfg.HEAD_WAIT_MS || 100;
+            const patrolSpeedFactor = (typeof cfg.PATROL_SPEED_FACTOR === 'number') ? cfg.PATROL_SPEED_FACTOR : 0.35;
+            const dmg = this._computeFinalDamage(levelMul);
+
+            if (!this._divineJudgmentEntity || this._divineJudgmentEntity.markedForDeletion) {
+                this._divineJudgmentEntity = new DivineJudgmentEffect(this.player, {
+                    damage: dmg,
+                    detectRadius,
+                    aoeRadius,
+                    swordImageWidth,
+                    swordImageHeight,
+                    fallDurationMs,
+                    moveDurationMs,
+                    holdOnEnemyMs,
+                    headWaitMs,
+                    patrolSpeedFactor
+                });
+                Game.addProjectile(this._divineJudgmentEntity);
+            } else {
+                // 升級或定期同步最新數值（避免需要重生）
+                if (typeof this._divineJudgmentEntity.setStats === 'function') {
+                    this._divineJudgmentEntity.setStats({
+                        damage: dmg,
+                        detectRadius,
+                        aoeRadius,
+                        swordImageWidth,
+                        swordImageHeight,
+                        fallDurationMs,
+                        moveDurationMs,
+                        holdOnEnemyMs,
+                        headWaitMs,
+                        patrolSpeedFactor
+                    });
+                } else {
+                    // 後備：直接寫入
+                    this._divineJudgmentEntity.damage = dmg;
+                    this._divineJudgmentEntity.detectRadius = detectRadius;
+                    this._divineJudgmentEntity.aoeRadius = aoeRadius;
+                }
+            }
+            return;
+        }
+
         // 鬆餅投擲（與追蹤綿羊邏輯相同，但使用不同圖片）
         if (this.type === 'MUFFIN_THROW') {
             const count = this.projectileCount;
@@ -1033,6 +1092,10 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     const deathlineSupermanExtra = (this.type === 'DEATHLINE_SUPERMAN' && this.config && this.config.DAMAGE_PER_LEVEL)
         ? (this.config.DAMAGE_PER_LEVEL * Math.max(0, this.level - 1))
         : 0;
+    // 神界裁決：每級+3基礎攻擊
+    const divineJudgmentExtra = (this.type === 'DIVINE_JUDGMENT' && this.config && this.config.DAMAGE_PER_LEVEL)
+        ? (this.config.DAMAGE_PER_LEVEL * Math.max(0, this.level - 1))
+        : 0;
     const specFlat = (this.player && this.player.damageSpecializationFlat) ? this.player.damageSpecializationFlat : 0;
     const talentPct = (this.player && this.player.damageTalentBaseBonusPct) ? this.player.damageTalentBaseBonusPct : 0;
     const attrPct = (this.player && this.player.damageAttributeBonusPct) ? this.player.damageAttributeBonusPct : 0; // 升級屬性加成（每級+10%）
@@ -1088,7 +1151,7 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat; // 單純加法：先加再乘百分比
     const value = baseFlat * (1 + percentSum);
     return value;
 };
