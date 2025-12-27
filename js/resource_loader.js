@@ -350,6 +350,24 @@ const ResourceLoader = {
             { name: 'human3', src: 'assets/images/human3.png' },
             { name: 'human_mini_boss', src: 'assets/images/human_mini_boss.png' },
             { name: 'humanboss', src: 'assets/images/humanboss.png' },
+            { name: 'car', src: 'assets/images/car.png' },
+            { name: 'car-2', src: 'assets/images/car-2.png' },
+            { name: 'car2', src: 'assets/images/car2.png' },
+            { name: 'car2-2', src: 'assets/images/car2-2.png' },
+            { name: 'car3', src: 'assets/images/car3.png' },
+            { name: 'car3-2', src: 'assets/images/car3-2.png' },
+            { name: 'car4', src: 'assets/images/car4.png' },
+            { name: 'car4-2', src: 'assets/images/car4-2.png' },
+            { name: 'car5', src: 'assets/images/car5.png' },
+            { name: 'car5-2', src: 'assets/images/car5-2.png' },
+            { name: 'car6', src: 'assets/images/car6.png' },
+            { name: 'car6-2', src: 'assets/images/car6-2.png' },
+            { name: 'car7', src: 'assets/images/car7.png' },
+            { name: 'car7-2', src: 'assets/images/car7-2.png' },
+            { name: 'car8', src: 'assets/images/car8.png' },
+            { name: 'car8-2', src: 'assets/images/car8-2.png' },
+            { name: 'car9', src: 'assets/images/car9.png' },
+            { name: 'car9-2', src: 'assets/images/car9-2.png' },
             { name: 'exit', src: 'assets/images/exit.png' }
         ];
     },
@@ -378,7 +396,8 @@ const ResourceLoader = {
             { name: 'Explosion', src: 'assets/audio/Explosion.mp3' },
             { name: 'bo', src: 'assets/audio/bo.mp3' },
             { name: 'boss_cooldown', src: 'assets/audio/BOSS.mp3' },
-            { name: 'playerN2', src: 'assets/audio/playerN2.mp3' }
+            { name: 'playerN2', src: 'assets/audio/playerN2.mp3' },
+            { name: 'car', src: 'assets/audio/car.mp3' }
         ];
     },
     
