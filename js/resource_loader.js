@@ -345,6 +345,7 @@ const ResourceLoader = {
             { name: 'background1-3', src: 'assets/images/background1-3.png' },
             { name: 'background8', src: 'assets/images/background8.png' },
             { name: 'background12', src: 'assets/images/background12.jpg' },
+            { name: 'bottle', src: 'assets/images/bottle.png' },
             { name: 'human', src: 'assets/images/human.png' },
             { name: 'human2', src: 'assets/images/human2.png' },
             { name: 'human3', src: 'assets/images/human3.png' },
