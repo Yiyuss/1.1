@@ -43,6 +43,39 @@ class CarHazard extends Entity {
                         player.takeDamage(this.damage);
                     }
                 } catch (_) {}
+
+                // 命中音效（bo.mp3）
+                try {
+                    if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+                        AudioManager.playSound('bo');
+                    }
+                } catch (_) {}
+
+                // 撞擊特效：螢幕白閃 + 爆炸粒子（沿用既有管線）
+                try {
+                    if (typeof Game !== 'undefined') {
+                        Game.screenFlash = { active: true, duration: 140, intensity: 0.28 };
+                        if (!Game.explosionParticles) Game.explosionParticles = [];
+                        const cx = (player && player.x != null) ? player.x : this.x;
+                        const cy = (player && player.y != null) ? player.y : this.y;
+                        const count = 18;
+                        for (let i = 0; i < count; i++) {
+                            const ang = Math.random() * Math.PI * 2;
+                            const spd = 2.5 + Math.random() * 5.5;
+                            Game.explosionParticles.push({
+                                x: cx + (Math.random() - 0.5) * 8,
+                                y: cy + (Math.random() - 0.5) * 8,
+                                vx: Math.cos(ang) * spd,
+                                vy: Math.sin(ang) * spd,
+                                life: 320 + Math.random() * 220,
+                                maxLife: 320 + Math.random() * 220,
+                                size: 5 + Math.random() * 4,
+                                color: (i % 3 === 0) ? '#ffffff' : '#ff6666',
+                                source: 'CAR_HIT'
+                            });
+                        }
+                    }
+                } catch (_) {}
             }
         }
 
