@@ -749,6 +749,7 @@ function setupMapAndDifficultySelection() {
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) hide(mainGrid);
             if (adventureGrid) hide(adventureGrid);
+            if (grid3d) hide(grid3d);
             // 改為與使用者要求一致的提示文案
             if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
@@ -758,6 +759,7 @@ function setupMapAndDifficultySelection() {
             if (modeDefense) modeDefense.classList.remove('primary');
             if (modeMain) modeMain.classList.remove('primary');
             if (modeAdventure) modeAdventure.classList.remove('primary');
+            if (mode3d) mode3d.classList.remove('primary');
         } else if (mode === 'stage') {
             if (survivalGrid) hide(survivalGrid);
             if (challengeGrid) hide(challengeGrid);
@@ -765,6 +767,7 @@ function setupMapAndDifficultySelection() {
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) hide(mainGrid);
             if (adventureGrid) hide(adventureGrid);
+            if (grid3d) hide(grid3d);
             if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
@@ -773,6 +776,7 @@ function setupMapAndDifficultySelection() {
             if (modeDefense) modeDefense.classList.remove('primary');
             if (modeMain) modeMain.classList.remove('primary');
             if (modeAdventure) modeAdventure.classList.remove('primary');
+            if (mode3d) mode3d.classList.remove('primary');
         } else if (mode === 'defense') {
             if (survivalGrid) hide(survivalGrid);
             if (challengeGrid) hide(challengeGrid);
@@ -780,6 +784,7 @@ function setupMapAndDifficultySelection() {
             if (defenseGrid) show(defenseGrid);
             if (mainGrid) hide(mainGrid);
             if (adventureGrid) hide(adventureGrid);
+            if (grid3d) hide(grid3d);
             if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
@@ -788,6 +793,7 @@ function setupMapAndDifficultySelection() {
             if (modeDefense) modeDefense.classList.add('primary');
             if (modeMain) modeMain.classList.remove('primary');
             if (modeAdventure) modeAdventure.classList.remove('primary');
+            if (mode3d) mode3d.classList.remove('primary');
         } else if (mode === 'main') {
             if (survivalGrid) hide(survivalGrid);
             if (challengeGrid) hide(challengeGrid);
@@ -795,6 +801,7 @@ function setupMapAndDifficultySelection() {
             if (defenseGrid) hide(defenseGrid);
             if (mainGrid) show(mainGrid);
             if (adventureGrid) hide(adventureGrid);
+            if (grid3d) hide(grid3d);
             if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
             selectedMapCfg = null;
             if (modeSurvival) modeSurvival.classList.remove('primary');
@@ -803,6 +810,7 @@ function setupMapAndDifficultySelection() {
             if (modeDefense) modeDefense.classList.remove('primary');
             if (modeMain) modeMain.classList.add('primary');
             if (modeAdventure) modeAdventure.classList.remove('primary');
+            if (mode3d) mode3d.classList.remove('primary');
         } else if (mode === 'adventure') {
             if (survivalGrid) hide(survivalGrid);
             if (challengeGrid) hide(challengeGrid);
