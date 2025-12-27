@@ -29,6 +29,8 @@
           { key: 'npc4_portrait', src: 'assets/images/NPC4-2.png' },
           { key: 'npc5', src: 'assets/images/NPC5.png' },
           { key: 'npc5_portrait', src: 'assets/images/NPC5-2.png' },
+          { key: 'npc6', src: 'assets/images/NPC6.png' },
+          { key: 'npc6_portrait', src: 'assets/images/NPC6-2.png' },
           // 主屋室內家具（JSON 中使用的所有家具）
           { key: 'f_bed_front', src: 'js/modes/main/bed-front-273x289.png' },
           { key: 'f_big_bookcase', src: 'js/modes/main/big bookcase-245x289.png' },
@@ -456,6 +458,34 @@
             channelLink: 'https://www.youtube.com/@Locolost65',
             onFinalState: () => checkYouTubeSubscriptionLoco()
           }
+        },
+        'abby': { // 艾比（小屋室內NPC / 04.png 對應的 indoor_A）
+          type: 'npc_indoor',
+          imageKey: 'npc6',
+          portraitImage: 'assets/images/NPC6-2.png',
+          portraitAlt: '艾比',
+          spriteSheetKey: 'npc_sprite',
+          triggerDistance: 55,
+          targetDistance: 45,
+          dialogue: {
+            messages: [
+              '聽說待在屋子裡就不會迷路！',
+              '我是艾比，其實是神界的教主喔！',
+              '訂閱我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
+            ],
+            finalButtons: [
+              { id: 'main-dialogue-youtube-abby', text: '進入頻道', action: 'youtube' },
+              { id: 'main-dialogue-code-abby', text: '領取序號', action: 'code', disabled: true },
+              { id: 'main-dialogue-exit', text: '離開', action: 'exit' }
+            ],
+            code: 'RABI2025',
+            youtubeUrl: 'https://youtu.be/DZWBC90bhYk?si=4ZoVgjdx-HAtzUXs',
+            channelId: 'UC9mmh_8RqXIgGa5P7moq-tA',
+            channelName: '艾比Rabi YouTube 頻道',
+            channelLink: 'https://www.youtube.com/@%E8%89%BE%E6%AF%94Rabi',
+            onFinalState: () => checkYouTubeSubscriptionAbby()
+          }
         }
       };
       
@@ -555,10 +585,10 @@
           } else if (id === 'main-dialogue-exit') {
             playButtonSound();
             closeDialogue();
-          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco') {
+          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco' || id === 'main-dialogue-youtube-abby') {
             playButtonSound();
             showYouTubeWindow(currentDialogueNPC);
-          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco') {
+          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco' || id === 'main-dialogue-code-abby') {
             playButtonSound();
             showCode(config.dialogue.code);
           } else if (id === 'main-dialogue-twitter') {
@@ -1260,6 +1290,58 @@
           codeBtn.disabled = true;
         }
       }
+
+      function checkYouTubeSubscriptionAbby() {
+        const codeBtn = document.getElementById('main-dialogue-code-abby');
+        if (!codeBtn) return;
+        
+        // 使用YouTube Data API檢測訂閱狀態
+        if (window.gapi && window.gapi.client && window.gapi.client.youtube) {
+          // 檢查是否有有效的 access token
+          const token = window.gapi.client.getToken();
+          if (!token || !token.access_token) {
+            codeBtn.classList.add('disabled');
+            codeBtn.disabled = true;
+            return;
+          }
+          
+          // 已授權，檢查訂閱狀態（使用艾比的頻道ID）
+          const config = NPC_CONFIG['abby'];
+          const channelId = config.dialogue.channelId || 'UC9mmh_8RqXIgGa5P7moq-tA';
+          
+          window.gapi.client.youtube.subscriptions.list({
+            part: 'snippet',
+            mine: true,
+            forChannelId: channelId
+          }).then(function(response) {
+            const items = response.result.items || [];
+            if (items.length > 0) {
+              codeBtn.classList.remove('disabled');
+              codeBtn.disabled = false;
+            } else {
+              codeBtn.classList.add('disabled');
+              codeBtn.disabled = true;
+            }
+          }).catch(function(error) {
+            console.error('檢查訂閱狀態失敗:', error);
+            codeBtn.classList.add('disabled');
+            codeBtn.disabled = true;
+            
+            // 檢查是否為配額用盡錯誤
+            const errorMessage = error.message || error.error?.message || '';
+            const errorCode = error.code || error.error?.code;
+            
+            if (errorCode === 403 || errorMessage.includes('quotaExceeded') || errorMessage.includes('quota') || errorMessage.includes('配額')) {
+              // 配額用盡，顯示提示
+              console.warn('YouTube API 配額已用盡，請稍後再試');
+            }
+          });
+        } else {
+          // API未載入
+          codeBtn.classList.add('disabled');
+          codeBtn.disabled = true;
+        }
+      }
       
       function closeDialogue() {
         if (dialogueEl && dialogueEl.parentNode) {
@@ -1517,7 +1599,7 @@
             const house4Y = CENTER_Y + 500;
             const house4W = 284;
             const house4H = 400;
-            this.addImageHouse(house4X, house4Y, h4Img, house4W, house4H, 'indoor_A', 'house-D');
+            this.addImageHouse(house4X, house4Y, h4Img, house4W, house4H, 'indoor_D', 'house-D');
             
             // [NPC] 灰妲 - 放在07.png建築左側
             // NPC 原始比例 279x320，縮放到接近玩家大小（48x60）
@@ -1694,6 +1776,30 @@
                   this.materialData[y][x] = 'floor_brown';
                 }
               }
+            }
+
+            // [室內NPC] 艾比 - 僅放在 04.png 對應的 indoor_A，小屋內部正中央
+            if (mapId === 'indoor_A') {
+              // 艾比圖片比例 320x299，縮放到接近玩家大小（高度 60）
+              const SRC_W = 320;
+              const SRC_H = 299;
+              const NPC_H = 60;
+              const NPC_SCALE = NPC_H / SRC_H;
+              const NPC_W = Math.round(SRC_W * NPC_SCALE);
+              
+              const mapPixelW = cols * TILE;
+              const mapPixelH = rows * TILE;
+              const npcX = (mapPixelW / 2) - (NPC_W / 2);
+              const npcY = (mapPixelH / 2) - (NPC_H / 2);
+              
+              let npcAbby = new Entity('npc_indoor', npcX, npcY, NPC_W, NPC_H);
+              npcAbby.solid = false; // NPC 不阻擋玩家
+              npcAbby.domId = 'main-npc-indoor-abby';
+              npcAbby.layerId = 'npc-indoor';
+              npcAbby.spriteSheet = null; // 雪碧圖（001.png），用於滑鼠游標
+              npcAbby.spriteFrame = 0; // 當前雪碧圖幀（0-7）
+              npcAbby.npcType = 'abby';
+              this.entities.push(npcAbby);
             }
           }
         },
