@@ -37,7 +37,8 @@ const RedeemCodeSystem = {
         'DADA2025': 10000,         // 永久有效
         'LOCO2025': 10000,         // 永久有效
         'MARGARETNORTH2025': 10000,  // 永久有效
-        'LINGLAN2025': 10000         // 永久有效
+        'LINGLAN2025': 10000,        // 永久有效
+        'RABI2025': 10000            // 永久有效
         // 在此處新增更多序號：
         // 'NEWCODE2025': 5000,  // 永久有效
         // 'LIMITED2025': { coins: 5000, expires: new Date('2025-12-31').getTime() },  // 有期限
