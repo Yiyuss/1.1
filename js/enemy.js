@@ -770,6 +770,21 @@ class Enemy extends Entity {
                 imageName = leftKey;
             }
         }
+
+        // 花園地圖：部份敵人左右朝向貼圖
+        // 原圖皆為往左；往右使用對應版本：
+        // - ELF / ELF2 / ELF3：Elf-2 / Elf2-2 / Elf3-2
+        // - ELF_MINI_BOSS：Elf_mini_boss-3
+        if (this.facingX > 0 && Game.images) {
+            let rightKey = null;
+            if (this.type === 'ELF') rightKey = 'elf-2';
+            else if (this.type === 'ELF2') rightKey = 'elf2-2';
+            else if (this.type === 'ELF3') rightKey = 'elf3-2';
+            else if (this.type === 'ELF_MINI_BOSS') rightKey = 'elf_mini_boss-3';
+            if (rightKey && Game.images[rightKey]) {
+                imageName = rightKey;
+            }
+        }
         
         const enemyConfig = (CONFIG && CONFIG.ENEMIES) ? CONFIG.ENEMIES[this.type] : null;
         
