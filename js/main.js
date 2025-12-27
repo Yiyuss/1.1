@@ -886,6 +886,8 @@ function setupMapAndDifficultySelection() {
                 mapDescEl.textContent = '無盡的宇宙星空中，漂浮著許多馬桶。';
             } else if (cfg && (cfg.id === 'garden' || cfg.name === '花園' || cfg.name === 'LV4.花園')) {
                 mapDescEl.textContent = '美麗的花園中，花精靈們守護著這片淨土。';
+            } else if (cfg && (cfg.id === 'intersection' || cfg.name === '路口' || cfg.name === 'LV5.路口')) {
+                mapDescEl.textContent = '繁忙的路口，人類們正在聚集。';
             } else if (cfg && (cfg.id === 'challenge-1' || (typeof cfg.name === 'string' && cfg.name.includes('銀河系')))) {
                 // 銀河系地圖介紹
                 mapDescEl.textContent = '未知信號所具現化的能量體「森森鈴蘭」。';
@@ -1259,6 +1261,8 @@ function setupMapAndDifficultySelection() {
                 // 第4張地圖（花園）使用 game_music2
                 if (Game.selectedMap && Game.selectedMap.id === 'garden') {
                     track = 'game_music2';
+                } else if (Game.selectedMap && Game.selectedMap.id === 'intersection') {
+                    track = 'intersection_music';
                 } else if (useId === 'ASURA') {
                     track = 'shura_music';
                 }
