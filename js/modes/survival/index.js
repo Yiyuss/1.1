@@ -13,6 +13,7 @@
           { name: 'menu_music', src: 'assets/audio/menu_music.mp3' },
           { name: 'game_music', src: 'assets/audio/game_music.mp3' },
           { name: 'game_music2', src: 'assets/audio/game_music2.mp3' }, // 第4張地圖（花園）專用 BGM
+          { name: 'intersection_music', src: 'assets/audio/intersection.mp3' }, // 第5張地圖（路口）專用 BGM
           { name: 'boss_music', src: 'assets/audio/boss_music.mp3' },
           { name: 'shura_music', src: 'assets/audio/Shura.mp3' }
         ],
@@ -31,6 +32,8 @@
         // 第4張地圖（花園）使用 game_music2（優先於修羅模式）
         if (Game.selectedMap && Game.selectedMap.id === 'garden') {
           track = 'game_music2';
+        } else if (Game.selectedMap && Game.selectedMap.id === 'intersection') {
+          track = 'intersection_music';
         } else {
           const useId = Game.selectedDifficultyId || 'EASY';
           track = (useId === 'ASURA') ? 'shura_music' : 'game_music';
@@ -71,6 +74,9 @@
         if (Game.selectedMap && Game.selectedMap.id === 'garden') {
           track = 'game_music2';
           console.log('[SurvivalMode] 花園地圖，使用 game_music2');
+        } else if (Game.selectedMap && Game.selectedMap.id === 'intersection') {
+          track = 'intersection_music';
+          console.log('[SurvivalMode] 路口地圖，使用 intersection_music');
         } else {
           const useId = Game.selectedDifficultyId || 'EASY';
           track = (useId === 'ASURA') ? 'shura_music' : 'game_music';
