@@ -344,6 +344,12 @@ const ResourceLoader = {
             { name: 'background1-2', src: 'assets/images/background1-2.png' },
             { name: 'background1-3', src: 'assets/images/background1-3.png' },
             { name: 'background8', src: 'assets/images/background8.png' },
+            { name: 'background12', src: 'assets/images/background12.jpg' },
+            { name: 'human', src: 'assets/images/human.png' },
+            { name: 'human2', src: 'assets/images/human2.png' },
+            { name: 'human3', src: 'assets/images/human3.png' },
+            { name: 'human_mini_boss', src: 'assets/images/human_mini_boss.png' },
+            { name: 'humanboss', src: 'assets/images/humanboss.png' },
             { name: 'exit', src: 'assets/images/exit.png' }
         ];
     },
@@ -382,6 +388,7 @@ const ResourceLoader = {
             { name: 'menu_music', src: 'assets/audio/menu_music.mp3' },
             { name: 'game_music', src: 'assets/audio/game_music.mp3' },
             { name: 'game_music2', src: 'assets/audio/game_music2.mp3' },
+            { name: 'intersection_music', src: 'assets/audio/intersection.mp3' },
             { name: 'boss_music', src: 'assets/audio/boss_music.mp3' },
             { name: 'shura_music', src: 'assets/audio/Shura.mp3' },
             { name: 'boss2_music', src: 'assets/audio/BOSS2.mp3' },
