@@ -135,21 +135,7 @@ const Game = {
             this.lastUpdateTime = currentTime;
         }
         
-        // 檢測CTRL+M快捷鍵觸發勝利條件
-        const ctrlDown = Input.isKeyDown('Control');
-        const mDown = Input.isKeyDown('m') || Input.isKeyDown('M');
-        
-        // Ctrl+M: 觸發勝利條件（用於測試）
-        if (ctrlDown && mDown) {
-            if (!this.ctrlMKeyPressed) {
-                if (!this.isGameOver && !this.isPaused) {
-                    this.victory();
-                }
-                this.ctrlMKeyPressed = true;
-            }
-        } else {
-            this.ctrlMKeyPressed = false;
-        }
+        // 管理員測試快捷鍵已統一收斂到 Input（js/input.js），避免在 gameLoop 內重複輪詢造成污染/重入
         
         // 如果遊戲未暫停，更新遊戲狀態（加入防呆，避免單幀錯誤中斷迴圈）
         try {
@@ -203,18 +189,7 @@ const Game = {
      * - 提醒：任何看似重複的更新皆為設計需要，請勿合併或刪除。
      */
     update: function(deltaTime) {
-        // 測試功能：按Ctrl+P增加99999金幣
-        const ctrlDown = Input.isKeyDown('Control');
-        const pDown = Input.isKeyDown('p') || Input.isKeyDown('P');
-        if (ctrlDown && pDown) {
-            if (!this.ctrlPKeyPressed) {
-                this.addCoins(99999);
-                console.log('測試功能：Ctrl+P已增加99999金幣');
-                this.ctrlPKeyPressed = true;
-            }
-        } else {
-            this.ctrlPKeyPressed = false;
-        }
+        // 管理員測試快捷鍵已統一收斂到 Input（js/input.js），避免在 update 內重複輪詢造成按住連發
         
         // 更新遊戲時間
         this.gameTime += deltaTime;
