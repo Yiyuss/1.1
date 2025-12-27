@@ -282,15 +282,15 @@ const TalentSystem = {
                 { flat: 30, cost: 60000 }
             ]
         },
-        // 新增：引力強化（增加引力波的推力：10%/20%/30%/40%/50%/60%）
+        // 新增：引力強化（增加引力波的推力：15%/30%/45%/60%/75%/90%）
         gravity_wave_boost: {
             levels: [
-                { pushMultiplier: 0.10, cost: 3000 },
-                { pushMultiplier: 0.20, cost: 6000 },
-                { pushMultiplier: 0.30, cost: 12000 },
-                { pushMultiplier: 0.40, cost: 24000 },
-                { pushMultiplier: 0.50, cost: 35000 },
-                { pushMultiplier: 0.60, cost: 45000 }
+                { pushMultiplier: 0.15, cost: 3000 },
+                { pushMultiplier: 0.30, cost: 6000 },
+                { pushMultiplier: 0.45, cost: 12000 },
+                { pushMultiplier: 0.60, cost: 24000 },
+                { pushMultiplier: 0.75, cost: 35000 },
+                { pushMultiplier: 0.90, cost: 45000 }
             ]
         },
         // 新增：AI強化（提升召喚AI的傷害：10%/20%/30%/50%/70%/100%）
