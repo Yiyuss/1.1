@@ -368,39 +368,43 @@ class Player extends Entity {
             // 其餘情況（受傷短暫無敵），允許忽略並造成傷害
         }
         
-        // 抽象化技能：回避傷害判定（適用於所有傷害來源，包括小BOSS火焰彈和彈幕）
-        let weaponDodgeRate = 0;
-        if (this.weapons && Array.isArray(this.weapons)) {
-            const abstractionWeapon = this.weapons.find(w => w && w.type === 'ABSTRACTION');
-            if (abstractionWeapon && abstractionWeapon.config && Array.isArray(abstractionWeapon.config.DODGE_RATES)) {
-                const level = abstractionWeapon.level || 1;
-                weaponDodgeRate = abstractionWeapon.config.DODGE_RATES[level - 1] || 0;
+        // options.ignoreDodge: 略過迴避判定（地圖陷阱/環境傷害等）
+        const ignoreDodge = !!(options && options.ignoreDodge);
+        if (!ignoreDodge) {
+            // 抽象化技能：回避傷害判定（適用於所有傷害來源，包括小BOSS火焰彈和彈幕）
+            let weaponDodgeRate = 0;
+            if (this.weapons && Array.isArray(this.weapons)) {
+                const abstractionWeapon = this.weapons.find(w => w && w.type === 'ABSTRACTION');
+                if (abstractionWeapon && abstractionWeapon.config && Array.isArray(abstractionWeapon.config.DODGE_RATES)) {
+                    const level = abstractionWeapon.level || 1;
+                    weaponDodgeRate = abstractionWeapon.config.DODGE_RATES[level - 1] || 0;
+                }
             }
-        }
-        
-        // 迴避強化天賦：與抽象化疊加
-        const talentDodgeRate = this.dodgeTalentRate || 0;
-        const totalDodgeRate = weaponDodgeRate + talentDodgeRate;
-        
-        // 計算總迴避率（生存模式：灰妲最高40%，其他角色15%；其他模式：所有角色15%）
-        // 注意：抽象化技能只在生存模式存在，所以其他模式只會有天賦迴避
-        let finalDodgeRate = totalDodgeRate;
-        if (typeof Game !== 'undefined' && Game.mode === 'survival') {
-            // 生存模式：灰妲最高40%（25%抽象化+15%天賦），其他角色15%（天賦）
-            const isDada = (this.character && this.character.id === 'dada');
-            if (isDada) {
-                finalDodgeRate = Math.min(0.40, totalDodgeRate);
+            
+            // 迴避強化天賦：與抽象化疊加
+            const talentDodgeRate = this.dodgeTalentRate || 0;
+            const totalDodgeRate = weaponDodgeRate + talentDodgeRate;
+            
+            // 計算總迴避率（生存模式：灰妲最高40%，其他角色15%；其他模式：所有角色15%）
+            // 注意：抽象化技能只在生存模式存在，所以其他模式只會有天賦迴避
+            let finalDodgeRate = totalDodgeRate;
+            if (typeof Game !== 'undefined' && Game.mode === 'survival') {
+                // 生存模式：灰妲最高40%（25%抽象化+15%天賦），其他角色15%（天賦）
+                const isDada = (this.character && this.character.id === 'dada');
+                if (isDada) {
+                    finalDodgeRate = Math.min(0.40, totalDodgeRate);
+                } else {
+                    finalDodgeRate = Math.min(0.15, talentDodgeRate);
+                }
             } else {
+                // 其他模式：所有角色最高15%（天賦）
                 finalDodgeRate = Math.min(0.15, talentDodgeRate);
             }
-        } else {
-            // 其他模式：所有角色最高15%（天賦）
-            finalDodgeRate = Math.min(0.15, talentDodgeRate);
-        }
-        
-        if (finalDodgeRate > 0 && Math.random() < finalDodgeRate) {
-            // 回避成功，不造成傷害
-            return;
+            
+            if (finalDodgeRate > 0 && Math.random() < finalDodgeRate) {
+                // 回避成功，不造成傷害
+                return;
+            }
         }
         
         // 防禦：基礎防禦 + 天賦平減（不為負）
