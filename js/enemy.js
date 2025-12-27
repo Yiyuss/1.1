@@ -166,7 +166,9 @@ class Enemy extends Entity {
         // 新增：遠程攻擊相關屬性（小BOSS與大BOSS皆可）
         if (enemyConfig.RANGED_ATTACK) {
             // 僅在困難模式且該敵人類型的遠程屬性啟用時才開啟技能
-            const enableRanged = (Game.difficulty && Game.difficulty.bossRangedEnabled) && (enemyConfig.RANGED_ATTACK.ENABLED !== false);
+            // 例外：路口地圖 HUMAN2 的瓶子投擲為常駐技能（不綁定 bossRangedEnabled）
+            const alwaysEnableRanged = (mapId === 'intersection' && this.type === 'HUMAN2');
+            const enableRanged = alwaysEnableRanged || ((Game.difficulty && Game.difficulty.bossRangedEnabled) && (enemyConfig.RANGED_ATTACK.ENABLED !== false));
             if (enableRanged) {
                 this.rangedAttack = enemyConfig.RANGED_ATTACK;
                 this.lastRangedAttackTime = 0;
@@ -946,6 +948,29 @@ class Enemy extends Entity {
     
     // 新增：發射火彈投射物
     fireProjectile(target) {
+        // 路口 HUMAN2：拋物線投擲瓶子（無音效）
+        if (this.type === 'HUMAN2' && typeof BottleProjectile !== 'undefined') {
+            try {
+                const cfgDagger = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.DAGGER) || {};
+                const baseSize = (typeof cfgDagger.PROJECTILE_SIZE === 'number') ? cfgDagger.PROJECTILE_SIZE : 20;
+                const bottleH = Math.max(14, Math.round(baseSize)); // 約應援棒 LV1
+                const bottleW = Math.max(10, Math.round(bottleH * (54 / 150))); // bottle.png 54x150
+                const p = new BottleProjectile(
+                    this.x,
+                    this.y,
+                    target.x,
+                    target.y,
+                    this.rangedAttack.PROJECTILE_SPEED,
+                    this.rangedAttack.PROJECTILE_DAMAGE,
+                    bottleW,
+                    bottleH
+                );
+                if (!Game.bossProjectiles) Game.bossProjectiles = [];
+                Game.bossProjectiles.push(p);
+            } catch (_) {}
+            return;
+        }
+
         // 計算發射角度
         const angle = Utils.angle(this.x, this.y, target.x, target.y);
         
