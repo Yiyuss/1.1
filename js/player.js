@@ -469,9 +469,11 @@ class Player extends Entity {
      }
     
     // 獲得經驗
-    gainExperience(amount) {
-        const mul = (this.experienceGainMultiplier != null) ? this.experienceGainMultiplier : 1.0;
-        const finalAmount = Math.max(0, Math.floor(amount * mul));
+    gainExperience(amount, options = {}) {
+        // options.ignoreMultiplier: 管理員/測試用途，直接增加固定經驗（不吃天賦/加成）
+        const ignoreMultiplier = !!(options && options.ignoreMultiplier);
+        const mul = ignoreMultiplier ? 1.0 : ((this.experienceGainMultiplier != null) ? this.experienceGainMultiplier : 1.0);
+        const finalAmount = Math.max(0, Math.floor((amount || 0) * mul));
         this.experience += finalAmount;
         
         // 檢查是否升級
