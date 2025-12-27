@@ -180,6 +180,10 @@ class Enemy extends Entity {
         this.deathVelX = 0;
         this.deathVelY = 0;
         
+        // 面向：用於左右貼圖（預設朝右）
+        // -1 = 朝左, +1 = 朝右
+        this.facingX = 1;
+        
         // ========================================================================
         // 花護衛背景雪碧圖動畫初始化（在constructor中初始化，避免在draw中重複創建）
         // ========================================================================
@@ -271,6 +275,7 @@ class Enemy extends Entity {
         }
         
         const deltaMul = deltaTime / 16.67;
+        const _prevX_forFacing = this.x;
         // 向玩家移動
         const player = Game.player;
         const angle = Utils.angle(this.x, this.y, player.x, player.y);
@@ -522,6 +527,13 @@ class Enemy extends Entity {
                 this.lastMoveY = this.y;
             }
         }
+
+        // 更新面向（只看水平移動；若本幀沒有水平位移則維持上一幀）
+        try {
+            const dxFacing = this.x - _prevX_forFacing;
+            if (dxFacing > 0.05) this.facingX = 1;
+            else if (dxFacing < -0.05) this.facingX = -1;
+        } catch (_) {}
         
         // 檢查與玩家的碰撞
         if (this.isColliding(player)) {
@@ -741,6 +753,20 @@ class Enemy extends Entity {
             default:
                 imageName = 'zombie';
                 color = '#0a0';
+        }
+
+        // 路口地圖：人類系列左右朝向貼圖
+        // 原圖皆為往右；往左使用 *-2 版本（human-2 / human2-2 / ...）
+        if (this.facingX < 0 && Game.images) {
+            let leftKey = null;
+            if (this.type === 'HUMAN1') leftKey = 'human-2';
+            else if (this.type === 'HUMAN2') leftKey = 'human2-2';
+            else if (this.type === 'HUMAN3') leftKey = 'human3-2';
+            else if (this.type === 'HUMAN_MINI_BOSS') leftKey = 'human_mini_boss-2';
+            else if (this.type === 'HUMAN_BOSS') leftKey = 'humanboss-2';
+            if (leftKey && Game.images[leftKey]) {
+                imageName = leftKey;
+            }
         }
         
         const enemyConfig = (CONFIG && CONFIG.ENEMIES) ? CONFIG.ENEMIES[this.type] : null;
