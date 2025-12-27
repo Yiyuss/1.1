@@ -9,17 +9,88 @@ const Input = {
         // 監聽按鍵按下事件
         window.addEventListener('keydown', (e) => {
             this.keys[e.key] = true;
-            
-            // 處理特殊按鍵組合
-            if (e.ctrlKey && e.key === 'o') {
-                e.preventDefault(); // 防止瀏覽器默認行為
-                if (typeof Game !== 'undefined') {
-                    Game.coins = 0;
-                    Game.saveCoins();
-                    if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
-                        UI.updateCoinsDisplay(Game.coins);
+
+            // ============================================================================
+            // 管理員測試指令（Admin Hotkeys）
+            // - Ctrl+P：+99999 金幣（生存模式）
+            // - Ctrl+I：+10000 經驗（生存模式；固定值不吃加成）
+            // - Ctrl+M：直接勝利（生存模式）
+            // - Ctrl+O：清除金幣（全域）
+            //
+            // 注意：
+            // - Ctrl+P / Ctrl+I / Ctrl+O 皆有瀏覽器預設快捷鍵，需 preventDefault。
+            // - 使用 e.repeat 防止按住鍵時連續觸發。
+            // ============================================================================
+            const isCtrl = !!(e.ctrlKey || e.metaKey);
+            if (isCtrl) {
+                const k = (e.key || '').toLowerCase();
+                if (k === 'p' || k === 'i' || k === 'm' || k === 'o') {
+                    if (e.repeat) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    // 僅生存模式可用的指令：用 ModeId 做最嚴格的隔離，避免跨模式污染
+                    let activeModeId = null;
+                    try {
+                        activeModeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                    } catch (_) {}
+                    const isSurvivalMode = (activeModeId === 'survival') || (typeof Game !== 'undefined' && Game && Game.mode === 'survival');
+
+                    // 防呆：Game 未初始化時不做任何事
+                    const G = (typeof Game !== 'undefined') ? Game : null;
+
+                    if (k === 'o') {
+                        // 全域：清除金幣
+                        try {
+                            if (G) {
+                                G.coins = 0;
+                                if (typeof G.saveCoins === 'function') G.saveCoins();
+                                if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
+                                    UI.updateCoinsDisplay(G.coins);
+                                }
+                                console.log('[Admin] CTRL+O: 已清除所有金幣');
+                            }
+                        } catch (_) {}
+                        return;
                     }
-                    console.log('已清除所有金幣');
+
+                    // 其餘指令僅限生存模式
+                    if (!isSurvivalMode) return;
+                    if (!G || G.isGameOver) return;
+
+                    if (k === 'p') {
+                        try {
+                            if (!G.isPaused && typeof G.addCoins === 'function') {
+                                G.addCoins(99999);
+                                console.log('[Admin] CTRL+P: +99999 Coins');
+                            }
+                        } catch (_) {}
+                        return;
+                    }
+
+                    if (k === 'i') {
+                        try {
+                            if (G.player && typeof G.player.gainExperience === 'function') {
+                                G.player.gainExperience(10000, { ignoreMultiplier: true });
+                                console.log('[Admin] CTRL+I: +10000 EXP');
+                            }
+                        } catch (_) {}
+                        return;
+                    }
+
+                    if (k === 'm') {
+                        try {
+                            if (!G.isPaused && typeof G.victory === 'function') {
+                                G.victory();
+                                console.log('[Admin] CTRL+M: Victory');
+                            }
+                        } catch (_) {}
+                        return;
+                    }
                 }
             }
         });
