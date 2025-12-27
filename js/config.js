@@ -966,6 +966,7 @@ const CONFIG = {
         { id: 'forest', name: '草原', backgroundKey: 'background1-2' },
         { id: 'desert', name: '宇宙', backgroundKey: 'background1-3' },
         { id: 'garden', name: 'LV4.花園', backgroundKey: 'background8' },
+        { id: 'intersection', name: 'LV5.路口', backgroundKey: 'background12' },
         { id: 'challenge-1', name: 'LV1.銀河系', backgroundKey: 'background4' },
         { id: 'challenge-2', name: 'LV2.星雲', backgroundKey: 'background5' },
         { id: 'challenge-3', name: 'LV3.星軌', backgroundKey: 'background6' },
@@ -1124,38 +1125,166 @@ const CONFIG = {
         
         // ========================================================================
         // 第4張地圖：花園 (garden) - 花精靈系列
-        // 維護備註：基礎值與第3張地圖（宇宙）完全相同
         // ========================================================================
         ELF: {
             NAME: "花精靈",
-            HEALTH: 50,                // 基礎血量（與第3張地圖ZOMBIE3相同）
-            DAMAGE: 20,                // 攻擊傷害（與第3張地圖ZOMBIE3相同）
-            SPEED: 1,                   // 移動速度（與第3張地圖ZOMBIE3相同）
+            HEALTH: 60,                // 基礎血量（比第1張地圖+30）
+            DAMAGE: 20,                // 攻擊傷害（比第1張地圖+10）
+            SPEED: 1,                   // 移動速度
             SIZE: 50,                   // 渲染尺寸（實際圖片100x98，按比例縮放）
-            EXPERIENCE: 5,              // 擊殺經驗值（與第3張地圖ZOMBIE3相同）
+            EXPERIENCE: 5,              // 擊殺經驗值
             COLLISION_RADIUS: 16       // 碰撞半徑
         },
         ELF2: {
             NAME: "花精靈2",
-            HEALTH: 40,                // 基礎血量（與第3張地圖SKELETON3相同）
-            DAMAGE: 25,                // 攻擊傷害（與第3張地圖SKELETON3相同）
-            SPEED: 1.5,                 // 移動速度（與第3張地圖SKELETON3相同）
+            HEALTH: 50,                // 基礎血量（比第1張地圖+30）
+            DAMAGE: 25,                // 攻擊傷害（比第1張地圖+10）
+            SPEED: 1.5,                 // 移動速度
             SIZE: 50,                   // 渲染尺寸（實際圖片110x101，按比例縮放）
-            EXPERIENCE: 8,              // 擊殺經驗值（與第3張地圖SKELETON3相同）
+            EXPERIENCE: 8,              // 擊殺經驗值
             COLLISION_RADIUS: 16       // 碰撞半徑
         },
         ELF3: {
             NAME: "花精靈3",
-            HEALTH: 35,                // 基礎血量（與第3張地圖GHOST3相同）
-            DAMAGE: 30,                // 攻擊傷害（與第3張地圖GHOST3相同）
-            SPEED: 2,                   // 移動速度（與第3張地圖GHOST3相同）
+            HEALTH: 45,                // 基礎血量（比第1張地圖+30）
+            DAMAGE: 30,                // 攻擊傷害（比第1張地圖+10）
+            SPEED: 2,                   // 移動速度
             SIZE: 50,                   // 渲染尺寸（實際圖片100x100，按比例縮放）
-            EXPERIENCE: 10,             // 擊殺經驗值（與第3張地圖GHOST3相同）
+            EXPERIENCE: 10,             // 擊殺經驗值
             COLLISION_RADIUS: 16       // 碰撞半徑
+        },
+        // 第4張地圖專用：花園BOSS系列
+        // 維護備註：基礎值與第3張地圖（宇宙）BOSS系列完全相同
+        ELF_MINI_BOSS: {
+            NAME: "花護衛",
+            HEALTH: 600,               // 基礎血量（與MINI_BOSS相同）
+            DAMAGE: 35,                // 攻擊傷害（+10）
+            SPEED: 0.8,                // 移動速度（與MINI_BOSS相同）
+            SIZE: 160,                  // 渲染尺寸（實際圖片200x194，按比例縮放）
+            EXPERIENCE: 50,            // 擊殺經驗值（與MINI_BOSS相同）
+            COLLISION_RADIUS: 80,      // 碰撞半徑（與MINI_BOSS相同）
+            // 遠程攻擊參數（僅在困難模式及以上啟用）
+            RANGED_ATTACK: {
+                ENABLED: true,         // 是否啟用遠程攻擊
+                RANGE: 250,            // 攻擊範圍（像素）
+                COOLDOWN: 3500,        // 冷卻時間（毫秒）
+                PROJECTILE_DAMAGE: 40, // 投射物傷害
+                PROJECTILE_SPEED: 5,   // 投射物速度
+                PROJECTILE_SIZE: 18,   // 投射物大小
+                HOMING: true,          // 是否追蹤玩家
+                TURN_RATE: 2.0         // 追蹤轉向速率（弧度/秒）
+            }
+        },
+        ELF_BOSS: {
+            NAME: "花女王",
+            HEALTH: 5000,              // 基礎血量（與BOSS相同）
+            DAMAGE: 50,                 // 攻擊傷害（+10）
+            SPEED: 0.7,                 // 移動速度（與BOSS相同）
+            SIZE: 300,                  // 渲染尺寸（實際圖片400x382，按比例縮放）
+            EXPERIENCE: 500,            // 擊殺經驗值（與BOSS相同）
+            COLLISION_RADIUS: 150,      // 碰撞半徑（與BOSS相同）
+            // 遠程攻擊參數（僅在困難模式及以上啟用）
+            RANGED_ATTACK: {
+                ENABLED: true,          // 是否啟用遠程攻擊
+                RANGE: 500,              // 攻擊範圍（像素）
+                COOLDOWN: 2500,          // 冷卻時間（毫秒）
+                PROJECTILE_DAMAGE: 60,   // 投射物傷害
+                PROJECTILE_SPEED: 6,     // 投射物速度
+                PROJECTILE_SIZE: 24,     // 投射物大小
+                HOMING: true,            // 是否追蹤玩家
+                TURN_RATE: 2.5           // 追蹤轉向速率（弧度/秒）
+            }
+        },
+
+        // ========================================================================
+        // 第5張地圖：路口 (intersection) - 人類系列
+        // - 小怪基礎生命：相對第1張地圖 +40
+        // - 小怪基礎傷害：相對第1張地圖 +15
+        // - 小BOSS/大BOSS：基礎生命不變；基礎傷害 +20；投射物傷害 +10
+        // - 圖片比例：human(69x100), human2(73x100), human3(64x100), human_mini_boss(169x200), humanboss(300x325)
+        // ========================================================================
+        // 小怪系列
+        HUMAN1: {
+            NAME: "人類1",
+            HEALTH: 70,               // ZOMBIE(30) + 40
+            DAMAGE: 25,               // ZOMBIE(10) + 15
+            SPEED: 1,                 // 移動速度
+            SIZE: 50,                 // 渲染高度（以高度為基準）
+            WIDTH: 35,                // 50 * (69/100) ≈ 35
+            HEIGHT: 50,
+            EXPERIENCE: 5,            // 擊殺經驗值
+            COLLISION_RADIUS: 16      // 碰撞半徑
+        },
+        HUMAN2: {
+            NAME: "人類2",
+            HEALTH: 60,               // SKELETON(20) + 40
+            DAMAGE: 30,               // SKELETON(15) + 15
+            SPEED: 1.5,               // 移動速度
+            SIZE: 50,                 // 渲染高度（以高度為基準）
+            WIDTH: 37,                // 50 * (73/100) ≈ 37
+            HEIGHT: 50,
+            EXPERIENCE: 8,            // 擊殺經驗值
+            COLLISION_RADIUS: 16      // 碰撞半徑
+        },
+        HUMAN3: {
+            NAME: "人類3",
+            HEALTH: 55,               // GHOST(15) + 40
+            DAMAGE: 35,               // GHOST(20) + 15
+            SPEED: 2,                 // 移動速度
+            SIZE: 50,                 // 渲染高度（以高度為基準）
+            WIDTH: 32,                // 50 * (64/100) ≈ 32
+            HEIGHT: 50,
+            EXPERIENCE: 10,           // 擊殺經驗值
+            COLLISION_RADIUS: 16      // 碰撞半徑
+        },
+        
+        // BOSS系列
+        HUMAN_MINI_BOSS: {
+            NAME: "混混",
+            HEALTH: 600,              // 基礎生命不變（同 MINI_BOSS）
+            DAMAGE: 45,               // MINI_BOSS(25) + 20
+            SPEED: 0.8,               // 移動速度
+            SIZE: 160,                // 渲染高度（以高度為基準）
+            WIDTH: 135,               // 160 * (169/200) ≈ 135
+            HEIGHT: 160,
+            EXPERIENCE: 50,           // 擊殺經驗值
+            COLLISION_RADIUS: 80,     // 碰撞半徑
+            RANGED_ATTACK: {
+                ENABLED: true,          // 是否啟用遠程攻擊
+                RANGE: 250,             // 攻擊範圍（像素）
+                COOLDOWN: 3500,         // 冷卻時間（毫秒）
+                PROJECTILE_DAMAGE: 50,  // MINI_BOSS(40) + 10
+                PROJECTILE_SPEED: 5,    // 投射物速度
+                PROJECTILE_SIZE: 18,    // 投射物大小
+                HOMING: true,           // 是否追蹤玩家
+                TURN_RATE: 2.0          // 追蹤轉向速率（弧度/秒）
+            }
+        },
+        HUMAN_BOSS: {
+            NAME: "資本家",
+            HEALTH: 5000,             // 基礎生命不變（同 BOSS）
+            DAMAGE: 60,               // BOSS(40) + 20
+            SPEED: 0.7,               // 移動速度
+            SIZE: 300,                // 渲染高度（以高度為基準）
+            WIDTH: 277,               // 300 * (300/325) ≈ 277
+            HEIGHT: 300,
+            EXPERIENCE: 500,          // 擊殺經驗值
+            COLLISION_RADIUS: 150,    // 碰撞半徑
+            RANGED_ATTACK: {
+                ENABLED: true,          // 是否啟用遠程攻擊
+                RANGE: 500,             // 攻擊範圍（像素）
+                COOLDOWN: 2500,         // 冷卻時間（毫秒）
+                PROJECTILE_DAMAGE: 70,  // BOSS(60) + 10
+                PROJECTILE_SPEED: 6,    // 投射物速度
+                PROJECTILE_SIZE: 24,    // 投射物大小
+                HOMING: true,           // 是否追蹤玩家
+                TURN_RATE: 2.5          // 追蹤轉向速率（弧度/秒）
+            }
         },
         
         // ========================================================================
-        // BOSS類敵人
+        // BOSS類敵人（通用）
+        // 放在所有地圖段落之後，讓 CONFIG.ENEMIES 可依地圖順序往下閱讀
         // ========================================================================
         MINI_BOSS: {
             NAME: "小BOSS",
@@ -1185,48 +1314,6 @@ const CONFIG = {
             SIZE: 300,                  // 渲染尺寸（最大）
             EXPERIENCE: 500,            // 擊殺經驗值（最高）
             COLLISION_RADIUS: 150,      // 碰撞半徑
-            // 遠程攻擊參數（僅在困難模式及以上啟用）
-            RANGED_ATTACK: {
-                ENABLED: true,          // 是否啟用遠程攻擊
-                RANGE: 500,              // 攻擊範圍（像素）
-                COOLDOWN: 2500,          // 冷卻時間（毫秒）
-                PROJECTILE_DAMAGE: 60,   // 投射物傷害
-                PROJECTILE_SPEED: 6,     // 投射物速度
-                PROJECTILE_SIZE: 24,     // 投射物大小
-                HOMING: true,            // 是否追蹤玩家
-                TURN_RATE: 2.5           // 追蹤轉向速率（弧度/秒）
-            }
-        },
-        // 第4張地圖專用：花園BOSS系列
-        // 維護備註：基礎值與第3張地圖（宇宙）BOSS系列完全相同
-        ELF_MINI_BOSS: {
-            NAME: "花護衛",
-            HEALTH: 600,               // 基礎血量（與MINI_BOSS相同）
-            DAMAGE: 25,                // 攻擊傷害（與MINI_BOSS相同）
-            SPEED: 0.8,                // 移動速度（與MINI_BOSS相同）
-            SIZE: 160,                  // 渲染尺寸（實際圖片200x194，按比例縮放）
-            EXPERIENCE: 50,            // 擊殺經驗值（與MINI_BOSS相同）
-            COLLISION_RADIUS: 80,      // 碰撞半徑（與MINI_BOSS相同）
-            // 遠程攻擊參數（僅在困難模式及以上啟用）
-            RANGED_ATTACK: {
-                ENABLED: true,         // 是否啟用遠程攻擊
-                RANGE: 250,            // 攻擊範圍（像素）
-                COOLDOWN: 3500,        // 冷卻時間（毫秒）
-                PROJECTILE_DAMAGE: 40, // 投射物傷害
-                PROJECTILE_SPEED: 5,   // 投射物速度
-                PROJECTILE_SIZE: 18,   // 投射物大小
-                HOMING: true,          // 是否追蹤玩家
-                TURN_RATE: 2.0         // 追蹤轉向速率（弧度/秒）
-            }
-        },
-        ELF_BOSS: {
-            NAME: "花女王",
-            HEALTH: 5000,              // 基礎血量（與BOSS相同）
-            DAMAGE: 40,                 // 攻擊傷害（與BOSS相同）
-            SPEED: 0.7,                 // 移動速度（與BOSS相同）
-            SIZE: 300,                  // 渲染尺寸（實際圖片400x382，按比例縮放）
-            EXPERIENCE: 500,            // 擊殺經驗值（與BOSS相同）
-            COLLISION_RADIUS: 150,      // 碰撞半徑（與BOSS相同）
             // 遠程攻擊參數（僅在困難模式及以上啟用）
             RANGED_ATTACK: {
                 ENABLED: true,          // 是否啟用遠程攻擊
@@ -1345,13 +1432,27 @@ const CONFIG = {
             garden: {
                 // 簡單模式：花精靈基礎值~10000（第1波基礎值，第30波10000）
                 EASY: {
-                    baseHealth: 0,          // 基礎值加成（第4張地圖為0，使用基礎值）
+                    baseHealth: 15,          // 基礎值加成（基礎值+15）
                     maxHealthWave30: 10000  // 第30波最大血量
                 },
                 // 困難模式：花精靈(基礎值+50)~15000（第1波基礎值+50，第30波15000）
                 HARD: {
                     baseHealth: 50,         // 基礎值加成（基礎值+50）
                     maxHealthWave30: 15000  // 第30波最大血量
+                }
+            }
+            ,
+            // 第五張地圖：路口 (intersection)
+            intersection: {
+                // 1~30波 EASY：小怪(基礎值+20)~12000
+                EASY: {
+                    baseHealth: 20,
+                    maxHealthWave30: 12000
+                },
+                // 1~30波 HARD：小怪(基礎值+80)~18000
+                HARD: {
+                    baseHealth: 80,
+                    maxHealthWave30: 18000
                 }
             }
         },
@@ -1411,6 +1512,20 @@ const CONFIG = {
                     endWave30: 300000      // 第30波血量（提升結束值，確保後期明顯高於普通小怪）
                 }
             }
+            ,
+            // 第五張地圖：路口 (intersection)
+            intersection: {
+                // 1~30波 EASY：小BOSS 5000~100000
+                EASY: {
+                    startWave1: 5000,
+                    endWave30: 100000
+                },
+                // 1~30波 HARD：小BOSS 5000~300000
+                HARD: {
+                    startWave1: 5000,
+                    endWave30: 300000
+                }
+            }
         },
         
         // 大BOSS血量配置（依地圖與難度）
@@ -1457,6 +1572,18 @@ const CONFIG = {
                 // 困難模式：花女王大BOSS 600000
                 HARD: {
                     wave20: 600000        // 第20波血量
+                }
+            }
+            ,
+            // 第五張地圖：路口 (intersection)
+            intersection: {
+                // 1~30波 EASY：大BOSS 200000（實際只在第20波生成）
+                EASY: {
+                    wave20: 200000
+                },
+                // 1~30波 HARD：大BOSS 800000（實際只在第20波生成）
+                HARD: {
+                    wave20: 800000
                 }
             }
         }
