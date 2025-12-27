@@ -1144,10 +1144,10 @@ const Game = {
      * 設計：避免與障礙與既有裝飾矩形重疊；允許靠近玩家。
      */
     spawnDecorations: function() {
-        // 第二、第三、第四張地圖（forest、desert、garden）不生成裝飾物，僅保留 S1/S2 障礙物。
+        // 第二、第三、第四、第五張地圖（forest、desert、garden、intersection）不生成裝飾物，僅保留 S1/S2 障礙物。
         // 注意：不更改任何顯示文字與其他地圖行為；維持第一張地圖邏輯。
         // 第四張地圖（garden）的 S10-S16 裝飾物邏輯保留在註釋中，供未來其他地圖使用。
-        if (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert' || this.selectedMap.id === 'garden')) {
+        if (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert' || this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection')) {
             return; // 跳過裝飾生成
         }
         
