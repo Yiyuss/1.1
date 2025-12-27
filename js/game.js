@@ -41,6 +41,9 @@ const Game = {
     gardenVideoPlaying: false, // 是否正在播放視頻
     gardenVideoElement: null, // 視頻元素
     gardenVideoFadeOutTime: 0, // 淡出開始時間
+    // 路口地圖：車輛危險物（每10秒生成3台）
+    intersectionCarTimer: 0,
+    intersectionCarInterval: 10000,
     // 統計數據
     enemiesKilled: 0,
     coinsCollected: 0,
@@ -221,6 +224,16 @@ const Game = {
         // 花園地圖：每30秒播放一次視頻
         if (this.selectedMap && this.selectedMap.id === 'garden' && !this.isPaused && !this.isGameOver) {
             this._updateGardenVideo(deltaTime);
+        }
+
+        // 路口地圖：每 10 秒生成 3 台車（直線穿越）
+        if (this.selectedMap && this.selectedMap.id === 'intersection' && !this.isPaused && !this.isGameOver) {
+            this.intersectionCarTimer += deltaTime;
+            if (this.intersectionCarTimer >= this.intersectionCarInterval) {
+                // 扣回間隔（避免 lag 時累積爆發）
+                this.intersectionCarTimer = this.intersectionCarTimer % this.intersectionCarInterval;
+                try { this.spawnIntersectionCars(4); } catch (_) {}
+            }
         }
         
         // 更新玩家與武器（第一次，保留歷史節奏）
@@ -530,7 +543,7 @@ const Game = {
             this.player.aiCompanion.draw(this.ctx);
         }
         
-        // 繪製投射物（除連鎖閃電/狂熱雷擊/斬擊/裁決/神界裁決與幼妲光輝/幼妲天使聖光/死線戰士/死線超人，延後至敵人之上）
+        // 繪製投射物（除連鎖閃電/狂熱雷擊/斬擊/裁決/神界裁決/路口車輛與幼妲光輝/幼妲天使聖光/死線戰士/死線超人，延後至敵人之上）
         for (const projectile of this.projectiles) {
             if (
                 projectile &&
@@ -543,7 +556,8 @@ const Game = {
                     projectile.weaponType === 'DEATHLINE_WARRIOR' ||
                     projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
                     projectile.weaponType === 'JUDGMENT' ||
-                    projectile.weaponType === 'DIVINE_JUDGMENT'
+                    projectile.weaponType === 'DIVINE_JUDGMENT' ||
+                    projectile.weaponType === 'INTERSECTION_CAR'
                 )
             ) {
                 // 延後到前景層（敵人之上）再繪製
@@ -609,7 +623,7 @@ const Game = {
             }
         }
         
-        // 前景層：連鎖閃電/狂熱雷擊/斬擊效果（電弧與火花/GIF）以及幼妲光輝/幼妲天使聖光特效/死線戰士特效/死線超人特效/裁決/神界裁決特效
+        // 前景層：連鎖閃電/狂熱雷擊/斬擊效果（電弧與火花/GIF）以及幼妲光輝/幼妲天使聖光特效/死線戰士特效/死線超人特效/裁決/神界裁決特效/路口車輛
         for (const projectile of this.projectiles) {
             if (
                 projectile &&
@@ -622,7 +636,8 @@ const Game = {
                     projectile.weaponType === 'DEATHLINE_WARRIOR' ||
                     projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
                     projectile.weaponType === 'JUDGMENT' ||
-                    projectile.weaponType === 'DIVINE_JUDGMENT'
+                    projectile.weaponType === 'DIVINE_JUDGMENT' ||
+                    projectile.weaponType === 'INTERSECTION_CAR'
                 )
             ) {
                 projectile.draw(this.ctx);
@@ -716,6 +731,138 @@ const Game = {
         this.experienceOrbs.push(orb);
     },
 
+    /**
+     * 路口地圖：生成車輛危險物
+     * - 每批次生成 count 台（預設 3）
+     * - 從隨機邊界直線衝向對側邊界後消失
+     * - 生成點需打散（同批次不重疊）
+     * - 播放 car 音效一次（不疊加）
+     */
+    spawnIntersectionCars: function(count = 4) {
+        if (!(this.selectedMap && this.selectedMap.id === 'intersection')) return;
+        if (typeof CarHazard === 'undefined') return;
+
+        const worldW = this.worldWidth || (CONFIG && CONFIG.CANVAS_WIDTH) || 1920;
+        const worldH = this.worldHeight || (CONFIG && CONFIG.CANVAS_HEIGHT) || 1080;
+
+        // 速度：固定為 15（與 Enemy.speed 同尺度）
+        const carSpeed = 15;
+
+        const carKeys = ['car','car2','car3','car4','car5','car6','car7','car8','car9'];
+        // 大小：先縮減 40%（0.6），再縮 20% → 0.48
+        const scale = 0.48;
+        const damage = 100;
+
+        // 生成點打散：同批次車子的起點要分開
+        // - 只允許左右兩側生成
+        // - 同一側的 y 位置要打散（避免重疊）
+        const used = []; // { side: 'left'|'right', y }
+        const minSepY = 180;
+
+        const pickSpawn = (side, w, h) => {
+            let x, y, vx, vy;
+            if (side === 'left') {
+                x = -w / 2;
+                y = Utils.randomInt(0, worldH);
+                vx = carSpeed; vy = 0;
+            } else {
+                x = worldW + w / 2;
+                y = Utils.randomInt(0, worldH);
+                vx = -carSpeed; vy = 0;
+            }
+            return { x, y, vx, vy, side };
+        };
+
+        // 音效：一批只播一次
+        try {
+            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                AudioManager.playSound('car');
+            }
+        } catch (_) {}
+
+        // 生成側邊：保持完全隨機，但保證左右都有（不會全部同一邊）
+        const n = Math.max(1, count);
+        const sides = [];
+        if (n === 1) {
+            sides.push(Utils.randomInt(0, 1) === 0 ? 'left' : 'right');
+        } else {
+            sides.push('left');
+            sides.push('right');
+            for (let i = 2; i < n; i++) {
+                sides.push(Utils.randomInt(0, 1) === 0 ? 'left' : 'right');
+            }
+            // Fisher–Yates shuffle
+            for (let i = sides.length - 1; i > 0; i--) {
+                const j = Utils.randomInt(0, i);
+                const tmp = sides[i]; sides[i] = sides[j]; sides[j] = tmp;
+            }
+        }
+
+        for (let i = 0; i < n; i++) {
+            const baseKey = carKeys[Utils.randomInt(0, carKeys.length - 1)];
+            const img = (this.images || Game.images || {})[baseKey];
+            const srcW = (img && img.naturalWidth) ? img.naturalWidth : 385;
+            const srcH = (img && img.naturalHeight) ? img.naturalHeight : 227;
+            const w = Math.max(20, Math.floor(srcW * scale));
+            const h = Math.max(20, Math.floor(srcH * scale));
+
+            let spawn = null;
+            const side = sides[i] || (Utils.randomInt(0, 1) === 0 ? 'left' : 'right');
+            for (let tries = 0; tries < 60; tries++) {
+                const cand = pickSpawn(side, w, h);
+                let ok = true;
+                for (const p of used) {
+                    if (p.side === cand.side && Math.abs(cand.y - p.y) < minSepY) { ok = false; break; }
+                }
+                if (ok) { spawn = cand; break; }
+            }
+            if (!spawn) {
+                spawn = pickSpawn(side, w, h);
+            }
+            used.push({ side: spawn.side, y: spawn.y });
+
+            // 依左右移動方向選圖（以你提供的素材為準）：
+            // 注意：你的 car*.png / car*-2.png 是「互為鏡像」，但「哪一張朝右」並不一致
+            // （例如 car3.png 朝左、car3-2.png 才朝右），因此需要每種車指定 baseKey 的朝向。
+            const baseFacing = {
+                // 若你之後更換素材方向，只需要改這張表即可
+                // 這三台（car / car2 / car4）依你目前素材實際朝向屬於例外：base 圖朝左
+                car: 'left',
+                car2: 'left',
+                car3: 'left',
+                car4: 'left',
+                car5: 'left',
+                car6: 'left',
+                car7: 'left',
+                car8: 'left',
+                car9: 'left'
+            };
+            const desiredFacing = (spawn.vx >= 0) ? 'right' : 'left';
+            const baseDir = baseFacing[baseKey] || 'right';
+            const altKey = (baseKey === 'car') ? 'car-2' : (baseKey + '-2');
+
+            // 若 base 本身就符合方向，用 base；否則用 -2（若 -2 不存在則回退 base）
+            let imageKey = baseKey;
+            if (baseDir !== desiredFacing) {
+                const altImg = (this.images || Game.images || {})[altKey];
+                imageKey = altImg ? altKey : baseKey;
+            }
+
+            const car = new CarHazard({
+                x: spawn.x,
+                y: spawn.y,
+                vx: spawn.vx,
+                vy: spawn.vy,
+                width: w,
+                height: h,
+                imageKey: imageKey,
+                damage,
+                despawnPad: 400
+            });
+            this.addProjectile(car);
+        }
+    },
+
     // 生成寶箱（免費升級觸發）
     spawnChest: function(x, y) {
         const chest = new Chest(x, y);
@@ -754,7 +901,7 @@ const Game = {
             let toRemove = this.enemies.length - effectiveMax;
             for (let i = 0; i < this.enemies.length && toRemove > 0;) {
                 const e = this.enemies[i];
-                if (e && (e.type === 'BOSS' || e.type === 'ELF_BOSS' || e.type === 'MINI_BOSS' || e.type === 'ELF_MINI_BOSS')) {
+                if (e && (e.type === 'BOSS' || e.type === 'ELF_BOSS' || e.type === 'HUMAN_BOSS' || e.type === 'MINI_BOSS' || e.type === 'ELF_MINI_BOSS' || e.type === 'HUMAN_MINI_BOSS')) {
                     i++; // 跳過BOSS類型
                 } else {
                     this.enemies.splice(i, 1);
@@ -1274,6 +1421,9 @@ const Game = {
             // 讀取失敗時不影響遊戲
             this.coins = this.coins || 0;
         }
+        
+        // 重置路口車輛計時器
+        this.intersectionCarTimer = 0;
     },
 
     // 金幣：存檔
