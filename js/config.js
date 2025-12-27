@@ -1224,7 +1224,16 @@ const CONFIG = {
             WIDTH: 37,                // 50 * (73/100) ≈ 37
             HEIGHT: 50,
             EXPERIENCE: 8,            // 擊殺經驗值
-            COLLISION_RADIUS: 16      // 碰撞半徑
+            COLLISION_RADIUS: 16,     // 碰撞半徑
+            // 遠程投擲（瓶子）：偵測範圍/冷卻時間與小BOSS火彈相同
+            // 注意：實際投擲物為拋物線（BottleProjectile），不追蹤玩家
+            RANGED_ATTACK: {
+                ENABLED: true,
+                RANGE: 250,            // 與 MINI_BOSS 相同
+                COOLDOWN: 3500,        // 與 MINI_BOSS 相同
+                PROJECTILE_DAMAGE: 15,
+                PROJECTILE_SPEED: 5    // 與 MINI_BOSS 相同（用於估算飛行時間/彈道）
+            }
         },
         HUMAN3: {
             NAME: "人類3",
