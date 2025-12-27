@@ -40,7 +40,11 @@ class CarHazard extends Entity {
                 this.hitPlayer = true;
                 try {
                     if (typeof player.takeDamage === 'function') {
-                        player.takeDamage(this.damage);
+                        // 車輛：屬於環境重擊
+                        // - 忽略受傷短暫無敵（HIT_FLASH），避免「撞到但不扣血」
+                        // - 忽略閃避（抽象化/天賦），避免環境傷害被迴避
+                        // - 仍尊重技能無敵（INVINCIBLE）由 Player.takeDamage 內部處理
+                        player.takeDamage(this.damage, { ignoreInvulnerability: true, ignoreDodge: true, source: 'intersection_car' });
                     }
                 } catch (_) {}
 
