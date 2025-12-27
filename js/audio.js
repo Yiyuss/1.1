@@ -54,6 +54,7 @@ const AudioManager = {
             { name: 'menu_music', src: 'assets/audio/menu_music.mp3' },
             { name: 'game_music', src: 'assets/audio/game_music.mp3' },
             { name: 'game_music2', src: 'assets/audio/game_music2.mp3' }, // 第4張地圖（花園）專用 BGM
+            { name: 'intersection_music', src: 'assets/audio/intersection.mp3' }, // 第5張地圖（路口）專用 BGM
             { name: 'boss_music', src: 'assets/audio/boss_music.mp3' },
             // 修羅模式專用 BGM
             { name: 'shura_music', src: 'assets/audio/Shura.mp3' },
@@ -207,6 +208,8 @@ const AudioManager = {
                 // 第4張地圖（花園）使用 game_music2（優先於修羅模式）
                 if (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id === 'garden') {
                     bgmName = 'game_music2';
+                } else if (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id === 'intersection') {
+                    bgmName = 'intersection_music';
                 } else if (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') {
                     bgmName = 'shura_music';
                 }
@@ -240,6 +243,8 @@ const AudioManager = {
                 // 第4張地圖（花園）使用 game_music2（優先於修羅模式）
                 if (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id === 'garden') {
                     bgmName = 'game_music2';
+                } else if (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id === 'intersection') {
+                    bgmName = 'intersection_music';
                 } else if (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') {
                     bgmName = 'shura_music';
                 }
@@ -313,6 +318,8 @@ const AudioScene = {
                 // 第4張地圖（花園）使用 game_music2（優先於修羅模式）
                 if (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id === 'garden') {
                     bgmName = 'game_music2';
+                } else if (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id === 'intersection') {
+                    bgmName = 'intersection_music';
                 } else if (typeof Game !== 'undefined' && Game.selectedDifficultyId === 'ASURA') {
                     bgmName = 'shura_music';
                 }
