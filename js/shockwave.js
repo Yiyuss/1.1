@@ -3,7 +3,7 @@ class ShockwaveEffect extends Entity {
     constructor(player, damage, durationMs, maxRadius, ringWidth, palette) {
         super(player.x, player.y, 2, 2);
         this.player = player;
-        // 震波中心在施放當下鎖定於玩家位置（不跟隨移動）
+        // 震波中心會跟隨玩家移動（每幀同步）
         this.cx = player.x;
         this.cy = player.y;
         this.damage = damage;
@@ -29,6 +29,16 @@ class ShockwaveEffect extends Entity {
             this.markedForDeletion = true;
             return;
         }
+
+        // 跟隨玩家：震波中心點每幀同步
+        if (this.player) {
+            this.cx = this.player.x;
+            this.cy = this.player.y;
+            // 同步 Entity 位置（保險：避免其他系統依賴 this.x/y）
+            this.x = this.cx;
+            this.y = this.cy;
+        }
+
         const progress = Math.max(0, Math.min(1, elapsed / this.durationMs));
         this.currentRadius = this.maxRadius * progress;
 
