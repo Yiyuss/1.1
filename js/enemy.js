@@ -21,7 +21,8 @@ class Enemy extends Entity {
         
         try {
             // 普通小怪：根據地圖與難度配置調整血量
-            if (this.type !== 'MINI_BOSS' && this.type !== 'ELF_MINI_BOSS' && this.type !== 'BOSS' && this.type !== 'ELF_BOSS') {
+            if (this.type !== 'MINI_BOSS' && this.type !== 'ELF_MINI_BOSS' && this.type !== 'HUMAN_MINI_BOSS' &&
+                this.type !== 'BOSS' && this.type !== 'ELF_BOSS' && this.type !== 'HUMAN_BOSS') {
                 const enemyHealthConfig = (((tuning.ENEMY_HEALTH || {})[mapId] || {})[diffId]) || null;
                 if (enemyHealthConfig) {
                     // 計算基礎血量（原始基礎值 + 地圖加成）
@@ -50,7 +51,7 @@ class Enemy extends Entity {
                 }
             }
             // 小BOSS：根據地圖與難度配置調整血量
-            else if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS') {
+            else if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS') {
                 const miniBossConfig = (((tuning.MINI_BOSS || {})[mapId] || {})[diffId]) || null;
                 if (miniBossConfig && miniBossConfig.startWave1 && miniBossConfig.endWave30) {
                     const start = miniBossConfig.startWave1;
@@ -77,7 +78,7 @@ class Enemy extends Entity {
                 }
             }
             // 大BOSS：根據地圖與難度配置調整血量（僅第20波）
-            else if (this.type === 'BOSS' || this.type === 'ELF_BOSS') {
+            else if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') {
                 const bossConfig = (((tuning.BOSS || {})[mapId] || {})[diffId]) || null;
                 // 大BOSS僅第20波出現，直接指定目標血量（原為第30波，已縮短為20波）
                 const bossWave = (CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 20;
@@ -102,6 +103,17 @@ class Enemy extends Entity {
         this.isSlowed = false;
         this.slowEndTime = 0;
         this.experienceValue = enemyConfig.EXPERIENCE;
+        // 第5張地圖（intersection）經驗加成：
+        // - 所有怪物 +2
+        // - BOSS系列（小BOSS/大BOSS）額外 +20
+        try {
+            if (mapId === 'intersection') {
+                this.experienceValue += 2;
+                if (this.type === 'HUMAN_MINI_BOSS' || this.type === 'HUMAN_BOSS') {
+                    this.experienceValue += 20;
+                }
+            }
+        } catch (_) {}
         this.collisionRadius = enemyConfig.COLLISION_RADIUS;
         this.lastAttackTime = 0;
         this.attackCooldown = 1000; // 攻擊冷卻時間（毫秒）
@@ -109,29 +121,41 @@ class Enemy extends Entity {
         this.hitFlashTime = 0;
         this.hitFlashDuration = 150; // 毫秒
         
-        // 視覺與邏輯尺寸同步：MINI_BOSS 與 BOSS 使用非正方形大小
-        if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS') {
+        // 視覺與邏輯尺寸同步：支援非正方形尺寸（一般敵人若提供 WIDTH/HEIGHT 也可用）
+        if (enemyConfig && typeof enemyConfig.WIDTH === 'number' && typeof enemyConfig.HEIGHT === 'number') {
+            this.width = enemyConfig.WIDTH;
+            this.height = enemyConfig.HEIGHT;
+        }
+
+        // 視覺與邏輯尺寸同步：MINI_BOSS 與 BOSS 使用非正方形大小（並建立 alpha 碰撞多邊形）
+        if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS') {
             if (this.type === 'ELF_MINI_BOSS') {
                 // 花護衛：200x194，按比例縮放
                 this.width = 200; this.height = 194;
+            } else if (this.type === 'HUMAN_MINI_BOSS') {
+                // 混混：169x200，按比例縮放（預設高度 160）
+                this.width = 135; this.height = 160;
             } else {
                 this.width = 123; this.height = 160;
             }
-            const imgName = (this.type === 'ELF_MINI_BOSS') ? 'elf_mini_boss' : 'mini_boss';
+            const imgName = (this.type === 'ELF_MINI_BOSS') ? 'elf_mini_boss' : ((this.type === 'HUMAN_MINI_BOSS') ? 'human_mini_boss' : 'mini_boss');
             const img = Game && Game.images ? Game.images[imgName] : null;
             if (img && img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
                 const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, 32, 72, 2);
                 if (poly && poly.length >= 3) this.setCollisionPolygon(poly);
             }
         }
-        if (this.type === 'BOSS' || this.type === 'ELF_BOSS') {
+        if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') {
             if (this.type === 'ELF_BOSS') {
                 // 花女王：400x382，按比例縮放
                 this.width = 400; this.height = 382;
+            } else if (this.type === 'HUMAN_BOSS') {
+                // 資本家：300x325，按比例縮放（預設高度 300）
+                this.width = 277; this.height = 300;
             } else {
                 this.width = 212; this.height = 300;
             }
-            const imgName = (this.type === 'ELF_BOSS') ? 'elfboss' : 'boss';
+            const imgName = (this.type === 'ELF_BOSS') ? 'elfboss' : ((this.type === 'HUMAN_BOSS') ? 'humanboss' : 'boss');
             const img = Game && Game.images ? Game.images[imgName] : null;
             if (img && img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
                 const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, 36, 80, 2);
@@ -232,12 +256,14 @@ class Enemy extends Entity {
             let imageName = null;
             if (this.type === 'MINI_BOSS') imageName = 'mini_boss';
             else if (this.type === 'ELF_MINI_BOSS') imageName = 'elf_mini_boss';
+            else if (this.type === 'HUMAN_MINI_BOSS') imageName = 'human_mini_boss';
             else if (this.type === 'BOSS') imageName = 'boss';
             else if (this.type === 'ELF_BOSS') imageName = 'elfboss';
+            else if (this.type === 'HUMAN_BOSS') imageName = 'humanboss';
             if (imageName && Game && Game.images && Game.images[imageName]) {
                 const img = Game.images[imageName];
                 if (img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
-                    const params = (this.type === 'BOSS' || this.type === 'ELF_BOSS') ? [36, 80, 2] : [32, 72, 2];
+                    const params = (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') ? [36, 80, 2] : [32, 72, 2];
                     const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, ...params);
                     if (poly && poly.length >= 3) this.setCollisionPolygon(poly);
                 }
@@ -281,7 +307,7 @@ class Enemy extends Entity {
         }
 
         // 與障礙物分離/滑動：若接觸則沿法線微推開，避免卡住
-        const slideStrength = (this.type === 'BOSS' || this.type === 'ELF_BOSS') ? 0.45 : 0.25;
+        const slideStrength = (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') ? 0.45 : 0.25;
         for (const obs of Game.obstacles || []) {
             const halfW = obs.width / 2;
             const halfH = obs.height / 2;
@@ -315,8 +341,8 @@ class Enemy extends Entity {
         // 注意：這些變數會在下面的邊界處理部分再次使用，所以提前定義
         const isGardenLargeEnemyForRepulsion = (Game.selectedMap && Game.selectedMap.id === 'garden') && 
                                    (this.type === 'ELF_MINI_BOSS' || this.type === 'ELF_BOSS');
-        const isLargeEnemyForRepulsion = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || 
-                             this.type === 'BOSS' || this.type === 'ELF_BOSS');
+        const isLargeEnemyForRepulsion = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' ||
+                             this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS');
         
         // 互斥強度：大體積敵人需要更強的推力，避免被小敵人卡住
         let repulsionStrength = 0.15; // 默認互斥強度
@@ -392,8 +418,8 @@ class Enemy extends Entity {
         // 判斷是否為花園地圖的大體積敵人
         const isGardenLargeEnemy = (Game.selectedMap && Game.selectedMap.id === 'garden') && 
                                    (this.type === 'ELF_MINI_BOSS' || this.type === 'ELF_BOSS');
-        const isLargeEnemy = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || 
-                             this.type === 'BOSS' || this.type === 'ELF_BOSS');
+        const isLargeEnemy = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' ||
+                             this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS');
         
         // 根據敵人體積動態調整邊界推入距離
         // 花園地圖的大體積敵人需要更大的推入距離，避免卡在邊界
@@ -676,12 +702,28 @@ class Enemy extends Entity {
                 imageName = 'elf3';
                 color = '#0fa';
                 break;
+            case 'HUMAN1':
+                imageName = 'human';
+                color = '#bbb';
+                break;
+            case 'HUMAN2':
+                imageName = 'human2';
+                color = '#bbb';
+                break;
+            case 'HUMAN3':
+                imageName = 'human3';
+                color = '#bbb';
+                break;
             case 'MINI_BOSS':
                 imageName = 'mini_boss';
                 color = '#f80';
                 break;
             case 'ELF_MINI_BOSS':
                 imageName = 'elf_mini_boss';
+                color = '#f80';
+                break;
+            case 'HUMAN_MINI_BOSS':
+                imageName = 'human_mini_boss';
                 color = '#f80';
                 break;
             case 'BOSS':
@@ -692,15 +734,23 @@ class Enemy extends Entity {
                 imageName = 'elfboss';
                 color = '#f00';
                 break;
+            case 'HUMAN_BOSS':
+                imageName = 'humanboss';
+                color = '#f00';
+                break;
             default:
                 imageName = 'zombie';
                 color = '#0a0';
         }
         
+        const enemyConfig = (CONFIG && CONFIG.ENEMIES) ? CONFIG.ENEMIES[this.type] : null;
+        
         // 繪製敵人 - 優先使用圖片
         if (Game.images && Game.images[imageName]) {
-            // 迷你頭目與頭目使用邏輯尺寸（非正方形），其他維持既有正方形 size
-            if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'BOSS' || this.type === 'ELF_BOSS') {
+            // 迷你頭目與頭目使用邏輯尺寸（非正方形）；一般敵人若提供 width/height 也以該尺寸渲染
+            if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' ||
+                this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' ||
+                (enemyConfig && typeof enemyConfig.WIDTH === 'number' && typeof enemyConfig.HEIGHT === 'number')) {
                 drawW = this.width; drawH = this.height;
                 ctx.drawImage(
                     Game.images[imageName],
@@ -880,9 +930,9 @@ class Enemy extends Entity {
             angle,
             this.rangedAttack.PROJECTILE_SPEED,
             this.rangedAttack.PROJECTILE_DAMAGE,
-            ((this.type === 'BOSS' || this.type === 'ELF_BOSS')
+            ((this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS')
                 ? this.rangedAttack.PROJECTILE_SIZE * 1.5 
-                : ((this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS')
+                : ((this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS')
                     ? this.rangedAttack.PROJECTILE_SIZE * 1.35 
                     : this.rangedAttack.PROJECTILE_SIZE)),
             this.rangedAttack.HOMING,
@@ -1006,16 +1056,17 @@ class Enemy extends Entity {
         
         // 生成經驗寶石與獎勵等（維持事件順序與文字/數值不變）
         Game.spawnExperienceOrb(this.x, this.y, this.experienceValue);
-        if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'BOSS' || this.type === 'ELF_BOSS') {
+        if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' ||
+            this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') {
             Game.spawnChest(this.x, this.y);
         }
         if (typeof Game !== 'undefined' && typeof Game.addCoins === 'function') {
             let coinGain = 2;
-            if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS') coinGain = 50;
-            else if (this.type === 'BOSS' || this.type === 'ELF_BOSS') coinGain = 500;
+            if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS') coinGain = 50;
+            else if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') coinGain = 500;
             Game.addCoins(coinGain);
         }
-        if (this.type === 'BOSS' || this.type === 'ELF_BOSS') {
+        if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') {
             // 第20波BOSS死亡時，生成出口而不是立即獲勝
             const currentWave = (typeof WaveSystem !== 'undefined' && WaveSystem.currentWave) ? WaveSystem.currentWave : 0;
             const bossWave = (typeof CONFIG !== 'undefined' && CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 20;
