@@ -46,7 +46,8 @@ const AudioManager = {
             { name: 'Explosion', src: 'assets/audio/Explosion.mp3' }, // 艾比大绝爆炸音效
             { name: 'bo', src: 'assets/audio/bo.mp3' },
             { name: 'boss_cooldown', src: 'assets/audio/BOSS.mp3' },
-            { name: 'playerN2', src: 'assets/audio/playerN2.mp3' } // 第二位角色大絕專用音效
+            { name: 'playerN2', src: 'assets/audio/playerN2.mp3' }, // 第二位角色大絕專用音效
+            { name: 'car', src: 'assets/audio/car.mp3' } // 路口地圖：車輛音效
         ];
         
         // 音樂列表
