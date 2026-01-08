@@ -15,7 +15,7 @@
 * **BGM**：DOVA-SYNDROME
 * **背景圖**：ChatGPT生成
 * **道具圖**：illustAC
-* **其他素材**：pixabay
+* **其他素材**：pixabay、[zct_33](https://sketchfab.com/3d-models/invasion-map-miniroyaleio-89f52d6ee9344cc48060076c222ad40b)
 * **影片與聲音**：擷取自瑪格麗特、森森鈴蘭之影片片段
 * **遊戲主體設定、介面素材**：擷取自瑪格麗特、森森鈴蘭相關素材
 * **其他 VTuber角色**：洛克洛斯特、灰妲、艾比
@@ -39,6 +39,7 @@
 本作品包含第三方權利內容。
 
 任何再利用、重製或散布行為，請務必自行向各該權利人確認授權狀態。
+
 
 
 
