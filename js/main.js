@@ -909,6 +909,9 @@ function setupMapAndDifficultySelection() {
             } else if (cfg && (cfg.id === '3d-demo-city' || (typeof cfg.name === 'string' && cfg.name.includes('DEMO城市')))) {
                 // 3D模式「DEMO城市」介紹
                 mapDescEl.textContent = '3D城市探索模式，使用WASD或方向鍵移動，SHIFT跑步，空白鍵跳躍。';
+            } else if (cfg && (cfg.id === 'main-test' || (typeof cfg.name === 'string' && cfg.name.includes('冒險村莊')))) {
+                // 主線模式「冒險村莊」介紹
+                mapDescEl.textContent = '在這裡，你將探索各個角落、與角色互動，並完成小任務來了解每位台V，任務劇情與獎勵皆非官方活動，僅作二次創作娛樂用途。';
             }
         }
     };
