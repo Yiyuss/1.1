@@ -348,7 +348,7 @@
               { id: 'main-dialogue-exit', text: '離開', action: 'exit' }
             ],
             code: 'LINGLAN2025',
-            onFinalState: () => checkYouTubeSubscription()
+            onFinalState: () => syncYouTubeCodeButtonState('lilylinglan')
           }
         },
         'yiyu': { // 伊鬱（室內NPC）
@@ -400,7 +400,7 @@
             channelId: 'UCbh7KHPMgYGgpISdbF6l0Kw', // 瑪格麗特的頻道ID
             channelName: '瑪格麗特 YouTube 頻道',
             channelLink: 'https://www.youtube.com/@%E7%91%AA%E6%A0%BC%E9%BA%97%E7%89%B9margaretnorth/',
-            onFinalState: () => checkYouTubeSubscriptionMargaret()
+            onFinalState: () => syncYouTubeCodeButtonState('margaret')
           }
         },
         'dada': { // 灰妲（戶外NPC）
@@ -428,7 +428,7 @@
             channelId: 'UCx7GU8C3cr7vqp_SbS-8P-w', // 灰妲的頻道ID
             channelName: '灰妲 YouTube 頻道',
             channelLink: 'https://www.youtube.com/@ReLiveDaDa',
-            onFinalState: () => checkYouTubeSubscriptionDada()
+            onFinalState: () => syncYouTubeCodeButtonState('dada')
           }
         },
         'loco': { // 洛可洛斯特（戶外NPC）
@@ -456,7 +456,7 @@
             channelId: 'UCT1kajmUhayQ4QaLlDbK23g', // 洛可洛斯特的頻道ID
             channelName: '洛可洛斯特 YouTube 頻道',
             channelLink: 'https://www.youtube.com/@Locolost65',
-            onFinalState: () => checkYouTubeSubscriptionLoco()
+            onFinalState: () => syncYouTubeCodeButtonState('loco')
           }
         },
         'abby': { // 艾比（小屋室內NPC / 04.png 對應的 indoor_A）
@@ -484,11 +484,57 @@
             channelId: 'UC9mmh_8RqXIgGa5P7moq-tA',
             channelName: '艾比Rabi YouTube 頻道',
             channelLink: 'https://www.youtube.com/@%E8%89%BE%E6%AF%94Rabi',
-            onFinalState: () => checkYouTubeSubscriptionAbby()
+            onFinalState: () => syncYouTubeCodeButtonState('abby')
           }
         }
       };
       
+      // ========= YouTube 相關：已移除「訂閱偵測/授權」後，改為本地一次性「解鎖可查看序號」 =========
+      // 注意：這些 localStorage 鍵不會被 SaveCode 引繼碼系統收集/匯出，避免影響存檔與引繼碼。
+      const YT_CODE_UNLOCK_KEY_PREFIX = 'main_youtube_code_unlocked_';
+
+      function isYouTubeNpcType(npcType) {
+        return npcType === 'lilylinglan' || npcType === 'margaret' || npcType === 'dada' || npcType === 'loco' || npcType === 'abby';
+      }
+
+      function getYouTubeUnlockKey(npcType) {
+        return YT_CODE_UNLOCK_KEY_PREFIX + String(npcType || '');
+      }
+
+      function isYouTubeCodeUnlocked(npcType) {
+        try { return localStorage.getItem(getYouTubeUnlockKey(npcType)) === '1'; } catch(_) { return false; }
+      }
+
+      function unlockYouTubeCode(npcType) {
+        try { localStorage.setItem(getYouTubeUnlockKey(npcType), '1'); } catch(_) {}
+      }
+
+      function getCodeButtonIdByNpcType(npcType) {
+        switch (npcType) {
+          case 'lilylinglan': return 'main-dialogue-code';
+          case 'margaret': return 'main-dialogue-code-margaret';
+          case 'dada': return 'main-dialogue-code-dada';
+          case 'loco': return 'main-dialogue-code-loco';
+          case 'abby': return 'main-dialogue-code-abby';
+          default: return null;
+        }
+      }
+
+      function syncYouTubeCodeButtonState(npcType) {
+        if (!isYouTubeNpcType(npcType)) return;
+        const btnId = getCodeButtonIdByNpcType(npcType);
+        if (!btnId) return;
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+
+        const unlocked = isYouTubeCodeUnlocked(npcType);
+        const enabled = unlocked;
+
+        btn.disabled = !enabled;
+        if (!enabled) btn.classList.add('disabled');
+        else btn.classList.remove('disabled');
+      }
+
       // 獲取NPC配置
       function getNPCConfig(npc) {
         if (!npc || !npc.npcType) return NPC_CONFIG['lilylinglan']; // 默認
@@ -587,9 +633,25 @@
             closeDialogue();
           } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco' || id === 'main-dialogue-youtube-abby') {
             playButtonSound();
+            // 點選進入頻道時，順便解鎖一次性的「領取序號」
+            try {
+              const npcType = currentDialogueNPC && currentDialogueNPC.npcType;
+              if (isYouTubeNpcType(npcType)) {
+                unlockYouTubeCode(npcType);
+                syncYouTubeCodeButtonState(npcType);
+              }
+            } catch(_) {}
             showYouTubeWindow(currentDialogueNPC);
           } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco' || id === 'main-dialogue-code-abby') {
             playButtonSound();
+            // YouTube 相關序號：僅需「解鎖可查看」，可重複打開以免忘記
+            try {
+              const npcType = currentDialogueNPC && currentDialogueNPC.npcType;
+              if (isYouTubeNpcType(npcType)) {
+                // 未解鎖則直接忽略（正常情況按鈕會被 disabled）
+                if (!isYouTubeCodeUnlocked(npcType)) return;
+              }
+            } catch(_) {}
             showCode(config.dialogue.code);
           } else if (id === 'main-dialogue-twitter') {
             playButtonSound();
@@ -709,7 +771,6 @@
                   <a href="https://www.youtube.com/channel/${channelId}?sub_confirmation=1" target="_blank" rel="noopener noreferrer" class="youtube-subscribe-link">
                     <button class="youtube-subscribe-btn">訂閱頻道</button>
                   </a>
-                  <button id="youtube-auth-hint" class="youtube-auth-hint-btn" title="點擊查看授權說明">?</button>
                 </div>
               </div>
             </div>
@@ -730,228 +791,7 @@
         }
         
         // 訂閱按鈕點擊事件（已通過target="_blank"在新分頁打開，無需額外處理）
-        
-        // 授權按鈕
-        const authHintBtn = document.getElementById('youtube-auth-hint');
-        if (authHintBtn) {
-          authHintBtn.addEventListener('click', function(e) {
-            e.stopPropagation(); // 防止事件冒泡
-            showAuthHint(config);
-          });
-        }
       }
-      
-      function showAuthHint(npcConfig) {
-        // 獲取頻道名稱，如果沒有傳入配置則使用默認值
-        const currentNPCConfig = npcConfig || NPC_CONFIG['lilylinglan'];
-        const channelName = currentNPCConfig.dialogue.channelName || '森森鈴蘭 YouTube 頻道';
-        // 從頻道名稱中提取頻道名稱（去掉「 YouTube 頻道」後綴）
-        const displayName = channelName.replace(' YouTube 頻道', '').trim();
-        
-        const hintWindow = document.createElement('div');
-        hintWindow.id = 'youtube-auth-hint-window';
-        hintWindow.className = 'youtube-auth-hint-window';
-        hintWindow.innerHTML = `
-          <div class="auth-hint-overlay"></div>
-          <div class="auth-hint-content">
-            <div class="auth-hint-header">
-              <h3>授權說明</h3>
-              <button id="auth-hint-close" class="auth-hint-close-btn">×</button>
-            </div>
-            <div class="auth-hint-body">
-              <p>為了自動檢測您是否已訂閱頻道，我們需要您的授權。</p>
-              <p><strong>授權內容：</strong></p>
-              <ul>
-                <li>僅查看您是否訂閱了「${displayName}」頻道</li>
-                <li>不會收集您的任何個人資訊</li>
-                <li>不會查看您的其他訂閱或觀看記錄</li>
-                <li>授權僅在您的瀏覽器中生效</li>
-                <li>您可以隨時在Google帳號設定中撤銷授權</li>
-              </ul>
-              <p><strong>安全性：</strong></p>
-              <p>此授權過程由Google官方提供，完全安全，不會影響您的帳號安全或隱私。</p>
-              <div style="background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 8px; padding: 12px; margin: 16px 0;">
-                <p style="margin: 0 0 8px 0; font-weight: bold; color: #ffc107;">⚠️ 重要提示：</p>
-                <p style="margin: 0 0 8px 0; font-size: 14px;">點擊「開始授權」後，可能會看到「未經驗證的應用程式」警告。</p>
-                <p style="margin: 0; font-size: 14px; font-weight: bold; color: #4CAF50;">✅ 這是正常的！請按照以下步驟操作：</p>
-                <ol style="margin: 8px 0 0 0; padding-left: 20px; font-size: 14px;">
-                  <li>點擊警告頁面上的「<strong>進階</strong>」按鈕</li>
-                  <li>然後點擊「<strong>繼續前往 [應用程式名稱]（不安全）</strong>」</li>
-                  <li>即可完成授權</li>
-                </ol>
-                <p style="margin: 8px 0 0 0; font-size: 13px; color: rgba(255, 255, 255, 0.7);">這是Google的安全機制，不會影響功能使用，您可以放心繼續。</p>
-              </div>
-              <p style="margin: 8px 0 0 0; font-size: 13px;">
-                詳細隱私權政策請參考：
-                <a href="https://sites.google.com/view/privacy-policy-yi/" target="_blank" rel="noopener noreferrer" style="color: #4FC3F7; text-decoration: underline;">
-                  隱私權政策
-                </a>
-              </p>
-              <button id="auth-hint-authorize" class="dialogue-btn">開始授權</button>
-            </div>
-          </div>
-        `;
-        const viewport = document.getElementById('viewport');
-        if (viewport) {
-          viewport.appendChild(hintWindow);
-          
-          const closeBtn = document.getElementById('auth-hint-close');
-          const overlay = hintWindow.querySelector('.auth-hint-overlay');
-          const authorizeBtn = document.getElementById('auth-hint-authorize');
-          
-          function closeHint(e) {
-            if (e) e.stopPropagation();
-            if (hintWindow.parentNode) {
-              hintWindow.parentNode.removeChild(hintWindow);
-            }
-          }
-          
-          // 阻止事件冒泡，避免触发其他点击事件
-          if (closeBtn) {
-            closeBtn.addEventListener('click', function(e) {
-              e.stopPropagation();
-              closeHint(e);
-            });
-          }
-          if (overlay) {
-            overlay.addEventListener('click', function(e) {
-              e.stopPropagation();
-              closeHint(e);
-            });
-          }
-          
-          if (authorizeBtn) {
-            authorizeBtn.addEventListener('click', function(e) {
-              e.stopPropagation();
-              playButtonSound();
-              
-              const config = window.YouTubeAPIConfig || {};
-              if (!config.clientId || config.clientId === 'YOUR_CLIENT_ID') {
-                alert('Client ID 未配置，請檢查 youtube_config.js');
-                return;
-              }
-              
-              // 使用新的 Google Identity Services (GIS) 進行授權
-              loadGoogleIdentityServices().then(function() {
-                if (!window.google || !window.google.accounts) {
-                  alert('無法載入 Google Identity Services');
-                  return;
-                }
-                
-                console.log('開始授權流程（使用 GIS）...');
-                
-                window.google.accounts.oauth2.initTokenClient({
-                  client_id: config.clientId,
-                  scope: 'https://www.googleapis.com/auth/youtube.readonly',
-                  callback: function(response) {
-                    if (response.error) {
-                      console.error('授權失敗:', response);
-                      alert('授權失敗: ' + (response.error_description || response.error) + '\n\n請檢查：\n1. Client ID 是否正確\n2. 已授權的 JavaScript 來源是否包含當前網址');
-                      closeHint();
-                      return;
-                    }
-                    
-                    console.log('授權成功，獲取 access token');
-                    // 使用 access token 設置 gapi client
-                    if (window.gapi && window.gapi.client) {
-                      window.gapi.client.setToken({
-                        access_token: response.access_token
-                      });
-                      // 根據NPC配置調用對應的訂閱檢查函數
-                      if (currentNPCConfig && currentNPCConfig.dialogue && currentNPCConfig.dialogue.onFinalState) {
-                        currentNPCConfig.dialogue.onFinalState();
-                      } else {
-                        checkYouTubeSubscription();
-                      }
-                      closeHint();
-                    } else {
-                      alert('YouTube API 尚未載入，請稍候再試');
-                    }
-                  }
-                }).requestAccessToken();
-              }).catch(function(error) {
-                console.error('載入 GIS 失敗:', error);
-                alert('無法載入授權系統，請刷新頁面後再試');
-              });
-            });
-          }
-        }
-      }
-      
-      // 載入Google Identity Services (GIS) - 新的授權系統
-      function loadGoogleIdentityServices() {
-        return new Promise(function(resolve, reject) {
-          if (window.google && window.google.accounts) {
-            resolve();
-            return;
-          }
-          
-          let existingScript = document.querySelector('script[src="https://accounts.google.com/gsi/client"]');
-          if (!existingScript) {
-            const script = document.createElement('script');
-            script.src = 'https://accounts.google.com/gsi/client';
-            script.async = true;
-            script.defer = true;
-            script.onload = function() {
-              resolve();
-            };
-            script.onerror = function() {
-              reject(new Error('無法載入 Google Identity Services'));
-            };
-            document.head.appendChild(script);
-          } else {
-            resolve();
-          }
-        });
-      }
-      
-      // 載入YouTube Data API v3（用於檢測訂閱狀態）
-      function loadYouTubeDataAPI() {
-        if (window.gapi && window.gapi.client && window.gapi.client.youtube) {
-          checkYouTubeSubscription();
-          return;
-        }
-        
-        let existingScript = document.querySelector('script[src="https://apis.google.com/js/api.js"]');
-        if (!existingScript) {
-          const script = document.createElement('script');
-          script.src = 'https://apis.google.com/js/api.js';
-          script.onload = function() {
-            window.gapi.load('client', function() {
-              const config = window.YouTubeAPIConfig || {};
-              if (!config.apiKey || config.apiKey === 'YOUR_API_KEY') {
-                console.error('YouTube API 配置未完成，請檢查 youtube_config.js');
-                console.error('當前配置:', config);
-                return;
-              }
-              
-              console.log('初始化 YouTube API...');
-              window.gapi.client.init({
-                apiKey: config.apiKey,
-                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/youtube/v3/rest']
-              }).then(function() {
-                console.log('YouTube API 初始化成功');
-                checkYouTubeSubscription();
-              }).catch(function(error) {
-                console.error('YouTube API 初始化失敗:', error);
-                if (error.details) {
-                  console.error('錯誤詳情:', error.details);
-                }
-              });
-            });
-          };
-          document.head.appendChild(script);
-        } else {
-          setTimeout(function() {
-            if (window.gapi && window.gapi.client && window.gapi.client.youtube) {
-              checkYouTubeSubscription();
-            }
-          }, 500);
-        }
-      }
-      
-      // 延遲載入YouTube Data API
-      setTimeout(loadYouTubeDataAPI, 1000);
       
       function closeYouTubeWindow() {
         if (youtubeWindowEl && youtubeWindowEl.parentNode) {
@@ -1081,265 +921,6 @@
               }
             });
           }
-        }
-      }
-      
-      function checkYouTubeSubscription() {
-        const codeBtn = document.getElementById('main-dialogue-code');
-        if (!codeBtn) return;
-        
-        // 使用YouTube Data API檢測訂閱狀態
-        if (window.gapi && window.gapi.client && window.gapi.client.youtube) {
-          // 檢查是否有有效的 access token
-          const token = window.gapi.client.getToken();
-          if (!token || !token.access_token) {
-            codeBtn.classList.add('disabled');
-            codeBtn.disabled = true;
-            return;
-          }
-          
-          // 已授權，檢查訂閱狀態
-          window.gapi.client.youtube.subscriptions.list({
-            part: 'snippet',
-            mine: true,
-            forChannelId: 'UC3ZTQ8VZVCpwLHjFKSFe5Uw'
-          }).then(function(response) {
-            const items = response.result.items || [];
-            if (items.length > 0) {
-              codeBtn.classList.remove('disabled');
-              codeBtn.disabled = false;
-            } else {
-              codeBtn.classList.add('disabled');
-              codeBtn.disabled = true;
-            }
-          }).catch(function(error) {
-            console.error('檢查訂閱狀態失敗:', error);
-            codeBtn.classList.add('disabled');
-            codeBtn.disabled = true;
-            
-            // 檢查是否為配額用盡錯誤
-            const errorMessage = error.message || error.error?.message || '';
-            const errorCode = error.code || error.error?.code;
-            
-            if (errorCode === 403 || errorMessage.includes('quotaExceeded') || errorMessage.includes('quota') || errorMessage.includes('配額')) {
-              // 配額用盡，顯示提示
-              console.warn('YouTube API 配額已用盡，請稍後再試');
-              // 可以在這裡添加用戶提示，例如：
-              // alert('今日檢測次數已達上限，請明天再試');
-            }
-          });
-        } else {
-          // API未載入
-          codeBtn.classList.add('disabled');
-          codeBtn.disabled = true;
-        }
-      }
-      
-      function checkYouTubeSubscriptionMargaret() {
-        const codeBtn = document.getElementById('main-dialogue-code-margaret');
-        if (!codeBtn) return;
-        
-        // 使用YouTube Data API檢測訂閱狀態
-        if (window.gapi && window.gapi.client && window.gapi.client.youtube) {
-          // 檢查是否有有效的 access token
-          const token = window.gapi.client.getToken();
-          if (!token || !token.access_token) {
-            codeBtn.classList.add('disabled');
-            codeBtn.disabled = true;
-            return;
-          }
-          
-          // 已授權，檢查訂閱狀態（使用瑪格麗特的頻道ID）
-          const config = NPC_CONFIG['margaret'];
-          const channelId = config.dialogue.channelId || 'UCbh7KHPMgYGgpISdbF6l0Kw';
-          
-          window.gapi.client.youtube.subscriptions.list({
-            part: 'snippet',
-            mine: true,
-            forChannelId: channelId
-          }).then(function(response) {
-            const items = response.result.items || [];
-            if (items.length > 0) {
-              codeBtn.classList.remove('disabled');
-              codeBtn.disabled = false;
-            } else {
-              codeBtn.classList.add('disabled');
-              codeBtn.disabled = true;
-            }
-          }).catch(function(error) {
-            console.error('檢查訂閱狀態失敗:', error);
-            codeBtn.classList.add('disabled');
-            codeBtn.disabled = true;
-            
-            // 檢查是否為配額用盡錯誤
-            const errorMessage = error.message || error.error?.message || '';
-            const errorCode = error.code || error.error?.code;
-            
-            if (errorCode === 403 || errorMessage.includes('quotaExceeded') || errorMessage.includes('quota') || errorMessage.includes('配額')) {
-              // 配額用盡，顯示提示
-              console.warn('YouTube API 配額已用盡，請稍後再試');
-            }
-          });
-        } else {
-          // API未載入
-          codeBtn.classList.add('disabled');
-          codeBtn.disabled = true;
-        }
-      }
-      
-      function checkYouTubeSubscriptionDada() {
-        const codeBtn = document.getElementById('main-dialogue-code-dada');
-        if (!codeBtn) return;
-        
-        // 使用YouTube Data API檢測訂閱狀態
-        if (window.gapi && window.gapi.client && window.gapi.client.youtube) {
-          // 檢查是否有有效的 access token
-          const token = window.gapi.client.getToken();
-          if (!token || !token.access_token) {
-            codeBtn.classList.add('disabled');
-            codeBtn.disabled = true;
-            return;
-          }
-          
-          // 已授權，檢查訂閱狀態（使用灰妲的頻道ID）
-          const config = NPC_CONFIG['dada'];
-          const channelId = config.dialogue.channelId || 'UCx7GU8C3cr7vqp_SbS-8P-w';
-          
-          window.gapi.client.youtube.subscriptions.list({
-            part: 'snippet',
-            mine: true,
-            forChannelId: channelId
-          }).then(function(response) {
-            const items = response.result.items || [];
-            if (items.length > 0) {
-              codeBtn.classList.remove('disabled');
-              codeBtn.disabled = false;
-            } else {
-              codeBtn.classList.add('disabled');
-              codeBtn.disabled = true;
-            }
-          }).catch(function(error) {
-            console.error('檢查訂閱狀態失敗:', error);
-            codeBtn.classList.add('disabled');
-            codeBtn.disabled = true;
-            
-            // 檢查是否為配額用盡錯誤
-            const errorMessage = error.message || error.error?.message || '';
-            const errorCode = error.code || error.error?.code;
-            
-            if (errorCode === 403 || errorMessage.includes('quotaExceeded') || errorMessage.includes('quota') || errorMessage.includes('配額')) {
-              // 配額用盡，顯示提示
-              console.warn('YouTube API 配額已用盡，請稍後再試');
-            }
-          });
-        } else {
-          // API未載入
-          codeBtn.classList.add('disabled');
-          codeBtn.disabled = true;
-        }
-      }
-      
-      function checkYouTubeSubscriptionLoco() {
-        const codeBtn = document.getElementById('main-dialogue-code-loco');
-        if (!codeBtn) return;
-        
-        // 使用YouTube Data API檢測訂閱狀態
-        if (window.gapi && window.gapi.client && window.gapi.client.youtube) {
-          // 檢查是否有有效的 access token
-          const token = window.gapi.client.getToken();
-          if (!token || !token.access_token) {
-            codeBtn.classList.add('disabled');
-            codeBtn.disabled = true;
-            return;
-          }
-          
-          // 已授權，檢查訂閱狀態（使用洛可洛斯特的頻道ID）
-          const config = NPC_CONFIG['loco'];
-          const channelId = config.dialogue.channelId || 'UCT1kajmUhayQ4QaLlDbK23g';
-          
-          window.gapi.client.youtube.subscriptions.list({
-            part: 'snippet',
-            mine: true,
-            forChannelId: channelId
-          }).then(function(response) {
-            const items = response.result.items || [];
-            if (items.length > 0) {
-              codeBtn.classList.remove('disabled');
-              codeBtn.disabled = false;
-            } else {
-              codeBtn.classList.add('disabled');
-              codeBtn.disabled = true;
-            }
-          }).catch(function(error) {
-            console.error('檢查訂閱狀態失敗:', error);
-            codeBtn.classList.add('disabled');
-            codeBtn.disabled = true;
-            
-            // 檢查是否為配額用盡錯誤
-            const errorMessage = error.message || error.error?.message || '';
-            const errorCode = error.code || error.error?.code;
-            
-            if (errorCode === 403 || errorMessage.includes('quotaExceeded') || errorMessage.includes('quota') || errorMessage.includes('配額')) {
-              // 配額用盡，顯示提示
-              console.warn('YouTube API 配額已用盡，請稍後再試');
-            }
-          });
-        } else {
-          // API未載入
-          codeBtn.classList.add('disabled');
-          codeBtn.disabled = true;
-        }
-      }
-
-      function checkYouTubeSubscriptionAbby() {
-        const codeBtn = document.getElementById('main-dialogue-code-abby');
-        if (!codeBtn) return;
-        
-        // 使用YouTube Data API檢測訂閱狀態
-        if (window.gapi && window.gapi.client && window.gapi.client.youtube) {
-          // 檢查是否有有效的 access token
-          const token = window.gapi.client.getToken();
-          if (!token || !token.access_token) {
-            codeBtn.classList.add('disabled');
-            codeBtn.disabled = true;
-            return;
-          }
-          
-          // 已授權，檢查訂閱狀態（使用艾比的頻道ID）
-          const config = NPC_CONFIG['abby'];
-          const channelId = config.dialogue.channelId || 'UC9mmh_8RqXIgGa5P7moq-tA';
-          
-          window.gapi.client.youtube.subscriptions.list({
-            part: 'snippet',
-            mine: true,
-            forChannelId: channelId
-          }).then(function(response) {
-            const items = response.result.items || [];
-            if (items.length > 0) {
-              codeBtn.classList.remove('disabled');
-              codeBtn.disabled = false;
-            } else {
-              codeBtn.classList.add('disabled');
-              codeBtn.disabled = true;
-            }
-          }).catch(function(error) {
-            console.error('檢查訂閱狀態失敗:', error);
-            codeBtn.classList.add('disabled');
-            codeBtn.disabled = true;
-            
-            // 檢查是否為配額用盡錯誤
-            const errorMessage = error.message || error.error?.message || '';
-            const errorCode = error.code || error.error?.code;
-            
-            if (errorCode === 403 || errorMessage.includes('quotaExceeded') || errorMessage.includes('quota') || errorMessage.includes('配額')) {
-              // 配額用盡，顯示提示
-              console.warn('YouTube API 配額已用盡，請稍後再試');
-            }
-          });
-        } else {
-          // API未載入
-          codeBtn.classList.add('disabled');
-          codeBtn.disabled = true;
         }
       }
       
