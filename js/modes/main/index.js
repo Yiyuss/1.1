@@ -339,7 +339,7 @@
             messages: [
               '玩家？我是森森鈴蘭，來自山谷的狼，是個魔女哦！',
               '你有聽過我的歌聲嗎？若還沒有記得去聽聽看最新的原創曲！',
-              '訂閱我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '觀看我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
               '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
             ],
             finalButtons: [
@@ -387,7 +387,7 @@
             messages: [
               '早安！我今天吃了早餐，你呢？',
               '我是瑪格麗特，是諾爾絲家族的大小姐！',
-              '訂閱我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '觀看我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
               '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
             ],
             finalButtons: [
@@ -415,7 +415,7 @@
             messages: [
               '米呼米桑(•͈⌔•͈⑅) 我是ReLive一期生灰鸚鵡「灰妲」',
               '絕對不是什麼雞腿，也不是企鵝！',
-              '訂閱我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '觀看我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
               '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
             ],
             finalButtons: [
@@ -443,7 +443,7 @@
             messages: [
               '鬆餅真的很好吃，你不覺得嗎？',
               '旁邊那隻雞腿好像也很香！',
-              '訂閱我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '觀看我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
               '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
             ],
             finalButtons: [
@@ -471,7 +471,7 @@
             messages: [
               '聽說待在屋子裡就不會迷路！',
               '我是艾比，其實是神界的教主喔！',
-              '訂閱我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '觀看我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
               '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
             ],
             finalButtons: [
@@ -769,7 +769,7 @@
               <div class="youtube-subscribe-section">
                 <div class="youtube-subscribe-button-container">
                   <a href="https://www.youtube.com/channel/${channelId}?sub_confirmation=1" target="_blank" rel="noopener noreferrer" class="youtube-subscribe-link">
-                    <button class="youtube-subscribe-btn">訂閱頻道</button>
+                    <button class="youtube-subscribe-btn">進入頻道</button>
                   </a>
                 </div>
               </div>
