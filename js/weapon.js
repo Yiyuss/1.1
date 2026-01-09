@@ -171,6 +171,31 @@ class Weapon {
             // 旋球技能不需要追蹤敵人角度，直接返回
             return;
         }
+        // 特殊技能：鳳梨環繞（與綿羊護體邏輯相同，但使用不同圖片）
+        if (this.type === 'PINEAPPLE_ORBIT') {
+            const count = this.projectileCount;
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2;
+                const baseRadius = this.config.ORBIT_RADIUS;
+                const perLevel = this.config.ORBIT_RADIUS_PER_LEVEL || 0;
+                const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+                const baseSize = this.config.PROJECTILE_SIZE;
+                const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
+                const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
+                const orb = new OrbitBall(
+                    this.player,
+                    angle,
+                    dynamicRadius,
+                    this._computeFinalDamage(levelMul),
+                    dynamicSize,
+                    this.config.DURATION,
+                    this.config.ANGULAR_SPEED,
+                    'pineapple' // 使用 A45.png 作為外觀
+                );
+                Game.addProjectile(orb);
+            }
+            return;
+        }
         // 特殊技能：雞腿庇佑（與綿羊護體邏輯相同，但使用不同圖片）
         if (this.type === 'CHICKEN_BLESSING') {
             const count = this.projectileCount;
