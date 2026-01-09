@@ -332,7 +332,7 @@
       try {
         const dmg = Math.max(0, Math.floor(amount||0));
         
-        // 迴避強化天賦：挑戰模式所有角色最高15%
+        // 迴避強化天賦 + 角色基礎迴避：挑戰模式所有角色最高15%
         let dodgeRate = 0;
         if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
           const dodgeLv = TalentSystem.getTalentLevel('dodge_enhance');
@@ -343,6 +343,13 @@
             }
           }
         }
+        // 角色基礎迴避（例如：鳳梨不咬舌初始 10%）
+        try {
+          const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
+          if (sc && typeof sc.dodgeChanceBonusPct === 'number' && sc.dodgeChanceBonusPct > 0) {
+            dodgeRate += sc.dodgeChanceBonusPct;
+          }
+        } catch(_){}
         // 挑戰模式：所有角色最高15%
         dodgeRate = Math.min(0.15, dodgeRate);
         
