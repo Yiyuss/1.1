@@ -531,7 +531,7 @@ const UI = {
         }
 
         // 新武器選項（基於來源狀態判定）
-        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'SIXTH_SENSE', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST', 'HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION', 'JUDGMENT', 'SUMMON_AI'];
+        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'SIXTH_SENSE', 'BAGUETTE_THROW', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST', 'HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION', 'JUDGMENT', 'SUMMON_AI'];
         // 檢查角色專屬技能（使用上面已定義的 exclusiveWeapons 和 allExclusiveWeapons）
         const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
         // 使用上面已定義的 hasDeathlineSuperman 和 hasRadiantGlory（避免重複定義）
