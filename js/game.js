@@ -1109,6 +1109,13 @@ const Game = {
                 // 注意：此值會在 BuffSystem.applyBuffs 中與天賦/升級加成相加
                 this.player._characterBaseCritBonusPct = sc.critChanceBonusPct;
             }
+            // 角色初始迴避率加成（若角色配置中有設定）
+            // 注意：此為角色固有屬性，並不寫入存檔；由玩家 takeDamage 判定時一併計算
+            if (typeof sc.dodgeChanceBonusPct === 'number' && sc.dodgeChanceBonusPct > 0) {
+                this.player._characterBaseDodgeRate = sc.dodgeChanceBonusPct;
+            } else {
+                this.player._characterBaseDodgeRate = 0;
+            }
         }
         
         // 套用選定難度（若有），供敵人與波次使用
