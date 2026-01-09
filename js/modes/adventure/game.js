@@ -455,6 +455,8 @@ let mining = { active: false, x: 0, y: 0, progress: 0 };
 //   - 灰妲 DaDa：player2.png（290x242）
 //   - 森森鈴蘭：player3.gif（320x320）
 //   - 洛可洛斯特：player4.png（500x627）
+//   - 艾比 Rabi：player5.png（500x467）
+//   - 鳳梨不咬舌：player6.gif（242x320）
 // - 主體遊戲在啟動冒險模式時，會在 iframe URL 上附帶 ?char=<id> 參數，
 //   並在 js/modes/adventure/index.html 中設置 window.ADVENTURE_SELECTED_CHARACTER_ID。
 // - 冒險模式只使用此 ID 來選擇對應圖片，沒有讀寫主體存檔或 SaveCode。
@@ -474,6 +476,7 @@ function initPlayerSprite() {
         else if (id === 'lilylinglan') key = 'player3';
         else if (id === 'rokurost') key = 'player4';
         else if (id === 'rabi') key = 'player5';
+        else if (id === 'pineapple') key = 'player6';
 
         let parentImg = null;
         try {
@@ -532,6 +535,8 @@ function initPlayerSprite() {
             src = '../../../assets/images/player4.png';
         } else if (id === 'rabi') {
             src = '../../../assets/images/player5.png';
+        } else if (id === 'pineapple') {
+            src = '../../../assets/images/player6.gif';
         }
         const img = new Image();
         img.onload = function(){
