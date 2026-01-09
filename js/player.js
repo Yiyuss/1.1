@@ -227,6 +227,7 @@ class Player extends Entity {
                 // 特殊處理：player5.png 需要保持 500:467 的寬高比
                 // 特殊處理：playerN3.png 需要保持 267:300 的寬高比
                 // 特殊處理：player3.gif 需要保持原比例（與冒險模式一致）
+                // 特殊處理：player6.gif 需要保持 242:320 的寬高比
                 if (imgKey === 'player4' && imgObj.complete) {
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
                     const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
@@ -258,6 +259,14 @@ class Player extends Entity {
                     const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
                     const aspectRatio = imgWidth / imgHeight; // 320/320 = 1.0
                     // 使用模式原有的尺寸計算方式，保持原比例
+                    const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                } else if (imgKey === 'player6' && imgObj.complete) {
+                    // player6.gif 保持寬高比 (242:320)
+                    const imgWidth = imgObj.naturalWidth || imgObj.width || 242;
+                    const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
+                    const aspectRatio = imgWidth / imgHeight; // 242/320 ≈ 0.756
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                     window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
@@ -383,7 +392,9 @@ class Player extends Entity {
             
             // 迴避強化天賦：與抽象化疊加
             const talentDodgeRate = this.dodgeTalentRate || 0;
-            const totalDodgeRate = weaponDodgeRate + talentDodgeRate;
+            // 角色基礎迴避率（例如：鳳梨不咬舌初始 10%）
+            const characterDodgeRate = this._characterBaseDodgeRate || 0;
+            const totalDodgeRate = weaponDodgeRate + talentDodgeRate + characterDodgeRate;
             
             // 計算總迴避率（生存模式：灰妲最高40%，其他角色15%；其他模式：所有角色15%）
             // 注意：抽象化技能只在生存模式存在，所以其他模式只會有天賦迴避
@@ -394,11 +405,11 @@ class Player extends Entity {
                 if (isDada) {
                     finalDodgeRate = Math.min(0.40, totalDodgeRate);
                 } else {
-                    finalDodgeRate = Math.min(0.15, talentDodgeRate);
+                    finalDodgeRate = Math.min(0.15, talentDodgeRate + characterDodgeRate);
                 }
             } else {
-                // 其他模式：所有角色最高15%（天賦）
-                finalDodgeRate = Math.min(0.15, talentDodgeRate);
+                // 其他模式：所有角色最高15%（天賦 + 角色基礎迴避）
+                finalDodgeRate = Math.min(0.15, talentDodgeRate + characterDodgeRate);
             }
             
             if (finalDodgeRate > 0 && Math.random() < finalDodgeRate) {
