@@ -560,16 +560,6 @@ class Player extends Entity {
 
     // 啟動大招：變身、體型變大、四技能LV10、能量消耗
     activateUltimate() {
-        // 保存必要的玩家狀態，不初始化玩家
-        this._ultimateBackup = {
-            width: this.width,
-            height: this.height,
-            collisionRadius: this.collisionRadius,
-            weapons: this.weapons.map(w => ({ type: w.type, level: w.level })),
-            health: this.health, // 保存變身前的血量
-            maxHealth: this.maxHealth // 保存變身前的最大血量
-        };
-        
         // 取得角色特定的大招配置（若存在）
         let characterId = null;
         try {
@@ -587,6 +577,22 @@ class Player extends Entity {
             this._activateExplosionUltimate(charUltimate);
             return;
         }
+
+        // 鳳梨不咬舌：不變身，噴出大鳳梨（特殊經驗物件；需碰觸、不會吸）
+        if (characterId === 'pineapple') {
+            this._activatePineappleDropUltimate();
+            return;
+        }
+
+        // 保存必要的玩家狀態（僅變身型大招需要）
+        this._ultimateBackup = {
+            width: this.width,
+            height: this.height,
+            collisionRadius: this.collisionRadius,
+            weapons: this.weapons.map(w => ({ type: w.type, level: w.level })),
+            health: this.health, // 保存變身前的血量
+            maxHealth: this.maxHealth // 保存變身前的最大血量
+        };
         
         // 使用角色特定配置或預設配置
         const ultimateImageKey = (charUltimate && charUltimate.IMAGE_KEY) 
@@ -708,6 +714,55 @@ class Player extends Entity {
             Game.cameraShake.active = true;
             Game.cameraShake.intensity = 8; // 與 BOSS 爆炸一致的強度
             Game.cameraShake.duration = 200; // 毫秒
+        } catch (_) {}
+    }
+
+    // 鳳梨大絕：噴出 5 顆大鳳梨，玩家碰觸獲得固定經驗
+    _activatePineappleDropUltimate() {
+        // 消耗能量
+        this.energy = 0;
+        try { if (typeof UI !== 'undefined' && UI.updateEnergyBar) UI.updateEnergyBar(this.energy, this.maxEnergy); } catch (_) {}
+
+        // 音效：大招噴出瞬間（使用 fireball_shoot.mp3）
+        try {
+            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                AudioManager.playSound('fireball_shoot');
+            }
+        } catch (_) {}
+
+        // 生成：200~800 像素距離，隨機角度
+        const count = 5;
+        const minD = 200;
+        const maxD = 800;
+        // 經驗由 PineappleUltimatePickup 收集時計算（純30%當下所需升級經驗），這裡不再提供固定值
+        const expValue = 0;
+        // 噴出速度（由玩家位置飛到落點的插值動畫時間）；數值越大越慢
+        const flyDurationMs = 600;
+        const worldW = (typeof Game !== 'undefined' && Game.worldWidth) ? Game.worldWidth : (CONFIG && CONFIG.CANVAS_WIDTH) || 1280;
+        const worldH = (typeof Game !== 'undefined' && Game.worldHeight) ? Game.worldHeight : (CONFIG && CONFIG.CANVAS_HEIGHT) || 720;
+        for (let i = 0; i < count; i++) {
+            const ang = Math.random() * Math.PI * 2;
+            const dist = minD + Math.random() * (maxD - minD);
+            let tx = this.x + Math.cos(ang) * dist;
+            let ty = this.y + Math.sin(ang) * dist;
+            // 以 A45(53x100) 尺寸做邊界裁切
+            tx = Utils.clamp(tx, 53 / 2, worldW - 53 / 2);
+            ty = Utils.clamp(ty, 100 / 2, worldH - 100 / 2);
+            try {
+                if (typeof Game !== 'undefined' && typeof Game.spawnPineappleUltimatePickup === 'function') {
+                    Game.spawnPineappleUltimatePickup(tx, ty, { spawnX: this.x, spawnY: this.y, expValue, flyDurationMs });
+                }
+            } catch (_) {}
+        }
+
+        // 視覺：沿用大招啟動的鏡頭震動
+        try {
+            if (!Game.cameraShake) {
+                Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+            }
+            Game.cameraShake.active = true;
+            Game.cameraShake.intensity = 8;
+            Game.cameraShake.duration = 200;
         } catch (_) {}
     }
 
