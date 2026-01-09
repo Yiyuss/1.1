@@ -35,7 +35,7 @@ const RedeemCodeSystem = {
     REDEEM_CODES: {
         'YIYUSS2025': 30000,         // 永久有效
         'VTUBER14553': 99999,         // 永久有效
-        'BUG14501': 30000,         // 永久有效 Angus Keung 黃喵
+        'BUG14501': 30000,         // 永久有效 AngusKeung 黃喵
         'DADA2025': 10000,         // 永久有效
         'LOCO2025': 10000,         // 永久有效
         'MARGARETNORTH2025': 10000,  // 永久有效
@@ -184,4 +184,5 @@ const RedeemCodeSystem = {
 if (typeof window !== 'undefined') {
     window.RedeemCodeSystem = RedeemCodeSystem;
 }
+
 
