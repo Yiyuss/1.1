@@ -787,8 +787,9 @@ class TDGame {
                 const isPlayer4 = sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4');
                 const isPlayer5 = sc && (sc.id === 'rabi' || sc.spriteImageKey === 'player5');
                 const isPlayer2 = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2');
+                const isPlayer6 = sc && (sc.id === 'pineapple' || sc.spriteImageKey === 'player6');
                 
-                if ((playerIsGif || isPlayer4 || isPlayer5 || isPlayer2) && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
+                if ((playerIsGif || isPlayer4 || isPlayer5 || isPlayer2 || isPlayer6) && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
                     const screenX = this.player.x - this.camera.x;
                     const screenY = this.player.y - this.camera.y;
                     
@@ -842,6 +843,19 @@ class TDGame {
                             const aspectRatio = imgWidth / imgHeight; // 500/467 ≈ 1.071
                             // 防禦模式中放大 1.3 倍以與其他角色接近
                             const renderHeight = Math.max(1, Math.floor(this.player.size * 1.3));
+                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
+                        } else {
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
+                        }
+                    } else if (isPlayer6) {
+                        // player6.gif 保持寬高比 (242:320)
+                        const imgObj = (Game.images && Game.images['player6']) ? Game.images['player6'] : null;
+                        if (imgObj && imgObj.complete) {
+                            const imgWidth = imgObj.naturalWidth || imgObj.width || 242;
+                            const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
+                            const aspectRatio = imgWidth / imgHeight; // 242/320 ≈ 0.756
+                            const renderHeight = this.player.size;
                             const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                             window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
                         } else {
