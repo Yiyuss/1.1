@@ -2321,6 +2321,13 @@
               const aspectRatio = imgWidth / imgHeight;
               renderHeight = PLAYER_H;
               renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+            } else if (sc && (sc.id === 'pineapple' || sc.spriteImageKey === 'player6')) {
+              // player6.gif 保持寬高比 (242:320)
+              const imgWidth = currentPlayerImg.naturalWidth || currentPlayerImg.width || 242;
+              const imgHeight = currentPlayerImg.naturalHeight || currentPlayerImg.height || 320;
+              const aspectRatio = imgWidth / imgHeight;
+              renderHeight = PLAYER_H;
+              renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
             } else if (sc && (sc.id === 'lilylinglan' || sc.spriteImageKey === 'player3')) {
               // player3.gif 保持原比例 (1:1)
               const imgWidth = currentPlayerImg.naturalWidth || currentPlayerImg.width || 320;
