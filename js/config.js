@@ -60,6 +60,7 @@ const CONFIG = {
             DIVINE_JUDGMENT: 'assets/images/A40.png',
             SIXTH_SENSE: 'assets/images/A41.png',
             BAGUETTE_THROW: 'assets/images/A42.png',
+            PINEAPPLE_ORBIT: 'assets/images/A44.png',
             SUMMON_AI: 'assets/images/AI.png',
             MIND_MAGIC: 'assets/images/A16.png',
             ATTR_ATTACK: 'assets/images/A8.png',
@@ -262,6 +263,31 @@ const CONFIG = {
                 { COUNT: 8, DESCRIPTION: "生成8個綿羊護體環繞3秒" },
                 { COUNT: 9, DESCRIPTION: "生成9個綿羊護體環繞3秒" },
                 { COUNT: 10, DESCRIPTION: "生成10個綿羊護體環繞3秒" }
+            ]
+        },
+        // 新武器：鳳梨環繞（鳳梨不咬舌專屬技能；圖片/特效/邏輯與綿羊護體相同，僅替換環繞物圖片）
+        PINEAPPLE_ORBIT: {
+            NAME: "鳳梨環繞",
+            DAMAGE: 8, // 與綿羊護體相同
+            COOLDOWN: 4000, // 與綿羊護體相同
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 20, // 與綿羊護體相同
+            PROJECTILE_SIZE_PER_LEVEL: 2, // 與綿羊護體相同
+            ORBIT_RADIUS: 60,
+            ORBIT_RADIUS_PER_LEVEL: 10,
+            DURATION: 3000, // 3秒持續
+            ANGULAR_SPEED: 6.283, // 約1圈/秒
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "生成1個鳳梨環繞環繞3秒" },
+                { COUNT: 2, DESCRIPTION: "生成2個鳳梨環繞環繞3秒" },
+                { COUNT: 3, DESCRIPTION: "生成3個鳳梨環繞環繞3秒" },
+                { COUNT: 4, DESCRIPTION: "生成4個鳳梨環繞環繞3秒" },
+                { COUNT: 5, DESCRIPTION: "生成5個鳳梨環繞環繞3秒" },
+                { COUNT: 6, DESCRIPTION: "生成6個鳳梨環繞環繞3秒" },
+                { COUNT: 7, DESCRIPTION: "生成7個鳳梨環繞環繞3秒" },
+                { COUNT: 8, DESCRIPTION: "生成8個鳳梨環繞環繞3秒" },
+                { COUNT: 9, DESCRIPTION: "生成9個鳳梨環繞環繞3秒" },
+                { COUNT: 10, DESCRIPTION: "生成10個鳳梨環繞環繞3秒" }
             ]
         },
         HEART_COMPANION: {
@@ -1009,7 +1035,7 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10, // 初始迴避率+10%
-            description: `角色介紹：原本是顆鳳梨，經過漫長時光精化成人型，目前在教堂打工。\n專屬技能：第六感、法棍投擲`,
+            description: `角色介紹：原本是顆鳳梨，經過漫長時光精化成人型，目前在教堂打工。\n專屬技能：第六感、法棍投擲、鳳梨環繞`,
             // 選角預覽圖（下方角色介紹用）：使用 player6-2.png
             avatarImageKey: 'player6-2',
             // 所有模式的 HUD 左上角頭像：使用 player6-2.png
@@ -1022,7 +1048,7 @@ const CONFIG = {
             canUseUltimate: true,
             disabledWeapons: [],
             // 專屬技能：第六感（邏輯與抽象化相同）
-            exclusiveWeapons: ['SIXTH_SENSE', 'BAGUETTE_THROW'],
+            exclusiveWeapons: ['SIXTH_SENSE', 'BAGUETTE_THROW', 'PINEAPPLE_ORBIT'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
         }
