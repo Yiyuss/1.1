@@ -61,6 +61,7 @@ const CONFIG = {
             SIXTH_SENSE: 'assets/images/A41.png',
             BAGUETTE_THROW: 'assets/images/A42.png',
             PINEAPPLE_ORBIT: 'assets/images/A44.png',
+            ADRENALINE: 'assets/images/A46.png',
             SUMMON_AI: 'assets/images/AI.png',
             MIND_MAGIC: 'assets/images/A16.png',
             ATTR_ATTACK: 'assets/images/A8.png',
@@ -318,18 +319,37 @@ const CONFIG = {
             NAME: "心意相通",
             DAMAGE: 0, // 被動技能，不造成傷害
             COOLDOWN: 0, // 被動技能，無冷卻
-            REGEN_SPEED_BOOST_PER_LEVEL: 0.20, // 每級+20%回血速度
+            REGEN_SPEED_BOOST_PER_LEVEL: 0.30, // 每級+30%回血速度
             LEVELS: [
-                { COUNT: 1, DESCRIPTION: "回血速度+20%" },
-                { COUNT: 1, DESCRIPTION: "回血速度+40%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+30%" },
                 { COUNT: 1, DESCRIPTION: "回血速度+60%" },
-                { COUNT: 1, DESCRIPTION: "回血速度+80%" },
-                { COUNT: 1, DESCRIPTION: "回血速度+100%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+90%" },
                 { COUNT: 1, DESCRIPTION: "回血速度+120%" },
-                { COUNT: 1, DESCRIPTION: "回血速度+140%" },
-                { COUNT: 1, DESCRIPTION: "回血速度+160%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+150%" },
                 { COUNT: 1, DESCRIPTION: "回血速度+180%" },
-                { COUNT: 1, DESCRIPTION: "回血速度+200%" }
+                { COUNT: 1, DESCRIPTION: "回血速度+210%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+240%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+270%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+300%" }
+            ]
+        },
+        // 新武器：腎上腺素（鳳梨不咬舌專屬技能；邏輯與心意相通相同）
+        ADRENALINE: {
+            NAME: "腎上腺素",
+            DAMAGE: 0, // 被動技能，不造成傷害
+            COOLDOWN: 0, // 被動技能，無冷卻
+            REGEN_SPEED_BOOST_PER_LEVEL: 0.30, // 每級+30%回血速度
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "回血速度+30%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+60%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+90%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+120%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+150%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+180%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+210%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+240%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+270%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+300%" }
             ]
         },
         HEART_TRANSMISSION: {
@@ -1035,7 +1055,7 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10, // 初始迴避率+10%
-            description: `角色介紹：原本是顆鳳梨，經過漫長時光精化成人型，目前在教堂打工。\n專屬技能：第六感、法棍投擲、鳳梨環繞`,
+            description: `角色介紹：原本是顆鳳梨，經過漫長時光精化成人型，目前在教堂打工。\n專屬技能：第六感、法棍投擲、鳳梨環繞、腎上腺素`,
             // 選角預覽圖（下方角色介紹用）：使用 player6-2.png
             avatarImageKey: 'player6-2',
             // 所有模式的 HUD 左上角頭像：使用 player6-2.png
@@ -1048,7 +1068,7 @@ const CONFIG = {
             canUseUltimate: true,
             disabledWeapons: [],
             // 專屬技能：第六感（邏輯與抽象化相同）
-            exclusiveWeapons: ['SIXTH_SENSE', 'BAGUETTE_THROW', 'PINEAPPLE_ORBIT'],
+            exclusiveWeapons: ['SIXTH_SENSE', 'BAGUETTE_THROW', 'PINEAPPLE_ORBIT', 'ADRENALINE'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
         }
