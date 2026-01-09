@@ -59,6 +59,7 @@ const CONFIG = {
             JUDGMENT: 'assets/images/A38.png',
             DIVINE_JUDGMENT: 'assets/images/A40.png',
             SIXTH_SENSE: 'assets/images/A41.png',
+            BAGUETTE_THROW: 'assets/images/A42.png',
             SUMMON_AI: 'assets/images/AI.png',
             MIND_MAGIC: 'assets/images/A16.png',
             ATTR_ATTACK: 'assets/images/A8.png',
@@ -216,6 +217,27 @@ const CONFIG = {
                 { COUNT: 8, DESCRIPTION: "每1.5秒發射8道追蹤綿羊" },
                 { COUNT: 9, DESCRIPTION: "每1.5秒發射9道追蹤綿羊" },
                 { COUNT: 10, DESCRIPTION: "每1.5秒發射10道追蹤綿羊" }
+            ]
+        },
+        // 新武器：法棍投擲（鳳梨不咬舌專屬技能；圖片/特效/邏輯與追蹤綿羊相同，僅替換投射物圖片）
+        BAGUETTE_THROW: {
+            NAME: "法棍投擲",
+            DAMAGE: 15, // 與追蹤綿羊相同
+            COOLDOWN: 1500, // 與追蹤綿羊相同
+            PROJECTILE_SPEED: 10, // 與追蹤綿羊相同
+            PROJECTILE_SIZE: 24, // 與追蹤綿羊相同
+            PROJECTILE_SIZE_PER_LEVEL: 3, // 與追蹤綿羊相同
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每1.5秒投擲1根法棍" },
+                { COUNT: 2, DESCRIPTION: "每1.5秒投擲2根法棍" },
+                { COUNT: 3, DESCRIPTION: "每1.5秒投擲3根法棍" },
+                { COUNT: 4, DESCRIPTION: "每1.5秒投擲4根法棍" },
+                { COUNT: 5, DESCRIPTION: "每1.5秒投擲5根法棍" },
+                { COUNT: 6, DESCRIPTION: "每1.5秒投擲6根法棍" },
+                { COUNT: 7, DESCRIPTION: "每1.5秒投擲7根法棍" },
+                { COUNT: 8, DESCRIPTION: "每1.5秒投擲8根法棍" },
+                { COUNT: 9, DESCRIPTION: "每1.5秒投擲9根法棍" },
+                { COUNT: 10, DESCRIPTION: "每1.5秒投擲10根法棍" }
             ]
         },
         ORBIT: {
@@ -987,7 +1009,7 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10, // 初始迴避率+10%
-            description: `角色介紹：原本是顆鳳梨，經過漫長時光精化成人型，目前在教堂打工。\n專屬技能：第六感`,
+            description: `角色介紹：原本是顆鳳梨，經過漫長時光精化成人型，目前在教堂打工。\n專屬技能：第六感、法棍投擲`,
             // 選角預覽圖（下方角色介紹用）：使用 player6-2.png
             avatarImageKey: 'player6-2',
             // 所有模式的 HUD 左上角頭像：使用 player6-2.png
@@ -1000,7 +1022,7 @@ const CONFIG = {
             canUseUltimate: true,
             disabledWeapons: [],
             // 專屬技能：第六感（邏輯與抽象化相同）
-            exclusiveWeapons: ['SIXTH_SENSE'],
+            exclusiveWeapons: ['SIXTH_SENSE', 'BAGUETTE_THROW'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
         }
