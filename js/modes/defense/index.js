@@ -49,6 +49,8 @@ function safePlayDefense(ctx) {
           { key: 'player4-2', src: 'assets/images/player4-2.png' },
           { key: 'player5', src: 'assets/images/player5.png' },
           { key: 'player5-2', src: 'assets/images/player5-2.png' },
+          { key: 'player6', src: 'assets/images/player6.gif' },
+          { key: 'player6-2', src: 'assets/images/player6-2.png' },
           { key: 'defense_avatar', src: 'assets/images/player1-2.png' },
           { key: 'zombie', src: 'assets/images/zombie.png' },
           { key: 'zombie2', src: 'assets/images/zombie2.png' },
