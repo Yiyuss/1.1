@@ -14,12 +14,14 @@ class OrbitBall extends Entity {
             this.weaponType = 'ROTATING_MUFFIN';
         } else if (imageKey === 'heart') {
             this.weaponType = 'HEART_COMPANION';
+        } else if (imageKey === 'pineapple') {
+            this.weaponType = 'PINEAPPLE_ORBIT';
         } else {
             this.weaponType = 'ORBIT';
         }
         
-        // 雞腿庇佑、綿羊護體、旋轉鬆餅和心意相隨：改為單次碰撞傷害（移除持續傷害，避免BOSS被秒殺）
-        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION') {
+        // 雞腿庇佑、綿羊護體、鳳梨環繞、旋轉鬆餅和心意相隨：改為單次碰撞傷害（移除持續傷害，避免BOSS被秒殺）
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION') {
             // 單次碰撞傷害模式：每個敵人只造成一次傷害，然後有冷卻時間
             this.collisionCooldown = new Map(); // 記錄每個敵人的最後碰撞時間
             this.collisionCooldownMs = 500; // 每個敵人500ms內只能受到一次傷害
@@ -53,7 +55,7 @@ class OrbitBall extends Entity {
         if (this.trail.length > this.trailMax) this.trail.shift();
 
         // 根據武器類型選擇傷害模式
-        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION') {
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION') {
             // 雞腿庇佑、綿羊護體、旋轉鬆餅和心意相隨：單次碰撞傷害模式（避免持續傷害導致BOSS被秒殺）
             const currentTime = Date.now();
             for (const enemy of Game.enemies) {
@@ -128,6 +130,8 @@ class OrbitBall extends Entity {
             let actualImageKey = this.imageKey;
             if (this.imageKey === 'heart') {
                 actualImageKey = 'A34';
+            } else if (this.imageKey === 'pineapple') {
+                actualImageKey = 'A45';
             }
             for (let i = 0; i < this.trail.length; i++) {
                 const t = this.trail[i];
@@ -135,7 +139,19 @@ class OrbitBall extends Entity {
                 ctx.globalAlpha = alpha;
                 const trailImg = (Game.images && Game.images[actualImageKey]) ? Game.images[actualImageKey] : null;
                 if (trailImg && trailImg.complete && (trailImg.naturalWidth > 0 || trailImg.width > 0)) {
-                    ctx.drawImage(trailImg, t.x - size / 2, t.y - size / 2, size * (0.9 - i * 0.02), size * (0.9 - i * 0.02));
+                    const scale = (0.9 - i * 0.02);
+                    const s = size * scale;
+                    if (this.weaponType === 'PINEAPPLE_ORBIT') {
+                        // A45.png（53x100）：保持寬高比，使用高度為基準
+                        const iw = trailImg.naturalWidth || trailImg.width || 53;
+                        const ih = trailImg.naturalHeight || trailImg.height || 100;
+                        const aspect = iw / ih; // 53/100
+                        const renderH = s;
+                        const renderW = Math.max(1, Math.floor(renderH * aspect));
+                        ctx.drawImage(trailImg, t.x - renderW / 2, t.y - renderH / 2, renderW, renderH);
+                    } else {
+                        ctx.drawImage(trailImg, t.x - s / 2, t.y - s / 2, s, s);
+                    }
                 } else {
                     ctx.fillStyle = '#fff59d';
                     ctx.beginPath();
@@ -150,10 +166,22 @@ class OrbitBall extends Entity {
         let actualImageKey = this.imageKey;
         if (this.imageKey === 'heart') {
             actualImageKey = 'A34';
+        } else if (this.imageKey === 'pineapple') {
+            actualImageKey = 'A45';
         }
         const img = (Game.images && Game.images[actualImageKey]) ? Game.images[actualImageKey] : null;
         if (img && img.complete && (img.naturalWidth > 0 || img.width > 0)) {
-            ctx.drawImage(img, this.x - size / 2, this.y - size / 2, size, size);
+            if (this.weaponType === 'PINEAPPLE_ORBIT') {
+                // A45.png（53x100）：保持寬高比，使用高度為基準
+                const iw = img.naturalWidth || img.width || 53;
+                const ih = img.naturalHeight || img.height || 100;
+                const aspect = iw / ih; // 53/100
+                const renderH = size;
+                const renderW = Math.max(1, Math.floor(renderH * aspect));
+                ctx.drawImage(img, this.x - renderW / 2, this.y - renderH / 2, renderW, renderH);
+            } else {
+                ctx.drawImage(img, this.x - size / 2, this.y - size / 2, size, size);
+            }
         } else {
             // 備用：使用黃色球體（如果圖片未加載完成）
             // 調試：如果 muffin 圖片未加載，輸出調試信息
