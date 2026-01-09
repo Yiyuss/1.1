@@ -58,6 +58,7 @@ const CONFIG = {
             HEART_TRANSMISSION: 'assets/images/A37.png',
             JUDGMENT: 'assets/images/A38.png',
             DIVINE_JUDGMENT: 'assets/images/A40.png',
+            SIXTH_SENSE: 'assets/images/A41.png',
             SUMMON_AI: 'assets/images/AI.png',
             MIND_MAGIC: 'assets/images/A16.png',
             ATTR_ATTACK: 'assets/images/A8.png',
@@ -730,6 +731,26 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "25%迴避傷害" }
             ]
         },
+        // 新武器：第六感（鳳梨不咬舌專屬技能，被動回避；邏輯與抽象化相同）
+        SIXTH_SENSE: {
+            NAME: "第六感",
+            DAMAGE: 0, // 被動技能，不造成傷害
+            COOLDOWN: 0, // 被動技能，無冷卻
+            // 回避率配置（LV1~LV10）— 與抽象化相同
+            DODGE_RATES: [0.05, 0.07, 0.09, 0.11, 0.13, 0.15, 0.17, 0.19, 0.21, 0.25],
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "5%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "7%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "9%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "11%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "13%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "15%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "17%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "19%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "21%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "25%迴避傷害" }
+            ]
+        },
         // 融合技能：狂熱大波（持有並滿級 應援棒(DAGGER) 與 大波球(BIG_ICE_BALL) 後可獲得）
         FRENZY_ICE_BALL: {
             NAME: "狂熱大波",
@@ -966,7 +987,7 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10, // 初始迴避率+10%
-            description: `角色介紹：原本是顆鳳梨，經過漫長時光精化成人型，目前在教堂打工。\n專屬技能：暫無`,
+            description: `角色介紹：原本是顆鳳梨，經過漫長時光精化成人型，目前在教堂打工。\n專屬技能：第六感`,
             // 選角預覽圖（下方角色介紹用）：使用 player6-2.png
             avatarImageKey: 'player6-2',
             // 所有模式的 HUD 左上角頭像：使用 player6-2.png
@@ -978,7 +999,8 @@ const CONFIG = {
             // 第六位角色可以使用大絕（Q），專屬大絕/技能這次先不更新
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: [],
+            // 專屬技能：第六感（邏輯與抽象化相同）
+            exclusiveWeapons: ['SIXTH_SENSE'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
         }
