@@ -563,10 +563,11 @@ const Game = {
                 this.ctx.save();
                 const baseAlpha = particle.life / particle.maxLife;
                 const isLightning = particle && particle.source === 'LIGHTNING';
+                const isBaguette = particle && particle.source === 'BAGUETTE_THROW';
                 const isHeartTransmission = particle && particle.source === 'HEART_TRANSMISSION';
-                // 追蹤綿羊/心意傳遞命中粒子更不透明，且稍微放大
-                const alpha = (isLightning || isHeartTransmission) ? Math.min(1, 0.5 + baseAlpha * 0.6) : baseAlpha;
-                const drawSize = (isLightning || isHeartTransmission) ? particle.size * 1.3 : particle.size;
+                // 追蹤綿羊/法棍投擲/心意傳遞命中粒子更不透明，且稍微放大
+                const alpha = (isLightning || isBaguette || isHeartTransmission) ? Math.min(1, 0.5 + baseAlpha * 0.6) : baseAlpha;
+                const drawSize = (isLightning || isBaguette || isHeartTransmission) ? particle.size * 1.3 : particle.size;
                 this.ctx.globalAlpha = alpha;
                 this.ctx.fillStyle = particle.color;
                 this.ctx.beginPath();
