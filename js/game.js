@@ -21,6 +21,7 @@ const Game = {
     heartTransmissionEffects: [], // 心意傳遞效果圖片列表
     experienceOrbs: [],
     chests: [],
+    pineappleUltimatePickups: [],
     obstacles: [],
     decorations: [],
     lastUpdateTime: 0,
@@ -346,6 +347,15 @@ const Game = {
                 this.chests.splice(i, 1);
             }
         }
+
+        // 更新鳳梨大絕掉落物（只在生存模式使用，不影響其他模式）
+        for (let i = this.pineappleUltimatePickups.length - 1; i >= 0; i--) {
+            const p = this.pineappleUltimatePickups[i];
+            try { p.update(deltaTime); } catch (_) {}
+            if (p.markedForDeletion) {
+                this.pineappleUltimatePickups.splice(i, 1);
+            }
+        }
         
         // 檢查玩家與出口的碰撞（第20波BOSS死亡後）
         if (this.exit && this.player && !this.isGameOver) {
@@ -497,6 +507,11 @@ const Game = {
         // 繪製寶箱
         for (const chest of this.chests) {
             chest.draw(this.ctx);
+        }
+
+        // 繪製鳳梨大絕掉落物（層級與寶箱一致）
+        for (const p of this.pineappleUltimatePickups) {
+            try { p.draw(this.ctx); } catch (_) {}
         }
         
         // 繪製出口（第20波BOSS死亡後）
@@ -844,6 +859,15 @@ const Game = {
         const chest = new Chest(x, y);
         this.chests.push(chest);
     },
+
+    // 鳳梨大絕：生成可拾取的大鳳梨（不吸、需碰觸；特效與寶箱同款光束）
+    spawnPineappleUltimatePickup: function(targetX, targetY, opts = {}) {
+        try {
+            if (typeof PineappleUltimatePickup === 'undefined') return;
+            const o = new PineappleUltimatePickup(targetX, targetY, opts);
+            this.pineappleUltimatePickups.push(o);
+        } catch (_) {}
+    },
     
     // 生成出口（第20波BOSS死亡後）
     spawnExit: function() {
@@ -994,6 +1018,7 @@ const Game = {
         this.heartTransmissionEffects = [];
         this.experienceOrbs = [];
         this.chests = [];
+        this.pineappleUltimatePickups = [];
         this.obstacles = [];
         this.decorations = [];
         // 清除AI生命體（如果存在）
