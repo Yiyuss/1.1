@@ -382,6 +382,13 @@ const Game = {
         
         // 優化：限制實體數量
         this.optimizeEntities();
+
+        // 生存模式聯機（測試）：多人位置同步（不影響其他模式）
+        try {
+            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.tick === 'function') {
+                window.SurvivalOnlineRuntime.tick(this, deltaTime);
+            }
+        } catch (_) {}
     },
     
     /** 私有：更新玩家（保留雙次更新的歷史節奏；請勿更改） */
@@ -635,6 +642,35 @@ const Game = {
             }
         }
         
+        // 生存模式聯機（測試）：繪製其他玩家位置（僅視覺呈現）
+        try {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.getRemotePlayers === 'function') {
+                const others = rt.getRemotePlayers() || [];
+                for (const p of others) {
+                    if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
+                    // 簡單渲染：彩色圓點 + 名稱（不影響碰撞/遊戲邏輯）
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.85;
+                    this.ctx.fillStyle = 'rgba(80,200,255,0.9)';
+                    this.ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    this.ctx.stroke();
+                    // 名稱
+                    this.ctx.globalAlpha = 0.95;
+                    this.ctx.font = '12px sans-serif';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'bottom';
+                    this.ctx.fillStyle = 'rgba(255,255,255,0.95)';
+                    this.ctx.fillText(p.name || '玩家', p.x, p.y - 16);
+                    this.ctx.restore();
+                }
+            }
+        } catch (_) {}
+
         // 繪製玩家
         this.player.draw(this.ctx);
     },
@@ -948,12 +984,24 @@ const Game = {
     // 遊戲結束
     gameOver: function() {
         this.isGameOver = true;
+        // 生存模式聯機（測試）：結束時自動離開房間，避免殘留占位
+        try {
+            if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === 'function') {
+                window.SurvivalOnlineUI.leaveRoom().catch(() => {});
+            }
+        } catch (_) {}
         UI.showGameOverScreen();
     },
     
     // 遊戲勝利
     victory: function() {
         this.isGameOver = true;
+        // 生存模式聯機（測試）：勝利時自動離開房間，避免殘留占位
+        try {
+            if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === 'function') {
+                window.SurvivalOnlineUI.leaveRoom().catch(() => {});
+            }
+        } catch (_) {}
         try {
             if (typeof Achievements !== 'undefined' && Achievements.unlock) {
                 Achievements.unlock('FIRST_CLEAR');
