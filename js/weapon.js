@@ -13,8 +13,8 @@ class Weapon {
     }
     
     update(deltaTime) {
-        // 抽象化、第六感、不獸控制和心意相通是被動技能，不需要發射
-        if (this.type === 'ABSTRACTION' || this.type === 'SIXTH_SENSE' || this.type === 'UNCONTROLLABLE_BEAST' || this.type === 'HEART_CONNECTION') {
+        // 抽象化、第六感、不獸控制、心意相通、腎上腺素是被動技能，不需要發射
+        if (this.type === 'ABSTRACTION' || this.type === 'SIXTH_SENSE' || this.type === 'UNCONTROLLABLE_BEAST' || this.type === 'HEART_CONNECTION' || this.type === 'ADRENALINE') {
             // 心意相通：被動提升回血速度（倍率由 BuffSystem 統一管理）
             // 注意：心意相通的倍率應該在 BuffSystem.applyBuffsFromTalents 中統一管理
             // 這裡不需要額外設置，避免與 BuffSystem 的邏輯衝突
