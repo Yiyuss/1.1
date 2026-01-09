@@ -152,7 +152,7 @@ class Projectile extends Entity {
                 // - 使用 Game.explosionParticles 現有更新/繪製管線，不新增新型別。
                 // - 僅添加視覺粒子與播放 bo.mp3，不更動任何傷害/冷卻/數量等數值。
                 // - 若 AudioManager 不存在，靜默跳過；若 explosionParticles 未初始化，按既有格式建立。
-                if (this.weaponType === 'LIGHTNING' || this.weaponType === 'MUFFIN_THROW' || this.weaponType === 'HEART_TRANSMISSION') {
+                if (this.weaponType === 'LIGHTNING' || this.weaponType === 'MUFFIN_THROW' || this.weaponType === 'HEART_TRANSMISSION' || this.weaponType === 'BAGUETTE_THROW') {
                     try {
                         const particleCount = 18; // 更顯眼，性能仍安全
                         for (let i = 0; i < particleCount; i++) {
@@ -175,6 +175,8 @@ class Projectile extends Entity {
                                 p.source = 'MUFFIN_THROW';
                             } else if (this.weaponType === 'HEART_TRANSMISSION') {
                                 p.source = 'HEART_TRANSMISSION';
+                            } else if (this.weaponType === 'BAGUETTE_THROW') {
+                                p.source = 'BAGUETTE_THROW';
                             }
                             if (!Game.explosionParticles) Game.explosionParticles = [];
                             Game.explosionParticles.push(p);
@@ -221,6 +223,9 @@ class Projectile extends Entity {
             case 'LIGHTNING':
                 imageName = 'lightning';
                 break;
+            case 'BAGUETTE_THROW':
+                imageName = 'A43';
+                break;
             case 'MUFFIN_THROW':
                 imageName = 'muffin2';
                 break;
@@ -231,12 +236,24 @@ class Projectile extends Entity {
         
         if (imageName && Game.images && Game.images[imageName]) {
             const size = Math.max(this.width, this.height);
-            ctx.drawImage(Game.images[imageName], this.x - size / 2, this.y - size / 2, size, size);
+            if (this.weaponType === 'BAGUETTE_THROW') {
+                // 法棍投擲投射物（A43.png，100x74）：保持寬高比，並以「最大邊=size」繪製
+                const img = Game.images[imageName];
+                const iw = img.naturalWidth || img.width || 100;
+                const ih = img.naturalHeight || img.height || 74;
+                const aspect = iw / ih;
+                const renderW = size;
+                const renderH = Math.max(1, Math.floor(size / Math.max(0.01, aspect))); // 以寬為基準縮放高度
+                ctx.drawImage(img, this.x - renderW / 2, this.y - renderH / 2, renderW, renderH);
+            } else {
+                ctx.drawImage(Game.images[imageName], this.x - size / 2, this.y - size / 2, size, size);
+            }
         } else {
             // 備用：使用純色圓形
             let color = '#fff';
             if (this.weaponType === 'FIREBALL') color = '#f50';
             if (this.weaponType === 'LIGHTNING') color = '#0ff';
+            if (this.weaponType === 'BAGUETTE_THROW') color = '#0ff'; // 與追蹤綿羊相同的備用顏色
             if (this.weaponType === 'MUFFIN_THROW') color = '#0ff'; // 與追蹤綿羊相同的備用顏色
             if (this.weaponType === 'HEART_TRANSMISSION') color = '#0ff'; // 與追蹤綿羊相同的備用顏色
             ctx.fillStyle = color;
@@ -245,9 +262,10 @@ class Projectile extends Entity {
             ctx.fill();
         }
         
-        // 繪製尾跡效果（避免蓋在圖片上：LIGHTNING/紳士綿羊(FIREBALL)/應援棒(DAGGER)/鬆餅投擲(MUFFIN_THROW)/心意傳遞(HEART_TRANSMISSION)不畫尾跡）
+        // 繪製尾跡效果（避免蓋在圖片上：LIGHTNING/法棍投擲/紳士綿羊(FIREBALL)/應援棒(DAGGER)/鬆餅投擲(MUFFIN_THROW)/心意傳遞(HEART_TRANSMISSION)不畫尾跡）
         const shouldDrawTail = !(
             this.weaponType === 'LIGHTNING' ||
+            this.weaponType === 'BAGUETTE_THROW' ||
             this.weaponType === 'FIREBALL' ||
             this.weaponType === 'DAGGER' ||
             this.weaponType === 'MUFFIN_THROW' ||
