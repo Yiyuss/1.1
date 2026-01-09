@@ -1239,6 +1239,21 @@ function setupMapAndDifficultySelection() {
         const useId = id || 'EASY';
         Game.selectedDifficultyId = useId;
         if (playSound) playClick();
+
+        // 生存模式聯機（測試）：在進入遊戲前先讓玩家選擇「單人/聯機」與房間大廳
+        // - 僅影響生存模式的啟動流程
+        // - TURN 不可用時會直接提示無法連線，不會降級成會露 IP 的直連
+        try {
+            if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.startFlowFromMain === 'function') {
+                window.SurvivalOnlineUI.startFlowFromMain({
+                    selectedDifficultyId: useId,
+                    selectedCharacter: Game.selectedCharacter,
+                    selectedMap: Game.selectedMap
+                });
+                return;
+            }
+        } catch (_) {}
+
         // 開始遊戲：隱藏覆蓋視窗與選角畫面，進入遊戲畫面
         hide(diffScreen);
         if (desertDiffScreen) hide(desertDiffScreen);
