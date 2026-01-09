@@ -380,14 +380,18 @@ class Player extends Entity {
         // options.ignoreDodge: 略過迴避判定（地圖陷阱/環境傷害等）
         const ignoreDodge = !!(options && options.ignoreDodge);
         if (!ignoreDodge) {
-            // 抽象化技能：回避傷害判定（適用於所有傷害來源，包括小BOSS火焰彈和彈幕）
+            // 被動回避技能：抽象化 / 第六感（適用於所有傷害來源，包括小BOSS火焰彈和彈幕）
             let weaponDodgeRate = 0;
             if (this.weapons && Array.isArray(this.weapons)) {
-                const abstractionWeapon = this.weapons.find(w => w && w.type === 'ABSTRACTION');
-                if (abstractionWeapon && abstractionWeapon.config && Array.isArray(abstractionWeapon.config.DODGE_RATES)) {
-                    const level = abstractionWeapon.level || 1;
-                    weaponDodgeRate = abstractionWeapon.config.DODGE_RATES[level - 1] || 0;
-                }
+                // 抽象化（灰妲）與第六感（鳳梨）邏輯相同：讀取各自 DODGE_RATES
+                const passiveDodgeTypes = ['ABSTRACTION', 'SIXTH_SENSE'];
+                passiveDodgeTypes.forEach(t => {
+                    const wpn = this.weapons.find(w => w && w.type === t);
+                    if (wpn && wpn.config && Array.isArray(wpn.config.DODGE_RATES)) {
+                        const level = wpn.level || 1;
+                        weaponDodgeRate += wpn.config.DODGE_RATES[level - 1] || 0;
+                    }
+                });
             }
             
             // 迴避強化天賦：與抽象化疊加
