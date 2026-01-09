@@ -738,6 +738,62 @@ class Weapon {
             return;
         }
 
+        // 法棍投擲（與追蹤綿羊邏輯相同，但使用不同投射物圖片）
+        if (this.type === 'BAGUETTE_THROW') {
+            const count = this.projectileCount;
+            const baseSize = this.config.PROJECTILE_SIZE;
+            const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
+            const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
+
+            // 取距離玩家最近的前 count 名敵人作為目標
+            const sorted = [...(Game.enemies || [])].sort((a, b) => {
+                const da = Utils.distance(this.player.x, this.player.y, a.x, a.y);
+                const db = Utils.distance(this.player.x, this.player.y, b.x, b.y);
+                return da - db;
+            });
+            const targets = sorted.slice(0, count);
+
+            for (let i = 0; i < count; i++) {
+                const target = targets[i] || null;
+                let angle;
+                if (target) {
+                    const baseAngle = Utils.angle(this.player.x, this.player.y, target.x, target.y);
+                    // 為每根法棍加入微小抖動，避免軌跡完全重疊
+                    const jitter = (Math.random() - 0.5) * 0.20; // ±0.1rad
+                    angle = baseAngle + jitter;
+                } else {
+                    // 沒有足夠目標時，平均分布在360度
+                    angle = (i / Math.max(1, count)) * Math.PI * 2;
+                }
+
+                // 起始位置稍作偏移，避免完全疊在玩家身上
+                const spawnOffset = 12;
+                const sx = this.player.x + Math.cos(angle) * spawnOffset;
+                const sy = this.player.y + Math.sin(angle) * spawnOffset;
+                const projectile = new Projectile(
+                    sx,
+                    sy,
+                    angle,
+                    this.type,
+                    this._computeFinalDamage(levelMul),
+                    this.config.PROJECTILE_SPEED,
+                    dynamicSize
+                );
+                projectile.homing = true;
+                projectile.turnRatePerSec = this.level >= 10 ? 6.0 : 3.5; // rad/s
+                if (target) {
+                    projectile.assignedTargetId = target.id;
+                }
+                Game.addProjectile(projectile);
+
+                // 音效（發射一次，使用與追蹤綿羊相同的音效）
+                if (i === 0 && typeof AudioManager !== 'undefined') {
+                    AudioManager.playSound('lightning_shoot');
+                }
+            }
+            return;
+        }
+
         // 心意傳遞（與追蹤綿羊邏輯相同，但使用不同圖片）
         if (this.type === 'HEART_TRANSMISSION') {
             const count = this.projectileCount;
