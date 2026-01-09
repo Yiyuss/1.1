@@ -596,6 +596,79 @@
         </div>
       </div>
     </div>
+
+    <!-- 生存模式：單人 / 聯機選擇（僅生存模式使用；不影響其他模式） -->
+    <div id="survival-online-select-screen" class="screen hidden">
+      <div class="select-card">
+        <h1 class="select-title">生存模式</h1>
+        <div class="map-desc" style="margin-bottom:12px;">
+          選擇遊玩方式：<strong>聯機為測試版</strong>（最多5人）。<br>
+          隱私：僅允許 relay 連線；若 TURN 不可用會直接提示無法連線（不會降級成會露 IP 的直連）。
+        </div>
+        <div class="select-actions" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+          <button id="survival-online-btn-solo" class="primary">單人開始</button>
+          <button id="survival-online-btn-online" class="ghost">聯機（測試）</button>
+        </div>
+        <div class="select-actions" style="margin-top:10px;">
+          <button id="survival-online-btn-back" class="ghost">返回</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 生存模式：聯機大廳（僅生存模式使用） -->
+    <div id="survival-online-lobby-screen" class="screen hidden">
+      <div class="select-card">
+        <h1 class="select-title">聯機大廳</h1>
+        <div class="map-desc" style="margin-bottom:12px;">
+          房間上限：5人。室長可開始遊戲與調整地圖/難度（初版）。<br>
+          <span id="survival-online-status" style="color: rgba(255,255,255,0.85);">尚未連線</span>
+        </div>
+
+        <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center; margin-bottom:12px;">
+          <button id="survival-online-create-room" class="primary">創建房間</button>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center;">
+            <input id="survival-online-room-code" type="text" placeholder="輸入房間碼" maxlength="10" style="width:min(220px, 70vw);">
+            <button id="survival-online-join-room" class="ghost">加入房間</button>
+          </div>
+        </div>
+
+        <div class="content" style="margin-bottom:12px;">
+          <div style="display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+            <div>
+              <div style="font-weight:700;">房間碼：<span id="survival-online-room-code-display">-</span></div>
+              <div style="opacity:0.85; font-size:12px;">提示：把房間碼給朋友輸入即可加入。</div>
+            </div>
+            <button id="survival-online-copy-room-code" class="ghost">複製房間碼</button>
+          </div>
+
+          <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:220px;">
+              <label style="display:block; margin-bottom:4px;">地圖（室長）</label>
+              <select id="survival-online-host-map" style="width:100%;"></select>
+            </div>
+            <div style="flex:1; min-width:220px;">
+              <label style="display:block; margin-bottom:4px;">難度（室長）</label>
+              <select id="survival-online-host-diff" style="width:100%;">
+                <option value="EASY">簡單</option>
+                <option value="HARD">困難</option>
+                <option value="ASURA">修羅</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="content" style="margin-bottom:12px;">
+          <div style="font-weight:700; margin-bottom:6px;">玩家列表</div>
+          <div id="survival-online-members" style="display:grid; gap:6px;"></div>
+        </div>
+
+        <div class="select-actions" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+          <button id="survival-online-ready" class="ghost">準備</button>
+          <button id="survival-online-start" class="primary">開始（室長）</button>
+          <button id="survival-online-leave" class="ghost">離開</button>
+        </div>
+      </div>
+    </div>
         
         <!-- 遊戲畫面 -->
         <div id="game-screen" class="screen hidden">
@@ -1255,6 +1328,8 @@
         <script src="js/modes/adventure/index.js"></script>
         <!-- 3D模式骨架：使用Three.js載入3D模型並實現角色控制 -->
         <script src="js/modes/3d/index.js"></script>
+        <!-- 生存模式聯機（測試）：Firebase signaling + WebRTC relay-only；僅在生存模式流程中使用 -->
+        <script type="module" src="js/multiplayer/survival_online.js"></script>
         <script src="js/main.js"></script>
         
         <!-- TD組件可用性檢查 -->
