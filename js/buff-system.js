@@ -114,26 +114,26 @@ const BuffSystem = {
                 const mul = BuffSystem._getTierEffect('regen_speed_boost', lv, 'multiplier', 1.0) || 1.0;
                 // 將倍率轉換為加成百分比（例如 2.30 → +130%）
                 const talentBoost = mul - 1.0;
-                // 與心意相通技能疊加（加算，不是乘算）
-                // 確保心意相通倍率存在且有效（如果沒有該技能，應該是 1.0）
-                const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 0) 
-                    ? player._heartConnectionRegenMultiplier 
+                // 與心意相通/腎上腺素技能疊加（加算，不是乘算）
+                // 確保技能倍率存在且有效（如果沒有該技能，應該是 1.0）
+                const skillMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 0)
+                    ? player._heartConnectionRegenMultiplier
                     : 1.0;
-                const heartConnectionBoost = heartConnectionMul - 1.0;
-                // 最終倍率 = 基礎(1.0) + 天賦加成 + 心意相通加成
+                const skillBoost = skillMul - 1.0;
+                // 最終倍率 = 基礎(1.0) + 天賦加成 + 技能加成
                 const oldMultiplier = player.healthRegenSpeedMultiplier || 1.0;
-                player.healthRegenSpeedMultiplier = 1.0 + talentBoost + heartConnectionBoost;
+                player.healthRegenSpeedMultiplier = 1.0 + talentBoost + skillBoost;
                 // 當回血速度倍率改變時，重置回血累積器，避免瞬間回滿血
                 if (oldMultiplier !== player.healthRegenSpeedMultiplier && player.healthRegenAccumulator != null) {
                     player.healthRegenAccumulator = 0;
                 }
             },
             remove: function(player) {
-                // 移除時，如果還有心意相通，保留心意相通的倍率
-                const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 0) 
-                    ? player._heartConnectionRegenMultiplier 
+                // 移除時，如果還有心意相通/腎上腺素，保留技能倍率
+                const skillMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 0)
+                    ? player._heartConnectionRegenMultiplier
                     : 1.0;
-                player.healthRegenSpeedMultiplier = heartConnectionMul;
+                player.healthRegenSpeedMultiplier = skillMul;
             }
         },
         // 已移除 damage_boost：邏輯整合於統一傷害公式
@@ -293,18 +293,18 @@ const BuffSystem = {
             if (regenLv > 0) this.applyBuff(player, 'regen_speed_boost');
             if (expLv > 0) this.applyBuff(player, 'experience_boost');
             
-            // 心意相通技能：檢查玩家是否擁有該技能並應用回血速度提升
-            // 先清除心意相通的倍率（確保沒有殘留值）
+            // 心意相通/腎上腺素技能：檢查玩家是否擁有該技能並應用回血速度提升
+            // 先清除技能倍率（確保沒有殘留值）
             player._heartConnectionRegenMultiplier = 1.0;
             if (player.weapons && Array.isArray(player.weapons)) {
-                const heartConnectionWeapon = player.weapons.find(w => w && w.type === 'HEART_CONNECTION');
-                if (heartConnectionWeapon) {
+                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE'));
+                if (regenSkillWeapon) {
                     // 確保 config 存在（如果沒有，從 CONFIG.WEAPONS 獲取）
-                    const config = heartConnectionWeapon.config || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.HEART_CONNECTION) ? CONFIG.WEAPONS.HEART_CONNECTION : null;
+                    const config = regenSkillWeapon.config || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[regenSkillWeapon.type]) ? CONFIG.WEAPONS[regenSkillWeapon.type] : null;
                     if (config) {
                         const boostPerLevel = config.REGEN_SPEED_BOOST_PER_LEVEL || 0.20;
-                        const level = heartConnectionWeapon.level || 1;
-                        // 計算心意相通的倍率（例如 LV10: 1.0 + 0.20 * 10 = 3.0）
+                        const level = regenSkillWeapon.level || 1;
+                        // 計算技能倍率（例如 LV10: 1.0 + 0.20 * 10 = 3.0）
                         const totalBoost = 1.0 + (boostPerLevel * level);
                         player._heartConnectionRegenMultiplier = totalBoost;
                     }
