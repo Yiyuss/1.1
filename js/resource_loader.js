@@ -263,6 +263,10 @@ const ResourceLoader = {
             { name: 'player5', src: 'assets/images/player5.png' },
             { name: 'player5-2', src: 'assets/images/player5-2.png' },
             { name: 'player5-3', src: 'assets/images/player5-3.png' },
+            // 第六位角色：鳳梨不咬舌
+            { name: 'player6', src: 'assets/images/player6.gif' },
+            { name: 'player6-2', src: 'assets/images/player6-2.png' },
+            { name: 'player6-3', src: 'assets/images/player6-3.png' },
             { name: 'playerN', src: 'assets/images/playerN.png' },
             { name: 'playerN2', src: 'assets/images/playerN2.gif' },
             { name: 'playerN3', src: 'assets/images/playerN3.png' },
