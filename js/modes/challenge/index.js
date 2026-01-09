@@ -590,6 +590,19 @@ function safePlayShura(ctx) {
               } else {
                 window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, actorSize);
               }
+            } else if (sc && (sc.id === 'pineapple' || sc.spriteImageKey === 'player6')) {
+              // player6.gif 保持寬高比 (242:320)
+              const imgObj = (Game.images && Game.images['player6']) ? Game.images['player6'] : null;
+              if (imgObj && imgObj.complete) {
+                const imgWidth = imgObj.naturalWidth || imgObj.width || 242;
+                const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
+                const aspectRatio = imgWidth / imgHeight; // 242/320 ≈ 0.756
+                const renderHeight = actorSize;
+                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+              } else {
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', actorSrc, player.x, player.y, actorSize);
+              }
             } else if (sc && (sc.id === 'lilylinglan' || sc.spriteImageKey === 'player3')) {
               // player3.gif 保持原比例（1:1），使用模式原有的尺寸計算
               const imgObj = (Game.images && Game.images['player3']) ? Game.images['player3'] : null;
