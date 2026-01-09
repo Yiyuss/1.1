@@ -256,3 +256,183 @@ class Chest extends Entity {
         this.destroy();
     }
 }
+
+// 鳳梨大絕掉落物：外觀/特效沿用寶箱（BOX.png）光束，但圖片改為 A45.png（53x100）
+// - 不會被吸引（不是 ExperienceOrb），必須玩家碰觸才能收集
+// - 收集後給予「50 + 當下所需升級的30%經驗」並播放 collect_exp 音效
+class PineappleUltimatePickup extends Chest {
+    constructor(x, y, opts = {}) {
+        super(x, y);
+        // 視覺尺寸：A45.png 53x100
+        this.width = 53;
+        this.height = 100;
+        // 以矩形碰撞更符合「必須碰觸」：用多邊形碰撞取代圓形近似
+        try {
+            this.collisionRadius = Math.max(this.width, this.height) / 2;
+            this.setCollisionPolygon([
+                [-this.width / 2, -this.height / 2],
+                [ this.width / 2, -this.height / 2],
+                [ this.width / 2,  this.height / 2],
+                [-this.width / 2,  this.height / 2]
+            ]);
+        } catch (_) {}
+
+        // 掉落參數（保留欄位，避免外部有人傳入；但目前規則為「純30%當下所需升級經驗」）
+        this.expValue = (opts && typeof opts.expValue === 'number') ? Math.max(0, Math.floor(opts.expValue)) : 0;
+
+        // 簡單噴出動畫：從 spawn 點飛到 target 點
+        this._spawnX = (opts && typeof opts.spawnX === 'number') ? opts.spawnX : x;
+        this._spawnY = (opts && typeof opts.spawnY === 'number') ? opts.spawnY : y;
+        this._targetX = x;
+        this._targetY = y;
+        this._flyStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        this._flyDuration = (opts && typeof opts.flyDurationMs === 'number') ? Math.max(0, Math.floor(opts.flyDurationMs)) : 600;
+        // 起始先放在玩家位置，逐步飛到目標
+        this.x = this._spawnX;
+        this.y = this._spawnY;
+        this._landed = (this._flyDuration <= 0);
+    }
+
+    update(deltaTime) {
+        // 噴出飛行階段（不吸、也不提前收集）
+        if (!this._landed) {
+            const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+            const t = Math.min(1, Math.max(0, (now - this._flyStart) / Math.max(1, this._flyDuration)));
+            // easeOutQuad
+            const k = 1 - (1 - t) * (1 - t);
+            this.x = this._spawnX + (this._targetX - this._spawnX) * k;
+            this.y = this._spawnY + (this._targetY - this._spawnY) * k;
+            if (t >= 1) this._landed = true;
+        }
+
+        // 與玩家碰觸收集（必須落地後）
+        if (this._landed) {
+            const player = Game.player;
+            if (player && this.isColliding(player)) {
+                this.collect();
+            }
+        }
+
+        // 邊界約束（沿用 Chest 行為）
+        this.x = Utils.clamp(this.x, this.width / 2, (Game.worldWidth || Game.canvas.width) - this.width / 2);
+        this.y = Utils.clamp(this.y, this.height / 2, (Game.worldHeight || Game.canvas.height) - this.height / 2);
+
+        const dt = Math.max(1, deltaTime);
+        this._beamPhase += dt * 0.0025;
+    }
+
+    draw(ctx) {
+        // 完全沿用 Chest 的光束與底部光圈效果，但把中景圖片改為 A45 並保持 53:100
+        ctx.save();
+        ctx.globalCompositeOperation = this.tune.compositeBack;
+
+        const H = this.beamH;
+        const x = this.x, y = this.y;
+        const baseY = this.y + this.height * 0.35;
+
+        const baseAlphaInner = this.tune.baseSync
+            ? Math.max(this.tune.outerAlpha0, this.tune.coreAlpha0 || 0) * this.tune.baseMatchFactor
+            : 0.45;
+        const baseAlphaSoft = baseAlphaInner * (this.tune.baseSoftFactor || 0.55);
+
+        if (this.tune.useBaseSoft) {
+            this._drawRadialEllipse(ctx, x, baseY, this.tune.baseEllipseRxSoft, this.tune.baseEllipseRySoft, [
+                [0.00, `rgba(255,230,150,${baseAlphaSoft})`],
+                [0.70, `rgba(255,220,140,${this.tune.baseSoftMidAlpha})`],
+                [1.00, `rgba(255,220,140,${this.tune.baseSoftEdgeAlpha})`],
+            ], 'source-over');
+        }
+
+        this._drawRadialEllipse(ctx, x, baseY, this.tune.baseEllipseRxOuter, this.tune.baseEllipseRyOuter, [
+            [0.00, `rgba(255,230,150,${baseAlphaInner})`],
+            [0.50, `rgba(255,215,120,${this.tune.baseOuterMidAlpha})`],
+            [1.00, `rgba(255,215,120,${this.tune.baseOuterEdgeAlpha})`],
+        ], 'source-over');
+
+        this._drawRadialEllipse(ctx, x, baseY, this.tune.baseEllipseRxCore, this.tune.baseEllipseRyCore, [
+            [0.00, `rgba(255,240,190,${this.tune.coreAlpha0})`],
+            [0.40, `rgba(255,235,175,${this.tune.coreAlpha40})`],
+            [0.85, `rgba(255,235,175,${this.tune.coreAlpha85})`],
+            [1.00, `rgba(255,235,175,${this.tune.coreAlpha100})`],
+        ], this.tune.coreComposite);
+
+        if (this.tune.useBaseCoreRim) {
+            this._drawRadialEllipse(ctx, x, baseY, this.tune.baseCoreRimRx, this.tune.baseCoreRimRy, [
+                [0.00, `rgba(255,236,180,${this.tune.baseCoreRimAlpha})`],
+                [1.00, `rgba(255,236,180,${this.tune.baseCoreRimEdgeAlpha})`],
+            ], this.tune.baseCoreRimComposite, 32, this.tune.baseCoreRimInnerRatio);
+        }
+
+        const beamBottomY = this.tune.linkBeamToBase
+            ? (baseY - (this.tune.beamBottomGapPx || 0))
+            : (y + (this.tune.beamBottomOffsetPx || 0));
+        const featherRatio = Math.min(0.25, (this.tune.beamBottomFeatherPx || 0) / H);
+
+        const WbOuter = this.beamBaseW * (1 + Math.sin(this._beamPhase) * this.tune.breathAmplitudeOuter);
+        const WtOuter = this.beamTopW;
+        this._drawBeamTrapezoid(ctx, x, beamBottomY, H, WbOuter, WtOuter, [
+            [0.00, `rgba(255,235,170,${this.tune.outerBottomAlpha})`],
+            [featherRatio, `rgba(255,235,170,${this.tune.outerAlpha0})`],
+            [0.35, `rgba(255,225,150,${this.tune.outerAlpha35})`],
+            [0.80, `rgba(255,225,150,${this.tune.outerAlpha80})`],
+            [1.00, `rgba(255,225,150,${this.tune.outerAlpha100})`],
+        ], `rgba(255,225,150,${this.tune.shadowAlphaOuter})`, this.tune.shadowBlurOuter, 'source-over');
+
+        if (this.tune.useCore) {
+            const WbCore = this.tune.coreBaseW * (1 + Math.sin(this._beamPhase) * this.tune.breathAmplitudeCore);
+            const WtCore = this.tune.coreTopW;
+            this._drawBeamTrapezoid(ctx, x, beamBottomY, H, WbCore, WtCore, [
+                [0.00, `rgba(255,240,190,${this.tune.coreBottomAlpha})`],
+                [featherRatio, `rgba(255,240,190,${this.tune.coreAlpha0})`],
+                [0.40, `rgba(255,235,175,${this.tune.coreAlpha40})`],
+                [0.85, `rgba(255,235,175,${this.tune.coreAlpha85})`],
+                [1.00, `rgba(255,235,175,${this.tune.coreAlpha100})`],
+            ], `rgba(255,235,175,${this.tune.shadowAlphaCore})`, this.tune.shadowBlurCore, this.tune.coreComposite);
+        }
+
+        // 中景：A45.png（53x100）保持寬高比
+        const img = (Game.images || {})['A45'];
+        if (img) {
+            const h = this.height;
+            const w = this.width;
+            ctx.drawImage(img, this.x - w / 2, this.y - h / 2, w, h);
+        } else {
+            // 後備：以黃框矩形表示
+            ctx.fillStyle = '#f4d03f';
+            ctx.fillRect(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+        }
+
+        ctx.restore();
+    }
+
+    collect() {
+        try {
+            if (typeof AudioManager !== 'undefined') {
+                if (AudioManager.expSoundEnabled !== false) {
+                    AudioManager.playSound('collect_exp');
+                }
+            }
+        } catch (_) {}
+        try {
+            const player = Game.player;
+            if (player && typeof player.gainExperience === 'function') {
+                // 平衡：每顆鳳梨給「50 + 當下所需升級的30%經驗」
+                // - 這裡的「當下所需升級」指：距離下一次升級還差多少經驗（experienceToNextLevel - experience）
+                // - 若欄位不存在則只給固定值（50）
+                const base = 50;
+                let needNow = 0;
+                try {
+                    if (typeof player.experienceToNextLevel === 'number' && typeof player.experience === 'number') {
+                        needNow = Math.max(0, Math.floor(player.experienceToNextLevel - player.experience));
+                    }
+                } catch (_) {}
+                const bonus = Math.max(0, Math.floor(needNow * 0.30));
+                player.gainExperience(base + bonus);
+            }
+        } catch (_) {}
+        this.destroy();
+    }
+}
