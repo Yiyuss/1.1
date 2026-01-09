@@ -957,6 +957,30 @@ const CONFIG = {
             exclusiveWeapons: ['HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION', 'JUDGMENT'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
+        },
+        {
+            id: 'pineapple',
+            name: '鳳梨不咬舌',
+            // 第六位角色：初始迴避率 10%，其他基礎數值與瑪格麗特完全相同
+            hpMultiplier: 1.0,
+            hpBonus: 0,
+            speedMultiplier: 1.0,
+            dodgeChanceBonusPct: 0.10, // 初始迴避率+10%
+            description: `角色介紹：原本是顆鳳梨，經過漫長時光精化成人型，目前在教堂打工。\n專屬技能：暫無`,
+            // 選角預覽圖（下方角色介紹用）：使用 player6-2.png
+            avatarImageKey: 'player6-2',
+            // 所有模式的 HUD 左上角頭像：使用 player6-2.png
+            hudImageKey: 'player6-2',
+            // 所有模式進入時的玩家主體形象：使用 player6.gif（242x320）
+            spriteImageKey: 'player6',
+            // 生存模式升級介面左側底圖：使用 player6-2.png
+            levelUpBgKey: 'player6-2',
+            // 第六位角色可以使用大絕（Q），專屬大絕/技能這次先不更新
+            canUseUltimate: true,
+            disabledWeapons: [],
+            exclusiveWeapons: [],
+            // 解鎖價格（遊戲金幣）：1萬金幣
+            unlockCost: 10000
         }
     ],
     
