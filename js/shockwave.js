@@ -24,6 +24,32 @@ class ShockwaveEffect extends Entity {
     }
 
     update(deltaTime) {
+        // 僅視覺震波：需要從遠程玩家位置更新
+        if (this._isVisualOnly && this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.getRemotePlayers === 'function') {
+                const remotePlayers = rt.getRemotePlayers() || [];
+                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+                if (remotePlayer) {
+                    // 更新玩家位置
+                    this.player.x = remotePlayer.x;
+                    this.player.y = remotePlayer.y;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    // 如果是本地玩家
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                    }
+                } else {
+                    // 如果找不到對應的玩家，標記為刪除
+                    this.markedForDeletion = true;
+                    return;
+                }
+            } else {
+                this.markedForDeletion = true;
+                return;
+            }
+        }
+        
         const elapsed = Date.now() - this.startTime;
         if (elapsed >= this.durationMs) {
             this.markedForDeletion = true;
@@ -41,6 +67,11 @@ class ShockwaveEffect extends Entity {
 
         const progress = Math.max(0, Math.min(1, elapsed / this.durationMs));
         this.currentRadius = this.maxRadius * progress;
+
+        // 僅視覺震波：不進行碰撞檢測和傷害計算
+        if (this._isVisualOnly) {
+            return; // 僅視覺，不進行碰撞檢測和傷害計算
+        }
 
         // 命中判定：距離中心落在當前環寬度範圍內
         const r = this.currentRadius || 0;
