@@ -939,6 +939,17 @@ function closeLobbyToSelect() {
   _show("survival-online-select-screen");
 }
 
+function closeLobbyOverlayKeepRoom() {
+  // ESC 在大廳：只關閉「大廳介面」回到組隊選擇，不自動離開房間（避免影響後續介面/狀態）
+  _hide("survival-online-lobby-screen");
+  _show("survival-online-select-screen");
+  try {
+    if (_activeRoomId) {
+      _setText("survival-online-status", "已在隊伍中（介面已關閉）");
+    }
+  } catch (_) {}
+}
+
 function startSurvivalNow(params) {
   // 與 main.js 既有流程保持一致：隱藏覆蓋視窗與選角畫面，進入生存模式
   try {
@@ -1139,6 +1150,25 @@ function getRuntime() {
   return Runtime;
 }
 
+function handleEscape() {
+  // 只在組隊介面可見時處理 ESC；回傳 true 代表已處理（外部可 stopPropagation）
+  try {
+    const isVisible = (id) => {
+      const el = _qs(id);
+      return !!(el && !el.classList.contains("hidden"));
+    };
+    if (isVisible("survival-online-lobby-screen")) {
+      closeLobbyOverlayKeepRoom();
+      return true;
+    }
+    if (isVisible("survival-online-select-screen")) {
+      closeSelectScreenBackToDifficulty();
+      return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
 // 綁定：DOM ready 後初始化 UI
 try {
   // index.html 在底部載入，通常 DOM 已就緒
@@ -1152,6 +1182,7 @@ window.SurvivalOnlineUI = {
   startFlowFromMain,
   leaveRoom,
   getRuntime,
+  handleEscape,
 };
 
 // 提供給 game.js 的 runtime bridge（避免 game.js import）
