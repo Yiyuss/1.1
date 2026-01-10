@@ -58,6 +58,8 @@ const ICE_SERVERS_OPEN_RELAY = [
 
 const MAX_PLAYERS = 5;
 const ROOM_TTL_MS = 1000 * 60 * 60; // 1小時（僅用於前端清理提示；真正清理由規則/人為）
+const MEMBER_HEARTBEAT_MS = 15000; // 15s：更新 lastSeenAt（避免關頁/斷線殘留）
+const MEMBER_STALE_MS = 45000; // 45s：超過視為離線/殘留
 
 let _app = null;
 let _auth = null;
@@ -73,6 +75,7 @@ let _isHost = false;
 let _hostUid = null;
 let _roomState = null;
 let _membersState = new Map();
+let _memberHeartbeatTimer = null;
 
 // WebRTC
 let _pc = null; // 初版：client 只連 host；host 對每個 client 建一條 pc（下方用 map）
@@ -325,12 +328,46 @@ async function leaveRoom() {
   _hostUid = null;
   _roomState = null;
   _membersState = new Map();
+
+  // 停止心跳
+  try { if (_memberHeartbeatTimer) clearInterval(_memberHeartbeatTimer); } catch (_) {}
+  _memberHeartbeatTimer = null;
 }
 
 async function setReady(ready) {
   if (!_activeRoomId) return;
   await ensureAuth();
   await updateDoc(memberDocRef(_activeRoomId, _uid), { ready: !!ready, lastSeenAt: serverTimestamp() });
+}
+
+function _startMemberHeartbeat() {
+  try { if (_memberHeartbeatTimer) clearInterval(_memberHeartbeatTimer); } catch (_) {}
+  _memberHeartbeatTimer = null;
+  if (!_activeRoomId) return;
+  _memberHeartbeatTimer = setInterval(async () => {
+    try {
+      if (!_activeRoomId || !_uid) return;
+      // 只更新自己的 lastSeenAt（不影響 SaveCode/localStorage）
+      await updateDoc(memberDocRef(_activeRoomId, _uid), { lastSeenAt: serverTimestamp() });
+    } catch (_) {
+      // 心跳失敗不致命（可能是離線、權限、或暫時限流）
+    }
+  }, MEMBER_HEARTBEAT_MS);
+}
+
+function _isMemberStale(member) {
+  // lastSeenAt 可能是 Timestamp 或 serverTimestamp 未落地（null）
+  try {
+    if (!member) return true;
+    const t = member.lastSeenAt;
+    let ms = 0;
+    if (t && typeof t.toMillis === "function") ms = t.toMillis();
+    else if (typeof t === "number") ms = t;
+    if (!ms) return false; // 沒資料時先不要判 stale（避免剛加入立即被判離線）
+    return (Date.now() - ms) > MEMBER_STALE_MS;
+  } catch (_) {
+    return false;
+  }
 }
 
 async function hostUpdateSettings({ mapId, diffId }) {
@@ -356,6 +393,8 @@ function listenRoom(roomId) {
   _activeRoomUnsub = onSnapshot(roomDocRef(roomId), (snap) => {
     _roomState = snap.exists() ? (snap.data() || null) : null;
     if (_roomState && _roomState.hostUid) _hostUid = _roomState.hostUid;
+    // 同步 host 的下拉（避免用輪詢）
+    _syncHostSelectsFromRoom();
     updateLobbyUI();
     // 若開始遊戲，觸發進入
     if (_roomState && _roomState.status === "starting") {
@@ -659,6 +698,7 @@ function updateLobbyUI() {
     const arr = Array.from(_membersState.values());
     arr.sort((a, b) => (a.role === "host" ? -1 : 1) - (b.role === "host" ? -1 : 1));
     for (const m of arr) {
+      const stale = _isMemberStale(m);
       const div = document.createElement("div");
       div.style.display = "flex";
       div.style.justifyContent = "space-between";
@@ -667,12 +707,16 @@ function updateLobbyUI() {
       div.style.padding = "6px 8px";
       div.style.borderRadius = "10px";
       div.style.border = "1px solid rgba(255,255,255,0.12)";
-      div.style.background = "rgba(0,0,0,0.25)";
+      div.style.background = stale ? "rgba(0,0,0,0.18)" : "rgba(0,0,0,0.25)";
+      div.style.opacity = stale ? "0.6" : "1";
       const left = document.createElement("div");
-      left.textContent = `${m.role === "host" ? "室長" : "玩家"}：${m.name || (m.uid || "").slice(0, 6)}`;
+      const roleLabel = (m.role === "host") ? "室長" : "玩家";
+      const name = m.name || (m.uid || "").slice(0, 6);
+      left.textContent = `${roleLabel}：${name}${stale ? "（離線）" : ""}`;
       const right = document.createElement("div");
       right.style.opacity = "0.9";
-      right.textContent = m.ready ? "已準備" : "未準備";
+      // stale 視為未準備（避免卡住室長開始條件）
+      right.textContent = (!stale && m.ready) ? "已準備" : "未準備";
       div.appendChild(left);
       div.appendChild(right);
       list.appendChild(div);
@@ -685,7 +729,15 @@ function updateLobbyUI() {
     let can = !!_isHost && _activeRoomId;
     if (can) {
       const ms = Array.from(_membersState.values());
-      can = ms.length > 0 && ms.length <= MAX_PLAYERS && ms.every((m) => m && m.uid && (m.role === "host" || m.ready));
+      // 規則：
+      // - 人數 1~5
+      // - 非 host 成員必須 ready 且不 stale；stale 一律視為未準備（避免殘留占位卡死）
+      can = ms.length > 0 && ms.length <= MAX_PLAYERS && ms.every((m) => {
+        if (!m || !m.uid) return false;
+        if (m.role === "host") return true;
+        if (_isMemberStale(m)) return false;
+        return !!m.ready;
+      });
     }
     btnStart.disabled = !can;
   }
@@ -726,6 +778,7 @@ async function enterLobbyAsHost(initialParams) {
   listenSignals(_activeRoomId);
   Runtime.setEnabled(true);
   _syncHostSelectsFromRoom();
+  _startMemberHeartbeat();
 }
 
 async function enterLobbyAsGuest(roomId) {
@@ -740,6 +793,7 @@ async function enterLobbyAsGuest(roomId) {
   listenSignals(_activeRoomId);
   // 連到 host（relay-only）
   await connectClientToHost();
+  _startMemberHeartbeat();
 }
 
 let _pendingStartParams = null; // { selectedDifficultyId, selectedCharacter, selectedMap }
@@ -947,9 +1001,7 @@ function bindUI() {
   // lobby screen 的返回：回到選擇（但保留房間，玩家可再回來）
   // 初版不提供此按鈕，避免狀態混亂（要返回用「離開」）
 
-  // 監聽房間狀態變更時同步下拉
-  const _sync = () => _syncHostSelectsFromRoom();
-  setInterval(_sync, 800);
+  // 不再使用輪詢同步下拉，改由 listenRoom 的 onSnapshot 觸發（更省配額）
 }
 
 // 對外：由 main.js 呼叫（取代原本直接 start survival）
@@ -980,5 +1032,16 @@ window.SurvivalOnlineUI = {
 
 // 提供給 game.js 的 runtime bridge（避免 game.js import）
 window.SurvivalOnlineRuntime = Runtime;
+
+// 頁面關閉/刷新：盡力離開房間（不保證完成，仍以心跳/超時判定為主）
+try {
+  window.addEventListener("beforeunload", () => {
+    try {
+      if (window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === "function") {
+        window.SurvivalOnlineUI.leaveRoom().catch(() => {});
+      }
+    } catch (_) {}
+  });
+} catch (_) {}
 
 
