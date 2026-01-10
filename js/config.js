@@ -1076,9 +1076,9 @@ const CONFIG = {
     
     // 新增：地圖列表（背景鍵）
     MAPS: [
-        { id: 'city', name: '廁所', backgroundKey: 'background' },
-        { id: 'forest', name: '草原', backgroundKey: 'background1-2' },
-        { id: 'desert', name: '宇宙', backgroundKey: 'background1-3' },
+        { id: 'city', name: 'LV1.廁所', backgroundKey: 'background' },
+        { id: 'forest', name: 'LV2.草原', backgroundKey: 'background1-2' },
+        { id: 'desert', name: 'LV3.宇宙', backgroundKey: 'background1-3' },
         { id: 'garden', name: 'LV4.花園', backgroundKey: 'background8' },
         { id: 'intersection', name: 'LV5.路口', backgroundKey: 'background12' },
         { id: 'challenge-1', name: 'LV1.銀河系', backgroundKey: 'background4' },
