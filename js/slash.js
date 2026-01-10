@@ -83,6 +83,7 @@ class SlashEffect extends Entity {
                 if (Math.abs(localX) > widthPx / 2 || Math.abs(localY) > heightPx / 2) continue;
                 let finalDamage = this.damage;
                 let isCrit = false;
+                let lifestealAmount = 0;
                 if (typeof DamageSystem !== 'undefined') {
                     const result = DamageSystem.computeHit(this.damage, enemy, {
                         weaponType: this.weaponType,
@@ -90,6 +91,7 @@ class SlashEffect extends Entity {
                     });
                     finalDamage = result.amount;
                     isCrit = result.isCrit;
+                    lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                 }
                 
                 // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
@@ -105,7 +107,7 @@ class SlashEffect extends Entity {
                     if (typeof DamageNumbers !== 'undefined') {
                         DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: dy, dirY: dx, enemyId: enemy.id });
                     }
-                    // 發送enemy_damage給主機
+                    // 發送enemy_damage給主機（包含吸血資訊）
                     if (enemy && enemy.id) {
                         if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                             window.SurvivalOnlineRuntime.sendToNet({
@@ -114,6 +116,7 @@ class SlashEffect extends Entity {
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "SLASH",
                                 isCrit: isCrit,
+                                lifesteal: lifestealAmount,
                                 playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                             });
                         }
