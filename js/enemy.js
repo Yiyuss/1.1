@@ -1222,6 +1222,26 @@ class Enemy extends Entity {
                 Game.spawnExit();
             } else {
                 // 非第20波（向後兼容），立即獲勝
+                // 組隊模式：廣播勝利事件
+                try {
+                    let isSurvivalMode = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) {}
+                    
+                    if (isSurvivalMode && Game.multiplayer && Game.multiplayer.role === "host") {
+                        if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                            window.SurvivalOnlineBroadcastEvent("game_victory", {
+                                reason: "boss_killed"
+                            });
+                        }
+                    }
+                } catch (_) {}
                 Game.victory();
             }
         }
