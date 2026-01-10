@@ -83,6 +83,17 @@ body {
     display: none !important;
 }
 
+/* ============================================================================
+   生存模式：組隊介面專用覆蓋（僅加深背景，不影響其他 select-card）
+   ============================================================================ */
+#survival-online-select-screen .select-card.team-dark,
+#survival-online-lobby-screen .select-card.team-dark {
+    background: rgba(10, 14, 18, 0.92);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.62);
+    backdrop-filter: blur(8px);
+}
+
 #start-screen {
     background: #000;
     overflow: hidden;
