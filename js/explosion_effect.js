@@ -86,12 +86,13 @@ class ExplosionEffect extends Entity {
             const isHostRemotePlayer = (isMultiplayer && Game.multiplayer.role === "host" && this.player && this.player._isRemotePlayer);
             
             // 隊員端：造成實際傷害並發送enemy_damage
+            // 注意：EXPLOSION 是固定傷害，不經過 DamageSystem，所以沒有吸血
             if (isGuest) {
                 enemy.takeDamage(fixedDamage);
                 if (typeof DamageNumbers !== 'undefined') {
                     this._showSpecialDamageNumber(fixedDamage, enemy.x, enemy.y - (enemy.height || 0) / 2);
                 }
-                // 發送enemy_damage給主機
+                // 發送enemy_damage給主機（固定傷害沒有吸血）
                 if (enemy && enemy.id) {
                     if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                         window.SurvivalOnlineRuntime.sendToNet({
@@ -100,6 +101,7 @@ class ExplosionEffect extends Entity {
                             damage: fixedDamage,
                             weaponType: "EXPLOSION",
                             isCrit: false,
+                            lifesteal: 0,
                             playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                         });
                     }
