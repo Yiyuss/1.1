@@ -95,7 +95,20 @@ class Player extends Entity {
     update(deltaTime) {
         // 處理移動（套用deltaTime，以60FPS為基準）
         const deltaMul = deltaTime / 16.67;
-        const direction = Input.getMovementDirection();
+        // M4：遠程玩家使用 _remoteInput，本地玩家使用 Input
+        let direction = { x: 0, y: 0 };
+        if (this._isRemotePlayer && this._remoteInput) {
+          // 遠程玩家：使用接收到的輸入
+          const now = Date.now();
+          // 如果超過 500ms 沒有收到輸入，停止移動
+          if (now - (this._lastRemoteInputTime || 0) > 500) {
+            this._remoteInput = { x: 0, y: 0 };
+          }
+          direction = { x: this._remoteInput.x || 0, y: this._remoteInput.y || 0 };
+        } else {
+          // 本地玩家：使用 Input 系統
+          direction = Input.getMovementDirection();
+        }
         // 嘗試分軸移動，並以障礙物進行阻擋
         const tryMove = (newX, newY) => {
             for (const obs of Game.obstacles || []) {
