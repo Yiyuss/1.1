@@ -60,6 +60,7 @@ const MAX_PLAYERS = 5;
 const ROOM_TTL_MS = 1000 * 60 * 60; // 1小時（僅用於前端清理提示；真正清理由規則/人為）
 const MEMBER_HEARTBEAT_MS = 15000; // 15s：更新 lastSeenAt（避免關頁/斷線殘留）
 const MEMBER_STALE_MS = 45000; // 45s：超過視為離線/殘留
+const START_COUNTDOWN_MS = 3000; // M1：開始倒數（收到 starting 後倒數）
 
 let _app = null;
 let _auth = null;
@@ -76,6 +77,8 @@ let _hostUid = null;
 let _roomState = null;
 let _membersState = new Map();
 let _memberHeartbeatTimer = null;
+let _startTimer = null;
+let _startSessionId = null;
 
 // WebRTC
 let _pc = null; // 初版：client 只連 host；host 對每個 client 建一條 pc（下方用 map）
@@ -86,6 +89,7 @@ let _dc = null; // client: datachannel
 const Runtime = (() => {
   let enabled = false;
   let lastSendAt = 0;
+  let lastInputAt = 0;
   const remotePlayers = new Map(); // uid -> { x, y, name, updatedAt }
 
   function setEnabled(v) {
@@ -132,6 +136,22 @@ const Runtime = (() => {
     const st = collectLocalState(game);
     if (!st) return;
     sendToNet({ t: "pos", x: st.x, y: st.y });
+
+    // M1：基礎輸入通道（先建立格式；M2 才會由室長權威真正套用）
+    try {
+      if (now - lastInputAt >= 100) {
+        lastInputAt = now;
+        let dir = null;
+        try {
+          if (typeof Input !== "undefined" && Input.getMovementDirection) {
+            dir = Input.getMovementDirection();
+          }
+        } catch (_) {}
+        const mx = dir && typeof dir.x === "number" ? dir.x : 0;
+        const my = dir && typeof dir.y === "number" ? dir.y : 0;
+        sendToNet({ t: "input", mx, my, at: now });
+      }
+    } catch (_) {}
   }
 
   function getRemotePlayers() {
@@ -172,6 +192,11 @@ function _randRoomCode(len = 7) {
     s += chars[Math.floor(Math.random() * chars.length)];
   }
   return s;
+}
+
+function _randSessionId() {
+  // 短 session id（不涉存檔）
+  return (Math.random().toString(36).slice(2, 10) + "-" + Date.now().toString(36)).toUpperCase();
 }
 
 function _candidateIsRelay(cand) {
@@ -365,6 +390,11 @@ async function leaveRoom() {
   // 停止心跳
   try { if (_memberHeartbeatTimer) clearInterval(_memberHeartbeatTimer); } catch (_) {}
   _memberHeartbeatTimer = null;
+
+  // 停止開局倒數（避免離開後誤觸發進入遊戲）
+  try { if (_startTimer) clearTimeout(_startTimer); } catch (_) {}
+  _startTimer = null;
+  _startSessionId = null;
 }
 
 async function setReady(ready) {
@@ -422,7 +452,15 @@ async function hostUpdateSettings({ mapId, diffId }) {
 
 async function hostStartGame() {
   if (!_activeRoomId || !_isHost) return;
-  await updateDoc(roomDocRef(_activeRoomId), { status: "starting", startAt: serverTimestamp(), updatedAt: serverTimestamp() });
+  // M1：寫入 sessionId + 倒數設定，讓隊員做一致的「開局」流程
+  const sessionId = _randSessionId();
+  await updateDoc(roomDocRef(_activeRoomId), {
+    status: "starting",
+    sessionId,
+    startDelayMs: START_COUNTDOWN_MS,
+    startAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  });
 }
 
 async function sendSignal(payload) {
@@ -741,6 +779,12 @@ function handleHostDataMessage(fromUid, msg) {
       const ch = (it && it.channel) ? it.channel : null;
       _sendToChannel(ch, { t: "state", players });
     }
+    return;
+  }
+  if (msg.t === "input") {
+    // M1：先接收並保留格式（M2 才會真正套用到世界）
+    // 目前不做任何遊戲邏輯，避免影響單機/其他模式
+    return;
   }
 }
 
@@ -1068,7 +1112,12 @@ function startSurvivalNow(params) {
       selectedCharacter: params && params.selectedCharacter ? params.selectedCharacter : (typeof Game !== "undefined" ? Game.selectedCharacter : null),
       selectedMap: params && params.selectedMap ? params.selectedMap : (typeof Game !== "undefined" ? Game.selectedMap : null),
       // multiplayer hint（生存模式以外不讀）
-      multiplayer: _activeRoomId ? { roomId: _activeRoomId, role: _isHost ? "host" : "guest", uid: _uid } : null,
+      multiplayer: _activeRoomId ? {
+        roomId: _activeRoomId,
+        role: _isHost ? "host" : "guest",
+        uid: _uid,
+        sessionId: (params && params.sessionId) ? params.sessionId : (_roomState && _roomState.sessionId ? _roomState.sessionId : null)
+      } : null,
     });
     return;
   }
@@ -1080,6 +1129,15 @@ function startSurvivalNow(params) {
 function tryStartSurvivalFromRoom() {
   if (!_roomState || _roomState.status !== "starting") return;
   if (!_pendingStartParams) return;
+
+  // M1：避免 snapshot 多次觸發重複 start
+  try {
+    const sid = _roomState.sessionId || null;
+    if (sid && _startSessionId && sid === _startSessionId) return;
+    _startSessionId = sid || _startSessionId || "NO_SESSION";
+  } catch (_) {}
+  if (_startTimer) return;
+
   // 套用 host 的 map/diff（室長優先權）
   try {
     if (typeof Game !== "undefined") {
@@ -1090,12 +1148,19 @@ function tryStartSurvivalFromRoom() {
     }
   } catch (_) {}
 
-  // 啟動
-  startSurvivalNow({
-    selectedDifficultyId: _roomState.diffId || _pendingStartParams.selectedDifficultyId,
-    selectedCharacter: _pendingStartParams.selectedCharacter,
-    selectedMap: (typeof Game !== "undefined" ? Game.selectedMap : _pendingStartParams.selectedMap),
-  });
+  // M1：倒數後啟動（讓全員「差不多同一時間」進入）
+  const delay = (typeof _roomState.startDelayMs === "number") ? Math.max(0, Math.floor(_roomState.startDelayMs)) : START_COUNTDOWN_MS;
+  const sec = Math.max(0, Math.ceil(delay / 1000));
+  _setText("survival-online-status", `即將開始：${sec} 秒`);
+  _startTimer = setTimeout(() => {
+    _startTimer = null;
+    startSurvivalNow({
+      selectedDifficultyId: _roomState.diffId || _pendingStartParams.selectedDifficultyId,
+      selectedCharacter: _pendingStartParams.selectedCharacter,
+      selectedMap: (typeof Game !== "undefined" ? Game.selectedMap : _pendingStartParams.selectedMap),
+      sessionId: _roomState.sessionId || null
+    });
+  }, delay);
 }
 
 function bindUI() {
