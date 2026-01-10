@@ -120,39 +120,42 @@ class ChainLightningEffect extends Entity {
                 if (target && !target.markedForDeletion && target.health > 0) {
                     let finalDamage = this.damage;
                     let isCrit = false;
+                    let lifestealAmount = 0;
                     if (typeof DamageSystem !== 'undefined') {
                         const result = DamageSystem.computeHit(this.damage, target, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
                         finalDamage = result.amount;
                         isCrit = result.isCrit;
+                        lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
+                    }
+                    
+                    // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
+                    // 隊員端：造成實際傷害並發送enemy_damage給主機
+                    // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                    const isGuest = (isMultiplayer && Game.multiplayer.role === "guest");
+                    const isHostRemotePlayer = (isMultiplayer && Game.multiplayer.role === "host" && this.player && this.player._isRemotePlayer);
+                    
+                    // 隊員端：造成實際傷害並發送enemy_damage
+                    if (isGuest) {
+                        target.takeDamage(finalDamage);
+                        if (typeof DamageNumbers !== 'undefined') {
+                            const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
+                            DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
                         }
-                        
-                        // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
-                        // 隊員端：造成實際傷害並發送enemy_damage給主機
-                        // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理
-                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-                        const isGuest = (isMultiplayer && Game.multiplayer.role === "guest");
-                        const isHostRemotePlayer = (isMultiplayer && Game.multiplayer.role === "host" && this.player && this.player._isRemotePlayer);
-                        
-                        // 隊員端：造成實際傷害並發送enemy_damage
-                        if (isGuest) {
-                            target.takeDamage(finalDamage);
-                            if (typeof DamageNumbers !== 'undefined') {
-                                const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
-                                DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
+                        // 發送enemy_damage給主機（包含吸血資訊）
+                        if (target && target.id) {
+                            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                                window.SurvivalOnlineRuntime.sendToNet({
+                                    t: "enemy_damage",
+                                    enemyId: target.id,
+                                    damage: finalDamage,
+                                    weaponType: this.weaponType || "CHAIN_LIGHTNING",
+                                    isCrit: isCrit,
+                                    lifesteal: lifestealAmount
+                                });
                             }
-                            // 發送enemy_damage給主機
-                            if (target && target.id) {
-                                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                                    window.SurvivalOnlineRuntime.sendToNet({
-                                        t: "enemy_damage",
-                                        enemyId: target.id,
-                                        damage: finalDamage,
-                                        weaponType: this.weaponType || "CHAIN_LIGHTNING",
-                                        isCrit: isCrit
-                                    });
-                                }
-                            }
-                        } 
+                        }
+                    } 
                         // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理（不重複計算）
                         else if (!isHostRemotePlayer) {
                             target.takeDamage(finalDamage);
@@ -430,10 +433,12 @@ class FrenzyLightningEffect extends Entity {
                 if (target && !target.markedForDeletion && target.health > 0) {
                     let finalDamage = this.damage;
                     let isCrit = false;
+                    let lifestealAmount = 0;
                     if (typeof DamageSystem !== 'undefined') {
                         const result = DamageSystem.computeHit(this.damage, target, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
                         finalDamage = result.amount;
                         isCrit = result.isCrit;
+                        lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                     }
                     
                     // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
@@ -450,7 +455,7 @@ class FrenzyLightningEffect extends Entity {
                             const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
                             DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
                         }
-                        // 發送enemy_damage給主機
+                        // 發送enemy_damage給主機（包含吸血資訊）
                         if (target && target.id) {
                             if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                                 window.SurvivalOnlineRuntime.sendToNet({
@@ -458,7 +463,8 @@ class FrenzyLightningEffect extends Entity {
                                     enemyId: target.id,
                                     damage: finalDamage,
                                     weaponType: this.weaponType || "CHAIN_LIGHTNING",
-                                    isCrit: isCrit
+                                    isCrit: isCrit,
+                                    lifesteal: lifestealAmount
                                 });
                             }
                         }
