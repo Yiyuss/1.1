@@ -3547,6 +3547,40 @@ function bindUI() {
   const btnCleanup = _qs("survival-online-cleanup");
   const selMap = _qs("survival-online-host-map");
   const selDiff = _qs("survival-online-host-diff");
+  
+  // 防止暱稱輸入框的鍵盤事件影響遊戲主體
+  const nicknameInput = _qs("survival-online-nickname");
+  if (nicknameInput) {
+    // 阻止所有鍵盤事件傳播到遊戲主體
+    nicknameInput.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+    }, true);
+    nicknameInput.addEventListener("keyup", (e) => {
+      e.stopPropagation();
+    }, true);
+    // 特別處理空白鍵，防止觸發遊戲功能
+    nicknameInput.addEventListener("keydown", (e) => {
+      if (e.key === " " || e.code === "Space" || e.keyCode === 32) {
+        // 允許空白鍵正常輸入，但阻止傳播
+        e.stopPropagation();
+      }
+    });
+  }
+  
+  // 同樣處理房間碼輸入框
+  if (inpCode) {
+    inpCode.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+    }, true);
+    inpCode.addEventListener("keyup", (e) => {
+      e.stopPropagation();
+    }, true);
+    inpCode.addEventListener("keydown", (e) => {
+      if (e.key === " " || e.code === "Space" || e.keyCode === 32) {
+        e.stopPropagation();
+      }
+    });
+  }
 
   if (btnBack) btnBack.addEventListener("click", () => {
     closeSelectScreenBackToDifficulty();
