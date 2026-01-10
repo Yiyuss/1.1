@@ -157,7 +157,7 @@ const RemotePlayerManager = (() => {
 
   // M4：使用完整的 Player 類（而不是簡化的 RemotePlayer）
   // 這樣遠程玩家也能有武器、造成傷害、收集經驗等
-  function getOrCreate(uid, startX, startY, characterId) {
+  function getOrCreate(uid, startX, startY, characterId, talentLevels = null) {
     if (!remotePlayers.has(uid)) {
       try {
         // 創建完整的 Player 對象
@@ -185,13 +185,40 @@ const RemotePlayerManager = (() => {
               player.spriteImageKey = char.spriteImageKey || 'player';
               player.health = player.maxHealth;
               
-              // 應用天賦效果（遠程玩家也應該應用天賦，但使用本地天賦數據）
-              // 注意：這裡使用本地天賦數據，因為天賦是全局的，不是每個玩家獨立的
+              // 應用天賦效果（使用該玩家自己的天賦等級，而不是本地天賦數據）
               try {
-                if (typeof TalentSystem !== "undefined" && typeof TalentSystem.applyTalentEffects === "function") {
-                  TalentSystem.applyTalentEffects(player);
-                } else if (typeof applyTalentEffects === "function") {
-                  applyTalentEffects(player);
+                if (talentLevels && typeof talentLevels === "object") {
+                  // 使用遠程玩家的天賦等級
+                  if (typeof BuffSystem !== "undefined" && BuffSystem.applyBuffsFromTalentLevels) {
+                    BuffSystem.applyBuffsFromTalentLevels(player, talentLevels);
+                  } else {
+                    // 後備方案：臨時替換 TalentSystem.getTalentLevel 來使用遠程玩家的天賦
+                    const originalGetTalentLevel = (typeof TalentSystem !== "undefined" && TalentSystem.getTalentLevel) ? TalentSystem.getTalentLevel.bind(TalentSystem) : null;
+                    if (originalGetTalentLevel && typeof TalentSystem !== "undefined") {
+                      TalentSystem.getTalentLevel = function(id) {
+                        const level = (talentLevels && typeof talentLevels[id] === "number") ? talentLevels[id] : 0;
+                        const cfg = this.tieredTalents[id];
+                        if (!cfg) return 0;
+                        return Math.max(0, Math.min(level, cfg.levels.length));
+                      }.bind(TalentSystem);
+                    }
+                    if (typeof TalentSystem !== "undefined" && typeof TalentSystem.applyTalentEffects === "function") {
+                      TalentSystem.applyTalentEffects(player);
+                    } else if (typeof applyTalentEffects === "function") {
+                      applyTalentEffects(player);
+                    }
+                    // 恢復原始函數
+                    if (originalGetTalentLevel && typeof TalentSystem !== "undefined") {
+                      TalentSystem.getTalentLevel = originalGetTalentLevel;
+                    }
+                  }
+                } else {
+                  // 如果沒有提供天賦等級，使用本地天賦（向後兼容）
+                  if (typeof TalentSystem !== "undefined" && typeof TalentSystem.applyTalentEffects === "function") {
+                    TalentSystem.applyTalentEffects(player);
+                  } else if (typeof applyTalentEffects === "function") {
+                    applyTalentEffects(player);
+                  }
                 }
               } catch (e) {
                 console.warn("[SurvivalOnline] 遠程玩家應用天賦失敗:", e);
@@ -1866,6 +1893,14 @@ async function createRoom(initial) {
       // 成功建立 room
       roomId = code;
       // 建立室長 member（建立後才算 member，之後才有 read 權限）
+      // 獲取本地玩家的天賦等級
+      let talentLevels = {};
+      try {
+        if (typeof TalentSystem !== "undefined" && typeof TalentSystem.getTalentLevels === "function") {
+          talentLevels = TalentSystem.getTalentLevels();
+        }
+      } catch (_) {}
+      
       await setDoc(memberDocRef(roomId, _uid), {
         uid: _uid,
         role: "host",
@@ -1874,6 +1909,7 @@ async function createRoom(initial) {
         lastSeenAt: createdAt,
         name: getPlayerNickname(),
         characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
+        talentLevels: talentLevels, // 保存天賦等級
       });
       
       // 啟動自動清理機制（主機端）
@@ -1906,6 +1942,14 @@ async function joinRoom(roomId) {
 
   // 重要：不要在加入前讀取 room（嚴格 Rules 下非成員無 read 權限）
   // 改成直接寫入 members；Rules 會檢查 room 是否存在且 status 是否為 lobby。
+  // 獲取本地玩家的天賦等級
+  let talentLevels = {};
+  try {
+    if (typeof TalentSystem !== "undefined" && typeof TalentSystem.getTalentLevels === "function") {
+      talentLevels = TalentSystem.getTalentLevels();
+    }
+  } catch (_) {}
+  
   try {
     await setDoc(memberDocRef(roomId, _uid), {
       uid: _uid,
@@ -1915,6 +1959,7 @@ async function joinRoom(roomId) {
       lastSeenAt: serverTimestamp(),
       name: getPlayerNickname(),
       characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
+      talentLevels: talentLevels, // 保存天賦等級
     });
   } catch (e) {
     const c = e && e.code ? String(e.code) : "";
@@ -2957,10 +3002,11 @@ function handleHostDataMessage(fromUid, msg) {
           startY = Game.player.y;
         }
       }
-      // 獲取成員的角色ID
+      // 獲取成員的角色ID和天賦等級
       const member = _membersState ? _membersState.get(fromUid) : null;
       const characterId = (member && member.characterId) ? member.characterId : null;
-      const remotePlayer = RemotePlayerManager.getOrCreate(fromUid, startX, startY, characterId);
+      const talentLevels = (member && member.talentLevels && typeof member.talentLevels === 'object') ? member.talentLevels : null;
+      const remotePlayer = RemotePlayerManager.getOrCreate(fromUid, startX, startY, characterId, talentLevels);
       if (remotePlayer) {
         // M4：直接設置移動方向（Player.update 會處理移動）
         // 創建一個臨時的 Input 對象來模擬輸入
