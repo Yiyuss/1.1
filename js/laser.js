@@ -126,15 +126,43 @@ class LaserBeam extends Entity {
                         }
                     }
                     
+                    let finalDamage = this.damage;
+                    let isCrit = false;
                     if (typeof DamageSystem !== 'undefined') {
                         const result = DamageSystem.computeHit(this.damage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
-                        enemy.takeDamage(result.amount);
-                        if (typeof DamageNumbers !== 'undefined') {
-                            // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
-                            DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height||0)/2, result.isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
+                        finalDamage = result.amount;
+                        isCrit = result.isCrit;
+                    }
+                    
+                    // 組隊模式：隊員的雷射攻擊敵人時，同步傷害到隊長端
+                    try {
+                        let isSurvivalMode = false;
+                        try {
+                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                ? GameModeManager.getCurrent()
+                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                    ? ModeManager.getActiveModeId()
+                                    : null);
+                            isSurvivalMode = (activeId === 'survival' || activeId === null);
+                        } catch (_) {}
+                        
+                        if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+                            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                                window.SurvivalOnlineRuntime.sendToNet({
+                                    t: "enemy_damage",
+                                    enemyId: enemy.id,
+                                    damage: finalDamage,
+                                    weaponType: this.weaponType || "UNKNOWN",
+                                    isCrit: isCrit
+                                });
+                            }
                         }
-                    } else {
-                        enemy.takeDamage(this.damage);
+                    } catch (_) {}
+                    
+                    enemy.takeDamage(finalDamage);
+                    if (typeof DamageNumbers !== 'undefined') {
+                        // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
+                        DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
                     }
                 }
             }
