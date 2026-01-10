@@ -519,15 +519,17 @@ class Player extends Entity {
         this.experience -= this.experienceToNextLevel;
         this.experienceToNextLevel = Player.computeExperienceToNextLevel(this.level);
         
-        // 更新UI
-        UI.updateLevel(this.level);
-        UI.updateExpBar(this.experience, this.experienceToNextLevel);
-        
-        // 顯示升級選單
-        UI.showLevelUpMenu();
+        // 更新UI（僅本地玩家更新UI，遠程玩家由室長端處理）
+        if (!this._isRemotePlayer) {
+            UI.updateLevel(this.level);
+            UI.updateExpBar(this.experience, this.experienceToNextLevel);
+            
+            // 顯示升級選單（僅本地玩家顯示）
+            UI.showLevelUpMenu();
+        }
 
-        // 播放升級音效
-        if (typeof AudioManager !== 'undefined') {
+        // 播放升級音效（僅本地玩家播放）
+        if (!this._isRemotePlayer && typeof AudioManager !== 'undefined') {
             AudioManager.playSound('level_up');
         }
     }
@@ -536,6 +538,28 @@ class Player extends Entity {
     addWeapon(weaponType) {
         // 檢查是否已有此武器
         const existingWeapon = this.weapons.find(w => w.type === weaponType);
+        
+        // 組隊模式：驗證專屬武器過濾（防止遠程玩家獲得不應該獲得的專屬武器）
+        if (this._isRemotePlayer && this._remoteCharacter) {
+            const char = this._remoteCharacter;
+            // 檢查是否為其他角色的專屬武器
+            if (CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) {
+                for (const otherChar of CONFIG.CHARACTERS) {
+                    if (otherChar && otherChar.id !== char.id && Array.isArray(otherChar.exclusiveWeapons)) {
+                        if (otherChar.exclusiveWeapons.includes(weaponType)) {
+                            // 這是其他角色的專屬武器，不應該添加
+                            console.warn(`[SurvivalOnline] 遠程玩家 ${this._remoteUid} 嘗試添加其他角色的專屬武器 ${weaponType}，已阻止`);
+                            return;
+                        }
+                    }
+                }
+            }
+            // 檢查是否為當前角色的禁用武器
+            if (Array.isArray(char.disabledWeapons) && char.disabledWeapons.includes(weaponType)) {
+                console.warn(`[SurvivalOnline] 遠程玩家 ${this._remoteUid} 嘗試添加禁用武器 ${weaponType}，已阻止`);
+                return;
+            }
+        }
         
         if (existingWeapon) {
             // 如果已有此武器，則升級
@@ -574,9 +598,14 @@ class Player extends Entity {
     // 啟動大招：變身、體型變大、四技能LV10、能量消耗
     activateUltimate() {
         // 取得角色特定的大招配置（若存在）
+        // 修復：遠程玩家使用自己的角色，本地玩家使用 Game.selectedCharacter
         let characterId = null;
         try {
-            if (typeof Game !== 'undefined' && Game.selectedCharacter) {
+            if (this._isRemotePlayer && this._remoteCharacter) {
+                // 遠程玩家：使用自己的角色
+                characterId = this._remoteCharacter.id;
+            } else if (typeof Game !== 'undefined' && Game.selectedCharacter) {
+                // 本地玩家：使用 Game.selectedCharacter
                 characterId = Game.selectedCharacter.id;
             }
         } catch (_) {}
