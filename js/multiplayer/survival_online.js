@@ -204,7 +204,10 @@ async function ensureAuth() {
       }
     });
     // 若還沒登入，先匿名登入
-    signInAnonymously(_auth).catch(() => {});
+    signInAnonymously(_auth).catch((e) => {
+      // 常見原因：Authorized domains 沒加入、或瀏覽器阻擋第三方 cookie/存儲
+      try { console.warn("[SurvivalOnline] signInAnonymously failed:", e); } catch (_) {}
+    });
   });
   return _uid;
 }
@@ -221,6 +224,7 @@ function signalsColRef(roomId) {
 
 async function createRoom(initial) {
   await ensureAuth();
+  if (!_uid) throw new Error("匿名登入失敗（request.auth 為空），請確認 Firebase Auth 匿名已啟用且 Authorized domains 已加入 yiyuss.github.io");
   // 嘗試產生不重複 roomId
   let roomId = null;
   for (let i = 0; i < 5; i++) {
@@ -237,27 +241,39 @@ async function createRoom(initial) {
   const mapId = initial && initial.mapId ? initial.mapId : (typeof Game !== "undefined" && Game.selectedMap ? Game.selectedMap.id : "city");
   const diffId = initial && initial.diffId ? initial.diffId : (typeof Game !== "undefined" && Game.selectedDifficultyId ? Game.selectedDifficultyId : "EASY");
 
-  await setDoc(roomDocRef(roomId), {
-    v: 1,
-    hostUid: _uid,
-    status: "lobby",
-    createdAt,
-    updatedAt: createdAt,
-    mapId,
-    diffId,
-    maxPlayers: MAX_PLAYERS,
-  });
+  try {
+    await setDoc(roomDocRef(roomId), {
+      v: 1,
+      hostUid: _uid,
+      status: "lobby",
+      createdAt,
+      updatedAt: createdAt,
+      mapId,
+      diffId,
+      maxPlayers: MAX_PLAYERS,
+    });
+  } catch (e) {
+    const code = e && e.code ? String(e.code) : "";
+    const msg = e && e.message ? String(e.message) : "unknown";
+    throw new Error(`建立房間資料被拒絕：${msg}${code ? ` [${code}]` : ""}`);
+  }
 
-  await setDoc(memberDocRef(roomId, _uid), {
-    uid: _uid,
-    role: "host",
-    ready: false,
-    joinedAt: createdAt,
-    lastSeenAt: createdAt,
-    // 顯示名稱：匿名 UID 簡寫（不寫進存檔、不進 SaveCode）
-    name: `玩家-${_uid.slice(0, 4)}`,
-    characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
-  });
+  try {
+    await setDoc(memberDocRef(roomId, _uid), {
+      uid: _uid,
+      role: "host",
+      ready: false,
+      joinedAt: createdAt,
+      lastSeenAt: createdAt,
+      // 顯示名稱：匿名 UID 簡寫（不寫進存檔、不進 SaveCode）
+      name: `玩家-${_uid.slice(0, 4)}`,
+      characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
+    });
+  } catch (e) {
+    const code = e && e.code ? String(e.code) : "";
+    const msg = e && e.message ? String(e.message) : "unknown";
+    throw new Error(`建立室長成員資料被拒絕：${msg}${code ? ` [${code}]` : ""}`);
+  }
 
   return { roomId, hostUid: _uid, mapId, diffId };
 }
