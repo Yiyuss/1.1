@@ -449,29 +449,79 @@ class PineappleUltimatePickup extends Chest {
         // 檢查是否被任何玩家收集
         for (const player of allPlayers) {
             if (this.isColliding(player)) {
-                // 只有本地玩家播放音效
-                if (player === Game.player && !player._isRemotePlayer) {
-                    try {
-                        if (typeof AudioManager !== 'undefined') {
-                            if (AudioManager.expSoundEnabled !== false) {
-                                AudioManager.playSound('collect_exp');
+                // 組隊模式：給所有玩家經驗（經驗共享）
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                if (isMultiplayer && Game.multiplayer.role === "host") {
+                    // 室長端：給所有玩家經驗
+                    // 只有本地玩家播放音效
+                    if (player === Game.player && !player._isRemotePlayer) {
+                        try {
+                            if (typeof AudioManager !== 'undefined') {
+                                if (AudioManager.expSoundEnabled !== false) {
+                                    AudioManager.playSound('collect_exp');
+                                }
                             }
-                        }
-                    } catch (_) {}
-                }
-                
-                // 給予經驗（所有玩家都可以收集）
-                if (player && typeof player.gainExperience === 'function') {
-                    // 平衡：每顆鳳梨給「50 + 當下所需升級的30%經驗」
+                        } catch (_) {}
+                    }
+                    
+                    // 計算經驗值（使用本地玩家的經驗需求計算）
                     const base = 50;
                     let needNow = 0;
                     try {
-                        if (typeof player.experienceToNextLevel === 'number' && typeof player.experience === 'number') {
-                            needNow = Math.max(0, Math.floor(player.experienceToNextLevel - player.experience));
+                        if (Game.player && typeof Game.player.experienceToNextLevel === 'number' && typeof Game.player.experience === 'number') {
+                            needNow = Math.max(0, Math.floor(Game.player.experienceToNextLevel - Game.player.experience));
                         }
                     } catch (_) {}
                     const bonus = Math.max(0, Math.floor(needNow * 0.30));
-                    player.gainExperience(base + bonus);
+                    const expAmount = base + bonus;
+                    
+                    // 給本地玩家經驗
+                    if (Game.player && typeof Game.player.gainExperience === 'function') {
+                        Game.player.gainExperience(expAmount);
+                    }
+                    // 給所有遠程玩家經驗
+                    if (Array.isArray(Game.remotePlayers)) {
+                        for (const remotePlayer of Game.remotePlayers) {
+                            if (remotePlayer && !remotePlayer.markedForDeletion && typeof remotePlayer.gainExperience === 'function') {
+                                // 使用遠程玩家自己的經驗需求計算
+                                const remoteBase = 50;
+                                let remoteNeedNow = 0;
+                                try {
+                                    if (typeof remotePlayer.experienceToNextLevel === 'number' && typeof remotePlayer.experience === 'number') {
+                                        remoteNeedNow = Math.max(0, Math.floor(remotePlayer.experienceToNextLevel - remotePlayer.experience));
+                                    }
+                                } catch (_) {}
+                                const remoteBonus = Math.max(0, Math.floor(remoteNeedNow * 0.30));
+                                remotePlayer.gainExperience(remoteBase + remoteBonus);
+                            }
+                        }
+                    }
+                } else {
+                    // 單人模式：只給收集者經驗
+                    // 只有本地玩家播放音效
+                    if (player === Game.player && !player._isRemotePlayer) {
+                        try {
+                            if (typeof AudioManager !== 'undefined') {
+                                if (AudioManager.expSoundEnabled !== false) {
+                                    AudioManager.playSound('collect_exp');
+                                }
+                            }
+                        } catch (_) {}
+                    }
+                    
+                    // 給予經驗
+                    if (player && typeof player.gainExperience === 'function') {
+                        // 平衡：每顆鳳梨給「50 + 當下所需升級的30%經驗」
+                        const base = 50;
+                        let needNow = 0;
+                        try {
+                            if (typeof player.experienceToNextLevel === 'number' && typeof player.experience === 'number') {
+                                needNow = Math.max(0, Math.floor(player.experienceToNextLevel - player.experience));
+                            }
+                        } catch (_) {}
+                        const bonus = Math.max(0, Math.floor(needNow * 0.30));
+                        player.gainExperience(base + bonus);
+                    }
                 }
                 this.destroy();
                 return;
