@@ -261,6 +261,43 @@ const Runtime = (() => {
     }
   }
 
+  // M2：處理事件（客戶端接收室長廣播的事件）
+  function onEventMessage(payload) {
+    if (!payload || typeof payload !== "object") return;
+    if (payload.t !== "event") return;
+    const eventType = payload.type;
+    const eventData = payload.data || {};
+    
+    try {
+      // 根據事件類型執行輕量模擬
+      if (eventType === "wave_start") {
+        // 波次開始
+        if (typeof WaveSystem !== "undefined" && WaveSystem.currentWave !== undefined) {
+          WaveSystem.currentWave = eventData.wave || 1;
+          WaveSystem.waveStartTime = payload.timestamp || Date.now();
+          if (typeof UI !== "undefined" && UI.updateWaveInfo) {
+            UI.updateWaveInfo(WaveSystem.currentWave);
+          }
+        }
+      } else if (eventType === "enemy_spawn") {
+        // 敵人生成（客戶端只做渲染，不影響遊戲邏輯）
+        // 注意：客戶端不應該真正生成敵人，只是記錄用於視覺效果
+        // 實際的敵人生成和戰鬥邏輯由室長處理
+      } else if (eventType === "boss_spawn") {
+        // BOSS 生成
+        if (typeof Game !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
+          // 客戶端可以顯示 BOSS 出現特效，但實際 BOSS 對象由室長管理
+        }
+      } else if (eventType === "exp_orb_spawn") {
+        // 經驗球生成（客戶端可以顯示，但不影響遊戲邏輯）
+      } else if (eventType === "chest_spawn") {
+        // 寶箱生成（客戶端可以顯示，但不影響遊戲邏輯）
+      }
+    } catch (e) {
+      console.warn("[SurvivalOnline] M2 事件處理失敗:", e);
+    }
+  }
+
   function collectLocalState(game) {
     try {
       const player = game && game.player ? game.player : null;
@@ -341,8 +378,26 @@ const Runtime = (() => {
     } catch (_) {}
   }
 
-  return { setEnabled, onStateMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers };
+  // M2：廣播事件（僅室長端調用）
+  function broadcastEventFromRuntime(eventType, eventData) {
+    if (!_isHost) return;
+    try {
+      // 調用全局 broadcastEvent 函數
+      if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+        window.SurvivalOnlineBroadcastEvent(eventType, eventData);
+      }
+    } catch (_) {}
+  }
+
+  return { setEnabled, onStateMessage, onEventMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers, broadcastEvent: broadcastEventFromRuntime };
 })();
+
+// M2：全局事件廣播函數（供其他模組調用）
+window.SurvivalOnlineBroadcastEvent = function(eventType, eventData) {
+  if (typeof broadcastEvent === "function") {
+    broadcastEvent(eventType, eventData);
+  }
+};
 
 function _qs(id) {
   return document.getElementById(id);
@@ -852,7 +907,12 @@ async function connectClientToHost() {
   _dc.onmessage = (ev) => {
     try {
       const msg = JSON.parse(ev.data);
-      Runtime.onStateMessage(msg);
+      if (msg.t === "state") {
+        Runtime.onStateMessage(msg);
+      } else if (msg.t === "event") {
+        // M2：處理室長廣播的事件
+        Runtime.onEventMessage(msg);
+      }
     } catch (_) {}
   };
 
@@ -957,6 +1017,22 @@ async function hostAcceptOffer(fromUid, sdp) {
 function _sendToChannel(ch, obj) {
   if (!ch || ch.readyState !== "open") return;
   try { ch.send(JSON.stringify(obj)); } catch (_) {}
+}
+
+// M2：事件廣播系統（室長權威）
+function broadcastEvent(eventType, eventData) {
+  if (!_isHost || !_activeRoomId) return;
+  const event = {
+    t: "event",
+    type: eventType,
+    data: eventData,
+    timestamp: Date.now()
+  };
+  // 廣播給所有 client
+  for (const [uid, it] of _pcsHost.entries()) {
+    const ch = (it && it.channel) ? it.channel : null;
+    _sendToChannel(ch, event);
+  }
 }
 
 function handleHostDataMessage(fromUid, msg) {
