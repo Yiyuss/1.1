@@ -85,6 +85,12 @@ let _pc = null; // 初版：client 只連 host；host 對每個 client 建一條
 let _pcsHost = new Map(); // host: remoteUid -> { pc, channel }
 let _dc = null; // client: datachannel
 
+// 自動重連機制
+let _reconnectAttempts = 0;
+let _reconnectTimer = null;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const RECONNECT_DELAY_MS = 3000; // 3 秒
+
 // M4：室長端遠程玩家管理（完整的 Player 對象，支援武器和戰鬥）
 const RemotePlayerManager = (() => {
   const remotePlayers = new Map(); // uid -> Player
@@ -1942,6 +1948,13 @@ async function leaveRoom() {
   
   // 清理速率限制追蹤
   _rateLimitTracker.clear();
+  
+  // 清理自動重連機制
+  if (_reconnectTimer) {
+    clearTimeout(_reconnectTimer);
+    _reconnectTimer = null;
+  }
+  _reconnectAttempts = 0;
 
   Runtime.setEnabled(false);
 
@@ -2026,6 +2039,12 @@ async function hostUpdateSettings({ mapId, diffId }) {
   if (mapId) patch.mapId = mapId;
   if (diffId) patch.diffId = diffId;
   await updateDoc(roomDocRef(_activeRoomId), patch);
+  
+  // 更新房間狀態以延長過期時間
+  if (_roomState) {
+    _roomState.updatedAt = Date.now();
+    _roomState._lastUpdateMs = Date.now();
+  }
 }
 
 async function hostStartGame() {
@@ -2039,6 +2058,13 @@ async function hostStartGame() {
     startAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
+  
+  // 更新房間狀態以延長過期時間
+  if (_roomState) {
+    _roomState.updatedAt = Date.now();
+    _roomState._lastUpdateMs = Date.now();
+    _roomState.status = "starting";
+  }
 }
 
 async function sendSignal(payload) {
@@ -2053,6 +2079,19 @@ function listenRoom(roomId) {
     (snap) => {
       _roomState = snap.exists() ? (snap.data() || null) : null;
       if (_roomState && _roomState.hostUid) _hostUid = _roomState.hostUid;
+      
+      // 更新本地 updatedAt 時間戳（用於過期檢查）
+      if (_roomState && _roomState.updatedAt) {
+        try {
+          const updatedAt = _roomState.updatedAt;
+          if (updatedAt && typeof updatedAt.toMillis === "function") {
+            _roomState._lastUpdateMs = updatedAt.toMillis();
+          } else if (typeof updatedAt === "number") {
+            _roomState._lastUpdateMs = updatedAt;
+          }
+        } catch (_) {}
+      }
+      
       // 同步 host 的下拉（避免用輪詢）
       _syncHostSelectsFromRoom();
       updateLobbyUI();
@@ -2236,6 +2275,17 @@ async function connectClientToHost() {
   _dc.onopen = () => {
     Runtime.setEnabled(true);
     _setText("survival-online-status", "已連線（relay）");
+    
+    // 重連成功：重置重連計數和定時器
+    if (_reconnectAttempts > 0) {
+      console.log(`[SurvivalOnline] 自動重連成功（嘗試 ${_reconnectAttempts} 次）`);
+      _reconnectAttempts = 0;
+    }
+    if (_reconnectTimer) {
+      clearTimeout(_reconnectTimer);
+      _reconnectTimer = null;
+    }
+    
     // M5：隊員重新連接時，請求室長發送全量快照
     if (!_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
       // 發送重連請求
@@ -2249,18 +2299,43 @@ async function connectClientToHost() {
     _setText("survival-online-status", "連線已中斷");
     // M5：檢測室長斷線（僅在遊戲進行中）
     if (!_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-      // 室長斷線：自動返回大廳
-      console.log("[SurvivalOnline] M5: 室長斷線，返回大廳");
-      _setText("survival-online-status", "室長斷線，返回大廳");
-      setTimeout(() => {
-        try {
-          if (typeof Game !== "undefined" && Game.gameOver) {
-            Game.gameOver(); // 觸發遊戲結束
+      // 自動重連機制
+      if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        _reconnectAttempts++;
+        _setText("survival-online-status", `重新連線中... (${_reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+        console.log(`[SurvivalOnline] 自動重連嘗試 ${_reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+        
+        // 清除舊的重連定時器
+        if (_reconnectTimer) {
+          clearTimeout(_reconnectTimer);
+          _reconnectTimer = null;
+        }
+        
+        // 延遲後嘗試重連
+        _reconnectTimer = setTimeout(async () => {
+          try {
+            await reconnectClient();
+            // 重連成功會在 onopen 中重置計數
+          } catch (e) {
+            console.warn("[SurvivalOnline] 自動重連失敗:", e);
+            // 繼續嘗試或放棄（由 onclose 處理）
           }
-        } catch (_) {}
-        leaveRoom().catch(() => {});
-        closeLobbyToSelect();
-      }, 1000);
+        }, RECONNECT_DELAY_MS);
+      } else {
+        // 重連失敗次數過多，放棄
+        console.log("[SurvivalOnline] 自動重連失敗次數過多，返回大廳");
+        _setText("survival-online-status", "連線失敗，返回大廳");
+        _reconnectAttempts = 0; // 重置計數
+        setTimeout(() => {
+          try {
+            if (typeof Game !== "undefined" && Game.gameOver) {
+              Game.gameOver(); // 觸發遊戲結束
+            }
+          } catch (_) {}
+          leaveRoom().catch(() => {});
+          closeLobbyToSelect();
+        }, 1000);
+      }
     }
   };
   _dc.onmessage = (ev) => {
@@ -2297,17 +2372,48 @@ async function connectClientToHost() {
       _setText("survival-online-status", "連線失敗（TURN 不可用或被限流）");
       // M5：檢測室長斷線（僅在遊戲進行中）
       if (!_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-        console.log("[SurvivalOnline] M5: 與室長連接失敗，返回大廳");
-        _setText("survival-online-status", "與室長連接失敗，返回大廳");
-        setTimeout(() => {
-          try {
-            if (typeof Game !== "undefined" && Game.gameOver) {
-              Game.gameOver();
+        // 自動重連機制（與 _dc.onclose 相同）
+        if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          _reconnectAttempts++;
+          _setText("survival-online-status", `重新連線中... (${_reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+          console.log(`[SurvivalOnline] 連接狀態失敗，自動重連嘗試 ${_reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+          
+          if (_reconnectTimer) {
+            clearTimeout(_reconnectTimer);
+            _reconnectTimer = null;
+          }
+          
+          _reconnectTimer = setTimeout(async () => {
+            try {
+              await reconnectClient();
+            } catch (e) {
+              console.warn("[SurvivalOnline] 自動重連失敗:", e);
             }
-          } catch (_) {}
-          leaveRoom().catch(() => {});
-          closeLobbyToSelect();
-        }, 1000);
+          }, RECONNECT_DELAY_MS);
+        } else {
+          console.log("[SurvivalOnline] 自動重連失敗次數過多，返回大廳");
+          _setText("survival-online-status", "與室長連接失敗，返回大廳");
+          _reconnectAttempts = 0;
+          setTimeout(() => {
+            try {
+              if (typeof Game !== "undefined" && Game.gameOver) {
+                Game.gameOver();
+              }
+            } catch (_) {}
+            leaveRoom().catch(() => {});
+            closeLobbyToSelect();
+          }, 1000);
+        }
+      }
+    } else if (st === "connected") {
+      // 連接成功：重置重連計數
+      if (_reconnectAttempts > 0) {
+        console.log(`[SurvivalOnline] 連接恢復成功（嘗試 ${_reconnectAttempts} 次）`);
+        _reconnectAttempts = 0;
+      }
+      if (_reconnectTimer) {
+        clearTimeout(_reconnectTimer);
+        _reconnectTimer = null;
       }
     }
   };
@@ -2387,22 +2493,15 @@ async function hostAcceptOffer(fromUid, sdp) {
       // 如果是室長且遊戲進行中，通知所有隊員
       if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
         console.log(`[SurvivalOnline] M5: 與隊員 ${fromUid} 連接失敗`);
+        // 室長端：標記隊員斷線，但不立即移除（等待重連）
+        // 隊員可以通過自動重連機制恢復連接
       }
-      // 如果是隊員且遊戲進行中，檢測室長斷線
-      if (!_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-        if (st === "disconnected" || st === "failed") {
-          console.log("[SurvivalOnline] M5: 與室長連接失敗，返回大廳");
-          _setText("survival-online-status", "與室長連接失敗，返回大廳");
-          setTimeout(() => {
-            try {
-              if (typeof Game !== "undefined" && Game.gameOver) {
-                Game.gameOver();
-              }
-            } catch (_) {}
-            leaveRoom().catch(() => {});
-            closeLobbyToSelect();
-          }, 1000);
-        }
+      // 注意：隊員端的連接狀態處理在 _pc.onconnectionstatechange 中
+    } else if (st === "connected") {
+      // 連接恢復：更新 UI
+      updateLobbyUI();
+      if (_isHost) {
+        console.log(`[SurvivalOnline] 與隊員 ${fromUid} 連接恢復`);
       }
     }
   };
@@ -2907,14 +3006,34 @@ async function handleSignal(sig) {
 async function reconnectClient() {
   if (_isHost) return;
   if (!_activeRoomId) return;
+  
+  // 清除舊的重連定時器
+  if (_reconnectTimer) {
+    clearTimeout(_reconnectTimer);
+    _reconnectTimer = null;
+  }
+  
   try {
     _setText("survival-online-status", "重新連線中…");
   } catch (_) {}
-  try { if (_dc) _dc.close(); } catch (_) {}
+  
+  // 清理舊連接
+  try { 
+    if (_dc) {
+      _dc.onclose = null; // 避免觸發自動重連循環
+      _dc.close(); 
+    }
+  } catch (_) {}
   _dc = null;
-  try { if (_pc) _pc.close(); } catch (_) {}
+  try { 
+    if (_pc) {
+      _pc.onconnectionstatechange = null; // 避免觸發自動重連循環
+      _pc.close(); 
+    }
+  } catch (_) {}
   _pc = null;
   Runtime.setEnabled(false);
+  
   // hostUid 若尚未就緒，等一下 room snapshot
   if (!_hostUid) {
     for (let i = 0; i < 20; i++) {
@@ -2924,9 +3043,23 @@ async function reconnectClient() {
   }
   if (!_hostUid) {
     _setText("survival-online-status", "無法重新連線：找不到室長");
+    // 如果找不到室長，繼續嘗試重連（可能只是暫時的）
+    if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      _reconnectAttempts++;
+      _reconnectTimer = setTimeout(async () => {
+        await reconnectClient();
+      }, RECONNECT_DELAY_MS);
+    }
     return;
   }
-  await connectClientToHost();
+  
+  try {
+    await connectClientToHost();
+  } catch (e) {
+    console.warn("[SurvivalOnline] 重連失敗:", e);
+    // 重連失敗會由 onclose 或 onconnectionstatechange 處理
+    throw e;
+  }
 }
 
 // 自動清理定時器
@@ -2956,6 +3089,31 @@ function startAutoCleanup() {
       
       // 清理速率限制追蹤器
       _cleanupRateLimitTracker();
+      
+      // 檢查房間是否過期（超過 2 小時未更新）
+      try {
+        if (_roomState && _roomState.updatedAt) {
+          let lastUpdateMs = 0;
+          const updatedAt = _roomState.updatedAt;
+          if (updatedAt && typeof updatedAt.toMillis === "function") {
+            lastUpdateMs = updatedAt.toMillis();
+          } else if (typeof updatedAt === "number") {
+            lastUpdateMs = updatedAt;
+          } else if (_roomState._lastUpdateMs) {
+            lastUpdateMs = _roomState._lastUpdateMs;
+          }
+          
+          const ROOM_EXPIRY_MS = 2 * 60 * 60 * 1000; // 2 小時
+          if (lastUpdateMs > 0 && (Date.now() - lastUpdateMs) > ROOM_EXPIRY_MS) {
+            console.warn("[SurvivalOnline] 房間已過期（超過 2 小時未更新），建議解散");
+            // 注意：這裡只是警告，不自動解散（因為遊戲可能還在進行）
+            // 如果需要自動解散，可以取消下面的註釋
+            // await hostDisbandTeam();
+          }
+        }
+      } catch (e) {
+        console.warn("[SurvivalOnline] 檢查房間過期失敗:", e);
+      }
     } catch (e) {
       console.warn("[SurvivalOnline] 自動清理過程出錯:", e);
     }
