@@ -228,6 +228,29 @@ const Game = {
         
         // 更新玩家（第二次，保留歷史節奏）
         this._updatePlayer(deltaTime);
+        
+        // 組隊模式：定期檢查是否所有玩家都死亡（僅隊長端）
+        try {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host" && this.player && typeof this.player._checkAllPlayersDead === 'function') {
+                // 每500ms檢查一次（避免過於頻繁）
+                if (!this._lastAllPlayersDeadCheck) this._lastAllPlayersDeadCheck = 0;
+                const now = Date.now();
+                if (now - this._lastAllPlayersDeadCheck >= 500) {
+                    this._lastAllPlayersDeadCheck = now;
+                    this.player._checkAllPlayersDead();
+                }
+            }
+        } catch (_) {}
 
         // M2：更新遠程玩家（僅在生存模式組隊模式且為室長時）
         try {
@@ -407,25 +430,75 @@ const Game = {
         }
         
         // 檢查玩家與出口的碰撞（第20波BOSS死亡後）
-        if (this.exit && this.player && !this.isGameOver) {
+        // 組隊模式：檢查所有玩家（本地玩家 + 遠程玩家），任何一個玩家觸碰到出口都會觸發勝利
+        if (this.exit && !this.isGameOver) {
             const exitCenterX = this.exit.x;
             const exitCenterY = this.exit.y;
             const exitHalfWidth = this.exit.width / 2;
             const exitHalfHeight = this.exit.height / 2;
-            const playerRadius = this.player.collisionRadius || 16;
             
-            // 使用矩形與圓形的碰撞檢測
-            const playerX = this.player.x;
-            const playerY = this.player.y;
+            // 收集所有需要檢查的玩家（本地玩家 + 遠程玩家）
+            const allPlayers = [];
+            if (this.player) allPlayers.push(this.player);
             
-            // 計算玩家中心到出口矩形的最短距離
-            const closestX = Math.max(exitCenterX - exitHalfWidth, Math.min(playerX, exitCenterX + exitHalfWidth));
-            const closestY = Math.max(exitCenterY - exitHalfHeight, Math.min(playerY, exitCenterY + exitHalfHeight));
-            const distance = Utils.distance(playerX, playerY, closestX, closestY);
+            // 組隊模式：添加遠程玩家（僅隊長端）
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host" && Array.isArray(this.remotePlayers)) {
+                    for (const remotePlayer of this.remotePlayers) {
+                        if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                            allPlayers.push(remotePlayer);
+                        }
+                    }
+                }
+            } catch (_) {}
             
-            if (distance < playerRadius) {
-                // 玩家碰到出口，觸發勝利
-                this.victory();
+            // 檢查所有玩家是否觸碰到出口
+            for (const player of allPlayers) {
+                if (!player) continue;
+                const playerRadius = player.collisionRadius || 16;
+                const playerX = player.x;
+                const playerY = player.y;
+                
+                // 計算玩家中心到出口矩形的最短距離
+                const closestX = Math.max(exitCenterX - exitHalfWidth, Math.min(playerX, exitCenterX + exitHalfWidth));
+                const closestY = Math.max(exitCenterY - exitHalfHeight, Math.min(playerY, exitCenterY + exitHalfHeight));
+                const distance = Utils.distance(playerX, playerY, closestX, closestY);
+                
+                if (distance < playerRadius) {
+                    // 任何一個玩家碰到出口，觸發勝利
+                    // 組隊模式：廣播勝利事件（僅隊長端，避免重複觸發）
+                    try {
+                        let isSurvivalMode = false;
+                        try {
+                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                ? GameModeManager.getCurrent()
+                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                    ? ModeManager.getActiveModeId()
+                                    : null);
+                            isSurvivalMode = (activeId === 'survival' || activeId === null);
+                        } catch (_) {}
+                        
+                        if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+                            if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                                window.SurvivalOnlineBroadcastEvent("game_victory", {
+                                    reason: "exit_reached"
+                                });
+                            }
+                        }
+                    } catch (_) {}
+                    this.victory();
+                    break; // 觸發勝利後跳出循環
+                }
             }
         }
         
@@ -1480,6 +1553,30 @@ const Game = {
             height: 242
         };
         console.log('出口已生成在地圖中心');
+        
+        // 組隊模式：廣播出口生成事件，讓所有隊員也能看到出口
+        try {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("exit_spawn", {
+                        x: exitX,
+                        y: exitY,
+                        width: 300,
+                        height: 242
+                    });
+                }
+            }
+        } catch (_) {}
     },
     
     // 優化實體數量
@@ -1582,6 +1679,15 @@ const Game = {
                         : null);
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) {}
+            
+            // 組隊模式：廣播勝利事件，讓所有隊員也能看到勝利影片
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("game_victory", {
+                        reason: "exit_reached"
+                    });
+                }
+            }
             
             if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === 'function') {
                 window.SurvivalOnlineUI.leaveRoom().catch(() => {});
