@@ -1054,6 +1054,59 @@ class Enemy extends Entity {
             this._createJudgmentHitEffect();
         }
         
+        // 組隊模式：隊長端廣播傷害數字事件（當本地玩家或遠程玩家造成傷害時）
+        try {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            
+            if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "host") {
+                // 確定傷害來源（本地玩家或遠程玩家）
+                let playerUid = null;
+                let isCrit = false;
+                let dirX = 0;
+                let dirY = -1;
+                
+                // 從 options 中獲取信息（如果有的話）
+                if (options && typeof options === 'object') {
+                    if (options.playerUid && typeof options.playerUid === 'string') {
+                        playerUid = options.playerUid;
+                    }
+                    if (options.isCrit === true) {
+                        isCrit = true;
+                    }
+                    if (typeof options.dirX === 'number') dirX = options.dirX;
+                    if (typeof options.dirY === 'number') dirY = options.dirY;
+                }
+                
+                // 如果沒有指定 playerUid，可能是本地玩家造成的傷害
+                if (!playerUid && Game.multiplayer && Game.multiplayer.uid) {
+                    playerUid = Game.multiplayer.uid;
+                }
+                
+                // 廣播傷害數字事件給所有隊員
+                if (playerUid && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("damage_number", {
+                        enemyId: this.id || null,
+                        enemyX: this.x || 0,
+                        enemyY: this.y || 0,
+                        enemyHeight: this.height || 0,
+                        damage: amount,
+                        isCrit: isCrit,
+                        playerUid: playerUid,
+                        dirX: dirX,
+                        dirY: dirY
+                    });
+                }
+            }
+        } catch (_) {}
+        
         if (this.health <= 0) {
             this.health = 0;
             this.die();
