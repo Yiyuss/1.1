@@ -1096,6 +1096,38 @@ const Runtime = (() => {
         } catch (e) {
           console.warn("[SurvivalOnline] 隊員端生成投射物視覺效果失敗:", e);
         }
+      } else if (eventType === "game_over") {
+        // 隊員端處理遊戲結束事件（所有玩家都死亡）
+        try {
+          if (typeof Game !== "undefined" && typeof Game.gameOver === "function") {
+            Game.gameOver();
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 隊員端處理遊戲結束事件失敗:", e);
+        }
+      } else if (eventType === "exit_spawn") {
+        // 隊員端生成出口（第20波BOSS死亡後）
+        try {
+          if (typeof Game !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
+            Game.exit = {
+              x: eventData.x,
+              y: eventData.y,
+              width: eventData.width || 300,
+              height: eventData.height || 242
+            };
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 隊員端生成出口失敗:", e);
+        }
+      } else if (eventType === "game_victory") {
+        // 隊員端處理遊戲勝利事件（到達出口）
+        try {
+          if (typeof Game !== "undefined" && typeof Game.victory === "function") {
+            Game.victory();
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 隊員端處理遊戲勝利事件失敗:", e);
+        }
       }
     } catch (e) {
       console.warn("[SurvivalOnline] M2 事件處理失敗:", e);
