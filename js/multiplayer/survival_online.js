@@ -280,25 +280,42 @@ async function createRoom(initial) {
 
 async function joinRoom(roomId) {
   await ensureAuth();
-  const snap = await getDoc(roomDocRef(roomId));
-  if (!snap.exists()) throw new Error("找不到房間");
-  const data = snap.data() || {};
-  if (data.status !== "lobby") throw new Error("房間已開始或已關閉");
-  if (!data.hostUid) throw new Error("房間資料不完整");
+  if (!_uid) throw new Error("匿名登入失敗（request.auth 為空），請確認 Firebase Auth 匿名已啟用且 Authorized domains 已加入 yiyuss.github.io");
 
-  // 人數限制：用前端保險（真正限制需 rules/host 驗證）
-  // 這裡先直接寫入 member，再由 UI 訂閱 members 顯示
-  await setDoc(memberDocRef(roomId, _uid), {
-    uid: _uid,
-    role: "guest",
-    ready: false,
-    joinedAt: serverTimestamp(),
-    lastSeenAt: serverTimestamp(),
-    name: `玩家-${_uid.slice(0, 4)}`,
-    characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
-  });
+  // 重要：不要在加入前讀取 room（嚴格 Rules 下非成員無 read 權限）
+  // 改成直接寫入 members；Rules 會檢查 room 是否存在且 status 是否為 lobby。
+  try {
+    await setDoc(memberDocRef(roomId, _uid), {
+      uid: _uid,
+      role: "guest",
+      ready: false,
+      joinedAt: serverTimestamp(),
+      lastSeenAt: serverTimestamp(),
+      name: `玩家-${_uid.slice(0, 4)}`,
+      characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
+    });
+  } catch (e) {
+    const c = e && e.code ? String(e.code) : "";
+    const msg = e && e.message ? String(e.message) : "unknown";
+    // 通常代表：房間不存在 / 已開始 / 已關閉 / 沒有權限
+    throw new Error(`加入失敗：房間不存在或已開始/已關閉（${msg}${c ? ` [${c}]` : ""}）`);
+  }
 
-  return { roomId, hostUid: data.hostUid, mapId: data.mapId, diffId: data.diffId };
+  // 成為 member 後，再讀 room 取得 host/map/diff（此時 read 應該允許）
+  let data = null;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const snap = await getDoc(roomDocRef(roomId));
+      if (snap.exists()) {
+        data = snap.data() || {};
+        break;
+      }
+    } catch (_) {}
+    // 小延遲避免剛寫入 member 後規則判定尚未就緒
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  const hostUid = data && data.hostUid ? data.hostUid : null;
+  return { roomId, hostUid, mapId: data ? data.mapId : null, diffId: data ? data.diffId : null };
 }
 
 async function leaveRoom() {
@@ -386,6 +403,15 @@ function _isMemberStale(member) {
   }
 }
 
+function _joinedAtMs(member) {
+  try {
+    const t = member && member.joinedAt ? member.joinedAt : null;
+    if (t && typeof t.toMillis === "function") return t.toMillis();
+    if (typeof t === "number") return t;
+  } catch (_) {}
+  return 0;
+}
+
 async function hostUpdateSettings({ mapId, diffId }) {
   if (!_activeRoomId || !_isHost) return;
   const patch = { updatedAt: serverTimestamp() };
@@ -458,6 +484,23 @@ function listenMembers(roomId) {
         if (data && data.uid) m.set(data.uid, data);
       });
       _membersState = m;
+
+      // 室長側保險：人數超過上限時，移出最新加入的非室長成員
+      try {
+        if (_isHost) {
+          const arr = Array.from(_membersState.values()).filter(x => x && x.uid);
+          if (arr.length > MAX_PLAYERS) {
+            const extras = arr
+              .filter(x => x.role !== "host" && x.uid !== _uid)
+              .sort((a, b) => _joinedAtMs(b) - _joinedAtMs(a)); // 最新的優先移出
+            const needKick = Math.max(0, arr.length - MAX_PLAYERS);
+            for (let i = 0; i < needKick && i < extras.length; i++) {
+              hostKickMember(extras[i].uid).catch(() => {});
+            }
+          }
+        }
+      } catch (_) {}
+
       updateLobbyUI();
     },
     (err) => {
@@ -757,6 +800,46 @@ async function handleSignal(sig) {
   }
 }
 
+async function reconnectClient() {
+  if (_isHost) return;
+  if (!_activeRoomId) return;
+  try {
+    _setText("survival-online-status", "重新連線中…");
+  } catch (_) {}
+  try { if (_dc) _dc.close(); } catch (_) {}
+  _dc = null;
+  try { if (_pc) _pc.close(); } catch (_) {}
+  _pc = null;
+  Runtime.setEnabled(false);
+  // hostUid 若尚未就緒，等一下 room snapshot
+  if (!_hostUid) {
+    for (let i = 0; i < 20; i++) {
+      if (_hostUid) break;
+      await new Promise(r => setTimeout(r, 100));
+    }
+  }
+  if (!_hostUid) {
+    _setText("survival-online-status", "無法重新連線：找不到室長");
+    return;
+  }
+  await connectClientToHost();
+}
+
+async function hostCleanupStale() {
+  if (!_isHost || !_activeRoomId) return;
+  const stale = Array.from(_membersState.values())
+    .filter(m => m && m.uid && m.uid !== _uid && m.role !== "host" && _isMemberStale(m));
+  if (!stale.length) {
+    _setText("survival-online-status", "沒有離線成員需要清理");
+    return;
+  }
+  const ok = window.confirm(`要清理 ${stale.length} 位離線成員嗎？`);
+  if (!ok) return;
+  for (const m of stale) {
+    await hostKickMember(m.uid);
+  }
+}
+
 function updateLobbyUI() {
   // 狀態文字
   const stEl = _qs("survival-online-status");
@@ -855,6 +938,20 @@ function updateLobbyUI() {
   if (btnDisband) {
     btnDisband.disabled = !(_isHost && !!_activeRoomId);
     btnDisband.style.display = (_isHost ? "" : "none");
+  }
+
+  // 重新連線：僅客戶端可用
+  const btnRe = _qs("survival-online-reconnect");
+  if (btnRe) {
+    btnRe.style.display = (_isHost ? "none" : "");
+    btnRe.disabled = !(!_isHost && !!_activeRoomId);
+  }
+
+  // 清理離線：僅室長可用
+  const btnCleanup = _qs("survival-online-cleanup");
+  if (btnCleanup) {
+    btnCleanup.style.display = (_isHost ? "" : "none");
+    btnCleanup.disabled = !(_isHost && !!_activeRoomId);
   }
 }
 
@@ -1015,6 +1112,8 @@ function bindUI() {
   const btnStart = _qs("survival-online-start");
   const btnLeave = _qs("survival-online-leave");
   const btnDisband = _qs("survival-online-disband");
+  const btnReconnect = _qs("survival-online-reconnect");
+  const btnCleanup = _qs("survival-online-cleanup");
   const selMap = _qs("survival-online-host-map");
   const selDiff = _qs("survival-online-host-diff");
 
@@ -1120,6 +1219,14 @@ function bindUI() {
     const ok = window.confirm("要解散隊伍嗎？所有隊員都會被退出。");
     if (!ok) return;
     await hostDisbandTeam().catch(() => {});
+  });
+
+  if (btnReconnect) btnReconnect.addEventListener("click", async () => {
+    await reconnectClient().catch(() => {});
+  });
+
+  if (btnCleanup) btnCleanup.addEventListener("click", async () => {
+    await hostCleanupStale().catch(() => {});
   });
 
   if (selMap) selMap.addEventListener("change", async () => {
