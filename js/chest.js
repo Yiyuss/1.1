@@ -435,30 +435,47 @@ class PineappleUltimatePickup extends Chest {
     }
 
     collect() {
-        try {
-            if (typeof AudioManager !== 'undefined') {
-                if (AudioManager.expSoundEnabled !== false) {
-                    AudioManager.playSound('collect_exp');
+        // M4：支援遠程玩家收集鳳梨大絕掉落物
+        const allPlayers = [];
+        if (Game.player) allPlayers.push(Game.player);
+        if (Game.multiplayer && Game.multiplayer.role === "host" && Array.isArray(Game.remotePlayers)) {
+            for (const remotePlayer of Game.remotePlayers) {
+                if (remotePlayer && !remotePlayer.markedForDeletion) {
+                    allPlayers.push(remotePlayer);
                 }
             }
-        } catch (_) {}
-        try {
-            const player = Game.player;
-            if (player && typeof player.gainExperience === 'function') {
-                // 平衡：每顆鳳梨給「50 + 當下所需升級的30%經驗」
-                // - 這裡的「當下所需升級」指：距離下一次升級還差多少經驗（experienceToNextLevel - experience）
-                // - 若欄位不存在則只給固定值（50）
-                const base = 50;
-                let needNow = 0;
-                try {
-                    if (typeof player.experienceToNextLevel === 'number' && typeof player.experience === 'number') {
-                        needNow = Math.max(0, Math.floor(player.experienceToNextLevel - player.experience));
-                    }
-                } catch (_) {}
-                const bonus = Math.max(0, Math.floor(needNow * 0.30));
-                player.gainExperience(base + bonus);
+        }
+        
+        // 檢查是否被任何玩家收集
+        for (const player of allPlayers) {
+            if (this.isColliding(player)) {
+                // 只有本地玩家播放音效
+                if (player === Game.player && !player._isRemotePlayer) {
+                    try {
+                        if (typeof AudioManager !== 'undefined') {
+                            if (AudioManager.expSoundEnabled !== false) {
+                                AudioManager.playSound('collect_exp');
+                            }
+                        }
+                    } catch (_) {}
+                }
+                
+                // 給予經驗（所有玩家都可以收集）
+                if (player && typeof player.gainExperience === 'function') {
+                    // 平衡：每顆鳳梨給「50 + 當下所需升級的30%經驗」
+                    const base = 50;
+                    let needNow = 0;
+                    try {
+                        if (typeof player.experienceToNextLevel === 'number' && typeof player.experience === 'number') {
+                            needNow = Math.max(0, Math.floor(player.experienceToNextLevel - player.experience));
+                        }
+                    } catch (_) {}
+                    const bonus = Math.max(0, Math.floor(needNow * 0.30));
+                    player.gainExperience(base + bonus);
+                }
+                this.destroy();
+                return;
             }
-        } catch (_) {}
-        this.destroy();
+        }
     }
 }
