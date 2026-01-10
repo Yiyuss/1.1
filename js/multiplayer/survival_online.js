@@ -165,7 +165,7 @@ function _nowIso() {
   }
 }
 
-function _randRoomCode(len = 6) {
+function _randRoomCode(len = 7) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 去掉易混淆字
   let s = "";
   for (let i = 0; i < len; i++) {
@@ -225,57 +225,57 @@ function signalsColRef(roomId) {
 async function createRoom(initial) {
   await ensureAuth();
   if (!_uid) throw new Error("匿名登入失敗（request.auth 為空），請確認 Firebase Auth 匿名已啟用且 Authorized domains 已加入 yiyuss.github.io");
-  // 嘗試產生不重複 roomId
+  // 重要：不要在 create 前用 getDoc 探測 roomId（會被嚴格 Rules 擋掉，導致 permission-denied）
+  // 改為「直接嘗試建立」，並在 Rules 端用 !exists(roomPath(roomId)) 防止覆寫既有房間。
   let roomId = null;
-  for (let i = 0; i < 5; i++) {
-    const code = _randRoomCode(6);
-    const snap = await getDoc(roomDocRef(code));
-    if (!snap.exists()) {
+  let lastErr = null;
+  for (let i = 0; i < 8; i++) {
+    const code = _randRoomCode(7);
+    const createdAt = serverTimestamp();
+    const mapId = initial && initial.mapId ? initial.mapId : (typeof Game !== "undefined" && Game.selectedMap ? Game.selectedMap.id : "city");
+    const diffId = initial && initial.diffId ? initial.diffId : (typeof Game !== "undefined" && Game.selectedDifficultyId ? Game.selectedDifficultyId : "EASY");
+    try {
+      await setDoc(roomDocRef(code), {
+        v: 1,
+        hostUid: _uid,
+        status: "lobby",
+        createdAt,
+        updatedAt: createdAt,
+        mapId,
+        diffId,
+        maxPlayers: MAX_PLAYERS,
+      });
+      // 成功建立 room
       roomId = code;
+      // 建立室長 member（建立後才算 member，之後才有 read 權限）
+      await setDoc(memberDocRef(roomId, _uid), {
+        uid: _uid,
+        role: "host",
+        ready: false,
+        joinedAt: createdAt,
+        lastSeenAt: createdAt,
+        name: `玩家-${_uid.slice(0, 4)}`,
+        characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
+      });
+      return { roomId, hostUid: _uid, mapId, diffId };
+    } catch (e) {
+      lastErr = e;
+      // 若 Rules 有加「!exists(roomPath(roomId))」，房間碼撞到會 permission-denied（視同碰撞重試）
+      const codeStr = e && e.code ? String(e.code) : "";
+      if (codeStr.includes("permission-denied")) {
+        continue;
+      }
       break;
     }
   }
-  if (!roomId) throw new Error("無法建立房間（請重試）");
-
-  const createdAt = serverTimestamp();
-  const mapId = initial && initial.mapId ? initial.mapId : (typeof Game !== "undefined" && Game.selectedMap ? Game.selectedMap.id : "city");
-  const diffId = initial && initial.diffId ? initial.diffId : (typeof Game !== "undefined" && Game.selectedDifficultyId ? Game.selectedDifficultyId : "EASY");
-
-  try {
-    await setDoc(roomDocRef(roomId), {
-      v: 1,
-      hostUid: _uid,
-      status: "lobby",
-      createdAt,
-      updatedAt: createdAt,
-      mapId,
-      diffId,
-      maxPlayers: MAX_PLAYERS,
-    });
-  } catch (e) {
-    const code = e && e.code ? String(e.code) : "";
-    const msg = e && e.message ? String(e.message) : "unknown";
-    throw new Error(`建立房間資料被拒絕：${msg}${code ? ` [${code}]` : ""}`);
+  // 走到這裡代表仍失敗
+  if (lastErr) {
+    const c = lastErr && lastErr.code ? String(lastErr.code) : "";
+    const msg = lastErr && lastErr.message ? String(lastErr.message) : "unknown";
+    throw new Error(`建立失敗：${msg}${c ? ` [${c}]` : ""}`);
   }
+  throw new Error("無法建立房間（請重試）");
 
-  try {
-    await setDoc(memberDocRef(roomId, _uid), {
-      uid: _uid,
-      role: "host",
-      ready: false,
-      joinedAt: createdAt,
-      lastSeenAt: createdAt,
-      // 顯示名稱：匿名 UID 簡寫（不寫進存檔、不進 SaveCode）
-      name: `玩家-${_uid.slice(0, 4)}`,
-      characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
-    });
-  } catch (e) {
-    const code = e && e.code ? String(e.code) : "";
-    const msg = e && e.message ? String(e.message) : "unknown";
-    throw new Error(`建立室長成員資料被拒絕：${msg}${code ? ` [${code}]` : ""}`);
-  }
-
-  return { roomId, hostUid: _uid, mapId, diffId };
 }
 
 async function joinRoom(roomId) {
