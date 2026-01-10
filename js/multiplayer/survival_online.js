@@ -1150,16 +1150,53 @@ function tryStartSurvivalFromRoom() {
 
   // M1：倒數後啟動（讓全員「差不多同一時間」進入）
   const delay = (typeof _roomState.startDelayMs === "number") ? Math.max(0, Math.floor(_roomState.startDelayMs)) : START_COUNTDOWN_MS;
-  const sec = Math.max(0, Math.ceil(delay / 1000));
-  _setText("survival-online-status", `即將開始：${sec} 秒`);
-  _startTimer = setTimeout(() => {
-    _startTimer = null;
+  const sessionId = _roomState.sessionId || null;
+
+  // 顯示倒數覆蓋層
+  const overlayEl = _qs("survival-online-countdown-overlay");
+  const textEl = _qs("survival-online-countdown-text");
+  if (overlayEl) overlayEl.classList.remove("hidden");
+  if (textEl) textEl.textContent = `即將開始：${Math.ceil(delay / 1000)}`;
+
+  // 每秒更新倒數
+  let countdown = Math.ceil(delay / 1000);
+  let countdownInterval = null;
+  let hasStarted = false; // 防止重複啟動
+
+  const startGame = () => {
+    if (hasStarted) return;
+    hasStarted = true;
+    if (countdownInterval) clearInterval(countdownInterval);
+    if (_startTimer) {
+      clearTimeout(_startTimer);
+      _startTimer = null;
+    }
+    if (overlayEl) overlayEl.classList.add("hidden");
     startSurvivalNow({
       selectedDifficultyId: _roomState.diffId || _pendingStartParams.selectedDifficultyId,
       selectedCharacter: _pendingStartParams.selectedCharacter,
       selectedMap: (typeof Game !== "undefined" ? Game.selectedMap : _pendingStartParams.selectedMap),
-      sessionId: _roomState.sessionId || null
+      sessionId: sessionId
     });
+  };
+
+  // 每秒更新倒數文字
+  countdownInterval = setInterval(() => {
+    countdown--;
+    if (countdown <= 0) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      if (textEl) textEl.textContent = "開始！";
+      // 延遲一小段後啟動遊戲
+      setTimeout(startGame, 300);
+    } else {
+      if (textEl) textEl.textContent = `即將開始：${countdown}`;
+    }
+  }, 1000);
+
+  // 設定總延遲（安全網：確保倒數完成後才啟動，即使 interval 出問題）
+  _startTimer = setTimeout(() => {
+    startGame();
   }, delay);
 }
 
