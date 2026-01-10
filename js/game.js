@@ -977,11 +977,20 @@ const Game = {
                 // 判斷投射物來源：
                 // 1. 本地玩家的投射物：projectile.player === this.player
                 // 2. 遠程玩家的投射物：projectile.player && projectile.player._isRemotePlayer
-                // 3. 其他情況（如環境效果）：不廣播或根據需要廣播
+                // 3. 環境物體（如 INTERSECTION_CAR）：需要廣播
+                // 4. 其他情況（如環境效果）：不廣播或根據需要廣播
                 const isLocalPlayerProjectile = (projectile.player && projectile.player === this.player);
                 const isRemotePlayerProjectile = (projectile.player && projectile.player._isRemotePlayer);
                 
-                if (isLocalPlayerProjectile || isRemotePlayerProjectile) {
+                // 檢查是否為 AICompanion（召喚AI）
+                const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') || 
+                                      (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
+                
+                // 檢查是否為環境物體（如路口車輛）
+                const isEnvironmentHazard = (projectile.weaponType === "INTERSECTION_CAR") ||
+                                            (projectile.constructor && projectile.constructor.name === 'CarHazard');
+                
+                if (isLocalPlayerProjectile || isRemotePlayerProjectile || isAICompanion || isEnvironmentHazard) {
                     // 為投射物分配唯一ID（如果還沒有）
                     if (!projectile.id) {
                         projectile.id = `projectile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -989,9 +998,11 @@ const Game = {
                     
                     // 確定玩家UID
                     let playerUid = null;
-                    if (isLocalPlayerProjectile) {
+                    if (isLocalPlayerProjectile || (isAICompanion && projectile.player === this.player)) {
                         playerUid = (this.multiplayer && this.multiplayer.uid) ? this.multiplayer.uid : null;
                     } else if (isRemotePlayerProjectile && projectile.player._remoteUid) {
+                        playerUid = projectile.player._remoteUid;
+                    } else if (isAICompanion && projectile.player && projectile.player._isRemotePlayer && projectile.player._remoteUid) {
                         playerUid = projectile.player._remoteUid;
                     }
                     
@@ -1001,7 +1012,7 @@ const Game = {
                         x: projectile.x || 0,
                         y: projectile.y || 0,
                         angle: projectile.angle || 0,
-                        weaponType: projectile.weaponType || "UNKNOWN",
+                        weaponType: isAICompanion ? "SUMMON_AI" : (projectile.weaponType || "UNKNOWN"),
                         speed: projectile.speed || 0,
                         size: projectile.size || 0,
                         homing: projectile.homing || false,
@@ -1009,6 +1020,13 @@ const Game = {
                         playerUid: playerUid,
                         assignedTargetId: projectile.assignedTargetId || null
                     };
+                    
+                    // 如果是 AICompanion，添加額外屬性
+                    if (isAICompanion) {
+                        projectileData.summonAILevel = (typeof projectile.summonAILevel === "number") ? projectile.summonAILevel : 1;
+                        projectileData.width = projectile.width || CONFIG.PLAYER.SIZE;
+                        projectileData.height = projectile.height || CONFIG.PLAYER.SIZE;
+                    }
                     
                     // 如果是環繞投射物（OrbitBall），添加額外屬性
                     if (projectile.radius !== undefined) {
@@ -1030,6 +1048,143 @@ const Game = {
                         projectileData.ringWidth = projectile.ringWidth || 18;
                         projectileData.duration = projectile.durationMs || 1000;
                         projectileData.palette = projectile.palette || null;
+                    }
+                    
+                    // 如果是連鎖閃電（ChainLightningEffect），添加額外屬性
+                    if (projectile.weaponType === "CHAIN_LIGHTNING" || projectile.weaponType === "FRENZY_LIGHTNING") {
+                        projectileData.duration = projectile.durationMs || 1000;
+                        projectileData.maxChains = projectile.maxChains || 0;
+                        projectileData.chainRadius = projectile.chainRadius || 220;
+                        projectileData.palette = projectile.palette || null;
+                        // FrenzyLightningEffect 的特殊屬性
+                        if (projectile.weaponType === "FRENZY_LIGHTNING") {
+                            projectileData.branchCount = projectile.branchCount || 10;
+                            projectileData.chainsPerBranch = projectile.chainsPerBranch || 10;
+                        }
+                    }
+                    
+                    // 如果是斬擊（SlashEffect），添加額外屬性
+                    if (projectile.weaponType === "SLASH") {
+                        projectileData.angle = projectile.angle || 0;
+                        projectileData.radius = projectile.radius || 60;
+                        projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : 80);
+                        projectileData.duration = projectile.durationMs || 1000;
+                        projectileData.visualScale = projectile.visualScale || 1.0;
+                    }
+                    
+                    // 如果是裁決（JudgmentEffect），添加額外屬性
+                    if (projectile.weaponType === "JUDGMENT") {
+                        projectileData.swordCount = projectile.swordCount || 1;
+                        projectileData.detectRadius = projectile.detectRadius || 400;
+                        projectileData.aoeRadius = projectile.aoeRadius || 100;
+                        projectileData.swordImageWidth = projectile.swordImageWidth || 550;
+                        projectileData.swordImageHeight = projectile.swordImageHeight || 1320;
+                        projectileData.fallDurationMs = projectile.fallDurationMs || 500;
+                        projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300;
+                    }
+                    
+                    // 如果是爆炸效果（ExplosionEffect），添加額外屬性
+                    if (projectile.weaponType === "EXPLOSION") {
+                        // ExplosionEffect 只需要位置，已在 projectileData 中
+                    }
+                    
+                    // 如果是死線戰士/死線超人（DeathlineWarriorEffect），添加額外屬性
+                    if (projectile.weaponType === "DEATHLINE_WARRIOR" || projectile.weaponType === "DEATHLINE_SUPERMAN") {
+                        projectileData.detectRadius = projectile.detectRadius || 600;
+                        projectileData.totalHits = projectile.totalHits || 3;
+                        projectileData.totalDurationMs = projectile.totalDurationMs || 1200;
+                        projectileData.minTeleportDistance = projectile.minTeleportDistance || 300;
+                        projectileData.aoeRadius = projectile.aoeRadius || 0;
+                        projectileData.displayScale = projectile.displayScale || 0.5;
+                    }
+                    
+                    // 如果是神裁（DivineJudgmentEffect），添加額外屬性
+                    if (projectile.weaponType === "DIVINE_JUDGMENT") {
+                        projectileData.detectRadius = projectile.detectRadius || 400;
+                        projectileData.aoeRadius = projectile.aoeRadius || 100;
+                        projectileData.fallDurationMs = projectile.fallDurationMs || 250;
+                        projectileData.moveDurationMs = projectile.moveDurationMs || 2400;
+                        projectileData.headWaitMs = projectile.headWaitMs || 100;
+                        projectileData.holdOnEnemyMs = projectile.holdOnEnemyMs || 200;
+                        projectileData.swordImageWidth = projectile.swordImageWidth || 83;
+                        projectileData.swordImageHeight = projectile.swordImageHeight || 200;
+                        projectileData.visualScale = projectile.visualScale || 1.5;
+                        projectileData.patrolSpeedFactor = projectile.patrolSpeedFactor || 0.35;
+                    }
+                    
+                    // 如果是光環領域（AuraField），添加額外屬性
+                    if (projectile.weaponType === "AURA_FIELD") {
+                        projectileData.radius = projectile.radius || 150;
+                        projectileData.visualScale = projectile.visualScale || 1.95;
+                    }
+                    
+                    // 如果是重力波（GravityWaveField），添加額外屬性
+                    if (projectile.weaponType === "GRAVITY_WAVE") {
+                        projectileData.radius = projectile.radius || 150;
+                        projectileData.pushMultiplier = projectile.pushMultiplier || 0;
+                        projectileData.visualScale = projectile.visualScale || 1.95;
+                    }
+                    
+                    // 如果是大冰球（IceBallProjectile），添加額外屬性
+                    if (projectile.weaponType === "BIG_ICE_BALL" || projectile.weaponType === "FRENZY_ICE_BALL") {
+                        projectileData.targetX = projectile.targetX || projectile.x;
+                        projectileData.targetY = projectile.targetY || projectile.y;
+                        projectileData.flightTimeMs = projectile.flightTimeMs || 1000;
+                        projectileData.weaponLevel = projectile.weaponLevel || 1;
+                        projectileData.isFrenzyIceBall = (projectile.weaponType === "FRENZY_ICE_BALL");
+                    }
+                    
+                    // 如果是幼妲光輝（YoungDadaGloryEffect），添加額外屬性
+                    if (projectile.weaponType === "YOUNG_DADA_GLORY") {
+                        projectileData.duration = projectile.duration || 2000;
+                    }
+                    
+                    // 如果是幼妲天使（FrenzyYoungDadaGloryEffect），添加額外屬性
+                    if (projectile.weaponType === "FRENZY_YOUNG_DADA_GLORY") {
+                        projectileData.duration = projectile.duration || 3000;
+                    }
+                    
+                    // 如果是光芒萬丈（RadiantGloryEffect），添加額外屬性
+                    if (projectile.weaponType === "RADIANT_GLORY") {
+                        projectileData.width = projectile.width || 8;
+                        projectileData.duration = projectile.duration || 1000;
+                        projectileData.tickInterval = projectile.tickIntervalMs || 120;
+                        projectileData.beamCount = projectile.beamCount || 10;
+                        projectileData.rotationSpeed = projectile.rotationSpeed || 1.0;
+                    }
+                    
+                    // 如果是狂熱斬擊（FRENZY_SLASH），使用SLASH的處理（因為它使用SlashEffect）
+                    if (projectile.weaponType === "FRENZY_SLASH") {
+                        projectileData.angle = projectile.angle || 0;
+                        projectileData.radius = projectile.radius || 60;
+                        projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : 80);
+                        projectileData.duration = projectile.durationMs || 1000;
+                        projectileData.visualScale = projectile.visualScale || 1.0;
+                    }
+                    
+                    // 如果是唱歌（SingEffect），添加額外屬性
+                    if (projectile.weaponType === "SING") {
+                        projectileData.duration = projectile.duration || 2000;
+                        projectileData.size = projectile.size || 500;
+                        projectileData.offsetY = projectile.offsetY || -250;
+                    }
+                    
+                    // 如果是無敵（InvincibleEffect），添加額外屬性
+                    if (projectile.weaponType === "INVINCIBLE") {
+                        projectileData.duration = projectile.duration || 2000;
+                        projectileData.size = projectile.size || 200;
+                        projectileData.offsetY = projectile.offsetY || 0;
+                    }
+                    
+                    // 如果是路口車輛（CarHazard），添加額外屬性
+                    if (projectile.weaponType === "INTERSECTION_CAR" || (projectile.constructor && projectile.constructor.name === 'CarHazard')) {
+                        projectileData.vx = projectile.vx || 0;
+                        projectileData.vy = projectile.vy || 0;
+                        projectileData.width = projectile.width || 0;
+                        projectileData.height = projectile.height || 0;
+                        projectileData.imageKey = projectile.imageKey || "car";
+                        projectileData.damage = projectile.damage || 100;
+                        projectileData.despawnPad = projectile.despawnPad || 400;
                     }
                     
                     // 廣播投射物生成事件
