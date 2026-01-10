@@ -508,6 +508,561 @@ const Runtime = (() => {
                   shockwave._remotePlayerUid = eventData.playerUid;
                   Game.projectiles.push(shockwave);
                 }
+              } else if (weaponType === "SUMMON_AI" && typeof AICompanion !== "undefined") {
+                // 召喚AI：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  // 檢查是否已存在該玩家的 AICompanion（避免重複創建）
+                  const existingAI = Game.projectiles.find(p => 
+                    p && p.constructor && p.constructor.name === 'AICompanion' && 
+                    p._remotePlayerUid === eventData.playerUid
+                  );
+                  
+                  if (!existingAI) {
+                    const ai = new AICompanion(
+                      targetPlayer,
+                      eventData.x || targetPlayer.x,
+                      eventData.y || targetPlayer.y,
+                      eventData.summonAILevel || 1
+                    );
+                    ai.id = projectileId;
+                    ai._isVisualOnly = true; // 標記為僅視覺（隊員端不進行傷害計算）
+                    ai._remotePlayerUid = eventData.playerUid;
+                    Game.projectiles.push(ai);
+                  } else {
+                    // 更新現有 AI 的位置和等級
+                    existingAI.x = eventData.x || existingAI.x;
+                    existingAI.y = eventData.y || existingAI.y;
+                    if (typeof eventData.summonAILevel === "number") {
+                      existingAI.summonAILevel = eventData.summonAILevel;
+                    }
+                  }
+                }
+              } else if ((weaponType === "CHAIN_LIGHTNING" || weaponType === "FRENZY_LIGHTNING") && typeof ChainLightningEffect !== "undefined") {
+                // 連鎖閃電：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  if (weaponType === "CHAIN_LIGHTNING") {
+                    const effect = new ChainLightningEffect(
+                      targetPlayer,
+                      0, // 傷害設為0（僅視覺）
+                      eventData.duration || 1000,
+                      eventData.maxChains || 0,
+                      eventData.chainRadius || 220,
+                      eventData.palette || null
+                    );
+                    effect.id = projectileId;
+                    effect._isVisualOnly = true;
+                    effect._remotePlayerUid = eventData.playerUid;
+                    Game.projectiles.push(effect);
+                  } else if (weaponType === "FRENZY_LIGHTNING" && typeof FrenzyLightningEffect !== "undefined") {
+                    const effect = new FrenzyLightningEffect(
+                      targetPlayer,
+                      0, // 傷害設為0（僅視覺）
+                      eventData.duration || 1000,
+                      eventData.branchCount || 10,
+                      eventData.chainsPerBranch || 10,
+                      eventData.chainRadius || 220,
+                      eventData.palette || null
+                    );
+                    effect.id = projectileId;
+                    effect._isVisualOnly = true;
+                    effect._remotePlayerUid = eventData.playerUid;
+                    Game.projectiles.push(effect);
+                  }
+                }
+              } else if (weaponType === "SLASH" && typeof SlashEffect !== "undefined") {
+                // 斬擊：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new SlashEffect(
+                    targetPlayer,
+                    eventData.angle || 0,
+                    0, // 傷害設為0（僅視覺）
+                    eventData.radius || 60,
+                    eventData.arcDeg || 80,
+                    eventData.duration || 1000
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "JUDGMENT" && typeof JudgmentEffect !== "undefined") {
+                // 裁決：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new JudgmentEffect(
+                    targetPlayer,
+                    0, // 傷害設為0（僅視覺）
+                    eventData.swordCount || 1,
+                    eventData.detectRadius || 400,
+                    eventData.aoeRadius || 100,
+                    eventData.swordImageWidth || 550,
+                    eventData.swordImageHeight || 1320,
+                    eventData.fallDurationMs || 500,
+                    eventData.fadeOutDurationMs || 300
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "EXPLOSION" && typeof ExplosionEffect !== "undefined") {
+                // 爆炸效果：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new ExplosionEffect(
+                    targetPlayer,
+                    eventData.x || targetPlayer.x,
+                    eventData.y || targetPlayer.y
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(effect);
+                }
+              } else if ((weaponType === "DEATHLINE_WARRIOR" || weaponType === "DEATHLINE_SUPERMAN") && typeof DeathlineWarriorEffect !== "undefined") {
+                // 死線戰士/死線超人：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new DeathlineWarriorEffect(
+                    targetPlayer,
+                    0, // 傷害設為0（僅視覺）
+                    eventData.detectRadius || 600,
+                    eventData.totalHits || 3,
+                    eventData.totalDurationMs || 1200,
+                    eventData.minTeleportDistance || 300,
+                    weaponType,
+                    eventData.aoeRadius || 0,
+                    eventData.displayScale || 0.5
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "DIVINE_JUDGMENT" && typeof DivineJudgmentEffect !== "undefined") {
+                // 神裁：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new DivineJudgmentEffect(targetPlayer, {
+                    damage: 0, // 傷害設為0（僅視覺）
+                    detectRadius: eventData.detectRadius || 400,
+                    aoeRadius: eventData.aoeRadius || 100,
+                    fallDurationMs: eventData.fallDurationMs || 250,
+                    moveDurationMs: eventData.moveDurationMs || 2400,
+                    headWaitMs: eventData.headWaitMs || 100,
+                    holdOnEnemyMs: eventData.holdOnEnemyMs || 200,
+                    swordImageWidth: eventData.swordImageWidth || 83,
+                    swordImageHeight: eventData.swordImageHeight || 200,
+                    patrolSpeedFactor: eventData.patrolSpeedFactor || 0.35
+                  });
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "AURA_FIELD" && typeof AuraField !== "undefined") {
+                // 光環領域：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new AuraField(
+                    targetPlayer,
+                    eventData.radius || 150,
+                    0 // 傷害設為0（僅視覺）
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "GRAVITY_WAVE" && typeof GravityWaveField !== "undefined") {
+                // 重力波：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new GravityWaveField(
+                    targetPlayer,
+                    eventData.radius || 150,
+                    0, // 傷害設為0（僅視覺）
+                    eventData.pushMultiplier || 0
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
+                  Game.projectiles.push(effect);
+                }
+              } else if ((weaponType === "BIG_ICE_BALL" || weaponType === "FRENZY_ICE_BALL") && typeof IceBallProjectile !== "undefined") {
+                // 大冰球：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer && eventData.targetX !== undefined && eventData.targetY !== undefined) {
+                  const effect = new IceBallProjectile(
+                    eventData.x || targetPlayer.x,
+                    eventData.y || targetPlayer.y,
+                    eventData.targetX,
+                    eventData.targetY,
+                    eventData.flightTimeMs || 1000,
+                    eventData.weaponLevel || 1,
+                    targetPlayer,
+                    eventData.isFrenzyIceBall || false
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "YOUNG_DADA_GLORY" && typeof YoungDadaGloryEffect !== "undefined") {
+                // 幼妲光輝：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new YoungDadaGloryEffect(
+                    targetPlayer,
+                    eventData.duration || 2000
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "FRENZY_YOUNG_DADA_GLORY" && typeof FrenzyYoungDadaGloryEffect !== "undefined") {
+                // 幼妲天使：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new FrenzyYoungDadaGloryEffect(
+                    targetPlayer,
+                    eventData.duration || 3000
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "RADIANT_GLORY" && typeof RadiantGloryEffect !== "undefined") {
+                // 光芒萬丈：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new RadiantGloryEffect(
+                    targetPlayer,
+                    0, // 傷害設為0（僅視覺）
+                    eventData.width || 8,
+                    eventData.duration || 1000,
+                    eventData.tickInterval || 120,
+                    eventData.beamCount || 10,
+                    eventData.rotationSpeed || 1.0
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "FRENZY_SLASH" && typeof SlashEffect !== "undefined") {
+                // 狂熱斬擊：使用SlashEffect（與SLASH相同）
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new SlashEffect(
+                    targetPlayer,
+                    eventData.angle || 0,
+                    0, // 傷害設為0（僅視覺）
+                    eventData.radius || 60,
+                    eventData.arcDeg || 80,
+                    eventData.duration || 1000
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "SING" && typeof SingEffect !== "undefined") {
+                // 唱歌：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new SingEffect(
+                    targetPlayer,
+                    eventData.duration || 2000
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  if (typeof eventData.size === "number") effect.size = eventData.size;
+                  if (typeof eventData.offsetY === "number") effect.offsetY = eventData.offsetY;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "INVINCIBLE" && typeof InvincibleEffect !== "undefined") {
+                // 無敵：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const effect = new InvincibleEffect(
+                    targetPlayer,
+                    eventData.duration || 2000
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  if (typeof eventData.size === "number") effect.size = eventData.size;
+                  if (typeof eventData.offsetY === "number") effect.offsetY = eventData.offsetY;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "INTERSECTION_CAR" && typeof CarHazard !== "undefined") {
+                // 路口車輛：環境危險物（不需要玩家關聯）
+                const car = new CarHazard({
+                  x: eventData.x || 0,
+                  y: eventData.y || 0,
+                  vx: eventData.vx || 0,
+                  vy: eventData.vy || 0,
+                  width: eventData.width || 200,
+                  height: eventData.height || 100,
+                  imageKey: eventData.imageKey || "car",
+                  damage: eventData.damage || 100,
+                  despawnPad: eventData.despawnPad || 400
+                });
+                car.id = projectileId;
+                car._isVisualOnly = true; // 標記為僅視覺（隊員端不進行傷害計算）
+                Game.projectiles.push(car);
               } else if (typeof Projectile !== "undefined") {
                 // 普通投射物
                 const projectile = new Projectile(
