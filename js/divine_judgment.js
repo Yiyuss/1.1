@@ -191,19 +191,30 @@ class DivineJudgmentEffect extends Entity {
                 isCrit = result.isCrit;
             }
             
-            // 組隊模式：隊員的神裁攻擊敵人時，同步傷害到隊長端
-            try {
-                let isSurvivalMode = false;
-                try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
-                    isSurvivalMode = (activeId === 'survival' || activeId === null);
-                } catch (_) {}
-                
-                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+            // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
+            // 隊員端：造成實際傷害並發送enemy_damage給主機
+            // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+            const isGuest = (isMultiplayer && Game.multiplayer.role === "guest");
+            const isHostRemotePlayer = (isMultiplayer && Game.multiplayer.role === "host" && this.player && this.player._isRemotePlayer);
+            
+            // 隊員端：造成實際傷害並發送enemy_damage
+            if (isGuest) {
+                enemy.takeDamage(finalDamage, { weaponType: this._damageWeaponType, attackId: 'DIVINE_' + (this._attackSeq++) });
+                if (typeof DamageNumbers !== 'undefined') {
+                    const dirX = (enemy.x - x) || 1;
+                    const dirY = (enemy.y - y) || 0;
+                    const mag = Math.hypot(dirX, dirY) || 1;
+                    DamageNumbers.show(
+                        finalDamage,
+                        enemy.x,
+                        enemy.y - (enemy.height || 0) / 2,
+                        isCrit,
+                        { dirX: dirX / mag, dirY: dirY / mag, enemyId: enemy.id }
+                    );
+                }
+                // 發送enemy_damage給主機
+                if (enemy && enemy.id) {
                     if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                         window.SurvivalOnlineRuntime.sendToNet({
                             t: "enemy_damage",
@@ -214,21 +225,24 @@ class DivineJudgmentEffect extends Entity {
                         });
                     }
                 }
-            } catch (_) {}
-            
-            enemy.takeDamage(finalDamage, { weaponType: this._damageWeaponType, attackId: 'DIVINE_' + (this._attackSeq++) });
-            if (typeof DamageNumbers !== 'undefined') {
-                const dirX = (enemy.x - x) || 1;
-                const dirY = (enemy.y - y) || 0;
-                const mag = Math.hypot(dirX, dirY) || 1;
-                DamageNumbers.show(
-                    finalDamage,
-                    enemy.x,
-                    enemy.y - (enemy.height || 0) / 2,
-                    isCrit,
-                    { dirX: dirX / mag, dirY: dirY / mag, enemyId: enemy.id }
-                );
+            } 
+            // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理（不重複計算）
+            else if (!isHostRemotePlayer) {
+                enemy.takeDamage(finalDamage, { weaponType: this._damageWeaponType, attackId: 'DIVINE_' + (this._attackSeq++) });
+                if (typeof DamageNumbers !== 'undefined') {
+                    const dirX = (enemy.x - x) || 1;
+                    const dirY = (enemy.y - y) || 0;
+                    const mag = Math.hypot(dirX, dirY) || 1;
+                    DamageNumbers.show(
+                        finalDamage,
+                        enemy.x,
+                        enemy.y - (enemy.height || 0) / 2,
+                        isCrit,
+                        { dirX: dirX / mag, dirY: dirY / mag, enemyId: enemy.id }
+                    );
+                }
             }
+            // 主機端的遠程玩家武器：不造成傷害（由隊員端的enemy_damage處理）
         }
         // 音效（與裁決一致）
         if (typeof AudioManager !== 'undefined') {
