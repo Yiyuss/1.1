@@ -62,6 +62,66 @@ const MEMBER_HEARTBEAT_MS = 15000; // 15s：更新 lastSeenAt（避免關頁/斷
 const MEMBER_STALE_MS = 45000; // 45s：超過視為離線/殘留
 const START_COUNTDOWN_MS = 3000; // M1：開始倒數（收到 starting 後倒數）
 
+// 玩家名稱驗證和處理
+const PLAYER_NAME_MAX_LENGTH = 20; // 最大長度
+const PLAYER_NAME_MIN_LENGTH = 1; // 最小長度
+const PLAYER_NAME_STORAGE_KEY = "survival_player_nickname"; // localStorage 鍵名
+
+// 名稱驗證和清理函數
+function sanitizePlayerName(name) {
+  if (!name || typeof name !== "string") return null;
+  
+  // 移除首尾空白
+  name = name.trim();
+  
+  // 檢查長度
+  if (name.length < PLAYER_NAME_MIN_LENGTH || name.length > PLAYER_NAME_MAX_LENGTH) {
+    return null;
+  }
+  
+  // 移除危險字符（HTML 標籤、腳本等）
+  name = name.replace(/[<>\"'&]/g, "");
+  
+  // 移除控制字符
+  name = name.replace(/[\x00-\x1F\x7F]/g, "");
+  
+  // 再次檢查長度（移除字符後可能變短）
+  if (name.length < PLAYER_NAME_MIN_LENGTH) {
+    return null;
+  }
+  
+  return name;
+}
+
+// 獲取玩家暱稱（從 localStorage 或生成默認值）
+function getPlayerNickname() {
+  try {
+    const saved = localStorage.getItem(PLAYER_NAME_STORAGE_KEY);
+    if (saved) {
+      const sanitized = sanitizePlayerName(saved);
+      if (sanitized) {
+        return sanitized;
+      }
+    }
+  } catch (_) {}
+  
+  // 如果沒有保存的暱稱或驗證失敗，返回默認值
+  return `玩家-${_uid ? _uid.slice(0, 4) : "0000"}`;
+}
+
+// 保存玩家暱稱到 localStorage
+function savePlayerNickname(name) {
+  const sanitized = sanitizePlayerName(name);
+  if (!sanitized) return false;
+  
+  try {
+    localStorage.setItem(PLAYER_NAME_STORAGE_KEY, sanitized);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 let _app = null;
 let _auth = null;
 let _db = null;
@@ -1432,7 +1492,7 @@ const Runtime = (() => {
             exp: p.experience || 0,
             expToNext: p.experienceToNextLevel || 100,
             coins: Game.coins || 0, // 添加金幣字段
-            name: `玩家-${_uid.slice(0, 4)}`,
+            name: getPlayerNickname(),
             characterId: hostCharacterId, // 添加角色ID，用於隊員端渲染完整角色外觀
             // 死亡和復活狀態同步
             _isDead: (typeof p._isDead === "boolean") ? p._isDead : false,
@@ -1573,7 +1633,7 @@ const Runtime = (() => {
             players[_uid] = { 
               x: Game.player.x, 
               y: Game.player.y, 
-              name: `玩家-${_uid.slice(0, 4)}`,
+              name: getPlayerNickname(),
               characterId: hostCharacterId // 添加角色ID
             };
           }
@@ -1812,7 +1872,7 @@ async function createRoom(initial) {
         ready: false,
         joinedAt: createdAt,
         lastSeenAt: createdAt,
-        name: `玩家-${_uid.slice(0, 4)}`,
+        name: getPlayerNickname(),
         characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
       });
       
@@ -1853,7 +1913,7 @@ async function joinRoom(roomId) {
       ready: false,
       joinedAt: serverTimestamp(),
       lastSeenAt: serverTimestamp(),
-      name: `玩家-${_uid.slice(0, 4)}`,
+      name: getPlayerNickname(),
       characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
     });
   } catch (e) {
@@ -3317,6 +3377,17 @@ function openSelectScreen(params) {
   _hide("difficulty-select-screen");
   _hide("desert-difficulty-select-screen");
   _show("survival-online-select-screen");
+  
+  // 載入保存的暱稱
+  const nicknameInput = _qs("survival-online-nickname");
+  if (nicknameInput) {
+    const saved = getPlayerNickname();
+    if (saved && !saved.startsWith("玩家-")) {
+      nicknameInput.value = saved;
+    } else {
+      nicknameInput.value = "";
+    }
+  }
 }
 
 function closeSelectScreenBackToDifficulty() {
@@ -3491,6 +3562,15 @@ function bindUI() {
 
   if (btnCreate) btnCreate.addEventListener("click", async () => {
     try {
+      // 保存暱稱
+      const nicknameInput = _qs("survival-online-nickname");
+      if (nicknameInput && nicknameInput.value.trim()) {
+        const nickname = nicknameInput.value.trim();
+        if (sanitizePlayerName(nickname)) {
+          savePlayerNickname(nickname);
+        }
+      }
+      
       _setText("survival-online-status", "建立房間中…");
       await enterLobbyAsHost(_pendingStartParams || {});
       updateLobbyUI();
@@ -3512,6 +3592,15 @@ function bindUI() {
       return;
     }
     try {
+      // 保存暱稱
+      const nicknameInput = _qs("survival-online-nickname");
+      if (nicknameInput && nicknameInput.value.trim()) {
+        const nickname = nicknameInput.value.trim();
+        if (sanitizePlayerName(nickname)) {
+          savePlayerNickname(nickname);
+        }
+      }
+      
       _setText("survival-online-status", "加入房間中…");
       await enterLobbyAsGuest(code);
       updateLobbyUI();
@@ -3617,6 +3706,17 @@ function getRuntime() {
   return Runtime;
 }
 
+// 獲取成員狀態（用於HUD顯示）
+function getMembersState() {
+  if (!_membersState) return [];
+  return Array.from(_membersState.values()).map(m => ({
+    uid: m.uid,
+    name: m.name || (m.uid ? m.uid.slice(0, 6) : '未知'),
+    role: m.role || 'guest',
+    ready: m.ready || false
+  }));
+}
+
 function handleEscape() {
   // 只在組隊介面可見時處理 ESC；回傳 true 代表已處理（外部可 stopPropagation）
   try {
@@ -3673,7 +3773,14 @@ window.SurvivalOnlineUI = {
 };
 
 // 提供給 game.js 的 runtime bridge（避免 game.js import）
-window.SurvivalOnlineRuntime = Runtime;
+window.SurvivalOnlineRuntime = {
+  Runtime: Runtime,
+  RemotePlayerManager: RemotePlayerManager,
+  getMembersState: getMembersState,
+  getPlayerNickname: getPlayerNickname,
+  sanitizePlayerName: sanitizePlayerName,
+  savePlayerNickname: savePlayerNickname
+};
 
 // 頁面關閉/刷新：盡力離開房間（不保證完成，仍以心跳/超時判定為主）
 try {
