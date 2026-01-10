@@ -11,33 +11,56 @@ class ExperienceOrb extends Entity {
     }
     
     update(deltaTime) {
-        const player = Game.player;
-        const distanceToPlayer = Utils.distance(this.x, this.y, player.x, player.y);
-        
-        // 如果玩家靠近，吸引經驗寶石（支援拾取範圍乘算）
-        const prMul = (player && player.pickupRangeMultiplier) ? player.pickupRangeMultiplier : 1;
-        const effectiveRange = this.attractionRange * prMul;
-        if (distanceToPlayer < effectiveRange) {
-            // 增加吸引速度（按時間縮放）
-            const deltaMul = deltaTime / 16.67;
-            this.attractionSpeed = Math.min(this.attractionSpeed + this.attractionAcceleration * deltaMul, this.maxAttractionSpeed);
-            
-            // 計算移動方向
-            const angle = Utils.angle(this.x, this.y, player.x, player.y);
-            this.x += Math.cos(angle) * this.attractionSpeed * deltaMul;
-            this.y += Math.sin(angle) * this.attractionSpeed * deltaMul;
-        }
-        
-        // 檢查是否被玩家收集
-        if (this.isColliding(player)) {
-            if (typeof AudioManager !== 'undefined') {
-                // 尊重 EXP 音效開關
-                if (AudioManager.expSoundEnabled !== false) {
-                    AudioManager.playSound('collect_exp');
+        // M4：支援多玩家收集（本地玩家 + 遠程玩家）
+        const allPlayers = [];
+        if (Game.player) allPlayers.push(Game.player);
+        if (Game.multiplayer && Game.multiplayer.role === "host" && Array.isArray(Game.remotePlayers)) {
+            for (const remotePlayer of Game.remotePlayers) {
+                if (remotePlayer && !remotePlayer.markedForDeletion) {
+                    allPlayers.push(remotePlayer);
                 }
             }
-            player.gainExperience(this.value);
-            this.destroy();
+        }
+        
+        // 找到最近的玩家（用於吸引）
+        let nearestPlayer = null;
+        let nearestDist = Infinity;
+        for (const p of allPlayers) {
+            const dist = Utils.distance(this.x, this.y, p.x, p.y);
+            if (dist < nearestDist) {
+                nearestDist = dist;
+                nearestPlayer = p;
+            }
+        }
+        
+        if (nearestPlayer) {
+            const prMul = (nearestPlayer && nearestPlayer.pickupRangeMultiplier) ? nearestPlayer.pickupRangeMultiplier : 1;
+            const effectiveRange = this.attractionRange * prMul;
+            if (nearestDist < effectiveRange) {
+                // 增加吸引速度（按時間縮放）
+                const deltaMul = deltaTime / 16.67;
+                this.attractionSpeed = Math.min(this.attractionSpeed + this.attractionAcceleration * deltaMul, this.maxAttractionSpeed);
+                
+                // 計算移動方向
+                const angle = Utils.angle(this.x, this.y, nearestPlayer.x, nearestPlayer.y);
+                this.x += Math.cos(angle) * this.attractionSpeed * deltaMul;
+                this.y += Math.sin(angle) * this.attractionSpeed * deltaMul;
+            }
+        }
+        
+        // 檢查是否被任何玩家收集
+        for (const player of allPlayers) {
+            if (this.isColliding(player)) {
+                if (typeof AudioManager !== 'undefined') {
+                    // 尊重 EXP 音效開關
+                    if (AudioManager.expSoundEnabled !== false) {
+                        AudioManager.playSound('collect_exp');
+                    }
+                }
+                player.gainExperience(this.value);
+                this.destroy();
+                return;
+            }
         }
     }
     
