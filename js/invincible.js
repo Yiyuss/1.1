@@ -102,6 +102,44 @@ class InvincibleEffect extends Entity {
     }
 
     update(deltaTime) {
+        // 僅視覺無敵：需要從遠程玩家位置更新
+        if (this._isVisualOnly && this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.getRemotePlayers === 'function') {
+                const remotePlayers = rt.getRemotePlayers() || [];
+                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+                if (remotePlayer) {
+                    // 更新玩家位置
+                    this.player.x = remotePlayer.x;
+                    this.player.y = remotePlayer.y;
+                    this.x = remotePlayer.x;
+                    this.y = remotePlayer.y;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    // 如果是本地玩家
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                        this.x = Game.player.x;
+                        this.y = Game.player.y;
+                    }
+                } else {
+                    // 如果找不到對應的玩家，標記為刪除
+                    this.markedForDeletion = true;
+                    return;
+                }
+            } else {
+                this.markedForDeletion = true;
+                return;
+            }
+            // 僅視覺模式：只更新位置和DOM
+            if (this.el) this._updateDomPosition();
+            if (Date.now() - this.startTime >= this.duration) {
+                if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
+                this.el = null;
+                this.markedForDeletion = true;
+            }
+            return;
+        }
+        
         this.x = this.player.x;
         this.y = this.player.y;
         if (this.el) this._updateDomPosition();
