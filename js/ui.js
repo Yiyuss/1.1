@@ -1909,9 +1909,14 @@ const UI = {
     // 顯示技能頁（ESC）
     showSkillsMenu: function() {
         if (!this.skillsMenu) return;
-        // 暫停但不靜音
-        if (typeof Game !== 'undefined' && Game.pause) {
-            Game.pause(false);
+        // 檢查是否為組隊模式
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.sessionId);
+        // 組隊模式下不暫停遊戲，避免影響其他玩家
+        if (!isMultiplayer) {
+            // 暫停但不靜音（僅單機模式）
+            if (typeof Game !== 'undefined' && Game.pause) {
+                Game.pause(false);
+            }
         }
         // 更新技能、天賦與金幣顯示
         try { this.updateSkillsList(); } catch (_) {}
@@ -1926,9 +1931,14 @@ const UI = {
         this.skillsMenu.classList.add('hidden');
         // 按鈕點擊音效
         this._playClick();
-        // 恢復遊戲
-        if (typeof Game !== 'undefined' && Game.resume) {
-            Game.resume();
+        // 檢查是否為組隊模式
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.sessionId);
+        // 組隊模式下不恢復遊戲（因為沒有暫停），避免影響其他玩家
+        if (!isMultiplayer) {
+            // 恢復遊戲（僅單機模式）
+            if (typeof Game !== 'undefined' && Game.resume) {
+                Game.resume();
+            }
         }
     },
 
