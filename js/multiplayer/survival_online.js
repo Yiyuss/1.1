@@ -176,6 +176,7 @@ const RemotePlayerManager = (() => {
     for (const player of remotePlayers.values()) {
       if (player && typeof player.update === "function") {
         // M4：使用完整的 Player.update，包括武器更新、回血等
+        // 注意：死亡時 update() 會自動跳過移動和武器更新，只處理復活邏輯
         player.update(deltaTime);
       }
     }
@@ -196,7 +197,10 @@ const RemotePlayerManager = (() => {
           exp: player.experience || 0,
           expToNext: player.experienceToNextLevel || 100,
           facingRight: player.facingRight !== false,
-          facingAngle: player.facingAngle || 0
+          facingAngle: player.facingAngle || 0,
+          // 死亡和復活狀態
+          _isDead: (typeof player._isDead === "boolean") ? player._isDead : false,
+          _resurrectionProgress: (typeof player._resurrectionProgress === "number") ? player._resurrectionProgress : 0
         };
       }
     }
@@ -274,6 +278,11 @@ const Runtime = (() => {
         width: (typeof p.width === "number" && p.width > 0) ? p.width : null,
         height: (typeof p.height === "number" && p.height > 0) ? p.height : null,
         collisionRadius: (typeof p.collisionRadius === "number" && p.collisionRadius > 0) ? p.collisionRadius : null,
+        // 死亡和復活狀態同步
+        _isDead: (typeof p._isDead === "boolean") ? p._isDead : false,
+        health: (typeof p.health === "number") ? p.health : 100,
+        maxHealth: (typeof p.maxHealth === "number") ? p.maxHealth : 100,
+        _resurrectionProgress: (typeof p._resurrectionProgress === "number") ? p._resurrectionProgress : 0,
         updatedAt: now,
       });
     }
@@ -1203,6 +1212,22 @@ const Runtime = (() => {
             player.collisionRadius = myState.collisionRadius;
           }
           
+          // 死亡和復活狀態同步
+          if (typeof myState._isDead === "boolean") {
+            player._isDead = myState._isDead;
+            // 如果死亡，清除武器
+            if (myState._isDead && player.clearWeapons && typeof player.clearWeapons === 'function') {
+              player.clearWeapons();
+            }
+            // 如果復活，恢復初始武器
+            if (!myState._isDead && player._isDead && player.weapons && player.weapons.length === 0) {
+              player.addWeapon('DAGGER');
+            }
+          }
+          if (typeof myState._resurrectionProgress === "number") {
+            player._resurrectionProgress = myState._resurrectionProgress;
+          }
+          
           // 更新 UI
           if (typeof UI !== "undefined") {
             if (UI.updateHealthBar) UI.updateHealthBar(player.health, player.maxHealth);
@@ -1358,7 +1383,7 @@ const Runtime = (() => {
           const p = Game.player;
           const hostMember = _membersState ? _membersState.get(_uid) : null;
           const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
-          snapshot.players[_uid] = {
+            snapshot.players[_uid] = {
             x: p.x || 0,
             y: p.y || 0,
             hp: p.health || 0,
@@ -1371,6 +1396,9 @@ const Runtime = (() => {
             coins: Game.coins || 0, // 添加金幣字段
             name: `玩家-${_uid.slice(0, 4)}`,
             characterId: hostCharacterId, // 添加角色ID，用於隊員端渲染完整角色外觀
+            // 死亡和復活狀態同步
+            _isDead: (typeof p._isDead === "boolean") ? p._isDead : false,
+            _resurrectionProgress: (typeof p._resurrectionProgress === "number") ? p._resurrectionProgress : 0,
             // 大招狀態同步
             isUltimateActive: p.isUltimateActive || false,
             ultimateImageKey: p._ultimateImageKey || null,
@@ -1405,6 +1433,9 @@ const Runtime = (() => {
               coins: Game.coins || 0, // 添加金幣字段（組隊模式共享金幣）
               name: name,
               characterId: characterId, // 添加角色ID，用於隊員端渲染完整角色外觀
+              // 死亡和復活狀態同步
+              _isDead: (typeof remotePlayer._isDead === "boolean") ? remotePlayer._isDead : false,
+              _resurrectionProgress: (typeof remotePlayer._resurrectionProgress === "number") ? remotePlayer._resurrectionProgress : 0,
               // 大招狀態同步
               isUltimateActive: remotePlayer.isUltimateActive || false,
               ultimateImageKey: remotePlayer._ultimateImageKey || null,
