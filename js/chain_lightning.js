@@ -67,6 +67,43 @@ class ChainLightningEffect extends Entity {
     }
 
     update(deltaTime) {
+        // 僅視覺連鎖閃電：需要從遠程玩家位置更新
+        if (this._isVisualOnly && this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.getRemotePlayers === 'function') {
+                const remotePlayers = rt.getRemotePlayers() || [];
+                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+                if (remotePlayer) {
+                    // 更新玩家位置
+                    this.player.x = remotePlayer.x;
+                    this.player.y = remotePlayer.y;
+                    this.x = remotePlayer.x;
+                    this.y = remotePlayer.y;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    // 如果是本地玩家
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                        this.x = Game.player.x;
+                        this.y = Game.player.y;
+                    }
+                } else {
+                    // 如果找不到對應的玩家，標記為刪除
+                    this.markedForDeletion = true;
+                    return;
+                }
+            } else {
+                this.markedForDeletion = true;
+                return;
+            }
+            // 僅視覺模式：只更新粒子，不進行傷害計算
+            this._updateParticles(deltaTime);
+            const elapsed = Date.now() - this.startTime;
+            if (elapsed >= this.durationMs) {
+                this.markedForDeletion = true;
+            }
+            return;
+        }
+        
         // 生命期管理
         const elapsed = Date.now() - this.startTime;
         if (elapsed >= this.durationMs) {
@@ -337,6 +374,43 @@ class FrenzyLightningEffect extends Entity {
     }
 
     update(deltaTime) {
+        // 僅視覺狂熱雷擊：需要從遠程玩家位置更新
+        if (this._isVisualOnly && this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.getRemotePlayers === 'function') {
+                const remotePlayers = rt.getRemotePlayers() || [];
+                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+                if (remotePlayer) {
+                    // 更新玩家位置
+                    this.player.x = remotePlayer.x;
+                    this.player.y = remotePlayer.y;
+                    this.x = remotePlayer.x;
+                    this.y = remotePlayer.y;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    // 如果是本地玩家
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                        this.x = Game.player.x;
+                        this.y = Game.player.y;
+                    }
+                } else {
+                    // 如果找不到對應的玩家，標記為刪除
+                    this.markedForDeletion = true;
+                    return;
+                }
+            } else {
+                this.markedForDeletion = true;
+                return;
+            }
+            // 僅視覺模式：只更新粒子，不進行傷害計算
+            this._updateParticles(deltaTime);
+            const elapsed = Date.now() - this.startTime;
+            if (elapsed >= this.durationMs) {
+                this.markedForDeletion = true;
+            }
+            return;
+        }
+        
         const elapsed = Date.now() - this.startTime;
         if (elapsed >= this.durationMs) {
             this.markedForDeletion = true;
