@@ -322,6 +322,7 @@ function setupSkillsMenuToggle() {
                 return; // 非生存模式不處理 ESC（交由各模式自己的 ESC 菜單）
             }
         } catch(_) {}
+        
         const gameVisible = !document.getElementById('game-screen').classList.contains('hidden');
         const isGameOver = Game.isGameOver;
         const levelUpOpen = (() => { const el = document.getElementById('level-up-menu'); return el && !el.classList.contains('hidden'); })();
