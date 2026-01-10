@@ -187,6 +187,7 @@ class IceFieldEffect extends Entity {
                     // 造成持续伤害（可吃到天赋加成）
                     let finalDamage = this.tickDamage;
                     let isCrit = false;
+                    let lifestealAmount = 0;
                     if (typeof DamageSystem !== 'undefined') {
                         const result = DamageSystem.computeHit(
                             this.tickDamage,
@@ -198,6 +199,7 @@ class IceFieldEffect extends Entity {
                         );
                         finalDamage = result.amount;
                         isCrit = result.isCrit;
+                        lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                     }
                     
                     // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
@@ -223,7 +225,7 @@ class IceFieldEffect extends Entity {
                                 }
                             );
                         }
-                        // 發送enemy_damage給主機
+                        // 發送enemy_damage給主機（包含吸血資訊）
                         if (enemy && enemy.id) {
                             if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                                 window.SurvivalOnlineRuntime.sendToNet({
@@ -231,7 +233,8 @@ class IceFieldEffect extends Entity {
                                     enemyId: enemy.id,
                                     damage: finalDamage,
                                     weaponType: this.weaponType || "BIG_ICE_BALL",
-                                    isCrit: isCrit
+                                    isCrit: isCrit,
+                                    lifesteal: lifestealAmount
                                 });
                             }
                         }
