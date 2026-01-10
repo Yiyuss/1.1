@@ -49,6 +49,8 @@ const Game = {
     enemiesKilled: 0,
     coinsCollected: 0,
     expCollected: 0,
+    // M1：組隊模式資訊（僅在組隊模式下存在）
+    multiplayer: null, // { roomId, role, uid, sessionId } 或 null
     
     init: function() {
         // 獲取畫布和上下文
@@ -1287,6 +1289,21 @@ const Game = {
         if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) {
             UI.updateCoinsDisplay(this.coins);
         }
+        
+        // M1：顯示/隱藏組隊模式 Session ID（僅在組隊模式下顯示）
+        try {
+            const sessionInfoEl = document.getElementById('multiplayer-session-info');
+            const sessionIdEl = document.getElementById('multiplayer-session-id');
+            if (sessionInfoEl && sessionIdEl) {
+                if (this.multiplayer && this.multiplayer.sessionId) {
+                    sessionInfoEl.classList.remove('hidden');
+                    sessionIdEl.textContent = this.multiplayer.sessionId;
+                } else {
+                    sessionInfoEl.classList.add('hidden');
+                    sessionIdEl.textContent = '-';
+                }
+            }
+        } catch (_) {}
         
         // 顯示遊戲畫面
         document.getElementById('start-screen').classList.add('hidden');
