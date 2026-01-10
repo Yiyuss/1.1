@@ -66,17 +66,46 @@ class CarHazard extends Entity {
                         for (let i = 0; i < count; i++) {
                             const ang = Math.random() * Math.PI * 2;
                             const spd = 2.5 + Math.random() * 5.5;
-                            Game.explosionParticles.push({
-                                x: cx + (Math.random() - 0.5) * 8,
-                                y: cy + (Math.random() - 0.5) * 8,
-                                vx: Math.cos(ang) * spd,
-                                vy: Math.sin(ang) * spd,
-                                life: 320 + Math.random() * 220,
-                                maxLife: 320 + Math.random() * 220,
-                                size: 5 + Math.random() * 4,
-                                color: (i % 3 === 0) ? '#ffffff' : '#ff6666',
-                                source: 'CAR_HIT'
-                            });
+                        const particle = {
+                            x: cx + (Math.random() - 0.5) * 8,
+                            y: cy + (Math.random() - 0.5) * 8,
+                            vx: Math.cos(ang) * spd,
+                            vy: Math.sin(ang) * spd,
+                            life: 320 + Math.random() * 220,
+                            maxLife: 320 + Math.random() * 220,
+                            size: 5 + Math.random() * 4,
+                            color: (i % 3 === 0) ? '#ffffff' : '#ff6666',
+                            source: 'CAR_HIT'
+                        };
+                        Game.explosionParticles.push(particle);
+                        
+                        // 組隊模式：標記為待廣播的粒子
+                        try {
+                            let isSurvivalMode = false;
+                            try {
+                                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                    ? GameModeManager.getCurrent()
+                                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                        ? ModeManager.getActiveModeId()
+                                        : null);
+                                isSurvivalMode = (activeId === 'survival' || activeId === null);
+                            } catch (_) {}
+                            
+                            if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "host") {
+                                if (!Game._pendingExplosionParticles) Game._pendingExplosionParticles = [];
+                                Game._pendingExplosionParticles.push({
+                                    x: particle.x,
+                                    y: particle.y,
+                                    vx: particle.vx,
+                                    vy: particle.vy,
+                                    life: particle.life,
+                                    maxLife: particle.maxLife,
+                                    size: particle.size,
+                                    color: particle.color,
+                                    source: particle.source
+                                });
+                            }
+                        } catch (_) {}
                         }
                     }
                 } catch (_) {}
