@@ -1406,6 +1406,20 @@ const UI = {
             }
         }
 
+        // 組隊模式：客戶端選擇武器升級時，同步到室長端
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        if (isMultiplayer && Game.multiplayer.role === "guest") {
+            try {
+                // 發送武器升級消息到室長端
+                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                    window.SurvivalOnlineRuntime.sendToNet({ 
+                        t: "weapon_upgrade", 
+                        weaponType: weaponType 
+                    });
+                }
+            } catch (_) {}
+        }
+
         // 更新技能列表與音量滑桿
         this.updateSkillsList();
         this._playClick();
@@ -1773,8 +1787,10 @@ const UI = {
      * - UI 微調：僅調整 css/style.css 內 #level-up-menu 命名空間樣式；避免影響其他畫面（天賦/選角/選地圖等）。
      */
     showLevelUpMenu: function() {
-        // 暫停遊戲，但不靜音，避免升級音效與BGM被切斷
-        if (typeof Game !== 'undefined' && Game.pause) {
+        // 組隊模式下，不暫停遊戲（避免所有玩家等待）
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        // 暫停遊戲，但不靜音，避免升級音效與BGM被切斷（僅單人模式）
+        if (!isMultiplayer && typeof Game !== 'undefined' && Game.pause) {
             Game.pause(false);
         }
         // 新增：確保佈局與背景綁定，再更新左側屬性欄
