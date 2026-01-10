@@ -1,4 +1,4 @@
-// 生存模式聯機（測試版）
+// 生存模式組隊（測試版）
 // 目標：
 // - 僅在生存模式流程中啟用（不影響其他模式）
 // - 使用 Firebase（匿名登入 + Firestore）做 signaling / 房間大廳
@@ -380,24 +380,36 @@ function listenMembers(roomId) {
 
 function listenSignals(roomId) {
   if (_signalsUnsub) { try { _signalsUnsub(); } catch (_) {} }
+  // 注意：where + orderBy(createdAt) 會要求複合索引；為了「免建索引、少麻煩」
+  // 這裡改成只用 where(toUid==me) + limit，然後逐筆消費刪除即可（順序在本設計不重要）。
   const q = query(
     signalsColRef(roomId),
     where("toUid", "==", _uid),
-    orderBy("createdAt", "asc"),
     limit(50)
   );
-  _signalsUnsub = onSnapshot(q, (snap) => {
-    snap.docChanges().forEach(async (ch) => {
-      if (ch.type !== "added") return;
-      const sig = ch.doc.data() || {};
-      const sid = ch.doc.id;
+  _signalsUnsub = onSnapshot(
+    q,
+    (snap) => {
+      snap.docChanges().forEach(async (ch) => {
+        if (ch.type !== "added") return;
+        const sig = ch.doc.data() || {};
+        const sid = ch.doc.id;
+        try {
+          await handleSignal(sig);
+        } catch (_) {}
+        // 消費後刪除，避免重播
+        try { await deleteDoc(doc(_db, "rooms", roomId, "signals", sid)); } catch (_) {}
+      });
+    },
+    (err) => {
+      // 避免「Uncaught Error in snapshot listener」導致整個監聽器掛掉而無提示
       try {
-        await handleSignal(sig);
+        const msg = (err && err.message) ? String(err.message) : "監聽器錯誤";
+        _setText("survival-online-status", `信令監聽錯誤：${msg}`);
+        console.warn("[SurvivalOnline] signals listener error:", err);
       } catch (_) {}
-      // 消費後刪除，避免重播
-      try { await deleteDoc(doc(_db, "rooms", roomId, "signals", sid)); } catch (_) {}
-    });
-  });
+    }
+  );
 }
 
 function createPeerConnectionCommon() {
