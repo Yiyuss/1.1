@@ -3331,12 +3331,75 @@ function _fillMapOptions() {
   }
 }
 
+// 根據地圖動態更新難度選項（僅宇宙地圖可選修羅難度）
+function _updateDifficultyOptions() {
+  const selMap = _qs("survival-online-host-map");
+  const selDiff = _qs("survival-online-host-diff");
+  if (!selMap || !selDiff) return;
+  
+  const mapId = selMap.value;
+  const currentDiff = selDiff.value;
+  
+  // 清空現有選項
+  selDiff.innerHTML = "";
+  
+  // 添加簡單和困難（所有地圖都有）
+  const easyOpt = document.createElement("option");
+  easyOpt.value = "EASY";
+  easyOpt.textContent = "簡單";
+  selDiff.appendChild(easyOpt);
+  
+  const hardOpt = document.createElement("option");
+  hardOpt.value = "HARD";
+  hardOpt.textContent = "困難";
+  selDiff.appendChild(hardOpt);
+  
+  // 僅宇宙地圖添加修羅難度
+  if (mapId === "desert") {
+    const asuraOpt = document.createElement("option");
+    asuraOpt.value = "ASURA";
+    asuraOpt.textContent = "修羅";
+    selDiff.appendChild(asuraOpt);
+  }
+  
+  // 如果當前選擇的是修羅難度，但地圖不是宇宙，則切換到困難
+  if (currentDiff === "ASURA" && mapId !== "desert") {
+    selDiff.value = "HARD";
+    // 同步更新房間設置
+    if (_isHost && _activeRoomId) {
+      hostUpdateSettings({ diffId: "HARD" }).catch(() => {});
+    }
+  } else if (currentDiff && ["EASY", "HARD", "ASURA"].includes(currentDiff)) {
+    // 保持當前選擇（如果有效）
+    selDiff.value = currentDiff;
+  } else {
+    // 預設選擇困難
+    selDiff.value = "HARD";
+  }
+}
+
 function _syncHostSelectsFromRoom() {
   const selMap = _qs("survival-online-host-map");
   const selDiff = _qs("survival-online-host-diff");
   if (_roomState) {
-    if (selMap && _roomState.mapId) selMap.value = _roomState.mapId;
-    if (selDiff && _roomState.diffId) selDiff.value = _roomState.diffId;
+    if (selMap && _roomState.mapId) {
+      selMap.value = _roomState.mapId;
+      // 地圖改變後，更新難度選項
+      _updateDifficultyOptions();
+    }
+    if (selDiff && _roomState.diffId) {
+      // 驗證難度是否有效（非宇宙地圖不能選修羅）
+      const mapId = selMap ? selMap.value : null;
+      if (_roomState.diffId === "ASURA" && mapId !== "desert") {
+        // 如果房間設置了修羅但地圖不是宇宙，強制改為困難
+        selDiff.value = "HARD";
+        if (_isHost && _activeRoomId) {
+          hostUpdateSettings({ diffId: "HARD" }).catch(() => {});
+        }
+      } else {
+        selDiff.value = _roomState.diffId;
+      }
+    }
   }
 }
 
@@ -3715,6 +3778,8 @@ function bindUI() {
   if (selMap) selMap.addEventListener("change", async () => {
     if (!_isHost) return;
     const mapId = selMap.value;
+    // 地圖改變時，更新難度選項
+    _updateDifficultyOptions();
     try { await hostUpdateSettings({ mapId }); } catch (_) {}
   });
   if (selDiff) selDiff.addEventListener("change", async () => {
@@ -3722,6 +3787,9 @@ function bindUI() {
     const diffId = selDiff.value;
     try { await hostUpdateSettings({ diffId }); } catch (_) {}
   });
+  
+  // 初始化難度選項（根據當前地圖）
+  _updateDifficultyOptions();
 
   // lobby screen 的返回：回到選擇（但保留房間，玩家可再回來）
   // 初版不提供此按鈕，避免狀態混亂（要返回用「離開」）
