@@ -21,6 +21,15 @@ const WaveSystem = {
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
         
+        // M2：廣播波次開始事件（僅組隊模式且為室長）
+        try {
+            if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.role === "host") {
+                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("wave_start", { wave: this.currentWave });
+                }
+            }
+        } catch (_) {}
+        
         // 第一波固定生成一支小BOSS
         this.spawnMiniBoss();
     },
@@ -64,6 +73,15 @@ const WaveSystem = {
         
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
+        
+        // M2：廣播波次開始事件（僅組隊模式且為室長）
+        try {
+            if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.role === "host") {
+                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("wave_start", { wave: this.currentWave });
+                }
+            }
+        } catch (_) {}
         
         // 每一波固定生成一個小BOSS（避免重複生成）
         this.spawnMiniBoss();
