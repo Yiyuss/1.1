@@ -656,6 +656,11 @@ class Player extends Entity {
                      playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                  });
              }
+             
+             // 檢查是否所有玩家都死亡（僅隊長端檢查，避免重複觸發）
+             if (Game.multiplayer && Game.multiplayer.role === "host") {
+                 this._checkAllPlayersDead();
+             }
          } else {
              // 單人模式：直接結束遊戲
              Game.gameOver();
@@ -676,6 +681,68 @@ class Player extends Entity {
              window.SurvivalOnlineBroadcastEvent("player_resurrect", {
                  playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
              });
+         }
+     }
+     
+     // 檢查是否所有玩家都死亡（僅隊長端調用）
+     _checkAllPlayersDead() {
+         if (!Game || !Game.multiplayer || Game.multiplayer.role !== "host") return;
+         if (Game.isGameOver) return; // 已經結束了
+         
+         try {
+             // 檢查本地玩家是否死亡
+             if (!this._isDead) return; // 本地玩家還活著
+             
+             // 檢查所有遠程玩家是否都死亡
+             let allRemotePlayersDead = true;
+             
+             // 通過 RemotePlayerManager 獲取遠程玩家
+             if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.getAllPlayers === 'function') {
+                 const remotePlayers = RemotePlayerManager.getAllPlayers();
+                 if (remotePlayers && remotePlayers.length > 0) {
+                     for (const remotePlayer of remotePlayers) {
+                         if (remotePlayer && !remotePlayer._isDead) {
+                             allRemotePlayersDead = false;
+                             break;
+                         }
+                     }
+                 } else {
+                     // 沒有遠程玩家，只有本地玩家死亡就結束
+                     allRemotePlayersDead = true;
+                 }
+             } else {
+                 // 如果 RemotePlayerManager 不可用，嘗試通過 Runtime 獲取
+                 if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.getRemotePlayers === 'function') {
+                     const remotePlayers = window.SurvivalOnlineRuntime.getRemotePlayers() || [];
+                     if (remotePlayers.length > 0) {
+                         for (const remotePlayer of remotePlayers) {
+                             if (remotePlayer && !remotePlayer._isDead) {
+                                 allRemotePlayersDead = false;
+                                 break;
+                             }
+                         }
+                     } else {
+                         // 沒有遠程玩家，只有本地玩家死亡就結束
+                         allRemotePlayersDead = true;
+                     }
+                 } else {
+                     // 無法獲取遠程玩家信息，假設只有本地玩家
+                     allRemotePlayersDead = true;
+                 }
+             }
+             
+             // 如果所有玩家都死亡，觸發遊戲結束
+             if (allRemotePlayersDead) {
+                 // 廣播遊戲結束事件，讓所有隊員也能看到失敗影片
+                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                     window.SurvivalOnlineBroadcastEvent("game_over", {
+                         reason: "all_players_dead"
+                     });
+                 }
+                 Game.gameOver();
+             }
+         } catch (e) {
+             console.warn("[Player] 檢查所有玩家死亡狀態失敗:", e);
          }
      }
      
