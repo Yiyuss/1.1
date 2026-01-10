@@ -85,6 +85,149 @@ let _pc = null; // 初版：client 只連 host；host 對每個 client 建一條
 let _pcsHost = new Map(); // host: remoteUid -> { pc, channel }
 let _dc = null; // client: datachannel
 
+// M2：室長端遠程玩家管理（根據輸入更新位置）
+const RemotePlayerManager = (() => {
+  const remotePlayers = new Map(); // uid -> RemotePlayer
+
+  // 簡化的遠程玩家類（只處理移動和位置）
+  class RemotePlayer {
+    constructor(uid, startX, startY) {
+      this.uid = uid;
+      this.x = startX || 0;
+      this.y = startY || 0;
+      this.speed = (typeof CONFIG !== "undefined" && CONFIG.PLAYER && typeof CONFIG.PLAYER.SPEED === "number") 
+        ? CONFIG.PLAYER.SPEED 
+        : 200; // 預設速度
+      this.lastInputTime = Date.now();
+      this.currentInput = { mx: 0, my: 0 }; // 當前輸入方向
+      this.facingRight = true;
+      this.facingAngle = 0;
+    }
+
+    update(deltaTime) {
+      const deltaMul = deltaTime / 16.67; // 正規化到 60FPS
+      const now = Date.now();
+      
+      // 如果超過 500ms 沒有收到輸入，停止移動（避免斷線殘留）
+      if (now - this.lastInputTime > 500) {
+        this.currentInput = { mx: 0, my: 0 };
+      }
+
+      // 根據輸入移動
+      const dx = this.currentInput.mx * this.speed * deltaMul;
+      const dy = this.currentInput.my * this.speed * deltaMul;
+
+      // 嘗試移動（需要檢查障礙物和邊界）
+      const newX = this.x + dx;
+      const newY = this.y + dy;
+
+      // 檢查障礙物碰撞（與本地玩家相同的邏輯）
+      let canMoveX = true;
+      let canMoveY = true;
+      try {
+        if (typeof Game !== "undefined" && Array.isArray(Game.obstacles)) {
+          const collisionRadius = (typeof CONFIG !== "undefined" && CONFIG.PLAYER && typeof CONFIG.PLAYER.COLLISION_RADIUS === "number")
+            ? CONFIG.PLAYER.COLLISION_RADIUS
+            : 20;
+          for (const obs of Game.obstacles) {
+            if (typeof Utils !== "undefined" && typeof Utils.circleRectCollision === "function") {
+              if (Utils.circleRectCollision(newX, this.y, collisionRadius, obs.x, obs.y, obs.width, obs.height)) {
+                canMoveX = false;
+              }
+              if (Utils.circleRectCollision(this.x, newY, collisionRadius, obs.x, obs.y, obs.width, obs.height)) {
+                canMoveY = false;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+
+        // 應用移動
+        if (canMoveX) this.x = newX;
+        if (canMoveY) this.y = newY;
+
+        // 限制在世界範圍內
+        try {
+          if (typeof Game !== "undefined") {
+            const worldW = Game.worldWidth || 3840;
+            const worldH = Game.worldHeight || 2160;
+            const margin = (typeof CONFIG !== "undefined" && CONFIG.PLAYER && typeof CONFIG.PLAYER.BORDER_MARGIN === "number")
+              ? CONFIG.PLAYER.BORDER_MARGIN
+              : 0;
+            const size = (typeof CONFIG !== "undefined" && CONFIG.PLAYER && typeof CONFIG.PLAYER.SIZE === "number")
+              ? CONFIG.PLAYER.SIZE
+              : 40;
+            const minX = size / 2 + margin;
+            const maxX = worldW - size / 2 - margin;
+            const minY = size / 2 + margin;
+            const maxY = worldH - size / 2 - margin;
+            this.x = Math.max(minX, Math.min(maxX, this.x));
+            this.y = Math.max(minY, Math.min(maxY, this.y));
+          }
+        } catch (_) {}
+
+        // 更新朝向
+        if (this.currentInput.mx !== 0 || this.currentInput.my !== 0) {
+          this.facingAngle = Math.atan2(this.currentInput.my, this.currentInput.mx);
+          if (Math.abs(this.currentInput.mx) > 0.1) {
+            this.facingRight = this.currentInput.mx > 0;
+          }
+        }
+    }
+
+    applyInput(mx, my) {
+      this.currentInput = { mx: mx || 0, my: my || 0 };
+      this.lastInputTime = Date.now();
+    }
+
+    getState() {
+      return {
+        x: this.x,
+        y: this.y,
+        facingRight: this.facingRight,
+        facingAngle: this.facingAngle
+      };
+    }
+  }
+
+    function getOrCreate(uid, startX, startY) {
+      if (!remotePlayers.has(uid)) {
+        remotePlayers.set(uid, new RemotePlayer(uid, startX, startY));
+      }
+      return remotePlayers.get(uid);
+    }
+
+    function remove(uid) {
+      remotePlayers.delete(uid);
+    }
+
+    function updateAll(deltaTime) {
+      for (const player of remotePlayers.values()) {
+        player.update(deltaTime);
+      }
+    }
+
+    function getAllStates() {
+      const states = {};
+      for (const [uid, player] of remotePlayers.entries()) {
+        states[uid] = player.getState();
+      }
+      return states;
+    }
+
+    function clear() {
+      remotePlayers.clear();
+    }
+
+    return {
+      getOrCreate,
+      remove,
+      updateAll,
+      getAllStates,
+      clear
+    };
+  })();
+
 // In-game presence
 const Runtime = (() => {
   let enabled = false;
@@ -158,7 +301,47 @@ const Runtime = (() => {
     return Array.from(remotePlayers.entries()).map(([uid, p]) => ({ uid, ...p }));
   }
 
-  return { setEnabled, onStateMessage, tick, getRemotePlayers };
+  // M2：更新遠程玩家（僅室長端調用）
+  function updateRemotePlayers(deltaTime) {
+    if (!_isHost) return;
+    try {
+      RemotePlayerManager.updateAll(deltaTime);
+      // 定期廣播遠程玩家位置（10Hz）
+      const now = Date.now();
+      if (now - lastSendAt >= 100) {
+        lastSendAt = now;
+        const remoteStates = RemotePlayerManager.getAllStates();
+        const players = {};
+        // 加上 host 自己
+        try {
+          if (typeof Game !== "undefined" && Game.player) {
+            players[_uid] = { x: Game.player.x, y: Game.player.y, name: `玩家-${_uid.slice(0, 4)}` };
+          }
+        } catch (_) {}
+        // 加上所有遠程玩家
+        for (const [uid, state] of Object.entries(remoteStates)) {
+          const member = _membersState ? _membersState.get(uid) : null;
+          const name = (member && typeof member.name === "string") ? member.name : uid.slice(0, 6);
+          players[uid] = { x: state.x, y: state.y, name };
+        }
+        // 廣播給所有 client
+        for (const [uid, it] of _pcsHost.entries()) {
+          const ch = (it && it.channel) ? it.channel : null;
+          _sendToChannel(ch, { t: "state", players });
+        }
+      }
+    } catch (_) {}
+  }
+
+  // M2：清理遠程玩家（僅室長端調用）
+  function clearRemotePlayers() {
+    if (!_isHost) return;
+    try {
+      RemotePlayerManager.clear();
+    } catch (_) {}
+  }
+
+  return { setEnabled, onStateMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers };
 })();
 
 function _qs(id) {
@@ -354,6 +537,13 @@ async function leaveRoom() {
     _signalsUnsub = null;
   }
 
+  // M2：清理遠程玩家
+  try {
+    if (typeof RemotePlayerManager !== "undefined" && RemotePlayerManager.clear) {
+      RemotePlayerManager.clear();
+    }
+  } catch (_) {}
+
   // 關閉連線
   try { if (_dc) _dc.close(); } catch (_) {}
   _dc = null;
@@ -516,11 +706,25 @@ function listenMembers(roomId) {
   _membersUnsub = onSnapshot(
     col,
     (snap) => {
+      const oldUids = new Set(_membersState.keys());
       const m = new Map();
       snap.forEach((d) => {
         const data = d.data() || {};
-        if (data && data.uid) m.set(data.uid, data);
+        if (data && data.uid) {
+          m.set(data.uid, data);
+          oldUids.delete(data.uid); // 仍在房間的成員
+        }
       });
+      // M2：清理已離開的成員的遠程玩家對象
+      if (_isHost) {
+        for (const leftUid of oldUids) {
+          try {
+            if (typeof RemotePlayerManager !== "undefined" && RemotePlayerManager.remove) {
+              RemotePlayerManager.remove(leftUid);
+            }
+          } catch (_) {}
+        }
+      }
       _membersState = m;
 
       // 室長側保險：人數超過上限時，移出最新加入的非室長成員
@@ -566,6 +770,12 @@ async function hostKickMember(targetUid) {
   if (m && m.role === "host") return;
   try {
     await deleteDoc(memberDocRef(_activeRoomId, targetUid));
+    // M2：清理被踢玩家的遠程對象
+    try {
+      if (typeof RemotePlayerManager !== "undefined" && RemotePlayerManager.remove) {
+        RemotePlayerManager.remove(targetUid);
+      }
+    } catch (_) {}
     _setText("survival-online-status", "已移出隊伍成員");
   } catch (e) {
     const msg = (e && e.message) ? String(e.message) : "移出失敗";
@@ -782,8 +992,31 @@ function handleHostDataMessage(fromUid, msg) {
     return;
   }
   if (msg.t === "input") {
-    // M1：先接收並保留格式（M2 才會真正套用到世界）
-    // 目前不做任何遊戲邏輯，避免影響單機/其他模式
+    // M2：將輸入套用到遠程玩家（室長權威）
+    if (!_isHost) return;
+    const mx = typeof msg.mx === "number" ? msg.mx : 0;
+    const my = typeof msg.my === "number" ? msg.my : 0;
+    
+    // 獲取或創建遠程玩家對象
+    try {
+      // 嘗試從 Game 獲取世界中心作為起始位置（如果玩家尚未創建，使用預設值）
+      let startX = 1920;
+      let startY = 1080;
+      if (typeof Game !== "undefined") {
+        if (Game.worldWidth && Game.worldHeight) {
+          startX = Game.worldWidth / 2;
+          startY = Game.worldHeight / 2;
+        } else if (Game.player) {
+          // 如果玩家已存在，使用玩家位置作為參考
+          startX = Game.player.x;
+          startY = Game.player.y;
+        }
+      }
+      const remotePlayer = RemotePlayerManager.getOrCreate(fromUid, startX, startY);
+      remotePlayer.applyInput(mx, my);
+    } catch (e) {
+      console.warn("[SurvivalOnline] M2 輸入處理失敗:", e);
+    }
     return;
   }
 }
