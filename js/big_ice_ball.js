@@ -185,6 +185,8 @@ class IceFieldEffect extends Entity {
                     }
                     
                     // 造成持续伤害（可吃到天赋加成）
+                    let finalDamage = this.tickDamage;
+                    let isCrit = false;
                     if (typeof DamageSystem !== 'undefined') {
                         const result = DamageSystem.computeHit(
                             this.tickDamage,
@@ -194,22 +196,48 @@ class IceFieldEffect extends Entity {
                                 critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
                             }
                         );
-                        enemy.takeDamage(result.amount);
-                        if (typeof DamageNumbers !== 'undefined') {
-                            DamageNumbers.show(
-                                result.amount,
-                                enemy.x,
-                                enemy.y - (enemy.height || 0) / 2,
-                                result.isCrit,
-                                {
-                                    dirX: (enemy.x - this.x),
-                                    dirY: (enemy.y - this.y),
-                                    enemyId: enemy.id
-                                }
-                            );
+                        finalDamage = result.amount;
+                        isCrit = result.isCrit;
+                    }
+                    
+                    // 組隊模式：隊員的大冰球攻擊敵人時，同步傷害到隊長端
+                    try {
+                        let isSurvivalMode = false;
+                        try {
+                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                ? GameModeManager.getCurrent()
+                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                    ? ModeManager.getActiveModeId()
+                                    : null);
+                            isSurvivalMode = (activeId === 'survival' || activeId === null);
+                        } catch (_) {}
+                        
+                        if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+                            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                                window.SurvivalOnlineRuntime.sendToNet({
+                                    t: "enemy_damage",
+                                    enemyId: enemy.id,
+                                    damage: finalDamage,
+                                    weaponType: this.weaponType || "BIG_ICE_BALL",
+                                    isCrit: isCrit
+                                });
+                            }
                         }
-                    } else {
-                        enemy.takeDamage(this.tickDamage);
+                    } catch (_) {}
+                    
+                    enemy.takeDamage(finalDamage);
+                    if (typeof DamageNumbers !== 'undefined') {
+                        DamageNumbers.show(
+                            finalDamage,
+                            enemy.x,
+                            enemy.y - (enemy.height || 0) / 2,
+                            isCrit,
+                            {
+                                dirX: (enemy.x - this.x),
+                                dirY: (enemy.y - this.y),
+                                enemyId: enemy.id
+                            }
+                        );
                     }
                 }
             }
