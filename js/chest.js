@@ -92,12 +92,26 @@ class Chest extends Entity {
     }
 
     update(deltaTime) {
-        const player = Game.player;
-        const dx = this.x - player.x;
-        const dy = this.y - player.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist <= (this.collisionRadius + player.collisionRadius)) {
-            this.collect();
+        // M4：支援多玩家收集（本地玩家 + 遠程玩家）
+        const allPlayers = [];
+        if (Game.player) allPlayers.push(Game.player);
+        if (Game.multiplayer && Game.multiplayer.role === "host" && Array.isArray(Game.remotePlayers)) {
+            for (const remotePlayer of Game.remotePlayers) {
+                if (remotePlayer && !remotePlayer.markedForDeletion) {
+                    allPlayers.push(remotePlayer);
+                }
+            }
+        }
+        
+        // 檢查是否被任何玩家收集
+        for (const player of allPlayers) {
+            const dx = this.x - player.x;
+            const dy = this.y - player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist <= (this.collisionRadius + player.collisionRadius)) {
+                this.collect(player);
+                return;
+            }
         }
         this.x = Utils.clamp(this.x, this.width / 2, (Game.worldWidth || Game.canvas.width) - this.width / 2);
         this.y = Utils.clamp(this.y, this.height / 2, (Game.worldHeight || Game.canvas.height) - this.height / 2);
@@ -248,11 +262,23 @@ class Chest extends Entity {
         ctx.restore();
     }
 
-    collect() {
-        if (typeof AudioManager !== 'undefined') {
-            AudioManager.playSound('level_up');
+    collect(player) {
+        // M4：支援遠程玩家收集（但只有本地玩家觸發升級選單）
+        const targetPlayer = player || Game.player;
+        if (!targetPlayer) {
+            this.destroy();
+            return;
         }
-        UI.showLevelUpMenu();
+        
+        // 只有本地玩家收集時才顯示升級選單（避免重複顯示）
+        if (targetPlayer === Game.player) {
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('level_up');
+            }
+            if (typeof UI !== 'undefined' && UI.showLevelUpMenu) {
+                UI.showLevelUpMenu();
+            }
+        }
         this.destroy();
     }
 }
