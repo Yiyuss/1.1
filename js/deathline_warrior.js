@@ -152,6 +152,7 @@ class DeathlineWarriorEffect extends Entity {
             for (const enemy of hitEnemies) {
                 let finalDamage = this.damage;
                 let isCrit = false;
+                let lifestealAmount = 0;
                 if (typeof DamageSystem !== 'undefined') {
                     const result = DamageSystem.computeHit(this.damage, enemy, {
                         weaponType: this.weaponType,
@@ -159,6 +160,7 @@ class DeathlineWarriorEffect extends Entity {
                     });
                     finalDamage = result.amount;
                     isCrit = result.isCrit;
+                    lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                 }
                 
                 // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
@@ -178,7 +180,7 @@ class DeathlineWarriorEffect extends Entity {
                             enemyId: enemy.id 
                         });
                     }
-                    // 發送enemy_damage給主機
+                    // 發送enemy_damage給主機（包含吸血資訊）
                     if (enemy && enemy.id) {
                         if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                             window.SurvivalOnlineRuntime.sendToNet({
@@ -187,6 +189,7 @@ class DeathlineWarriorEffect extends Entity {
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "DEATHLINE_WARRIOR",
                                 isCrit: isCrit,
+                                lifesteal: lifestealAmount,
                                 playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                             });
                         }
@@ -209,6 +212,7 @@ class DeathlineWarriorEffect extends Entity {
             // 單體傷害（死線戰士）
             let finalDamage = this.damage;
             let isCrit = false;
+            let lifestealAmount = 0;
             if (typeof DamageSystem !== 'undefined') {
                 const result = DamageSystem.computeHit(this.damage, target, {
                     weaponType: this.weaponType,
@@ -216,6 +220,7 @@ class DeathlineWarriorEffect extends Entity {
                 });
                 finalDamage = result.amount;
                 isCrit = result.isCrit;
+                lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
             }
             
             // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
@@ -235,7 +240,7 @@ class DeathlineWarriorEffect extends Entity {
                         enemyId: target.id 
                     });
                 }
-                // 發送enemy_damage給主機
+                // 發送enemy_damage給主機（包含吸血資訊）
                 if (target && target.id) {
                     if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                         window.SurvivalOnlineRuntime.sendToNet({
@@ -243,7 +248,8 @@ class DeathlineWarriorEffect extends Entity {
                             enemyId: target.id,
                             damage: finalDamage,
                             weaponType: this.weaponType || "DEATHLINE_WARRIOR",
-                            isCrit: isCrit
+                            isCrit: isCrit,
+                            lifesteal: lifestealAmount
                         });
                     }
                 }
