@@ -324,6 +324,31 @@ const Game = {
             }
         }
         
+        // 組隊模式：廣播爆炸粒子（僅隊長端，批量發送以提高效率）
+        try {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+                // 批量廣播爆炸粒子（每幀最多發送一次，包含所有新創建的粒子）
+                if (this._pendingExplosionParticles && this._pendingExplosionParticles.length > 0) {
+                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                        window.SurvivalOnlineBroadcastEvent("explosion_particles", {
+                            particles: this._pendingExplosionParticles
+                        });
+                    }
+                    this._pendingExplosionParticles = [];
+                }
+            }
+        } catch (_) {}
+        
         // 更新螢幕閃光效果
         if (this.screenFlash && this.screenFlash.active) {
             this.screenFlash.duration -= deltaTime;
@@ -435,7 +460,11 @@ const Game = {
 
     /** 私有：更新武器（保留雙次更新的歷史節奏；請勿更改） */
     _updateWeapons: function(deltaTime) {
-        if (this.player && this.player.weapons) {
+        // 組隊模式：死亡時不更新武器
+        if (this.player && this.player._isDead) {
+            // 死亡時不更新本地玩家武器，但仍需更新遠程玩家武器（如果他們沒死）
+            // 繼續執行遠程玩家武器更新邏輯
+        } else if (this.player && this.player.weapons) {
             for (const weapon of this.player.weapons) {
                 weapon.update(deltaTime);
             }
@@ -716,11 +745,19 @@ const Game = {
             } catch (_) {}
             
             if (isSurvivalMode) {
+                // 繪製本地玩家血條（如果存在）
+                if (this.player && typeof this.player._drawHealthBar === 'function') {
+                    this.player._drawHealthBar(this.ctx);
+                }
+                
                 const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
                 if (rt && typeof rt.getRemotePlayers === 'function') {
                     const others = rt.getRemotePlayers() || [];
                     for (const p of others) {
                         if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
+                        
+                        // 繪製遠程玩家血條
+                        this._drawRemotePlayerHealthBar(p);
                         
                         // 組隊模式：隊員端渲染完整的角色外觀（與單機一致，像MMORPG一樣）
                         const characterId = (typeof p.characterId === "string") ? p.characterId : null;
@@ -2278,6 +2315,68 @@ const Game = {
         } catch(e) {
             console.warn('播放花園視頻時出錯:', e);
             this.gardenVideoPlaying = false;
+        }
+    },
+    
+    // 繪製遠程玩家血條
+    _drawRemotePlayerHealthBar: function(p) {
+        if (!this.ctx || !p) return;
+        
+        const camX = (this.camera) ? this.camera.x : 0;
+        const camY = (this.camera) ? this.camera.y : 0;
+        const shakeX = (this.cameraShake && this.cameraShake.active) ? (this.cameraShake.offsetX || 0) : 0;
+        const shakeY = (this.cameraShake && this.cameraShake.active) ? (this.cameraShake.offsetY || 0) : 0;
+        
+        // 計算屏幕座標
+        const screenX = p.x - camX - shakeX;
+        const screenY = p.y - camY - shakeY;
+        
+        // 血條位置：角色上方
+        const barWidth = 60;
+        const barHeight = 6;
+        const playerSize = Math.max(p.width || 32, p.height || 32);
+        const barOffsetY = -playerSize / 2 - 15; // 角色上方15像素
+        const barX = screenX - barWidth / 2;
+        const barY = screenY + barOffsetY;
+        
+        // 獲取血量（從快照或狀態消息中）
+        const isDead = (typeof p._isDead === "boolean") ? p._isDead : false;
+        const health = (typeof p.health === "number") ? p.health : 100;
+        const maxHealth = (typeof p.maxHealth === "number") ? p.maxHealth : 100;
+        const healthPercent = isDead ? 0 : (health / maxHealth);
+        const resurrectionProgress = (typeof p._resurrectionProgress === "number") ? p._resurrectionProgress : 0;
+        
+        // 繪製血條背景（深紅色）
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        this.ctx.fillRect(barX - 1, barY - 1, barWidth + 2, barHeight + 2);
+        
+        // 繪製血條（紅色到綠色漸變）
+        if (healthPercent > 0) {
+            const healthWidth = barWidth * healthPercent;
+            // 根據血量百分比決定顏色（0-30%紅色，30-70%黃色，70-100%綠色）
+            let healthColor = '#ff0000';
+            if (healthPercent > 0.7) {
+                healthColor = '#00ff00';
+            } else if (healthPercent > 0.3) {
+                healthColor = '#ffff00';
+            }
+            this.ctx.fillStyle = healthColor;
+            this.ctx.fillRect(barX, barY, healthWidth, barHeight);
+        }
+        
+        // 如果正在復活，繪製復活進度條（在血條下方）
+        if (isDead && resurrectionProgress > 0) {
+            const resBarHeight = 4;
+            const resBarY = barY + barHeight + 2;
+            const resBarWidth = barWidth * (resurrectionProgress / 100);
+            
+            // 復活進度條背景
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            this.ctx.fillRect(barX - 1, resBarY - 1, barWidth + 2, resBarHeight + 2);
+            
+            // 復活進度條（藍色）
+            this.ctx.fillStyle = '#00aaff';
+            this.ctx.fillRect(barX, resBarY, resBarWidth, resBarHeight);
         }
     }
 };
