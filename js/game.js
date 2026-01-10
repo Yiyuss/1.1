@@ -1133,6 +1133,21 @@ const Game = {
         this.pineappleUltimatePickups = [];
         this.obstacles = [];
         this.decorations = [];
+        // M4/M5：清理遠程玩家（確保重置時完全清理）
+        if (Array.isArray(this.remotePlayers)) {
+            for (const remotePlayer of this.remotePlayers) {
+                try {
+                    if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
+                        for (const weapon of remotePlayer.weapons) {
+                            if (weapon && typeof weapon.destroy === "function") {
+                                try { weapon.destroy(); } catch (_) {}
+                            }
+                        }
+                    }
+                } catch (_) {}
+            }
+            this.remotePlayers = [];
+        }
         // 清除AI生命體（如果存在）
         if (this.player && this.player.aiCompanion) {
             try {
@@ -1294,9 +1309,25 @@ const Game = {
         // 重置波次系統
         WaveSystem.init();
         
-        // M2：清理遠程玩家（僅在組隊模式且為室長時）
+        // M2/M4：清理遠程玩家（僅在組隊模式且為室長時）
         try {
           if (this.multiplayer && this.multiplayer.role === "host") {
+            // 清理遠程玩家對象
+            if (Array.isArray(this.remotePlayers)) {
+              for (const remotePlayer of this.remotePlayers) {
+                try {
+                  if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
+                    for (const weapon of remotePlayer.weapons) {
+                      if (weapon && typeof weapon.destroy === "function") {
+                        try { weapon.destroy(); } catch (_) {}
+                      }
+                    }
+                  }
+                } catch (_) {}
+              }
+              this.remotePlayers = [];
+            }
+            // 清理 RemotePlayerManager
             if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.clearRemotePlayers === "function") {
               window.SurvivalOnlineRuntime.clearRemotePlayers();
             }
