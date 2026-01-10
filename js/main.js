@@ -879,11 +879,11 @@ function setupMapAndDifficultySelection() {
         playClick2();
         if (mapDescEl) {
             // 選到廁所或草原時更新指定文案；其他地圖維持提示
-            if (cfg && (cfg.id === 'city' || cfg.name === '廁所')) {
+            if (cfg && (cfg.id === 'city' || cfg.name === '廁所' || cfg.name === 'LV1.廁所')) {
                 mapDescEl.textContent = '光滑平面的廁所，可使用馬桶障礙物躲避敵人。';
-            } else if (cfg && (cfg.id === 'forest' || cfg.name === '草原')) {
+            } else if (cfg && (cfg.id === 'forest' || cfg.name === '草原' || cfg.name === 'LV2.草原')) {
                 mapDescEl.textContent = '綠意盎然的草原，卻出現了許多馬桶。';
-            } else if (cfg && (cfg.id === 'desert' || cfg.name === '宇宙' || cfg.name === '宇宙LV.3')) {
+            } else if (cfg && (cfg.id === 'desert' || cfg.name === '宇宙' || cfg.name === 'LV3.宇宙' || cfg.name === '宇宙LV.3')) {
                 mapDescEl.textContent = '無盡的宇宙星空中，漂浮著許多馬桶。';
             } else if (cfg && (cfg.id === 'garden' || cfg.name === '花園' || cfg.name === 'LV4.花園')) {
                 mapDescEl.textContent = '美麗的花園中，花精靈們守護著這片淨土。';
