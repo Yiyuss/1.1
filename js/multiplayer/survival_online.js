@@ -298,6 +298,91 @@ const Runtime = (() => {
     }
   }
 
+  // M3：處理狀態快照（客戶端接收室長廣播的快照）
+  function onSnapshotMessage(payload) {
+    if (!payload || typeof payload !== "object") return;
+    if (payload.t !== "snapshot") return;
+    
+    try {
+      // 只處理自己的狀態（其他玩家的狀態由 onStateMessage 處理）
+      if (payload.players && _uid && payload.players[_uid]) {
+        const myState = payload.players[_uid];
+        if (typeof Game !== "undefined" && Game.player) {
+          const player = Game.player;
+          
+          // 位置：使用插值平滑過渡（不硬跳）
+          const targetX = myState.x || player.x;
+          const targetY = myState.y || player.y;
+          const dx = targetX - player.x;
+          const dy = targetY - player.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          // 如果距離較大（>50px），使用插值；否則直接設置
+          if (dist > 50) {
+            const lerp = 0.3; // 插值係數
+            player.x += dx * lerp;
+            player.y += dy * lerp;
+          } else {
+            player.x = targetX;
+            player.y = targetY;
+          }
+          
+          // 血量/能量/等級/經驗：硬覆蓋保一致
+          if (typeof myState.hp === "number") player.health = Math.max(0, Math.min(myState.hp, player.maxHealth || 100));
+          if (typeof myState.maxHp === "number") player.maxHealth = myState.maxHp;
+          if (typeof myState.energy === "number") player.energy = Math.max(0, Math.min(myState.energy, player.maxEnergy || 100));
+          if (typeof myState.maxEnergy === "number") player.maxEnergy = myState.maxEnergy;
+          if (typeof myState.level === "number") player.level = myState.level;
+          if (typeof myState.exp === "number") player.experience = myState.exp;
+          if (typeof myState.expToNext === "number") player.experienceToNextLevel = myState.expToNext;
+          
+          // 更新 UI
+          if (typeof UI !== "undefined") {
+            if (UI.updateHealthBar) UI.updateHealthBar(player.health, player.maxHealth);
+            if (UI.updateEnergyBar) UI.updateEnergyBar(player.energy, player.maxEnergy);
+            if (UI.updateLevel) UI.updateLevel(player.level);
+            if (UI.updateExpBar) UI.updateExpBar(player.experience, player.experienceToNextLevel);
+          }
+        }
+      }
+
+      // 處理 BOSS 狀態（如果存在）
+      if (payload.boss && typeof Game !== "undefined" && Game.boss) {
+        const boss = Game.boss;
+        const bossState = payload.boss;
+        // BOSS 位置插值
+        if (typeof bossState.x === "number" && typeof bossState.y === "number") {
+          const dx = bossState.x - boss.x;
+          const dy = bossState.y - boss.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 50) {
+            const lerp = 0.3;
+            boss.x += dx * lerp;
+            boss.y += dy * lerp;
+          } else {
+            boss.x = bossState.x;
+            boss.y = bossState.y;
+          }
+        }
+        // BOSS 血量硬覆蓋
+        if (typeof bossState.hp === "number") boss.health = Math.max(0, bossState.hp);
+        if (typeof bossState.maxHp === "number") boss.maxHealth = bossState.maxHp;
+      }
+
+      // 處理出口狀態（如果存在）
+      if (payload.exit && typeof Game !== "undefined") {
+        if (!Game.exit && payload.exit.x !== undefined && payload.exit.y !== undefined) {
+          // 出口尚未生成，但快照中有，可以顯示提示（實際生成由室長處理）
+        } else if (Game.exit) {
+          // 出口已存在，同步位置
+          Game.exit.x = payload.exit.x || Game.exit.x;
+          Game.exit.y = payload.exit.y || Game.exit.y;
+        }
+      }
+    } catch (e) {
+      console.warn("[SurvivalOnline] M3 快照處理失敗:", e);
+    }
+  }
+
   function collectLocalState(game) {
     try {
       const player = game && game.player ? game.player : null;
@@ -338,13 +423,103 @@ const Runtime = (() => {
     return Array.from(remotePlayers.entries()).map(([uid, p]) => ({ uid, ...p }));
   }
 
+  // M3：收集完整狀態快照（僅室長端）
+  let lastSnapshotAt = 0;
+  const SNAPSHOT_INTERVAL_MS = 300; // 每 300ms 發送一次快照（約 3.3Hz）
+
+  function collectSnapshot() {
+    if (!_isHost) return null;
+    try {
+      const snapshot = {
+        players: {},
+        boss: null,
+        exit: null,
+        timestamp: Date.now()
+      };
+
+      // 收集所有玩家狀態（含 host 自己）
+      try {
+        if (typeof Game !== "undefined" && Game.player) {
+          const p = Game.player;
+          snapshot.players[_uid] = {
+            x: p.x || 0,
+            y: p.y || 0,
+            hp: p.health || 0,
+            maxHp: p.maxHealth || 100,
+            energy: p.energy || 0,
+            maxEnergy: p.maxEnergy || 100,
+            level: p.level || 1,
+            exp: p.experience || 0,
+            expToNext: p.experienceToNextLevel || 100,
+            name: `玩家-${_uid.slice(0, 4)}`
+          };
+        }
+      } catch (_) {}
+
+      // 收集遠程玩家狀態
+      try {
+        const remoteStates = RemotePlayerManager.getAllStates();
+        for (const [uid, state] of Object.entries(remoteStates)) {
+          const member = _membersState ? _membersState.get(uid) : null;
+          const name = (member && typeof member.name === "string") ? member.name : uid.slice(0, 6);
+          // 注意：遠程玩家的血量/能量等由室長統一管理，這裡先只同步位置
+          // 未來 M4 會讓遠程玩家也有完整的 Player 對象
+          snapshot.players[uid] = {
+            x: state.x || 0,
+            y: state.y || 0,
+            hp: 100, // 暫時固定值，M4 會改為真實值
+            maxHp: 100,
+            energy: 0,
+            maxEnergy: 100,
+            level: 1,
+            exp: 0,
+            expToNext: 100,
+            name: name
+          };
+        }
+      } catch (_) {}
+
+      // 收集 BOSS 狀態
+      try {
+        if (typeof Game !== "undefined" && Game.boss) {
+          const boss = Game.boss;
+          snapshot.boss = {
+            x: boss.x || 0,
+            y: boss.y || 0,
+            hp: boss.health || 0,
+            maxHp: boss.maxHealth || 0,
+            type: boss.type || "BOSS"
+          };
+        }
+      } catch (_) {}
+
+      // 收集出口狀態
+      try {
+        if (typeof Game !== "undefined" && Game.exit) {
+          const exit = Game.exit;
+          snapshot.exit = {
+            x: exit.x || 0,
+            y: exit.y || 0,
+            width: exit.width || 0,
+            height: exit.height || 0
+          };
+        }
+      } catch (_) {}
+
+      return snapshot;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // M2：更新遠程玩家（僅室長端調用）
   function updateRemotePlayers(deltaTime) {
     if (!_isHost) return;
     try {
       RemotePlayerManager.updateAll(deltaTime);
-      // 定期廣播遠程玩家位置（10Hz）
       const now = Date.now();
+      
+      // 定期廣播遠程玩家位置（10Hz，用於即時顯示）
       if (now - lastSendAt >= 100) {
         lastSendAt = now;
         const remoteStates = RemotePlayerManager.getAllStates();
@@ -365,6 +540,19 @@ const Runtime = (() => {
         for (const [uid, it] of _pcsHost.entries()) {
           const ch = (it && it.channel) ? it.channel : null;
           _sendToChannel(ch, { t: "state", players });
+        }
+      }
+
+      // M3：定期發送完整狀態快照（約 3.3Hz，用於收斂一致性）
+      if (now - lastSnapshotAt >= SNAPSHOT_INTERVAL_MS) {
+        lastSnapshotAt = now;
+        const snapshot = collectSnapshot();
+        if (snapshot) {
+          // 廣播快照給所有 client
+          for (const [uid, it] of _pcsHost.entries()) {
+            const ch = (it && it.channel) ? it.channel : null;
+            _sendToChannel(ch, { t: "snapshot", ...snapshot });
+          }
         }
       }
     } catch (_) {}
@@ -389,7 +577,7 @@ const Runtime = (() => {
     } catch (_) {}
   }
 
-  return { setEnabled, onStateMessage, onEventMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers, broadcastEvent: broadcastEventFromRuntime };
+  return { setEnabled, onStateMessage, onEventMessage, onSnapshotMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers, broadcastEvent: broadcastEventFromRuntime };
 })();
 
 // M2：全局事件廣播函數（供其他模組調用）
@@ -912,6 +1100,9 @@ async function connectClientToHost() {
       } else if (msg.t === "event") {
         // M2：處理室長廣播的事件
         Runtime.onEventMessage(msg);
+      } else if (msg.t === "snapshot") {
+        // M3：處理室長廣播的狀態快照
+        Runtime.onSnapshotMessage(msg);
       }
     } catch (_) {}
   };
