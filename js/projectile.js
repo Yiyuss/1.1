@@ -155,6 +155,13 @@ class Projectile extends Entity {
                     }
                 } catch (_) {}
                 
+                // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
+                // 隊員端：造成實際傷害並發送enemy_damage給主機
+                // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                const isGuest = (isMultiplayer && Game.multiplayer.role === "guest");
+                const isHostRemotePlayer = (isMultiplayer && Game.multiplayer.role === "host" && this.player && this.player._isRemotePlayer);
+                
                 // 確定傷害來源的 playerUid（用於隊長端廣播傷害數字）
                 let playerUid = null;
                 let dirX = Math.cos(this.angle);
@@ -170,24 +177,34 @@ class Projectile extends Entity {
                     }
                 }
                 
-                // 調用 enemy.takeDamage，傳遞傷害來源信息（用於隊長端廣播傷害數字）
-                enemy.takeDamage(finalDamage, {
-                    weaponType: this.weaponType,
-                    playerUid: playerUid,
-                    isCrit: isCrit,
-                    dirX: dirX,
-                    dirY: dirY
-                });
-                if (typeof DamageNumbers !== 'undefined') {
-                    // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
-                    DamageNumbers.show(
-                      finalDamage,
-                      enemy.x,
-                      enemy.y - (enemy.height||0)/2,
-                      isCrit,
-                      { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id }
-                    );
+                // 隊員端：造成實際傷害並發送enemy_damage
+                if (isGuest) {
+                    enemy.takeDamage(finalDamage, {
+                        weaponType: this.weaponType,
+                        playerUid: playerUid,
+                        isCrit: isCrit,
+                        dirX: dirX,
+                        dirY: dirY
+                    });
+                    if (typeof DamageNumbers !== 'undefined') {
+                        DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
+                    }
+                    // enemy_damage已在上面發送
+                } 
+                // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理（不重複計算）
+                else if (!isHostRemotePlayer) {
+                    enemy.takeDamage(finalDamage, {
+                        weaponType: this.weaponType,
+                        playerUid: playerUid,
+                        isCrit: isCrit,
+                        dirX: dirX,
+                        dirY: dirY
+                    });
+                    if (typeof DamageNumbers !== 'undefined') {
+                        DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
+                    }
                 }
+                // 主機端的遠程玩家投射物：不造成傷害（由隊員端的enemy_damage處理）
                 // 紳士綿羊（FIREBALL）命中未被消滅的敵人時施加暫時減速（使用設定值）
                 if (this.weaponType === 'FIREBALL' && enemy.health > 0 && typeof enemy.applySlow === 'function') {
                     const cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.FIREBALL) || {};
@@ -361,7 +378,7 @@ class Projectile extends Entity {
                 const renderH = Math.max(1, Math.floor(size / Math.max(0.01, aspect))); // 以寬為基準縮放高度
                 ctx.drawImage(img, this.x - renderW / 2, this.y - renderH / 2, renderW, renderH);
             } else {
-                ctx.drawImage(Game.images[imageName], this.x - size / 2, this.y - size / 2, size, size);
+            ctx.drawImage(Game.images[imageName], this.x - size / 2, this.y - size / 2, size, size);
             }
         } else {
             // 備用：使用純色圓形
