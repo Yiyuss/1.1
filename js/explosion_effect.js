@@ -94,7 +94,8 @@ class ExplosionEffect extends Entity {
                             enemyId: enemy.id,
                             damage: fixedDamage,
                             weaponType: "EXPLOSION",
-                            isCrit: false
+                            isCrit: false,
+                            playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                         });
                     }
                 }
