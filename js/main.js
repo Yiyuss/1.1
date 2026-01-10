@@ -2031,11 +2031,27 @@ document.addEventListener('DOMContentLoaded', function() {
             const achievementsScreen = document.getElementById('achievements-screen');
             const mapScreen = document.getElementById('map-select-screen');
             const diffScreen = document.getElementById('difficulty-select-screen');
+            const teamSelectScreen = document.getElementById('survival-online-select-screen');
+            const teamLobbyScreen = document.getElementById('survival-online-lobby-screen');
             const redeemCodeOverlay = document.getElementById('redeem-code-overlay');
 
             // 優先關閉序號輸入界面
             if (isVisible(redeemCodeOverlay)) {
                 redeemCodeOverlay.classList.add('hidden');
+                e.preventDefault();
+                return;
+            }
+
+            // 組隊介面：ESC 關閉（僅在該介面可見時攔截，不影響遊戲內 ESC）
+            if (isVisible(teamLobbyScreen)) {
+                const leaveBtn = document.getElementById('survival-online-leave');
+                if (leaveBtn) leaveBtn.click();
+                e.preventDefault();
+                return;
+            }
+            if (isVisible(teamSelectScreen)) {
+                const backBtn = document.getElementById('survival-online-btn-back');
+                if (backBtn) backBtn.click();
                 e.preventDefault();
                 return;
             }
