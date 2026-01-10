@@ -106,11 +106,30 @@ const RemotePlayerManager = (() => {
             if (char) {
               player._remoteCharacter = char;
               // 應用角色屬性（血量、速度等）
-              if (char.hpMultiplier) player.maxHealth = Math.floor(player.maxHealth * char.hpMultiplier);
-              if (char.hpBonus) player.maxHealth += char.hpBonus;
-              if (char.speedMultiplier) player.speed *= char.speedMultiplier;
+              const baseMax = (typeof CONFIG !== "undefined" && CONFIG.PLAYER && CONFIG.PLAYER.MAX_HEALTH) ? CONFIG.PLAYER.MAX_HEALTH : 100;
+              const hpMul = char.hpMultiplier != null ? char.hpMultiplier : 1.0;
+              const hpBonus = char.hpBonus != null ? char.hpBonus : 0;
+              const charBaseMax = Math.max(1, Math.floor(baseMax * hpMul + hpBonus));
+              player.baseMaxHealth = charBaseMax;
+              player.maxHealth = charBaseMax;
+              if (char.speedMultiplier) player.speed = ((typeof CONFIG !== "undefined" && CONFIG.PLAYER && CONFIG.PLAYER.SPEED) ? CONFIG.PLAYER.SPEED : 200) * char.speedMultiplier;
               if (char.dodgeChanceBonusPct) player._characterBaseDodgeBonusPct = char.dodgeChanceBonusPct;
+              if (char.critChanceBonusPct) player._characterBaseCritBonusPct = char.critChanceBonusPct;
+              if (char.canUseUltimate === false) player.canUseUltimate = false;
+              player.spriteImageKey = char.spriteImageKey || 'player';
               player.health = player.maxHealth;
+              
+              // 應用天賦效果（遠程玩家也應該應用天賦，但使用本地天賦數據）
+              // 注意：這裡使用本地天賦數據，因為天賦是全局的，不是每個玩家獨立的
+              try {
+                if (typeof TalentSystem !== "undefined" && typeof TalentSystem.applyTalentEffects === "function") {
+                  TalentSystem.applyTalentEffects(player);
+                } else if (typeof applyTalentEffects === "function") {
+                  applyTalentEffects(player);
+                }
+              } catch (e) {
+                console.warn("[SurvivalOnline] 遠程玩家應用天賦失敗:", e);
+              }
             }
           }
           // 將遠程玩家添加到 Game.remotePlayers（如果存在）
