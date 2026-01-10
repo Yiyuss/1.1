@@ -51,27 +51,51 @@ class ShockwaveEffect extends Entity {
             if (this.hitEnemies.has(enemy.id)) continue;
             const d = Utils.distance(this.cx, this.cy, enemy.x, enemy.y);
             if (d >= (r - half) && d <= (r + half)) {
+                let finalDamage = this.damage;
+                let isCrit = false;
                 if (typeof DamageSystem !== 'undefined') {
                     const result = DamageSystem.computeHit(this.damage, enemy, {
                         weaponType: this.weaponType,
                         critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
                     });
-                    enemy.takeDamage(result.amount);
-                    // 命中後施加暫時緩速：99% 超慢但仍可移動（1.5秒）
-                    if (enemy && typeof enemy.applySlow === 'function') {
-                        try { enemy.applySlow(1500, 0.01); } catch (_) {}
+                    finalDamage = result.amount;
+                    isCrit = result.isCrit;
+                }
+                
+                // 組隊模式：隊員的震波攻擊敵人時，同步傷害到隊長端
+                try {
+                    let isSurvivalMode = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) {}
+                    
+                    if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                            window.SurvivalOnlineRuntime.sendToNet({
+                                t: "enemy_damage",
+                                enemyId: enemy.id,
+                                damage: finalDamage,
+                                weaponType: this.weaponType || "UNKNOWN",
+                                isCrit: isCrit
+                            });
+                        }
                     }
-                    if (typeof DamageNumbers !== 'undefined') {
-                        const dirX = enemy.x - this.cx;
-                        const dirY = enemy.y - this.cy;
-                        DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height || 0) / 2, result.isCrit, { dirX, dirY, enemyId: enemy.id });
-                    }
-                } else {
-                    enemy.takeDamage(this.damage);
-                    // 命中後施加暫時緩速：99% 超慢但仍可移動（1.5秒）
-                    if (enemy && typeof enemy.applySlow === 'function') {
-                        try { enemy.applySlow(1500, 0.01); } catch (_) {}
-                    }
+                } catch (_) {}
+                
+                enemy.takeDamage(finalDamage);
+                // 命中後施加暫時緩速：99% 超慢但仍可移動（1.5秒）
+                if (enemy && typeof enemy.applySlow === 'function') {
+                    try { enemy.applySlow(1500, 0.01); } catch (_) {}
+                }
+                if (typeof DamageNumbers !== 'undefined') {
+                    const dirX = enemy.x - this.cx;
+                    const dirY = enemy.y - this.cy;
+                    DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, { dirX, dirY, enemyId: enemy.id });
                 }
                 this.hitEnemies.add(enemy.id);
             }
