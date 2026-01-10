@@ -726,8 +726,14 @@ const Game = {
                         const characterId = (typeof p.characterId === "string") ? p.characterId : null;
                         let spriteImageKey = 'player'; // 預設瑪格麗特
                         
-                        // 根據角色ID確定spriteImageKey
-                        if (characterId && typeof CONFIG !== 'undefined' && CONFIG.CHARACTERS) {
+                        // 檢查是否有大招狀態
+                        const isUltimateActive = (typeof p.isUltimateActive === "boolean") ? p.isUltimateActive : false;
+                        const ultimateImageKey = (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) ? p.ultimateImageKey : null;
+                        
+                        // 如果有大招狀態，使用大招圖片；否則根據角色ID確定spriteImageKey
+                        if (isUltimateActive && ultimateImageKey) {
+                            spriteImageKey = ultimateImageKey;
+                        } else if (characterId && typeof CONFIG !== 'undefined' && CONFIG.CHARACTERS) {
                             const char = CONFIG.CHARACTERS.find(c => c && c.id === characterId);
                             if (char && char.spriteImageKey) {
                                 spriteImageKey = char.spriteImageKey;
@@ -737,7 +743,12 @@ const Game = {
                         // 使用GifOverlay渲染完整的角色外觀（與本地玩家一致）
                         const imgObj = (Game.images && Game.images[spriteImageKey]) ? Game.images[spriteImageKey] : null;
                         if (imgObj && typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
-                            const baseSize = CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.SIZE ? CONFIG.PLAYER.SIZE : 32;
+                            // 根據大招狀態確定基礎尺寸（如果有大招狀態，使用同步的width/height）
+                            let baseSize = CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.SIZE ? CONFIG.PLAYER.SIZE : 32;
+                            if (isUltimateActive && typeof p.width === "number" && p.width > 0) {
+                                // 使用同步的體型（取width和height的最大值作為baseSize）
+                                baseSize = Math.max(p.width || baseSize, p.height || baseSize);
+                            }
                             const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
                             const camX = (Game && Game.camera) ? Game.camera.x : 0;
                             const camY = (Game && Game.camera) ? Game.camera.y : 0;
