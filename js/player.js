@@ -772,6 +772,24 @@ class Player extends Entity {
             }
         } catch (_) {}
 
+        // 組隊模式：如果是客戶端，發送消息到室長端
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        if (isMultiplayer && Game.multiplayer.role === "guest") {
+            // 客戶端：發送消息到室長端，由室長端生成掉落物
+            try {
+                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                    window.SurvivalOnlineRuntime.sendToNet({ 
+                        t: "ultimate_pineapple", 
+                        x: this.x, 
+                        y: this.y 
+                    });
+                }
+            } catch (_) {}
+            // 客戶端不生成掉落物，由室長端生成
+            return;
+        }
+
+        // 室長端或單人模式：正常生成掉落物
         // 生成：200~800 像素距離，隨機角度
         const count = 5;
         const minD = 200;
