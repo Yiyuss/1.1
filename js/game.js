@@ -51,6 +51,8 @@ const Game = {
     expCollected: 0,
     // M1：組隊模式資訊（僅在組隊模式下存在）
     multiplayer: null, // { roomId, role, uid, sessionId } 或 null
+    // M4：遠程玩家列表（僅在組隊模式且為室長時存在）
+    remotePlayers: [], // Array<Player>，遠程玩家的完整 Player 對象
     
     init: function() {
         // 獲取畫布和上下文
@@ -414,6 +416,18 @@ const Game = {
         if (this.player && this.player.weapons) {
             for (const weapon of this.player.weapons) {
                 weapon.update(deltaTime);
+            }
+        }
+        // M4：更新遠程玩家的武器（僅在組隊模式且為室長時）
+        if (this.multiplayer && this.multiplayer.role === "host" && Array.isArray(this.remotePlayers)) {
+            for (const remotePlayer of this.remotePlayers) {
+                if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
+                    for (const weapon of remotePlayer.weapons) {
+                        if (weapon && typeof weapon.update === "function") {
+                            weapon.update(deltaTime);
+                        }
+                    }
+                }
             }
         }
     },
