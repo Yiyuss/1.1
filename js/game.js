@@ -2322,22 +2322,18 @@ const Game = {
     _drawRemotePlayerHealthBar: function(p) {
         if (!this.ctx || !p) return;
         
-        const camX = (this.camera) ? this.camera.x : 0;
-        const camY = (this.camera) ? this.camera.y : 0;
-        const shakeX = (this.cameraShake && this.cameraShake.active) ? (this.cameraShake.offsetX || 0) : 0;
-        const shakeY = (this.cameraShake && this.cameraShake.active) ? (this.cameraShake.offsetY || 0) : 0;
-        
-        // 計算屏幕座標
-        const screenX = p.x - camX - shakeX;
-        const screenY = p.y - camY - shakeY;
-        
+        // 注意：畫布已經被 translate(-cameraOffsetX, -cameraOffsetY) 平移了
+        // 所以這裡直接使用世界座標即可，不需要再減去相機位置
         // 血條位置：角色上方
-        const barWidth = 60;
-        const barHeight = 6;
-        const playerSize = Math.max(p.width || 32, p.height || 32);
-        const barOffsetY = -playerSize / 2 - 15; // 角色上方15像素
-        const barX = screenX - barWidth / 2;
-        const barY = screenY + barOffsetY;
+        const barWidth = 40;
+        const barHeight = 4;
+        // 使用視覺尺寸計算位置（考慮 VISUAL_SCALE）
+        const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
+        const baseSize = Math.max(p.width || 32, p.height || 32);
+        const visualSize = baseSize * visualScale;
+        const barOffsetY = -visualSize / 2 - 8; // 角色上方8像素
+        const barX = p.x - barWidth / 2;
+        const barY = p.y + barOffsetY;
         
         // 獲取血量（從快照或狀態消息中）
         const isDead = (typeof p._isDead === "boolean") ? p._isDead : false;
@@ -2366,8 +2362,8 @@ const Game = {
         
         // 如果正在復活，繪製復活進度條（在血條下方）
         if (isDead && resurrectionProgress > 0) {
-            const resBarHeight = 4;
-            const resBarY = barY + barHeight + 2;
+            const resBarHeight = 3;
+            const resBarY = barY + barHeight + 1;
             const resBarWidth = barWidth * (resurrectionProgress / 100);
             
             // 復活進度條背景
