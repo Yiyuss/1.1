@@ -1809,6 +1809,10 @@ async function createRoom(initial) {
         name: `玩家-${_uid.slice(0, 4)}`,
         characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
       });
+      
+      // 啟動自動清理機制（主機端）
+      startAutoCleanup();
+      
       return { roomId, hostUid: _uid, mapId, diffId };
     } catch (e) {
       lastErr = e;
@@ -1888,16 +1892,56 @@ async function leaveRoom() {
     }
   } catch (_) {}
 
-  // 關閉連線
-  try { if (_dc) _dc.close(); } catch (_) {}
+  // 關閉連線（完全清理 WebRTC）
+  try { 
+    if (_dc) {
+      _dc.onmessage = null;
+      _dc.onopen = null;
+      _dc.onclose = null;
+      _dc.onerror = null;
+      _dc.close(); 
+    }
+  } catch (_) {}
   _dc = null;
-  try { if (_pc) _pc.close(); } catch (_) {}
+  
+  try { 
+    if (_pc) {
+      _pc.onconnectionstatechange = null;
+      _pc.onicecandidate = null;
+      _pc.ondatachannel = null;
+      _pc.ontrack = null;
+      _pc.close(); 
+    }
+  } catch (_) {}
   _pc = null;
+  
   for (const { pc, channel } of _pcsHost.values()) {
-    try { if (channel) channel.close(); } catch (_) {}
-    try { if (pc) pc.close(); } catch (_) {}
+    try { 
+      if (channel) {
+        channel.onmessage = null;
+        channel.onopen = null;
+        channel.onclose = null;
+        channel.onerror = null;
+        channel.close(); 
+      }
+    } catch (_) {}
+    try { 
+      if (pc) {
+        pc.onconnectionstatechange = null;
+        pc.onicecandidate = null;
+        pc.ondatachannel = null;
+        pc.ontrack = null;
+        pc.close(); 
+      }
+    } catch (_) {}
   }
   _pcsHost.clear();
+  
+  // 停止自動清理
+  stopAutoCleanup();
+  
+  // 清理速率限制追蹤
+  _rateLimitTracker.clear();
 
   Runtime.setEnabled(false);
 
@@ -2023,6 +2067,10 @@ function listenRoom(roomId) {
 
       // 若開始遊戲，觸發進入
       if (_roomState && _roomState.status === "starting") {
+        // 主機端：啟動自動清理機制
+        if (_isHost) {
+          startAutoCleanup();
+        }
         tryStartSurvivalFromRoom();
       }
     },
@@ -2473,6 +2521,45 @@ function broadcastEvent(eventType, eventData) {
   }
 }
 
+// 速率限制追蹤（防止 DDoS 和濫用）
+const _rateLimitTracker = new Map(); // uid -> { lastResetTime, counts: { damage, input, upgrade, lifesteal } }
+
+function _checkRateLimit(uid, type, maxPerSecond) {
+  const now = Date.now();
+  if (!_rateLimitTracker.has(uid)) {
+    _rateLimitTracker.set(uid, { lastResetTime: now, counts: {} });
+  }
+  const tracker = _rateLimitTracker.get(uid);
+  
+  // 每秒重置計數
+  if (now - tracker.lastResetTime >= 1000) {
+    tracker.counts = {};
+    tracker.lastResetTime = now;
+  }
+  
+  // 初始化計數
+  if (!tracker.counts[type]) {
+    tracker.counts[type] = 0;
+  }
+  
+  // 檢查是否超過限制
+  tracker.counts[type]++;
+  if (tracker.counts[type] > maxPerSecond) {
+    return false; // 超過限制
+  }
+  return true; // 允許
+}
+
+function _cleanupRateLimitTracker() {
+  const now = Date.now();
+  for (const [uid, tracker] of _rateLimitTracker.entries()) {
+    // 清理超過 5 秒沒有活動的追蹤
+    if (now - tracker.lastResetTime > 5000) {
+      _rateLimitTracker.delete(uid);
+    }
+  }
+}
+
 function handleHostDataMessage(fromUid, msg) {
   if (!msg || typeof msg !== "object") return;
   if (msg.t === "reconnect_request") {
@@ -2571,6 +2658,13 @@ function handleHostDataMessage(fromUid, msg) {
   if (msg.t === "weapon_upgrade") {
     // 客戶端選擇武器升級：同步到室長端的遠程玩家
     if (!_isHost) return;
+    
+    // 速率限制：每秒最多 5 次升級（防止濫用）
+    if (!_checkRateLimit(fromUid, "upgrade", 5)) {
+      console.warn("[SurvivalOnline] 升級速率過高，忽略:", fromUid);
+      return;
+    }
+    
     const weaponType = typeof msg.weaponType === "string" ? msg.weaponType : null;
     if (!weaponType) return;
     
@@ -2599,6 +2693,14 @@ function handleHostDataMessage(fromUid, msg) {
   if (msg.t === "enemy_damage") {
     // 隊員的投射物攻擊敵人：同步傷害到隊長端
     if (!_isHost) return;
+    
+    // 速率限制：每秒最多 2000 次傷害（防止 DDoS，但允許正常高強度戰鬥）
+    // 計算：假設 20 個武器 × 3 次/秒 × 20 個敵人 = 1200 次/秒，加上持續傷害技能約 800 次/秒 = 2000 次/秒
+    if (!_checkRateLimit(fromUid, "damage", 2000)) {
+      console.warn("[SurvivalOnline] 傷害速率過高，忽略:", fromUid);
+      return;
+    }
+    
     const enemyId = typeof msg.enemyId === "string" ? msg.enemyId : null;
     const damage = typeof msg.damage === "number" ? Math.max(0, msg.damage) : 0;
     const weaponType = typeof msg.weaponType === "string" ? msg.weaponType : "UNKNOWN";
@@ -2640,6 +2742,12 @@ function handleHostDataMessage(fromUid, msg) {
     
     // 處理吸血邏輯：將吸血量應用到遠程玩家
     if (lifesteal > 0 && playerUid) {
+      // 速率限制：每秒最多 2000 次吸血（與傷害同步）
+      if (!_checkRateLimit(fromUid, "lifesteal", 2000)) {
+        // 吸血速率過高時忽略，但不影響傷害處理
+        return;
+      }
+      
       try {
         // 找到對應的遠程玩家
         let remotePlayer = null;
@@ -2666,6 +2774,13 @@ function handleHostDataMessage(fromUid, msg) {
   if (msg.t === "input") {
     // M4：將輸入套用到遠程玩家（完整的 Player 對象）
     if (!_isHost) return;
+    
+    // 速率限制：每秒最多 60 次輸入（防止 DDoS）
+    if (!_checkRateLimit(fromUid, "input", 60)) {
+      console.warn("[SurvivalOnline] 輸入速率過高，忽略:", fromUid);
+      return;
+    }
+    
     const mx = typeof msg.mx === "number" ? msg.mx : 0;
     const my = typeof msg.my === "number" ? msg.my : 0;
     
@@ -2812,6 +2927,46 @@ async function reconnectClient() {
     return;
   }
   await connectClientToHost();
+}
+
+// 自動清理定時器
+let _autoCleanupTimer = null;
+
+function startAutoCleanup() {
+  if (!_isHost || _autoCleanupTimer) return;
+  
+  // 每 5 分鐘自動清理一次離線成員
+  _autoCleanupTimer = setInterval(async () => {
+    if (!_isHost || !_activeRoomId) {
+      stopAutoCleanup();
+      return;
+    }
+    
+    try {
+      const stale = Array.from(_membersState.values())
+        .filter(m => m && m.uid && m.uid !== _uid && m.role !== "host" && _isMemberStale(m));
+      
+      for (const m of stale) {
+        try {
+          await hostKickMember(m.uid);
+        } catch (e) {
+          console.warn("[SurvivalOnline] 自動清理成員失敗:", m.uid, e);
+        }
+      }
+      
+      // 清理速率限制追蹤器
+      _cleanupRateLimitTracker();
+    } catch (e) {
+      console.warn("[SurvivalOnline] 自動清理過程出錯:", e);
+    }
+  }, 5 * 60 * 1000); // 5 分鐘
+}
+
+function stopAutoCleanup() {
+  if (_autoCleanupTimer) {
+    clearInterval(_autoCleanupTimer);
+    _autoCleanupTimer = null;
+  }
 }
 
 async function hostCleanupStale() {
