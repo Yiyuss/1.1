@@ -166,10 +166,12 @@ class LaserBeam extends Entity {
                     
                     let finalDamage = this.damage;
                     let isCrit = false;
+                    let lifestealAmount = 0;
                     if (typeof DamageSystem !== 'undefined') {
                         const result = DamageSystem.computeHit(this.damage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
                         finalDamage = result.amount;
                         isCrit = result.isCrit;
+                        lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                     }
                     
                     // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
@@ -185,7 +187,7 @@ class LaserBeam extends Entity {
                         if (typeof DamageNumbers !== 'undefined') {
                             DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
                         }
-                        // 發送enemy_damage給主機
+                        // 發送enemy_damage給主機（包含吸血資訊）
                         if (enemy && enemy.id) {
                             if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                                 window.SurvivalOnlineRuntime.sendToNet({
@@ -193,7 +195,8 @@ class LaserBeam extends Entity {
                                     enemyId: enemy.id,
                                     damage: finalDamage,
                                     weaponType: this.weaponType || "UNKNOWN",
-                                    isCrit: isCrit
+                                    isCrit: isCrit,
+                                    lifesteal: lifestealAmount
                                 });
                             }
                         }
