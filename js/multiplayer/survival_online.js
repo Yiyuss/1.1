@@ -1177,6 +1177,26 @@ try {
   console.warn("[SurvivalOnline] UI 綁定失敗：", e);
 }
 
+// 關鍵：ESC 攔截（capture phase）
+// - 必須在 main.js / KeyboardRouter 的 ESC 邏輯之前吃掉事件，避免「一次 ESC 觸發多處」造成背景跳回主選單但組隊 UI 仍在前面。
+// - 只在組隊介面可見時處理。
+try {
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      try {
+        if (!e || e.key !== "Escape") return;
+        if (handleEscape()) {
+          e.preventDefault();
+          try { e.stopImmediatePropagation(); } catch (_) {}
+          try { e.stopPropagation(); } catch (_) {}
+        }
+      } catch (_) {}
+    },
+    true // capture
+  );
+} catch (_) {}
+
 // 將 API 暴露到 window，供非 module 的 main.js / game.js 呼叫
 window.SurvivalOnlineUI = {
   startFlowFromMain,
