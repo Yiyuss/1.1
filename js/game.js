@@ -876,136 +876,45 @@ const Game = {
                     this.player._drawHealthBar(this.ctx);
                 }
                 
-                const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const others = rt.getRemotePlayers() || [];
-                    for (const p of others) {
-                        if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
-                        
-                        // 繪製遠程玩家血條
-                        this._drawRemotePlayerHealthBar(p);
-                        
-                        // 組隊模式：隊員端渲染完整的角色外觀（與單機一致，像MMORPG一樣）
-                        const characterId = (typeof p.characterId === "string") ? p.characterId : null;
-                        let spriteImageKey = 'player'; // 預設瑪格麗特
-                        
-                        // 檢查是否有大招狀態
-                        const isUltimateActive = (typeof p.isUltimateActive === "boolean") ? p.isUltimateActive : false;
-                        const ultimateImageKey = (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) ? p.ultimateImageKey : null;
-                        
-                        // 如果有大招狀態，使用大招圖片；否則根據角色ID確定spriteImageKey
-                        if (isUltimateActive && ultimateImageKey) {
-                            spriteImageKey = ultimateImageKey;
-                        } else if (characterId && typeof CONFIG !== 'undefined' && CONFIG.CHARACTERS) {
-                            const char = CONFIG.CHARACTERS.find(c => c && c.id === characterId);
-                            if (char && char.spriteImageKey) {
-                                spriteImageKey = char.spriteImageKey;
+                // 使用 RemotePlayerManager 獲取完整的 Player 對象（包含所有屬性和方法）
+                const remotePlayers = (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager && typeof window.SurvivalOnlineRuntime.RemotePlayerManager.getAllPlayers === 'function')
+                    ? window.SurvivalOnlineRuntime.RemotePlayerManager.getAllPlayers()
+                    : [];
+                for (const p of remotePlayers) {
+                    if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
+                    
+                    // 繪製遠程玩家血條
+                    this._drawRemotePlayerHealthBar(p);
+                    
+                    // 使用 Player 對象的 draw 方法繪製角色（與本地玩家一致，包含武器和攻擊效果）
+                    if (typeof p.draw === 'function') {
+                        p.draw(this.ctx);
+                    }
+                    
+                    // 繪製遠程玩家名稱（在角色上方）
+                    const remoteUid = (p._remoteUid) ? p._remoteUid : 'unknown';
+                    const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                    let playerName = '玩家';
+                    if (rt && typeof rt.getMembersState === 'function') {
+                        const members = rt.getMembersState();
+                        if (members && typeof members.get === 'function') {
+                            const member = members.get(remoteUid);
+                            if (member && typeof member.name === 'string') {
+                                playerName = member.name;
                             }
-                        }
-                        
-                        // 使用GifOverlay渲染完整的角色外觀（與本地玩家一致）
-                        const imgObj = (Game.images && Game.images[spriteImageKey]) ? Game.images[spriteImageKey] : null;
-                        if (imgObj && typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
-                            // 根據大招狀態確定基礎尺寸（如果有大招狀態，使用同步的width/height）
-                            let baseSize = CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.SIZE ? CONFIG.PLAYER.SIZE : 32;
-                            if (isUltimateActive && typeof p.width === "number" && p.width > 0) {
-                                // 使用同步的體型（取width和height的最大值作為baseSize）
-                                baseSize = Math.max(p.width || baseSize, p.height || baseSize);
-                            }
-                            const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
-                            const camX = (Game && Game.camera) ? Game.camera.x : 0;
-                            const camY = (Game && Game.camera) ? Game.camera.y : 0;
-                            const shakeX = (Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetX || 0) : 0;
-                            const shakeY = (Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetY || 0) : 0;
-                            const screenX = p.x - camX - shakeX;
-                            const screenY = p.y - camY - shakeY;
-                            
-                            // 使用與本地玩家相同的渲染邏輯
-                            if (spriteImageKey === 'player4' && imgObj.complete) {
-                                const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
-                                const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
-                                const aspectRatio = imgWidth / imgHeight;
-                                const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
-                                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                                window.GifOverlay.showOrUpdate(`remote-player-${p.uid || 'unknown'}`, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
-                            } else if (spriteImageKey === 'player5' && imgObj.complete) {
-                                const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
-                                const imgHeight = imgObj.naturalHeight || imgObj.height || 467;
-                                const aspectRatio = imgWidth / imgHeight;
-                                const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
-                                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                                window.GifOverlay.showOrUpdate(`remote-player-${p.uid || 'unknown'}`, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
-                            } else if (spriteImageKey === 'playerN3' && imgObj.complete) {
-                                const imgWidth = imgObj.naturalWidth || imgObj.width || 267;
-                                const imgHeight = imgObj.naturalHeight || imgObj.height || 300;
-                                const aspectRatio = imgWidth / imgHeight;
-                                const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
-                                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                                window.GifOverlay.showOrUpdate(`remote-player-${p.uid || 'unknown'}`, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
-                            } else if (spriteImageKey === 'player3' && imgObj.complete) {
-                                const imgWidth = imgObj.naturalWidth || imgObj.width || 320;
-                                const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
-                                const aspectRatio = imgWidth / imgHeight;
-                                const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
-                                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                                window.GifOverlay.showOrUpdate(`remote-player-${p.uid || 'unknown'}`, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
-                            } else if (spriteImageKey === 'player6' && imgObj.complete) {
-                                const imgWidth = imgObj.naturalWidth || imgObj.width || 242;
-                                const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
-                                const aspectRatio = imgWidth / imgHeight;
-                                const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
-                                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                                window.GifOverlay.showOrUpdate(`remote-player-${p.uid || 'unknown'}`, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
-                            } else if (spriteImageKey === 'player' && imgObj.complete) {
-                                const imgWidth = imgObj.naturalWidth || imgObj.width || 320;
-                                const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
-                                const aspectRatio = imgWidth / imgHeight;
-                                const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
-                                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                                window.GifOverlay.showOrUpdate(`remote-player-${p.uid || 'unknown'}`, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
-                            } else if ((spriteImageKey === 'player2' || spriteImageKey === 'player2-1') && imgObj.complete) {
-                                const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
-                                const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
-                                const aspectRatio = imgWidth / imgHeight;
-                                const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
-                                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                                window.GifOverlay.showOrUpdate(`remote-player-${p.uid || 'unknown'}`, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
-                            } else {
-                                const renderSize = Math.max(1, Math.floor(baseSize * visualScale));
-                                window.GifOverlay.showOrUpdate(`remote-player-${p.uid || 'unknown'}`, imgObj.src, screenX, screenY, renderSize);
-                            }
-                            
-                            // 繪製名稱（在角色上方）
-                            this.ctx.save();
-                            this.ctx.globalAlpha = 0.95;
-                            this.ctx.font = '12px sans-serif';
-                            this.ctx.textAlign = 'center';
-                            this.ctx.textBaseline = 'bottom';
-                            this.ctx.fillStyle = 'rgba(255,255,255,0.95)';
-                            const nameY = p.y - (baseSize * visualScale / 2) - 8;
-                            this.ctx.fillText(p.name || '玩家', p.x, nameY);
-                            this.ctx.restore();
-                        } else {
-                            // 後備：如果GifOverlay不可用，使用簡單的圓點+名稱
-                            this.ctx.save();
-                            this.ctx.globalAlpha = 0.85;
-                            this.ctx.fillStyle = 'rgba(80,200,255,0.9)';
-                            this.ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-                            this.ctx.lineWidth = 2;
-                            this.ctx.beginPath();
-                            this.ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
-                            this.ctx.fill();
-                            this.ctx.stroke();
-                            // 名稱
-                            this.ctx.globalAlpha = 0.95;
-                            this.ctx.font = '12px sans-serif';
-                            this.ctx.textAlign = 'center';
-                            this.ctx.textBaseline = 'bottom';
-                            this.ctx.fillStyle = 'rgba(255,255,255,0.95)';
-                            this.ctx.fillText(p.name || '玩家', p.x, p.y - 16);
-                            this.ctx.restore();
                         }
                     }
+                    this.ctx.save();
+                    this.ctx.globalAlpha = 0.95;
+                    this.ctx.font = '12px sans-serif';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'bottom';
+                    this.ctx.fillStyle = 'rgba(255,255,255,0.95)';
+                    const baseSize = CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.SIZE ? CONFIG.PLAYER.SIZE : 32;
+                    const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
+                    const nameY = p.y - (baseSize * visualScale / 2) - 8;
+                    this.ctx.fillText(playerName, p.x, nameY);
+                    this.ctx.restore();
                 }
             }
         } catch (_) {}
