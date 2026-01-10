@@ -108,7 +108,8 @@ class SlashEffect extends Entity {
                                 enemyId: enemy.id,
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "SLASH",
-                                isCrit: isCrit
+                                isCrit: isCrit,
+                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                             });
                         }
                     }
