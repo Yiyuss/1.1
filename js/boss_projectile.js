@@ -213,6 +213,34 @@ class BossProjectile extends Entity {
                 Game.explosionParticles = [];
             }
             Game.explosionParticles.push(explosionParticle);
+            
+            // 組隊模式：標記為待廣播的粒子
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "host") {
+                    if (!Game._pendingExplosionParticles) Game._pendingExplosionParticles = [];
+                    Game._pendingExplosionParticles.push({
+                        x: explosionParticle.x,
+                        y: explosionParticle.y,
+                        vx: explosionParticle.vx,
+                        vy: explosionParticle.vy,
+                        life: explosionParticle.life,
+                        maxLife: explosionParticle.maxLife,
+                        size: explosionParticle.size,
+                        color: explosionParticle.color,
+                        source: 'BOSS_PROJECTILE'
+                    });
+                }
+            } catch (_) {}
         }
         
         // 創建火花粒子
@@ -232,6 +260,34 @@ class BossProjectile extends Entity {
             };
             
             Game.explosionParticles.push(sparkParticle);
+            
+            // 組隊模式：標記為待廣播的粒子
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "host") {
+                    if (!Game._pendingExplosionParticles) Game._pendingExplosionParticles = [];
+                    Game._pendingExplosionParticles.push({
+                        x: sparkParticle.x,
+                        y: sparkParticle.y,
+                        vx: sparkParticle.vx,
+                        vy: sparkParticle.vy,
+                        life: sparkParticle.life,
+                        maxLife: sparkParticle.maxLife,
+                        size: sparkParticle.size,
+                        color: sparkParticle.color,
+                        source: 'BOSS_PROJECTILE_SPARK'
+                    });
+                }
+            } catch (_) {}
         }
         
         // 創建煙霧粒子
@@ -251,6 +307,34 @@ class BossProjectile extends Entity {
             };
             
             Game.explosionParticles.push(smokeParticle);
+            
+            // 組隊模式：標記為待廣播的粒子
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "host") {
+                    if (!Game._pendingExplosionParticles) Game._pendingExplosionParticles = [];
+                    Game._pendingExplosionParticles.push({
+                        x: smokeParticle.x,
+                        y: smokeParticle.y,
+                        vx: smokeParticle.vx,
+                        vy: smokeParticle.vy,
+                        life: smokeParticle.life,
+                        maxLife: smokeParticle.maxLife,
+                        size: smokeParticle.size,
+                        color: smokeParticle.color,
+                        source: 'BOSS_PROJECTILE_SMOKE'
+                    });
+                }
+            } catch (_) {}
         }
         
         // 創建螢幕閃光效果
