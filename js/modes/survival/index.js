@@ -62,6 +62,12 @@
         if (params && params.selectedMap) {
           Game.selectedMap = params.selectedMap;
         }
+        // M1：儲存組隊模式資訊（包含 sessionId）
+        if (params && params.multiplayer) {
+          Game.multiplayer = params.multiplayer;
+        } else {
+          Game.multiplayer = null;
+        }
       } catch(_){}
 
       // 啟動現有遊戲流程
