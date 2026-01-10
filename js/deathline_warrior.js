@@ -180,7 +180,8 @@ class DeathlineWarriorEffect extends Entity {
                                 enemyId: enemy.id,
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "DEATHLINE_WARRIOR",
-                                isCrit: isCrit
+                                isCrit: isCrit,
+                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                             });
                         }
                     }
