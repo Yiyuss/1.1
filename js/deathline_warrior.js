@@ -150,40 +150,96 @@ class DeathlineWarriorEffect extends Entity {
             });
             
             for (const enemy of hitEnemies) {
+                let finalDamage = this.damage;
+                let isCrit = false;
                 if (typeof DamageSystem !== 'undefined') {
                     const result = DamageSystem.computeHit(this.damage, enemy, {
                         weaponType: this.weaponType,
                         critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
                     });
-                    enemy.takeDamage(result.amount);
-                    if (typeof DamageNumbers !== 'undefined') {
-                        DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height||0)/2, result.isCrit, { 
-                            dirX: 0, 
-                            dirY: -1, 
-                            enemyId: enemy.id 
-                        });
+                    finalDamage = result.amount;
+                    isCrit = result.isCrit;
+                }
+                
+                // 組隊模式：隊員的死線戰士攻擊敵人時，同步傷害到隊長端
+                try {
+                    let isSurvivalMode = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) {}
+                    
+                    if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                            window.SurvivalOnlineRuntime.sendToNet({
+                                t: "enemy_damage",
+                                enemyId: enemy.id,
+                                damage: finalDamage,
+                                weaponType: this.weaponType || "DEATHLINE_WARRIOR",
+                                isCrit: isCrit
+                            });
+                        }
                     }
-                } else {
-                    enemy.takeDamage(this.damage);
+                } catch (_) {}
+                
+                enemy.takeDamage(finalDamage);
+                if (typeof DamageNumbers !== 'undefined') {
+                    DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { 
+                        dirX: 0, 
+                        dirY: -1, 
+                        enemyId: enemy.id 
+                    });
                 }
             }
         } else {
             // 單體傷害（死線戰士）
+            let finalDamage = this.damage;
+            let isCrit = false;
             if (typeof DamageSystem !== 'undefined') {
                 const result = DamageSystem.computeHit(this.damage, target, {
                     weaponType: this.weaponType,
                     critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
                 });
-                target.takeDamage(result.amount);
-                if (typeof DamageNumbers !== 'undefined') {
-                    DamageNumbers.show(result.amount, target.x, target.y - (target.height||0)/2, result.isCrit, { 
-                        dirX: 0, 
-                        dirY: -1, 
-                        enemyId: target.id 
-                    });
+                finalDamage = result.amount;
+                isCrit = result.isCrit;
+            }
+            
+            // 組隊模式：隊員的死線戰士攻擊敵人時，同步傷害到隊長端
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && target && target.id) {
+                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            t: "enemy_damage",
+                            enemyId: target.id,
+                            damage: finalDamage,
+                            weaponType: this.weaponType || "DEATHLINE_WARRIOR",
+                            isCrit: isCrit
+                        });
+                    }
                 }
-            } else {
-                target.takeDamage(this.damage);
+            } catch (_) {}
+            
+            target.takeDamage(finalDamage);
+            if (typeof DamageNumbers !== 'undefined') {
+                DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { 
+                    dirX: 0, 
+                    dirY: -1, 
+                    enemyId: target.id 
+                });
             }
         }
         
