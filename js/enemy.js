@@ -95,6 +95,35 @@ class Enemy extends Entity {
             console.warn('[Enemy] 血量計算錯誤，使用基礎值:', e);
             this.maxHealth = enemyConfig.HEALTH;
         }
+        
+        // ============================================================================
+        // 組隊模式血量加成：根據玩家數量增加敵人血量
+        // 第1位正常（100%），之後每增加一位+80%（單純加法）
+        // 例如：1位=100%, 2位=180%, 3位=260%, 4位=340%, 5位=420%
+        // ============================================================================
+        try {
+            if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.sessionId) {
+                // 獲取組隊玩家數量
+                let playerCount = 1; // 預設至少1位（自己）
+                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.getMembersState === 'function') {
+                    const members = window.SurvivalOnlineRuntime.getMembersState();
+                    if (Array.isArray(members)) {
+                        playerCount = members.length;
+                    }
+                }
+                
+                // 計算血量加成：第1位正常，之後每增加一位+80%
+                // 公式：finalHealth = baseHealth * (1 + 0.8 * (playerCount - 1))
+                if (playerCount > 1) {
+                    const multiplier = 1 + 0.8 * (playerCount - 1);
+                    this.maxHealth = Math.floor(this.maxHealth * multiplier);
+                }
+            }
+        } catch (e) {
+            // 組隊血量加成計算錯誤時不影響既有流程，使用原血量
+            console.warn('[Enemy] 組隊血量加成計算錯誤，使用原血量:', e);
+        }
+        
         this.health = this.maxHealth;
         this.damage = enemyConfig.DAMAGE;
         this.speed = enemyConfig.SPEED * ((Game.difficulty && Game.difficulty.enemySpeedMultiplier) ? Game.difficulty.enemySpeedMultiplier : 1);
