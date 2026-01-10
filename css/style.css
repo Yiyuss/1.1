@@ -89,7 +89,7 @@ body {
 #survival-online-select-screen .select-card.team-dark,
 #survival-online-lobby-screen .select-card.team-dark {
     /* 稍微淡一點：更亮/更透明，但仍保留對比 */
-    background: rgba(18, 26, 34, 0.56);
+    background: rgba(18, 26, 34, 0.86);
     border: 1px solid rgba(255,255,255,0.12);
     box-shadow: 0 12px 28px rgba(0,0,0,0.55);
     backdrop-filter: blur(8px);
