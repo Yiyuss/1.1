@@ -124,38 +124,44 @@ class ChainLightningEffect extends Entity {
                         const result = DamageSystem.computeHit(this.damage, target, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
                         finalDamage = result.amount;
                         isCrit = result.isCrit;
-                    }
-                    
-                    // 組隊模式：隊員的連鎖閃電攻擊敵人時，同步傷害到隊長端
-                    try {
-                        let isSurvivalMode = false;
-                        try {
-                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                ? GameModeManager.getCurrent()
-                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                    ? ModeManager.getActiveModeId()
-                                    : null);
-                            isSurvivalMode = (activeId === 'survival' || activeId === null);
-                        } catch (_) {}
+                        }
                         
-                        if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && target && target.id) {
-                            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                                window.SurvivalOnlineRuntime.sendToNet({
-                                    t: "enemy_damage",
-                                    enemyId: target.id,
-                                    damage: finalDamage,
-                                    weaponType: this.weaponType || "CHAIN_LIGHTNING",
-                                    isCrit: isCrit
-                                });
+                        // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
+                        // 隊員端：造成實際傷害並發送enemy_damage給主機
+                        // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理
+                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                        const isGuest = (isMultiplayer && Game.multiplayer.role === "guest");
+                        const isHostRemotePlayer = (isMultiplayer && Game.multiplayer.role === "host" && this.player && this.player._isRemotePlayer);
+                        
+                        // 隊員端：造成實際傷害並發送enemy_damage
+                        if (isGuest) {
+                            target.takeDamage(finalDamage);
+                            if (typeof DamageNumbers !== 'undefined') {
+                                const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
+                                DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
+                            }
+                            // 發送enemy_damage給主機
+                            if (target && target.id) {
+                                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                                    window.SurvivalOnlineRuntime.sendToNet({
+                                        t: "enemy_damage",
+                                        enemyId: target.id,
+                                        damage: finalDamage,
+                                        weaponType: this.weaponType || "CHAIN_LIGHTNING",
+                                        isCrit: isCrit
+                                    });
+                                }
+                            }
+                        } 
+                        // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理（不重複計算）
+                        else if (!isHostRemotePlayer) {
+                            target.takeDamage(finalDamage);
+                            if (typeof DamageNumbers !== 'undefined') {
+                                const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
+                                DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
                             }
                         }
-                    } catch (_) {}
-                    
-                    target.takeDamage(finalDamage);
-                    if (typeof DamageNumbers !== 'undefined') {
-                        const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
-                        DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
-                    }
+                        // 主機端的遠程玩家武器：不造成傷害（由隊員端的enemy_damage處理）
                     this._spawnSegmentSparks(seg);
                 }
                 seg.applied = true;
@@ -456,8 +462,8 @@ class FrenzyLightningEffect extends Entity {
                     } catch (_) {}
                     
                     target.takeDamage(finalDamage);
-                    if (typeof DamageNumbers !== 'undefined') {
-                        const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
+                        if (typeof DamageNumbers !== 'undefined') {
+                            const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
                         DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (ty - fy), dirY: (tx - fx), enemyId: target.id });
                     }
                     this._spawnSegmentSparks(seg);
