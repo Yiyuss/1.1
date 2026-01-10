@@ -473,21 +473,18 @@ class Player extends Entity {
     _drawHealthBar(ctx) {
         if (!ctx) return;
         
-        const camX = (typeof Game !== 'undefined' && Game && Game.camera) ? Game.camera.x : 0;
-        const camY = (typeof Game !== 'undefined' && Game && Game.camera) ? Game.camera.y : 0;
-        const shakeX = (typeof Game !== 'undefined' && Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetX || 0) : 0;
-        const shakeY = (typeof Game !== 'undefined' && Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetY || 0) : 0;
-        
-        // 計算屏幕座標
-        const screenX = this.x - camX - shakeX;
-        const screenY = this.y - camY - shakeY;
-        
+        // 注意：畫布已經被 translate(-cameraOffsetX, -cameraOffsetY) 平移了
+        // 所以這裡直接使用世界座標即可，不需要再減去相機位置
         // 血條位置：角色上方
-        const barWidth = 60;
-        const barHeight = 6;
-        const barOffsetY = -Math.max(this.width, this.height) / 2 - 15; // 角色上方15像素
-        const barX = screenX - barWidth / 2;
-        const barY = screenY + barOffsetY;
+        const barWidth = 40;
+        const barHeight = 4;
+        // 使用視覺尺寸計算位置（考慮 VISUAL_SCALE）
+        const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
+        const baseSize = Math.max(this.width, this.height);
+        const visualSize = baseSize * visualScale;
+        const barOffsetY = -visualSize / 2 - 8; // 角色上方8像素
+        const barX = this.x - barWidth / 2;
+        const barY = this.y + barOffsetY;
         
         // 死亡時血條顯示為0
         const healthPercent = this._isDead ? 0 : (this.health / this.maxHealth);
@@ -512,8 +509,8 @@ class Player extends Entity {
         
         // 如果正在復活，繪製復活進度條（在血條下方）
         if (this._isDead && this._resurrectionProgress > 0) {
-            const resBarHeight = 4;
-            const resBarY = barY + barHeight + 2;
+            const resBarHeight = 3;
+            const resBarY = barY + barHeight + 1;
             const resBarWidth = barWidth * (this._resurrectionProgress / 100);
             
             // 復活進度條背景
