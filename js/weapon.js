@@ -748,6 +748,7 @@ class Weapon {
                     this.config.PROJECTILE_SPEED,
                     dynamicSize
                 );
+                projectile.player = this.player; // 設置玩家引用
                 projectile.homing = true;
                 projectile.turnRatePerSec = this.level >= 10 ? 6.0 : 3.5; // rad/s
                 if (target) {
@@ -804,6 +805,7 @@ class Weapon {
                     this.config.PROJECTILE_SPEED,
                     dynamicSize
                 );
+                projectile.player = this.player; // 設置玩家引用
                 projectile.homing = true;
                 projectile.turnRatePerSec = this.level >= 10 ? 6.0 : 3.5; // rad/s
                 if (target) {
@@ -860,6 +862,7 @@ class Weapon {
                     this.config.PROJECTILE_SPEED,
                     dynamicSize
                 );
+                projectile.player = this.player; // 設置玩家引用
                 projectile.homing = true;
                 projectile.turnRatePerSec = this.level >= 10 ? 6.0 : 3.5; // rad/s
                 if (target) {
@@ -1003,6 +1006,7 @@ class Weapon {
                     this.config.PROJECTILE_SPEED,
                     dynamicSize
                 );
+                projectile.player = this.player; // 設置玩家引用
                 projectile.homing = true;
                 projectile.turnRatePerSec = this.level >= 10 ? 6.0 : 3.5; // rad/s
                 if (target) {
@@ -1067,6 +1071,7 @@ class Weapon {
                 this.config.PROJECTILE_SPEED,
                 dynamicSize
             );
+            projectile.player = this.player; // 設置玩家引用
             // 新增：把玩家的爆擊加成帶到投射物，避免在計算時拿不到玩家
             projectile.critChanceBonusPct = ((this.player && this.player.critChanceBonusPct) || 0);
             Game.addProjectile(projectile);
