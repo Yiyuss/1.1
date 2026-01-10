@@ -1153,6 +1153,14 @@ class Weapon {
 
 // 在類內新增：根據「基礎值 +（等級5%）+（天賦基礎%）+（特化+2/4/6）」計算最終基礎傷害
 Weapon.prototype._computeFinalDamage = function(levelMul){
+    // MMORPG標準：主機端的遠程玩家武器不造成傷害（由隊員端的enemy_damage處理，避免雙重傷害）
+    // 但視覺效果仍然需要正常傷害值來顯示（例如AuraField的範圍）
+    if (this.player && this.player._isRemotePlayer) {
+        // 主機端的遠程玩家武器：返回0傷害（避免雙重傷害）
+        // 注意：某些技能（如AuraField）需要傷害值來計算範圍，但實際傷害由隊員端發送
+        return 0;
+    }
+    
     const base = (this.config && this.config.DAMAGE) ? this.config.DAMAGE : 0;
     // 狂熱類：每等 +3 基礎傷害（LV10 累計 +30）
     const frenzyExtra = (this.type === 'FRENZY_LIGHTNING' || this.type === 'FRENZY_SLASH')
