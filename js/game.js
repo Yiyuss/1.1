@@ -207,12 +207,29 @@ const Game = {
         }
 
         // 路口地圖：每 10 秒生成 3 台車（直線穿越）
+        // 組隊模式：只在主機端生成車輛，避免不同步
         if (this.selectedMap && this.selectedMap.id === 'intersection' && !this.isPaused && !this.isGameOver) {
-            this.intersectionCarTimer += deltaTime;
-            if (this.intersectionCarTimer >= this.intersectionCarInterval) {
-                // 扣回間隔（避免 lag 時累積爆發）
-                this.intersectionCarTimer = this.intersectionCarTimer % this.intersectionCarInterval;
-                try { this.spawnIntersectionCars(4); } catch (_) {}
+            // 檢查是否為組隊模式
+            let isSurvivalMode = false;
+            let isGuest = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+                isGuest = (isSurvivalMode && this.multiplayer && this.multiplayer.role === "guest");
+            } catch (_) {}
+            
+            // 組隊模式且為隊員時，不生成車輛（由主機端生成並廣播）
+            if (!isGuest) {
+                this.intersectionCarTimer += deltaTime;
+                if (this.intersectionCarTimer >= this.intersectionCarInterval) {
+                    // 扣回間隔（避免 lag 時累積爆發）
+                    this.intersectionCarTimer = this.intersectionCarTimer % this.intersectionCarInterval;
+                    try { this.spawnIntersectionCars(4); } catch (_) {}
+                }
             }
         }
         
