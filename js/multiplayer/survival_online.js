@@ -843,7 +843,14 @@ function bindUI() {
       await enterLobbyAsHost(_pendingStartParams || {});
       updateLobbyUI();
     } catch (e) {
-      _setText("survival-online-status", `建立失敗：${e && e.message ? e.message : "未知錯誤"}`);
+      const code = (e && (e.code || e.name)) ? String(e.code || e.name) : "";
+      const msg = (e && e.message) ? String(e.message) : "未知錯誤";
+      // 針對權限錯誤給出更具體提示（常見：Firestore rules 尚未發布/仍為鎖死、或匿名登入/網域未允許）
+      const hint = (code.includes("permission") || msg.toLowerCase().includes("insufficient permissions"))
+        ? "（請確認：Firestore 已建立、Rules 已發布且允許 request.auth != null、Authentication 匿名已啟用、Authorized domains 已加入 yiyuss.github.io）"
+        : "";
+      _setText("survival-online-status", `建立失敗：${msg}${hint}${code ? ` [${code}]` : ""}`);
+      try { console.warn("[SurvivalOnline] create room failed:", e); } catch (_) {}
     }
   });
   if (btnJoin) btnJoin.addEventListener("click", async () => {
@@ -857,7 +864,13 @@ function bindUI() {
       await enterLobbyAsGuest(code);
       updateLobbyUI();
     } catch (e) {
-      _setText("survival-online-status", `加入失敗：${e && e.message ? e.message : "未知錯誤"}`);
+      const c = (e && (e.code || e.name)) ? String(e.code || e.name) : "";
+      const msg = (e && e.message) ? String(e.message) : "未知錯誤";
+      const hint = (c.includes("permission") || msg.toLowerCase().includes("insufficient permissions"))
+        ? "（請確認 Firestore Rules/匿名登入/Authorized domains）"
+        : "";
+      _setText("survival-online-status", `加入失敗：${msg}${hint}${c ? ` [${c}]` : ""}`);
+      try { console.warn("[SurvivalOnline] join room failed:", e); } catch (_) {}
     }
   });
 
