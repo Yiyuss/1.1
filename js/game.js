@@ -53,6 +53,8 @@ const Game = {
     multiplayer: null, // { roomId, role, uid, sessionId } 或 null
     // M4：遠程玩家列表（僅在組隊模式且為室長時存在）
     remotePlayers: [], // Array<Player>，遠程玩家的完整 Player 對象
+    // 組隊HUD更新定時器
+    _multiplayerHUDUpdateTimer: 0,
     
     init: function() {
         // 獲取畫布和上下文
@@ -558,8 +560,19 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) {}
             
-            if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.tick === 'function') {
-                window.SurvivalOnlineRuntime.tick(this, deltaTime);
+            if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && typeof window.SurvivalOnlineRuntime.Runtime.tick === 'function') {
+                window.SurvivalOnlineRuntime.Runtime.tick(this, deltaTime);
+            }
+            
+            // 更新組隊HUD（每0.5秒更新一次）
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.sessionId) {
+                this._multiplayerHUDUpdateTimer = (this._multiplayerHUDUpdateTimer || 0) + deltaTime;
+                if (this._multiplayerHUDUpdateTimer >= 500) {
+                    this._multiplayerHUDUpdateTimer = 0;
+                    if (typeof this.updateMultiplayerHUD === 'function') {
+                        this.updateMultiplayerHUD();
+                    }
+                }
             }
         } catch (_) {}
     },
@@ -2089,9 +2102,15 @@ const Game = {
                 if (isSurvivalMode && this.multiplayer && this.multiplayer.sessionId) {
                     sessionInfoEl.classList.remove('hidden');
                     sessionIdEl.textContent = this.multiplayer.sessionId;
+                    // 初始化玩家列表
+                    if (typeof this.updateMultiplayerHUD === 'function') {
+                        this.updateMultiplayerHUD();
+                    }
                 } else {
                     sessionInfoEl.classList.add('hidden');
                     sessionIdEl.textContent = '-';
+                    const playersListEl = document.getElementById('multiplayer-players-list');
+                    if (playersListEl) playersListEl.innerHTML = '';
                 }
             }
         } catch (_) {}
@@ -2099,6 +2118,86 @@ const Game = {
         // 顯示遊戲畫面
         document.getElementById('start-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
+    },
+    
+    // 更新組隊HUD
+    updateMultiplayerHUD: function() {
+        try {
+            const playersListEl = document.getElementById('multiplayer-players-list');
+            if (!playersListEl) return;
+            
+            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.getMembersState) {
+                const members = window.SurvivalOnlineRuntime.getMembersState();
+                if (members && Array.isArray(members) && members.length > 0) {
+                    playersListEl.innerHTML = '';
+                    for (const m of members) {
+                        if (m && m.name) {
+                            const div = document.createElement('div');
+                            div.style.display = 'flex';
+                            div.style.alignItems = 'center';
+                            div.style.gap = '6px';
+                            div.style.marginBottom = '4px';
+                            
+                            const roleIcon = document.createElement('span');
+                            roleIcon.textContent = m.role === 'host' ? '👑' : '👤';
+                            roleIcon.style.opacity = '0.8';
+                            
+                            const nameSpan = document.createElement('span');
+                            nameSpan.textContent = m.name || (m.uid ? m.uid.slice(0, 6) : '未知');
+                            nameSpan.style.opacity = m.ready ? '1' : '0.7';
+                            
+                            div.appendChild(roleIcon);
+                            div.appendChild(nameSpan);
+                            playersListEl.appendChild(div);
+                        }
+                    }
+                } else {
+                    playersListEl.innerHTML = '<div style="opacity:0.6;">載入中...</div>';
+                }
+            }
+        } catch (e) {
+            console.warn('[Game] 更新玩家列表失敗:', e);
+        }
+    },
+    
+    // 更新組隊HUD
+    updateMultiplayerHUD: function() {
+        try {
+            const playersListEl = document.getElementById('multiplayer-players-list');
+            if (!playersListEl) return;
+            
+            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.getMembersState) {
+                const members = window.SurvivalOnlineRuntime.getMembersState();
+                if (members && Array.isArray(members) && members.length > 0) {
+                    playersListEl.innerHTML = '';
+                    for (const m of members) {
+                        if (m && m.name) {
+                            const div = document.createElement('div');
+                            div.style.display = 'flex';
+                            div.style.alignItems = 'center';
+                            div.style.gap = '6px';
+                            div.style.marginBottom = '4px';
+                            
+                            const roleIcon = document.createElement('span');
+                            roleIcon.textContent = m.role === 'host' ? '👑' : '👤';
+                            roleIcon.style.opacity = '0.8';
+                            
+                            const nameSpan = document.createElement('span');
+                            nameSpan.textContent = m.name || (m.uid ? m.uid.slice(0, 6) : '未知');
+                            nameSpan.style.opacity = m.ready ? '1' : '0.7';
+                            
+                            div.appendChild(roleIcon);
+                            div.appendChild(nameSpan);
+                            playersListEl.appendChild(div);
+                        }
+                    }
+                } else {
+                    playersListEl.innerHTML = '<div style="opacity:0.6;">載入中...</div>';
+                }
+            }
+        } catch (e) {
+            console.warn('[Game] 更新玩家列表失敗:', e);
+        }
     }
     ,
     // 生成障礙物：3x3世界中隨機位置，不重疊也不卡住玩家
