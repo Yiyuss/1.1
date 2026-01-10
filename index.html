@@ -601,21 +601,14 @@
     <div id="survival-online-select-screen" class="screen hidden">
       <div class="select-card team-dark">
         <h1 class="select-title">生存模式</h1>
-        <div class="map-desc" style="margin-bottom:12px;">
-          選擇遊玩方式：<strong>組隊為測試版</strong>（最多5人）。<br>
-          遊戲使用第三方 <strong>TURN 中繼（Open Relay Project）</strong> 進行連線。<br>
-          不論是玩家彼此，或是開發者本人，都無法在遊戲中看到任何玩家的 IP 位址，且遊戲端不會顯示或保存任何玩家 IP，確保所有人的連線隱私與匿名安全。
-        </div>
-
-        <!-- 簡易教學（組隊） -->
-        <div class="content" style="margin-bottom:12px; max-width: min(720px, 92vw);">
-          <div style="font-weight:700; margin-bottom:6px;">簡易教學</div>
-          <ol style="margin:0; padding-left:18px; line-height:1.7; opacity:0.95;">
-            <li>室長點「<strong>創建房間</strong>」取得房間碼，分享給朋友。</li>
-            <li>隊員在大廳輸入房間碼，點「<strong>加入房間</strong>」。</li>
-            <li>隊員點「<strong>準備</strong>」，室長確認地圖/難度後點「<strong>開始</strong>」。</li>
-            <li>如果連線不穩：隊員可按「<strong>重新連線</strong>」，室長可按「<strong>清理離線</strong>」。</li>
-          </ol>
+        <div class="map-desc" style="margin-bottom:12px; text-align:center;">
+          遊戲使用第三方 TURN 中繼（Open Relay Project） 進行連線。<br><br>
+          不論是玩家彼此，或是開發者本人，都無法在遊戲中看到任何玩家的 IP 位址，且遊戲端不會顯示或保存任何玩家 IP，確保所有人的連線隱私與匿名安全。<br><br>
+          選擇遊玩方式：組隊為測試版（最多5人）。<br><br>
+          室長點「創建房間」取得房間碼，分享給朋友。<br><br>
+          隊員在大廳輸入房間碼，點「加入房間」。<br><br>
+          隊員點「準備」，室長確認地圖/難度後點「開始」。<br><br>
+          如果連線不穩：隊員可按「重新連線」，室長可按「清理離線」。
         </div>
         <div class="select-actions" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
           <button id="survival-online-btn-solo" class="primary">單人開始</button>
@@ -736,8 +729,8 @@
                 <span id="coins-text">0</span>
               </div>
               
-              <!-- M1：組隊模式 Session ID 顯示（僅在組隊模式下顯示） -->
-              <div id="multiplayer-session-info" class="hidden" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); padding:6px 12px; border-radius:6px; font-size:11px; color:rgba(255,255,255,0.9); border:1px solid rgba(255,255,255,0.2); z-index:100;">
+              <!-- M1：組隊模式 Session ID 顯示（僅在組隊模式下顯示，右下角） -->
+              <div id="multiplayer-session-info" class="hidden" style="position:absolute; bottom:10px; right:10px; background:rgba(0,0,0,0.6); padding:6px 12px; border-radius:6px; font-size:11px; color:rgba(255,255,255,0.9); border:1px solid rgba(255,255,255,0.2); z-index:100;">
                 <div style="opacity:0.7;">組隊中</div>
                 <div id="multiplayer-session-id" style="font-family:monospace; font-size:10px; margin-top:2px; opacity:0.85;">-</div>
               </div>
