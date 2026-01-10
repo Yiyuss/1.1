@@ -181,6 +181,33 @@
       } catch(_){}
       // 清理防禦模式HUD
       try { const dHUD = document.getElementById('defense-ui'); if (dHUD) dHUD.style.display = 'none'; } catch(_){}
+      
+      // 組隊模式：離開生存模式時清理組隊狀態（防止跨模式污染）
+      try {
+        if (typeof Game !== "undefined" && Game.multiplayer) {
+          // 清理遠程玩家
+          if (Array.isArray(Game.remotePlayers)) {
+            for (const remotePlayer of Game.remotePlayers) {
+              try {
+                if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
+                  for (const weapon of remotePlayer.weapons) {
+                    if (weapon && typeof weapon.destroy === "function") {
+                      try { weapon.destroy(); } catch (_) {}
+                    }
+                  }
+                }
+              } catch (_) {}
+            }
+            Game.remotePlayers = [];
+          }
+          // 清理組隊系統
+          if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.clearRemotePlayers === "function") {
+            window.SurvivalOnlineRuntime.clearRemotePlayers();
+          }
+          // 重置組隊狀態（但不離開房間，因為可能只是切換模式）
+          // Game.multiplayer = null; // 不重置，因為可能只是暫時離開
+        }
+      } catch (_) {}
     },
     update(){ /* 交由 Game.update */ },
     draw(){ /* 交由 Game.draw */ }
