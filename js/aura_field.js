@@ -15,7 +15,8 @@ class AuraField extends Entity {
         this.player = player;
         this.radius = radius;
         this.damage = damage;
-        this.tickDamage = Math.max(1, Math.round(this.damage));
+        // 允許傷害為0（僅視覺效果時）
+        this.tickDamage = Math.max(0, Math.round(this.damage));
         this.tickIntervalMs = 120; // 與 ORBIT/LASER 相同節奏
         this.tickAccumulator = 0;
         this.weaponType = 'AURA_FIELD';
@@ -41,6 +42,18 @@ class AuraField extends Entity {
     }
 
     update(deltaTime) {
+        // 僅視覺效果：不進行傷害計算
+        if (this._isVisualOnly) {
+            // 跟隨玩家中心（僅視覺更新）
+            this.x = this.player.x;
+            this.y = this.player.y;
+            // 同步GIF位置與尺寸
+            this._updateDomPosition();
+            // 更新雪碧圖動畫
+            this._updateAnimation(deltaTime);
+            return;
+        }
+        
         // 跟隨玩家中心
         this.x = this.player.x;
         this.y = this.player.y;
