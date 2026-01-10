@@ -208,8 +208,13 @@ function setupAutoPause() {
 
     // 可見性變更：當回到可見時，若覆蓋層（升級/技能）開啟，保持暫停但解除靜音以恢復 BGM 與音效
     document.addEventListener('visibilitychange', () => {
-        if (document.hidden) {
+        // 組隊模式下不暫停，避免影響其他玩家
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.sessionId);
+        if (document.hidden && !isMultiplayer) {
             Game.pause();
+            AudioManager.setMuted && AudioManager.setMuted(true);
+        } else if (document.hidden && isMultiplayer) {
+            // 組隊模式下失焦時只靜音，不暫停遊戲
             AudioManager.setMuted && AudioManager.setMuted(true);
         } else {
             // 若目前為非生存模式（主線/挑戰），維持暫停並不恢復生存迴圈或BGM
@@ -258,8 +263,15 @@ function setupAutoPause() {
     });
 
     window.addEventListener('blur', () => {
-        Game.pause();
-        AudioManager.setMuted && AudioManager.setMuted(true);
+        // 組隊模式下不暫停，避免影響其他玩家
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.sessionId);
+        if (!isMultiplayer) {
+            Game.pause();
+            AudioManager.setMuted && AudioManager.setMuted(true);
+        } else {
+            // 組隊模式下失焦時只靜音，不暫停遊戲
+            AudioManager.setMuted && AudioManager.setMuted(true);
+        }
     });
 
     window.addEventListener('focus', () => {
