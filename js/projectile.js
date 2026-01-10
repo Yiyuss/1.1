@@ -116,6 +116,7 @@ class Projectile extends Entity {
                 // 使用 DamageSystem 計算浮動與爆擊；若不可用則維持原邏輯
                 let finalDamage = this.damage;
                 let isCrit = false;
+                let lifestealAmount = 0;
                 if (typeof DamageSystem !== 'undefined') {
                     // 維護：加入爆擊加成（基礎10% + 天賦加成），不改畫面文字
                     const result = DamageSystem.computeHit(
@@ -125,35 +126,8 @@ class Projectile extends Entity {
                     );
                     finalDamage = result.amount;
                     isCrit = result.isCrit;
+                    lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                 }
-                
-                // 組隊模式：隊員的投射物攻擊敵人時，同步傷害到隊長端
-                try {
-                    let isSurvivalMode = false;
-                    try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
-                        isSurvivalMode = (activeId === 'survival' || activeId === null);
-                    } catch (_) {}
-                    
-                    // 只有隊員（客戶端）才需要同步傷害到隊長端
-                    if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
-                        // 發送傷害事件到隊長端（包含玩家UID）
-                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                            window.SurvivalOnlineRuntime.sendToNet({
-                                t: "enemy_damage",
-                                enemyId: enemy.id,
-                                damage: finalDamage,
-                                weaponType: this.weaponType || "UNKNOWN",
-                                isCrit: isCrit,
-                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                            });
-                        }
-                    }
-                } catch (_) {}
                 
                 // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
                 // 隊員端：造成實際傷害並發送enemy_damage給主機
@@ -189,7 +163,20 @@ class Projectile extends Entity {
                     if (typeof DamageNumbers !== 'undefined') {
                         DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
                     }
-                    // enemy_damage已在上面發送
+                    // 發送enemy_damage給主機（包含吸血資訊）
+                    if (enemy && enemy.id) {
+                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                            window.SurvivalOnlineRuntime.sendToNet({
+                                t: "enemy_damage",
+                                enemyId: enemy.id,
+                                damage: finalDamage,
+                                weaponType: this.weaponType || "UNKNOWN",
+                                isCrit: isCrit,
+                                lifesteal: lifestealAmount,
+                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
+                            });
+                        }
+                    }
                 } 
                 // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理（不重複計算）
                 else if (!isHostRemotePlayer) {
