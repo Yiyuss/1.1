@@ -68,6 +68,9 @@ class ExplosionEffect extends Entity {
     }
     
     _applyDamage() {
+        // 僅視覺效果：不進行傷害計算
+        if (this._isVisualOnly) return;
+        
         if (!Game || !Game.enemies) return;
         
         const fixedDamage = 15000; // 固定伤害，不被任何加成影响
