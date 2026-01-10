@@ -44,6 +44,50 @@ class OrbitBall extends Entity {
     }
 
     update(deltaTime) {
+        // 僅視覺環繞投射物：需要從遠程玩家位置更新
+        if (this._isVisualOnly && this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.getRemotePlayers === 'function') {
+                const remotePlayers = rt.getRemotePlayers() || [];
+                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+                if (remotePlayer) {
+                    // 更新角度
+                    this.angle += this.angularSpeed * (deltaTime / 1000);
+                    // 跟隨遠程玩家位置旋轉
+                    this.x = remotePlayer.x + Math.cos(this.angle) * this.radius;
+                    this.y = remotePlayer.y + Math.sin(this.angle) * this.radius;
+                    // 視覺：更新拖尾記錄（僅視覺）
+                    this.trail.push({ x: this.x, y: this.y, size: this.width });
+                    if (this.trail.length > this.trailMax) this.trail.shift();
+                    // 檢查持續時間（僅視覺）
+                    const elapsed = Date.now() - this.startTime;
+                    if (elapsed >= this.duration) {
+                        this.markedForDeletion = true;
+                    }
+                    return; // 僅視覺，不進行碰撞檢測
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    // 如果是本地玩家
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.angle += this.angularSpeed * (deltaTime / 1000);
+                        this.x = Game.player.x + Math.cos(this.angle) * this.radius;
+                        this.y = Game.player.y + Math.sin(this.angle) * this.radius;
+                        // 視覺：更新拖尾記錄
+                        this.trail.push({ x: this.x, y: this.y, size: this.width });
+                        if (this.trail.length > this.trailMax) this.trail.shift();
+                        // 檢查持續時間
+                        const elapsed = Date.now() - this.startTime;
+                        if (elapsed >= this.duration) {
+                            this.markedForDeletion = true;
+                        }
+                        return;
+                    }
+                }
+            }
+            // 如果找不到對應的玩家，標記為刪除
+            this.markedForDeletion = true;
+            return;
+        }
+        
         // 更新角度
         this.angle += this.angularSpeed * (deltaTime / 1000);
         // 跟隨玩家位置旋轉
@@ -93,7 +137,8 @@ class OrbitBall extends Entity {
                                         enemyId: enemy.id,
                                         damage: finalDamage,
                                         weaponType: this.weaponType || "UNKNOWN",
-                                        isCrit: isCrit
+                                        isCrit: isCrit,
+                                        playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                                     });
                                 }
                             }
@@ -153,7 +198,8 @@ class OrbitBall extends Entity {
                                         enemyId: enemy.id,
                                         damage: finalDamage,
                                         weaponType: this.weaponType || "UNKNOWN",
-                                        isCrit: isCrit
+                                        isCrit: isCrit,
+                                        playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                                     });
                                 }
                             }
