@@ -229,9 +229,20 @@ const Game = {
         // 更新玩家（第二次，保留歷史節奏）
         this._updatePlayer(deltaTime);
 
-        // M2：更新遠程玩家（僅在組隊模式且為室長時）
+        // M2：更新遠程玩家（僅在生存模式組隊模式且為室長時）
         try {
-          if (this.multiplayer && this.multiplayer.role === "host") {
+          // 確保只在生存模式下執行組隊邏輯
+          let isSurvivalMode = false;
+          try {
+            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                    ? ModeManager.getActiveModeId()
+                    : null);
+            isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+          } catch (_) {}
+          
+          if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
             if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.updateRemotePlayers === "function") {
               window.SurvivalOnlineRuntime.updateRemotePlayers(deltaTime);
             }
@@ -396,9 +407,20 @@ const Game = {
         // 優化：限制實體數量
         this.optimizeEntities();
 
-        // 生存模式聯機（測試）：多人位置同步（不影響其他模式）
+        // 生存模式聯機（測試）：多人位置同步（僅在生存模式下執行）
         try {
-            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.tick === 'function') {
+            // 確保只在生存模式下執行組隊邏輯
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+            } catch (_) {}
+            
+            if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.tick === 'function') {
                 window.SurvivalOnlineRuntime.tick(this, deltaTime);
             }
         } catch (_) {}
@@ -418,18 +440,31 @@ const Game = {
                 weapon.update(deltaTime);
             }
         }
-        // M4：更新遠程玩家的武器（僅在組隊模式且為室長時）
-        if (this.multiplayer && this.multiplayer.role === "host" && Array.isArray(this.remotePlayers)) {
-            for (const remotePlayer of this.remotePlayers) {
-                if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
-                    for (const weapon of remotePlayer.weapons) {
-                        if (weapon && typeof weapon.update === "function") {
-                            weapon.update(deltaTime);
+        // M4：更新遠程玩家的武器（僅在生存模式組隊模式且為室長時）
+        try {
+            // 確保只在生存模式下執行組隊邏輯
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+            } catch (_) {}
+            
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host" && Array.isArray(this.remotePlayers)) {
+                for (const remotePlayer of this.remotePlayers) {
+                    if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
+                        for (const weapon of remotePlayer.weapons) {
+                            if (weapon && typeof weapon.update === "function") {
+                                weapon.update(deltaTime);
+                            }
                         }
                     }
                 }
             }
-        }
+        } catch (_) {}
     },
 
     // 繪製遊戲
@@ -667,14 +702,26 @@ const Game = {
             }
         }
         
-        // 生存模式聯機（測試）：繪製其他玩家位置（僅視覺呈現）
+        // 生存模式聯機（測試）：繪製其他玩家位置（僅視覺呈現，僅在生存模式下執行）
         try {
-            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-            if (rt && typeof rt.getRemotePlayers === 'function') {
-                const others = rt.getRemotePlayers() || [];
-                for (const p of others) {
-                    if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
-                    // 簡單渲染：彩色圓點 + 名稱（不影響碰撞/遊戲邏輯）
+            // 確保只在生存模式下執行組隊邏輯
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+            } catch (_) {}
+            
+            if (isSurvivalMode) {
+                const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const others = rt.getRemotePlayers() || [];
+                    for (const p of others) {
+                        if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
+                        // 簡單渲染：彩色圓點 + 名稱（不影響碰撞/遊戲邏輯）
                     this.ctx.save();
                     this.ctx.globalAlpha = 0.85;
                     this.ctx.fillStyle = 'rgba(80,200,255,0.9)';
@@ -692,6 +739,7 @@ const Game = {
                     this.ctx.fillStyle = 'rgba(255,255,255,0.95)';
                     this.ctx.fillText(p.name || '玩家', p.x, p.y - 16);
                     this.ctx.restore();
+                }
                 }
             }
         } catch (_) {}
@@ -759,18 +807,46 @@ const Game = {
     
     // 添加敵人
     addEnemy: function(enemy) {
+        // 確保敵人有唯一ID（用於組隊模式同步）
+        if (!enemy.id) {
+            enemy.id = `enemy_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+        }
         this.enemies.push(enemy);
         
-        // M2：廣播敵人生成事件（僅組隊模式且為室長）
+        // M2：廣播敵人生成事件（僅生存模式組隊模式且為室長）
         try {
-            if (this.multiplayer && this.multiplayer.role === "host") {
+            // 確保只在生存模式下執行組隊邏輯
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+            } catch (_) {}
+            
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("enemy_spawn", {
-                        type: enemy.type || "UNKNOWN",
-                        x: enemy.x || 0,
-                        y: enemy.y || 0,
-                        id: enemy.id || Date.now() // 簡單ID，用於去重
-                    });
+                    // 檢查是否為BOSS（BOSS需要特殊處理）
+                    const isBoss = (enemy === this.boss) || (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS');
+                    if (isBoss) {
+                        // BOSS生成事件
+                        window.SurvivalOnlineBroadcastEvent("boss_spawn", {
+                            type: enemy.type || "BOSS",
+                            x: enemy.x || 0,
+                            y: enemy.y || 0,
+                            id: enemy.id
+                        });
+                    } else {
+                        // 普通敵人生成事件
+                        window.SurvivalOnlineBroadcastEvent("enemy_spawn", {
+                            type: enemy.type || "UNKNOWN",
+                            x: enemy.x || 0,
+                            y: enemy.y || 0,
+                            id: enemy.id
+                        });
+                    }
                 }
             }
         } catch (_) {}
@@ -793,9 +869,20 @@ const Game = {
             return;
         }
         
-        // M2：廣播經驗球生成事件（僅組隊模式且為室長）
+        // M2：廣播經驗球生成事件（僅生存模式組隊模式且為室長）
         try {
-            if (this.multiplayer && this.multiplayer.role === "host") {
+            // 確保只在生存模式下執行組隊邏輯
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+            } catch (_) {}
+            
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                     window.SurvivalOnlineBroadcastEvent("exp_orb_spawn", {
                         x: x || 0,
@@ -947,9 +1034,20 @@ const Game = {
         const chest = new Chest(x, y);
         this.chests.push(chest);
         
-        // M2：廣播寶箱生成事件（僅組隊模式且為室長）
+        // M2：廣播寶箱生成事件（僅生存模式組隊模式且為室長）
         try {
-            if (this.multiplayer && this.multiplayer.role === "host") {
+            // 確保只在生存模式下執行組隊邏輯
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+            } catch (_) {}
+            
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                     window.SurvivalOnlineBroadcastEvent("chest_spawn", {
                         x: x || 0,
@@ -966,6 +1064,29 @@ const Game = {
             if (typeof PineappleUltimatePickup === 'undefined') return;
             const o = new PineappleUltimatePickup(targetX, targetY, opts);
             this.pineappleUltimatePickups.push(o);
+            // M2：廣播鳳梨大絕掉落事件（僅生存模式組隊模式且為室長）
+            try {
+                // 確保只在生存模式下執行組隊邏輯
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+                } catch (_) {}
+                
+                if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                        window.SurvivalOnlineBroadcastEvent("ultimate_pineapple_spawn", {
+                            x: targetX,
+                            y: targetY,
+                            opts: opts // 傳遞 opts 以便客戶端重建
+                        });
+                    }
+                }
+            } catch (_) {}
         } catch (_) {}
     },
     
@@ -1048,9 +1169,20 @@ const Game = {
     // 遊戲結束
     gameOver: function() {
         this.isGameOver = true;
-        // 生存模式聯機（測試）：結束時自動離開房間，避免殘留占位
+        // 生存模式聯機（測試）：結束時自動離開房間，避免殘留占位（僅在生存模式下執行）
         try {
-            if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === 'function') {
+            // 確保只在生存模式下執行組隊邏輯
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+            } catch (_) {}
+            
+            if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === 'function') {
                 window.SurvivalOnlineUI.leaveRoom().catch(() => {});
             }
         } catch (_) {}
@@ -1060,9 +1192,20 @@ const Game = {
     // 遊戲勝利
     victory: function() {
         this.isGameOver = true;
-        // 生存模式聯機（測試）：勝利時自動離開房間，避免殘留占位
+        // 生存模式聯機（測試）：勝利時自動離開房間，避免殘留占位（僅在生存模式下執行）
         try {
-            if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === 'function') {
+            // 確保只在生存模式下執行組隊邏輯
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+            } catch (_) {}
+            
+            if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === 'function') {
                 window.SurvivalOnlineUI.leaveRoom().catch(() => {});
             }
         } catch (_) {}
@@ -1309,9 +1452,20 @@ const Game = {
         // 重置波次系統
         WaveSystem.init();
         
-        // M2/M4：清理遠程玩家（僅在組隊模式且為室長時）
+        // M2/M4：清理遠程玩家（僅在生存模式組隊模式且為室長時）
         try {
-          if (this.multiplayer && this.multiplayer.role === "host") {
+          // 確保只在生存模式下執行組隊邏輯
+          let isSurvivalMode = false;
+          try {
+            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                    ? ModeManager.getActiveModeId()
+                    : null);
+            isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+          } catch (_) {}
+          
+          if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
             // 清理遠程玩家對象
             if (Array.isArray(this.remotePlayers)) {
               for (const remotePlayer of this.remotePlayers) {
@@ -1392,12 +1546,23 @@ const Game = {
             UI.updateCoinsDisplay(this.coins);
         }
         
-        // M1：顯示/隱藏組隊模式 Session ID（僅在組隊模式下顯示）
+        // M1：顯示/隱藏組隊模式 Session ID（僅在生存模式組隊模式下顯示）
         try {
+            // 確保只在生存模式下執行組隊邏輯
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+            } catch (_) {}
+            
             const sessionInfoEl = document.getElementById('multiplayer-session-info');
             const sessionIdEl = document.getElementById('multiplayer-session-id');
             if (sessionInfoEl && sessionIdEl) {
-                if (this.multiplayer && this.multiplayer.sessionId) {
+                if (isSurvivalMode && this.multiplayer && this.multiplayer.sessionId) {
                     sessionInfoEl.classList.remove('hidden');
                     sessionIdEl.textContent = this.multiplayer.sessionId;
                 } else {
