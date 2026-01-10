@@ -746,6 +746,20 @@ const Game = {
     // 添加敵人
     addEnemy: function(enemy) {
         this.enemies.push(enemy);
+        
+        // M2：廣播敵人生成事件（僅組隊模式且為室長）
+        try {
+            if (this.multiplayer && this.multiplayer.role === "host") {
+                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("enemy_spawn", {
+                        type: enemy.type || "UNKNOWN",
+                        x: enemy.x || 0,
+                        y: enemy.y || 0,
+                        id: enemy.id || Date.now() // 簡單ID，用於去重
+                    });
+                }
+            }
+        } catch (_) {}
     },
     
     // 添加投射物
@@ -764,6 +778,19 @@ const Game = {
         if (this.experienceOrbs.length >= CONFIG.OPTIMIZATION.MAX_EXPERIENCE_ORBS) {
             return;
         }
+        
+        // M2：廣播經驗球生成事件（僅組隊模式且為室長）
+        try {
+            if (this.multiplayer && this.multiplayer.role === "host") {
+                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("exp_orb_spawn", {
+                        x: x || 0,
+                        y: y || 0,
+                        value: value || 0
+                    });
+                }
+            }
+        } catch (_) {}
         
         const orb = new ExperienceOrb(x, y, value);
         this.experienceOrbs.push(orb);
@@ -905,6 +932,18 @@ const Game = {
     spawnChest: function(x, y) {
         const chest = new Chest(x, y);
         this.chests.push(chest);
+        
+        // M2：廣播寶箱生成事件（僅組隊模式且為室長）
+        try {
+            if (this.multiplayer && this.multiplayer.role === "host") {
+                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("chest_spawn", {
+                        x: x || 0,
+                        y: y || 0
+                    });
+                }
+            }
+        } catch (_) {}
     },
 
     // 鳳梨大絕：生成可拾取的大鳳梨（不吸、需碰觸；特效與寶箱同款光束）
