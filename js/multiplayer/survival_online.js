@@ -267,6 +267,13 @@ const Runtime = (() => {
         y: p.y,
         name: typeof p.name === "string" ? p.name : uid.slice(0, 6),
         characterId: (typeof p.characterId === "string") ? p.characterId : null, // 保存角色ID
+        // 大招狀態同步
+        isUltimateActive: (typeof p.isUltimateActive === "boolean") ? p.isUltimateActive : false,
+        ultimateImageKey: (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) ? p.ultimateImageKey : null,
+        ultimateEndTime: (typeof p.ultimateEndTime === "number") ? p.ultimateEndTime : 0,
+        width: (typeof p.width === "number" && p.width > 0) ? p.width : null,
+        height: (typeof p.height === "number" && p.height > 0) ? p.height : null,
+        collisionRadius: (typeof p.collisionRadius === "number" && p.collisionRadius > 0) ? p.collisionRadius : null,
         updatedAt: now,
       });
     }
@@ -618,6 +625,29 @@ const Runtime = (() => {
             }
           }
           
+          // 大招狀態同步
+          if (typeof myState.isUltimateActive === "boolean") {
+            player.isUltimateActive = myState.isUltimateActive;
+          }
+          if (typeof myState.ultimateImageKey === "string" && myState.ultimateImageKey) {
+            player._ultimateImageKey = myState.ultimateImageKey;
+          } else if (myState.isUltimateActive === false) {
+            player._ultimateImageKey = null;
+          }
+          if (typeof myState.ultimateEndTime === "number") {
+            player.ultimateEndTime = myState.ultimateEndTime;
+          }
+          // 體型同步
+          if (typeof myState.width === "number" && myState.width > 0) {
+            player.width = myState.width;
+          }
+          if (typeof myState.height === "number" && myState.height > 0) {
+            player.height = myState.height;
+          }
+          if (typeof myState.collisionRadius === "number" && myState.collisionRadius > 0) {
+            player.collisionRadius = myState.collisionRadius;
+          }
+          
           // 更新 UI
           if (typeof UI !== "undefined") {
             if (UI.updateHealthBar) UI.updateHealthBar(player.health, player.maxHealth);
@@ -785,7 +815,14 @@ const Runtime = (() => {
             expToNext: p.experienceToNextLevel || 100,
             coins: Game.coins || 0, // 添加金幣字段
             name: `玩家-${_uid.slice(0, 4)}`,
-            characterId: hostCharacterId // 添加角色ID，用於隊員端渲染完整角色外觀
+            characterId: hostCharacterId, // 添加角色ID，用於隊員端渲染完整角色外觀
+            // 大招狀態同步
+            isUltimateActive: p.isUltimateActive || false,
+            ultimateImageKey: p._ultimateImageKey || null,
+            ultimateEndTime: p.ultimateEndTime || 0,
+            width: p.width || CONFIG.PLAYER.SIZE,
+            height: p.height || CONFIG.PLAYER.SIZE,
+            collisionRadius: p.collisionRadius || (CONFIG.PLAYER.SIZE / 2)
           };
         }
       } catch (_) {}
@@ -812,7 +849,14 @@ const Runtime = (() => {
               expToNext: remotePlayer.experienceToNextLevel || 100,
               coins: Game.coins || 0, // 添加金幣字段（組隊模式共享金幣）
               name: name,
-              characterId: characterId // 添加角色ID，用於隊員端渲染完整角色外觀
+              characterId: characterId, // 添加角色ID，用於隊員端渲染完整角色外觀
+              // 大招狀態同步
+              isUltimateActive: remotePlayer.isUltimateActive || false,
+              ultimateImageKey: remotePlayer._ultimateImageKey || null,
+              ultimateEndTime: remotePlayer.ultimateEndTime || 0,
+              width: remotePlayer.width || CONFIG.PLAYER.SIZE,
+              height: remotePlayer.height || CONFIG.PLAYER.SIZE,
+              collisionRadius: remotePlayer.collisionRadius || (CONFIG.PLAYER.SIZE / 2)
             };
           } else {
             // 後備：如果遠程玩家對象不存在，使用簡化狀態
@@ -971,10 +1015,39 @@ const Runtime = (() => {
       if (obj.t === "pos") {
         const x = obj.x, y = obj.y;
         const players = {};
-        players[_uid] = { x, y, name: `玩家-${_uid.slice(0, 4)}` };
+        const hostMember = _membersState ? _membersState.get(_uid) : null;
+        const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
+        const hostPlayer = (typeof Game !== "undefined" && Game.player) ? Game.player : null;
+        players[_uid] = { 
+          x, 
+          y, 
+          name: `玩家-${_uid.slice(0, 4)}`,
+          characterId: hostCharacterId,
+          // 大招狀態同步
+          isUltimateActive: (hostPlayer && hostPlayer.isUltimateActive) || false,
+          ultimateImageKey: (hostPlayer && hostPlayer._ultimateImageKey) || null,
+          ultimateEndTime: (hostPlayer && hostPlayer.ultimateEndTime) || 0,
+          width: (hostPlayer && hostPlayer.width) || null,
+          height: (hostPlayer && hostPlayer.height) || null,
+          collisionRadius: (hostPlayer && hostPlayer.collisionRadius) || null
+        };
         // 加上目前已知 remote（host 看得到）
         for (const p of Runtime.getRemotePlayers()) {
-          players[p.uid] = { x: p.x, y: p.y, name: p.name };
+          const member = _membersState ? _membersState.get(p.uid) : null;
+          const characterId = (member && member.characterId) ? member.characterId : (p.characterId) ? p.characterId : null;
+          players[p.uid] = { 
+            x: p.x, 
+            y: p.y, 
+            name: p.name,
+            characterId: characterId,
+            // 大招狀態同步
+            isUltimateActive: (typeof p.isUltimateActive === "boolean") ? p.isUltimateActive : false,
+            ultimateImageKey: (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) ? p.ultimateImageKey : null,
+            ultimateEndTime: (typeof p.ultimateEndTime === "number") ? p.ultimateEndTime : 0,
+            width: (typeof p.width === "number" && p.width > 0) ? p.width : null,
+            height: (typeof p.height === "number" && p.height > 0) ? p.height : null,
+            collisionRadius: (typeof p.collisionRadius === "number" && p.collisionRadius > 0) ? p.collisionRadius : null
+          };
         }
         for (const [uid, it] of _pcsHost.entries()) {
           const ch = (it && it.channel) ? it.channel : null;
@@ -1996,7 +2069,22 @@ function sendToNet(obj) {
     if (obj.t === "pos") {
       const x = obj.x, y = obj.y;
       const players = {};
-      players[_uid] = { x, y, name: `玩家-${_uid.slice(0, 4)}` };
+      const hostMember = _membersState ? _membersState.get(_uid) : null;
+      const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
+      const hostPlayer = (typeof Game !== "undefined" && Game.player) ? Game.player : null;
+      players[_uid] = { 
+        x, 
+        y, 
+        name: `玩家-${_uid.slice(0, 4)}`,
+        characterId: hostCharacterId,
+        // 大招狀態同步
+        isUltimateActive: (hostPlayer && hostPlayer.isUltimateActive) || false,
+        ultimateImageKey: (hostPlayer && hostPlayer._ultimateImageKey) || null,
+        ultimateEndTime: (hostPlayer && hostPlayer.ultimateEndTime) || 0,
+        width: (hostPlayer && hostPlayer.width) || null,
+        height: (hostPlayer && hostPlayer.height) || null,
+        collisionRadius: (hostPlayer && hostPlayer.collisionRadius) || null
+      };
       // 加上目前已知 remote（host 看得到）
       for (const p of Runtime.getRemotePlayers()) {
         const member = _membersState ? _membersState.get(p.uid) : null;
@@ -2005,7 +2093,14 @@ function sendToNet(obj) {
           x: p.x, 
           y: p.y, 
           name: p.name,
-          characterId: characterId // 添加角色ID
+          characterId: characterId,
+          // 大招狀態同步
+          isUltimateActive: (typeof p.isUltimateActive === "boolean") ? p.isUltimateActive : false,
+          ultimateImageKey: (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) ? p.ultimateImageKey : null,
+          ultimateEndTime: (typeof p.ultimateEndTime === "number") ? p.ultimateEndTime : 0,
+          width: (typeof p.width === "number" && p.width > 0) ? p.width : null,
+          height: (typeof p.height === "number" && p.height > 0) ? p.height : null,
+          collisionRadius: (typeof p.collisionRadius === "number" && p.collisionRadius > 0) ? p.collisionRadius : null
         };
       }
       for (const [uid, it] of _pcsHost.entries()) {
