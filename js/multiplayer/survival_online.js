@@ -390,31 +390,101 @@ async function sendSignal(payload) {
 
 function listenRoom(roomId) {
   if (_activeRoomUnsub) { try { _activeRoomUnsub(); } catch (_) {} }
-  _activeRoomUnsub = onSnapshot(roomDocRef(roomId), (snap) => {
-    _roomState = snap.exists() ? (snap.data() || null) : null;
-    if (_roomState && _roomState.hostUid) _hostUid = _roomState.hostUid;
-    // 同步 host 的下拉（避免用輪詢）
-    _syncHostSelectsFromRoom();
-    updateLobbyUI();
-    // 若開始遊戲，觸發進入
-    if (_roomState && _roomState.status === "starting") {
-      tryStartSurvivalFromRoom();
+  _activeRoomUnsub = onSnapshot(
+    roomDocRef(roomId),
+    (snap) => {
+      _roomState = snap.exists() ? (snap.data() || null) : null;
+      if (_roomState && _roomState.hostUid) _hostUid = _roomState.hostUid;
+      // 同步 host 的下拉（避免用輪詢）
+      _syncHostSelectsFromRoom();
+      updateLobbyUI();
+
+      // 房間被室長解散/關閉：所有人自動離開回到組隊選擇
+      if (_roomState && _roomState.status === "closed") {
+        _setText("survival-online-status", "隊伍已解散");
+        leaveRoom().catch(() => {});
+        closeLobbyToSelect();
+        return;
+      }
+
+      // 若開始遊戲，觸發進入
+      if (_roomState && _roomState.status === "starting") {
+        tryStartSurvivalFromRoom();
+      }
+    },
+    (err) => {
+      // 被踢出隊伍後，Rules 會使 isMember=false，room read 會 permission-denied
+      try {
+        const code = err && err.code ? String(err.code) : "";
+        if (code.includes("permission-denied")) {
+          _setText("survival-online-status", "你已被室長移出隊伍");
+          leaveRoom().catch(() => {});
+          closeLobbyToSelect();
+          return;
+        }
+        const msg = (err && err.message) ? String(err.message) : "房間監聽錯誤";
+        _setText("survival-online-status", `房間監聽錯誤：${msg}`);
+        console.warn("[SurvivalOnline] room listener error:", err);
+      } catch (_) {}
     }
-  });
+  );
 }
 
 function listenMembers(roomId) {
   if (_membersUnsub) { try { _membersUnsub(); } catch (_) {} }
   const col = collection(_db, "rooms", roomId, "members");
-  _membersUnsub = onSnapshot(col, (snap) => {
-    const m = new Map();
-    snap.forEach((d) => {
-      const data = d.data() || {};
-      if (data && data.uid) m.set(data.uid, data);
-    });
-    _membersState = m;
-    updateLobbyUI();
-  });
+  _membersUnsub = onSnapshot(
+    col,
+    (snap) => {
+      const m = new Map();
+      snap.forEach((d) => {
+        const data = d.data() || {};
+        if (data && data.uid) m.set(data.uid, data);
+      });
+      _membersState = m;
+      updateLobbyUI();
+    },
+    (err) => {
+      try {
+        const code = err && err.code ? String(err.code) : "";
+        if (code.includes("permission-denied")) {
+          _setText("survival-online-status", "你已被室長移出隊伍");
+          leaveRoom().catch(() => {});
+          closeLobbyToSelect();
+          return;
+        }
+        const msg = (err && err.message) ? String(err.message) : "成員監聽錯誤";
+        _setText("survival-online-status", `成員監聽錯誤：${msg}`);
+        console.warn("[SurvivalOnline] members listener error:", err);
+      } catch (_) {}
+    }
+  );
+}
+
+async function hostKickMember(targetUid) {
+  if (!_activeRoomId || !_isHost) return;
+  if (!targetUid || targetUid === _uid) return;
+  // 安全：只踢非室長
+  const m = _membersState.get(targetUid);
+  if (m && m.role === "host") return;
+  try {
+    await deleteDoc(memberDocRef(_activeRoomId, targetUid));
+    _setText("survival-online-status", "已移出隊伍成員");
+  } catch (e) {
+    const msg = (e && e.message) ? String(e.message) : "移出失敗";
+    _setText("survival-online-status", `移出失敗：${msg}`);
+  }
+}
+
+async function hostDisbandTeam() {
+  if (!_activeRoomId || !_isHost) return;
+  // 軟解散：把 room status 設為 closed，所有人 listener 會自動離開
+  try {
+    await updateDoc(roomDocRef(_activeRoomId), { status: "closed", updatedAt: serverTimestamp() });
+  } catch (_) {}
+  await leaveRoom().catch(() => {});
+  closeLobbyToSelect();
+  _setText("survival-online-status", "隊伍已解散");
 }
 
 function listenSignals(roomId) {
@@ -714,9 +784,31 @@ function updateLobbyUI() {
       const name = m.name || (m.uid || "").slice(0, 6);
       left.textContent = `${roleLabel}：${name}${stale ? "（離線）" : ""}`;
       const right = document.createElement("div");
-      right.style.opacity = "0.9";
+      right.style.display = "flex";
+      right.style.alignItems = "center";
+      right.style.gap = "8px";
+      right.style.opacity = "0.95";
+      const status = document.createElement("div");
       // stale 視為未準備（避免卡住室長開始條件）
-      right.textContent = (!stale && m.ready) ? "已準備" : "未準備";
+      status.textContent = (!stale && m.ready) ? "已準備" : "未準備";
+      status.style.opacity = "0.9";
+      right.appendChild(status);
+
+      // 室長操作：踢人（僅對非室長、非自己）
+      if (_isHost && m && m.uid && m.uid !== _uid && m.role !== "host") {
+        const btnKick = document.createElement("button");
+        btnKick.className = "ghost";
+        btnKick.textContent = "移出";
+        btnKick.style.padding = "4px 10px";
+        btnKick.style.fontSize = "12px";
+        btnKick.addEventListener("click", async () => {
+          const ok = window.confirm(`要把「${name}」移出隊伍嗎？`);
+          if (!ok) return;
+          await hostKickMember(m.uid);
+          updateLobbyUI();
+        });
+        right.appendChild(btnKick);
+      }
       div.appendChild(left);
       div.appendChild(right);
       list.appendChild(div);
@@ -740,6 +832,13 @@ function updateLobbyUI() {
       });
     }
     btnStart.disabled = !can;
+  }
+
+  // 解散按鈕：僅室長可用
+  const btnDisband = _qs("survival-online-disband");
+  if (btnDisband) {
+    btnDisband.disabled = !(_isHost && !!_activeRoomId);
+    btnDisband.style.display = (_isHost ? "" : "none");
   }
 }
 
@@ -888,6 +987,7 @@ function bindUI() {
   const btnReady = _qs("survival-online-ready");
   const btnStart = _qs("survival-online-start");
   const btnLeave = _qs("survival-online-leave");
+  const btnDisband = _qs("survival-online-disband");
   const selMap = _qs("survival-online-host-map");
   const selDiff = _qs("survival-online-host-diff");
 
@@ -985,6 +1085,14 @@ function bindUI() {
     closeLobbyToSelect();
     _setText("survival-online-status", "已離開房間");
     updateLobbyUI();
+  });
+
+  if (btnDisband) btnDisband.addEventListener("click", async () => {
+    if (!_isHost || !_activeRoomId) return;
+    // 低風險確認（避免誤觸）
+    const ok = window.confirm("要解散隊伍嗎？所有隊員都會被退出。");
+    if (!ok) return;
+    await hostDisbandTeam().catch(() => {});
   });
 
   if (selMap) selMap.addEventListener("change", async () => {
