@@ -603,7 +603,19 @@
         <h1 class="select-title">生存模式</h1>
         <div class="map-desc" style="margin-bottom:12px;">
           選擇遊玩方式：<strong>組隊為測試版</strong>（最多5人）。<br>
-          隱私：使用第三方 <strong>TURN 中繼（Open Relay Project）</strong> 轉送連線，可保護雙方 IP 隱私。
+          遊戲使用第三方 <strong>TURN 中繼（Open Relay Project）</strong> 進行連線。<br>
+          不論是玩家彼此，或是開發者本人，都無法在遊戲中看到任何玩家的 IP 位址，且遊戲端不會顯示或保存任何玩家 IP，確保所有人的連線隱私與匿名安全。
+        </div>
+
+        <!-- 簡易教學（組隊） -->
+        <div class="content" style="margin-bottom:12px; max-width: min(720px, 92vw);">
+          <div style="font-weight:700; margin-bottom:6px;">簡易教學</div>
+          <ol style="margin:0; padding-left:18px; line-height:1.7; opacity:0.95;">
+            <li>室長點「<strong>創建房間</strong>」取得房間碼，分享給朋友。</li>
+            <li>隊員在大廳輸入房間碼，點「<strong>加入房間</strong>」。</li>
+            <li>隊員點「<strong>準備</strong>」，室長確認地圖/難度後點「<strong>開始</strong>」。</li>
+            <li>如果連線不穩：隊員可按「<strong>重新連線</strong>」，室長可按「<strong>清理離線</strong>」。</li>
+          </ol>
         </div>
         <div class="select-actions" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
           <button id="survival-online-btn-solo" class="primary">單人開始</button>
