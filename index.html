@@ -1330,7 +1330,8 @@
         <!-- 3D模式骨架：使用Three.js載入3D模型並實現角色控制 -->
         <script src="js/modes/3d/index.js"></script>
         <!-- 生存模式組隊（測試）：Firebase signaling + WebRTC relay-only；僅在生存模式流程中使用 -->
-        <script type="module" src="js/multiplayer/survival_online.js"></script>
+        <!-- 注意：加上版本參數避免 GitHub Pages / 瀏覽器快取舊版 JS 造成規則調試困難 -->
+        <script type="module" src="js/multiplayer/survival_online.js?v=20260110_1"></script>
         <script src="js/main.js"></script>
         
         <!-- TD組件可用性檢查 -->
