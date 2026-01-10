@@ -14,6 +14,40 @@ class Projectile extends Entity {
     }
     
     update(deltaTime) {
+        // 僅視覺投射物：不更新邏輯，只更新位置（用於隊員端顯示隊長和其他隊員的投射物）
+        if (this._isVisualOnly) {
+            // 簡單的位置更新（不進行碰撞檢測和傷害計算）
+            const deltaMul = deltaTime / 16.67;
+            if (this.homing && this.assignedTargetId) {
+                // 追蹤型投射物：尋找目標敵人
+                const target = Game.enemies.find(e => e && e.id === this.assignedTargetId && !e.markedForDeletion);
+                if (target) {
+                    const dx = target.x - this.x;
+                    const dy = target.y - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 0) {
+                        const targetAngle = Math.atan2(dy, dx);
+                        const turnRate = (this.turnRatePerSec || 0) * (deltaTime / 1000);
+                        let angleDiff = targetAngle - this.angle;
+                        // 正規化角度差到 [-π, π]
+                        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+                        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+                        const turn = Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), turnRate);
+                        this.angle += turn;
+                    }
+                }
+            }
+            // 移動
+            this.x += Math.cos(this.angle) * this.speed * deltaMul;
+            this.y += Math.sin(this.angle) * this.speed * deltaMul;
+            // 邊界檢查（超出邊界後標記為刪除）
+            if (this.x < -100 || this.x > (Game.worldWidth || 1920) + 100 || 
+                this.y < -100 || this.y > (Game.worldHeight || 1080) + 100) {
+                this.markedForDeletion = true;
+            }
+            return; // 僅視覺投射物不進行碰撞檢測和傷害計算
+        }
+        
         // 閃電追蹤：優先追蹤分配的唯一目標，避免全部鎖定同一敵人
         if (this.homing && Game.enemies && Game.enemies.length) {
             let target = null;
@@ -107,21 +141,43 @@ class Projectile extends Entity {
                     
                     // 只有隊員（客戶端）才需要同步傷害到隊長端
                     if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
-                        // 發送傷害事件到隊長端
+                        // 發送傷害事件到隊長端（包含玩家UID）
                         if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                             window.SurvivalOnlineRuntime.sendToNet({
                                 t: "enemy_damage",
                                 enemyId: enemy.id,
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "UNKNOWN",
-                                isCrit: isCrit
+                                isCrit: isCrit,
+                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                             });
                         }
                     }
                 } catch (_) {}
                 
-                // 隊員端也造成傷害（視覺效果）
-                enemy.takeDamage(finalDamage);
+                // 確定傷害來源的 playerUid（用於隊長端廣播傷害數字）
+                let playerUid = null;
+                let dirX = Math.cos(this.angle);
+                let dirY = Math.sin(this.angle);
+                if (this.player) {
+                    // 如果是本地玩家的投射物
+                    if (this.player === Game.player && Game.multiplayer && Game.multiplayer.uid) {
+                        playerUid = Game.multiplayer.uid;
+                    }
+                    // 如果是遠程玩家的投射物
+                    else if (this.player._isRemotePlayer && this.player._remoteUid) {
+                        playerUid = this.player._remoteUid;
+                    }
+                }
+                
+                // 調用 enemy.takeDamage，傳遞傷害來源信息（用於隊長端廣播傷害數字）
+                enemy.takeDamage(finalDamage, {
+                    weaponType: this.weaponType,
+                    playerUid: playerUid,
+                    isCrit: isCrit,
+                    dirX: dirX,
+                    dirY: dirY
+                });
                 if (typeof DamageNumbers !== 'undefined') {
                     // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
                     DamageNumbers.show(
