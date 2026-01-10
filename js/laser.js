@@ -78,12 +78,50 @@ class LaserBeam extends Entity {
     }
 
     update(deltaTime) {
+        // 僅視覺雷射：需要從遠程玩家位置更新
+        if (this._isVisualOnly && this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.getRemotePlayers === 'function') {
+                const remotePlayers = rt.getRemotePlayers() || [];
+                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+                if (remotePlayer) {
+                    // 更新玩家位置
+                    this.player.x = remotePlayer.x;
+                    this.player.y = remotePlayer.y;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    // 如果是本地玩家
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                    }
+                } else {
+                    // 如果找不到對應的玩家，標記為刪除
+                    this.markedForDeletion = true;
+                    return;
+                }
+            } else {
+                this.markedForDeletion = true;
+                return;
+            }
+        }
+        
         // 追隨玩家位置（方向固定），重新計算端點
         const pts = this.computeEndpoints();
         this.startX = pts.startX;
         this.startY = pts.startY;
         this.endX = pts.endX;
         this.endY = pts.endY;
+
+        // 僅視覺雷射：不進行碰撞檢測和傷害計算
+        if (this._isVisualOnly) {
+            // 視覺脈動相位推進
+            this.pulsePhase += deltaTime;
+            // 檢查持續時間
+            const elapsed = Date.now() - this.startTime;
+            if (elapsed >= this.duration) {
+                this.markedForDeletion = true;
+            }
+            return; // 僅視覺，不進行碰撞檢測和傷害計算
+        }
 
         // 固定時間間隔對穿過的敵人造成傷害（不衰減，使用原傷害）
         this.tickAccumulator += deltaTime;
