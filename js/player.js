@@ -63,6 +63,12 @@ class Player extends Entity {
         
         // 初始武器 - 飛鏢
         this.addWeapon('DAGGER');
+        
+        // 組隊模式：死亡和復活狀態
+        this._isDead = false;
+        this._resurrectionProgress = 0; // 復活進度 0-100
+        this._resurrectionLastUpdate = 0; // 上次復活進度更新時間
+        this._resurrectionRescuer = null; // 正在復活此玩家的玩家引用
     }
 
     /**
@@ -93,6 +99,14 @@ class Player extends Entity {
     }
     
     update(deltaTime) {
+        // 組隊模式：死亡時不更新移動和武器
+        if (this._isDead) {
+            // 處理復活邏輯
+            this._updateResurrection(deltaTime);
+            // 死亡時不更新其他邏輯（移動、武器等）
+            return;
+        }
+        
         // 處理移動（套用deltaTime，以60FPS為基準）
         const deltaMul = deltaTime / 16.67;
         // M4：遠程玩家使用 _remoteInput，本地玩家使用 Input
@@ -196,6 +210,78 @@ class Player extends Entity {
         // 更新受傷紅閃計時
         if (this.hitFlashTime > 0) {
             this.hitFlashTime = Math.max(0, this.hitFlashTime - deltaTime);
+        }
+    }
+    
+    // 更新復活邏輯
+    _updateResurrection(deltaTime) {
+        if (!this._isDead) return;
+        
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        if (!isMultiplayer) return;
+        
+        // 檢查是否有其他玩家接觸（復活範圍：碰撞半徑的2倍）
+        const resurrectionRadius = (this.collisionRadius || 26) * 2;
+        let nearestRescuer = null;
+        let minDistance = Infinity;
+        
+        // 檢查本地玩家（如果不是自己）
+        if (typeof Game !== 'undefined' && Game.player && Game.player !== this && !Game.player._isDead) {
+            const dx = Game.player.x - this.x;
+            const dy = Game.player.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist <= resurrectionRadius && dist < minDistance) {
+                minDistance = dist;
+                nearestRescuer = Game.player;
+            }
+        }
+        
+        // 檢查遠程玩家
+        if (typeof Game !== 'undefined' && Array.isArray(Game.remotePlayers)) {
+            for (const remotePlayer of Game.remotePlayers) {
+                if (!remotePlayer || remotePlayer === this || remotePlayer._isDead) continue;
+                const dx = remotePlayer.x - this.x;
+                const dy = remotePlayer.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist <= resurrectionRadius && dist < minDistance) {
+                    minDistance = dist;
+                    nearestRescuer = remotePlayer;
+                }
+            }
+        }
+        
+        // 檢查通過 Runtime 獲取的遠程玩家
+        if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.getRemotePlayers === 'function') {
+            const remotePlayers = window.SurvivalOnlineRuntime.getRemotePlayers() || [];
+            for (const remotePlayer of remotePlayers) {
+                if (!remotePlayer || remotePlayer._isDead) continue;
+                // 跳過自己
+                if (typeof Game !== 'undefined' && Game.multiplayer && remotePlayer.uid === Game.multiplayer.uid) continue;
+                const dx = remotePlayer.x - this.x;
+                const dy = remotePlayer.y - this.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist <= resurrectionRadius && dist < minDistance) {
+                    minDistance = dist;
+                    // 創建一個臨時對象用於復活檢查
+                    nearestRescuer = { x: remotePlayer.x, y: remotePlayer.y, _isRemotePlayer: true };
+                }
+            }
+        }
+        
+        // 如果有救援者，增加復活進度
+        if (nearestRescuer) {
+            this._resurrectionRescuer = nearestRescuer;
+            // 每秒+10%（每100ms+1%）
+            const progressPerMs = 1.0 / 1000; // 每秒1.0，即100%
+            this._resurrectionProgress = Math.min(100, this._resurrectionProgress + progressPerMs * deltaTime);
+            
+            // 如果達到100%，復活
+            if (this._resurrectionProgress >= 100) {
+                this.resurrect();
+            }
+        } else {
+            // 沒有救援者，保持當前進度
+            this._resurrectionRescuer = null;
         }
     }
     
@@ -375,6 +461,69 @@ class Player extends Entity {
         }
         
         ctx.restore();
+        
+        // 組隊模式：繪製血條（在角色上方）
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        if (isMultiplayer) {
+            this._drawHealthBar(ctx);
+        }
+    }
+    
+    // 繪製血條（組隊模式）
+    _drawHealthBar(ctx) {
+        if (!ctx) return;
+        
+        const camX = (typeof Game !== 'undefined' && Game && Game.camera) ? Game.camera.x : 0;
+        const camY = (typeof Game !== 'undefined' && Game && Game.camera) ? Game.camera.y : 0;
+        const shakeX = (typeof Game !== 'undefined' && Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetX || 0) : 0;
+        const shakeY = (typeof Game !== 'undefined' && Game && Game.cameraShake && Game.cameraShake.active) ? (Game.cameraShake.offsetY || 0) : 0;
+        
+        // 計算屏幕座標
+        const screenX = this.x - camX - shakeX;
+        const screenY = this.y - camY - shakeY;
+        
+        // 血條位置：角色上方
+        const barWidth = 60;
+        const barHeight = 6;
+        const barOffsetY = -Math.max(this.width, this.height) / 2 - 15; // 角色上方15像素
+        const barX = screenX - barWidth / 2;
+        const barY = screenY + barOffsetY;
+        
+        // 死亡時血條顯示為0
+        const healthPercent = this._isDead ? 0 : (this.health / this.maxHealth);
+        
+        // 繪製血條背景（深紅色）
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(barX - 1, barY - 1, barWidth + 2, barHeight + 2);
+        
+        // 繪製血條（紅色到綠色漸變）
+        if (healthPercent > 0) {
+            const healthWidth = barWidth * healthPercent;
+            // 根據血量百分比決定顏色（0-30%紅色，30-70%黃色，70-100%綠色）
+            let healthColor = '#ff0000';
+            if (healthPercent > 0.7) {
+                healthColor = '#00ff00';
+            } else if (healthPercent > 0.3) {
+                healthColor = '#ffff00';
+            }
+            ctx.fillStyle = healthColor;
+            ctx.fillRect(barX, barY, healthWidth, barHeight);
+        }
+        
+        // 如果正在復活，繪製復活進度條（在血條下方）
+        if (this._isDead && this._resurrectionProgress > 0) {
+            const resBarHeight = 4;
+            const resBarY = barY + barHeight + 2;
+            const resBarWidth = barWidth * (this._resurrectionProgress / 100);
+            
+            // 復活進度條背景
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.fillRect(barX - 1, resBarY - 1, barWidth + 2, resBarHeight + 2);
+            
+            // 復活進度條（藍色）
+            ctx.fillStyle = '#00aaff';
+            ctx.fillRect(barX, resBarY, resBarWidth, resBarHeight);
+        }
     }
     
     // 受到傷害
@@ -493,7 +642,58 @@ class Player extends Entity {
              // 如果大招已結束但BGM備份還在，清理它
              this._ultimateBgmBackup = null;
          }
-         Game.gameOver();
+         
+         // 組隊模式：死亡時停止攻擊和移動，但不結束遊戲
+         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+         if (isMultiplayer) {
+             // 清除所有武器（停止攻擊）
+             this.clearWeapons();
+             // 血量歸0
+             this.health = 0;
+             // 復活進度重置
+             this._resurrectionProgress = 0;
+             this._resurrectionRescuer = null;
+             // 廣播死亡狀態
+             if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                 window.SurvivalOnlineBroadcastEvent("player_death", {
+                     playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
+                 });
+             }
+         } else {
+             // 單人模式：直接結束遊戲
+             Game.gameOver();
+         }
+     }
+     
+     // 復活
+     resurrect() {
+         if (!this._isDead) return;
+         this._isDead = false;
+         this.health = this.maxHealth;
+         this._resurrectionProgress = 0;
+         this._resurrectionRescuer = null;
+         // 恢復初始武器
+         this.addWeapon('DAGGER');
+         // 廣播復活狀態
+         if (typeof Game !== 'undefined' && Game.multiplayer && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+             window.SurvivalOnlineBroadcastEvent("player_resurrect", {
+                 playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
+             });
+         }
+     }
+     
+     // 清除所有武器
+     clearWeapons() {
+         if (this.weapons && Array.isArray(this.weapons)) {
+             for (const weapon of this.weapons) {
+                 if (weapon && typeof weapon.destroy === 'function') {
+                     try {
+                         weapon.destroy();
+                     } catch (_) {}
+                 }
+             }
+             this.weapons = [];
+         }
      }
     
     // 獲得經驗
