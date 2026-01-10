@@ -48,23 +48,28 @@
       // 避免浮點誤差造成顯示奇怪；對外保留整數
       const amount = Math.max(1, Math.round(final));
       
-      // 應用吸血效果（不獸控制技能）
-      this._applyLifesteal(amount, options);
+      // 計算吸血效果（不獸控制技能）
+      const lifestealAmount = this._calculateLifesteal(amount, options);
       
-      return { amount, isCrit };
+      // 應用吸血效果（僅在本地玩家時應用，隊員端會通過enemy_damage同步）
+      if (lifestealAmount > 0) {
+        this._applyLifesteal(lifestealAmount, options);
+      }
+      
+      return { amount, isCrit, lifestealAmount: lifestealAmount || 0 };
     },
     
-    // 應用吸血效果（不獸控制技能）
-    _applyLifesteal(damageAmount, options) {
+    // 計算吸血量（不獸控制技能）
+    _calculateLifesteal(damageAmount, options) {
       try {
         // 檢查玩家是否有不獸控制技能
-        if (!Game || !Game.player || !Game.player.weapons) return;
+        if (!Game || !Game.player || !Game.player.weapons) return 0;
         
         const uncontrollableBeast = Game.player.weapons.find(w => w.type === 'UNCONTROLLABLE_BEAST');
-        if (!uncontrollableBeast) return;
+        if (!uncontrollableBeast) return 0;
         
         const cfg = uncontrollableBeast.config;
-        if (!cfg) return;
+        if (!cfg) return 0;
         
         // 檢查冷卻時間（使用技能實例的冷卻追蹤）
         const now = Date.now();
@@ -73,7 +78,7 @@
         }
         const cooldownMs = cfg.LIFESTEAL_COOLDOWN_MS || 100;
         if (now - uncontrollableBeast._lastLifestealTime < cooldownMs) {
-          return; // 仍在冷卻中
+          return 0; // 仍在冷卻中
         }
         
         // 計算吸血百分比
@@ -88,10 +93,29 @@
           Math.floor(damageAmount * lifestealPct)
         );
         
+        return healAmount;
+      } catch (e) {
+        // 靜默失敗，不影響遊戲流程
+        console.warn('[DamageSystem] Lifesteal calculation error:', e);
+        return 0;
+      }
+    },
+    
+    // 應用吸血效果（不獸控制技能）
+    _applyLifesteal(healAmount, options) {
+      try {
+        if (!Game || !Game.player || !Game.player.weapons || healAmount <= 0) return;
+        
+        const uncontrollableBeast = Game.player.weapons.find(w => w.type === 'UNCONTROLLABLE_BEAST');
+        if (!uncontrollableBeast) return;
+        
+        const cfg = uncontrollableBeast.config;
+        if (!cfg) return;
+        
         // 應用回復
-        if (healAmount > 0 && Game.player.health < Game.player.maxHealth) {
+        if (Game.player.health < Game.player.maxHealth) {
           Game.player.health = Math.min(Game.player.maxHealth, Game.player.health + healAmount);
-          uncontrollableBeast._lastLifestealTime = now;
+          uncontrollableBeast._lastLifestealTime = Date.now();
           
           // 更新UI
           if (typeof UI !== 'undefined' && UI.updateHealthBar) {
@@ -100,7 +124,7 @@
         }
       } catch (e) {
         // 靜默失敗，不影響遊戲流程
-        console.warn('[DamageSystem] Lifesteal error:', e);
+        console.warn('[DamageSystem] Lifesteal apply error:', e);
       }
     }
   };
