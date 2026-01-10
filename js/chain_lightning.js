@@ -81,15 +81,43 @@ class ChainLightningEffect extends Entity {
             if (elapsed >= seg.revealAt) {
                 const target = seg.to;
                 if (target && !target.markedForDeletion && target.health > 0) {
+                    let finalDamage = this.damage;
+                    let isCrit = false;
                     if (typeof DamageSystem !== 'undefined') {
                         const result = DamageSystem.computeHit(this.damage, target, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
-                        target.takeDamage(result.amount);
-                        if (typeof DamageNumbers !== 'undefined') {
-                            const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
-                            DamageNumbers.show(result.amount, target.x, target.y - (target.height||0)/2, result.isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
+                        finalDamage = result.amount;
+                        isCrit = result.isCrit;
+                    }
+                    
+                    // 組隊模式：隊員的連鎖閃電攻擊敵人時，同步傷害到隊長端
+                    try {
+                        let isSurvivalMode = false;
+                        try {
+                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                ? GameModeManager.getCurrent()
+                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                    ? ModeManager.getActiveModeId()
+                                    : null);
+                            isSurvivalMode = (activeId === 'survival' || activeId === null);
+                        } catch (_) {}
+                        
+                        if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && target && target.id) {
+                            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                                window.SurvivalOnlineRuntime.sendToNet({
+                                    t: "enemy_damage",
+                                    enemyId: target.id,
+                                    damage: finalDamage,
+                                    weaponType: this.weaponType || "CHAIN_LIGHTNING",
+                                    isCrit: isCrit
+                                });
+                            }
                         }
-                    } else {
-                        target.takeDamage(this.damage);
+                    } catch (_) {}
+                    
+                    target.takeDamage(finalDamage);
+                    if (typeof DamageNumbers !== 'undefined') {
+                        const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
+                        DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
                     }
                     this._spawnSegmentSparks(seg);
                 }
@@ -320,15 +348,43 @@ class FrenzyLightningEffect extends Entity {
             if (elapsed >= seg.revealAt) {
                 const target = seg.to;
                 if (target && !target.markedForDeletion && target.health > 0) {
+                    let finalDamage = this.damage;
+                    let isCrit = false;
                     if (typeof DamageSystem !== 'undefined') {
                         const result = DamageSystem.computeHit(this.damage, target, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
-                        target.takeDamage(result.amount);
-                        if (typeof DamageNumbers !== 'undefined') {
-                            const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
-                            DamageNumbers.show(result.amount, target.x, target.y - (target.height||0)/2, result.isCrit, { dirX: (ty - fy), dirY: (tx - fx), enemyId: target.id });
+                        finalDamage = result.amount;
+                        isCrit = result.isCrit;
+                    }
+                    
+                    // 組隊模式：隊員的連鎖閃電攻擊敵人時，同步傷害到隊長端
+                    try {
+                        let isSurvivalMode = false;
+                        try {
+                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                ? GameModeManager.getCurrent()
+                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                    ? ModeManager.getActiveModeId()
+                                    : null);
+                            isSurvivalMode = (activeId === 'survival' || activeId === null);
+                        } catch (_) {}
+                        
+                        if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && target && target.id) {
+                            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                                window.SurvivalOnlineRuntime.sendToNet({
+                                    t: "enemy_damage",
+                                    enemyId: target.id,
+                                    damage: finalDamage,
+                                    weaponType: this.weaponType || "CHAIN_LIGHTNING",
+                                    isCrit: isCrit
+                                });
+                            }
                         }
-                    } else {
-                        target.takeDamage(this.damage);
+                    } catch (_) {}
+                    
+                    target.takeDamage(finalDamage);
+                    if (typeof DamageNumbers !== 'undefined') {
+                        const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
+                        DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (ty - fy), dirY: (tx - fx), enemyId: target.id });
                     }
                     this._spawnSegmentSparks(seg);
                 }
