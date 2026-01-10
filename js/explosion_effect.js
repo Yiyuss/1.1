@@ -75,6 +75,31 @@ class ExplosionEffect extends Entity {
         for (const enemy of Game.enemies) {
             if (!enemy || enemy.markedForDeletion || enemy.health <= 0) continue;
             
+            // 組隊模式：隊員的爆炸效果攻擊敵人時，同步傷害到隊長端
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            t: "enemy_damage",
+                            enemyId: enemy.id,
+                            damage: fixedDamage,
+                            weaponType: "EXPLOSION",
+                            isCrit: false
+                        });
+                    }
+                }
+            } catch (_) {}
+            
             // 直接造成固定伤害（不经过DamageSystem，不爆击）
             enemy.takeDamage(fixedDamage);
             
