@@ -597,17 +597,17 @@
       </div>
     </div>
 
-    <!-- 生存模式：單人 / 聯機選擇（僅生存模式使用；不影響其他模式） -->
+    <!-- 生存模式：單人 / 組隊選擇（僅生存模式使用；不影響其他模式） -->
     <div id="survival-online-select-screen" class="screen hidden">
-      <div class="select-card">
+      <div class="select-card team-dark">
         <h1 class="select-title">生存模式</h1>
         <div class="map-desc" style="margin-bottom:12px;">
-          選擇遊玩方式：<strong>聯機為測試版</strong>（最多5人）。<br>
-          隱私：僅允許 relay 連線；若 TURN 不可用會直接提示無法連線（不會降級成會露 IP 的直連）。
+          選擇遊玩方式：<strong>組隊為測試版</strong>（最多5人）。<br>
+          隱私：使用第三方 <strong>TURN 中繼（Open Relay Project）</strong> 轉送連線，可保護雙方 IP 隱私。
         </div>
         <div class="select-actions" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
           <button id="survival-online-btn-solo" class="primary">單人開始</button>
-          <button id="survival-online-btn-online" class="ghost">聯機（測試）</button>
+          <button id="survival-online-btn-online" class="ghost">組隊（測試）</button>
         </div>
         <div class="select-actions" style="margin-top:10px;">
           <button id="survival-online-btn-back" class="ghost">返回</button>
@@ -615,10 +615,10 @@
       </div>
     </div>
 
-    <!-- 生存模式：聯機大廳（僅生存模式使用） -->
+    <!-- 生存模式：組隊大廳（僅生存模式使用） -->
     <div id="survival-online-lobby-screen" class="screen hidden">
-      <div class="select-card">
-        <h1 class="select-title">聯機大廳</h1>
+      <div class="select-card team-dark">
+        <h1 class="select-title">組隊大廳</h1>
         <div class="map-desc" style="margin-bottom:12px;">
           房間上限：5人。室長可開始遊戲與調整地圖/難度（初版）。<br>
           <span id="survival-online-status" style="color: rgba(255,255,255,0.85);">尚未連線</span>
@@ -1328,7 +1328,7 @@
         <script src="js/modes/adventure/index.js"></script>
         <!-- 3D模式骨架：使用Three.js載入3D模型並實現角色控制 -->
         <script src="js/modes/3d/index.js"></script>
-        <!-- 生存模式聯機（測試）：Firebase signaling + WebRTC relay-only；僅在生存模式流程中使用 -->
+        <!-- 生存模式組隊（測試）：Firebase signaling + WebRTC relay-only；僅在生存模式流程中使用 -->
         <script type="module" src="js/multiplayer/survival_online.js"></script>
         <script src="js/main.js"></script>
         
