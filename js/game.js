@@ -329,6 +329,29 @@ const Game = {
             }
         }
         
+        // 組隊模式：定期清理過期的視覺效果（防止內存泄漏）
+        if (this.multiplayer && this.multiplayer.enabled) {
+            const now = Date.now();
+            const VISUAL_EFFECT_MAX_AGE = 30000; // 30 秒
+            
+            for (let i = this.projectiles.length - 1; i >= 0; i--) {
+                const p = this.projectiles[i];
+                if (p && p._isVisualOnly) {
+                    // 如果視覺效果超過最大存活時間，強制清理
+                    if (!p._createdAt) {
+                        p._createdAt = now; // 記錄創建時間
+                    } else if (now - p._createdAt > VISUAL_EFFECT_MAX_AGE) {
+                        try {
+                            if (typeof p.destroy === 'function') {
+                                p.destroy();
+                            }
+                        } catch (_) {}
+                        this.projectiles.splice(i, 1);
+                    }
+                }
+            }
+        }
+        
         // 更新 BOSS 火彈投射物
         if (this.bossProjectiles) {
             for (let i = this.bossProjectiles.length - 1; i >= 0; i--) {
