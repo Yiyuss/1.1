@@ -266,12 +266,21 @@ const Runtime = (() => {
         x: p.x,
         y: p.y,
         name: typeof p.name === "string" ? p.name : uid.slice(0, 6),
+        characterId: (typeof p.characterId === "string") ? p.characterId : null, // 保存角色ID
         updatedAt: now,
       });
     }
     // 清掉過期（避免斷線殘留）
     for (const [uid, p] of remotePlayers) {
-      if (now - (p.updatedAt || 0) > 8000) remotePlayers.delete(uid);
+      if (now - (p.updatedAt || 0) > 8000) {
+        remotePlayers.delete(uid);
+        // 隱藏對應的GIF覆蓋層
+        try {
+          if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hide === 'function') {
+            window.GifOverlay.hide(`remote-player-${uid}`);
+          }
+        } catch (_) {}
+      }
     }
   }
 
@@ -351,6 +360,171 @@ const Runtime = (() => {
             Game.spawnPineappleUltimatePickup(eventData.x, eventData.y, opts);
           }
         } catch (_) {}
+      } else if (eventType === "damage_number") {
+        // 隊員端顯示傷害數字（僅視覺，不影響傷害計算）
+        try {
+          if (typeof DamageNumbers !== "undefined" && typeof DamageNumbers.show === "function" && eventData.enemyId && typeof eventData.damage === "number") {
+            const enemyX = eventData.enemyX || 0;
+            const enemyY = eventData.enemyY || 0;
+            const enemyHeight = eventData.enemyHeight || 0;
+            const damage = eventData.damage || 0;
+            const isCrit = (eventData.isCrit === true);
+            const dirX = typeof eventData.dirX === "number" ? eventData.dirX : 0;
+            const dirY = typeof eventData.dirY === "number" ? eventData.dirY : -1;
+            const enemyId = eventData.enemyId;
+            
+            // 顯示傷害數字
+            DamageNumbers.show(damage, enemyX, enemyY - enemyHeight / 2, isCrit, {
+              dirX: dirX,
+              dirY: dirY,
+              enemyId: enemyId
+            });
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 隊員端顯示傷害數字失敗:", e);
+        }
+      } else if (eventType === "projectile_spawn") {
+        // 隊員端生成投射物視覺效果（僅視覺，不影響傷害計算）
+        try {
+          if (typeof Game !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
+            // 檢查是否已存在相同ID的投射物（避免重複生成）
+            const projectileId = eventData.id || `projectile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+            const existingProjectile = Game.projectiles.find(p => p.id === projectileId);
+            if (!existingProjectile) {
+              const weaponType = eventData.weaponType || "UNKNOWN";
+              
+              // 根據武器類型創建對應的投射物
+              if (weaponType === "ORBIT" || weaponType === "CHICKEN_BLESSING" || weaponType === "ROTATING_MUFFIN" || weaponType === "HEART_COMPANION" || weaponType === "PINEAPPLE_ORBIT") {
+                // 環繞投射物：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  // 嘗試找到對應的遠程玩家
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      // 創建一個臨時的玩家對象用於環繞（僅用於視覺）
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      // 如果是本地玩家
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer && typeof OrbitBall !== "undefined") {
+                  const imageKey = (weaponType === "CHICKEN_BLESSING") ? "chicken" : 
+                                   (weaponType === "ROTATING_MUFFIN") ? "muffin" :
+                                   (weaponType === "HEART_COMPANION") ? "heart" :
+                                   (weaponType === "PINEAPPLE_ORBIT") ? "A45" : "lightning";
+                  const initialAngle = eventData.angle || 0;
+                  const radius = eventData.radius || 60;
+                  const orb = new OrbitBall(
+                    targetPlayer,
+                    initialAngle,
+                    radius,
+                    0, // 傷害設為0（僅視覺）
+                    eventData.size || 20,
+                    eventData.duration || 3000,
+                    eventData.angularSpeed || 6.283,
+                    imageKey
+                  );
+                  orb.id = projectileId;
+                  orb._isVisualOnly = true;
+                  orb._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(orb);
+                }
+              } else if (weaponType === "LASER" && typeof LaserBeam !== "undefined") {
+                // 雷射：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const beam = new LaserBeam(
+                    targetPlayer,
+                    eventData.angle || 0,
+                    0, // 傷害設為0（僅視覺）
+                    eventData.width || 8,
+                    eventData.duration || 1000,
+                    eventData.tickInterval || 120
+                  );
+                  beam.id = projectileId;
+                  beam._isVisualOnly = true;
+                  beam._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(beam);
+                }
+              } else if (weaponType === "MIND_MAGIC" && typeof ShockwaveEffect !== "undefined") {
+                // 震波：需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.getRemotePlayers === 'function') {
+                    const remotePlayers = rt.getRemotePlayers() || [];
+                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                    if (remotePlayer) {
+                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                      targetPlayer = Game.player;
+                    }
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                
+                if (targetPlayer) {
+                  const shockwave = new ShockwaveEffect(
+                    targetPlayer,
+                    0, // 傷害設為0（僅視覺）
+                    eventData.duration || 1000,
+                    eventData.maxRadius || 220,
+                    eventData.ringWidth || 18,
+                    eventData.palette || null
+                  );
+                  shockwave.id = projectileId;
+                  shockwave._isVisualOnly = true;
+                  shockwave._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(shockwave);
+                }
+              } else if (typeof Projectile !== "undefined") {
+                // 普通投射物
+                const projectile = new Projectile(
+                  eventData.x || 0,
+                  eventData.y || 0,
+                  eventData.angle || 0,
+                  weaponType,
+                  0, // 傷害設為0（僅視覺，傷害已在隊長端計算）
+                  eventData.speed || 0,
+                  eventData.size || 0
+                );
+                projectile.id = projectileId;
+                projectile.homing = eventData.homing || false;
+                projectile.turnRatePerSec = eventData.turnRatePerSec || 0;
+                projectile.assignedTargetId = eventData.assignedTargetId || null;
+                projectile._isVisualOnly = true; // 標記為僅視覺投射物
+                projectile.player = null; // 不關聯玩家（避免碰撞檢測）
+                Game.projectiles.push(projectile);
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 隊員端生成投射物視覺效果失敗:", e);
+        }
       }
     } catch (e) {
       console.warn("[SurvivalOnline] M2 事件處理失敗:", e);
@@ -597,6 +771,8 @@ const Runtime = (() => {
       try {
         if (typeof Game !== "undefined" && Game.player) {
           const p = Game.player;
+          const hostMember = _membersState ? _membersState.get(_uid) : null;
+          const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
           snapshot.players[_uid] = {
             x: p.x || 0,
             y: p.y || 0,
@@ -608,7 +784,8 @@ const Runtime = (() => {
             exp: p.experience || 0,
             expToNext: p.experienceToNextLevel || 100,
             coins: Game.coins || 0, // 添加金幣字段
-            name: `玩家-${_uid.slice(0, 4)}`
+            name: `玩家-${_uid.slice(0, 4)}`,
+            characterId: hostCharacterId // 添加角色ID，用於隊員端渲染完整角色外觀
           };
         }
       } catch (_) {}
@@ -621,6 +798,7 @@ const Runtime = (() => {
           const name = (member && typeof member.name === "string") ? member.name : uid.slice(0, 6);
           // M4：遠程玩家已有完整的 Player 對象，使用真實狀態
           const remotePlayer = RemotePlayerManager.get(uid);
+          const characterId = (member && member.characterId) ? member.characterId : null;
           if (remotePlayer) {
             snapshot.players[uid] = {
               x: remotePlayer.x || 0,
@@ -633,7 +811,8 @@ const Runtime = (() => {
               exp: remotePlayer.experience || 0,
               expToNext: remotePlayer.experienceToNextLevel || 100,
               coins: Game.coins || 0, // 添加金幣字段（組隊模式共享金幣）
-              name: name
+              name: name,
+              characterId: characterId // 添加角色ID，用於隊員端渲染完整角色外觀
             };
           } else {
             // 後備：如果遠程玩家對象不存在，使用簡化狀態
@@ -648,7 +827,8 @@ const Runtime = (() => {
               exp: 0,
               expToNext: 100,
               coins: Game.coins || 0, // 添加金幣字段（組隊模式共享金幣）
-              name: name
+              name: name,
+              characterId: characterId // 添加角色ID，用於隊員端渲染完整角色外觀
             };
           }
         }
@@ -720,14 +900,27 @@ const Runtime = (() => {
         // 加上 host 自己
         try {
           if (typeof Game !== "undefined" && Game.player) {
-            players[_uid] = { x: Game.player.x, y: Game.player.y, name: `玩家-${_uid.slice(0, 4)}` };
+            const hostMember = _membersState ? _membersState.get(_uid) : null;
+            const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
+            players[_uid] = { 
+              x: Game.player.x, 
+              y: Game.player.y, 
+              name: `玩家-${_uid.slice(0, 4)}`,
+              characterId: hostCharacterId // 添加角色ID
+            };
           }
         } catch (_) {}
         // 加上所有遠程玩家
         for (const [uid, state] of Object.entries(remoteStates)) {
           const member = _membersState ? _membersState.get(uid) : null;
           const name = (member && typeof member.name === "string") ? member.name : uid.slice(0, 6);
-          players[uid] = { x: state.x, y: state.y, name };
+          const characterId = (member && member.characterId) ? member.characterId : null;
+          players[uid] = { 
+            x: state.x, 
+            y: state.y, 
+            name: name,
+            characterId: characterId // 添加角色ID
+          };
         }
         // 廣播給所有 client
         for (const [uid, it] of _pcsHost.entries()) {
@@ -1611,14 +1804,35 @@ function handleHostDataMessage(fromUid, msg) {
     try {
       // host 自己
       if (typeof Game !== "undefined" && Game.player) {
-        players[_uid] = { x: Game.player.x, y: Game.player.y, name: `玩家-${_uid.slice(0, 4)}` };
+        const hostMember = _membersState ? _membersState.get(_uid) : null;
+        const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
+        players[_uid] = { 
+          x: Game.player.x, 
+          y: Game.player.y, 
+          name: `玩家-${_uid.slice(0, 4)}`,
+          characterId: hostCharacterId // 添加角色ID
+        };
       }
     } catch (_) {}
     // 已知其他人（Runtime 內 + 這次）
     for (const p of Runtime.getRemotePlayers()) {
-      players[p.uid] = { x: p.x, y: p.y, name: p.name };
+      const member = _membersState ? _membersState.get(p.uid) : null;
+      const characterId = (member && member.characterId) ? member.characterId : (p.characterId) ? p.characterId : null;
+      players[p.uid] = { 
+        x: p.x, 
+        y: p.y, 
+        name: p.name,
+        characterId: characterId // 添加角色ID
+      };
     }
-    players[fromUid] = { x, y, name };
+    const fromMember = _membersState ? _membersState.get(fromUid) : null;
+    const fromCharacterId = (fromMember && fromMember.characterId) ? fromMember.characterId : null;
+    players[fromUid] = { 
+      x, 
+      y, 
+      name: name,
+      characterId: fromCharacterId // 添加角色ID
+    };
 
     // 廣播給所有 client
     for (const [uid, it] of _pcsHost.entries()) {
@@ -1698,6 +1912,7 @@ function handleHostDataMessage(fromUid, msg) {
     const damage = typeof msg.damage === "number" ? Math.max(0, msg.damage) : 0;
     const weaponType = typeof msg.weaponType === "string" ? msg.weaponType : "UNKNOWN";
     const isCrit = (msg.isCrit === true);
+    const playerUid = typeof msg.playerUid === "string" ? msg.playerUid : fromUid; // 發送傷害的玩家UID
     
     if (!enemyId || damage <= 0) return;
     
@@ -1708,8 +1923,16 @@ function handleHostDataMessage(fromUid, msg) {
         if (enemy && !enemy.markedForDeletion && !enemy.isDying) {
           // 對敵人造成傷害（使用 DamageSystem 計算，但這裡已經計算過了，直接應用）
           // 注意：這裡不重新計算傷害，因為隊員端已經計算過了（包括爆擊）
-          enemy.takeDamage(damage, { weaponType: weaponType });
-          // 顯示傷害數字（可選，用於視覺反饋）
+          // 傳遞 playerUid 和 isCrit 以便 enemy.takeDamage 可以廣播傷害數字
+          enemy.takeDamage(damage, { 
+            weaponType: weaponType,
+            playerUid: playerUid,
+            isCrit: isCrit,
+            dirX: 0,
+            dirY: -1
+          });
+          
+          // 顯示傷害數字（隊長端）
           if (typeof DamageNumbers !== "undefined" && typeof DamageNumbers.show === "function") {
             DamageNumbers.show(damage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, { 
               dirX: 0, 
@@ -1776,7 +1999,14 @@ function sendToNet(obj) {
       players[_uid] = { x, y, name: `玩家-${_uid.slice(0, 4)}` };
       // 加上目前已知 remote（host 看得到）
       for (const p of Runtime.getRemotePlayers()) {
-        players[p.uid] = { x: p.x, y: p.y, name: p.name };
+        const member = _membersState ? _membersState.get(p.uid) : null;
+        const characterId = (member && member.characterId) ? member.characterId : (p.characterId) ? p.characterId : null;
+        players[p.uid] = { 
+          x: p.x, 
+          y: p.y, 
+          name: p.name,
+          characterId: characterId // 添加角色ID
+        };
       }
       for (const [uid, it] of _pcsHost.entries()) {
         const ch = (it && it.channel) ? it.channel : null;
