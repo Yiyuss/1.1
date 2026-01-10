@@ -84,6 +84,7 @@ class ShockwaveEffect extends Entity {
             if (d >= (r - half) && d <= (r + half)) {
                 let finalDamage = this.damage;
                 let isCrit = false;
+                let lifestealAmount = 0;
                 if (typeof DamageSystem !== 'undefined') {
                     const result = DamageSystem.computeHit(this.damage, enemy, {
                         weaponType: this.weaponType,
@@ -91,6 +92,7 @@ class ShockwaveEffect extends Entity {
                     });
                     finalDamage = result.amount;
                     isCrit = result.isCrit;
+                    lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                 }
                 
                 // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
@@ -112,7 +114,7 @@ class ShockwaveEffect extends Entity {
                         const dirY = enemy.y - this.cy;
                         DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, { dirX, dirY, enemyId: enemy.id });
                     }
-                    // 發送enemy_damage給主機
+                    // 發送enemy_damage給主機（包含吸血資訊）
                     if (enemy && enemy.id) {
                         if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                             window.SurvivalOnlineRuntime.sendToNet({
@@ -120,7 +122,8 @@ class ShockwaveEffect extends Entity {
                                 enemyId: enemy.id,
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "UNKNOWN",
-                                isCrit: isCrit
+                                isCrit: isCrit,
+                                lifesteal: lifestealAmount
                             });
                         }
                     }
