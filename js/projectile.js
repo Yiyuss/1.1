@@ -80,6 +80,8 @@ class Projectile extends Entity {
         for (const enemy of Game.enemies) {
             if (this.isColliding(enemy)) {
                 // 使用 DamageSystem 計算浮動與爆擊；若不可用則維持原邏輯
+                let finalDamage = this.damage;
+                let isCrit = false;
                 if (typeof DamageSystem !== 'undefined') {
                     // 維護：加入爆擊加成（基礎10% + 天賦加成），不改畫面文字
                     const result = DamageSystem.computeHit(
@@ -87,19 +89,48 @@ class Projectile extends Entity {
                         enemy,
                         { weaponType: this.weaponType, critChanceBonusPct: (this.critChanceBonusPct || 0) }
                     );
-                    enemy.takeDamage(result.amount);
-                    if (typeof DamageNumbers !== 'undefined') {
-                        // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
-                        DamageNumbers.show(
-                          result.amount,
-                          enemy.x,
-                          enemy.y - (enemy.height||0)/2,
-                          result.isCrit,
-                          { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id }
-                        );
+                    finalDamage = result.amount;
+                    isCrit = result.isCrit;
+                }
+                
+                // 組隊模式：隊員的投射物攻擊敵人時，同步傷害到隊長端
+                try {
+                    let isSurvivalMode = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) {}
+                    
+                    // 只有隊員（客戶端）才需要同步傷害到隊長端
+                    if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+                        // 發送傷害事件到隊長端
+                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                            window.SurvivalOnlineRuntime.sendToNet({
+                                t: "enemy_damage",
+                                enemyId: enemy.id,
+                                damage: finalDamage,
+                                weaponType: this.weaponType || "UNKNOWN",
+                                isCrit: isCrit
+                            });
+                        }
                     }
-                } else {
-                    enemy.takeDamage(this.damage);
+                } catch (_) {}
+                
+                // 隊員端也造成傷害（視覺效果）
+                enemy.takeDamage(finalDamage);
+                if (typeof DamageNumbers !== 'undefined') {
+                    // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
+                    DamageNumbers.show(
+                      finalDamage,
+                      enemy.x,
+                      enemy.y - (enemy.height||0)/2,
+                      isCrit,
+                      { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id }
+                    );
                 }
                 // 紳士綿羊（FIREBALL）命中未被消滅的敵人時施加暫時減速（使用設定值）
                 if (this.weaponType === 'FIREBALL' && enemy.health > 0 && typeof enemy.applySlow === 'function') {
