@@ -2604,6 +2604,7 @@ function handleHostDataMessage(fromUid, msg) {
     const weaponType = typeof msg.weaponType === "string" ? msg.weaponType : "UNKNOWN";
     const isCrit = (msg.isCrit === true);
     const playerUid = typeof msg.playerUid === "string" ? msg.playerUid : fromUid; // 發送傷害的玩家UID
+    const lifesteal = typeof msg.lifesteal === "number" ? Math.max(0, msg.lifesteal) : 0; // 吸血量
     
     if (!enemyId || damage <= 0) return;
     
@@ -2636,6 +2637,29 @@ function handleHostDataMessage(fromUid, msg) {
     } catch (e) {
       console.warn("[SurvivalOnline] 同步敵人傷害失敗:", e);
     }
+    
+    // 處理吸血邏輯：將吸血量應用到遠程玩家
+    if (lifesteal > 0 && playerUid) {
+      try {
+        // 找到對應的遠程玩家
+        let remotePlayer = null;
+        if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
+          remotePlayer = RemotePlayerManager.get(playerUid);
+        }
+        
+        if (remotePlayer && typeof remotePlayer.health === 'number' && typeof remotePlayer.maxHealth === 'number') {
+          // 應用吸血回復
+          const newHealth = Math.min(remotePlayer.maxHealth, remotePlayer.health + lifesteal);
+          remotePlayer.health = newHealth;
+          
+          // 更新UI（如果遠程玩家有UI更新的話）
+          // 注意：遠程玩家的血量會通過狀態同步更新，這裡只是確保主機端狀態正確
+        }
+      } catch (e) {
+        console.warn("[SurvivalOnline] 同步吸血失敗:", e);
+      }
+    }
+    
     return;
   }
   
