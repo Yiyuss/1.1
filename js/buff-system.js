@@ -117,7 +117,7 @@ const BuffSystem = {
                 // 與心意相通/腎上腺素技能疊加（加算，不是乘算）
                 // 確保技能倍率存在且有效（如果沒有該技能，應該是 1.0）
                 const skillMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 0)
-                    ? player._heartConnectionRegenMultiplier
+                    ? player._heartConnectionRegenMultiplier 
                     : 1.0;
                 const skillBoost = skillMul - 1.0;
                 // 最終倍率 = 基礎(1.0) + 天賦加成 + 技能加成
@@ -131,7 +131,7 @@ const BuffSystem = {
             remove: function(player) {
                 // 移除時，如果還有心意相通/腎上腺素，保留技能倍率
                 const skillMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 0)
-                    ? player._heartConnectionRegenMultiplier
+                    ? player._heartConnectionRegenMultiplier 
                     : 1.0;
                 player.healthRegenSpeedMultiplier = skillMul;
             }
@@ -267,7 +267,7 @@ const BuffSystem = {
         }
     },
     
-    // 從天賦系統應用buff
+    // 從天賦系統應用buff（使用本地天賦系統）
     applyBuffsFromTalents: function(player) {
         if (!player) return;
         try {
@@ -293,6 +293,109 @@ const BuffSystem = {
             if (regenLv > 0) this.applyBuff(player, 'regen_speed_boost');
             if (expLv > 0) this.applyBuff(player, 'experience_boost');
             
+            // 應用傷害強化（damage_boost）
+            if (dmgLv > 0) {
+                const tier = (typeof TalentSystem !== 'undefined' && TalentSystem.tieredTalents && TalentSystem.tieredTalents.damage_boost && TalentSystem.tieredTalents.damage_boost.levels)
+                    ? TalentSystem.tieredTalents.damage_boost.levels[dmgLv - 1] : null;
+                if (tier && typeof tier.multiplier === 'number') {
+                    if (!player.damageMultiplier) player.damageMultiplier = 1.0;
+                    player.damageMultiplier *= tier.multiplier;
+                }
+            }
+        } catch (e) {
+            console.error('應用天賦buff失敗:', e);
+        }
+    },
+    
+    // 從指定的天賦等級對象應用buff（用於組隊模式的遠程玩家）
+    applyBuffsFromTalentLevels: function(player, talentLevels) {
+        if (!player || !talentLevels || typeof talentLevels !== 'object') return;
+        try {
+            const hpLv = parseInt(talentLevels.hp_boost || 0, 10) || 0;
+            const defLv = parseInt(talentLevels.defense_boost || 0, 10) || 0;
+            const spdLv = parseInt(talentLevels.speed_boost || 0, 10) || 0;
+            const prLv = parseInt(talentLevels.pickup_range_boost || 0, 10) || 0;
+            const dmgLv = parseInt(talentLevels.damage_boost || 0, 10) || 0;
+            const regenLv = parseInt(talentLevels.regen_speed_boost || 0, 10) || 0;
+            const expLv = parseInt(talentLevels.experience_boost || 0, 10) || 0;
+            const specLv = parseInt(talentLevels.damage_specialization || 0, 10) || 0;
+            const critLv = parseInt(talentLevels.crit_enhance || 0, 10) || 0;
+            const dodgeLv = parseInt(talentLevels.dodge_enhance || 0, 10) || 0;
+            
+            // 臨時替換 TalentSystem.getTalentLevel 來使用指定的天賦等級
+            const originalGetTalentLevel = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) ? TalentSystem.getTalentLevel.bind(TalentSystem) : null;
+            if (originalGetTalentLevel && typeof TalentSystem !== 'undefined') {
+                TalentSystem.getTalentLevel = function(id) {
+                    const level = (talentLevels && typeof talentLevels[id] === 'number') ? talentLevels[id] : 0;
+                    const cfg = this.tieredTalents[id];
+                    if (!cfg) return 0;
+                    return Math.max(0, Math.min(level, cfg.levels.length));
+                }.bind(TalentSystem);
+            }
+            
+            // 依序套用存在的階梯效果（使用臨時替換的 getTalentLevel）
+            if (hpLv > 0) {
+                const healthBoost = this._getTierEffect('hp_boost', hpLv, 'hp', 0) || 0;
+                const baseMax = (player && typeof player.baseMaxHealth === 'number')
+                    ? player.baseMaxHealth
+                    : CONFIG.PLAYER.MAX_HEALTH;
+                const oldMaxHealth = player.maxHealth || baseMax;
+                player.maxHealth = baseMax + healthBoost;
+                if (player.maxHealth > oldMaxHealth) {
+                    const healthRatio = player.health / oldMaxHealth;
+                    player.health = Math.min(player.maxHealth, Math.floor(player.health + (player.maxHealth - oldMaxHealth) * healthRatio));
+                } else {
+                    player.health = Math.min(player.health, player.maxHealth);
+                }
+            }
+            if (defLv > 0) {
+                const reduction = this._getTierEffect('defense_boost', defLv, 'reduction', 0) || 0;
+                player.damageReductionFlat = reduction;
+            }
+            if (spdLv > 0) {
+                const mul = this._getTierEffect('speed_boost', spdLv, 'multiplier', 1.0) || 1.0;
+                player.speed = CONFIG.PLAYER.SPEED * mul;
+            }
+            if (prLv > 0) {
+                const mul = this._getTierEffect('pickup_range_boost', prLv, 'multiplier', 1.0) || 1.0;
+                player.pickupRangeMultiplier = mul;
+            }
+            if (regenLv > 0) {
+                const mul = this._getTierEffect('regen_speed_boost', regenLv, 'multiplier', 1.0) || 1.0;
+                player.healthRegenSpeedMultiplier = mul;
+            }
+            if (expLv > 0) {
+                const mul = this._getTierEffect('experience_boost', expLv, 'multiplier', 1.0) || 1.0;
+                player.experienceMultiplier = mul;
+            }
+            
+            // 應用傷害強化（damage_boost）
+            if (dmgLv > 0) {
+                const tier = this._getTierEffect('damage_boost', dmgLv, 'multiplier', 1.0);
+                if (tier && typeof tier === 'number' && tier > 1.0) {
+                    if (!player.damageMultiplier) player.damageMultiplier = 1.0;
+                    player.damageMultiplier *= tier;
+                }
+                player.damageTalentBaseBonusPct = (tier - 1.0) || 0;
+            }
+            
+            // 應用傷害特化（damage_specialization）
+            if (specLv > 0) {
+                player.damageSpecializationFlat = this._getTierEffect('damage_specialization', specLv, 'flat', 0) || 0;
+            }
+            
+            // 應用爆擊強化
+            if (critLv > 0) {
+                const critTalentPct = this._getTierEffect('crit_enhance', critLv, 'chancePct', 0) || 0;
+                const charBaseCritBonus = (player._characterBaseCritBonusPct != null) ? player._characterBaseCritBonusPct : 0;
+                player.critChanceBonusPct = critTalentPct + charBaseCritBonus;
+            }
+            
+            // 應用迴避強化
+            if (dodgeLv > 0) {
+                player.dodgeTalentRate = this._getTierEffect('dodge_enhance', dodgeLv, 'dodgeRate', 0) || 0;
+            }
+            
             // 心意相通/腎上腺素技能：檢查玩家是否擁有該技能並應用回血速度提升
             // 先清除技能倍率（確保沒有殘留值）
             player._heartConnectionRegenMultiplier = 1.0;
@@ -313,7 +416,12 @@ const BuffSystem = {
             // 觸發回血強化buff更新（會自動與天賦和心意相通加算）
             const oldMultiplier = player.healthRegenSpeedMultiplier || 1.0;
             if (regenLv > 0) {
-                this.applyBuff(player, 'regen_speed_boost');
+                // 回血強化已經在上面應用過了，這裡只需要確保心意相通疊加
+                const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 1.0) 
+                    ? player._heartConnectionRegenMultiplier 
+                    : 1.0;
+                // 與天賦疊加（加算）
+                player.healthRegenSpeedMultiplier = (player.healthRegenSpeedMultiplier || 1.0) + (heartConnectionMul - 1.0);
             } else {
                 // 如果沒有天賦，檢查是否有心意相通
                 const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 1.0) 
@@ -326,27 +434,25 @@ const BuffSystem = {
                 player.healthRegenAccumulator = 0;
             }
             
-            // 統一讀取六階：基礎傷害%、傷害特化平值、爆擊率%
-            player.damageTalentBaseBonusPct = BuffSystem._getTierEffect('damage_boost', dmgLv, 'multiplier', 1.0) - 1.0 || 0;
-            const specLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
-                ? TalentSystem.getTalentLevel('damage_specialization') : 0;
-            player.damageSpecializationFlat = BuffSystem._getTierEffect('damage_specialization', specLv, 'flat', 0) || 0;
-            const critLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
-                ? TalentSystem.getTalentLevel('crit_enhance') : 0;
-            const critTalentPct = BuffSystem._getTierEffect('crit_enhance', critLv, 'chancePct', 0) || 0;
-            // 先依當前局內等級重算升級加成，再合併
+            // 應用屬性升級（局內等級加成）
             this.applyAttributeUpgrades(player);
             const upgradeCritPct = player.critChanceUpgradeBonusPct || 0;
             // 角色基礎爆擊率加成（若角色配置中有設定，例如第四位角色洛可洛斯特+10%）
             const charBaseCritBonus = (player._characterBaseCritBonusPct != null) ? player._characterBaseCritBonusPct : 0;
-            player.critChanceBonusPct = critTalentPct + upgradeCritPct + charBaseCritBonus;
+            // 更新爆擊率（如果之前沒有設置，現在設置）
+            if (critLv > 0) {
+                const critTalentPct = this._getTierEffect('crit_enhance', critLv, 'chancePct', 0) || 0;
+                player.critChanceBonusPct = critTalentPct + upgradeCritPct + charBaseCritBonus;
+            } else {
+                player.critChanceBonusPct = upgradeCritPct + charBaseCritBonus;
+            }
             
-            // 迴避強化天賦
-            const dodgeLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
-                ? TalentSystem.getTalentLevel('dodge_enhance') : 0;
-            player.dodgeTalentRate = BuffSystem._getTierEffect('dodge_enhance', dodgeLv, 'dodgeRate', 0) || 0;
+            // 恢復原始函數
+            if (originalGetTalentLevel && typeof TalentSystem !== 'undefined') {
+                TalentSystem.getTalentLevel = originalGetTalentLevel;
+            }
         } catch (e) {
-            console.error('從天賦系統應用buff失敗:', e);
+            console.error('應用遠程玩家天賦buff失敗:', e);
         }
     }
 };
