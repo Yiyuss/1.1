@@ -683,6 +683,11 @@
           <button id="survival-online-leave" class="ghost">離開</button>
         </div>
       </div>
+      
+      <!-- M1：倒數計時覆蓋層（全螢幕，置於 lobby 之上） -->
+      <div id="survival-online-countdown-overlay" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:10000; display:flex; align-items:center; justify-content:center; flex-direction:column; pointer-events:none;">
+        <div id="survival-online-countdown-text" style="font-size:48px; font-weight:700; color:#fff; text-shadow:0 0 20px rgba(255,255,255,0.5);">即將開始：3</div>
+      </div>
     </div>
         
         <!-- 遊戲畫面 -->
@@ -729,6 +734,12 @@
               <div id="coins-display">
                 <img src="assets/images/money.png" alt="金幣" id="coins-icon">
                 <span id="coins-text">0</span>
+              </div>
+              
+              <!-- M1：組隊模式 Session ID 顯示（僅在組隊模式下顯示） -->
+              <div id="multiplayer-session-info" class="hidden" style="position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.6); padding:6px 12px; border-radius:6px; font-size:11px; color:rgba(255,255,255,0.9); border:1px solid rgba(255,255,255,0.2); z-index:100;">
+                <div style="opacity:0.7;">組隊中</div>
+                <div id="multiplayer-session-id" style="font-family:monospace; font-size:10px; margin-top:2px; opacity:0.85;">-</div>
               </div>
             </div>
         
