@@ -182,6 +182,7 @@ class DivineJudgmentEffect extends Entity {
             processed.add(enemy);
             let finalDamage = this.damage;
             let isCrit = false;
+            let lifestealAmount = 0;
             if (typeof DamageSystem !== 'undefined') {
                 const result = DamageSystem.computeHit(this.damage, enemy, {
                     weaponType: this._damageWeaponType,
@@ -189,6 +190,7 @@ class DivineJudgmentEffect extends Entity {
                 });
                 finalDamage = result.amount;
                 isCrit = result.isCrit;
+                lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
             }
             
             // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
@@ -213,7 +215,7 @@ class DivineJudgmentEffect extends Entity {
                         { dirX: dirX / mag, dirY: dirY / mag, enemyId: enemy.id }
                     );
                 }
-                // 發送enemy_damage給主機
+                // 發送enemy_damage給主機（包含吸血資訊）
                 if (enemy && enemy.id) {
                     if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                         window.SurvivalOnlineRuntime.sendToNet({
@@ -221,7 +223,8 @@ class DivineJudgmentEffect extends Entity {
                             enemyId: enemy.id,
                             damage: finalDamage,
                             weaponType: this._damageWeaponType || "DIVINE_JUDGMENT",
-                            isCrit: isCrit
+                            isCrit: isCrit,
+                            lifesteal: lifestealAmount
                         });
                     }
                 }
