@@ -180,26 +180,54 @@ class DivineJudgmentEffect extends Entity {
             const dist = Utils.distance(x, y, enemy.x, enemy.y);
             if (dist > this.aoeRadius) continue;
             processed.add(enemy);
+            let finalDamage = this.damage;
+            let isCrit = false;
             if (typeof DamageSystem !== 'undefined') {
                 const result = DamageSystem.computeHit(this.damage, enemy, {
                     weaponType: this._damageWeaponType,
                     critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
                 });
-                enemy.takeDamage(result.amount, { weaponType: this._damageWeaponType, attackId: 'DIVINE_' + (this._attackSeq++) });
-                if (typeof DamageNumbers !== 'undefined') {
-                    const dirX = (enemy.x - x) || 1;
-                    const dirY = (enemy.y - y) || 0;
-                    const mag = Math.hypot(dirX, dirY) || 1;
-                    DamageNumbers.show(
-                        result.amount,
-                        enemy.x,
-                        enemy.y - (enemy.height || 0) / 2,
-                        result.isCrit,
-                        { dirX: dirX / mag, dirY: dirY / mag, enemyId: enemy.id }
-                    );
+                finalDamage = result.amount;
+                isCrit = result.isCrit;
+            }
+            
+            // 組隊模式：隊員的神裁攻擊敵人時，同步傷害到隊長端
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            t: "enemy_damage",
+                            enemyId: enemy.id,
+                            damage: finalDamage,
+                            weaponType: this._damageWeaponType || "DIVINE_JUDGMENT",
+                            isCrit: isCrit
+                        });
+                    }
                 }
-            } else {
-                enemy.takeDamage(this.damage, { weaponType: this._damageWeaponType, attackId: 'DIVINE_' + (this._attackSeq++) });
+            } catch (_) {}
+            
+            enemy.takeDamage(finalDamage, { weaponType: this._damageWeaponType, attackId: 'DIVINE_' + (this._attackSeq++) });
+            if (typeof DamageNumbers !== 'undefined') {
+                const dirX = (enemy.x - x) || 1;
+                const dirY = (enemy.y - y) || 0;
+                const mag = Math.hypot(dirX, dirY) || 1;
+                DamageNumbers.show(
+                    finalDamage,
+                    enemy.x,
+                    enemy.y - (enemy.height || 0) / 2,
+                    isCrit,
+                    { dirX: dirX / mag, dirY: dirY / mag, enemyId: enemy.id }
+                );
             }
         }
         // 音效（與裁決一致）
