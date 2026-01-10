@@ -66,15 +66,43 @@ class OrbitBall extends Entity {
                     // 檢查冷卻時間：每個敵人500ms內只能受到一次傷害
                     if (currentTime - lastHitTime >= this.collisionCooldownMs) {
                         // 造成單次碰撞傷害
+                        let finalDamage = this.singleHitDamage;
+                        let isCrit = false;
                         if (typeof DamageSystem !== 'undefined') {
                             const result = DamageSystem.computeHit(this.singleHitDamage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
-                            enemy.takeDamage(result.amount);
-                            if (typeof DamageNumbers !== 'undefined') {
-                                // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
-                                DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height||0)/2, result.isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemyId });
+                            finalDamage = result.amount;
+                            isCrit = result.isCrit;
+                        }
+                        
+                        // 組隊模式：隊員的環繞投射物攻擊敵人時，同步傷害到隊長端
+                        try {
+                            let isSurvivalMode = false;
+                            try {
+                                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                    ? GameModeManager.getCurrent()
+                                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                        ? ModeManager.getActiveModeId()
+                                        : null);
+                                isSurvivalMode = (activeId === 'survival' || activeId === null);
+                            } catch (_) {}
+                            
+                            if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+                                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                                    window.SurvivalOnlineRuntime.sendToNet({
+                                        t: "enemy_damage",
+                                        enemyId: enemy.id,
+                                        damage: finalDamage,
+                                        weaponType: this.weaponType || "UNKNOWN",
+                                        isCrit: isCrit
+                                    });
+                                }
                             }
-                        } else {
-                            enemy.takeDamage(this.singleHitDamage);
+                        } catch (_) {}
+                        
+                        enemy.takeDamage(finalDamage);
+                        if (typeof DamageNumbers !== 'undefined') {
+                            // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
+                            DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemyId });
                         }
                         
                         // 記錄碰撞時間
@@ -98,15 +126,43 @@ class OrbitBall extends Entity {
             while (this.tickAccumulator >= this.tickIntervalMs) {
                 for (const enemy of Game.enemies) {
                     if (this.isColliding(enemy)) {
+                        let finalDamage = this.tickDamage;
+                        let isCrit = false;
                         if (typeof DamageSystem !== 'undefined') {
                             const result = DamageSystem.computeHit(this.tickDamage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
-                            enemy.takeDamage(result.amount);
-                            if (typeof DamageNumbers !== 'undefined') {
-                                // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
-                                DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height||0)/2, result.isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemy.id });
+                            finalDamage = result.amount;
+                            isCrit = result.isCrit;
+                        }
+                        
+                        // 組隊模式：隊員的環繞投射物攻擊敵人時，同步傷害到隊長端
+                        try {
+                            let isSurvivalMode = false;
+                            try {
+                                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                    ? GameModeManager.getCurrent()
+                                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                        ? ModeManager.getActiveModeId()
+                                        : null);
+                                isSurvivalMode = (activeId === 'survival' || activeId === null);
+                            } catch (_) {}
+                            
+                            if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+                                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                                    window.SurvivalOnlineRuntime.sendToNet({
+                                        t: "enemy_damage",
+                                        enemyId: enemy.id,
+                                        damage: finalDamage,
+                                        weaponType: this.weaponType || "UNKNOWN",
+                                        isCrit: isCrit
+                                    });
+                                }
                             }
-                        } else {
-                            enemy.takeDamage(this.tickDamage);
+                        } catch (_) {}
+                        
+                        enemy.takeDamage(finalDamage);
+                        if (typeof DamageNumbers !== 'undefined') {
+                            // 顯示層：傳入 enemyId 用於每敵人節流（僅影響顯示密度）
+                            DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemy.id });
                         }
                     }
                 }
