@@ -51,13 +51,38 @@ class ExperienceOrb extends Entity {
         // 檢查是否被任何玩家收集
         for (const player of allPlayers) {
             if (this.isColliding(player)) {
-                if (typeof AudioManager !== 'undefined') {
-                    // 尊重 EXP 音效開關
-                    if (AudioManager.expSoundEnabled !== false) {
-                        AudioManager.playSound('collect_exp');
+                // 組隊模式：給所有玩家經驗（經驗共享）
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                if (isMultiplayer && Game.multiplayer.role === "host") {
+                    // 室長端：給所有玩家經驗
+                    if (typeof AudioManager !== 'undefined') {
+                        // 尊重 EXP 音效開關
+                        if (AudioManager.expSoundEnabled !== false) {
+                            AudioManager.playSound('collect_exp');
+                        }
                     }
+                    // 給本地玩家經驗
+                    if (Game.player) {
+                        Game.player.gainExperience(this.value);
+                    }
+                    // 給所有遠程玩家經驗
+                    if (Array.isArray(Game.remotePlayers)) {
+                        for (const remotePlayer of Game.remotePlayers) {
+                            if (remotePlayer && !remotePlayer.markedForDeletion) {
+                                remotePlayer.gainExperience(this.value);
+                            }
+                        }
+                    }
+                } else {
+                    // 單人模式或客戶端：只給收集者經驗
+                    if (typeof AudioManager !== 'undefined') {
+                        // 尊重 EXP 音效開關
+                        if (AudioManager.expSoundEnabled !== false) {
+                            AudioManager.playSound('collect_exp');
+                        }
+                    }
+                    player.gainExperience(this.value);
                 }
-                player.gainExperience(this.value);
                 this.destroy();
                 return;
             }
