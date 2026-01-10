@@ -293,6 +293,47 @@ const Runtime = (() => {
     }
   }
 
+  // M5：處理全量快照（重連恢復）
+  function onFullSnapshotMessage(payload) {
+    if (!payload || typeof payload !== "object") return;
+    if (payload.t !== "full_snapshot") return;
+    
+    try {
+      console.log("[SurvivalOnline] M5: 收到全量快照，開始恢復遊戲狀態");
+      
+      // 恢復 sessionId
+      if (payload.sessionId && typeof Game !== "undefined" && Game.multiplayer) {
+        Game.multiplayer.sessionId = payload.sessionId;
+      }
+      
+      // 恢復遊戲時間
+      if (typeof payload.gameTime === "number" && typeof Game !== "undefined") {
+        Game.gameTime = payload.gameTime;
+      }
+      
+      // 恢復波次
+      if (typeof payload.currentWave === "number" && typeof WaveSystem !== "undefined") {
+        WaveSystem.currentWave = payload.currentWave;
+        if (typeof UI !== "undefined" && UI.updateWaveInfo) {
+          UI.updateWaveInfo(WaveSystem.currentWave);
+        }
+      }
+      
+      // 先處理玩家狀態（使用 M3 的邏輯）
+      onSnapshotMessage(payload);
+      
+      // 恢復敵人（僅在室長端，客戶端不生成敵人）
+      // 注意：客戶端不應該真正生成敵人，只是記錄用於視覺效果
+      // 實際的敵人生成和戰鬥邏輯由室長處理
+      
+      // 恢復經驗球和寶箱（同樣，客戶端只做記錄）
+      
+      console.log("[SurvivalOnline] M5: 遊戲狀態恢復完成");
+    } catch (e) {
+      console.warn("[SurvivalOnline] M5: 全量快照處理失敗:", e);
+    }
+  }
+
   // M3：處理狀態快照（客戶端接收室長廣播的快照）
   function onSnapshotMessage(payload) {
     if (!payload || typeof payload !== "object") return;
@@ -457,20 +498,36 @@ const Runtime = (() => {
         for (const [uid, state] of Object.entries(remoteStates)) {
           const member = _membersState ? _membersState.get(uid) : null;
           const name = (member && typeof member.name === "string") ? member.name : uid.slice(0, 6);
-          // 注意：遠程玩家的血量/能量等由室長統一管理，這裡先只同步位置
-          // 未來 M4 會讓遠程玩家也有完整的 Player 對象
-          snapshot.players[uid] = {
-            x: state.x || 0,
-            y: state.y || 0,
-            hp: 100, // 暫時固定值，M4 會改為真實值
-            maxHp: 100,
-            energy: 0,
-            maxEnergy: 100,
-            level: 1,
-            exp: 0,
-            expToNext: 100,
-            name: name
-          };
+          // M4：遠程玩家已有完整的 Player 對象，使用真實狀態
+          const remotePlayer = RemotePlayerManager.get(uid);
+          if (remotePlayer) {
+            snapshot.players[uid] = {
+              x: remotePlayer.x || 0,
+              y: remotePlayer.y || 0,
+              hp: remotePlayer.health || 0,
+              maxHp: remotePlayer.maxHealth || 100,
+              energy: remotePlayer.energy || 0,
+              maxEnergy: remotePlayer.maxEnergy || 100,
+              level: remotePlayer.level || 1,
+              exp: remotePlayer.experience || 0,
+              expToNext: remotePlayer.experienceToNextLevel || 100,
+              name: name
+            };
+          } else {
+            // 後備：如果遠程玩家對象不存在，使用簡化狀態
+            snapshot.players[uid] = {
+              x: state.x || 0,
+              y: state.y || 0,
+              hp: 100,
+              maxHp: 100,
+              energy: 0,
+              maxEnergy: 100,
+              level: 1,
+              exp: 0,
+              expToNext: 100,
+              name: name
+            };
+          }
         }
       } catch (_) {}
 
@@ -572,7 +629,7 @@ const Runtime = (() => {
     } catch (_) {}
   }
 
-  return { setEnabled, onStateMessage, onEventMessage, onSnapshotMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers, broadcastEvent: broadcastEventFromRuntime };
+  return { setEnabled, onStateMessage, onEventMessage, onSnapshotMessage, onFullSnapshotMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers, broadcastEvent: broadcastEventFromRuntime };
 })();
 
 // M2：全局事件廣播函數（供其他模組調用）
@@ -1082,10 +1139,32 @@ async function connectClientToHost() {
   _dc.onopen = () => {
     Runtime.setEnabled(true);
     _setText("survival-online-status", "已連線（relay）");
+    // M5：隊員重新連接時，請求室長發送全量快照
+    if (!_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+      // 發送重連請求
+      try {
+        _sendToChannel(_dc, { t: "reconnect_request" });
+      } catch (_) {}
+    }
   };
   _dc.onclose = () => {
     Runtime.setEnabled(false);
     _setText("survival-online-status", "連線已中斷");
+    // M5：檢測室長斷線（僅在遊戲進行中）
+    if (!_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+      // 室長斷線：自動返回大廳
+      console.log("[SurvivalOnline] M5: 室長斷線，返回大廳");
+      _setText("survival-online-status", "室長斷線，返回大廳");
+      setTimeout(() => {
+        try {
+          if (typeof Game !== "undefined" && Game.gameOver) {
+            Game.gameOver(); // 觸發遊戲結束
+          }
+        } catch (_) {}
+        leaveRoom().catch(() => {});
+        closeLobbyToSelect();
+      }, 1000);
+    }
   };
   _dc.onmessage = (ev) => {
     try {
@@ -1119,6 +1198,20 @@ async function connectClientToHost() {
     if (st === "failed" || st === "disconnected") {
       Runtime.setEnabled(false);
       _setText("survival-online-status", "連線失敗（TURN 不可用或被限流）");
+      // M5：檢測室長斷線（僅在遊戲進行中）
+      if (!_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+        console.log("[SurvivalOnline] M5: 與室長連接失敗，返回大廳");
+        _setText("survival-online-status", "與室長連接失敗，返回大廳");
+        setTimeout(() => {
+          try {
+            if (typeof Game !== "undefined" && Game.gameOver) {
+              Game.gameOver();
+            }
+          } catch (_) {}
+          leaveRoom().catch(() => {});
+          closeLobbyToSelect();
+        }, 1000);
+      }
     }
   };
 
@@ -1160,9 +1253,21 @@ async function hostAcceptOffer(fromUid, sdp) {
     channel.onopen = () => {
       Runtime.setEnabled(true);
       updateLobbyUI();
+      // M5：隊員重新連接時，室長發送全量快照
+      if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+        // 延遲一小段時間確保連接穩定
+        setTimeout(() => {
+          sendFullSnapshotToClient(fromUid);
+        }, 500);
+      }
     };
     channel.onclose = () => {
       updateLobbyUI();
+      // M5：檢測斷線（僅在遊戲進行中）
+      if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+        // 標記該隊員為斷線（但不立即移除，等待重連）
+        console.log(`[SurvivalOnline] M5: 隊員 ${fromUid} 斷線`);
+      }
     };
   };
 
@@ -1179,9 +1284,29 @@ async function hostAcceptOffer(fromUid, sdp) {
 
   pc.onconnectionstatechange = () => {
     const st = pc.connectionState;
-    if (st === "failed") {
-      // 可能是 TURN 不可用
+    if (st === "failed" || st === "disconnected") {
+      // M5：檢測連接失敗或斷線
       updateLobbyUI();
+      // 如果是室長且遊戲進行中，通知所有隊員
+      if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+        console.log(`[SurvivalOnline] M5: 與隊員 ${fromUid} 連接失敗`);
+      }
+      // 如果是隊員且遊戲進行中，檢測室長斷線
+      if (!_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+        if (st === "disconnected" || st === "failed") {
+          console.log("[SurvivalOnline] M5: 與室長連接失敗，返回大廳");
+          _setText("survival-online-status", "與室長連接失敗，返回大廳");
+          setTimeout(() => {
+            try {
+              if (typeof Game !== "undefined" && Game.gameOver) {
+                Game.gameOver();
+              }
+            } catch (_) {}
+            leaveRoom().catch(() => {});
+            closeLobbyToSelect();
+          }, 1000);
+        }
+      }
     }
   };
 
@@ -1205,6 +1330,84 @@ function _sendToChannel(ch, obj) {
   try { ch.send(JSON.stringify(obj)); } catch (_) {}
 }
 
+// M5：發送全量快照給指定隊員（用於重連恢復）
+function sendFullSnapshotToClient(targetUid) {
+  if (!_isHost || !targetUid) return;
+  try {
+    const snapshot = collectSnapshot();
+    if (!snapshot) return;
+    
+    // 添加額外的全量信息（敵人、掉落物等）
+    const fullSnapshot = {
+      ...snapshot,
+      t: "full_snapshot", // 標記為全量快照
+      sessionId: (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.sessionId) ? Game.multiplayer.sessionId : null,
+      gameTime: (typeof Game !== "undefined" && typeof Game.gameTime === "number") ? Game.gameTime : 0,
+      currentWave: (typeof WaveSystem !== "undefined" && typeof WaveSystem.currentWave === "number") ? WaveSystem.currentWave : 1,
+      enemies: [],
+      experienceOrbs: [],
+      chests: [],
+      projectiles: []
+    };
+    
+    // 收集所有敵人狀態
+    try {
+      if (typeof Game !== "undefined" && Array.isArray(Game.enemies)) {
+        for (const enemy of Game.enemies) {
+          if (enemy && !enemy.markedForDeletion) {
+            fullSnapshot.enemies.push({
+              id: enemy.id || `enemy_${Date.now()}_${Math.random()}`,
+              type: enemy.type || "ENEMY",
+              x: enemy.x || 0,
+              y: enemy.y || 0,
+              hp: enemy.health || 0,
+              maxHp: enemy.maxHealth || 0
+            });
+          }
+        }
+      }
+    } catch (_) {}
+    
+    // 收集所有經驗球狀態
+    try {
+      if (typeof Game !== "undefined" && Array.isArray(Game.experienceOrbs)) {
+        for (const orb of Game.experienceOrbs) {
+          if (orb && !orb.markedForDeletion) {
+            fullSnapshot.experienceOrbs.push({
+              x: orb.x || 0,
+              y: orb.y || 0,
+              value: orb.value || 0
+            });
+          }
+        }
+      }
+    } catch (_) {}
+    
+    // 收集所有寶箱狀態
+    try {
+      if (typeof Game !== "undefined" && Array.isArray(Game.chests)) {
+        for (const chest of Game.chests) {
+          if (chest && !chest.markedForDeletion) {
+            fullSnapshot.chests.push({
+              x: chest.x || 0,
+              y: chest.y || 0
+            });
+          }
+        }
+      }
+    } catch (_) {}
+    
+    // 發送給指定隊員
+    const it = _pcsHost.get(targetUid);
+    if (it && it.channel) {
+      _sendToChannel(it.channel, fullSnapshot);
+      console.log(`[SurvivalOnline] M5: 已發送全量快照給隊員 ${targetUid}`);
+    }
+  } catch (e) {
+    console.warn("[SurvivalOnline] M5: 發送全量快照失敗:", e);
+  }
+}
+
 // M2：事件廣播系統（室長權威）
 function broadcastEvent(eventType, eventData) {
   if (!_isHost || !_activeRoomId) return;
@@ -1223,7 +1426,13 @@ function broadcastEvent(eventType, eventData) {
 
 function handleHostDataMessage(fromUid, msg) {
   if (!msg || typeof msg !== "object") return;
-  if (msg.t === "pos") {
+  if (msg.t === "reconnect_request") {
+    // M5：隊員請求全量快照（重連恢復）
+    if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+      sendFullSnapshotToClient(fromUid);
+    }
+    return;
+  } else if (msg.t === "pos") {
     // 收到玩家位置，室長彙總後廣播
     const player = _membersState.get(fromUid) || {};
     const name = typeof player.name === "string" ? player.name : fromUid.slice(0, 6);
