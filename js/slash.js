@@ -78,17 +78,45 @@ class SlashEffect extends Entity {
                 const localX =  cosA * ex + sinA * ey; // 旋轉 -angle
                 const localY = -sinA * ex + cosA * ey;
                 if (Math.abs(localX) > widthPx / 2 || Math.abs(localY) > heightPx / 2) continue;
+                let finalDamage = this.damage;
+                let isCrit = false;
                 if (typeof DamageSystem !== 'undefined') {
                     const result = DamageSystem.computeHit(this.damage, enemy, {
                         weaponType: this.weaponType,
                         critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
                     });
-                    enemy.takeDamage(result.amount);
-                    if (typeof DamageNumbers !== 'undefined') {
-                        DamageNumbers.show(result.amount, enemy.x, enemy.y - (enemy.height||0)/2, result.isCrit, { dirX: dy, dirY: dx, enemyId: enemy.id });
+                    finalDamage = result.amount;
+                    isCrit = result.isCrit;
+                }
+                
+                // 組隊模式：隊員的斬擊攻擊敵人時，同步傷害到隊長端
+                try {
+                    let isSurvivalMode = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) {}
+                    
+                    if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                            window.SurvivalOnlineRuntime.sendToNet({
+                                t: "enemy_damage",
+                                enemyId: enemy.id,
+                                damage: finalDamage,
+                                weaponType: this.weaponType || "SLASH",
+                                isCrit: isCrit
+                            });
+                        }
                     }
-                } else {
-                    enemy.takeDamage(this.damage);
+                } catch (_) {}
+                
+                enemy.takeDamage(finalDamage);
+                if (typeof DamageNumbers !== 'undefined') {
+                    DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: dy, dirY: dx, enemyId: enemy.id });
                 }
                 // 記錄命中的敵人以便在前景覆蓋 GIF
                 this.hitEnemies.push(enemy);
