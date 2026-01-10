@@ -267,6 +267,34 @@ class Projectile extends Entity {
                             }
                             if (!Game.explosionParticles) Game.explosionParticles = [];
                             Game.explosionParticles.push(p);
+                            
+                            // 組隊模式：標記為待廣播的粒子
+                            try {
+                                let isSurvivalMode = false;
+                                try {
+                                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                        ? GameModeManager.getCurrent()
+                                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                            ? ModeManager.getActiveModeId()
+                                            : null);
+                                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                                } catch (_) {}
+                                
+                                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "host") {
+                                    if (!Game._pendingExplosionParticles) Game._pendingExplosionParticles = [];
+                                    Game._pendingExplosionParticles.push({
+                                        x: p.x,
+                                        y: p.y,
+                                        vx: p.vx,
+                                        vy: p.vy,
+                                        life: p.life,
+                                        maxLife: p.maxLife,
+                                        size: p.size,
+                                        color: p.color,
+                                        source: p.source || null
+                                    });
+                                }
+                            } catch (_) {}
                         }
                         // 心意傳遞命中時顯示效果圖片（A36.png，310x290比例）
                         if (this.weaponType === 'HEART_TRANSMISSION') {
