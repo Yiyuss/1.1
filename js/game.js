@@ -227,6 +227,15 @@ const Game = {
         // 更新玩家（第二次，保留歷史節奏）
         this._updatePlayer(deltaTime);
 
+        // M2：更新遠程玩家（僅在組隊模式且為室長時）
+        try {
+          if (this.multiplayer && this.multiplayer.role === "host") {
+            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.updateRemotePlayers === "function") {
+              window.SurvivalOnlineRuntime.updateRemotePlayers(deltaTime);
+            }
+          }
+        } catch (_) {}
+
         // 更新鏡頭位置（跟隨玩家，並夾限在世界邊界）
         this.camera.x = Utils.clamp(this.player.x - this.canvas.width / 2, 0, Math.max(0, this.worldWidth - this.canvas.width));
         this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
@@ -1231,6 +1240,15 @@ const Game = {
 
         // 重置波次系統
         WaveSystem.init();
+        
+        // M2：清理遠程玩家（僅在組隊模式且為室長時）
+        try {
+          if (this.multiplayer && this.multiplayer.role === "host") {
+            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.clearRemotePlayers === "function") {
+              window.SurvivalOnlineRuntime.clearRemotePlayers();
+            }
+          }
+        } catch (_) {}
         
         // 重置UI
         UI.init();
