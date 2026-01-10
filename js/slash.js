@@ -55,6 +55,9 @@ class SlashEffect extends Entity {
     }
 
     _applyDamageOnce() {
+        // 僅視覺效果：不進行傷害計算
+        if (this._isVisualOnly) return;
+        
         if (this.appliedDamage) return;
         const enemies = (Game && Game.enemies) ? Game.enemies : [];
         const halfArc = this.arcRad / 2;
