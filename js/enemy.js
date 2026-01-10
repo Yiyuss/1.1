@@ -538,8 +538,33 @@ class Enemy extends Entity {
         } catch (_) {}
         
         // 檢查與玩家的碰撞
-        if (this.isColliding(player)) {
-            this.attackPlayer(deltaTime);
+        // M4：支援攻擊遠程玩家（僅在組隊模式且為室長時）
+        let targetPlayer = player;
+        if (Game.multiplayer && Game.multiplayer.role === "host" && Array.isArray(Game.remotePlayers)) {
+            // 找到最近的玩家（本地玩家或遠程玩家）
+            let nearestPlayer = player;
+            let nearestDist = Infinity;
+            if (player) {
+                const dist = Utils.distance(this.x, this.y, player.x, player.y);
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearestPlayer = player;
+                }
+            }
+            for (const remotePlayer of Game.remotePlayers) {
+                if (remotePlayer && !remotePlayer.markedForDeletion) {
+                    const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearestPlayer = remotePlayer;
+                    }
+                }
+            }
+            targetPlayer = nearestPlayer;
+        }
+        
+        if (targetPlayer && this.isColliding(targetPlayer)) {
+            this.attackPlayer(deltaTime, targetPlayer);
         }
 
         // 新增：BOSS 遠程攻擊邏輯
@@ -924,20 +949,23 @@ class Enemy extends Entity {
     }
     
     // 攻擊玩家
-    attackPlayer(deltaTime) {
+    attackPlayer(deltaTime, targetPlayer) {
+        // M4：支援攻擊遠程玩家
+        const player = targetPlayer || Game.player;
+        if (!player) return;
+        
         const currentTime = Date.now();
         
         // 檢查攻擊冷卻
         if (currentTime - this.lastAttackTime >= this.attackCooldown) {
             // 技能無敵時完全免疫近戰傷害（不觸發扣血）
             try {
-                const p = Game.player;
-                if (p && p.invulnerabilitySource === 'INVINCIBLE') {
+                if (player && player.invulnerabilitySource === 'INVINCIBLE') {
                     this.lastAttackTime = currentTime; // 視為一次攻擊嘗試，維持冷卻節奏
                     return;
                 }
             } catch (_) {}
-            Game.player.takeDamage(this.damage);
+            player.takeDamage(this.damage);
             this.lastAttackTime = currentTime;
         }
     }
