@@ -78,19 +78,21 @@ class ExplosionEffect extends Entity {
         for (const enemy of Game.enemies) {
             if (!enemy || enemy.markedForDeletion || enemy.health <= 0) continue;
             
-            // 組隊模式：隊員的爆炸效果攻擊敵人時，同步傷害到隊長端
-            try {
-                let isSurvivalMode = false;
-                try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
-                    isSurvivalMode = (activeId === 'survival' || activeId === null);
-                } catch (_) {}
-                
-                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "guest" && enemy && enemy.id) {
+            // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
+            // 隊員端：造成實際傷害並發送enemy_damage給主機
+            // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+            const isGuest = (isMultiplayer && Game.multiplayer.role === "guest");
+            const isHostRemotePlayer = (isMultiplayer && Game.multiplayer.role === "host" && this.player && this.player._isRemotePlayer);
+            
+            // 隊員端：造成實際傷害並發送enemy_damage
+            if (isGuest) {
+                enemy.takeDamage(fixedDamage);
+                if (typeof DamageNumbers !== 'undefined') {
+                    this._showSpecialDamageNumber(fixedDamage, enemy.x, enemy.y - (enemy.height || 0) / 2);
+                }
+                // 發送enemy_damage給主機
+                if (enemy && enemy.id) {
                     if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                         window.SurvivalOnlineRuntime.sendToNet({
                             t: "enemy_damage",
@@ -102,17 +104,25 @@ class ExplosionEffect extends Entity {
                         });
                     }
                 }
-            } catch (_) {}
-            
-            // 直接造成固定伤害（不经过DamageSystem，不爆击）
-            enemy.takeDamage(fixedDamage);
-            
-            // 记录被击中的敌人（用于显示knife2.gif效果）
-            this.hitEnemies.push({
-                enemy: enemy,
-                x: enemy.x,
-                y: enemy.y
-            });
+                this.hitEnemies.push({
+                    enemy: enemy,
+                    x: enemy.x,
+                    y: enemy.y
+                });
+            } 
+            // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理（不重複計算）
+            else if (!isHostRemotePlayer) {
+                enemy.takeDamage(fixedDamage);
+                if (typeof DamageNumbers !== 'undefined') {
+                    this._showSpecialDamageNumber(fixedDamage, enemy.x, enemy.y - (enemy.height || 0) / 2);
+                }
+                this.hitEnemies.push({
+                    enemy: enemy,
+                    x: enemy.x,
+                    y: enemy.y
+                });
+            }
+            // 主機端的遠程玩家武器：不造成傷害（由隊員端的enemy_damage處理）
             
             // 显示特殊的红色伤害数字（放大2倍，显示时间2倍）
             if (typeof DamageNumbers !== 'undefined') {
