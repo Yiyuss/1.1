@@ -405,41 +405,39 @@ const Runtime = (() => {
     const now = Date.now();
     const players = payload.players || {};
     
-    // 客戶端：根據接收到的狀態創建/更新遠程玩家對象
-    if (!_isHost) {
-      for (const [uid, p] of Object.entries(players)) {
-        if (!p || typeof p.x !== "number" || typeof p.y !== "number") continue;
-        if (_uid && uid === _uid) continue; // 不覆蓋自己
-        
-        // 獲取成員數據（角色ID和天賦等級）
-        const member = _membersState ? _membersState.get(uid) : null;
-        const characterId = (member && member.characterId) ? member.characterId : ((typeof p.characterId === "string") ? p.characterId : null);
-        const talentLevels = (member && member.talentLevels) ? member.talentLevels : null;
-        
-        // 創建或更新遠程玩家對象
-        try {
-          if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.getOrCreate === "function") {
-            const remotePlayer = RemotePlayerManager.getOrCreate(uid, p.x, p.y, characterId, talentLevels);
-            if (remotePlayer) {
-              // 更新位置
-              remotePlayer.x = p.x;
-              remotePlayer.y = p.y;
-              // 更新其他狀態
-              if (typeof p.health === "number") remotePlayer.health = p.health;
-              if (typeof p.maxHealth === "number") remotePlayer.maxHealth = p.maxHealth;
-              if (typeof p._isDead === "boolean") remotePlayer._isDead = p._isDead;
-              if (typeof p._resurrectionProgress === "number") remotePlayer._resurrectionProgress = p._resurrectionProgress;
-              if (typeof p.isUltimateActive === "boolean") remotePlayer.isUltimateActive = p.isUltimateActive;
-              if (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) remotePlayer._ultimateImageKey = p.ultimateImageKey;
-              if (typeof p.ultimateEndTime === "number") remotePlayer.ultimateEndTime = p.ultimateEndTime;
-              if (typeof p.width === "number" && p.width > 0) remotePlayer.width = p.width;
-              if (typeof p.height === "number" && p.height > 0) remotePlayer.height = p.height;
-              if (typeof p.collisionRadius === "number" && p.collisionRadius > 0) remotePlayer.collisionRadius = p.collisionRadius;
-            }
+    // 所有端（包括隊長和隊員）：根據接收到的狀態創建/更新遠程玩家對象
+    for (const [uid, p] of Object.entries(players)) {
+      if (!p || typeof p.x !== "number" || typeof p.y !== "number") continue;
+      if (_uid && uid === _uid) continue; // 不覆蓋自己
+      
+      // 獲取成員數據（角色ID和天賦等級）- 優先從狀態消息獲取，其次從 _membersState 獲取
+      const member = _membersState ? _membersState.get(uid) : null;
+      const characterId = ((typeof p.characterId === "string") ? p.characterId : null) || (member && member.characterId) || null;
+      const talentLevels = (member && member.talentLevels) ? member.talentLevels : null;
+      
+      // 創建或更新遠程玩家對象
+      try {
+        if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.getOrCreate === "function") {
+          const remotePlayer = RemotePlayerManager.getOrCreate(uid, p.x, p.y, characterId, talentLevels);
+          if (remotePlayer) {
+            // 更新位置
+            remotePlayer.x = p.x;
+            remotePlayer.y = p.y;
+            // 更新其他狀態
+            if (typeof p.health === "number") remotePlayer.health = p.health;
+            if (typeof p.maxHealth === "number") remotePlayer.maxHealth = p.maxHealth;
+            if (typeof p._isDead === "boolean") remotePlayer._isDead = p._isDead;
+            if (typeof p._resurrectionProgress === "number") remotePlayer._resurrectionProgress = p._resurrectionProgress;
+            if (typeof p.isUltimateActive === "boolean") remotePlayer.isUltimateActive = p.isUltimateActive;
+            if (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) remotePlayer._ultimateImageKey = p.ultimateImageKey;
+            if (typeof p.ultimateEndTime === "number") remotePlayer.ultimateEndTime = p.ultimateEndTime;
+            if (typeof p.width === "number" && p.width > 0) remotePlayer.width = p.width;
+            if (typeof p.height === "number" && p.height > 0) remotePlayer.height = p.height;
+            if (typeof p.collisionRadius === "number" && p.collisionRadius > 0) remotePlayer.collisionRadius = p.collisionRadius;
           }
-        } catch (e) {
-          console.warn("[SurvivalOnline] 創建/更新遠程玩家失敗:", e);
         }
+      } catch (e) {
+        console.warn("[SurvivalOnline] 創建/更新遠程玩家失敗:", e);
       }
     }
     
@@ -1751,11 +1749,23 @@ const Runtime = (() => {
           if (typeof Game !== "undefined" && Game.player) {
             const hostMember = _membersState ? _membersState.get(_uid) : null;
             const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
+            const hostPlayer = Game.player;
             players[_uid] = { 
               x: Game.player.x, 
               y: Game.player.y, 
               name: getPlayerNickname(),
-              characterId: hostCharacterId // 添加角色ID
+              characterId: hostCharacterId, // 添加角色ID
+              // 添加更多狀態信息
+              health: (hostPlayer && typeof hostPlayer.health === "number") ? hostPlayer.health : 100,
+              maxHealth: (hostPlayer && typeof hostPlayer.maxHealth === "number") ? hostPlayer.maxHealth : 100,
+              _isDead: (hostPlayer && typeof hostPlayer._isDead === "boolean") ? hostPlayer._isDead : false,
+              _resurrectionProgress: (hostPlayer && typeof hostPlayer._resurrectionProgress === "number") ? hostPlayer._resurrectionProgress : 0,
+              isUltimateActive: (hostPlayer && typeof hostPlayer.isUltimateActive === "boolean") ? hostPlayer.isUltimateActive : false,
+              ultimateImageKey: (hostPlayer && hostPlayer._ultimateImageKey) ? hostPlayer._ultimateImageKey : null,
+              ultimateEndTime: (hostPlayer && typeof hostPlayer.ultimateEndTime === "number") ? hostPlayer.ultimateEndTime : 0,
+              width: (hostPlayer && typeof hostPlayer.width === "number" && hostPlayer.width > 0) ? hostPlayer.width : null,
+              height: (hostPlayer && typeof hostPlayer.height === "number" && hostPlayer.height > 0) ? hostPlayer.height : null,
+              collisionRadius: (hostPlayer && typeof hostPlayer.collisionRadius === "number" && hostPlayer.collisionRadius > 0) ? hostPlayer.collisionRadius : null
             };
           }
         } catch (_) {}
@@ -1764,11 +1774,23 @@ const Runtime = (() => {
           const member = _membersState ? _membersState.get(uid) : null;
           const name = (member && typeof member.name === "string") ? member.name : uid.slice(0, 6);
           const characterId = (member && member.characterId) ? member.characterId : null;
+          const remotePlayer = RemotePlayerManager.get(uid);
           players[uid] = { 
             x: state.x, 
             y: state.y, 
             name: name,
-            characterId: characterId // 添加角色ID
+            characterId: characterId, // 添加角色ID
+            // 添加更多狀態信息
+            health: (remotePlayer && typeof remotePlayer.health === "number") ? remotePlayer.health : state.hp || 100,
+            maxHealth: (remotePlayer && typeof remotePlayer.maxHealth === "number") ? remotePlayer.maxHealth : state.maxHp || 100,
+            _isDead: (remotePlayer && typeof remotePlayer._isDead === "boolean") ? remotePlayer._isDead : false,
+            _resurrectionProgress: (remotePlayer && typeof remotePlayer._resurrectionProgress === "number") ? remotePlayer._resurrectionProgress : 0,
+            isUltimateActive: (remotePlayer && typeof remotePlayer.isUltimateActive === "boolean") ? remotePlayer.isUltimateActive : false,
+            ultimateImageKey: (remotePlayer && remotePlayer._ultimateImageKey) ? remotePlayer._ultimateImageKey : null,
+            ultimateEndTime: (remotePlayer && typeof remotePlayer.ultimateEndTime === "number") ? remotePlayer.ultimateEndTime : 0,
+            width: (remotePlayer && typeof remotePlayer.width === "number" && remotePlayer.width > 0) ? remotePlayer.width : null,
+            height: (remotePlayer && typeof remotePlayer.height === "number" && remotePlayer.height > 0) ? remotePlayer.height : null,
+            collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : null
           };
         }
         // 廣播給所有 client
@@ -1826,8 +1848,13 @@ const Runtime = (() => {
         players[_uid] = { 
           x, 
           y, 
-          name: `玩家-${_uid.slice(0, 4)}`,
+          name: getPlayerNickname(),
           characterId: hostCharacterId,
+          // 添加更多狀態信息
+          health: (hostPlayer && typeof hostPlayer.health === "number") ? hostPlayer.health : 100,
+          maxHealth: (hostPlayer && typeof hostPlayer.maxHealth === "number") ? hostPlayer.maxHealth : 100,
+          _isDead: (hostPlayer && typeof hostPlayer._isDead === "boolean") ? hostPlayer._isDead : false,
+          _resurrectionProgress: (hostPlayer && typeof hostPlayer._resurrectionProgress === "number") ? hostPlayer._resurrectionProgress : 0,
           // 大招狀態同步
           isUltimateActive: (hostPlayer && hostPlayer.isUltimateActive) || false,
           ultimateImageKey: (hostPlayer && hostPlayer._ultimateImageKey) || null,
@@ -1840,18 +1867,32 @@ const Runtime = (() => {
         for (const p of Runtime.getRemotePlayers()) {
           const member = _membersState ? _membersState.get(p.uid) : null;
           const characterId = (member && member.characterId) ? member.characterId : (p.characterId) ? p.characterId : null;
+          
+          // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
+          let remotePlayer = null;
+          try {
+            if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
+              remotePlayer = RemotePlayerManager.get(p.uid);
+            }
+          } catch (_) {}
+          
           players[p.uid] = { 
             x: p.x, 
             y: p.y, 
             name: p.name,
             characterId: characterId,
+            // 添加更多狀態信息（如果遠程玩家對象已存在）
+            health: (remotePlayer && typeof remotePlayer.health === "number") ? remotePlayer.health : 100,
+            maxHealth: (remotePlayer && typeof remotePlayer.maxHealth === "number") ? remotePlayer.maxHealth : 100,
+            _isDead: (remotePlayer && typeof remotePlayer._isDead === "boolean") ? remotePlayer._isDead : false,
+            _resurrectionProgress: (remotePlayer && typeof remotePlayer._resurrectionProgress === "number") ? remotePlayer._resurrectionProgress : 0,
             // 大招狀態同步
-            isUltimateActive: (typeof p.isUltimateActive === "boolean") ? p.isUltimateActive : false,
-            ultimateImageKey: (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) ? p.ultimateImageKey : null,
-            ultimateEndTime: (typeof p.ultimateEndTime === "number") ? p.ultimateEndTime : 0,
-            width: (typeof p.width === "number" && p.width > 0) ? p.width : null,
-            height: (typeof p.height === "number" && p.height > 0) ? p.height : null,
-            collisionRadius: (typeof p.collisionRadius === "number" && p.collisionRadius > 0) ? p.collisionRadius : null
+            isUltimateActive: (remotePlayer && typeof remotePlayer.isUltimateActive === "boolean") ? remotePlayer.isUltimateActive : ((typeof p.isUltimateActive === "boolean") ? p.isUltimateActive : false),
+            ultimateImageKey: (remotePlayer && remotePlayer._ultimateImageKey) ? remotePlayer._ultimateImageKey : ((typeof p.ultimateImageKey === "string" && p.ultimateImageKey) ? p.ultimateImageKey : null),
+            ultimateEndTime: (remotePlayer && typeof remotePlayer.ultimateEndTime === "number") ? remotePlayer.ultimateEndTime : ((typeof p.ultimateEndTime === "number") ? p.ultimateEndTime : 0),
+            width: (remotePlayer && typeof remotePlayer.width === "number" && remotePlayer.width > 0) ? remotePlayer.width : ((typeof p.width === "number" && p.width > 0) ? p.width : null),
+            height: (remotePlayer && typeof remotePlayer.height === "number" && remotePlayer.height > 0) ? remotePlayer.height : ((typeof p.height === "number" && p.height > 0) ? p.height : null),
+            collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : ((typeof p.collisionRadius === "number" && p.collisionRadius > 0) ? p.collisionRadius : null)
           };
         }
         for (const [uid, it] of _pcsHost.entries()) {
@@ -2904,8 +2945,43 @@ function handleHostDataMessage(fromUid, msg) {
     const name = typeof player.name === "string" ? player.name : fromUid.slice(0, 6);
     const x = typeof msg.x === "number" ? msg.x : 0;
     const y = typeof msg.y === "number" ? msg.y : 0;
-    // 在 host 端也顯示（讓 host 看得到別人）
-    Runtime.onStateMessage({ t: "state", players: { [fromUid]: { x, y, name } } });
+    
+    // 獲取成員的角色ID和天賦等級
+    const member = _membersState ? _membersState.get(fromUid) : null;
+    const characterId = (member && member.characterId) ? member.characterId : null;
+    const talentLevels = (member && member.talentLevels && typeof member.talentLevels === 'object') ? member.talentLevels : null;
+    
+    // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
+    let remotePlayer = null;
+    try {
+      if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
+        remotePlayer = RemotePlayerManager.get(fromUid);
+      }
+    } catch (_) {}
+    
+    // 在 host 端也顯示（讓 host 看得到別人）- 包含完整狀態信息
+    Runtime.onStateMessage({ 
+      t: "state", 
+      players: { 
+        [fromUid]: { 
+          x, 
+          y, 
+          name,
+          characterId: characterId,
+          // 添加更多狀態信息（如果遠程玩家對象已存在）
+          health: (remotePlayer && typeof remotePlayer.health === "number") ? remotePlayer.health : 100,
+          maxHealth: (remotePlayer && typeof remotePlayer.maxHealth === "number") ? remotePlayer.maxHealth : 100,
+          _isDead: (remotePlayer && typeof remotePlayer._isDead === "boolean") ? remotePlayer._isDead : false,
+          _resurrectionProgress: (remotePlayer && typeof remotePlayer._resurrectionProgress === "number") ? remotePlayer._resurrectionProgress : 0,
+          isUltimateActive: (remotePlayer && typeof remotePlayer.isUltimateActive === "boolean") ? remotePlayer.isUltimateActive : false,
+          ultimateImageKey: (remotePlayer && remotePlayer._ultimateImageKey) ? remotePlayer._ultimateImageKey : null,
+          ultimateEndTime: (remotePlayer && typeof remotePlayer.ultimateEndTime === "number") ? remotePlayer.ultimateEndTime : 0,
+          width: (remotePlayer && typeof remotePlayer.width === "number" && remotePlayer.width > 0) ? remotePlayer.width : null,
+          height: (remotePlayer && typeof remotePlayer.height === "number" && remotePlayer.height > 0) ? remotePlayer.height : null,
+          collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : null
+        } 
+      } 
+    });
 
     // 彙總全員狀態（含 host 自己）
     const players = {};
@@ -2914,11 +2990,23 @@ function handleHostDataMessage(fromUid, msg) {
       if (typeof Game !== "undefined" && Game.player) {
         const hostMember = _membersState ? _membersState.get(_uid) : null;
         const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
+        const hostPlayer = Game.player;
         players[_uid] = { 
           x: Game.player.x, 
           y: Game.player.y, 
-          name: `玩家-${_uid.slice(0, 4)}`,
-          characterId: hostCharacterId // 添加角色ID
+          name: getPlayerNickname(),
+          characterId: hostCharacterId, // 添加角色ID
+          // 添加更多狀態信息
+          health: (hostPlayer && typeof hostPlayer.health === "number") ? hostPlayer.health : 100,
+          maxHealth: (hostPlayer && typeof hostPlayer.maxHealth === "number") ? hostPlayer.maxHealth : 100,
+          _isDead: (hostPlayer && typeof hostPlayer._isDead === "boolean") ? hostPlayer._isDead : false,
+          _resurrectionProgress: (hostPlayer && typeof hostPlayer._resurrectionProgress === "number") ? hostPlayer._resurrectionProgress : 0,
+          isUltimateActive: (hostPlayer && typeof hostPlayer.isUltimateActive === "boolean") ? hostPlayer.isUltimateActive : false,
+          ultimateImageKey: (hostPlayer && hostPlayer._ultimateImageKey) ? hostPlayer._ultimateImageKey : null,
+          ultimateEndTime: (hostPlayer && typeof hostPlayer.ultimateEndTime === "number") ? hostPlayer.ultimateEndTime : 0,
+          width: (hostPlayer && typeof hostPlayer.width === "number" && hostPlayer.width > 0) ? hostPlayer.width : null,
+          height: (hostPlayer && typeof hostPlayer.height === "number" && hostPlayer.height > 0) ? hostPlayer.height : null,
+          collisionRadius: (hostPlayer && typeof hostPlayer.collisionRadius === "number" && hostPlayer.collisionRadius > 0) ? hostPlayer.collisionRadius : null
         };
       }
     } catch (_) {}
@@ -2926,11 +3014,31 @@ function handleHostDataMessage(fromUid, msg) {
     for (const p of Runtime.getRemotePlayers()) {
       const member = _membersState ? _membersState.get(p.uid) : null;
       const characterId = (member && member.characterId) ? member.characterId : (p.characterId) ? p.characterId : null;
+      
+      // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
+      let remotePlayer = null;
+      try {
+        if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
+          remotePlayer = RemotePlayerManager.get(p.uid);
+        }
+      } catch (_) {}
+      
       players[p.uid] = { 
         x: p.x, 
         y: p.y, 
         name: p.name,
-        characterId: characterId // 添加角色ID
+        characterId: characterId, // 添加角色ID
+        // 添加更多狀態信息（如果遠程玩家對象已存在）
+        health: (remotePlayer && typeof remotePlayer.health === "number") ? remotePlayer.health : 100,
+        maxHealth: (remotePlayer && typeof remotePlayer.maxHealth === "number") ? remotePlayer.maxHealth : 100,
+        _isDead: (remotePlayer && typeof remotePlayer._isDead === "boolean") ? remotePlayer._isDead : false,
+        _resurrectionProgress: (remotePlayer && typeof remotePlayer._resurrectionProgress === "number") ? remotePlayer._resurrectionProgress : 0,
+        isUltimateActive: (remotePlayer && typeof remotePlayer.isUltimateActive === "boolean") ? remotePlayer.isUltimateActive : false,
+        ultimateImageKey: (remotePlayer && remotePlayer._ultimateImageKey) ? remotePlayer._ultimateImageKey : null,
+        ultimateEndTime: (remotePlayer && typeof remotePlayer.ultimateEndTime === "number") ? remotePlayer.ultimateEndTime : 0,
+        width: (remotePlayer && typeof remotePlayer.width === "number" && remotePlayer.width > 0) ? remotePlayer.width : null,
+        height: (remotePlayer && typeof remotePlayer.height === "number" && remotePlayer.height > 0) ? remotePlayer.height : null,
+        collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : null
       };
     }
     const fromMember = _membersState ? _membersState.get(fromUid) : null;
@@ -3163,8 +3271,13 @@ function sendToNet(obj) {
       players[_uid] = { 
         x, 
         y, 
-        name: `玩家-${_uid.slice(0, 4)}`,
+        name: getPlayerNickname(),
         characterId: hostCharacterId,
+        // 添加更多狀態信息
+        health: (hostPlayer && typeof hostPlayer.health === "number") ? hostPlayer.health : 100,
+        maxHealth: (hostPlayer && typeof hostPlayer.maxHealth === "number") ? hostPlayer.maxHealth : 100,
+        _isDead: (hostPlayer && typeof hostPlayer._isDead === "boolean") ? hostPlayer._isDead : false,
+        _resurrectionProgress: (hostPlayer && typeof hostPlayer._resurrectionProgress === "number") ? hostPlayer._resurrectionProgress : 0,
         // 大招狀態同步
         isUltimateActive: (hostPlayer && hostPlayer.isUltimateActive) || false,
         ultimateImageKey: (hostPlayer && hostPlayer._ultimateImageKey) || null,
