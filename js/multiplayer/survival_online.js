@@ -1992,13 +1992,25 @@ function _randSessionId() {
 
 function _candidateIsRelay(cand) {
   try {
-    const c = cand && cand.candidate ? cand.candidate : "";
+    if (!cand) return false;
+    
+    // 檢查候選者對象的 type 屬性（如果存在）
+    if (cand.type === "relay") {
+      return true;
+    }
+    
+    // 檢查候選者字符串
+    const c = cand.candidate || "";
+    if (!c || typeof c !== "string") return false;
+    
     // 某些瀏覽器候選字串格式略不同，做寬鬆判斷（仍僅接受 relay）
-    const isRelay = typeof c === "string" && (c.includes(" typ relay ") || c.includes(" typ relay"));
+    // 格式可能是：candidate:... typ relay ... 或 candidate:... typ relay
+    const isRelay = c.includes(" typ relay ") || c.includes(" typ relay") || c.includes("typ relay");
+    
     // 診斷：記錄候選者類型
     if (c) {
       const typeMatch = c.match(/typ (\w+)/);
-      const type = typeMatch ? typeMatch[1] : "unknown";
+      const type = typeMatch ? typeMatch[1] : (cand.type || "unknown");
       console.log(`[SurvivalOnline] _candidateIsRelay: 候選者類型=${type}, isRelay=${isRelay}, candidate=${c.substring(0, 150)}`);
     }
     return isRelay;
@@ -2384,8 +2396,17 @@ async function hostStartGame() {
 }
 
 async function sendSignal(payload) {
-  if (!_activeRoomId) return;
-  await addDoc(signalsColRef(_activeRoomId), { ...payload, createdAt: serverTimestamp() });
+  if (!_activeRoomId) {
+    console.warn(`[SurvivalOnline] sendSignal: 跳過，activeRoomId 為空`);
+    return;
+  }
+  try {
+    await addDoc(signalsColRef(_activeRoomId), { ...payload, createdAt: serverTimestamp() });
+    console.log(`[SurvivalOnline] sendSignal: 已發送信號 type=${payload.type}, toUid=${payload.toUid}`);
+  } catch (e) {
+    console.error(`[SurvivalOnline] sendSignal: 發送失敗 type=${payload.type}, toUid=${payload.toUid}:`, e);
+    throw e; // 重新拋出以便調用者處理
+  }
 }
 
 function listenRoom(roomId) {
@@ -2565,27 +2586,30 @@ function listenSignals(roomId) {
     q,
     (snap) => {
       console.log(`[SurvivalOnline] listenSignals: 收到 ${snap.docChanges().length} 個信號變更`);
-      snap.docChanges().forEach(async (ch) => {
-        if (ch.type !== "added") {
-          console.log(`[SurvivalOnline] listenSignals: 跳過非 added 變更 type=${ch.type}`);
-          return;
+      // 關鍵：使用 for...of 循環確保異步操作按順序執行
+      (async () => {
+        for (const ch of snap.docChanges()) {
+          if (ch.type !== "added") {
+            console.log(`[SurvivalOnline] listenSignals: 跳過非 added 變更 type=${ch.type}`);
+            continue;
+          }
+          const sig = ch.doc.data() || {};
+          const sid = ch.doc.id;
+          console.log(`[SurvivalOnline] listenSignals: 處理信號 sid=${sid}, type=${sig.type}, fromUid=${sig.fromUid}, toUid=${sig.toUid}`);
+          try {
+            await handleSignal(sig);
+          } catch (e) {
+            console.error(`[SurvivalOnline] listenSignals: 處理信號失敗:`, e);
+          }
+          // 消費後刪除，避免重播
+          try { 
+            await deleteDoc(doc(_db, "rooms", roomId, "signals", sid));
+            console.log(`[SurvivalOnline] listenSignals: 已刪除信號 sid=${sid}`);
+          } catch (e) {
+            console.error(`[SurvivalOnline] listenSignals: 刪除信號失敗:`, e);
+          }
         }
-        const sig = ch.doc.data() || {};
-        const sid = ch.doc.id;
-        console.log(`[SurvivalOnline] listenSignals: 處理信號 sid=${sid}, type=${sig.type}, fromUid=${sig.fromUid}, toUid=${sig.toUid}`);
-        try {
-          await handleSignal(sig);
-        } catch (e) {
-          console.error(`[SurvivalOnline] listenSignals: 處理信號失敗:`, e);
-        }
-        // 消費後刪除，避免重播
-        try { 
-          await deleteDoc(doc(_db, "rooms", roomId, "signals", sid));
-          console.log(`[SurvivalOnline] listenSignals: 已刪除信號 sid=${sid}`);
-        } catch (e) {
-          console.error(`[SurvivalOnline] listenSignals: 刪除信號失敗:`, e);
-        }
-      });
+      })();
     },
     (err) => {
       // 避免「Uncaught Error in snapshot listener」導致整個監聽器掛掉而無提示
@@ -2725,7 +2749,11 @@ async function connectClientToHost() {
 
   _pc.onicecandidate = (ev) => {
     if (!ev.candidate) {
-      console.log(`[SurvivalOnline] 隊員端: ICE 候選者收集完成 (null candidate)`);
+      console.log(`[SurvivalOnline] 隊員端: ICE 候選者收集完成 (null candidate), iceGatheringState=${_pc.iceGatheringState}, iceConnectionState=${_pc.iceConnectionState}`);
+      // 如果收集完成但没有收到任何候选者，可能是 TURN 服务器不可用
+      if (_pc.iceGatheringState === "complete" && _pc.iceConnectionState === "new") {
+        console.warn(`[SurvivalOnline] 隊員端: 警告 - ICE 收集完成但沒有收到任何候選者，可能是 TURN 服務器不可用`);
+      }
       return;
     }
     const candStr = ev.candidate.candidate || "";
@@ -2742,6 +2770,8 @@ async function connectClientToHost() {
       fromUid: _uid,
       toUid: _hostUid,
       candidate: ev.candidate,
+    }).catch((e) => {
+      console.error(`[SurvivalOnline] 隊員端: 發送 ICE 候選者失敗:`, e);
     });
   };
 
@@ -2894,7 +2924,11 @@ async function hostAcceptOffer(fromUid, sdp) {
 
   pc.onicecandidate = (ev) => {
     if (!ev.candidate) {
-      console.log(`[SurvivalOnline] 隊長端: ICE 候選者收集完成 (null candidate) for ${fromUid}`);
+      console.log(`[SurvivalOnline] 隊長端: ICE 候選者收集完成 (null candidate) for ${fromUid}, iceGatheringState=${pc.iceGatheringState}, iceConnectionState=${pc.iceConnectionState}`);
+      // 如果收集完成但没有收到任何候选者，可能是 TURN 服务器不可用
+      if (pc.iceGatheringState === "complete" && pc.iceConnectionState === "new") {
+        console.warn(`[SurvivalOnline] 隊長端: 警告 - ICE 收集完成但沒有收到任何候選者 for ${fromUid}，可能是 TURN 服務器不可用`);
+      }
       return;
     }
     const candStr = ev.candidate.candidate || "";
@@ -2910,6 +2944,8 @@ async function hostAcceptOffer(fromUid, sdp) {
       fromUid: _uid,
       toUid: fromUid,
       candidate: ev.candidate,
+    }).catch((e) => {
+      console.error(`[SurvivalOnline] 隊長端: 發送 ICE 候選者失敗 for ${fromUid}:`, e);
     });
   };
 
@@ -2944,14 +2980,29 @@ async function hostAcceptOffer(fromUid, sdp) {
   };
 
   // 關鍵：先設置 remote description，然後創建 answer
+  // 注意：設置 remote description 後，ICE 候選者收集才會開始
   console.log(`[SurvivalOnline] hostAcceptOffer: 設置 remote description for ${fromUid}`);
-  await pc.setRemoteDescription(sdp);
-  console.log(`[SurvivalOnline] hostAcceptOffer: 已設置 remote description, connectionState=${pc.connectionState}`);
+  try {
+    await pc.setRemoteDescription(sdp);
+    console.log(`[SurvivalOnline] hostAcceptOffer: 已設置 remote description, connectionState=${pc.connectionState}, iceGatheringState=${pc.iceGatheringState}`);
+  } catch (e) {
+    console.error(`[SurvivalOnline] hostAcceptOffer: 設置 remote description 失敗 for ${fromUid}:`, e);
+    _pcsHost.delete(fromUid);
+    pc.close();
+    return;
+  }
   
   const answer = await pc.createAnswer();
   console.log(`[SurvivalOnline] hostAcceptOffer: 已創建 answer`);
-  await pc.setLocalDescription(answer);
-  console.log(`[SurvivalOnline] hostAcceptOffer: 已設置 local description, connectionState=${pc.connectionState}`);
+  try {
+    await pc.setLocalDescription(answer);
+    console.log(`[SurvivalOnline] hostAcceptOffer: 已設置 local description, connectionState=${pc.connectionState}, iceGatheringState=${pc.iceGatheringState}`);
+  } catch (e) {
+    console.error(`[SurvivalOnline] hostAcceptOffer: 設置 local description 失敗 for ${fromUid}:`, e);
+    _pcsHost.delete(fromUid);
+    pc.close();
+    return;
+  }
   console.log(`[SurvivalOnline] hostAcceptOffer: 已創建 PeerConnection for ${fromUid}, 等待 datachannel 事件和 ICE 候選者`);
 
   await sendSignal({
@@ -3499,12 +3550,17 @@ async function handleSignal(sig) {
   if (sig.type === "answer" && !_isHost) {
     console.log(`[SurvivalOnline] handleSignal: 隊員端處理 answer from ${sig.fromUid}`);
     if (_pc && sig.sdp) {
-      console.log(`[SurvivalOnline] handleSignal: 隊員端設置 remote description 前, connectionState=${_pc.connectionState}`);
-      await _pc.setRemoteDescription(sig.sdp);
-      console.log(`[SurvivalOnline] handleSignal: 隊員端已設置遠程描述，connectionState=${_pc.connectionState}`);
-      // 注意：此時連接可能還未建立，需要等待 ICE 候選者交換
-      // 不要立即啟用 Runtime，等待連接成功後再啟用
-      _setText("survival-online-status", "等待連線中（relay）...");
+      console.log(`[SurvivalOnline] handleSignal: 隊員端設置 remote description 前, connectionState=${_pc.connectionState}, iceGatheringState=${_pc.iceGatheringState}`);
+      try {
+        await _pc.setRemoteDescription(sig.sdp);
+        console.log(`[SurvivalOnline] handleSignal: 隊員端已設置遠程描述，connectionState=${_pc.connectionState}, iceGatheringState=${_pc.iceGatheringState}`);
+        // 注意：此時連接可能還未建立，需要等待 ICE 候選者交換
+        // 不要立即啟用 Runtime，等待連接成功後再啟用
+        _setText("survival-online-status", "等待連線中（relay）...");
+      } catch (e) {
+        console.error(`[SurvivalOnline] handleSignal: 隊員端設置 remote description 失敗:`, e);
+        _setText("survival-online-status", "連線失敗：設置遠程描述錯誤");
+      }
     } else {
       console.warn(`[SurvivalOnline] handleSignal: 隊員端處理 answer 失敗，_pc=${!!_pc}, sdp=${!!sig.sdp}`);
     }
@@ -3529,10 +3585,21 @@ async function handleSignal(sig) {
       const it = _pcsHost.get(fromUid);
       if (it && it.pc) {
         try { 
-          await it.pc.addIceCandidate(cand);
-          console.log(`[SurvivalOnline] handleSignal: 隊長端已添加 ICE 候選者 for ${fromUid}`);
+          // 關鍵：檢查 PeerConnection 狀態，只有在 remote description 設置後才能添加候選者
+          if (it.pc.remoteDescription) {
+            await it.pc.addIceCandidate(cand);
+            console.log(`[SurvivalOnline] handleSignal: 隊長端已添加 ICE 候選者 for ${fromUid}`);
+          } else {
+            // 如果 remote description 還沒設置，將候選者暫存（但這種情況不應該發生，因為我們先設置 remote description）
+            console.warn(`[SurvivalOnline] handleSignal: 隊長端 remote description 未設置，無法添加候選者 for ${fromUid}`);
+          }
         } catch (e) {
-          console.error(`[SurvivalOnline] handleSignal: 隊長端添加 ICE 候選者失敗 for ${fromUid}:`, e);
+          // 如果添加失敗，可能是因為 remote description 還沒設置，或者候選者已經添加過
+          if (e.name === "InvalidStateError" || e.message?.includes("remote description")) {
+            console.warn(`[SurvivalOnline] handleSignal: 隊長端添加 ICE 候選者失敗（狀態錯誤）for ${fromUid}:`, e.message);
+          } else {
+            console.error(`[SurvivalOnline] handleSignal: 隊長端添加 ICE 候選者失敗 for ${fromUid}:`, e);
+          }
         }
       } else {
         console.warn(`[SurvivalOnline] handleSignal: 隊長端找不到 PeerConnection for ${fromUid}`);
@@ -3540,10 +3607,19 @@ async function handleSignal(sig) {
     } else {
       if (_pc) {
         try { 
-          await _pc.addIceCandidate(cand);
-          console.log(`[SurvivalOnline] handleSignal: 隊員端已添加 ICE 候選者`);
+          // 關鍵：檢查 PeerConnection 狀態
+          if (_pc.remoteDescription) {
+            await _pc.addIceCandidate(cand);
+            console.log(`[SurvivalOnline] handleSignal: 隊員端已添加 ICE 候選者`);
+          } else {
+            console.warn(`[SurvivalOnline] handleSignal: 隊員端 remote description 未設置，無法添加候選者`);
+          }
         } catch (e) {
-          console.error(`[SurvivalOnline] handleSignal: 隊員端添加 ICE 候選者失敗:`, e);
+          if (e.name === "InvalidStateError" || e.message?.includes("remote description")) {
+            console.warn(`[SurvivalOnline] handleSignal: 隊員端添加 ICE 候選者失敗（狀態錯誤）:`, e.message);
+          } else {
+            console.error(`[SurvivalOnline] handleSignal: 隊員端添加 ICE 候選者失敗:`, e);
+          }
         }
       } else {
         console.warn(`[SurvivalOnline] handleSignal: 隊員端 PeerConnection 不存在`);
