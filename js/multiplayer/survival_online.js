@@ -3780,6 +3780,25 @@ function tryStartSurvivalFromRoom() {
       selectedCharacter = Game.selectedCharacter;
     }
     
+    // 室長更新房間狀態為 playing（遊戲開始）
+    if (_isHost && _activeRoomId) {
+      updateDoc(roomDocRef(_activeRoomId), { 
+        status: "playing", 
+        updatedAt: serverTimestamp() 
+      }).catch((e) => {
+        console.warn("[SurvivalOnline] 更新房間狀態為 playing 失敗:", e);
+      });
+      // 更新本地狀態
+      if (_roomState) {
+        _roomState.status = "playing";
+      }
+    }
+    
+    // 確保 Runtime 啟用（遊戲開始時啟用狀態同步）
+    if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
+      Runtime.setEnabled(true);
+    }
+    
     startSurvivalNow({
       selectedDifficultyId: _roomState.diffId || _pendingStartParams.selectedDifficultyId,
       selectedCharacter: selectedCharacter,
@@ -4118,12 +4137,30 @@ try {
   );
 } catch (_) {}
 
+// 更新房間狀態為 closed（供 game.js 調用）
+async function updateRoomStatusToClosed() {
+  try {
+    if (!_isHost || !_activeRoomId) return;
+    await updateDoc(roomDocRef(_activeRoomId), { 
+      status: "closed", 
+      updatedAt: serverTimestamp() 
+    });
+    // 更新本地狀態
+    if (_roomState) {
+      _roomState.status = "closed";
+    }
+  } catch (e) {
+    console.warn("[SurvivalOnline] 更新房間狀態為 closed 失敗:", e);
+  }
+}
+
 // 將 API 暴露到 window，供非 module 的 main.js / game.js 呼叫
 window.SurvivalOnlineUI = {
   startFlowFromMain,
   leaveRoom,
   getRuntime,
   handleEscape,
+  updateRoomStatusToClosed,
 };
 
 // 提供給 game.js 的 runtime bridge（避免 game.js import）
