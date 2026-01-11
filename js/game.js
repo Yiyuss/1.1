@@ -880,8 +880,14 @@ const Game = {
                 const remotePlayers = (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager && typeof window.SurvivalOnlineRuntime.RemotePlayerManager.getAllPlayers === 'function')
                     ? window.SurvivalOnlineRuntime.RemotePlayerManager.getAllPlayers()
                     : [];
+                if (remotePlayers.length > 0) {
+                    console.log(`[Game] drawEntities: 繪製 ${remotePlayers.length} 個遠程玩家`);
+                }
                 for (const p of remotePlayers) {
-                    if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') continue;
+                    if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') {
+                        console.warn(`[Game] drawEntities: 跳過無效遠程玩家`, p);
+                        continue;
+                    }
                     
                     // 繪製遠程玩家血條
                     this._drawRemotePlayerHealthBar(p);
