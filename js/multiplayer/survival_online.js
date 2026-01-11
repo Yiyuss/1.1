@@ -1821,11 +1821,16 @@ const Runtime = (() => {
         console.log(`[SurvivalOnline] updateRemotePlayers: 廣播狀態給 ${_pcsHost.size} 個客戶端，玩家數量=${Object.keys(players).length}`);
         for (const [uid, it] of _pcsHost.entries()) {
           const ch = (it && it.channel) ? it.channel : null;
+          const pcState = (it && it.pc) ? it.pc.connectionState : 'unknown';
           if (ch && ch.readyState === "open") {
             _sendToChannel(ch, { t: "state", players });
             console.log(`[SurvivalOnline] updateRemotePlayers: 已發送狀態給客戶端 ${uid}`);
           } else {
-            console.warn(`[SurvivalOnline] updateRemotePlayers: 客戶端 ${uid} 的通道未就緒，readyState=${ch ? ch.readyState : 'null'}`);
+            console.warn(`[SurvivalOnline] updateRemotePlayers: 客戶端 ${uid} 的通道未就緒，readyState=${ch ? ch.readyState : 'null'}, pc.connectionState=${pcState}, channel存在=${!!ch}`);
+            // 如果通道不存在但 PeerConnection 已連接，可能是 ondatachannel 還沒觸發
+            if (!ch && it && it.pc && pcState === "connected") {
+              console.warn(`[SurvivalOnline] updateRemotePlayers: 警告 - PeerConnection 已連接但通道未設置，可能 ondatachannel 未觸發`);
+            }
           }
         }
       }
@@ -2743,23 +2748,32 @@ async function hostAcceptOffer(fromUid, sdp) {
   let channel = null;
 
   pc.ondatachannel = (ev) => {
+    console.log(`[SurvivalOnline] hostAcceptOffer: 收到隊員 ${fromUid} 的 datachannel 事件`);
     channel = ev.channel;
+    console.log(`[SurvivalOnline] hostAcceptOffer: 通道狀態=${channel.readyState}, label=${channel.label}`);
     // 重要：把 channel 存回 map，讓 host 能廣播給所有 client
     try {
       const cur = _pcsHost.get(fromUid);
       if (cur && cur.pc === pc) {
         _pcsHost.set(fromUid, { pc, channel });
+        console.log(`[SurvivalOnline] hostAcceptOffer: 已更新通道到 map for ${fromUid}`);
       } else {
         _pcsHost.set(fromUid, { pc, channel });
+        console.log(`[SurvivalOnline] hostAcceptOffer: 已設置通道到 map for ${fromUid}`);
       }
-    } catch (_) {}
+    } catch (e) {
+      console.error(`[SurvivalOnline] hostAcceptOffer: 設置通道到 map 失敗:`, e);
+    }
     channel.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
         handleHostDataMessage(fromUid, msg);
-      } catch (_) {}
+      } catch (e) {
+        console.error(`[SurvivalOnline] hostAcceptOffer: 處理消息失敗:`, e);
+      }
     };
     channel.onopen = () => {
+      console.log(`[SurvivalOnline] hostAcceptOffer: 通道已打開 for ${fromUid}, readyState=${channel.readyState}`);
       Runtime.setEnabled(true);
       updateLobbyUI();
       // M5：隊員重新連接時，室長發送全量快照
@@ -2771,12 +2785,16 @@ async function hostAcceptOffer(fromUid, sdp) {
       }
     };
     channel.onclose = () => {
+      console.log(`[SurvivalOnline] hostAcceptOffer: 通道已關閉 for ${fromUid}`);
       updateLobbyUI();
       // M5：檢測斷線（僅在遊戲進行中）
       if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
         // 標記該隊員為斷線（但不立即移除，等待重連）
         console.log(`[SurvivalOnline] M5: 隊員 ${fromUid} 斷線`);
       }
+    };
+    channel.onerror = (e) => {
+      console.error(`[SurvivalOnline] hostAcceptOffer: 通道錯誤 for ${fromUid}:`, e);
     };
   };
 
@@ -2793,6 +2811,7 @@ async function hostAcceptOffer(fromUid, sdp) {
 
   pc.onconnectionstatechange = () => {
     const st = pc.connectionState;
+    console.log(`[SurvivalOnline] hostAcceptOffer: 與隊員 ${fromUid} 的連接狀態變更為 ${st}`);
     if (st === "failed" || st === "disconnected") {
       // M5：檢測連接失敗或斷線
       updateLobbyUI();
@@ -2805,9 +2824,17 @@ async function hostAcceptOffer(fromUid, sdp) {
       // 注意：隊員端的連接狀態處理在 _pc.onconnectionstatechange 中
     } else if (st === "connected") {
       // 連接恢復：更新 UI
+      console.log(`[SurvivalOnline] hostAcceptOffer: 與隊員 ${fromUid} 連接成功`);
       updateLobbyUI();
       if (_isHost) {
         console.log(`[SurvivalOnline] 與隊員 ${fromUid} 連接恢復`);
+      }
+      // 檢查通道狀態
+      const entry = _pcsHost.get(fromUid);
+      if (entry && entry.channel) {
+        console.log(`[SurvivalOnline] hostAcceptOffer: 連接成功後，通道狀態=${entry.channel.readyState}`);
+      } else {
+        console.warn(`[SurvivalOnline] hostAcceptOffer: 連接成功但通道未設置 for ${fromUid}`);
       }
     }
   };
@@ -2818,6 +2845,7 @@ async function hostAcceptOffer(fromUid, sdp) {
 
   // 先放入（channel 會在 ondatachannel 時補上）
   _pcsHost.set(fromUid, { pc, channel: null });
+  console.log(`[SurvivalOnline] hostAcceptOffer: 已創建 PeerConnection for ${fromUid}, 等待 datachannel 事件`);
 
   await sendSignal({
     type: "answer",
