@@ -404,6 +404,46 @@ const Runtime = (() => {
     if (payload.t !== "state") return;
     const now = Date.now();
     const players = payload.players || {};
+    
+    // 客戶端：根據接收到的狀態創建/更新遠程玩家對象
+    if (!_isHost) {
+      for (const [uid, p] of Object.entries(players)) {
+        if (!p || typeof p.x !== "number" || typeof p.y !== "number") continue;
+        if (_uid && uid === _uid) continue; // 不覆蓋自己
+        
+        // 獲取成員數據（角色ID和天賦等級）
+        const member = _membersState ? _membersState.get(uid) : null;
+        const characterId = (member && member.characterId) ? member.characterId : ((typeof p.characterId === "string") ? p.characterId : null);
+        const talentLevels = (member && member.talentLevels) ? member.talentLevels : null;
+        
+        // 創建或更新遠程玩家對象
+        try {
+          if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.getOrCreate === "function") {
+            const remotePlayer = RemotePlayerManager.getOrCreate(uid, p.x, p.y, characterId, talentLevels);
+            if (remotePlayer) {
+              // 更新位置
+              remotePlayer.x = p.x;
+              remotePlayer.y = p.y;
+              // 更新其他狀態
+              if (typeof p.health === "number") remotePlayer.health = p.health;
+              if (typeof p.maxHealth === "number") remotePlayer.maxHealth = p.maxHealth;
+              if (typeof p._isDead === "boolean") remotePlayer._isDead = p._isDead;
+              if (typeof p._resurrectionProgress === "number") remotePlayer._resurrectionProgress = p._resurrectionProgress;
+              if (typeof p.isUltimateActive === "boolean") remotePlayer.isUltimateActive = p.isUltimateActive;
+              if (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) remotePlayer._ultimateImageKey = p.ultimateImageKey;
+              if (typeof p.ultimateEndTime === "number") remotePlayer.ultimateEndTime = p.ultimateEndTime;
+              if (typeof p.width === "number" && p.width > 0) remotePlayer.width = p.width;
+              if (typeof p.height === "number" && p.height > 0) remotePlayer.height = p.height;
+              if (typeof p.collisionRadius === "number" && p.collisionRadius > 0) remotePlayer.collisionRadius = p.collisionRadius;
+            }
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 創建/更新遠程玩家失敗:", e);
+        }
+      }
+    }
+    
+    // 保存位置信息（用於其他用途）
     for (const [uid, p] of Object.entries(players)) {
       if (!p || typeof p.x !== "number" || typeof p.y !== "number") continue;
       if (_uid && uid === _uid) continue; // 不覆蓋自己
@@ -431,6 +471,12 @@ const Runtime = (() => {
     for (const [uid, p] of remotePlayers) {
       if (now - (p.updatedAt || 0) > 8000) {
         remotePlayers.delete(uid);
+        // 移除遠程玩家對象
+        try {
+          if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.remove === "function") {
+            RemotePlayerManager.remove(uid);
+          }
+        } catch (_) {}
         // 隱藏對應的GIF覆蓋層
         try {
           if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hide === 'function') {
@@ -3390,24 +3436,35 @@ function updateLobbyUI() {
       }
     }
     
-    // 清空現有選項
-    selChar.innerHTML = "";
+    // 檢查是否需要更新選項（避免重複清空導致事件綁定丟失）
+    const existingOptions = Array.from(selChar.options).map(opt => opt.value);
+    const shouldUpdate = existingOptions.length === 0 || existingOptions.some(id => !unlockedSet.has(id));
     
-    // 獲取所有角色配置
-    const characters = (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) ? CONFIG.CHARACTERS : [];
-    
-    // 只添加已解鎖的角色
-    for (const char of characters) {
-      if (!char || !char.id) continue;
-      const isUnlocked = (char.unlockCost === undefined || char.unlockCost <= 0) || unlockedSet.has(char.id);
-      if (isUnlocked) {
-        const opt = document.createElement("option");
-        opt.value = char.id;
-        opt.textContent = char.name || char.id;
-        if (char.id === currentCharacterId) {
-          opt.selected = true;
+    if (shouldUpdate) {
+      // 清空現有選項
+      selChar.innerHTML = "";
+      
+      // 獲取所有角色配置
+      const characters = (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) ? CONFIG.CHARACTERS : [];
+      
+      // 只添加已解鎖的角色
+      for (const char of characters) {
+        if (!char || !char.id) continue;
+        const isUnlocked = (char.unlockCost === undefined || char.unlockCost <= 0) || unlockedSet.has(char.id);
+        if (isUnlocked) {
+          const opt = document.createElement("option");
+          opt.value = char.id;
+          opt.textContent = char.name || char.id;
+          if (char.id === currentCharacterId) {
+            opt.selected = true;
+          }
+          selChar.appendChild(opt);
         }
-        selChar.appendChild(opt);
+      }
+    } else {
+      // 只更新選中狀態
+      if (currentCharacterId) {
+        selChar.value = currentCharacterId;
       }
     }
     
@@ -3419,6 +3476,16 @@ function updateLobbyUI() {
         currentCharacterId = 'margaret';
       }
     }
+    
+    // 檢查準備狀態：如果已準備，禁用角色選擇下拉框
+    let isReady = false;
+    if (_membersState && _membersState.has(_uid)) {
+      const myMember = _membersState.get(_uid);
+      if (myMember && myMember.ready === true) {
+        isReady = true;
+      }
+    }
+    selChar.disabled = isReady;
   }
 
   // 成員列表
@@ -3799,6 +3866,18 @@ function tryStartSurvivalFromRoom() {
       Runtime.setEnabled(true);
     }
     
+    // 確保角色不為 null（如果為 null，使用默認角色）
+    if (!selectedCharacter) {
+      if (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS) && CONFIG.CHARACTERS.length > 0) {
+        selectedCharacter = CONFIG.CHARACTERS.find(c => c && c.id === 'margaret') || CONFIG.CHARACTERS[0];
+      }
+    }
+    
+    // 更新 Game.selectedCharacter 確保一致性
+    if (selectedCharacter && typeof Game !== "undefined") {
+      Game.selectedCharacter = selectedCharacter;
+    }
+    
     startSurvivalNow({
       selectedDifficultyId: _roomState.diffId || _pendingStartParams.selectedDifficultyId,
       selectedCharacter: selectedCharacter,
@@ -4010,6 +4089,11 @@ function bindUI() {
     try {
       await setReady(_ready);
       btnReady.textContent = _ready ? "取消準備" : "準備";
+      // 更新角色選擇下拉框的禁用狀態
+      const selChar = _qs("survival-online-character-select");
+      if (selChar) {
+        selChar.disabled = _ready;
+      }
     } catch (_) {}
   });
 
