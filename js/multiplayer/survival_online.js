@@ -158,7 +158,54 @@ const RemotePlayerManager = (() => {
   // M4：使用完整的 Player 類（而不是簡化的 RemotePlayer）
   // 這樣遠程玩家也能有武器、造成傷害、收集經驗等
   function getOrCreate(uid, startX, startY, characterId, talentLevels = null) {
-    if (!remotePlayers.has(uid)) {
+    const existingPlayer = remotePlayers.get(uid);
+    
+    // 如果遠程玩家已存在，檢查角色是否需要更新（僅在遊戲開始前，避免影響遊戲進行中的玩家）
+    if (existingPlayer && characterId) {
+      const currentCharId = (existingPlayer._remoteCharacter && existingPlayer._remoteCharacter.id) ? existingPlayer._remoteCharacter.id : null;
+      // 如果角色ID不同，且遊戲尚未開始（通過檢查 Game.multiplayer.enabled 或 Game.isPaused 等狀態）
+      // 注意：這裡只檢查角色ID是否變化，不強制更新（因為遊戲進行中不應該切換角色）
+      if (currentCharId !== characterId) {
+        // 只有在遊戲尚未真正開始時才更新角色（例如：還在組隊大廳）
+        const isGameActive = (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled && !Game.isPaused && !Game.isGameOver);
+        if (!isGameActive) {
+          // 更新角色（重新應用角色屬性和天賦）
+          try {
+            if (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS) {
+              const char = CONFIG.CHARACTERS.find(c => c && c.id === characterId);
+              if (char) {
+                existingPlayer._remoteCharacter = char;
+                // 重新應用角色屬性
+                const baseMax = (typeof CONFIG !== "undefined" && CONFIG.PLAYER && CONFIG.PLAYER.MAX_HEALTH) ? CONFIG.PLAYER.MAX_HEALTH : 100;
+                const hpMul = char.hpMultiplier != null ? char.hpMultiplier : 1.0;
+                const hpBonus = char.hpBonus != null ? char.hpBonus : 0;
+                const charBaseMax = Math.max(1, Math.floor(baseMax * hpMul + hpBonus));
+                existingPlayer.baseMaxHealth = charBaseMax;
+                existingPlayer.maxHealth = charBaseMax;
+                if (char.speedMultiplier) existingPlayer.speed = ((typeof CONFIG !== "undefined" && CONFIG.PLAYER && CONFIG.PLAYER.SPEED) ? CONFIG.PLAYER.SPEED : 200) * char.speedMultiplier;
+                if (char.dodgeChanceBonusPct) existingPlayer._characterBaseDodgeBonusPct = char.dodgeChanceBonusPct;
+                if (char.critChanceBonusPct) existingPlayer._characterBaseCritBonusPct = char.critChanceBonusPct;
+                if (char.canUseUltimate === false) existingPlayer.canUseUltimate = false;
+                existingPlayer.spriteImageKey = char.spriteImageKey || 'player';
+                
+                // 重新應用天賦效果
+                if (talentLevels && typeof talentLevels === "object") {
+                  if (typeof BuffSystem !== "undefined" && BuffSystem.applyBuffsFromTalentLevels) {
+                    BuffSystem.applyBuffsFromTalentLevels(existingPlayer, talentLevels);
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("[SurvivalOnline] 更新遠程玩家角色失敗:", e);
+          }
+        }
+      }
+      return existingPlayer;
+    }
+    
+    // 創建新的遠程玩家
+    if (!existingPlayer) {
       try {
         // 創建完整的 Player 對象
         if (typeof Player !== "undefined") {
@@ -238,7 +285,8 @@ const RemotePlayerManager = (() => {
       }
       return null;
     }
-    return remotePlayers.get(uid);
+    
+    return existingPlayer;
   }
 
   function remove(uid) {
@@ -1901,6 +1949,22 @@ async function createRoom(initial) {
         }
       } catch (_) {}
       
+      // 獲取角色ID：優先使用 _pendingStartParams，其次使用 Game.selectedCharacter，最後使用默認角色
+      let characterId = null;
+      if (_pendingStartParams && _pendingStartParams.selectedCharacter && _pendingStartParams.selectedCharacter.id) {
+        characterId = _pendingStartParams.selectedCharacter.id;
+      } else if (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) {
+        characterId = Game.selectedCharacter.id;
+      } else {
+        // 如果沒有選擇角色，使用默認角色（第一位角色：margaret）
+        if (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS) && CONFIG.CHARACTERS.length > 0) {
+          const defaultChar = CONFIG.CHARACTERS.find(c => c && c.id === 'margaret') || CONFIG.CHARACTERS[0];
+          if (defaultChar && defaultChar.id) {
+            characterId = defaultChar.id;
+          }
+        }
+      }
+      
       await setDoc(memberDocRef(roomId, _uid), {
         uid: _uid,
         role: "host",
@@ -1908,7 +1972,7 @@ async function createRoom(initial) {
         joinedAt: createdAt,
         lastSeenAt: createdAt,
         name: getPlayerNickname(),
-        characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
+        characterId: characterId,
         talentLevels: talentLevels, // 保存天賦等級
       });
       
@@ -1950,6 +2014,22 @@ async function joinRoom(roomId) {
     }
   } catch (_) {}
   
+  // 獲取角色ID：優先使用 _pendingStartParams，其次使用 Game.selectedCharacter，最後使用默認角色
+  let characterId = null;
+  if (_pendingStartParams && _pendingStartParams.selectedCharacter && _pendingStartParams.selectedCharacter.id) {
+    characterId = _pendingStartParams.selectedCharacter.id;
+  } else if (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) {
+    characterId = Game.selectedCharacter.id;
+  } else {
+    // 如果沒有選擇角色，使用默認角色（第一位角色：margaret）
+    if (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS) && CONFIG.CHARACTERS.length > 0) {
+      const defaultChar = CONFIG.CHARACTERS.find(c => c && c.id === 'margaret') || CONFIG.CHARACTERS[0];
+      if (defaultChar && defaultChar.id) {
+        characterId = defaultChar.id;
+      }
+    }
+  }
+  
   try {
     await setDoc(memberDocRef(roomId, _uid), {
       uid: _uid,
@@ -1958,7 +2038,7 @@ async function joinRoom(roomId) {
       joinedAt: serverTimestamp(),
       lastSeenAt: serverTimestamp(),
       name: getPlayerNickname(),
-      characterId: (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
+      characterId: characterId,
       talentLevels: talentLevels, // 保存天賦等級
     });
   } catch (e) {
@@ -3268,6 +3348,79 @@ function updateLobbyUI() {
   if (selMap) selMap.disabled = !_isHost;
   if (selDiff) selDiff.disabled = !_isHost;
 
+  // 角色選擇下拉框：初始化並更新選項（僅顯示已解鎖的角色）
+  const selChar = _qs("survival-online-character-select");
+  if (selChar && _activeRoomId) {
+    // 獲取已解鎖的角色列表
+    const CHAR_UNLOCK_KEY = 'unlocked_characters';
+    const loadUnlockedCharacters = () => {
+      try {
+        const raw = localStorage.getItem(CHAR_UNLOCK_KEY);
+        const arr = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(arr)) return ['margaret'];
+        if (!arr.includes('margaret')) arr.push('margaret');
+        return arr;
+      } catch (_) {
+        return ['margaret'];
+      }
+    };
+    const unlockedSet = new Set(loadUnlockedCharacters());
+    
+    // 獲取當前選擇的角色ID（優先使用成員數據，其次使用_pendingStartParams，最後使用Game.selectedCharacter）
+    let currentCharacterId = null;
+    if (_membersState && _membersState.has(_uid)) {
+      const myMember = _membersState.get(_uid);
+      if (myMember && myMember.characterId) {
+        currentCharacterId = myMember.characterId;
+      }
+    }
+    if (!currentCharacterId && _pendingStartParams && _pendingStartParams.selectedCharacter && _pendingStartParams.selectedCharacter.id) {
+      currentCharacterId = _pendingStartParams.selectedCharacter.id;
+    }
+    if (!currentCharacterId && typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) {
+      currentCharacterId = Game.selectedCharacter.id;
+    }
+    if (!currentCharacterId) {
+      // 如果沒有選擇角色，使用默認角色（第一位角色：margaret）
+      if (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS) && CONFIG.CHARACTERS.length > 0) {
+        const defaultChar = CONFIG.CHARACTERS.find(c => c && c.id === 'margaret') || CONFIG.CHARACTERS[0];
+        if (defaultChar && defaultChar.id) {
+          currentCharacterId = defaultChar.id;
+        }
+      }
+    }
+    
+    // 清空現有選項
+    selChar.innerHTML = "";
+    
+    // 獲取所有角色配置
+    const characters = (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) ? CONFIG.CHARACTERS : [];
+    
+    // 只添加已解鎖的角色
+    for (const char of characters) {
+      if (!char || !char.id) continue;
+      const isUnlocked = (char.unlockCost === undefined || char.unlockCost <= 0) || unlockedSet.has(char.id);
+      if (isUnlocked) {
+        const opt = document.createElement("option");
+        opt.value = char.id;
+        opt.textContent = char.name || char.id;
+        if (char.id === currentCharacterId) {
+          opt.selected = true;
+        }
+        selChar.appendChild(opt);
+      }
+    }
+    
+    // 如果當前選擇的角色不在已解鎖列表中，強制選擇默認角色
+    if (currentCharacterId && !unlockedSet.has(currentCharacterId)) {
+      const defaultOpt = selChar.querySelector('option[value="margaret"]');
+      if (defaultOpt) {
+        defaultOpt.selected = true;
+        currentCharacterId = 'margaret';
+      }
+    }
+  }
+
   // 成員列表
   const list = _qs("survival-online-members");
   if (list) {
@@ -3610,9 +3763,26 @@ function tryStartSurvivalFromRoom() {
       _startTimer = null;
     }
     if (overlayEl) overlayEl.classList.add("hidden");
+    
+    // 獲取當前選擇的角色（優先使用下拉框選擇，其次使用_pendingStartParams，最後使用Game.selectedCharacter）
+    let selectedCharacter = null;
+    const selChar = _qs("survival-online-character-select");
+    if (selChar && selChar.value) {
+      const selectedCharId = selChar.value;
+      if (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) {
+        selectedCharacter = CONFIG.CHARACTERS.find(c => c && c.id === selectedCharId);
+      }
+    }
+    if (!selectedCharacter && _pendingStartParams && _pendingStartParams.selectedCharacter) {
+      selectedCharacter = _pendingStartParams.selectedCharacter;
+    }
+    if (!selectedCharacter && typeof Game !== "undefined" && Game.selectedCharacter) {
+      selectedCharacter = Game.selectedCharacter;
+    }
+    
     startSurvivalNow({
       selectedDifficultyId: _roomState.diffId || _pendingStartParams.selectedDifficultyId,
-      selectedCharacter: _pendingStartParams.selectedCharacter,
+      selectedCharacter: selectedCharacter,
       selectedMap: (typeof Game !== "undefined" ? Game.selectedMap : _pendingStartParams.selectedMap),
       sessionId: sessionId
     });
@@ -3656,6 +3826,42 @@ function bindUI() {
   const btnCleanup = _qs("survival-online-cleanup");
   const selMap = _qs("survival-online-host-map");
   const selDiff = _qs("survival-online-host-diff");
+  const selChar = _qs("survival-online-character-select");
+  
+  // 角色選擇變更事件：更新到Firestore並更新_pendingStartParams
+  if (selChar) {
+    selChar.addEventListener("change", async () => {
+      if (!_activeRoomId || !_uid) return;
+      const selectedCharId = selChar.value;
+      if (!selectedCharId) return;
+      
+      // 獲取角色配置
+      let selectedCharacter = null;
+      if (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) {
+        selectedCharacter = CONFIG.CHARACTERS.find(c => c && c.id === selectedCharId);
+      }
+      
+      // 更新到Firestore
+      try {
+        await ensureAuth();
+        await updateDoc(memberDocRef(_activeRoomId, _uid), { 
+          characterId: selectedCharId,
+          lastSeenAt: serverTimestamp() 
+        });
+      } catch (e) {
+        console.warn("[SurvivalOnline] 更新角色失敗:", e);
+      }
+      
+      // 更新_pendingStartParams和Game.selectedCharacter
+      if (selectedCharacter) {
+        if (!_pendingStartParams) _pendingStartParams = {};
+        _pendingStartParams.selectedCharacter = selectedCharacter;
+        if (typeof Game !== "undefined") {
+          Game.selectedCharacter = selectedCharacter;
+        }
+      }
+    });
+  }
   
   // 防止暱稱輸入框的鍵盤事件影響遊戲主體
   const nicknameInput = _qs("survival-online-nickname");
