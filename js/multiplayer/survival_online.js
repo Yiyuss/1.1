@@ -395,31 +395,51 @@ const Runtime = (() => {
   const remotePlayers = new Map(); // uid -> { x, y, name, updatedAt }
 
   function setEnabled(v) {
+    const wasEnabled = enabled;
     enabled = !!v;
-    if (!enabled) remotePlayers.clear();
+    console.log(`[SurvivalOnline] Runtime.setEnabled(${v}), wasEnabled=${wasEnabled}, nowEnabled=${enabled}, isHost=${_isHost}`);
+    if (!enabled) {
+      remotePlayers.clear();
+      console.log(`[SurvivalOnline] Runtime.setEnabled: 已清除遠程玩家列表`);
+    }
   }
 
   function onStateMessage(payload) {
     if (!payload || typeof payload !== "object") return;
     if (payload.t !== "state") return;
+    if (!enabled) {
+      console.warn("[SurvivalOnline] onStateMessage: Runtime未啟用，忽略狀態消息");
+      return;
+    }
     const now = Date.now();
     const players = payload.players || {};
     
+    console.log(`[SurvivalOnline] onStateMessage: 收到狀態消息，玩家數量=${Object.keys(players).length}, enabled=${enabled}, isHost=${_isHost}`);
+    
     // 所有端（包括隊長和隊員）：根據接收到的狀態創建/更新遠程玩家對象
     for (const [uid, p] of Object.entries(players)) {
-      if (!p || typeof p.x !== "number" || typeof p.y !== "number") continue;
-      if (_uid && uid === _uid) continue; // 不覆蓋自己
+      if (!p || typeof p.x !== "number" || typeof p.y !== "number") {
+        console.warn(`[SurvivalOnline] onStateMessage: 跳過無效玩家 ${uid}`, p);
+        continue;
+      }
+      if (_uid && uid === _uid) {
+        console.log(`[SurvivalOnline] onStateMessage: 跳過自己 ${uid}`);
+        continue; // 不覆蓋自己
+      }
       
       // 獲取成員數據（角色ID和天賦等級）- 優先從狀態消息獲取，其次從 _membersState 獲取
       const member = _membersState ? _membersState.get(uid) : null;
       const characterId = ((typeof p.characterId === "string") ? p.characterId : null) || (member && member.characterId) || null;
       const talentLevels = (member && member.talentLevels) ? member.talentLevels : null;
       
+      console.log(`[SurvivalOnline] onStateMessage: 處理玩家 ${uid}, 位置=(${p.x}, ${p.y}), characterId=${characterId}`);
+      
       // 創建或更新遠程玩家對象
       try {
         if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.getOrCreate === "function") {
           const remotePlayer = RemotePlayerManager.getOrCreate(uid, p.x, p.y, characterId, talentLevels);
           if (remotePlayer) {
+            console.log(`[SurvivalOnline] onStateMessage: 成功創建/更新遠程玩家 ${uid}`);
             // 更新位置
             remotePlayer.x = p.x;
             remotePlayer.y = p.y;
@@ -434,10 +454,14 @@ const Runtime = (() => {
             if (typeof p.width === "number" && p.width > 0) remotePlayer.width = p.width;
             if (typeof p.height === "number" && p.height > 0) remotePlayer.height = p.height;
             if (typeof p.collisionRadius === "number" && p.collisionRadius > 0) remotePlayer.collisionRadius = p.collisionRadius;
+          } else {
+            console.error(`[SurvivalOnline] onStateMessage: RemotePlayerManager.getOrCreate 返回 null 或 undefined for ${uid}`);
           }
+        } else {
+          console.error(`[SurvivalOnline] onStateMessage: RemotePlayerManager 或 getOrCreate 不可用`);
         }
       } catch (e) {
-        console.warn("[SurvivalOnline] 創建/更新遠程玩家失敗:", e);
+        console.error(`[SurvivalOnline] 創建/更新遠程玩家失敗:`, e);
       }
     }
     
@@ -1794,9 +1818,15 @@ const Runtime = (() => {
           };
         }
         // 廣播給所有 client
+        console.log(`[SurvivalOnline] updateRemotePlayers: 廣播狀態給 ${_pcsHost.size} 個客戶端，玩家數量=${Object.keys(players).length}`);
         for (const [uid, it] of _pcsHost.entries()) {
           const ch = (it && it.channel) ? it.channel : null;
-          _sendToChannel(ch, { t: "state", players });
+          if (ch && ch.readyState === "open") {
+            _sendToChannel(ch, { t: "state", players });
+            console.log(`[SurvivalOnline] updateRemotePlayers: 已發送狀態給客戶端 ${uid}`);
+          } else {
+            console.warn(`[SurvivalOnline] updateRemotePlayers: 客戶端 ${uid} 的通道未就緒，readyState=${ch ? ch.readyState : 'null'}`);
+          }
         }
       }
 
@@ -2613,7 +2643,9 @@ async function connectClientToHost() {
   _dc.onmessage = (ev) => {
     try {
       const msg = JSON.parse(ev.data);
+      console.log(`[SurvivalOnline] 隊員端收到消息: type=${msg.t}, enabled=${Runtime ? (typeof Runtime.setEnabled === 'function' ? 'N/A' : 'Runtime不可用') : 'Runtime未定義'}`);
       if (msg.t === "state") {
+        console.log(`[SurvivalOnline] 隊員端收到狀態消息，玩家數量=${msg.players ? Object.keys(msg.players).length : 0}`);
         Runtime.onStateMessage(msg);
       } else if (msg.t === "event") {
         // M2：處理室長廣播的事件
@@ -2622,7 +2654,9 @@ async function connectClientToHost() {
         // M3：處理室長廣播的狀態快照
         Runtime.onSnapshotMessage(msg);
       }
-    } catch (_) {}
+    } catch (e) {
+      console.error(`[SurvivalOnline] 隊員端處理消息失敗:`, e);
+    }
   };
 
   _pc.onicecandidate = (ev) => {
@@ -4364,6 +4398,7 @@ window.SurvivalOnlineUI = {
 window.SurvivalOnlineRuntime = {
   Runtime: Runtime,
   RemotePlayerManager: RemotePlayerManager,
+  updateRemotePlayers: Runtime.updateRemotePlayers, // 直接暴露 updateRemotePlayers
   getMembersState: getMembersState,
   getPlayerNickname: getPlayerNickname,
   sanitizePlayerName: sanitizePlayerName,
