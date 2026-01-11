@@ -1619,6 +1619,13 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) {}
             
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+                // 室長：先更新房間狀態為 closed，再離開房間
+                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToClosed === 'function') {
+                    window.SurvivalOnlineUI.updateRoomStatusToClosed().catch(() => {});
+                }
+            }
+            
             if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === 'function') {
                 window.SurvivalOnlineUI.leaveRoom().catch(() => {});
             }
@@ -1648,6 +1655,10 @@ const Game = {
                     window.SurvivalOnlineBroadcastEvent("game_victory", {
                         reason: "exit_reached"
                     });
+                }
+                // 室長：先更新房間狀態為 closed，再離開房間
+                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToClosed === 'function') {
+                    window.SurvivalOnlineUI.updateRoomStatusToClosed().catch(() => {});
                 }
             }
             
