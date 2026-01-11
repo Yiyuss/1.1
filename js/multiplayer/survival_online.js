@@ -43,10 +43,11 @@ const FIREBASE_CONFIG = {
 
 // Open Relay Project（公共 TURN）
 // 常見配置（由 openrelay.metered.ca 提供）；此為公共資源，可能變動/限流。
+// 備用：如果 openrelay 不可用，可以嘗試其他公共 TURN 服務器
 const ICE_SERVERS_OPEN_RELAY = [
   {
     urls: [
-      "stun:openrelay.metered.ca:80",
+      "stun:stun.l.google.com:19302", // Google STUN（僅用於測試，不會暴露 IP）
       "turn:openrelay.metered.ca:80",
       "turn:openrelay.metered.ca:443",
       "turn:openrelay.metered.ca:443?transport=tcp",
@@ -2837,6 +2838,9 @@ async function hostAcceptOffer(fromUid, sdp) {
   const pc = createPeerConnectionCommon();
   let channel = null;
 
+  // 關鍵：先將 PeerConnection 存入 map，這樣 ICE 候選者才能被正確處理
+  _pcsHost.set(fromUid, { pc, channel: null });
+
   pc.ondatachannel = (ev) => {
     console.log(`[SurvivalOnline] hostAcceptOffer: 收到隊員 ${fromUid} 的 datachannel 事件`);
     channel = ev.channel;
@@ -2948,9 +2952,6 @@ async function hostAcceptOffer(fromUid, sdp) {
   console.log(`[SurvivalOnline] hostAcceptOffer: 已創建 answer`);
   await pc.setLocalDescription(answer);
   console.log(`[SurvivalOnline] hostAcceptOffer: 已設置 local description, connectionState=${pc.connectionState}`);
-
-  // 先放入（channel 會在 ondatachannel 時補上）
-  _pcsHost.set(fromUid, { pc, channel: null });
   console.log(`[SurvivalOnline] hostAcceptOffer: 已創建 PeerConnection for ${fromUid}, 等待 datachannel 事件和 ICE 候選者`);
 
   await sendSignal({
