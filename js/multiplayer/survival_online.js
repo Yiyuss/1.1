@@ -1993,8 +1993,16 @@ function _candidateIsRelay(cand) {
   try {
     const c = cand && cand.candidate ? cand.candidate : "";
     // 某些瀏覽器候選字串格式略不同，做寬鬆判斷（仍僅接受 relay）
-    return typeof c === "string" && (c.includes(" typ relay ") || c.includes(" typ relay"));
-  } catch (_) {
+    const isRelay = typeof c === "string" && (c.includes(" typ relay ") || c.includes(" typ relay"));
+    // 診斷：記錄候選者類型
+    if (c) {
+      const typeMatch = c.match(/typ (\w+)/);
+      const type = typeMatch ? typeMatch[1] : "unknown";
+      console.log(`[SurvivalOnline] _candidateIsRelay: 候選者類型=${type}, isRelay=${isRelay}, candidate=${c.substring(0, 150)}`);
+    }
+    return isRelay;
+  } catch (e) {
+    console.error(`[SurvivalOnline] _candidateIsRelay: 檢查失敗:`, e);
     return false;
   }
 }
@@ -2555,15 +2563,27 @@ function listenSignals(roomId) {
   _signalsUnsub = onSnapshot(
     q,
     (snap) => {
+      console.log(`[SurvivalOnline] listenSignals: 收到 ${snap.docChanges().length} 個信號變更`);
       snap.docChanges().forEach(async (ch) => {
-        if (ch.type !== "added") return;
+        if (ch.type !== "added") {
+          console.log(`[SurvivalOnline] listenSignals: 跳過非 added 變更 type=${ch.type}`);
+          return;
+        }
         const sig = ch.doc.data() || {};
         const sid = ch.doc.id;
+        console.log(`[SurvivalOnline] listenSignals: 處理信號 sid=${sid}, type=${sig.type}, fromUid=${sig.fromUid}, toUid=${sig.toUid}`);
         try {
           await handleSignal(sig);
-        } catch (_) {}
+        } catch (e) {
+          console.error(`[SurvivalOnline] listenSignals: 處理信號失敗:`, e);
+        }
         // 消費後刪除，避免重播
-        try { await deleteDoc(doc(_db, "rooms", roomId, "signals", sid)); } catch (_) {}
+        try { 
+          await deleteDoc(doc(_db, "rooms", roomId, "signals", sid));
+          console.log(`[SurvivalOnline] listenSignals: 已刪除信號 sid=${sid}`);
+        } catch (e) {
+          console.error(`[SurvivalOnline] listenSignals: 刪除信號失敗:`, e);
+        }
       });
     },
     (err) => {
@@ -2578,10 +2598,22 @@ function listenSignals(roomId) {
 }
 
 function createPeerConnectionCommon() {
-  return new RTCPeerConnection({
+  const pc = new RTCPeerConnection({
     iceServers: ICE_SERVERS_OPEN_RELAY,
     iceTransportPolicy: "relay", // 關鍵：只走 relay，避免暴露 IP
   });
+  
+  // 診斷：監聽 ICE 連接狀態
+  pc.oniceconnectionstatechange = () => {
+    console.log(`[SurvivalOnline] ICE 連接狀態變更: ${pc.iceConnectionState}, connectionState=${pc.connectionState}`);
+  };
+  
+  // 診斷：監聽 ICE 收集狀態
+  pc.onicegatheringstatechange = () => {
+    console.log(`[SurvivalOnline] ICE 收集狀態變更: ${pc.iceGatheringState}`);
+  };
+  
+  return pc;
 }
 
 async function connectClientToHost() {
@@ -2599,9 +2631,15 @@ async function connectClientToHost() {
   console.log(`[SurvivalOnline] connectClientToHost: 已創建 DataChannel, readyState=${_dc.readyState}`);
 
   _dc.onopen = () => {
-    console.log(`[SurvivalOnline] connectClientToHost: DataChannel 已打開, readyState=${_dc.readyState}`);
-    Runtime.setEnabled(true);
-    _setText("survival-online-status", "已連線（relay）");
+    console.log(`[SurvivalOnline] connectClientToHost: DataChannel 已打開, readyState=${_dc.readyState}, connectionState=${_pc.connectionState}`);
+    // 只有在連接成功時才啟用 Runtime
+    if (_pc.connectionState === "connected") {
+      Runtime.setEnabled(true);
+      _setText("survival-online-status", "已連線（relay）");
+    } else {
+      console.log(`[SurvivalOnline] connectClientToHost: DataChannel 已打開但連接未就緒，等待連接成功...`);
+      _setText("survival-online-status", "等待連線中（relay）...");
+    }
     
     // 重連成功：重置重連計數和定時器
     if (_reconnectAttempts > 0) {
@@ -2685,9 +2723,19 @@ async function connectClientToHost() {
   };
 
   _pc.onicecandidate = (ev) => {
-    if (!ev.candidate) return;
+    if (!ev.candidate) {
+      console.log(`[SurvivalOnline] 隊員端: ICE 候選者收集完成 (null candidate)`);
+      return;
+    }
+    const candStr = ev.candidate.candidate || "";
+    const isRelay = _candidateIsRelay(ev.candidate);
+    console.log(`[SurvivalOnline] 隊員端: 收到 ICE 候選者, isRelay=${isRelay}, candidate=${candStr.substring(0, 100)}`);
     // relay-only：只傳 relay candidate，避免 host/srflx 內容外洩
-    if (!_candidateIsRelay(ev.candidate)) return;
+    if (!isRelay) {
+      console.log(`[SurvivalOnline] 隊員端: 跳過非 relay 候選者`);
+      return;
+    }
+    console.log(`[SurvivalOnline] 隊員端: 發送 relay 候選者給隊長`);
     sendSignal({
       type: "candidate",
       fromUid: _uid,
@@ -2698,6 +2746,7 @@ async function connectClientToHost() {
 
   _pc.onconnectionstatechange = () => {
     const st = _pc.connectionState;
+    console.log(`[SurvivalOnline] 隊員端: 連接狀態變更為 ${st}, datachannel readyState=${_dc ? _dc.readyState : 'N/A'}`);
     if (st === "failed" || st === "disconnected") {
       Runtime.setEnabled(false);
       _setText("survival-online-status", "連線失敗（TURN 不可用或被限流）");
@@ -2738,6 +2787,7 @@ async function connectClientToHost() {
       }
     } else if (st === "connected") {
       // 連接成功：重置重連計數
+      console.log(`[SurvivalOnline] 隊員端: 連接成功！datachannel readyState=${_dc ? _dc.readyState : 'N/A'}`);
       if (_reconnectAttempts > 0) {
         console.log(`[SurvivalOnline] 連接恢復成功（嘗試 ${_reconnectAttempts} 次）`);
         _reconnectAttempts = 0;
@@ -2746,24 +2796,44 @@ async function connectClientToHost() {
         clearTimeout(_reconnectTimer);
         _reconnectTimer = null;
       }
+      // 連接成功後啟用 Runtime
+      if (_dc && _dc.readyState === "open") {
+        Runtime.setEnabled(true);
+        _setText("survival-online-status", "已連線（relay）");
+      }
     }
   };
 
   // 建立 offer
+  console.log(`[SurvivalOnline] connectClientToHost: 創建 offer`);
   const offer = await _pc.createOffer();
+  console.log(`[SurvivalOnline] connectClientToHost: offer 已創建`);
   await _pc.setLocalDescription(offer);
+  console.log(`[SurvivalOnline] connectClientToHost: 已設置 local description, connectionState=${_pc.connectionState}`);
   await sendSignal({
     type: "offer",
     fromUid: _uid,
     toUid: _hostUid,
     sdp: offer,
   });
+  console.log(`[SurvivalOnline] connectClientToHost: offer 已發送給隊長 ${_hostUid}`);
 }
 
 async function hostAcceptOffer(fromUid, sdp) {
-  if (!_activeRoomId || !_isHost) return;
-  if (!fromUid || !sdp) return;
-  if (_pcsHost.has(fromUid)) return; // 已存在
+  console.log(`[SurvivalOnline] hostAcceptOffer: 開始處理 offer from ${fromUid}, activeRoomId=${_activeRoomId}, isHost=${_isHost}`);
+  if (!_activeRoomId || !_isHost) {
+    console.warn(`[SurvivalOnline] hostAcceptOffer: 跳過，activeRoomId=${_activeRoomId}, isHost=${_isHost}`);
+    return;
+  }
+  if (!fromUid || !sdp) {
+    console.warn(`[SurvivalOnline] hostAcceptOffer: 跳過，fromUid=${fromUid}, sdp=${!!sdp}`);
+    return;
+  }
+  if (_pcsHost.has(fromUid)) {
+    console.warn(`[SurvivalOnline] hostAcceptOffer: 已存在 PeerConnection for ${fromUid}，跳過`);
+    return; // 已存在
+  }
+  console.log(`[SurvivalOnline] hostAcceptOffer: 創建新的 PeerConnection for ${fromUid}`);
   const pc = createPeerConnectionCommon();
   let channel = null;
 
@@ -2819,8 +2889,18 @@ async function hostAcceptOffer(fromUid, sdp) {
   };
 
   pc.onicecandidate = (ev) => {
-    if (!ev.candidate) return;
-    if (!_candidateIsRelay(ev.candidate)) return;
+    if (!ev.candidate) {
+      console.log(`[SurvivalOnline] 隊長端: ICE 候選者收集完成 (null candidate) for ${fromUid}`);
+      return;
+    }
+    const candStr = ev.candidate.candidate || "";
+    const isRelay = _candidateIsRelay(ev.candidate);
+    console.log(`[SurvivalOnline] 隊長端: 收到 ICE 候選者 for ${fromUid}, isRelay=${isRelay}, candidate=${candStr.substring(0, 100)}`);
+    if (!isRelay) {
+      console.log(`[SurvivalOnline] 隊長端: 跳過非 relay 候選者 for ${fromUid}`);
+      return;
+    }
+    console.log(`[SurvivalOnline] 隊長端: 發送 relay 候選者給隊員 ${fromUid}`);
     sendSignal({
       type: "candidate",
       fromUid: _uid,
@@ -2859,13 +2939,19 @@ async function hostAcceptOffer(fromUid, sdp) {
     }
   };
 
+  // 關鍵：先設置 remote description，然後創建 answer
+  console.log(`[SurvivalOnline] hostAcceptOffer: 設置 remote description for ${fromUid}`);
   await pc.setRemoteDescription(sdp);
+  console.log(`[SurvivalOnline] hostAcceptOffer: 已設置 remote description, connectionState=${pc.connectionState}`);
+  
   const answer = await pc.createAnswer();
+  console.log(`[SurvivalOnline] hostAcceptOffer: 已創建 answer`);
   await pc.setLocalDescription(answer);
+  console.log(`[SurvivalOnline] hostAcceptOffer: 已設置 local description, connectionState=${pc.connectionState}`);
 
   // 先放入（channel 會在 ondatachannel 時補上）
   _pcsHost.set(fromUid, { pc, channel: null });
-  console.log(`[SurvivalOnline] hostAcceptOffer: 已創建 PeerConnection for ${fromUid}, 等待 datachannel 事件`);
+  console.log(`[SurvivalOnline] hostAcceptOffer: 已創建 PeerConnection for ${fromUid}, 等待 datachannel 事件和 ICE 候選者`);
 
   await sendSignal({
     type: "answer",
@@ -2873,6 +2959,7 @@ async function hostAcceptOffer(fromUid, sdp) {
     toUid: fromUid,
     sdp: answer,
   });
+  console.log(`[SurvivalOnline] hostAcceptOffer: 已發送 answer 給 ${fromUid}`);
 }
 
 function _sendToChannel(ch, obj) {
@@ -3411,30 +3498,54 @@ async function handleSignal(sig) {
   if (sig.type === "answer" && !_isHost) {
     console.log(`[SurvivalOnline] handleSignal: 隊員端處理 answer from ${sig.fromUid}`);
     if (_pc && sig.sdp) {
+      console.log(`[SurvivalOnline] handleSignal: 隊員端設置 remote description 前, connectionState=${_pc.connectionState}`);
       await _pc.setRemoteDescription(sig.sdp);
       console.log(`[SurvivalOnline] handleSignal: 隊員端已設置遠程描述，connectionState=${_pc.connectionState}`);
-      Runtime.setEnabled(true);
-      _setText("survival-online-status", "已連線（relay）");
+      // 注意：此時連接可能還未建立，需要等待 ICE 候選者交換
+      // 不要立即啟用 Runtime，等待連接成功後再啟用
+      _setText("survival-online-status", "等待連線中（relay）...");
     } else {
       console.warn(`[SurvivalOnline] handleSignal: 隊員端處理 answer 失敗，_pc=${!!_pc}, sdp=${!!sig.sdp}`);
     }
     return;
   }
   if (sig.type === "candidate") {
-    console.log(`[SurvivalOnline] handleSignal: 處理 candidate from ${sig.fromUid}`);
     const cand = sig.candidate;
-    if (!cand) return;
+    const candStr = cand && cand.candidate ? cand.candidate : "";
+    const isRelay = _candidateIsRelay(cand);
+    console.log(`[SurvivalOnline] handleSignal: 處理 candidate from ${sig.fromUid}, isRelay=${isRelay}, candidate=${candStr.substring(0, 100)}`);
+    if (!cand) {
+      console.warn(`[SurvivalOnline] handleSignal: candidate 為空`);
+      return;
+    }
     // relay-only：只接受 relay candidates
-    if (!_candidateIsRelay(cand)) return;
+    if (!isRelay) {
+      console.warn(`[SurvivalOnline] handleSignal: 跳過非 relay candidate from ${sig.fromUid}`);
+      return;
+    }
     if (_isHost) {
       const fromUid = sig.fromUid;
       const it = _pcsHost.get(fromUid);
       if (it && it.pc) {
-        try { await it.pc.addIceCandidate(cand); } catch (_) {}
+        try { 
+          await it.pc.addIceCandidate(cand);
+          console.log(`[SurvivalOnline] handleSignal: 隊長端已添加 ICE 候選者 for ${fromUid}`);
+        } catch (e) {
+          console.error(`[SurvivalOnline] handleSignal: 隊長端添加 ICE 候選者失敗 for ${fromUid}:`, e);
+        }
+      } else {
+        console.warn(`[SurvivalOnline] handleSignal: 隊長端找不到 PeerConnection for ${fromUid}`);
       }
     } else {
       if (_pc) {
-        try { await _pc.addIceCandidate(cand); } catch (_) {}
+        try { 
+          await _pc.addIceCandidate(cand);
+          console.log(`[SurvivalOnline] handleSignal: 隊員端已添加 ICE 候選者`);
+        } catch (e) {
+          console.error(`[SurvivalOnline] handleSignal: 隊員端添加 ICE 候選者失敗:`, e);
+        }
+      } else {
+        console.warn(`[SurvivalOnline] handleSignal: 隊員端 PeerConnection 不存在`);
       }
     }
   }
