@@ -2385,7 +2385,18 @@ function listenRoom(roomId) {
     roomDocRef(roomId),
     (snap) => {
       _roomState = snap.exists() ? (snap.data() || null) : null;
-      if (_roomState && _roomState.hostUid) _hostUid = _roomState.hostUid;
+      const oldHostUid = _hostUid;
+      if (_roomState && _roomState.hostUid) {
+        _hostUid = _roomState.hostUid;
+        console.log(`[SurvivalOnline] listenRoom: 設置 hostUid=${_hostUid}, 舊值=${oldHostUid}`);
+        // 如果 hostUid 剛設置且隊員端還沒有連接，嘗試連接
+        if (!_isHost && !oldHostUid && _hostUid && !_pc) {
+          console.log(`[SurvivalOnline] listenRoom: hostUid 剛設置，嘗試連接`);
+          connectClientToHost().catch((e) => {
+            console.error(`[SurvivalOnline] listenRoom: 連接失敗:`, e);
+          });
+        }
+      }
       
       // 更新本地 updatedAt 時間戳（用於過期檢查）
       if (_roomState && _roomState.updatedAt) {
@@ -2574,12 +2585,21 @@ function createPeerConnectionCommon() {
 }
 
 async function connectClientToHost() {
-  if (!_activeRoomId || !_hostUid || _isHost) return;
-  if (_pc) return;
+  if (!_activeRoomId || !_hostUid || _isHost) {
+    console.log(`[SurvivalOnline] connectClientToHost: 跳過，activeRoomId=${_activeRoomId}, hostUid=${_hostUid}, isHost=${_isHost}`);
+    return;
+  }
+  if (_pc) {
+    console.log(`[SurvivalOnline] connectClientToHost: 已存在 PeerConnection，跳過`);
+    return;
+  }
+  console.log(`[SurvivalOnline] connectClientToHost: 開始連接，activeRoomId=${_activeRoomId}, hostUid=${_hostUid}`);
   _pc = createPeerConnectionCommon();
   _dc = _pc.createDataChannel("game", { ordered: true });
+  console.log(`[SurvivalOnline] connectClientToHost: 已創建 DataChannel, readyState=${_dc.readyState}`);
 
   _dc.onopen = () => {
+    console.log(`[SurvivalOnline] connectClientToHost: DataChannel 已打開, readyState=${_dc.readyState}`);
     Runtime.setEnabled(true);
     _setText("survival-online-status", "已連線（relay）");
     
@@ -3378,20 +3398,30 @@ function sendToNet(obj) {
 }
 
 async function handleSignal(sig) {
-  if (!sig || typeof sig !== "object") return;
+  if (!sig || typeof sig !== "object") {
+    console.warn(`[SurvivalOnline] handleSignal: 無效信號`, sig);
+    return;
+  }
+  console.log(`[SurvivalOnline] handleSignal: 收到信號 type=${sig.type}, fromUid=${sig.fromUid}, toUid=${sig.toUid}, isHost=${_isHost}`);
   if (sig.type === "offer" && _isHost) {
+    console.log(`[SurvivalOnline] handleSignal: 隊長端處理 offer from ${sig.fromUid}`);
     await hostAcceptOffer(sig.fromUid, sig.sdp);
     return;
   }
   if (sig.type === "answer" && !_isHost) {
+    console.log(`[SurvivalOnline] handleSignal: 隊員端處理 answer from ${sig.fromUid}`);
     if (_pc && sig.sdp) {
       await _pc.setRemoteDescription(sig.sdp);
+      console.log(`[SurvivalOnline] handleSignal: 隊員端已設置遠程描述，connectionState=${_pc.connectionState}`);
       Runtime.setEnabled(true);
       _setText("survival-online-status", "已連線（relay）");
+    } else {
+      console.warn(`[SurvivalOnline] handleSignal: 隊員端處理 answer 失敗，_pc=${!!_pc}, sdp=${!!sig.sdp}`);
     }
     return;
   }
   if (sig.type === "candidate") {
+    console.log(`[SurvivalOnline] handleSignal: 處理 candidate from ${sig.fromUid}`);
     const cand = sig.candidate;
     if (!cand) return;
     // relay-only：只接受 relay candidates
@@ -3864,13 +3894,19 @@ async function enterLobbyAsGuest(roomId) {
   _activeRoomId = r.roomId;
   _isHost = false;
   _hostUid = r.hostUid;
+  console.log(`[SurvivalOnline] enterLobbyAsGuest: 已加入房間，hostUid=${_hostUid}`);
   _setText("survival-online-status", "已加入房間，準備連線…");
   await ensureFirebase();
   listenRoom(_activeRoomId);
   listenMembers(_activeRoomId);
   listenSignals(_activeRoomId);
-  // 連到 host（relay-only）
-  await connectClientToHost();
+  // 連到 host（relay-only）- 如果 hostUid 已設置
+  if (_hostUid) {
+    console.log(`[SurvivalOnline] enterLobbyAsGuest: hostUid 已設置，開始連接`);
+    await connectClientToHost();
+  } else {
+    console.warn(`[SurvivalOnline] enterLobbyAsGuest: hostUid 未設置，等待 listenRoom 設置後再連接`);
+  }
   _startMemberHeartbeat();
 }
 
