@@ -147,6 +147,15 @@ const RemotePlayerManager = (() => {
   // M4：使用完整的 Player 類（而不是簡化的 RemotePlayer）
   // 這樣遠程玩家也能有武器、造成傷害、收集經驗等
   function getOrCreate(uid, startX, startY, characterId, talentLevels = null) {
+    // 防止創建自己的遠程玩家（隊員端不應該創建自己的遠程玩家）
+    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime) {
+      const rt = window.SurvivalOnlineRuntime;
+      if (rt._uid && uid === rt._uid) {
+        console.warn(`[SurvivalOnline] RemotePlayerManager.getOrCreate: 嘗試創建自己的遠程玩家 ${uid}，跳過`);
+        return null;
+      }
+    }
+    
     const existingPlayer = remotePlayers.get(uid);
     
     // 如果遠程玩家已存在，檢查角色是否需要更新（僅在遊戲開始前，避免影響遊戲進行中的玩家）
@@ -261,10 +270,18 @@ const RemotePlayerManager = (() => {
               }
             }
           }
-          // 將遠程玩家添加到 Game.remotePlayers（如果存在）
+          // 將遠程玩家添加到 Game.remotePlayers（如果存在，避免重複添加）
           if (typeof Game !== "undefined") {
             if (!Game.remotePlayers) Game.remotePlayers = [];
-            Game.remotePlayers.push(player);
+            // 檢查是否已經存在（避免重複添加）
+            const existingIndex = Game.remotePlayers.findIndex(p => p && p._remoteUid === uid);
+            if (existingIndex >= 0) {
+              // 如果已存在，替換它（避免重複）
+              Game.remotePlayers[existingIndex] = player;
+            } else {
+              // 如果不存在，才添加
+              Game.remotePlayers.push(player);
+            }
           }
           remotePlayers.set(uid, player);
           return player;
@@ -430,9 +447,15 @@ const Runtime = (() => {
           const remotePlayer = RemotePlayerManager.getOrCreate(uid, p.x, p.y, characterId, talentLevels);
           if (remotePlayer) {
             console.log(`[SurvivalOnline] onStateMessage: 成功創建/更新遠程玩家 ${uid}`);
-            // 更新位置
-            remotePlayer.x = p.x;
-            remotePlayer.y = p.y;
+            // 更新位置（使用插值平滑移動）
+            const targetX = p.x;
+            const targetY = p.y;
+            if (typeof targetX === "number" && typeof targetY === "number") {
+              // 簡單的線性插值（可以改進為更平滑的插值）
+              const lerpFactor = 0.3; // 插值係數（0-1，越小越平滑）
+              remotePlayer.x = remotePlayer.x + (targetX - remotePlayer.x) * lerpFactor;
+              remotePlayer.y = remotePlayer.y + (targetY - remotePlayer.y) * lerpFactor;
+            }
             // 更新其他狀態
             if (typeof p.health === "number") remotePlayer.health = p.health;
             if (typeof p.maxHealth === "number") remotePlayer.maxHealth = p.maxHealth;
@@ -444,6 +467,21 @@ const Runtime = (() => {
             if (typeof p.width === "number" && p.width > 0) remotePlayer.width = p.width;
             if (typeof p.height === "number" && p.height > 0) remotePlayer.height = p.height;
             if (typeof p.collisionRadius === "number" && p.collisionRadius > 0) remotePlayer.collisionRadius = p.collisionRadius;
+            
+            // 確保角色圖片正確設置（如果角色ID存在但圖片未設置）
+            if (characterId && !remotePlayer.spriteImageKey) {
+              try {
+                if (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS) {
+                  const char = CONFIG.CHARACTERS.find(c => c && c.id === characterId);
+                  if (char && char.spriteImageKey) {
+                    remotePlayer.spriteImageKey = char.spriteImageKey;
+                    console.log(`[SurvivalOnline] onStateMessage: 設置遠程玩家 ${uid} 的角色圖片為 ${char.spriteImageKey}`);
+                  }
+                }
+              } catch (e) {
+                console.warn(`[SurvivalOnline] onStateMessage: 設置角色圖片失敗:`, e);
+              }
+            }
           } else {
             console.error(`[SurvivalOnline] onStateMessage: RemotePlayerManager.getOrCreate 返回 null 或 undefined for ${uid}`);
           }
@@ -610,22 +648,21 @@ const Runtime = (() => {
               
               // 根據武器類型創建對應的投射物
               if (weaponType === "ORBIT" || weaponType === "CHICKEN_BLESSING" || weaponType === "ROTATING_MUFFIN" || weaponType === "HEART_COMPANION" || weaponType === "PINEAPPLE_ORBIT") {
-                // 環繞投射物：需要找到對應的玩家
+                // 環繞投射物：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  // 嘗試找到對應的遠程玩家
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      // 創建一個臨時的玩家對象用於環繞（僅用於視覺）
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      // 如果是本地玩家
-                      targetPlayer = Game.player;
+                  // 使用 RemotePlayerManager 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
@@ -653,19 +690,21 @@ const Runtime = (() => {
                   Game.projectiles.push(orb);
                 }
               } else if (weaponType === "LASER" && typeof LaserBeam !== "undefined") {
-                // 雷射：需要找到對應的玩家
+                // 雷射：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // 使用 RemotePlayerManager 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
@@ -685,19 +724,21 @@ const Runtime = (() => {
                   Game.projectiles.push(beam);
                 }
               } else if (weaponType === "MIND_MAGIC" && typeof ShockwaveEffect !== "undefined") {
-                // 震波：需要找到對應的玩家
+                // 震波：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // 使用 RemotePlayerManager 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
@@ -717,19 +758,21 @@ const Runtime = (() => {
                   Game.projectiles.push(shockwave);
                 }
               } else if (weaponType === "SUMMON_AI" && typeof AICompanion !== "undefined") {
-                // 召喚AI：需要找到對應的玩家
+                // 召喚AI：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // 使用 RemotePlayerManager 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
@@ -762,19 +805,21 @@ const Runtime = (() => {
                   }
                 }
               } else if ((weaponType === "CHAIN_LIGHTNING" || weaponType === "FRENZY_LIGHTNING") && typeof ChainLightningEffect !== "undefined") {
-                // 連鎖閃電：需要找到對應的玩家
+                // 連鎖閃電：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // 使用 RemotePlayerManager 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
