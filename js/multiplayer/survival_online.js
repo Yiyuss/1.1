@@ -2671,6 +2671,10 @@ async function connectWebSocket() {
     
     _ws.onerror = (err) => {
       console.error(`[SurvivalOnline] connectWebSocket: WebSocket 錯誤:`, err);
+      // 如果是证书错误，提示用户接受证书
+      if (err.message && err.message.includes('CERT_AUTHORITY_INVALID')) {
+        _setText("survival-online-status", "需要接受证书：访问 https://45.76.96.207:8080 点击'高级'→'继续前往'");
+      }
     };
     
   } catch (e) {
