@@ -51,6 +51,20 @@ const ICE_SERVERS_OPEN_RELAY = [
       "turn:openrelay.metered.ca:80",
       "turn:openrelay.metered.ca:443",
       "turn:openrelay.metered.ca:443?transport=tcp",
+      // 備用 TURN 服務器
+      "turn:relay.metered.ca:80",
+      "turn:relay.metered.ca:443",
+      "turn:relay.metered.ca:443?transport=tcp",
+    ],
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  // 第二個備用配置（使用不同的認證）
+  {
+    urls: [
+      "turn:relay.metered.ca:80",
+      "turn:relay.metered.ca:443",
+      "turn:relay.metered.ca:443?transport=tcp",
     ],
     username: "openrelayproject",
     credential: "openrelayproject",
