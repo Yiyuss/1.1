@@ -3086,6 +3086,10 @@ function _sendViaWebSocket(obj) {
         uid: _uid,
         data: obj
       }));
+      // 添加日志以确认发送（仅对 pos 消息，避免日志过多）
+      if (obj.t === "pos") {
+        console.log(`[SurvivalOnline] _sendViaWebSocket: 已發送 ${obj.t} 消息, isHost=${_isHost}, uid=${_uid}`);
+      }
     } catch (e) {
       console.error(`[SurvivalOnline] _sendViaWebSocket: 發送失敗:`, e);
     }
