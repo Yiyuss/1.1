@@ -151,8 +151,9 @@ let _startSessionId = null;
 
 // WebRTC
 let _pc = null; // 初版：client 只連 host；host 對每個 client 建一條 pc（下方用 map）
-let _pcsHost = new Map(); // host: remoteUid -> { pc, channel }
+let _pcsHost = new Map(); // host: remoteUid -> { pc, channel, cachedCandidates }
 let _dc = null; // client: datachannel
+let _cachedCandidates = []; // client: 緩存的 ICE 候選者（在 remote description 設置前）
 
 // 自動重連機制
 let _reconnectAttempts = 0;
@@ -2903,7 +2904,8 @@ async function hostAcceptOffer(fromUid, sdp) {
   let channel = null;
 
   // 關鍵：先將 PeerConnection 存入 map，這樣 ICE 候選者才能被正確處理
-  _pcsHost.set(fromUid, { pc, channel: null });
+  // 同時初始化候選者緩存數組
+  _pcsHost.set(fromUid, { pc, channel: null, cachedCandidates: [] });
 
   pc.ondatachannel = (ev) => {
     console.log(`[SurvivalOnline] hostAcceptOffer: 收到隊員 ${fromUid} 的 datachannel 事件`);
@@ -3019,6 +3021,21 @@ async function hostAcceptOffer(fromUid, sdp) {
   try {
     await pc.setRemoteDescription(sdp);
     console.log(`[SurvivalOnline] hostAcceptOffer: 已設置 remote description, connectionState=${pc.connectionState}, iceGatheringState=${pc.iceGatheringState}`);
+    
+    // 設置 remote description 後，處理所有緩存的候選者
+    const entry = _pcsHost.get(fromUid);
+    if (entry && entry.cachedCandidates && entry.cachedCandidates.length > 0) {
+      console.log(`[SurvivalOnline] hostAcceptOffer: 處理 ${entry.cachedCandidates.length} 個緩存的候選者 for ${fromUid}`);
+      for (const cand of entry.cachedCandidates) {
+        try {
+          await pc.addIceCandidate(cand);
+          console.log(`[SurvivalOnline] hostAcceptOffer: 已添加緩存的候選者 for ${fromUid}`);
+        } catch (e) {
+          console.warn(`[SurvivalOnline] hostAcceptOffer: 添加緩存的候選者失敗 for ${fromUid}:`, e);
+        }
+      }
+      entry.cachedCandidates = []; // 清空緩存
+    }
   } catch (e) {
     console.error(`[SurvivalOnline] hostAcceptOffer: 設置 remote description 失敗 for ${fromUid}:`, e);
     _pcsHost.delete(fromUid);
@@ -3680,6 +3697,21 @@ async function handleSignal(sig) {
       try {
         await _pc.setRemoteDescription(sig.sdp);
         console.log(`[SurvivalOnline] handleSignal: 隊員端已設置遠程描述，connectionState=${_pc.connectionState}, iceGatheringState=${_pc.iceGatheringState}`);
+        
+        // 設置 remote description 後，處理所有緩存的候選者
+        if (_cachedCandidates && _cachedCandidates.length > 0) {
+          console.log(`[SurvivalOnline] handleSignal: 隊員端處理 ${_cachedCandidates.length} 個緩存的候選者`);
+          for (const cand of _cachedCandidates) {
+            try {
+              await _pc.addIceCandidate(cand);
+              console.log(`[SurvivalOnline] handleSignal: 隊員端已添加緩存的候選者`);
+            } catch (e) {
+              console.warn(`[SurvivalOnline] handleSignal: 隊員端添加緩存的候選者失敗:`, e);
+            }
+          }
+          _cachedCandidates = []; // 清空緩存
+        }
+        
         // 注意：此時連接可能還未建立，需要等待 ICE 候選者交換
         // 不要立即啟用 Runtime，等待連接成功後再啟用
         _setText("survival-online-status", "等待連線中（relay）...");
@@ -3731,13 +3763,22 @@ async function handleSignal(sig) {
             await it.pc.addIceCandidate(cand);
             console.log(`[SurvivalOnline] handleSignal: 隊長端已添加 ICE 候選者 for ${fromUid}`);
           } else {
-            // 如果 remote description 還沒設置，將候選者暫存（但這種情況不應該發生，因為我們先設置 remote description）
-            console.warn(`[SurvivalOnline] handleSignal: 隊長端 remote description 未設置，無法添加候選者 for ${fromUid}`);
+            // 如果 remote description 還沒設置，將候選者暫存
+            if (!it.cachedCandidates) {
+              it.cachedCandidates = [];
+            }
+            it.cachedCandidates.push(cand);
+            console.log(`[SurvivalOnline] handleSignal: 隊長端 remote description 未設置，已緩存候選者 for ${fromUid} (共 ${it.cachedCandidates.length} 個)`);
           }
         } catch (e) {
           // 如果添加失敗，可能是因為 remote description 還沒設置，或者候選者已經添加過
           if (e.name === "InvalidStateError" || e.message?.includes("remote description")) {
-            console.warn(`[SurvivalOnline] handleSignal: 隊長端添加 ICE 候選者失敗（狀態錯誤）for ${fromUid}:`, e.message);
+            // 嘗試緩存候選者
+            if (!it.cachedCandidates) {
+              it.cachedCandidates = [];
+            }
+            it.cachedCandidates.push(cand);
+            console.log(`[SurvivalOnline] handleSignal: 隊長端添加失敗，已緩存候選者 for ${fromUid} (共 ${it.cachedCandidates.length} 個)`);
           } else {
             console.error(`[SurvivalOnline] handleSignal: 隊長端添加 ICE 候選者失敗 for ${fromUid}:`, e);
           }
@@ -3753,11 +3794,21 @@ async function handleSignal(sig) {
             await _pc.addIceCandidate(cand);
             console.log(`[SurvivalOnline] handleSignal: 隊員端已添加 ICE 候選者`);
           } else {
-            console.warn(`[SurvivalOnline] handleSignal: 隊員端 remote description 未設置，無法添加候選者`);
+            // 如果 remote description 還沒設置，將候選者暫存
+            if (!_cachedCandidates) {
+              _cachedCandidates = [];
+            }
+            _cachedCandidates.push(cand);
+            console.log(`[SurvivalOnline] handleSignal: 隊員端 remote description 未設置，已緩存候選者 (共 ${_cachedCandidates.length} 個)`);
           }
         } catch (e) {
           if (e.name === "InvalidStateError" || e.message?.includes("remote description")) {
-            console.warn(`[SurvivalOnline] handleSignal: 隊員端添加 ICE 候選者失敗（狀態錯誤）:`, e.message);
+            // 嘗試緩存候選者
+            if (!_cachedCandidates) {
+              _cachedCandidates = [];
+            }
+            _cachedCandidates.push(cand);
+            console.log(`[SurvivalOnline] handleSignal: 隊員端添加失敗，已緩存候選者 (共 ${_cachedCandidates.length} 個)`);
           } else {
             console.error(`[SurvivalOnline] handleSignal: 隊員端添加 ICE 候選者失敗:`, e);
           }
