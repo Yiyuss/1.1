@@ -2637,14 +2637,29 @@ function createPeerConnectionCommon() {
     iceTransportPolicy: ICE_TRANSPORT_POLICY, // 關鍵：只走 relay，避免暴露 IP
   });
   
-  // 診斷：監聽 ICE 連接狀態
-  pc.oniceconnectionstatechange = () => {
-    console.log(`[SurvivalOnline] ICE 連接狀態變更: ${pc.iceConnectionState}, connectionState=${pc.connectionState}`);
-  };
+  // 診斷：記錄 TURN 服務器配置
+  console.log(`[SurvivalOnline] createPeerConnectionCommon: TURN 服務器配置`, {
+    urls: ICE_SERVERS_OPEN_RELAY[0].urls,
+    username: ICE_SERVERS_OPEN_RELAY[0].username,
+    credentialLength: ICE_SERVERS_OPEN_RELAY[0].credential ? ICE_SERVERS_OPEN_RELAY[0].credential.length : 0,
+    credentialPreview: ICE_SERVERS_OPEN_RELAY[0].credential ? ICE_SERVERS_OPEN_RELAY[0].credential.substring(0, 3) + "..." : "null"
+  });
   
   // 診斷：監聽 ICE 收集狀態
   pc.onicegatheringstatechange = () => {
     console.log(`[SurvivalOnline] ICE 收集狀態變更: ${pc.iceGatheringState}`);
+    // 如果收集完成但沒有候選者，記錄詳細信息
+    if (pc.iceGatheringState === "complete") {
+      console.log(`[SurvivalOnline] ICE 收集完成，連接狀態: ${pc.iceConnectionState}, 本地描述: ${pc.localDescription ? "已設置" : "未設置"}, 遠程描述: ${pc.remoteDescription ? "已設置" : "未設置"}`);
+    }
+  };
+  
+  // 診斷：監聽 ICE 連接狀態
+  pc.oniceconnectionstatechange = () => {
+    console.log(`[SurvivalOnline] ICE 連接狀態變更: ${pc.iceConnectionState}, connectionState=${pc.connectionState}, iceGatheringState=${pc.iceGatheringState}`);
+    if (pc.iceConnectionState === "failed") {
+      console.error(`[SurvivalOnline] ICE 連接失敗！可能原因：TURN 服務器不可用、網絡問題、或配置錯誤`);
+    }
   };
   
   return pc;
