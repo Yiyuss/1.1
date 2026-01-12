@@ -2406,7 +2406,17 @@ async function sendSignal(payload) {
     return;
   }
   try {
-    await addDoc(signalsColRef(_activeRoomId), { ...payload, createdAt: serverTimestamp() });
+    // 序列化 RTCIceCandidate 对象（Firebase 无法存储自定义对象）
+    const serializedPayload = { ...payload };
+    if (payload.candidate && payload.candidate instanceof RTCIceCandidate) {
+      serializedPayload.candidate = {
+        candidate: payload.candidate.candidate,
+        sdpMLineIndex: payload.candidate.sdpMLineIndex,
+        sdpMid: payload.candidate.sdpMid,
+        usernameFragment: payload.candidate.usernameFragment,
+      };
+    }
+    await addDoc(signalsColRef(_activeRoomId), { ...serializedPayload, createdAt: serverTimestamp() });
     console.log(`[SurvivalOnline] sendSignal: 已發送信號 type=${payload.type}, toUid=${payload.toUid}`);
   } catch (e) {
     console.error(`[SurvivalOnline] sendSignal: 發送失敗 type=${payload.type}, toUid=${payload.toUid}:`, e);
@@ -3683,7 +3693,22 @@ async function handleSignal(sig) {
     return;
   }
   if (sig.type === "candidate") {
-    const cand = sig.candidate;
+    // 反序列化：如果 candidate 是普通对象，转换为 RTCIceCandidate
+    let cand = sig.candidate;
+    if (cand && !(cand instanceof RTCIceCandidate)) {
+      // Firebase 返回的是普通对象，需要转换为 RTCIceCandidate
+      try {
+        cand = new RTCIceCandidate({
+          candidate: cand.candidate,
+          sdpMLineIndex: cand.sdpMLineIndex,
+          sdpMid: cand.sdpMid,
+          usernameFragment: cand.usernameFragment,
+        });
+      } catch (e) {
+        console.error(`[SurvivalOnline] handleSignal: 轉換 candidate 失敗:`, e);
+        return;
+      }
+    }
     const candStr = cand && cand.candidate ? cand.candidate : "";
     const isRelay = _candidateIsRelay(cand);
     console.log(`[SurvivalOnline] handleSignal: 處理 candidate from ${sig.fromUid}, isRelay=${isRelay}, candidate=${candStr.substring(0, 100)}`);
