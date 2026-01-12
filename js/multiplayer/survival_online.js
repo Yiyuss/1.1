@@ -43,8 +43,8 @@ const FIREBASE_CONFIG = {
   appId: "1:513407424654:web:95d3246d5afeb6dccd11df",
 };
 
-// WebSocket 服務器配置
-const WEBSOCKET_SERVER_URL = "ws://45.76.96.207:8080";
+// WebSocket 服務器配置（使用 WSS 以支持 HTTPS 頁面）
+const WEBSOCKET_SERVER_URL = "wss://45.76.96.207:8080";
 
 const MAX_PLAYERS = 5;
 const ROOM_TTL_MS = 1000 * 60 * 60; // 1小時（僅用於前端清理提示；真正清理由規則/人為）
@@ -3824,8 +3824,7 @@ async function handleSignal(sig) {
 }
 
 async function reconnectClient() {
-  if (_isHost) return;
-  if (!_activeRoomId) return;
+  if (!_activeRoomId || !_uid) return;
   
   // 清除舊的重連定時器
   if (_reconnectTimer) {
@@ -3837,47 +3836,32 @@ async function reconnectClient() {
     _setText("survival-online-status", "重新連線中…");
   } catch (_) {}
   
-  // 清理舊連接
+  // 清理舊 WebSocket 連接
   try { 
-    if (_dc) {
-      _dc.onclose = null; // 避免觸發自動重連循環
-      _dc.close(); 
+    if (_ws) {
+      _ws.onclose = null; // 避免觸發自動重連循環
+      _ws.close(); 
     }
   } catch (_) {}
-  _dc = null;
-  try { 
-    if (_pc) {
-      _pc.onconnectionstatechange = null; // 避免觸發自動重連循環
-      _pc.close(); 
-    }
-  } catch (_) {}
-  _pc = null;
+  _ws = null;
   Runtime.setEnabled(false);
   
-  // hostUid 若尚未就緒，等一下 room snapshot
-  if (!_hostUid) {
+  // 等待房間信息就緒
+  if (!_activeRoomId) {
     for (let i = 0; i < 20; i++) {
-      if (_hostUid) break;
+      if (_activeRoomId) break;
       await new Promise(r => setTimeout(r, 100));
     }
   }
-  if (!_hostUid) {
-    _setText("survival-online-status", "無法重新連線：找不到室長");
-    // 如果找不到室長，繼續嘗試重連（可能只是暫時的）
-    if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-      _reconnectAttempts++;
-      _reconnectTimer = setTimeout(async () => {
-        await reconnectClient();
-      }, RECONNECT_DELAY_MS);
-    }
+  if (!_activeRoomId) {
+    _setText("survival-online-status", "無法重新連線：找不到房間");
     return;
   }
   
   try {
-    await connectClientToHost();
+    await connectWebSocket();
   } catch (e) {
     console.warn("[SurvivalOnline] 重連失敗:", e);
-    // 重連失敗會由 onclose 或 onconnectionstatechange 處理
     throw e;
   }
 }
@@ -4267,7 +4251,9 @@ async function enterLobbyAsHost(initialParams) {
   await ensureFirebase();
   listenRoom(_activeRoomId);
   listenMembers(_activeRoomId);
-  listenSignals(_activeRoomId);
+  // 移除 listenSignals（不再需要 WebRTC 信令）
+  // 连接 WebSocket
+  await connectWebSocket();
   Runtime.setEnabled(true);
   _syncHostSelectsFromRoom();
   _startMemberHeartbeat();
@@ -4283,10 +4269,9 @@ async function enterLobbyAsGuest(roomId) {
   await ensureFirebase();
   listenRoom(_activeRoomId);
   listenMembers(_activeRoomId);
-  listenSignals(_activeRoomId);
-  // 重要：使用 WebRTC + TURN 服務器，保護隱私，不暴露 IP
-  // Firebase 中繼會暴露 IP，因此改用 WebRTC + 自建 TURN 服務器
-  await connectClientToHost();
+  // 移除 listenSignals（不再需要 WebRTC 信令）
+  // 连接 WebSocket（替代 WebRTC）
+  await connectWebSocket();
   _startMemberHeartbeat();
 }
 
