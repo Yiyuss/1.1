@@ -381,6 +381,7 @@ const Runtime = (() => {
   let enabled = false;
   let lastSendAt = 0;
   let lastInputAt = 0;
+  let _tickCalled = false; // 用于诊断
   const remotePlayers = new Map(); // uid -> { x, y, name, updatedAt }
 
   function setEnabled(v) {
@@ -1563,11 +1564,12 @@ const Runtime = (() => {
   }
 
   function tick(game, deltaTime) {
+    // 添加日志以确认 tick 被调用（仅第一次，避免日志过多）
+    if (!_tickCalled) {
+      _tickCalled = true;
+      console.log(`[SurvivalOnline] tick: 第一次被調用, enabled=${enabled}, isHost=${_isHost}`);
+    }
     if (!enabled) {
-      // 添加日志以诊断
-      if (!_isHost && Math.random() < 0.01) { // 1% 概率记录，避免日志过多
-        console.log(`[SurvivalOnline] tick: enabled=false, isHost=${_isHost}`);
-      }
       return;
     }
     const now = Date.now();
@@ -1575,10 +1577,6 @@ const Runtime = (() => {
     lastSendAt = now;
     const st = collectLocalState(game);
     if (!st) {
-      // 添加日志以诊断
-      if (!_isHost && Math.random() < 0.01) {
-        console.log(`[SurvivalOnline] tick: collectLocalState 返回 null, isHost=${_isHost}`);
-      }
       return;
     }
     // 添加日志以诊断（仅队员端，避免日志过多）
