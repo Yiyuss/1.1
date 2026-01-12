@@ -573,6 +573,11 @@ const Game = {
                 isSurvivalMode = true;
             }
             
+            // 强制检查：如果有多人模式，直接认为是生存模式（最保险的方式）
+            if (!isSurvivalMode && this.multiplayer && (this.multiplayer.roomId || this.multiplayer.sessionId || this.multiplayer.role)) {
+                isSurvivalMode = true;
+            }
+            
             if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && typeof window.SurvivalOnlineRuntime.Runtime.tick === 'function') {
                 window.SurvivalOnlineRuntime.Runtime.tick(this, deltaTime);
             } else {
@@ -584,7 +589,7 @@ const Game = {
                         : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
                             ? ModeManager.getActiveModeId()
                             : null);
-                    console.log(`[Game] tick 诊断: isSurvivalMode=${isSurvivalMode}, activeId=${activeId}, hasMultiplayer=${!!this.multiplayer}, multiplayerRoomId=${this.multiplayer ? this.multiplayer.roomId : 'null'}, multiplayerSessionId=${this.multiplayer ? this.multiplayer.sessionId : 'null'}, hasRuntime=${!!window.SurvivalOnlineRuntime}, hasRuntimeRuntime=${!!(window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime)}, hasTick=${!!(window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && typeof window.SurvivalOnlineRuntime.Runtime.tick === 'function')}`);
+                    console.log(`[Game] tick 诊断: isSurvivalMode=${isSurvivalMode}, activeId=${activeId}, hasMultiplayer=${!!this.multiplayer}, multiplayerRoomId=${this.multiplayer ? this.multiplayer.roomId : 'null'}, multiplayerSessionId=${this.multiplayer ? this.multiplayer.sessionId : 'null'}, multiplayerRole=${this.multiplayer ? this.multiplayer.role : 'null'}, hasRuntime=${!!window.SurvivalOnlineRuntime}, hasRuntimeRuntime=${!!(window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime)}, hasTick=${!!(window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && typeof window.SurvivalOnlineRuntime.Runtime.tick === 'function')}`);
                 }
             }
             
