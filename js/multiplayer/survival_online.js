@@ -9,7 +9,7 @@
 // - apiKey 不是密碼，可公開；但 Firestore 規則與匿名登入必須正確設定以避免被濫用。
 // - 重要：Firebase 中繼會暴露 IP，因此使用 WebSocket 服務器中繼，不暴露玩家 IP 地址。
 // - 所有遊戲數據通過 WebSocket 服務器中繼，不暴露玩家 IP 地址。
-// - WebSocket 服務器：45.76.96.207:8080（Vultr VPS，自建）
+// - WebSocket 服務器：ws.yiyuss-ws.com:8080（Vultr VPS，自建，使用 Let's Encrypt 證書）
 //
 // 維護備註：
 // - 不修改 SaveCode/localStorage 結構，不新增任何會進入引繼碼的存檔欄位。
@@ -44,7 +44,7 @@ const FIREBASE_CONFIG = {
 };
 
 // WebSocket 服務器配置（使用 WSS 以支持 HTTPS 頁面）
-const WEBSOCKET_SERVER_URL = "wss://45.76.96.207:8080";
+const WEBSOCKET_SERVER_URL = "wss://ws.yiyuss-ws.com:8080";
 
 const MAX_PLAYERS = 5;
 const ROOM_TTL_MS = 1000 * 60 * 60; // 1小時（僅用於前端清理提示；真正清理由規則/人為）
@@ -2702,8 +2702,8 @@ async function connectWebSocket() {
       if (isCertError) {
         // Firefox 需要单独访问 HTTPS 页面接受证书
         const browser = navigator.userAgent.includes('Firefox') ? 'Firefox' : '浏览器';
-        _setText("survival-online-status", `需要接受证书（${browser}）：请在新标签页访问 https://45.76.96.207:8080 点击'高级'→'接受风险并继续'，然后刷新游戏页面`);
-        console.warn(`[SurvivalOnline] 证书错误：请在 ${browser} 中访问 https://45.76.96.207:8080 接受证书`);
+        _setText("survival-online-status", `連線失敗：WebSocket 錯誤（請檢查網絡連接）`);
+        console.warn(`[SurvivalOnline] 证书错误：WebSocket 連接失敗，請檢查網絡連接`);
       } else {
         _setText("survival-online-status", "連線失敗：WebSocket 錯誤");
       }
