@@ -918,12 +918,30 @@ const Game = {
                         continue;
                     }
                     
+                    // 確保不是本地玩家（防止重複渲染）
+                    if (p === this.player || (p._remoteUid && this.multiplayer && this.multiplayer.uid === p._remoteUid)) {
+                        continue; // 跳過本地玩家
+                    }
+                    
+                    // 確保是遠程玩家標記
+                    if (!p._isRemotePlayer || !p._remoteUid) {
+                        console.warn(`[Game] drawEntities: 跳過非遠程玩家`, p);
+                        continue;
+                    }
+                    
                     // 繪製遠程玩家血條
                     this._drawRemotePlayerHealthBar(p);
                     
                     // 使用 Player 對象的 draw 方法繪製角色（與本地玩家一致，包含武器和攻擊效果）
                     if (typeof p.draw === 'function') {
+                        // 檢查角色圖片是否已加載
+                        const spriteKey = p.spriteImageKey || 'player';
+                        if (!Game.images || !Game.images[spriteKey]) {
+                            console.warn(`[Game] drawEntities: 遠程玩家 ${p._remoteUid} 的角色圖片未加載: ${spriteKey}`);
+                        }
                         p.draw(this.ctx);
+                    } else {
+                        console.warn(`[Game] drawEntities: 遠程玩家 ${p._remoteUid} 沒有 draw 方法`);
                     }
                     
                     // 繪製遠程玩家名稱（在角色上方）
