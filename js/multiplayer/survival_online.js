@@ -2,14 +2,14 @@
 // 目標：
 // - 僅在生存模式流程中啟用（不影響其他模式）
 // - 使用 Firebase（匿名登入 + Firestore）做 signaling / 房間大廳
-// - 使用 WebRTC + 自建 TURN 服務器進行遊戲數據傳輸，保護隱私，不暴露 IP
+// - 使用 WebSocket 服務器進行遊戲數據傳輸，保護隱私，不暴露 IP
 // - 提供完整的多人同步：玩家位置、狀態、敵人、技能效果等
 //
 // 安全/隱私備註：
 // - apiKey 不是密碼，可公開；但 Firestore 規則與匿名登入必須正確設定以避免被濫用。
-// - 重要：Firebase 中繼會暴露 IP，因此必須使用 WebRTC + 自建 TURN 服務器（iceTransportPolicy: "relay"）
-// - 所有遊戲數據通過 WebRTC DataChannel + TURN 服務器中繼，不暴露玩家 IP 地址。
-// - TURN 服務器：45.76.96.207（Vultr VPS，自建）
+// - 重要：Firebase 中繼會暴露 IP，因此使用 WebSocket 服務器中繼，不暴露玩家 IP 地址。
+// - 所有遊戲數據通過 WebSocket 服務器中繼，不暴露玩家 IP 地址。
+// - WebSocket 服務器：45.76.96.207:8080（Vultr VPS，自建）
 //
 // 維護備註：
 // - 不修改 SaveCode/localStorage 結構，不新增任何會進入引繼碼的存檔欄位。
@@ -43,27 +43,8 @@ const FIREBASE_CONFIG = {
   appId: "1:513407424654:web:95d3246d5afeb6dccd11df",
 };
 
-function _decodeTurnCredential() {
-  const parts = ["WWlZdXNzOTYzMDAwIUAj"];
-  try {
-    return atob(parts[0]);
-  } catch (_) {
-    return "";
-  }
-}
-
-const ICE_SERVERS_OPEN_RELAY = [
-  {
-    urls: [
-      "turn:45.76.96.207:3478",
-      "turn:45.76.96.207:3478?transport=tcp",
-      "turns:45.76.96.207:5349",
-      "turns:45.76.96.207:5349?transport=tcp",
-    ],
-    username: "game-turn",
-    credential: _decodeTurnCredential(),
-  },
-];
+// WebSocket 服務器配置
+const WEBSOCKET_SERVER_URL = "ws://45.76.96.207:8080";
 
 const MAX_PLAYERS = 5;
 const ROOM_TTL_MS = 1000 * 60 * 60; // 1小時（僅用於前端清理提示；真正清理由規則/人為）
@@ -149,11 +130,9 @@ let _memberHeartbeatTimer = null;
 let _startTimer = null;
 let _startSessionId = null;
 
-// WebRTC
-let _pc = null; // 初版：client 只連 host；host 對每個 client 建一條 pc（下方用 map）
-let _pcsHost = new Map(); // host: remoteUid -> { pc, channel, cachedCandidates }
-let _dc = null; // client: datachannel
-let _cachedCandidates = []; // client: 緩存的 ICE 候選者（在 remote description 設置前）
+// WebSocket
+let _ws = null; // WebSocket 連接
+let _wsReconnectAttempts = 0; // 重連嘗試次數
 
 // 自動重連機制
 let _reconnectAttempts = 0;
@@ -1827,15 +1806,12 @@ const Runtime = (() => {
             collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : null
           };
         }
-        // 使用 WebRTC DataChannel 廣播給所有 client（通過 TURN 服務器，不暴露 IP）
+        // 使用 WebSocket 廣播給所有 client（通過服務器中繼，不暴露 IP）
         const memberCount = _membersState ? _membersState.size - 1 : 0; // 減去 host 自己
         console.log(`[SurvivalOnline] updateRemotePlayers: 廣播狀態給 ${memberCount} 個客戶端，玩家數量=${Object.keys(players).length}`);
-        // 通過 WebRTC DataChannel 廣播給所有已連接的隊員
-        for (const [uid, it] of _pcsHost.entries()) {
-          const ch = (it && it.channel) ? it.channel : null;
-          if (ch && ch.readyState === "open") {
-            _sendToChannel(ch, { t: "state", players });
-          }
+        // 通過 WebSocket 廣播給所有已連接的隊員
+        if (_ws && _ws.readyState === WebSocket.OPEN) {
+          _sendViaWebSocket({ t: "state", players });
         }
       }
 
@@ -1844,12 +1820,9 @@ const Runtime = (() => {
         lastSnapshotAt = now;
         const snapshot = collectSnapshot();
         if (snapshot) {
-          // 使用 WebRTC DataChannel 廣播快照給所有 client（通過 TURN 服務器，不暴露 IP）
-          for (const [uid, it] of _pcsHost.entries()) {
-            const ch = (it && it.channel) ? it.channel : null;
-            if (ch && ch.readyState === "open") {
-              _sendToChannel(ch, { t: "snapshot", ...snapshot });
-            }
+          // 使用 WebSocket 廣播快照給所有 client（通過服務器中繼，不暴露 IP）
+          if (_ws && _ws.readyState === WebSocket.OPEN) {
+            _sendViaWebSocket({ t: "snapshot", ...snapshot });
           }
         }
       }
@@ -1936,15 +1909,15 @@ const Runtime = (() => {
             collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : ((typeof p.collisionRadius === "number" && p.collisionRadius > 0) ? p.collisionRadius : null)
           };
         }
-        for (const [uid, it] of _pcsHost.entries()) {
-          const ch = (it && it.channel) ? it.channel : null;
-          _sendToChannel(ch, { t: "state", players });
+        // 使用 WebSocket 廣播
+        if (_ws && _ws.readyState === WebSocket.OPEN) {
+          _sendViaWebSocket({ t: "state", players });
         }
       }
       return;
     }
     // client：送到 host
-    _sendToChannel(_dc, obj);
+    _sendViaWebSocket(obj);
   }
 
   return { setEnabled, onStateMessage, onEventMessage, onSnapshotMessage, onFullSnapshotMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers, broadcastEvent: broadcastEventFromRuntime, sendToNet };
@@ -2232,63 +2205,24 @@ async function leaveRoom() {
     }
   } catch (_) {}
 
-  // 關閉連線（完全清理 WebRTC）
+  // 關閉 WebSocket 連接
   try { 
-    if (_dc) {
-      _dc.onmessage = null;
-      _dc.onopen = null;
-      _dc.onclose = null;
-      _dc.onerror = null;
-      _dc.close(); 
+    if (_ws) {
+      _ws.onmessage = null;
+      _ws.onopen = null;
+      _ws.onclose = null;
+      _ws.onerror = null;
+      _ws.close(); 
     }
   } catch (_) {}
-  _dc = null;
-  
-  try { 
-    if (_pc) {
-      _pc.onconnectionstatechange = null;
-      _pc.onicecandidate = null;
-      _pc.ondatachannel = null;
-      _pc.ontrack = null;
-      _pc.close(); 
-    }
-  } catch (_) {}
-  _pc = null;
-  
-  for (const { pc, channel } of _pcsHost.values()) {
-    try { 
-      if (channel) {
-        channel.onmessage = null;
-        channel.onopen = null;
-        channel.onclose = null;
-        channel.onerror = null;
-        channel.close(); 
-      }
-    } catch (_) {}
-    try { 
-      if (pc) {
-        pc.onconnectionstatechange = null;
-        pc.onicecandidate = null;
-        pc.ondatachannel = null;
-        pc.ontrack = null;
-        pc.close(); 
-      }
-    } catch (_) {}
-  }
-  _pcsHost.clear();
+  _ws = null;
+  _wsReconnectAttempts = 0;
   
   // 停止自動清理
   stopAutoCleanup();
   
   // 清理速率限制追蹤
   _rateLimitTracker.clear();
-  
-  // 清理自動重連機制
-  if (_reconnectTimer) {
-    clearTimeout(_reconnectTimer);
-    _reconnectTimer = null;
-  }
-  _reconnectAttempts = 0;
 
   Runtime.setEnabled(false);
 
@@ -2435,11 +2369,11 @@ function listenRoom(roomId) {
       if (_roomState && _roomState.hostUid) {
         _hostUid = _roomState.hostUid;
         console.log(`[SurvivalOnline] listenRoom: 設置 hostUid=${_hostUid}, 舊值=${oldHostUid}`);
-        // 如果 hostUid 剛設置且隊員端還沒有連接，嘗試連接
-        if (!_isHost && !oldHostUid && _hostUid && !_pc) {
-          console.log(`[SurvivalOnline] listenRoom: hostUid 剛設置，嘗試連接`);
-          connectClientToHost().catch((e) => {
-            console.error(`[SurvivalOnline] listenRoom: 連接失敗:`, e);
+        // 如果 hostUid 剛設置且隊員端還沒有連接，嘗試連接 WebSocket
+        if (!_isHost && !oldHostUid && _hostUid && !_ws) {
+          console.log(`[SurvivalOnline] listenRoom: hostUid 剛設置，嘗試連接 WebSocket`);
+          connectWebSocket().catch((e) => {
+            console.error(`[SurvivalOnline] listenRoom: WebSocket 連接失敗:`, e);
           });
         }
       }
@@ -2638,44 +2572,115 @@ function listenSignals(roomId) {
   );
 }
 
-function createPeerConnectionCommon() {
-  // 重要：必須使用 "relay" 以保護用戶隱私（不暴露 IP）
-  // 這需要可用的 TURN 服務器，請參考文檔搭建自己的 TURN 服務器
-  const ICE_TRANSPORT_POLICY = "relay";
+// 連接 WebSocket 服務器
+async function connectWebSocket() {
+  if (!_activeRoomId || !_uid) {
+    console.log(`[SurvivalOnline] connectWebSocket: 跳過，activeRoomId=${_activeRoomId}, uid=${_uid}`);
+    return;
+  }
+  if (_ws && _ws.readyState === WebSocket.OPEN) {
+    console.log(`[SurvivalOnline] connectWebSocket: WebSocket 已連接，跳過`);
+    return;
+  }
+  if (_ws) {
+    // 關閉舊連接
+    try {
+      _ws.close();
+    } catch (_) {}
+  }
   
-  const pc = new RTCPeerConnection({
-    iceServers: ICE_SERVERS_OPEN_RELAY,
-    iceTransportPolicy: ICE_TRANSPORT_POLICY, // 關鍵：只走 relay，避免暴露 IP
-  });
+  console.log(`[SurvivalOnline] connectWebSocket: 開始連接，activeRoomId=${_activeRoomId}, uid=${_uid}, isHost=${_isHost}`);
   
-  // 診斷：記錄 TURN 服務器配置
-  console.log(`[SurvivalOnline] createPeerConnectionCommon: TURN 服務器配置`, {
-    urls: ICE_SERVERS_OPEN_RELAY[0].urls,
-    username: ICE_SERVERS_OPEN_RELAY[0].username,
-    credentialLength: ICE_SERVERS_OPEN_RELAY[0].credential ? ICE_SERVERS_OPEN_RELAY[0].credential.length : 0,
-    credentialPreview: ICE_SERVERS_OPEN_RELAY[0].credential ? ICE_SERVERS_OPEN_RELAY[0].credential.substring(0, 3) + "..." : "null"
-  });
-  
-  // 診斷：監聽 ICE 收集狀態
-  pc.onicegatheringstatechange = () => {
-    console.log(`[SurvivalOnline] ICE 收集狀態變更: ${pc.iceGatheringState}`);
-    // 如果收集完成但沒有候選者，記錄詳細信息
-    if (pc.iceGatheringState === "complete") {
-      console.log(`[SurvivalOnline] ICE 收集完成，連接狀態: ${pc.iceConnectionState}, 本地描述: ${pc.localDescription ? "已設置" : "未設置"}, 遠程描述: ${pc.remoteDescription ? "已設置" : "未設置"}`);
-    }
-  };
-  
-  // 診斷：監聽 ICE 連接狀態
-  pc.oniceconnectionstatechange = () => {
-    console.log(`[SurvivalOnline] ICE 連接狀態變更: ${pc.iceConnectionState}, connectionState=${pc.connectionState}, iceGatheringState=${pc.iceGatheringState}`);
-    if (pc.iceConnectionState === "failed") {
-      console.error(`[SurvivalOnline] ICE 連接失敗！可能原因：TURN 服務器不可用、網絡問題、或配置錯誤`);
-    }
-  };
-  
-  return pc;
+  try {
+    _ws = new WebSocket(WEBSOCKET_SERVER_URL);
+    
+    _ws.onopen = () => {
+      console.log(`[SurvivalOnline] connectWebSocket: WebSocket 已打開`);
+      _wsReconnectAttempts = 0;
+      
+      // 發送加入房間消息
+      _ws.send(JSON.stringify({
+        type: 'join',
+        roomId: _activeRoomId,
+        uid: _uid,
+        isHost: _isHost
+      }));
+      
+      Runtime.setEnabled(true);
+      _setText("survival-online-status", "已連線（WebSocket）");
+    };
+    
+    _ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        
+        if (msg.type === 'joined') {
+          console.log(`[SurvivalOnline] connectWebSocket: 已加入房間`);
+        } else if (msg.type === 'game-data') {
+          // 處理遊戲數據
+          const data = msg.data;
+          if (data.t === "state") {
+            Runtime.onStateMessage(data);
+          } else if (data.t === "event") {
+            Runtime.onEventMessage(data);
+          } else if (data.t === "snapshot") {
+            Runtime.onSnapshotMessage(data);
+          } else if (data.t === "full_snapshot") {
+            Runtime.onFullSnapshotMessage(data);
+          }
+        } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
+          // 用戶加入/離開通知（可選）
+          console.log(`[SurvivalOnline] connectWebSocket: ${msg.type}, uid=${msg.uid}`);
+        }
+      } catch (e) {
+        console.error(`[SurvivalOnline] connectWebSocket: 處理消息失敗:`, e);
+      }
+    };
+    
+    _ws.onclose = () => {
+      console.log(`[SurvivalOnline] connectWebSocket: WebSocket 已關閉`);
+      Runtime.setEnabled(false);
+      _setText("survival-online-status", "連線已中斷");
+      
+      // 自動重連機制
+      if (_wsReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        _wsReconnectAttempts++;
+        _setText("survival-online-status", `重新連線中... (${_wsReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+        console.log(`[SurvivalOnline] 自動重連嘗試 ${_wsReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
+        
+        setTimeout(() => {
+          connectWebSocket().catch((e) => {
+            console.warn("[SurvivalOnline] 自動重連失敗:", e);
+          });
+        }, RECONNECT_DELAY_MS);
+      } else {
+        console.log("[SurvivalOnline] 自動重連失敗次數過多，返回大廳");
+        _setText("survival-online-status", "連線失敗，返回大廳");
+        _wsReconnectAttempts = 0;
+        setTimeout(() => {
+          try {
+            if (typeof Game !== "undefined" && Game.gameOver) {
+              Game.gameOver();
+            }
+          } catch (_) {}
+          leaveRoom().catch(() => {});
+          closeLobbyToSelect();
+        }, 1000);
+      }
+    };
+    
+    _ws.onerror = (err) => {
+      console.error(`[SurvivalOnline] connectWebSocket: WebSocket 錯誤:`, err);
+    };
+    
+  } catch (e) {
+    console.error(`[SurvivalOnline] connectWebSocket: 連接失敗:`, e);
+    _ws = null;
+    throw e;
+  }
 }
 
+// 舊的 WebRTC 函數（已廢棄，保留以避免錯誤）
 async function connectClientToHost() {
   if (!_activeRoomId || !_hostUid || _isHost) {
     console.log(`[SurvivalOnline] connectClientToHost: 跳過，activeRoomId=${_activeRoomId}, hostUid=${_hostUid}, isHost=${_isHost}`);
@@ -3067,22 +3072,25 @@ async function hostAcceptOffer(fromUid, sdp) {
 
 // 使用 WebRTC + TURN 服務器，保護隱私，不暴露 IP
 // 重要：Firebase 中繼會暴露 IP，因此必須使用 WebRTC + 自建 TURN 服務器
-function _sendToChannel(ch, obj) {
-  // 優先使用 WebRTC DataChannel（通過 TURN 服務器，不暴露 IP）
-  if (ch && ch.readyState === "open") {
-    try { 
-      ch.send(JSON.stringify(obj)); 
-      return;
+// 通過 WebSocket 發送消息
+function _sendViaWebSocket(obj) {
+  if (_ws && _ws.readyState === WebSocket.OPEN) {
+    try {
+      _ws.send(JSON.stringify({
+        type: 'game-data',
+        roomId: _activeRoomId,
+        uid: _uid,
+        data: obj
+      }));
     } catch (e) {
-      console.error(`[SurvivalOnline] _sendToChannel: WebRTC 發送失敗:`, e);
+      console.error(`[SurvivalOnline] _sendViaWebSocket: 發送失敗:`, e);
     }
+  } else {
+    console.warn(`[SurvivalOnline] _sendViaWebSocket: WebSocket 不可用，消息未發送`, {
+      wsReadyState: _ws ? _ws.readyState : 'null',
+      messageType: obj.t
+    });
   }
-  
-  // 如果 WebRTC 不可用，記錄警告（不應該發生）
-  console.warn(`[SurvivalOnline] _sendToChannel: WebRTC DataChannel 不可用，消息未發送`, {
-    channelReadyState: ch ? ch.readyState : 'null',
-    messageType: obj.t
-  });
 }
 
 // 通過 Firebase 發送消息（替代 WebRTC DataChannel）
@@ -3227,10 +3235,9 @@ function sendFullSnapshotToClient(targetUid) {
       }
     } catch (_) {}
     
-    // 發送給指定隊員
-    const it = _pcsHost.get(targetUid);
-    if (it && it.channel) {
-      _sendToChannel(it.channel, fullSnapshot);
+    // 發送給指定隊員（通過 WebSocket 廣播，服務器會轉發給目標用戶）
+    if (_ws && _ws.readyState === WebSocket.OPEN) {
+      _sendViaWebSocket(fullSnapshot);
       console.log(`[SurvivalOnline] M5: 已發送全量快照給隊員 ${targetUid}`);
     }
   } catch (e) {
@@ -3247,12 +3254,9 @@ function broadcastEvent(eventType, eventData) {
     data: eventData,
     timestamp: Date.now()
   };
-  // 使用 WebRTC DataChannel 廣播給所有 client（通過 TURN 服務器，不暴露 IP）
-  for (const [uid, it] of _pcsHost.entries()) {
-    const ch = (it && it.channel) ? it.channel : null;
-    if (ch && ch.readyState === "open") {
-      _sendToChannel(ch, event);
-    }
+  // 使用 WebSocket 廣播給所有 client（通過服務器中繼，不暴露 IP）
+  if (_ws && _ws.readyState === WebSocket.OPEN) {
+    _sendViaWebSocket(event);
   }
 }
 
@@ -3414,10 +3418,9 @@ function handleHostDataMessage(fromUid, msg) {
       characterId: fromCharacterId // 添加角色ID
     };
 
-    // 廣播給所有 client
-    for (const [uid, it] of _pcsHost.entries()) {
-      const ch = (it && it.channel) ? it.channel : null;
-      _sendToChannel(ch, { t: "state", players });
+    // 廣播給所有 client（通過 WebSocket）
+    if (_ws && _ws.readyState === WebSocket.OPEN) {
+      _sendViaWebSocket({ t: "state", players });
     }
     return;
   }
@@ -3668,15 +3671,15 @@ function sendToNet(obj) {
           collisionRadius: (typeof p.collisionRadius === "number" && p.collisionRadius > 0) ? p.collisionRadius : null
         };
       }
-      for (const [uid, it] of _pcsHost.entries()) {
-        const ch = (it && it.channel) ? it.channel : null;
-        _sendToChannel(ch, { t: "state", players });
+      // 廣播給所有 client（通過 WebSocket）
+      if (_ws && _ws.readyState === WebSocket.OPEN) {
+        _sendViaWebSocket({ t: "state", players });
       }
     }
     return;
   }
-  // client：送到 host
-  _sendToChannel(_dc, obj);
+  // client：送到 host（通過 WebSocket）
+  _sendViaWebSocket(obj);
 }
 
 async function handleSignal(sig) {
@@ -3966,7 +3969,8 @@ function updateLobbyUI() {
     let s = "尚未連線";
     if (_activeRoomId) {
       s = _isHost ? "已建立房間" : "已加入房間";
-      if (!_isHost && _pc && _pc.connectionState === "connected") s = "已連線（relay）";
+      if (!_isHost && _ws && _ws.readyState === WebSocket.OPEN) s = "已連線（WebSocket）";
+      if (_isHost && _ws && _ws.readyState === WebSocket.OPEN) s = "已連線（WebSocket）";
     }
     stEl.textContent = s;
   }
@@ -4446,6 +4450,14 @@ function tryStartSurvivalFromRoom() {
       if (_roomState) {
         _roomState.status = "playing";
       }
+    }
+    
+    // 確保 WebSocket 已連接（遊戲開始前連接）
+    if (!_ws || _ws.readyState !== WebSocket.OPEN) {
+      console.log(`[SurvivalOnline] startGame: WebSocket 未連接，嘗試連接...`);
+      connectWebSocket().catch((e) => {
+        console.error(`[SurvivalOnline] startGame: WebSocket 連接失敗:`, e);
+      });
     }
     
     // 確保 Runtime 啟用（遊戲開始時啟用狀態同步）
