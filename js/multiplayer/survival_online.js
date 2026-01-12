@@ -2641,6 +2641,12 @@ async function connectWebSocket() {
             Runtime.onSnapshotMessage(data);
           } else if (data.t === "full_snapshot") {
             Runtime.onFullSnapshotMessage(data);
+          } else if (data.t === "pos" && _isHost) {
+            // 隊長端處理隊員發送的 pos 消息
+            handleHostDataMessage(msg.uid, { t: "pos", x: data.x, y: data.y });
+          } else if (data.t === "input" && _isHost) {
+            // 隊長端處理隊員發送的 input 消息
+            handleHostDataMessage(msg.uid, { t: "input", mx: data.mx, my: data.my, at: data.at });
           }
         } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
           // 用戶加入/離開通知（可選）
