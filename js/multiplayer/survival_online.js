@@ -2643,10 +2643,18 @@ async function connectWebSocket() {
             Runtime.onFullSnapshotMessage(data);
           } else if (data.t === "pos" && _isHost) {
             // 隊長端處理隊員發送的 pos 消息
-            handleHostDataMessage(msg.uid, { t: "pos", x: data.x, y: data.y });
+            if (msg.uid && typeof msg.uid === "string") {
+              handleHostDataMessage(msg.uid, { t: "pos", x: data.x, y: data.y });
+            } else {
+              console.warn("[SurvivalOnline] connectWebSocket: pos 消息缺少 uid", msg);
+            }
           } else if (data.t === "input" && _isHost) {
             // 隊長端處理隊員發送的 input 消息
-            handleHostDataMessage(msg.uid, { t: "input", mx: data.mx, my: data.my, at: data.at });
+            if (msg.uid && typeof msg.uid === "string") {
+              handleHostDataMessage(msg.uid, { t: "input", mx: data.mx, my: data.my, at: data.at });
+            } else {
+              console.warn("[SurvivalOnline] connectWebSocket: input 消息缺少 uid", msg);
+            }
           }
         } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
           // 用戶加入/離開通知（可選）
@@ -3341,6 +3349,10 @@ function _cleanupRateLimitTracker() {
 
 function handleHostDataMessage(fromUid, msg) {
   if (!msg || typeof msg !== "object") return;
+  if (!fromUid || typeof fromUid !== "string") {
+    console.warn("[SurvivalOnline] handleHostDataMessage: fromUid 無效", fromUid);
+    return;
+  }
   if (msg.t === "reconnect_request") {
     // M5：隊員請求全量快照（重連恢復）
     if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
@@ -3349,8 +3361,8 @@ function handleHostDataMessage(fromUid, msg) {
     return;
   } else if (msg.t === "pos") {
     // 收到玩家位置，室長彙總後廣播
-    const player = _membersState.get(fromUid) || {};
-    const name = typeof player.name === "string" ? player.name : fromUid.slice(0, 6);
+    const player = _membersState ? (_membersState.get(fromUid) || {}) : {};
+    const name = typeof player.name === "string" ? player.name : (fromUid ? fromUid.slice(0, 6) : "unknown");
     const x = typeof msg.x === "number" ? msg.x : 0;
     const y = typeof msg.y === "number" ? msg.y : 0;
     
