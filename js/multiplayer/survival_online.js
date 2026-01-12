@@ -2637,10 +2637,20 @@ function listenSignals(roomId) {
 }
 
 function createPeerConnectionCommon() {
+  // 診斷：檢查是否所有 TURN 服務器都不可用
+  // 如果測試環境下 TURN 服務器都不可用，可以臨時改為 "all" 進行測試（但會暴露 IP）
+  // 生產環境必須使用 "relay" 以保護用戶隱私
+  const ICE_TRANSPORT_POLICY = "relay"; // 或 "all" (僅用於測試，會暴露 IP)
+  
   const pc = new RTCPeerConnection({
     iceServers: ICE_SERVERS_OPEN_RELAY,
-    iceTransportPolicy: "relay", // 關鍵：只走 relay，避免暴露 IP
+    iceTransportPolicy: ICE_TRANSPORT_POLICY, // 關鍵：只走 relay，避免暴露 IP
   });
+  
+  // 診斷：如果使用 "all" 策略，記錄警告
+  if (ICE_TRANSPORT_POLICY === "all") {
+    console.warn(`[SurvivalOnline] 警告：使用 iceTransportPolicy="all"，這會暴露用戶 IP 地址，僅用於測試！`);
+  }
   
   // 診斷：監聽 ICE 連接狀態
   pc.oniceconnectionstatechange = () => {
