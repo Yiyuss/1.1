@@ -2691,9 +2691,21 @@ async function connectWebSocket() {
     
     _ws.onerror = (err) => {
       console.error(`[SurvivalOnline] connectWebSocket: WebSocket 錯誤:`, err);
-      // 如果是证书错误，提示用户接受证书
-      if (err.message && err.message.includes('CERT_AUTHORITY_INVALID')) {
-        _setText("survival-online-status", "需要接受证书：访问 https://45.76.96.207:8080 点击'高级'→'继续前往'");
+      // 检查是否是证书错误（Firefox 和 Chrome 的错误信息不同）
+      const errorMsg = err.message || err.toString() || '';
+      const isCertError = errorMsg.includes('CERT_AUTHORITY_INVALID') || 
+                         errorMsg.includes('SEC_ERROR_UNKNOWN_ISSUER') ||
+                         errorMsg.includes('SSL_ERROR_BAD_CERT_DOMAIN') ||
+                         errorMsg.includes('证书') ||
+                         errorMsg.includes('certificate');
+      
+      if (isCertError) {
+        // Firefox 需要单独访问 HTTPS 页面接受证书
+        const browser = navigator.userAgent.includes('Firefox') ? 'Firefox' : '浏览器';
+        _setText("survival-online-status", `需要接受证书（${browser}）：请在新标签页访问 https://45.76.96.207:8080 点击'高级'→'接受风险并继续'，然后刷新游戏页面`);
+        console.warn(`[SurvivalOnline] 证书错误：请在 ${browser} 中访问 https://45.76.96.207:8080 接受证书`);
+      } else {
+        _setText("survival-online-status", "連線失敗：WebSocket 錯誤");
       }
     };
     
