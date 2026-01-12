@@ -3361,8 +3361,13 @@ function handleHostDataMessage(fromUid, msg) {
     return;
   } else if (msg.t === "pos") {
     // 收到玩家位置，室長彙總後廣播
+    // 再次檢查 fromUid（防止緩存問題）
+    if (!fromUid || typeof fromUid !== "string") {
+      console.warn("[SurvivalOnline] handleHostDataMessage: pos 消息 fromUid 無效", fromUid);
+      return;
+    }
     const player = _membersState ? (_membersState.get(fromUid) || {}) : {};
-    const name = typeof player.name === "string" ? player.name : (fromUid ? fromUid.slice(0, 6) : "unknown");
+    const name = typeof player.name === "string" ? player.name : (fromUid && typeof fromUid.slice === "function" ? fromUid.slice(0, 6) : "unknown");
     const x = typeof msg.x === "number" ? msg.x : 0;
     const y = typeof msg.y === "number" ? msg.y : 0;
     
