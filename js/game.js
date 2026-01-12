@@ -560,8 +560,24 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) {}
             
+            // 如果有多人模式，也认为是生存模式（确保队员端也能调用tick）
+            if (!isSurvivalMode && this.multiplayer && this.multiplayer.roomId) {
+                isSurvivalMode = true;
+            }
+            
             if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && typeof window.SurvivalOnlineRuntime.Runtime.tick === 'function') {
                 window.SurvivalOnlineRuntime.Runtime.tick(this, deltaTime);
+            } else {
+                // 添加日志以诊断（仅记录一次，避免日志过多）
+                if (!this._tickDiagnosticLogged && typeof window !== 'undefined') {
+                    this._tickDiagnosticLogged = true;
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    console.log(`[Game] tick 诊断: isSurvivalMode=${isSurvivalMode}, activeId=${activeId}, hasMultiplayer=${!!this.multiplayer}, hasRuntime=${!!window.SurvivalOnlineRuntime}, hasRuntimeRuntime=${!!(window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime)}, hasTick=${!!(window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && typeof window.SurvivalOnlineRuntime.Runtime.tick === 'function')}`);
+                }
             }
             
             // 更新組隊HUD（每0.5秒更新一次）
