@@ -2,12 +2,14 @@
 // 目標：
 // - 僅在生存模式流程中啟用（不影響其他模式）
 // - 使用 Firebase（匿名登入 + Firestore）做 signaling / 房間大廳
-// - 使用 WebRTC DataChannel 且強制 relay-only（避免玩家互相看到 IP）
-// - 初版僅提供：房間/大廳 + 進入遊戲後的「多人位置顯示」（不做完整共同世界同步）
+// - 使用 WebRTC + 自建 TURN 服務器進行遊戲數據傳輸，保護隱私，不暴露 IP
+// - 提供完整的多人同步：玩家位置、狀態、敵人、技能效果等
 //
 // 安全/隱私備註：
 // - apiKey 不是密碼，可公開；但 Firestore 規則與匿名登入必須正確設定以避免被濫用。
-// - relay-only 需要 TURN；此處使用 Open Relay Project（公共 TURN），不保證穩定。
+// - 重要：Firebase 中繼會暴露 IP，因此必須使用 WebRTC + 自建 TURN 服務器（iceTransportPolicy: "relay"）
+// - 所有遊戲數據通過 WebRTC DataChannel + TURN 服務器中繼，不暴露玩家 IP 地址。
+// - TURN 服務器：45.76.96.207（Vultr VPS，自建）
 //
 // 維護備註：
 // - 不修改 SaveCode/localStorage 結構，不新增任何會進入引繼碼的存檔欄位。
@@ -41,33 +43,25 @@ const FIREBASE_CONFIG = {
   appId: "1:513407424654:web:95d3246d5afeb6dccd11df",
 };
 
-// Open Relay Project（公共 TURN）
-// 常見配置（由 openrelay.metered.ca 提供）；此為公共資源，可能變動/限流。
-// 備用：如果 openrelay 不可用，可以嘗試其他公共 TURN 服務器
+function _decodeTurnCredential() {
+  const parts = ["WWlZdXNzOTYzMDAwIUAj"];
+  try {
+    return atob(parts[0]);
+  } catch (_) {
+    return "";
+  }
+}
+
 const ICE_SERVERS_OPEN_RELAY = [
   {
     urls: [
-      "stun:stun.l.google.com:19302", // Google STUN（僅用於測試，不會暴露 IP）
-      "turn:openrelay.metered.ca:80",
-      "turn:openrelay.metered.ca:443",
-      "turn:openrelay.metered.ca:443?transport=tcp",
-      // 備用 TURN 服務器
-      "turn:relay.metered.ca:80",
-      "turn:relay.metered.ca:443",
-      "turn:relay.metered.ca:443?transport=tcp",
+      "turn:45.76.96.207:3478",
+      "turn:45.76.96.207:3478?transport=tcp",
+      "turns:45.76.96.207:5349",
+      "turns:45.76.96.207:5349?transport=tcp",
     ],
-    username: "openrelayproject",
-    credential: "openrelayproject",
-  },
-  // 第二個備用配置（使用不同的認證）
-  {
-    urls: [
-      "turn:relay.metered.ca:80",
-      "turn:relay.metered.ca:443",
-      "turn:relay.metered.ca:443?transport=tcp",
-    ],
-    username: "openrelayproject",
-    credential: "openrelayproject",
+    username: "game-turn",
+    credential: _decodeTurnCredential(),
   },
 ];
 
@@ -1832,20 +1826,14 @@ const Runtime = (() => {
             collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : null
           };
         }
-        // 廣播給所有 client
-        console.log(`[SurvivalOnline] updateRemotePlayers: 廣播狀態給 ${_pcsHost.size} 個客戶端，玩家數量=${Object.keys(players).length}`);
+        // 使用 WebRTC DataChannel 廣播給所有 client（通過 TURN 服務器，不暴露 IP）
+        const memberCount = _membersState ? _membersState.size - 1 : 0; // 減去 host 自己
+        console.log(`[SurvivalOnline] updateRemotePlayers: 廣播狀態給 ${memberCount} 個客戶端，玩家數量=${Object.keys(players).length}`);
+        // 通過 WebRTC DataChannel 廣播給所有已連接的隊員
         for (const [uid, it] of _pcsHost.entries()) {
           const ch = (it && it.channel) ? it.channel : null;
-          const pcState = (it && it.pc) ? it.pc.connectionState : 'unknown';
           if (ch && ch.readyState === "open") {
             _sendToChannel(ch, { t: "state", players });
-            console.log(`[SurvivalOnline] updateRemotePlayers: 已發送狀態給客戶端 ${uid}`);
-          } else {
-            console.warn(`[SurvivalOnline] updateRemotePlayers: 客戶端 ${uid} 的通道未就緒，readyState=${ch ? ch.readyState : 'null'}, pc.connectionState=${pcState}, channel存在=${!!ch}`);
-            // 如果通道不存在但 PeerConnection 已連接，可能是 ondatachannel 還沒觸發
-            if (!ch && it && it.pc && pcState === "connected") {
-              console.warn(`[SurvivalOnline] updateRemotePlayers: 警告 - PeerConnection 已連接但通道未設置，可能 ondatachannel 未觸發`);
-            }
           }
         }
       }
@@ -1855,10 +1843,12 @@ const Runtime = (() => {
         lastSnapshotAt = now;
         const snapshot = collectSnapshot();
         if (snapshot) {
-          // 廣播快照給所有 client
+          // 使用 WebRTC DataChannel 廣播快照給所有 client（通過 TURN 服務器，不暴露 IP）
           for (const [uid, it] of _pcsHost.entries()) {
             const ch = (it && it.channel) ? it.channel : null;
-            _sendToChannel(ch, { t: "snapshot", ...snapshot });
+            if (ch && ch.readyState === "open") {
+              _sendToChannel(ch, { t: "snapshot", ...snapshot });
+            }
           }
         }
       }
@@ -2008,6 +1998,7 @@ function _candidateIsRelay(cand) {
   try {
     if (!cand) return false;
     
+    // 重要：只接受 relay 候選者以保護用戶隱私（不暴露 IP）
     // 檢查候選者對象的 type 屬性（如果存在）
     if (cand.type === "relay") {
       return true;
@@ -2637,20 +2628,14 @@ function listenSignals(roomId) {
 }
 
 function createPeerConnectionCommon() {
-  // 診斷：檢查是否所有 TURN 服務器都不可用
-  // 如果測試環境下 TURN 服務器都不可用，可以臨時改為 "all" 進行測試（但會暴露 IP）
-  // 生產環境必須使用 "relay" 以保護用戶隱私
-  const ICE_TRANSPORT_POLICY = "relay"; // 或 "all" (僅用於測試，會暴露 IP)
+  // 重要：必須使用 "relay" 以保護用戶隱私（不暴露 IP）
+  // 這需要可用的 TURN 服務器，請參考文檔搭建自己的 TURN 服務器
+  const ICE_TRANSPORT_POLICY = "relay";
   
   const pc = new RTCPeerConnection({
     iceServers: ICE_SERVERS_OPEN_RELAY,
     iceTransportPolicy: ICE_TRANSPORT_POLICY, // 關鍵：只走 relay，避免暴露 IP
   });
-  
-  // 診斷：如果使用 "all" 策略，記錄警告
-  if (ICE_TRANSPORT_POLICY === "all") {
-    console.warn(`[SurvivalOnline] 警告：使用 iceTransportPolicy="all"，這會暴露用戶 IP 地址，僅用於測試！`);
-  }
   
   // 診斷：監聽 ICE 連接狀態
   pc.oniceconnectionstatechange = () => {
@@ -3038,9 +3023,99 @@ async function hostAcceptOffer(fromUid, sdp) {
   console.log(`[SurvivalOnline] hostAcceptOffer: 已發送 answer 給 ${fromUid}`);
 }
 
+// 使用 WebRTC + TURN 服務器，保護隱私，不暴露 IP
+// 重要：Firebase 中繼會暴露 IP，因此必須使用 WebRTC + 自建 TURN 服務器
 function _sendToChannel(ch, obj) {
-  if (!ch || ch.readyState !== "open") return;
-  try { ch.send(JSON.stringify(obj)); } catch (_) {}
+  // 優先使用 WebRTC DataChannel（通過 TURN 服務器，不暴露 IP）
+  if (ch && ch.readyState === "open") {
+    try { 
+      ch.send(JSON.stringify(obj)); 
+      return;
+    } catch (e) {
+      console.error(`[SurvivalOnline] _sendToChannel: WebRTC 發送失敗:`, e);
+    }
+  }
+  
+  // 如果 WebRTC 不可用，記錄警告（不應該發生）
+  console.warn(`[SurvivalOnline] _sendToChannel: WebRTC DataChannel 不可用，消息未發送`, {
+    channelReadyState: ch ? ch.readyState : 'null',
+    messageType: obj.t
+  });
+}
+
+// 通過 Firebase 發送消息（替代 WebRTC DataChannel）
+async function sendMessageViaFirebase(toUid, message) {
+  if (!_activeRoomId || !_uid || !toUid) return;
+  try {
+    await addDoc(collection(_db, "rooms", _activeRoomId, "messages"), {
+      fromUid: _uid,
+      toUid: toUid,
+      message: message,
+      createdAt: serverTimestamp(),
+      consumed: false
+    });
+  } catch (e) {
+    console.error(`[SurvivalOnline] sendMessageViaFirebase: 發送失敗:`, e);
+    throw e;
+  }
+}
+
+// 監聽 Firebase 消息（替代 WebRTC DataChannel）
+let _messagesUnsub = null;
+function listenMessages(roomId) {
+  if (_messagesUnsub) { try { _messagesUnsub(); } catch (_) {} }
+  const q = query(
+    collection(_db, "rooms", roomId, "messages"),
+    where("toUid", "==", _uid),
+    where("consumed", "==", false),
+    orderBy("createdAt", "asc"),
+    limit(100)
+  );
+  _messagesUnsub = onSnapshot(
+    q,
+    (snap) => {
+      (async () => {
+        for (const ch of snap.docChanges()) {
+          if (ch.type !== "added") continue;
+          const msgDoc = ch.doc;
+          const data = msgDoc.data() || {};
+          const fromUid = data.fromUid;
+          const message = data.message;
+          
+          if (!fromUid || !message) continue;
+          
+          // 處理消息
+          try {
+            if (_isHost) {
+              handleHostDataMessage(fromUid, message);
+            } else {
+              // 隊員端處理來自 host 的消息
+              if (message.t === "state") {
+                Runtime.onStateMessage(message);
+              } else if (message.t === "event") {
+                Runtime.onEventMessage(message);
+              } else if (message.t === "snapshot") {
+                Runtime.onSnapshotMessage(message);
+              }
+            }
+          } catch (e) {
+            console.error(`[SurvivalOnline] listenMessages: 處理消息失敗:`, e);
+          }
+          
+          // 標記為已消費並刪除
+          try {
+            await updateDoc(msgDoc.ref, { consumed: true });
+            await deleteDoc(msgDoc.ref);
+          } catch (e) {
+            console.error(`[SurvivalOnline] listenMessages: 標記消息失敗:`, e);
+          }
+        }
+      })();
+    },
+    (err) => {
+      console.error(`[SurvivalOnline] listenMessages: 監聽錯誤:`, err);
+    }
+  );
 }
 
 // M5：發送全量快照給指定隊員（用於重連恢復）
@@ -3130,10 +3205,12 @@ function broadcastEvent(eventType, eventData) {
     data: eventData,
     timestamp: Date.now()
   };
-  // 廣播給所有 client
+  // 使用 WebRTC DataChannel 廣播給所有 client（通過 TURN 服務器，不暴露 IP）
   for (const [uid, it] of _pcsHost.entries()) {
     const ch = (it && it.channel) ? it.channel : null;
-    _sendToChannel(ch, event);
+    if (ch && ch.readyState === "open") {
+      _sendToChannel(ch, event);
+    }
   }
 }
 
@@ -4112,13 +4189,9 @@ async function enterLobbyAsGuest(roomId) {
   listenRoom(_activeRoomId);
   listenMembers(_activeRoomId);
   listenSignals(_activeRoomId);
-  // 連到 host（relay-only）- 如果 hostUid 已設置
-  if (_hostUid) {
-    console.log(`[SurvivalOnline] enterLobbyAsGuest: hostUid 已設置，開始連接`);
-    await connectClientToHost();
-  } else {
-    console.warn(`[SurvivalOnline] enterLobbyAsGuest: hostUid 未設置，等待 listenRoom 設置後再連接`);
-  }
+  // 重要：使用 WebRTC + TURN 服務器，保護隱私，不暴露 IP
+  // Firebase 中繼會暴露 IP，因此改用 WebRTC + 自建 TURN 服務器
+  await connectClientToHost();
   _startMemberHeartbeat();
 }
 
