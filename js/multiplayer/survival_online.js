@@ -1563,12 +1563,28 @@ const Runtime = (() => {
   }
 
   function tick(game, deltaTime) {
-    if (!enabled) return;
+    if (!enabled) {
+      // 添加日志以诊断
+      if (!_isHost && Math.random() < 0.01) { // 1% 概率记录，避免日志过多
+        console.log(`[SurvivalOnline] tick: enabled=false, isHost=${_isHost}`);
+      }
+      return;
+    }
     const now = Date.now();
     if (now - lastSendAt < 100) return; // 10Hz
     lastSendAt = now;
     const st = collectLocalState(game);
-    if (!st) return;
+    if (!st) {
+      // 添加日志以诊断
+      if (!_isHost && Math.random() < 0.01) {
+        console.log(`[SurvivalOnline] tick: collectLocalState 返回 null, isHost=${_isHost}`);
+      }
+      return;
+    }
+    // 添加日志以诊断（仅队员端，避免日志过多）
+    if (!_isHost && Math.random() < 0.1) { // 10% 概率记录
+      console.log(`[SurvivalOnline] tick: 調用 sendToNet, isHost=${_isHost}, pos=(${st.x}, ${st.y})`);
+    }
     sendToNet({ t: "pos", x: st.x, y: st.y });
 
     // M1：基礎輸入通道（先建立格式；M2 才會由室長權威真正套用）
@@ -3687,6 +3703,10 @@ function sendToNet(obj) {
     return;
   }
   // client：送到 host（通過 WebSocket）
+  // 添加日志以诊断（仅队员端，避免日志过多）
+  if (!_isHost && Math.random() < 0.1) { // 10% 概率记录
+    console.log(`[SurvivalOnline] sendToNet: 隊員端發送消息, type=${obj.t}, isHost=${_isHost}`);
+  }
   _sendViaWebSocket(obj);
 }
 
