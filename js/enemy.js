@@ -567,9 +567,9 @@ class Enemy extends Entity {
         } catch (_) {}
         
         // 檢查與玩家的碰撞
-        // M4：支援攻擊遠程玩家（僅在組隊模式且為室長時）
+        // ✅ MMORPG 架構：支援攻擊所有玩家（本地玩家 + 遠程玩家），不依賴室長端
         let targetPlayer = player;
-        if (Game.multiplayer && Game.multiplayer.role === "host" && Array.isArray(Game.remotePlayers)) {
+        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
             // 找到最近的活著的玩家（本地玩家或遠程玩家）
             let nearestPlayer = player;
             let nearestDist = Infinity;
@@ -596,9 +596,32 @@ class Enemy extends Entity {
             this.attackPlayer(deltaTime, targetPlayer);
         }
 
-        // 新增：BOSS 遠程攻擊邏輯
+        // ✅ MMORPG 架構：BOSS 遠程攻擊邏輯，攻擊所有玩家（本地+遠程），不依賴室長端
         if (this.rangedAttack) {
-            this.updateRangedAttack(deltaTime, player);
+            // 找到最近的活著的玩家作為目標（本地玩家或遠程玩家）
+            let targetPlayer = player;
+            if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
+                let nearestPlayer = player;
+                let nearestDist = Infinity;
+                if (player && !player._isDead) {
+                    const dist = Utils.distance(this.x, this.y, player.x, player.y);
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearestPlayer = player;
+                    }
+                }
+                for (const remotePlayer of Game.remotePlayers) {
+                    if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                        const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
+                        if (dist < nearestDist) {
+                            nearestDist = dist;
+                            nearestPlayer = remotePlayer;
+                        }
+                    }
+                }
+                targetPlayer = nearestPlayer;
+            }
+            this.updateRangedAttack(deltaTime, targetPlayer);
         }
 
         // 更新受傷紅閃計時
@@ -1083,7 +1106,7 @@ class Enemy extends Entity {
             this._createJudgmentHitEffect();
         }
         
-        // 組隊模式：隊長端廣播傷害數字事件（當本地玩家或遠程玩家造成傷害時）
+        // ✅ MMORPG 架構：所有玩家都能廣播傷害數字事件，不依賴室長端
         try {
             let isSurvivalMode = false;
             try {
@@ -1095,7 +1118,7 @@ class Enemy extends Entity {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) {}
             
-            if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "host") {
+            if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer) {
                 // 確定傷害來源（本地玩家或遠程玩家）
                 let playerUid = null;
                 let isCrit = false;
@@ -1251,7 +1274,7 @@ class Enemy extends Entity {
                 Game.spawnExit();
             } else {
                 // 非第20波（向後兼容），立即獲勝
-                // 組隊模式：廣播勝利事件
+                // ✅ MMORPG 架構：所有玩家都能廣播勝利事件，不依賴室長端
                 try {
                     let isSurvivalMode = false;
                     try {
@@ -1263,7 +1286,7 @@ class Enemy extends Entity {
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
-                    if (isSurvivalMode && Game.multiplayer && Game.multiplayer.role === "host") {
+                    if (isSurvivalMode && Game.multiplayer) {
                         if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                             window.SurvivalOnlineBroadcastEvent("game_victory", {
                                 reason: "boss_killed"
