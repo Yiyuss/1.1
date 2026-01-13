@@ -170,10 +170,20 @@ class Projectile extends Entity {
                     DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
                 }
                 
-                // 多人模式：發送enemy_damage（用於同步傷害數字，不影響傷害計算）
+                // 紳士綿羊（FIREBALL）命中未被消滅的敵人時施加暫時減速（使用設定值）
+                let slowMs = null;
+                let slowFactor = null;
+                if (this.weaponType === 'FIREBALL' && enemy.health > 0 && typeof enemy.applySlow === 'function') {
+                    const cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.FIREBALL) || {};
+                    slowMs = (typeof cfg.SLOW_DURATION_MS === 'number') ? cfg.SLOW_DURATION_MS : 1000;
+                    slowFactor = (typeof cfg.SLOW_FACTOR === 'number') ? cfg.SLOW_FACTOR : 0.5;
+                    enemy.applySlow(slowMs, slowFactor);
+                }
+                
+                // 多人模式：發送enemy_damage（用於同步傷害數字和減速效果，不影響傷害計算）
                 if (isSurvivalMode && isMultiplayer && enemy && enemy.id) {
                     if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                        window.SurvivalOnlineRuntime.sendToNet({
+                        const msg = {
                             t: "enemy_damage",
                             enemyId: enemy.id,
                             damage: finalDamage,
@@ -181,15 +191,14 @@ class Projectile extends Entity {
                             isCrit: isCrit,
                             lifesteal: lifestealAmount,
                             playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                        });
+                        };
+                        // ✅ MMORPG 架構：如果應用減速效果，同步減速信息
+                        if (slowMs !== null && slowFactor !== null) {
+                            msg.slowMs = slowMs;
+                            msg.slowFactor = slowFactor;
+                        }
+                        window.SurvivalOnlineRuntime.sendToNet(msg);
                     }
-                }
-                // 紳士綿羊（FIREBALL）命中未被消滅的敵人時施加暫時減速（使用設定值）
-                if (this.weaponType === 'FIREBALL' && enemy.health > 0 && typeof enemy.applySlow === 'function') {
-                    const cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.FIREBALL) || {};
-                    const slowMs = (typeof cfg.SLOW_DURATION_MS === 'number') ? cfg.SLOW_DURATION_MS : 1000;
-                    const slowFactor = (typeof cfg.SLOW_FACTOR === 'number') ? cfg.SLOW_FACTOR : 0.5;
-                    enemy.applySlow(slowMs, slowFactor);
                 }
 
                 // 紳士綿羊（FIREBALL）命中時觸發小範圍擴散傷害（不爆擊）
@@ -276,7 +285,8 @@ class Projectile extends Entity {
                                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                                 } catch (_) {}
                                 
-                                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "host") {
+                                // ✅ MMORPG 架構：所有玩家都能廣播爆炸粒子，不依賴室長端
+                                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer) {
                                     if (!Game._pendingExplosionParticles) Game._pendingExplosionParticles = [];
                                     Game._pendingExplosionParticles.push({
                                         x: p.x,
