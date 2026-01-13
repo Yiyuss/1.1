@@ -243,6 +243,49 @@ const UI = {
     _returnToStartFrom: function(screenId) {
         const screen = this._get(screenId);
         if (screen) screen.classList.add('hidden');
+        
+        // ✅ 組隊模式：正常結束時回到房間大廳，不返回開始畫面
+        try {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            
+            if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer) {
+                // ✅ 組隊模式：回到房間大廳（覆蓋層，需要開始畫面作為背景）
+                // 注意：不需要清理玩家數據（武器、等級、經驗等），因為下次開始新遊戲時
+                // Game.reset() 會創建新的 Player 對象，所有數據會自動重置
+                // 這與單機模式的行為一致，單機模式也沒有在遊戲結束時清理這些數據
+                
+                // 先顯示開始畫面（作為背景）
+                const charSel = this._get('character-select-screen'); if (charSel) charSel.classList.add('hidden');
+                const mapSel = this._get('map-select-screen'); if (mapSel) mapSel.classList.add('hidden');
+                const start = this._get('start-screen'); if (start) start.classList.remove('hidden');
+                
+                // 然後顯示房間大廳覆蓋層（會蓋在開始畫面上方）
+                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
+                    window.SurvivalOnlineUI.openLobbyScreen();
+                }
+                
+                // 確保結束目前模式並釋放其事件
+                try {
+                    if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.stop === 'function') {
+                        window.GameModeManager.stop();
+                    } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.stop === 'function') {
+                        window.ModeManager.stop();
+                    }
+                } catch(_) {}
+                Game.isGameOver = false;
+                return; // 組隊模式：已顯示開始畫面和房間大廳，直接返回
+            }
+        } catch (_) {}
+        
+        // 單機模式：正常返回開始畫面
         const charSel = this._get('character-select-screen'); if (charSel) charSel.classList.add('hidden');
         const mapSel = this._get('map-select-screen'); if (mapSel) mapSel.classList.add('hidden');
         const start = this._get('start-screen'); if (start) start.classList.remove('hidden');
