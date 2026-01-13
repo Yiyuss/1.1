@@ -459,6 +459,11 @@ const Runtime = (() => {
             // 更新其他狀態
             if (typeof p.health === "number") remotePlayer.health = p.health;
             if (typeof p.maxHealth === "number") remotePlayer.maxHealth = p.maxHealth;
+            if (typeof p.energy === "number") remotePlayer.energy = p.energy;
+            if (typeof p.maxEnergy === "number") remotePlayer.maxEnergy = p.maxEnergy;
+            if (typeof p.level === "number") remotePlayer.level = p.level;
+            if (typeof p.exp === "number") remotePlayer.experience = p.exp;
+            if (typeof p.expToNext === "number") remotePlayer.experienceToNextLevel = p.expToNext;
             if (typeof p._isDead === "boolean") remotePlayer._isDead = p._isDead;
             if (typeof p._resurrectionProgress === "number") remotePlayer._resurrectionProgress = p._resurrectionProgress;
             if (typeof p.isUltimateActive === "boolean") remotePlayer.isUltimateActive = p.isUltimateActive;
@@ -467,6 +472,27 @@ const Runtime = (() => {
             if (typeof p.width === "number" && p.width > 0) remotePlayer.width = p.width;
             if (typeof p.height === "number" && p.height > 0) remotePlayer.height = p.height;
             if (typeof p.collisionRadius === "number" && p.collisionRadius > 0) remotePlayer.collisionRadius = p.collisionRadius;
+            
+            // ✅ MMORPG 架構：同步共享的金幣和經驗值到本地玩家
+            // 金幣和經驗是共享的，所以當其他玩家獲得金幣/經驗時，本地玩家也應該同步
+            if (typeof p.coins === "number" && typeof Game !== "undefined") {
+              // 使用其他玩家的金幣數量（因為金幣是共享的）
+              Game.coins = Math.max(0, Math.floor(p.coins));
+              // 更新金幣顯示
+              if (typeof UI !== "undefined" && UI.updateCoinsDisplay) {
+                UI.updateCoinsDisplay(Game.coins);
+              }
+            }
+            // 經驗值也是共享的，同步到本地玩家
+            if (typeof Game !== "undefined" && Game.player && typeof p.exp === "number") {
+              Game.player.experience = p.exp;
+              if (typeof p.expToNext === "number") {
+                Game.player.experienceToNextLevel = p.expToNext;
+              }
+              if (typeof p.level === "number") {
+                Game.player.level = p.level;
+              }
+            }
             
             // 確保角色圖片正確設置（如果角色ID存在但圖片未設置）
             if (characterId && !remotePlayer.spriteImageKey) {
@@ -1643,6 +1669,7 @@ const Runtime = (() => {
         const characterId = (member && member.characterId) ? member.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
         
         // 收集自己的完整狀態
+        // ✅ MMORPG 架構：包含經驗值和金幣，確保所有玩家都能同步
         const myState = {
           t: "state",
           players: {
@@ -1653,6 +1680,12 @@ const Runtime = (() => {
               characterId: characterId,
               health: (typeof player.health === "number") ? player.health : 100,
               maxHealth: (typeof player.maxHealth === "number") ? player.maxHealth : 100,
+              energy: (typeof player.energy === "number") ? player.energy : 0,
+              maxEnergy: (typeof player.maxEnergy === "number") ? player.maxEnergy : 100,
+              level: (typeof player.level === "number") ? player.level : 1,
+              exp: (typeof player.experience === "number") ? player.experience : 0,
+              expToNext: (typeof player.experienceToNextLevel === "number") ? player.experienceToNextLevel : 100,
+              coins: (typeof Game !== "undefined" && typeof Game.coins === "number") ? Game.coins : 0, // ✅ 添加金幣同步
               _isDead: (typeof player._isDead === "boolean") ? player._isDead : false,
               _resurrectionProgress: (typeof player._resurrectionProgress === "number") ? player._resurrectionProgress : 0,
               isUltimateActive: (typeof player.isUltimateActive === "boolean") ? player.isUltimateActive : false,
