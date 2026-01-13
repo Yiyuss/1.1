@@ -270,21 +270,10 @@
             } catch (_) {}
             
             if (isSurvivalMode && this.multiplayer) {
-                // 隊長端：更新遠程玩家並廣播狀態
-                // MMO 架構：每個玩家都更新遠程玩家，不依賴隊長端
-                if (this.multiplayer) {
+                // ✅ MMORPG 架構：所有玩家都更新遠程玩家，不依賴角色
+                // 這是MMORPG最基本的要求：所有玩家都能看到其他玩家的完整狀態
                 if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.updateRemotePlayers === "function") {
                     window.SurvivalOnlineRuntime.updateRemotePlayers(deltaTime);
-                }
-                } else {
-                // 隊員端：更新遠程玩家（隊長）的武器和攻擊效果
-                // 注意：隊員端的遠程玩家位置由 onStateMessage 更新，但武器需要這裡更新
-                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
-                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
-                    if (typeof rm.updateAll === "function") {
-                    rm.updateAll(deltaTime);
-                    }
-                }
                 }
             }
             } catch (_) {}
@@ -647,39 +636,9 @@
                     isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
                 } catch (_) {}
                 
-                if (isSurvivalMode && this.multiplayer) {
-                    // 隊長端：更新遠程玩家（隊員）的武器
-                    if (this.multiplayer.role === "host" && Array.isArray(this.remotePlayers)) {
-                        for (const remotePlayer of this.remotePlayers) {
-                            if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
-                                for (const weapon of remotePlayer.weapons) {
-                                    if (weapon && typeof weapon.update === "function") {
-                                        weapon.update(deltaTime);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    // 隊員端：更新遠程玩家（隊長）的武器
-                    // 注意：RemotePlayerManager.updateAll 已經在 updateRemotePlayers 中調用，但這裡作為後備
-                    // 實際上，RemotePlayerManager.updateAll 會調用 player.update，而 player.update 會更新武器
-                    // 但為了確保武器更新，我們也在這裡更新
-                    if (this.multiplayer.role === "guest" || this.multiplayer.role === "client") {
-                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
-                            const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
-                            const remotePlayers = (typeof rm.getAllPlayers === "function") ? rm.getAllPlayers() : [];
-                            for (const remotePlayer of remotePlayers) {
-                                if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
-                                    for (const weapon of remotePlayer.weapons) {
-                                        if (weapon && typeof weapon.update === "function") {
-                                            weapon.update(deltaTime);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                // ✅ MMORPG 架構：遠程玩家的武器更新已經在 updateRemotePlayers 中處理
+                // RemotePlayerManager.updateAll 會調用 player.update，而 player.update 會更新武器
+                // 這裡不需要重複更新，避免衝突和性能浪費
             } catch (_) {}
         },
 
@@ -1381,8 +1340,9 @@
                             projectileData.despawnPad = projectile.despawnPad || 400;
                         }
                         
-                        // 廣播投射物生成事件
+                        // ✅ 真正的MMORPG：廣播投射物生成事件，讓所有玩家都能看到技能特效
                         if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                            console.log(`[Game] 廣播投射物生成事件: weaponType=${weaponType}, id=${projectileData.id}, playerUid=${playerUid}`);
                             window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
                         }
                     }
@@ -2095,25 +2055,18 @@
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) {}
             
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
-                // 清理遠程玩家對象
-                if (Array.isArray(this.remotePlayers)) {
-                for (const remotePlayer of this.remotePlayers) {
-                    try {
-                    if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
-                        for (const weapon of remotePlayer.weapons) {
-                        if (weapon && typeof weapon.destroy === "function") {
-                            try { weapon.destroy(); } catch (_) {}
-                        }
-                        }
+            // ✅ MMORPG 架構：所有玩家都清理遠程玩家對象，不依賴角色
+            if (isSurvivalMode && this.multiplayer) {
+                // 清理遠程玩家對象（通過 RemotePlayerManager）
+                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.clear === "function") {
+                        rm.clear();
                     }
-                    } catch (_) {}
                 }
-                this.remotePlayers = [];
-                }
-                // 清理 RemotePlayerManager
-                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.clearRemotePlayers === "function") {
-                window.SurvivalOnlineRuntime.clearRemotePlayers();
+                // 清理本地 remotePlayers 數組
+                if (Array.isArray(this.remotePlayers)) {
+                    this.remotePlayers = [];
                 }
             }
             } catch (_) {}
