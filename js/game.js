@@ -244,7 +244,8 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) {}
             
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host" && this.player && typeof this.player._checkAllPlayersDead === 'function') {
+            // ✅ MMORPG 架構：所有玩家都能檢查遊戲失敗，不依賴隊長端
+            if (isSurvivalMode && this.multiplayer && this.player && typeof this.player._checkAllPlayersDead === 'function') {
                 // 每500ms檢查一次（避免過於頻繁）
                 if (!this._lastAllPlayersDeadCheck) this._lastAllPlayersDeadCheck = 0;
                 const now = Date.now();
@@ -1514,7 +1515,7 @@ const Game = {
         const chest = new Chest(x, y);
         this.chests.push(chest);
         
-        // M2：廣播寶箱生成事件（僅生存模式組隊模式且為室長）
+        // ✅ MMORPG 架構：所有玩家都能廣播寶箱生成事件，不依賴室長端
         try {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
@@ -1527,7 +1528,8 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) {}
             
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+            // ✅ MMORPG 架構：所有玩家都能廣播寶箱生成事件，不依賴室長端
+            if (isSurvivalMode && this.multiplayer) {
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                     window.SurvivalOnlineBroadcastEvent("chest_spawn", {
                         x: x || 0,
