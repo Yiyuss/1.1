@@ -66,12 +66,21 @@ class CarHazard extends Entity {
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
-                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Array.isArray(Game.remotePlayers)) {
-                    for (const remotePlayer of Game.remotePlayers) {
-                        if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
-                            allPlayers.push(remotePlayer);
+                // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer) {
+                    try {
+                        if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                            const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                            if (typeof rm.getAllPlayers === 'function') {
+                                const remotePlayers = rm.getAllPlayers();
+                                for (const remotePlayer of remotePlayers) {
+                                    if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                                        allPlayers.push(remotePlayer);
+                                    }
+                                }
+                            }
                         }
-                    }
+                    } catch (_) {}
                 }
             } catch (_) {}
             
