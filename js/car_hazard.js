@@ -142,7 +142,8 @@ class CarHazard extends Entity {
                                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                                 } catch (_) {}
                                 
-                                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "host") {
+                                // ✅ MMORPG 架構：所有玩家都能廣播爆炸粒子，不依賴室長端
+                                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer) {
                                     if (!Game._pendingExplosionParticles) Game._pendingExplosionParticles = [];
                                     Game._pendingExplosionParticles.push({
                                         x: particle.x,
