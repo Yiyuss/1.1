@@ -570,10 +570,10 @@ class Enemy extends Entity {
         // M4：支援攻擊遠程玩家（僅在組隊模式且為室長時）
         let targetPlayer = player;
         if (Game.multiplayer && Game.multiplayer.role === "host" && Array.isArray(Game.remotePlayers)) {
-            // 找到最近的玩家（本地玩家或遠程玩家）
+            // 找到最近的活著的玩家（本地玩家或遠程玩家）
             let nearestPlayer = player;
             let nearestDist = Infinity;
-            if (player) {
+            if (player && !player._isDead) {
                 const dist = Utils.distance(this.x, this.y, player.x, player.y);
                 if (dist < nearestDist) {
                     nearestDist = dist;
@@ -581,7 +581,7 @@ class Enemy extends Entity {
                 }
             }
             for (const remotePlayer of Game.remotePlayers) {
-                if (remotePlayer && !remotePlayer.markedForDeletion) {
+                if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
                     const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
                     if (dist < nearestDist) {
                         nearestDist = dist;
