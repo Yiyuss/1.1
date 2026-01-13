@@ -476,6 +476,18 @@ const Runtime = (() => {
             if (typeof p.facingRight === "boolean") remotePlayer.facingRight = p.facingRight;
             if (typeof p.facingAngle === "number") remotePlayer.facingAngle = p.facingAngle;
             
+            // ✅ MMORPG 架構：同步玩家受傷紅閃效果（確保所有玩家都能看到其他玩家受傷的視覺效果）
+            if (typeof p.hitFlashTime === "number" && p.hitFlashTime > 0) {
+              remotePlayer.hitFlashTime = p.hitFlashTime;
+              // 觸發簡單圖片閃：在遠程玩家 GIF 上套用紅色光暈與透明度
+              try {
+                if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
+                  const remotePlayerId = `remote-player-${uid}`;
+                  window.GifOverlay.flash(remotePlayerId, { color: '#ff0000', durationMs: remotePlayer.hitFlashDuration || 150, opacity: 0.8 });
+                }
+              } catch (_) {}
+            }
+            
             // ✅ MMORPG 架構：同步共享的金幣和經驗值到本地玩家
             // 金幣和經驗是共享的，所以當其他玩家獲得金幣/經驗時，本地玩家也應該同步
             if (typeof p.coins === "number" && typeof Game !== "undefined") {
@@ -1698,7 +1710,9 @@ const Runtime = (() => {
               height: (typeof player.height === "number" && player.height > 0) ? player.height : null,
               collisionRadius: (typeof player.collisionRadius === "number" && player.collisionRadius > 0) ? player.collisionRadius : null,
               facingRight: (typeof player.facingRight === "boolean") ? player.facingRight : true,
-              facingAngle: (typeof player.facingAngle === "number") ? player.facingAngle : 0
+              facingAngle: (typeof player.facingAngle === "number") ? player.facingAngle : 0,
+              // ✅ MMORPG 架構：同步玩家受傷紅閃效果（確保所有玩家都能看到其他玩家受傷的視覺效果）
+              hitFlashTime: (typeof player.hitFlashTime === "number" && player.hitFlashTime > 0) ? player.hitFlashTime : 0
             }
           }
         };
