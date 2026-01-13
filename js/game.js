@@ -996,6 +996,29 @@ const Game = {
 
         // 繪製玩家
         this.player.draw(this.ctx);
+        
+        // ✅ 繪製本地玩家名稱（在角色上方，僅在組隊模式下顯示）
+        if (isSurvivalMode && this.multiplayer && this.player) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            let playerName = '玩家';
+            if (rt && typeof rt.getPlayerNickname === 'function') {
+                const nickname = rt.getPlayerNickname();
+                if (nickname && typeof nickname === 'string') {
+                    playerName = nickname;
+                }
+            }
+            this.ctx.save();
+            this.ctx.globalAlpha = 0.95;
+            this.ctx.font = '12px sans-serif';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'bottom';
+            this.ctx.fillStyle = 'rgba(255,255,255,0.95)';
+            const baseSize = CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.SIZE ? CONFIG.PLAYER.SIZE : 32;
+            const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
+            const nameY = this.player.y - (baseSize * visualScale / 2) - 8;
+            this.ctx.fillText(playerName, this.player.x, nameY);
+            this.ctx.restore();
+        }
     },
     
     // 繪製背景
@@ -1677,7 +1700,7 @@ const Game = {
     // 遊戲結束
     gameOver: function() {
         this.isGameOver = true;
-        // 生存模式聯機（測試）：結束時自動離開房間，避免殘留占位（僅在生存模式下執行）
+        // ✅ 正常結束：組隊模式下回到房間，單機模式下正常返回開始畫面
         try {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
@@ -1690,15 +1713,16 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) {}
             
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
-                // 室長：先更新房間狀態為 closed，再離開房間
-                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToClosed === 'function') {
-                    window.SurvivalOnlineUI.updateRoomStatusToClosed().catch(() => {});
+            // ✅ 組隊模式：正常結束時回到房間，不離開房間（異常結束才會清理）
+            if (isSurvivalMode && this.multiplayer) {
+                // 更新房間狀態為 lobby（回到大廳狀態）
+                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
+                    window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => {});
                 }
-            }
-            
-            if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === 'function') {
-                window.SurvivalOnlineUI.leaveRoom().catch(() => {});
+                // 回到房間大廳
+                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
+                    window.SurvivalOnlineUI.openLobbyScreen();
+                }
             }
         } catch (_) {}
         UI.showGameOverScreen();
@@ -1707,7 +1731,7 @@ const Game = {
     // 遊戲勝利
     victory: function() {
         this.isGameOver = true;
-        // 生存模式聯機（測試）：勝利時自動離開房間，避免殘留占位（僅在生存模式下執行）
+        // ✅ 正常結束：組隊模式下回到房間，單機模式下正常返回開始畫面
         try {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
@@ -1721,21 +1745,21 @@ const Game = {
             } catch (_) {}
             
             // 組隊模式：廣播勝利事件，讓所有隊員也能看到勝利影片
-                // MMO 架構：每個玩家都廣播勝利事件，不依賴隊長端
-                if (isSurvivalMode && this.multiplayer) {
-                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                        window.SurvivalOnlineBroadcastEvent("game_victory", {
-                            reason: "exit_reached"
-                        });
-                    }
-                // 室長：先更新房間狀態為 closed，再離開房間
-                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToClosed === 'function') {
-                    window.SurvivalOnlineUI.updateRoomStatusToClosed().catch(() => {});
+            // MMO 架構：每個玩家都廣播勝利事件，不依賴隊長端
+            if (isSurvivalMode && this.multiplayer) {
+                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("game_victory", {
+                        reason: "exit_reached"
+                    });
                 }
-            }
-            
-            if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === 'function') {
-                window.SurvivalOnlineUI.leaveRoom().catch(() => {});
+                // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
+                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
+                    window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => {});
+                }
+                // 回到房間大廳
+                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
+                    window.SurvivalOnlineUI.openLobbyScreen();
+                }
             }
         } catch (_) {}
         try {
