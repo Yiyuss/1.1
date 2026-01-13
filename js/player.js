@@ -656,17 +656,16 @@ class Player extends Entity {
              // 復活進度重置
              this._resurrectionProgress = 0;
              this._resurrectionRescuer = null;
-             // 廣播死亡狀態
-             if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                 window.SurvivalOnlineBroadcastEvent("player_death", {
-                     playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                 });
-             }
-             
-             // 檢查是否所有玩家都死亡（僅隊長端檢查，避免重複觸發）
-             if (Game.multiplayer && Game.multiplayer.role === "host") {
-                 this._checkAllPlayersDead();
-             }
+            // 廣播死亡狀態
+            if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                window.SurvivalOnlineBroadcastEvent("player_death", {
+                    playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
+                });
+            }
+            
+            // ✅ MMORPG 架構：所有玩家都能檢查遊戲失敗，不依賴隊長端
+            // 使用防重複機制：第一個檢測到所有玩家死亡的玩家廣播 game_over 事件
+            this._checkAllPlayersDead();
          } else {
              // 單人模式：直接結束遊戲
              Game.gameOver();
@@ -690,9 +689,9 @@ class Player extends Entity {
          }
      }
      
-     // 檢查是否所有玩家都死亡（僅隊長端調用）
-     _checkAllPlayersDead() {
-         if (!Game || !Game.multiplayer || Game.multiplayer.role !== "host") return;
+    // ✅ MMORPG 架構：所有玩家都能檢查遊戲失敗，不依賴隊長端
+    _checkAllPlayersDead() {
+        if (!Game || !Game.multiplayer) return;
          if (Game.isGameOver) return; // 已經結束了
          
          try {
@@ -745,14 +744,19 @@ class Player extends Entity {
                 allRemotePlayersDead = true;
             }
              
-             // 如果所有玩家都死亡，觸發遊戲結束
-             if (allRemotePlayersDead) {
-                 // 廣播遊戲結束事件，讓所有隊員也能看到失敗影片
-                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                     window.SurvivalOnlineBroadcastEvent("game_over", {
-                         reason: "all_players_dead"
-                     });
-                 }
+            // ✅ MMORPG 架構：如果所有玩家都死亡，觸發遊戲結束
+            // 使用防重複機制：第一個檢測到的玩家廣播 game_over 事件
+            if (allRemotePlayersDead) {
+                // 先檢查是否已經有 game_over 事件在處理中（防止重複觸發）
+                if (Game._gameOverEventSent) return; // 已經有其他玩家觸發了
+                Game._gameOverEventSent = true; // 標記為已觸發
+                
+                // 廣播遊戲結束事件，讓所有玩家都能看到失敗影片
+                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("game_over", {
+                        reason: "all_players_dead"
+                    });
+                }
                  Game.gameOver();
              }
          } catch (e) {
