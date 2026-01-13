@@ -595,24 +595,86 @@ const Runtime = (() => {
           console.warn("[SurvivalOnline] 隊員生成經驗球失敗:", e);
         }
       } else if (eventType === "chest_spawn") {
-        // 隊員生成寶箱（與單機一致，隊員也應該能看到和打開寶箱）
+        // ✅ MMORPG 架構：所有玩家都能生成寶箱，不依賴室長端
         try {
           if (typeof Game !== "undefined" && typeof Chest !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
             const chest = new Chest(eventData.x, eventData.y);
             Game.chests.push(chest);
           }
         } catch (e) {
-          console.warn("[SurvivalOnline] 隊員生成寶箱失敗:", e);
+          console.warn("[SurvivalOnline] 生成寶箱失敗:", e);
+        }
+      } else if (eventType === "chest_collected") {
+        // ✅ MMORPG 架構：所有玩家都能處理寶箱被撿取事件，移除寶箱
+        try {
+          if (typeof Game !== "undefined" && Array.isArray(Game.chests) && eventData.x !== undefined && eventData.y !== undefined) {
+            // 找到最接近的寶箱並移除（容差：50像素）
+            const tolerance = 50;
+            for (let i = Game.chests.length - 1; i >= 0; i--) {
+              const chest = Game.chests[i];
+              if (chest && !chest.markedForDeletion) {
+                const dist = Math.sqrt(Math.pow(chest.x - eventData.x, 2) + Math.pow(chest.y - eventData.y, 2));
+                if (dist <= tolerance) {
+                  chest.destroy();
+                  Game.chests.splice(i, 1);
+                  break;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 處理寶箱被撿取事件失敗:", e);
         }
       } else if (eventType === "ultimate_pineapple_spawn") {
-        // 鳳梨大絕掉落物生成（客戶端生成視覺效果，但不影響遊戲邏輯）
-        // 經驗共享已在室長端處理，客戶端只需要視覺顯示
+        // ✅ MMORPG 架構：所有玩家都能生成鳳梨大絕掉落物，不依賴室長端
         try {
           if (typeof Game !== "undefined" && typeof Game.spawnPineappleUltimatePickup === "function" && eventData.x !== undefined && eventData.y !== undefined) {
             const opts = eventData.opts || {};
             Game.spawnPineappleUltimatePickup(eventData.x, eventData.y, opts);
           }
         } catch (_) {}
+      } else if (eventType === "pineapple_pickup_collected") {
+        // ✅ MMORPG 架構：所有玩家都能處理鳳梨掉落物被撿取事件，移除鳳梨
+        try {
+          if (typeof Game !== "undefined" && Array.isArray(Game.pineappleUltimatePickups) && eventData.x !== undefined && eventData.y !== undefined) {
+            // 找到最接近的鳳梨並移除（容差：50像素）
+            const tolerance = 50;
+            for (let i = Game.pineappleUltimatePickups.length - 1; i >= 0; i--) {
+              const pickup = Game.pineappleUltimatePickups[i];
+              if (pickup && !pickup.markedForDeletion) {
+                const dist = Math.sqrt(Math.pow(pickup.x - eventData.x, 2) + Math.pow(pickup.y - eventData.y, 2));
+                if (dist <= tolerance) {
+                  pickup.destroy();
+                  Game.pineappleUltimatePickups.splice(i, 1);
+                  break;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 處理鳳梨掉落物被撿取事件失敗:", e);
+        }
+      } else if (eventType === "exp_orb_collected") {
+        // ✅ MMORPG 架構：所有玩家都能處理經驗球被撿取事件，移除經驗球
+        try {
+          if (typeof Game !== "undefined" && Array.isArray(Game.experienceOrbs) && eventData.x !== undefined && eventData.y !== undefined) {
+            // 找到最接近的經驗球並移除（容差：50像素）
+            const tolerance = 50;
+            for (let i = Game.experienceOrbs.length - 1; i >= 0; i--) {
+              const orb = Game.experienceOrbs[i];
+              if (orb && !orb.markedForDeletion) {
+                const dist = Math.sqrt(Math.pow(orb.x - eventData.x, 2) + Math.pow(orb.y - eventData.y, 2));
+                if (dist <= tolerance) {
+                  orb.destroy();
+                  Game.experienceOrbs.splice(i, 1);
+                  break;
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 處理經驗球被撿取事件失敗:", e);
+        }
       } else if (eventType === "damage_number") {
         // 隊員端顯示傷害數字（僅視覺，不影響傷害計算）
         try {
@@ -1341,13 +1403,19 @@ const Runtime = (() => {
           console.warn("[SurvivalOnline] 隊員端生成投射物視覺效果失敗:", e);
         }
       } else if (eventType === "game_over") {
-        // 隊員端處理遊戲結束事件（所有玩家都死亡）
+        // ✅ MMORPG 架構：所有玩家都能處理遊戲結束事件（所有玩家都死亡）
         try {
-          if (typeof Game !== "undefined" && typeof Game.gameOver === "function") {
-            Game.gameOver();
+          // 防止重複觸發
+          if (typeof Game !== "undefined") {
+            if (Game._gameOverEventSent) return; // 已經處理過了
+            Game._gameOverEventSent = true; // 標記為已處理
+            
+            if (typeof Game.gameOver === "function") {
+              Game.gameOver();
+            }
           }
         } catch (e) {
-          console.warn("[SurvivalOnline] 隊員端處理遊戲結束事件失敗:", e);
+          console.warn("[SurvivalOnline] 處理遊戲結束事件失敗:", e);
         }
       } else if (eventType === "exit_spawn") {
         // 隊員端生成出口（第20波BOSS死亡後）
@@ -1839,36 +1907,7 @@ function _randSessionId() {
   return (Math.random().toString(36).slice(2, 10) + "-" + Date.now().toString(36)).toUpperCase();
 }
 
-function _candidateIsRelay(cand) {
-  try {
-    if (!cand) return false;
-    
-    // 重要：只接受 relay 候選者以保護用戶隱私（不暴露 IP）
-    // 檢查候選者對象的 type 屬性（如果存在）
-    if (cand.type === "relay") {
-      return true;
-    }
-    
-    // 檢查候選者字符串
-    const c = cand.candidate || "";
-    if (!c || typeof c !== "string") return false;
-    
-    // 某些瀏覽器候選字串格式略不同，做寬鬆判斷（仍僅接受 relay）
-    // 格式可能是：candidate:... typ relay ... 或 candidate:... typ relay
-    const isRelay = c.includes(" typ relay ") || c.includes(" typ relay") || c.includes("typ relay");
-    
-    // 診斷：記錄候選者類型
-    if (c) {
-      const typeMatch = c.match(/typ (\w+)/);
-      const type = typeMatch ? typeMatch[1] : (cand.type || "unknown");
-      console.log(`[SurvivalOnline] _candidateIsRelay: 候選者類型=${type}, isRelay=${isRelay}, candidate=${c.substring(0, 150)}`);
-    }
-    return isRelay;
-  } catch (e) {
-    console.error(`[SurvivalOnline] _candidateIsRelay: 檢查失敗:`, e);
-    return false;
-  }
-}
+// ❌ 已刪除：_candidateIsRelay 函數（WebRTC 相關，不再需要）
 
 async function ensureFirebase() {
   if (_app && _auth && _db) return;
@@ -2212,17 +2251,8 @@ async function sendSignal(payload) {
     return;
   }
   try {
-    // 序列化 RTCIceCandidate 对象（Firebase 无法存储自定义对象）
-    const serializedPayload = { ...payload };
-    if (payload.candidate && payload.candidate instanceof RTCIceCandidate) {
-      serializedPayload.candidate = {
-        candidate: payload.candidate.candidate,
-        sdpMLineIndex: payload.candidate.sdpMLineIndex,
-        sdpMid: payload.candidate.sdpMid,
-        usernameFragment: payload.candidate.usernameFragment,
-      };
-    }
-    await addDoc(signalsColRef(_activeRoomId), { ...serializedPayload, createdAt: serverTimestamp() });
+    // 注意：sendSignal 現在只用於房間管理信令（如 starting 狀態），不再用於 WebRTC
+    await addDoc(signalsColRef(_activeRoomId), { ...payload, createdAt: serverTimestamp() });
     console.log(`[SurvivalOnline] sendSignal: 已發送信號 type=${payload.type}, toUid=${payload.toUid}`);
   } catch (e) {
     console.error(`[SurvivalOnline] sendSignal: 發送失敗 type=${payload.type}, toUid=${payload.toUid}:`, e);
@@ -2501,8 +2531,21 @@ async function connectWebSocket() {
             Runtime.onSnapshotMessage(data);
           } else if (data.t === "full_snapshot") {
             Runtime.onFullSnapshotMessage(data);
-          // ✅ MMO 架構：pos 和 input 消息已由 tick 函數處理，不再需要 handleHostDataMessage
-          // 舊架構的 pos 和 input 消息處理已移除，現在每個玩家都通過 tick 函數發送自己的狀態
+          } else if (data.t === "enemy_damage") {
+            // ✅ MMORPG 架構：所有玩家都處理 enemy_damage 消息，同步其他玩家的傷害
+            _handleEnemyDamageMessage(senderUid, data);
+          } else if (data.t === "ultimate_pineapple") {
+            // ✅ MMORPG 架構：所有玩家都處理 ultimate_pineapple 消息，同步鳳梨大絕掉落物
+            _handleUltimatePineappleMessage(senderUid, data);
+          } else if (data.t === "weapon_upgrade") {
+            // ✅ MMORPG 架構：所有玩家都處理 weapon_upgrade 消息，同步武器升級
+            _handleWeaponUpgradeMessage(senderUid, data);
+          } else if (data.t === "input") {
+            // ✅ MMORPG 架構：所有玩家都處理 input 消息，同步遠程玩家移動
+            _handleInputMessage(senderUid, data);
+            // ✅ MMO 架構：pos 消息已由 tick 函數處理，不再需要 handleHostDataMessage
+            // 舊架構的 pos 消息處理已移除，現在每個玩家都通過 tick 函數發送自己的狀態
+          }
         } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
           // 用戶加入/離開通知（可選）
           console.log(`[SurvivalOnline] connectWebSocket: ${msg.type}, uid=${msg.uid}`);
@@ -2571,398 +2614,9 @@ async function connectWebSocket() {
   }
 }
 
-// 舊的 WebRTC 函數（已廢棄，保留以避免錯誤）
-async function connectClientToHost() {
-  if (!_activeRoomId || !_hostUid || _isHost) {
-    console.log(`[SurvivalOnline] connectClientToHost: 跳過，activeRoomId=${_activeRoomId}, hostUid=${_hostUid}, isHost=${_isHost}`);
-    return;
-  }
-  if (_pc) {
-    console.log(`[SurvivalOnline] connectClientToHost: 已存在 PeerConnection，跳過`);
-    return;
-  }
-  console.log(`[SurvivalOnline] connectClientToHost: 開始連接，activeRoomId=${_activeRoomId}, hostUid=${_hostUid}`);
-  _pc = createPeerConnectionCommon();
-  _dc = _pc.createDataChannel("game", { ordered: true });
-  console.log(`[SurvivalOnline] connectClientToHost: 已創建 DataChannel, readyState=${_dc.readyState}`);
+// ❌ 已刪除：舊的 WebRTC 函數（connectClientToHost, hostAcceptOffer）
+// 系統已切換到 WebSocket，不再需要 WebRTC 相關代碼
 
-  _dc.onopen = () => {
-    console.log(`[SurvivalOnline] connectClientToHost: DataChannel 已打開, readyState=${_dc.readyState}, connectionState=${_pc.connectionState}`);
-    // 只有在連接成功時才啟用 Runtime
-    if (_pc.connectionState === "connected") {
-      Runtime.setEnabled(true);
-      _setText("survival-online-status", "已連線（relay）");
-    } else {
-      console.log(`[SurvivalOnline] connectClientToHost: DataChannel 已打開但連接未就緒，等待連接成功...`);
-      _setText("survival-online-status", "等待連線中（relay）...");
-    }
-    
-    // 重連成功：重置重連計數和定時器
-    if (_reconnectAttempts > 0) {
-      console.log(`[SurvivalOnline] 自動重連成功（嘗試 ${_reconnectAttempts} 次）`);
-      _reconnectAttempts = 0;
-    }
-    if (_reconnectTimer) {
-      clearTimeout(_reconnectTimer);
-      _reconnectTimer = null;
-    }
-    
-    // M5：隊員重新連接時，請求室長發送全量快照
-    if (!_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-      // 發送重連請求
-      try {
-        _sendToChannel(_dc, { t: "reconnect_request" });
-      } catch (_) {}
-    }
-  };
-  _dc.onclose = () => {
-    Runtime.setEnabled(false);
-    _setText("survival-online-status", "連線已中斷");
-    // M5：檢測室長斷線（僅在遊戲進行中）
-    if (!_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-      // 自動重連機制
-      if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-        _reconnectAttempts++;
-        _setText("survival-online-status", `重新連線中... (${_reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-        console.log(`[SurvivalOnline] 自動重連嘗試 ${_reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
-        
-        // 清除舊的重連定時器
-        if (_reconnectTimer) {
-          clearTimeout(_reconnectTimer);
-          _reconnectTimer = null;
-        }
-        
-        // 延遲後嘗試重連
-        _reconnectTimer = setTimeout(async () => {
-          try {
-            await reconnectClient();
-            // 重連成功會在 onopen 中重置計數
-          } catch (e) {
-            console.warn("[SurvivalOnline] 自動重連失敗:", e);
-            // 繼續嘗試或放棄（由 onclose 處理）
-          }
-        }, RECONNECT_DELAY_MS);
-      } else {
-        // 重連失敗次數過多，放棄
-        console.log("[SurvivalOnline] 自動重連失敗次數過多，返回大廳");
-        _setText("survival-online-status", "連線失敗，返回大廳");
-        _reconnectAttempts = 0; // 重置計數
-        setTimeout(() => {
-          try {
-            if (typeof Game !== "undefined" && Game.gameOver) {
-              Game.gameOver(); // 觸發遊戲結束
-            }
-          } catch (_) {}
-          leaveRoom().catch(() => {});
-          closeLobbyToSelect();
-        }, 1000);
-      }
-    }
-  };
-  _dc.onmessage = (ev) => {
-    try {
-      const msg = JSON.parse(ev.data);
-      console.log(`[SurvivalOnline] 隊員端收到消息: type=${msg.t}, enabled=${Runtime ? (typeof Runtime.setEnabled === 'function' ? 'N/A' : 'Runtime不可用') : 'Runtime未定義'}`);
-      if (msg.t === "state") {
-        console.log(`[SurvivalOnline] 隊員端收到狀態消息，玩家數量=${msg.players ? Object.keys(msg.players).length : 0}`);
-        Runtime.onStateMessage(msg);
-      } else if (msg.t === "event") {
-        // M2：處理室長廣播的事件
-        Runtime.onEventMessage(msg);
-      } else if (msg.t === "snapshot") {
-        // M3：處理室長廣播的狀態快照
-        Runtime.onSnapshotMessage(msg);
-      }
-    } catch (e) {
-      console.error(`[SurvivalOnline] 隊員端處理消息失敗:`, e);
-    }
-  };
-
-  _pc.onicecandidate = (ev) => {
-    if (!ev.candidate) {
-      console.log(`[SurvivalOnline] 隊員端: ICE 候選者收集完成 (null candidate), iceGatheringState=${_pc.iceGatheringState}, iceConnectionState=${_pc.iceConnectionState}`);
-      // 如果收集完成但没有收到任何候选者，可能是 TURN 服务器不可用
-      if (_pc.iceGatheringState === "complete" && _pc.iceConnectionState === "new") {
-        console.warn(`[SurvivalOnline] 隊員端: 警告 - ICE 收集完成但沒有收到任何候選者，可能是 TURN 服務器不可用`);
-      }
-      return;
-    }
-    const candStr = ev.candidate.candidate || "";
-    const isRelay = _candidateIsRelay(ev.candidate);
-    console.log(`[SurvivalOnline] 隊員端: 收到 ICE 候選者, isRelay=${isRelay}, candidate=${candStr.substring(0, 100)}`);
-    // relay-only：只傳 relay candidate，避免 host/srflx 內容外洩
-    if (!isRelay) {
-      console.log(`[SurvivalOnline] 隊員端: 跳過非 relay 候選者`);
-      return;
-    }
-    console.log(`[SurvivalOnline] 隊員端: 發送 relay 候選者給隊長`);
-    sendSignal({
-      type: "candidate",
-      fromUid: _uid,
-      toUid: _hostUid,
-      candidate: ev.candidate,
-    }).catch((e) => {
-      console.error(`[SurvivalOnline] 隊員端: 發送 ICE 候選者失敗:`, e);
-    });
-  };
-
-  _pc.onconnectionstatechange = () => {
-    const st = _pc.connectionState;
-    console.log(`[SurvivalOnline] 隊員端: 連接狀態變更為 ${st}, datachannel readyState=${_dc ? _dc.readyState : 'N/A'}`);
-    if (st === "failed" || st === "disconnected") {
-      Runtime.setEnabled(false);
-      _setText("survival-online-status", "連線失敗（TURN 不可用或被限流）");
-      // M5：檢測室長斷線（僅在遊戲進行中）
-      if (!_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-        // 自動重連機制（與 _dc.onclose 相同）
-        if (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-          _reconnectAttempts++;
-          _setText("survival-online-status", `重新連線中... (${_reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-          console.log(`[SurvivalOnline] 連接狀態失敗，自動重連嘗試 ${_reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
-          
-          if (_reconnectTimer) {
-            clearTimeout(_reconnectTimer);
-            _reconnectTimer = null;
-          }
-          
-          _reconnectTimer = setTimeout(async () => {
-            try {
-              await reconnectClient();
-            } catch (e) {
-              console.warn("[SurvivalOnline] 自動重連失敗:", e);
-            }
-          }, RECONNECT_DELAY_MS);
-        } else {
-          console.log("[SurvivalOnline] 自動重連失敗次數過多，返回大廳");
-          _setText("survival-online-status", "與室長連接失敗，返回大廳");
-          _reconnectAttempts = 0;
-          setTimeout(() => {
-            try {
-              if (typeof Game !== "undefined" && Game.gameOver) {
-                Game.gameOver();
-              }
-            } catch (_) {}
-            leaveRoom().catch(() => {});
-            closeLobbyToSelect();
-          }, 1000);
-        }
-      }
-    } else if (st === "connected") {
-      // 連接成功：重置重連計數
-      console.log(`[SurvivalOnline] 隊員端: 連接成功！datachannel readyState=${_dc ? _dc.readyState : 'N/A'}`);
-      if (_reconnectAttempts > 0) {
-        console.log(`[SurvivalOnline] 連接恢復成功（嘗試 ${_reconnectAttempts} 次）`);
-        _reconnectAttempts = 0;
-      }
-      if (_reconnectTimer) {
-        clearTimeout(_reconnectTimer);
-        _reconnectTimer = null;
-      }
-      // 連接成功後啟用 Runtime
-      if (_dc && _dc.readyState === "open") {
-        Runtime.setEnabled(true);
-        _setText("survival-online-status", "已連線（relay）");
-      }
-    }
-  };
-
-  // 建立 offer
-  console.log(`[SurvivalOnline] connectClientToHost: 創建 offer`);
-  const offer = await _pc.createOffer();
-  console.log(`[SurvivalOnline] connectClientToHost: offer 已創建`);
-  await _pc.setLocalDescription(offer);
-  console.log(`[SurvivalOnline] connectClientToHost: 已設置 local description, connectionState=${_pc.connectionState}`);
-  await sendSignal({
-    type: "offer",
-    fromUid: _uid,
-    toUid: _hostUid,
-    sdp: offer,
-  });
-  console.log(`[SurvivalOnline] connectClientToHost: offer 已發送給隊長 ${_hostUid}`);
-}
-
-async function hostAcceptOffer(fromUid, sdp) {
-  console.log(`[SurvivalOnline] hostAcceptOffer: 開始處理 offer from ${fromUid}, activeRoomId=${_activeRoomId}, isHost=${_isHost}`);
-  if (!_activeRoomId || !_isHost) {
-    console.warn(`[SurvivalOnline] hostAcceptOffer: 跳過，activeRoomId=${_activeRoomId}, isHost=${_isHost}`);
-    return;
-  }
-  if (!fromUid || !sdp) {
-    console.warn(`[SurvivalOnline] hostAcceptOffer: 跳過，fromUid=${fromUid}, sdp=${!!sdp}`);
-    return;
-  }
-  if (_pcsHost.has(fromUid)) {
-    console.warn(`[SurvivalOnline] hostAcceptOffer: 已存在 PeerConnection for ${fromUid}，跳過`);
-    return; // 已存在
-  }
-  console.log(`[SurvivalOnline] hostAcceptOffer: 創建新的 PeerConnection for ${fromUid}`);
-  const pc = createPeerConnectionCommon();
-  let channel = null;
-
-  // 關鍵：先將 PeerConnection 存入 map，這樣 ICE 候選者才能被正確處理
-  // 同時初始化候選者緩存數組
-  _pcsHost.set(fromUid, { pc, channel: null, cachedCandidates: [] });
-
-  pc.ondatachannel = (ev) => {
-    console.log(`[SurvivalOnline] hostAcceptOffer: 收到隊員 ${fromUid} 的 datachannel 事件`);
-    channel = ev.channel;
-    console.log(`[SurvivalOnline] hostAcceptOffer: 通道狀態=${channel.readyState}, label=${channel.label}`);
-    // 重要：把 channel 存回 map，讓 host 能廣播給所有 client
-    try {
-      const cur = _pcsHost.get(fromUid);
-      if (cur && cur.pc === pc) {
-        _pcsHost.set(fromUid, { pc, channel });
-        console.log(`[SurvivalOnline] hostAcceptOffer: 已更新通道到 map for ${fromUid}`);
-      } else {
-        _pcsHost.set(fromUid, { pc, channel });
-        console.log(`[SurvivalOnline] hostAcceptOffer: 已設置通道到 map for ${fromUid}`);
-      }
-    } catch (e) {
-      console.error(`[SurvivalOnline] hostAcceptOffer: 設置通道到 map 失敗:`, e);
-    }
-    channel.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        handleHostDataMessage(fromUid, msg);
-      } catch (e) {
-        console.error(`[SurvivalOnline] hostAcceptOffer: 處理消息失敗:`, e);
-      }
-    };
-    channel.onopen = () => {
-      console.log(`[SurvivalOnline] hostAcceptOffer: 通道已打開 for ${fromUid}, readyState=${channel.readyState}`);
-      Runtime.setEnabled(true);
-      updateLobbyUI();
-      // M5：隊員重新連接時，室長發送全量快照
-      if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-        // 延遲一小段時間確保連接穩定
-        setTimeout(() => {
-          sendFullSnapshotToClient(fromUid);
-        }, 500);
-      }
-    };
-    channel.onclose = () => {
-      console.log(`[SurvivalOnline] hostAcceptOffer: 通道已關閉 for ${fromUid}`);
-      updateLobbyUI();
-      // M5：檢測斷線（僅在遊戲進行中）
-      if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-        // 標記該隊員為斷線（但不立即移除，等待重連）
-        console.log(`[SurvivalOnline] M5: 隊員 ${fromUid} 斷線`);
-      }
-    };
-    channel.onerror = (e) => {
-      console.error(`[SurvivalOnline] hostAcceptOffer: 通道錯誤 for ${fromUid}:`, e);
-    };
-  };
-
-  pc.onicecandidate = (ev) => {
-    if (!ev.candidate) {
-      console.log(`[SurvivalOnline] 隊長端: ICE 候選者收集完成 (null candidate) for ${fromUid}, iceGatheringState=${pc.iceGatheringState}, iceConnectionState=${pc.iceConnectionState}`);
-      // 如果收集完成但没有收到任何候选者，可能是 TURN 服务器不可用
-      if (pc.iceGatheringState === "complete" && pc.iceConnectionState === "new") {
-        console.warn(`[SurvivalOnline] 隊長端: 警告 - ICE 收集完成但沒有收到任何候選者 for ${fromUid}，可能是 TURN 服務器不可用`);
-      }
-      return;
-    }
-    const candStr = ev.candidate.candidate || "";
-    const isRelay = _candidateIsRelay(ev.candidate);
-    console.log(`[SurvivalOnline] 隊長端: 收到 ICE 候選者 for ${fromUid}, isRelay=${isRelay}, candidate=${candStr.substring(0, 100)}`);
-    if (!isRelay) {
-      console.log(`[SurvivalOnline] 隊長端: 跳過非 relay 候選者 for ${fromUid}`);
-      return;
-    }
-    console.log(`[SurvivalOnline] 隊長端: 發送 relay 候選者給隊員 ${fromUid}`);
-    sendSignal({
-      type: "candidate",
-      fromUid: _uid,
-      toUid: fromUid,
-      candidate: ev.candidate,
-    }).catch((e) => {
-      console.error(`[SurvivalOnline] 隊長端: 發送 ICE 候選者失敗 for ${fromUid}:`, e);
-    });
-  };
-
-  pc.onconnectionstatechange = () => {
-    const st = pc.connectionState;
-    console.log(`[SurvivalOnline] hostAcceptOffer: 與隊員 ${fromUid} 的連接狀態變更為 ${st}`);
-    if (st === "failed" || st === "disconnected") {
-      // M5：檢測連接失敗或斷線
-      updateLobbyUI();
-      // 如果是室長且遊戲進行中，通知所有隊員
-      if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-        console.log(`[SurvivalOnline] M5: 與隊員 ${fromUid} 連接失敗`);
-        // 室長端：標記隊員斷線，但不立即移除（等待重連）
-        // 隊員可以通過自動重連機制恢復連接
-      }
-      // 注意：隊員端的連接狀態處理在 _pc.onconnectionstatechange 中
-    } else if (st === "connected") {
-      // 連接恢復：更新 UI
-      console.log(`[SurvivalOnline] hostAcceptOffer: 與隊員 ${fromUid} 連接成功`);
-      updateLobbyUI();
-      if (_isHost) {
-        console.log(`[SurvivalOnline] 與隊員 ${fromUid} 連接恢復`);
-      }
-      // 檢查通道狀態
-      const entry = _pcsHost.get(fromUid);
-      if (entry && entry.channel) {
-        console.log(`[SurvivalOnline] hostAcceptOffer: 連接成功後，通道狀態=${entry.channel.readyState}`);
-      } else {
-        console.warn(`[SurvivalOnline] hostAcceptOffer: 連接成功但通道未設置 for ${fromUid}`);
-      }
-    }
-  };
-
-  // 關鍵：先設置 remote description，然後創建 answer
-  // 注意：設置 remote description 後，ICE 候選者收集才會開始
-  console.log(`[SurvivalOnline] hostAcceptOffer: 設置 remote description for ${fromUid}`);
-  try {
-    await pc.setRemoteDescription(sdp);
-    console.log(`[SurvivalOnline] hostAcceptOffer: 已設置 remote description, connectionState=${pc.connectionState}, iceGatheringState=${pc.iceGatheringState}`);
-    
-    // 設置 remote description 後，處理所有緩存的候選者
-    const entry = _pcsHost.get(fromUid);
-    if (entry && entry.cachedCandidates && entry.cachedCandidates.length > 0) {
-      console.log(`[SurvivalOnline] hostAcceptOffer: 處理 ${entry.cachedCandidates.length} 個緩存的候選者 for ${fromUid}`);
-      for (const cand of entry.cachedCandidates) {
-        try {
-          await pc.addIceCandidate(cand);
-          console.log(`[SurvivalOnline] hostAcceptOffer: 已添加緩存的候選者 for ${fromUid}`);
-        } catch (e) {
-          console.warn(`[SurvivalOnline] hostAcceptOffer: 添加緩存的候選者失敗 for ${fromUid}:`, e);
-        }
-      }
-      entry.cachedCandidates = []; // 清空緩存
-    }
-  } catch (e) {
-    console.error(`[SurvivalOnline] hostAcceptOffer: 設置 remote description 失敗 for ${fromUid}:`, e);
-    _pcsHost.delete(fromUid);
-    pc.close();
-    return;
-  }
-  
-  const answer = await pc.createAnswer();
-  console.log(`[SurvivalOnline] hostAcceptOffer: 已創建 answer`);
-  try {
-    await pc.setLocalDescription(answer);
-    console.log(`[SurvivalOnline] hostAcceptOffer: 已設置 local description, connectionState=${pc.connectionState}, iceGatheringState=${pc.iceGatheringState}`);
-  } catch (e) {
-    console.error(`[SurvivalOnline] hostAcceptOffer: 設置 local description 失敗 for ${fromUid}:`, e);
-    _pcsHost.delete(fromUid);
-    pc.close();
-    return;
-  }
-  console.log(`[SurvivalOnline] hostAcceptOffer: 已創建 PeerConnection for ${fromUid}, 等待 datachannel 事件和 ICE 候選者`);
-
-  await sendSignal({
-    type: "answer",
-    fromUid: _uid,
-    toUid: fromUid,
-    sdp: answer,
-  });
-  console.log(`[SurvivalOnline] hostAcceptOffer: 已發送 answer 給 ${fromUid}`);
-}
-
-// 使用 WebRTC + TURN 服務器，保護隱私，不暴露 IP
-// 重要：Firebase 中繼會暴露 IP，因此必須使用 WebRTC + 自建 TURN 服務器
 // 通過 WebSocket 發送消息
 function _sendViaWebSocket(obj) {
   if (_ws && _ws.readyState === WebSocket.OPEN) {
@@ -3195,6 +2849,94 @@ function _cleanupRateLimitTracker() {
   }
 }
 
+// ✅ MMORPG 架構：處理 enemy_damage 消息（所有玩家都可以調用）
+function _handleEnemyDamageMessage(fromUid, msg) {
+  if (!msg || typeof msg !== "object") return;
+  if (!fromUid || typeof fromUid !== "string") {
+    // fromUid 無效，嘗試從 msg 中獲取
+    fromUid = (msg.playerUid && typeof msg.playerUid === "string") ? msg.playerUid : null;
+    if (!fromUid) {
+      console.warn("[SurvivalOnline] _handleEnemyDamageMessage: fromUid 無效", fromUid);
+      return;
+    }
+  }
+  
+  // 速率限制：每秒最多 2000 次傷害（防止 DDoS，但允許正常高強度戰鬥）
+  // 計算：假設 20 個武器 × 3 次/秒 × 20 個敵人 = 1200 次/秒，加上持續傷害技能約 800 次/秒 = 2000 次/秒
+  if (!_checkRateLimit(fromUid, "damage", 2000)) {
+    console.warn("[SurvivalOnline] 傷害速率過高，忽略:", fromUid);
+    return;
+  }
+  
+  const enemyId = typeof msg.enemyId === "string" ? msg.enemyId : null;
+  const damage = typeof msg.damage === "number" ? Math.max(0, msg.damage) : 0;
+  const weaponType = typeof msg.weaponType === "string" ? msg.weaponType : "UNKNOWN";
+  const isCrit = (msg.isCrit === true);
+  const playerUid = typeof msg.playerUid === "string" ? msg.playerUid : fromUid; // 發送傷害的玩家UID
+  const lifesteal = typeof msg.lifesteal === "number" ? Math.max(0, msg.lifesteal) : 0; // 吸血量
+  
+  if (!enemyId || damage <= 0) return;
+  
+  // ✅ MMORPG 架構：跳過自己的傷害消息（避免重複計算）
+  // 因為自己造成的傷害已經在本地計算過了
+  if (playerUid === _uid) {
+    return; // 跳過自己的傷害消息
+  }
+  
+  // 找到對應的敵人
+  try {
+    if (typeof Game !== "undefined" && Array.isArray(Game.enemies)) {
+      const enemy = Game.enemies.find(e => e && e.id === enemyId);
+      if (enemy && !enemy.markedForDeletion && !enemy.isDying) {
+        // ✅ MMORPG 架構：對敵人造成傷害（同步其他玩家的傷害）
+        // 注意：這裡不重新計算傷害，因為其他玩家已經計算過了（包括爆擊和天賦）
+        enemy.takeDamage(damage, { 
+          weaponType: weaponType,
+          playerUid: playerUid,
+          isCrit: isCrit,
+          dirX: 0,
+          dirY: -1
+        });
+        
+        // 顯示傷害數字（所有玩家都能看到其他玩家的傷害）
+        if (typeof DamageNumbers !== "undefined" && typeof DamageNumbers.show === "function") {
+          DamageNumbers.show(damage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, { 
+            dirX: 0, 
+            dirY: -1, 
+            enemyId: enemyId 
+          });
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("[SurvivalOnline] 同步敵人傷害失敗:", e);
+  }
+  
+  // 處理吸血邏輯：將吸血量應用到遠程玩家
+  if (lifesteal > 0 && playerUid) {
+    // 速率限制：每秒最多 2000 次吸血（與傷害同步）
+    if (!_checkRateLimit(fromUid, "lifesteal", 2000)) {
+      // 吸血速率過高時忽略，但不影響傷害處理
+      return;
+    }
+    
+    try {
+      // 找到對應的遠程玩家
+      let remotePlayer = null;
+      if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
+        remotePlayer = RemotePlayerManager.get(playerUid);
+      }
+      
+      if (remotePlayer && typeof remotePlayer.health === 'number' && typeof remotePlayer.maxHealth === 'number') {
+        // 應用吸血回復
+        remotePlayer.health = Math.min(remotePlayer.maxHealth, remotePlayer.health + lifesteal);
+      }
+    } catch (e) {
+      console.warn("[SurvivalOnline] 同步吸血失敗:", e);
+    }
+  }
+}
+
 function handleHostDataMessage(fromUid, msg) {
   if (!msg || typeof msg !== "object") return;
   if (!fromUid || typeof fromUid !== "string") {
@@ -3356,202 +3098,28 @@ function handleHostDataMessage(fromUid, msg) {
     return;
   }
   if (msg.t === "ultimate_pineapple") {
-    // 客戶端使用鳳梨大絕：為遠程玩家生成掉落物
-    if (!_isHost) return;
-    const x = typeof msg.x === "number" ? msg.x : 0;
-    const y = typeof msg.y === "number" ? msg.y : 0;
-    
-    // 找到對應的遠程玩家（應該是鳳梨角色）
-    const remotePlayer = RemotePlayerManager.get(fromUid);
-    if (remotePlayer && remotePlayer._remoteCharacter && remotePlayer._remoteCharacter.id === 'pineapple') {
-      // 為遠程玩家生成鳳梨掉落物
-      const count = 5;
-      const minD = 200;
-      const maxD = 800;
-      const flyDurationMs = 600;
-      const worldW = (typeof Game !== "undefined" && Game.worldWidth) ? Game.worldWidth : 1280;
-      const worldH = (typeof Game !== "undefined" && Game.worldHeight) ? Game.worldHeight : 720;
-      
-      for (let i = 0; i < count; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const dist = minD + Math.random() * (maxD - minD);
-        let tx = x + Math.cos(ang) * dist;
-        let ty = y + Math.sin(ang) * dist;
-        // 以 A45(53x100) 尺寸做邊界裁切
-        tx = Math.max(53 / 2, Math.min(tx, worldW - 53 / 2));
-        ty = Math.max(100 / 2, Math.min(ty, worldH - 100 / 2));
-        
-        try {
-          if (typeof Game !== "undefined" && typeof Game.spawnPineappleUltimatePickup === "function") {
-            Game.spawnPineappleUltimatePickup(tx, ty, { spawnX: x, spawnY: y, expValue: 0, flyDurationMs });
-          }
-        } catch (_) {}
-      }
-    }
+    // ✅ MMORPG 架構：所有玩家都能處理鳳梨大絕掉落物生成，不依賴隊長端
+    _handleUltimatePineappleMessage(fromUid, msg);
     return;
   }
   
   if (msg.t === "weapon_upgrade") {
-    // 客戶端選擇武器升級：同步到室長端的遠程玩家
-    if (!_isHost) return;
-    
-    // 速率限制：每秒最多 5 次升級（防止濫用）
-    if (!_checkRateLimit(fromUid, "upgrade", 5)) {
-      console.warn("[SurvivalOnline] 升級速率過高，忽略:", fromUid);
-      return;
-    }
-    
-    const weaponType = typeof msg.weaponType === "string" ? msg.weaponType : null;
-    if (!weaponType) return;
-    
-    // 找到對應的遠程玩家
-    const remotePlayer = RemotePlayerManager.get(fromUid);
-    if (remotePlayer && typeof remotePlayer.addWeapon === "function") {
-      try {
-        // 檢查是否已有此武器
-        const existingWeapon = remotePlayer.weapons.find(w => w && w.type === weaponType);
-        if (existingWeapon) {
-          // 如果已有此武器，則升級
-          if (typeof remotePlayer.upgradeWeapon === "function") {
-            remotePlayer.upgradeWeapon(weaponType);
-          }
-        } else {
-          // 否則添加新武器
-          remotePlayer.addWeapon(weaponType);
-        }
-      } catch (e) {
-        console.warn("[SurvivalOnline] 同步武器升級失敗:", e);
-      }
-    }
+    // ✅ MMORPG 架構：所有玩家都能處理武器升級，不依賴隊長端
+    _handleWeaponUpgradeMessage(fromUid, msg);
     return;
   }
   
   if (msg.t === "enemy_damage") {
-    // 隊員的投射物攻擊敵人：同步傷害到隊長端
-    if (!_isHost) return;
-    
-    // 速率限制：每秒最多 2000 次傷害（防止 DDoS，但允許正常高強度戰鬥）
-    // 計算：假設 20 個武器 × 3 次/秒 × 20 個敵人 = 1200 次/秒，加上持續傷害技能約 800 次/秒 = 2000 次/秒
-    if (!_checkRateLimit(fromUid, "damage", 2000)) {
-      console.warn("[SurvivalOnline] 傷害速率過高，忽略:", fromUid);
-      return;
-    }
-    
-    const enemyId = typeof msg.enemyId === "string" ? msg.enemyId : null;
-    const damage = typeof msg.damage === "number" ? Math.max(0, msg.damage) : 0;
-    const weaponType = typeof msg.weaponType === "string" ? msg.weaponType : "UNKNOWN";
-    const isCrit = (msg.isCrit === true);
-    const playerUid = typeof msg.playerUid === "string" ? msg.playerUid : fromUid; // 發送傷害的玩家UID
-    const lifesteal = typeof msg.lifesteal === "number" ? Math.max(0, msg.lifesteal) : 0; // 吸血量
-    
-    if (!enemyId || damage <= 0) return;
-    
-    // 找到對應的敵人
-    try {
-      if (typeof Game !== "undefined" && Array.isArray(Game.enemies)) {
-        const enemy = Game.enemies.find(e => e && e.id === enemyId);
-        if (enemy && !enemy.markedForDeletion && !enemy.isDying) {
-          // 對敵人造成傷害（使用 DamageSystem 計算，但這裡已經計算過了，直接應用）
-          // 注意：這裡不重新計算傷害，因為隊員端已經計算過了（包括爆擊）
-          // 傳遞 playerUid 和 isCrit 以便 enemy.takeDamage 可以廣播傷害數字
-          enemy.takeDamage(damage, { 
-            weaponType: weaponType,
-            playerUid: playerUid,
-            isCrit: isCrit,
-            dirX: 0,
-            dirY: -1
-          });
-          
-          // 顯示傷害數字（隊長端）
-          if (typeof DamageNumbers !== "undefined" && typeof DamageNumbers.show === "function") {
-            DamageNumbers.show(damage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, { 
-              dirX: 0, 
-              dirY: -1, 
-              enemyId: enemyId 
-            });
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("[SurvivalOnline] 同步敵人傷害失敗:", e);
-    }
-    
-    // 處理吸血邏輯：將吸血量應用到遠程玩家
-    if (lifesteal > 0 && playerUid) {
-      // 速率限制：每秒最多 2000 次吸血（與傷害同步）
-      if (!_checkRateLimit(fromUid, "lifesteal", 2000)) {
-        // 吸血速率過高時忽略，但不影響傷害處理
-        return;
-      }
-      
-      try {
-        // 找到對應的遠程玩家
-        let remotePlayer = null;
-        if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
-          remotePlayer = RemotePlayerManager.get(playerUid);
-        }
-        
-        if (remotePlayer && typeof remotePlayer.health === 'number' && typeof remotePlayer.maxHealth === 'number') {
-          // 應用吸血回復
-          const newHealth = Math.min(remotePlayer.maxHealth, remotePlayer.health + lifesteal);
-          remotePlayer.health = newHealth;
-          
-          // 更新UI（如果遠程玩家有UI更新的話）
-          // 注意：遠程玩家的血量會通過狀態同步更新，這裡只是確保主機端狀態正確
-        }
-      } catch (e) {
-        console.warn("[SurvivalOnline] 同步吸血失敗:", e);
-      }
-    }
-    
+    // ✅ MMORPG 架構：所有玩家都處理 enemy_damage 消息，同步其他玩家的傷害
+    // 注意：這裡使用 handleHostDataMessage 是為了向後兼容，但實際上所有玩家都應該處理
+    // 新的實現使用 _handleEnemyDamageMessage 函數，所有玩家都可以調用
+    _handleEnemyDamageMessage(fromUid, msg);
     return;
   }
   
   if (msg.t === "input") {
-    // M4：將輸入套用到遠程玩家（完整的 Player 對象）
-    if (!_isHost) return;
-    
-    // 速率限制：每秒最多 60 次輸入（防止 DDoS）
-    if (!_checkRateLimit(fromUid, "input", 60)) {
-      console.warn("[SurvivalOnline] 輸入速率過高，忽略:", fromUid);
-      return;
-    }
-    
-    const mx = typeof msg.mx === "number" ? msg.mx : 0;
-    const my = typeof msg.my === "number" ? msg.my : 0;
-    
-    // 獲取或創建遠程玩家對象（完整的 Player）
-    try {
-      // 嘗試從 Game 獲取世界中心作為起始位置
-      let startX = 1920;
-      let startY = 1080;
-      if (typeof Game !== "undefined") {
-        if (Game.worldWidth && Game.worldHeight) {
-          startX = Game.worldWidth / 2;
-          startY = Game.worldHeight / 2;
-        } else if (Game.player) {
-          startX = Game.player.x;
-          startY = Game.player.y;
-        }
-      }
-      // 獲取成員的角色ID和天賦等級
-      const member = _membersState ? _membersState.get(fromUid) : null;
-      const characterId = (member && member.characterId) ? member.characterId : null;
-      const talentLevels = (member && member.talentLevels && typeof member.talentLevels === 'object') ? member.talentLevels : null;
-      const remotePlayer = RemotePlayerManager.getOrCreate(fromUid, startX, startY, characterId, talentLevels);
-      if (remotePlayer) {
-        // M4：直接設置移動方向（Player.update 會處理移動）
-        // 創建一個臨時的 Input 對象來模擬輸入
-        if (!remotePlayer._remoteInput) {
-          remotePlayer._remoteInput = { x: 0, y: 0 };
-        }
-        remotePlayer._remoteInput.x = mx;
-        remotePlayer._remoteInput.y = my;
-        remotePlayer._lastRemoteInputTime = Date.now();
-      }
-    } catch (e) {
-      console.warn("[SurvivalOnline] M4 輸入處理失敗:", e);
-    }
+    // ✅ MMORPG 架構：所有玩家都能處理輸入消息，不依賴隊長端
+    _handleInputMessage(fromUid, msg);
     return;
   }
 }
@@ -3566,145 +3134,18 @@ function sendToNet(obj) {
   _sendViaWebSocket(obj);
 }
 
+// ❌ 已簡化：handleSignal 函數（WebRTC 相關代碼已刪除）
+// 注意：此函數現在只用於房間管理信令（如 starting 狀態），不再用於 WebRTC
+// 如果不再需要，可以完全刪除此函數和 listenSignals
 async function handleSignal(sig) {
   if (!sig || typeof sig !== "object") {
     console.warn(`[SurvivalOnline] handleSignal: 無效信號`, sig);
     return;
   }
+  // 注意：WebRTC 相關信令（offer, answer, candidate）已不再處理
+  // 此函數現在只用於房間管理信令（如果有的話）
   console.log(`[SurvivalOnline] handleSignal: 收到信號 type=${sig.type}, fromUid=${sig.fromUid}, toUid=${sig.toUid}, isHost=${_isHost}`);
-  if (sig.type === "offer" && _isHost) {
-    console.log(`[SurvivalOnline] handleSignal: 隊長端處理 offer from ${sig.fromUid}`);
-    await hostAcceptOffer(sig.fromUid, sig.sdp);
-    return;
-  }
-  if (sig.type === "answer" && !_isHost) {
-    console.log(`[SurvivalOnline] handleSignal: 隊員端處理 answer from ${sig.fromUid}`);
-    if (_pc && sig.sdp) {
-      console.log(`[SurvivalOnline] handleSignal: 隊員端設置 remote description 前, connectionState=${_pc.connectionState}, iceGatheringState=${_pc.iceGatheringState}`);
-      try {
-        await _pc.setRemoteDescription(sig.sdp);
-        console.log(`[SurvivalOnline] handleSignal: 隊員端已設置遠程描述，connectionState=${_pc.connectionState}, iceGatheringState=${_pc.iceGatheringState}`);
-        
-        // 設置 remote description 後，處理所有緩存的候選者
-        if (_cachedCandidates && _cachedCandidates.length > 0) {
-          console.log(`[SurvivalOnline] handleSignal: 隊員端處理 ${_cachedCandidates.length} 個緩存的候選者`);
-          for (const cand of _cachedCandidates) {
-            try {
-              await _pc.addIceCandidate(cand);
-              console.log(`[SurvivalOnline] handleSignal: 隊員端已添加緩存的候選者`);
-            } catch (e) {
-              console.warn(`[SurvivalOnline] handleSignal: 隊員端添加緩存的候選者失敗:`, e);
-            }
-          }
-          _cachedCandidates = []; // 清空緩存
-        }
-        
-        // 注意：此時連接可能還未建立，需要等待 ICE 候選者交換
-        // 不要立即啟用 Runtime，等待連接成功後再啟用
-        _setText("survival-online-status", "等待連線中（relay）...");
-      } catch (e) {
-        console.error(`[SurvivalOnline] handleSignal: 隊員端設置 remote description 失敗:`, e);
-        _setText("survival-online-status", "連線失敗：設置遠程描述錯誤");
-      }
-    } else {
-      console.warn(`[SurvivalOnline] handleSignal: 隊員端處理 answer 失敗，_pc=${!!_pc}, sdp=${!!sig.sdp}`);
-    }
-    return;
-  }
-  if (sig.type === "candidate") {
-    // 反序列化：如果 candidate 是普通对象，转换为 RTCIceCandidate
-    let cand = sig.candidate;
-    if (cand && !(cand instanceof RTCIceCandidate)) {
-      // Firebase 返回的是普通对象，需要转换为 RTCIceCandidate
-      try {
-        cand = new RTCIceCandidate({
-          candidate: cand.candidate,
-          sdpMLineIndex: cand.sdpMLineIndex,
-          sdpMid: cand.sdpMid,
-          usernameFragment: cand.usernameFragment,
-        });
-      } catch (e) {
-        console.error(`[SurvivalOnline] handleSignal: 轉換 candidate 失敗:`, e);
-        return;
-      }
-    }
-    const candStr = cand && cand.candidate ? cand.candidate : "";
-    const isRelay = _candidateIsRelay(cand);
-    console.log(`[SurvivalOnline] handleSignal: 處理 candidate from ${sig.fromUid}, isRelay=${isRelay}, candidate=${candStr.substring(0, 100)}`);
-    if (!cand) {
-      console.warn(`[SurvivalOnline] handleSignal: candidate 為空`);
-      return;
-    }
-    // relay-only：只接受 relay candidates
-    if (!isRelay) {
-      console.warn(`[SurvivalOnline] handleSignal: 跳過非 relay candidate from ${sig.fromUid}`);
-      return;
-    }
-    if (_isHost) {
-      const fromUid = sig.fromUid;
-      const it = _pcsHost.get(fromUid);
-      if (it && it.pc) {
-        try { 
-          // 關鍵：檢查 PeerConnection 狀態，只有在 remote description 設置後才能添加候選者
-          if (it.pc.remoteDescription) {
-            await it.pc.addIceCandidate(cand);
-            console.log(`[SurvivalOnline] handleSignal: 隊長端已添加 ICE 候選者 for ${fromUid}`);
-          } else {
-            // 如果 remote description 還沒設置，將候選者暫存
-            if (!it.cachedCandidates) {
-              it.cachedCandidates = [];
-            }
-            it.cachedCandidates.push(cand);
-            console.log(`[SurvivalOnline] handleSignal: 隊長端 remote description 未設置，已緩存候選者 for ${fromUid} (共 ${it.cachedCandidates.length} 個)`);
-          }
-        } catch (e) {
-          // 如果添加失敗，可能是因為 remote description 還沒設置，或者候選者已經添加過
-          if (e.name === "InvalidStateError" || e.message?.includes("remote description")) {
-            // 嘗試緩存候選者
-            if (!it.cachedCandidates) {
-              it.cachedCandidates = [];
-            }
-            it.cachedCandidates.push(cand);
-            console.log(`[SurvivalOnline] handleSignal: 隊長端添加失敗，已緩存候選者 for ${fromUid} (共 ${it.cachedCandidates.length} 個)`);
-          } else {
-            console.error(`[SurvivalOnline] handleSignal: 隊長端添加 ICE 候選者失敗 for ${fromUid}:`, e);
-          }
-        }
-      } else {
-        console.warn(`[SurvivalOnline] handleSignal: 隊長端找不到 PeerConnection for ${fromUid}`);
-      }
-    } else {
-      if (_pc) {
-        try { 
-          // 關鍵：檢查 PeerConnection 狀態
-          if (_pc.remoteDescription) {
-            await _pc.addIceCandidate(cand);
-            console.log(`[SurvivalOnline] handleSignal: 隊員端已添加 ICE 候選者`);
-          } else {
-            // 如果 remote description 還沒設置，將候選者暫存
-            if (!_cachedCandidates) {
-              _cachedCandidates = [];
-            }
-            _cachedCandidates.push(cand);
-            console.log(`[SurvivalOnline] handleSignal: 隊員端 remote description 未設置，已緩存候選者 (共 ${_cachedCandidates.length} 個)`);
-          }
-        } catch (e) {
-          if (e.name === "InvalidStateError" || e.message?.includes("remote description")) {
-            // 嘗試緩存候選者
-            if (!_cachedCandidates) {
-              _cachedCandidates = [];
-            }
-            _cachedCandidates.push(cand);
-            console.log(`[SurvivalOnline] handleSignal: 隊員端添加失敗，已緩存候選者 (共 ${_cachedCandidates.length} 個)`);
-          } else {
-            console.error(`[SurvivalOnline] handleSignal: 隊員端添加 ICE 候選者失敗:`, e);
-          }
-        }
-      } else {
-        console.warn(`[SurvivalOnline] handleSignal: 隊員端 PeerConnection 不存在`);
-      }
-    }
-  }
+  // 可以在此處添加房間管理相關的信令處理（如果需要）
 }
 
 async function reconnectClient() {
