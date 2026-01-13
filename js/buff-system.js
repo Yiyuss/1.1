@@ -196,6 +196,16 @@ const BuffSystem = {
         // 角色基礎爆擊率加成（若角色配置中有設定，例如第四位角色洛可洛斯特+10%）
         const charBaseCritBonus = (player._characterBaseCritBonusPct != null) ? player._characterBaseCritBonusPct : 0;
         player.critChanceBonusPct = critTalentPct + player.critChanceUpgradeBonusPct + charBaseCritBonus;
+        
+        // ✅ 修復：確保天賦傷害加成在升級時也正確應用
+        // 如果玩家已經有 damageTalentBaseBonusPct，保持它（由 applyBuffsFromTalents 設置）
+        // 如果沒有，確保初始化為 0（避免 undefined）
+        if (player.damageTalentBaseBonusPct == null) {
+            player.damageTalentBaseBonusPct = 0;
+        }
+        if (player.damageSpecializationFlat == null) {
+            player.damageSpecializationFlat = 0;
+        }
 
         // 新增：生命與防禦升級疊加（與天賦相加，單純加法）
         try {
@@ -294,13 +304,28 @@ const BuffSystem = {
             if (expLv > 0) this.applyBuff(player, 'experience_boost');
             
             // 應用傷害強化（damage_boost）
+            // ✅ 修復：設置 damageTalentBaseBonusPct 而不是 damageMultiplier
+            // _computeFinalDamage 使用 damageTalentBaseBonusPct，所以必須設置這個屬性
             if (dmgLv > 0) {
                 const tier = (typeof TalentSystem !== 'undefined' && TalentSystem.tieredTalents && TalentSystem.tieredTalents.damage_boost && TalentSystem.tieredTalents.damage_boost.levels)
                     ? TalentSystem.tieredTalents.damage_boost.levels[dmgLv - 1] : null;
                 if (tier && typeof tier.multiplier === 'number') {
-                    if (!player.damageMultiplier) player.damageMultiplier = 1.0;
-                    player.damageMultiplier *= tier.multiplier;
+                    // ✅ 修復：設置 damageTalentBaseBonusPct（百分比加成，例如 1.10 → 0.10 = +10%）
+                    player.damageTalentBaseBonusPct = (tier.multiplier - 1.0) || 0;
+                } else {
+                    player.damageTalentBaseBonusPct = 0;
                 }
+            } else {
+                player.damageTalentBaseBonusPct = 0;
+            }
+            
+            // 應用傷害特化（damage_specialization）
+            const specLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('damage_specialization') : 0;
+            if (specLv > 0) {
+                player.damageSpecializationFlat = this._getTierEffect('damage_specialization', specLv, 'flat', 0) || 0;
+            } else {
+                player.damageSpecializationFlat = 0;
             }
         } catch (e) {
             console.error('應用天賦buff失敗:', e);
