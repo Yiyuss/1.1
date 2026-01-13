@@ -2384,11 +2384,11 @@ function listenRoom(roomId) {
       _syncHostSelectsFromRoom();
       updateLobbyUI();
 
-      // 房間被室長解散/關閉：所有人自動離開回到組隊選擇
+      // 房間被室長解散/關閉：所有人自動離開回到遊戲開始畫面
       if (_roomState && _roomState.status === "closed") {
         _setText("survival-online-status", "隊伍已解散");
         leaveRoom().catch(() => {});
-        closeLobbyToSelect();
+        closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
         return;
       }
 
@@ -2408,7 +2408,7 @@ function listenRoom(roomId) {
         if (code.includes("permission-denied")) {
           _setText("survival-online-status", "你已被室長移出隊伍");
           leaveRoom().catch(() => {});
-          closeLobbyToSelect();
+          closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
           return;
         }
         const msg = (err && err.message) ? String(err.message) : "房間監聽錯誤";
@@ -2504,7 +2504,7 @@ function listenMembers(roomId) {
         if (code.includes("permission-denied")) {
           _setText("survival-online-status", "你已被室長移出隊伍");
           leaveRoom().catch(() => {});
-          closeLobbyToSelect();
+          closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
           return;
         }
         const msg = (err && err.message) ? String(err.message) : "成員監聽錯誤";
@@ -2543,7 +2543,7 @@ async function hostDisbandTeam() {
     await updateDoc(roomDocRef(_activeRoomId), { status: "closed", updatedAt: serverTimestamp() });
   } catch (_) {}
   await leaveRoom().catch(() => {});
-  closeLobbyToSelect();
+  closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
   _setText("survival-online-status", "隊伍已解散");
 }
 
@@ -2705,7 +2705,7 @@ async function connectWebSocket() {
             }
           } catch (_) {}
           leaveRoom().catch(() => {});
-          closeLobbyToSelect();
+          closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
         }, 1000);
       }
     };
@@ -3909,6 +3909,24 @@ function closeLobbyToSelect() {
   _show("survival-online-select-screen");
 }
 
+// ✅ 離開房間後回到遊戲開始畫面
+function closeLobbyToStart() {
+  _hide("survival-online-lobby-screen");
+  _hide("survival-online-select-screen");
+  // 顯示遊戲開始畫面
+  try {
+    const startScreen = document.getElementById("start-screen");
+    if (startScreen) {
+      startScreen.classList.remove("hidden");
+    }
+    // 隱藏其他可能顯示的畫面
+    const charSel = document.getElementById("character-select-screen");
+    if (charSel) charSel.classList.add("hidden");
+    const mapSel = document.getElementById("map-select-screen");
+    if (mapSel) mapSel.classList.add("hidden");
+  } catch (_) {}
+}
+
 function closeLobbyOverlayKeepRoom() {
   // ESC 在大廳：只關閉「大廳介面」回到組隊選擇，不自動離開房間（避免影響後續介面/狀態）
   _hide("survival-online-lobby-screen");
@@ -4329,7 +4347,7 @@ function bindUI() {
 
   if (btnLeave) btnLeave.addEventListener("click", async () => {
     await leaveRoom().catch(() => {});
-    closeLobbyToSelect();
+    closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
     _setText("survival-online-status", "已離開房間");
     updateLobbyUI();
   });
