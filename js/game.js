@@ -1731,7 +1731,12 @@ const Game = {
                 if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
                     window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => {});
                 }
-                // 回到房間大廳
+                // 先顯示開始畫面（作為背景），然後顯示房間大廳覆蓋層
+                try {
+                    const startScreen = document.getElementById('start-screen');
+                    if (startScreen) startScreen.classList.remove('hidden');
+                } catch (_) {}
+                // 回到房間大廳（覆蓋層）
                 if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
                     window.SurvivalOnlineUI.openLobbyScreen();
                 }
@@ -1768,7 +1773,12 @@ const Game = {
                 if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
                     window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => {});
                 }
-                // 回到房間大廳
+                // 先顯示開始畫面（作為背景），然後顯示房間大廳覆蓋層
+                try {
+                    const startScreen = document.getElementById('start-screen');
+                    if (startScreen) startScreen.classList.remove('hidden');
+                } catch (_) {}
+                // 回到房間大廳（覆蓋層）
                 if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
                     window.SurvivalOnlineUI.openLobbyScreen();
                 }
