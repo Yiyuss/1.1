@@ -70,13 +70,15 @@ class ExperienceOrb extends Entity {
             }
         }
         
+        // ✅ MMORPG 架構：在循環外部定義 isMultiplayer，確保在整個收集邏輯中都可訪問
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        
         // 檢查是否被任何玩家收集
         for (const player of allPlayers) {
             if (this.isColliding(player)) {
                 // ✅ MMORPG 架構：立即標記為刪除，防止多個玩家同時檢測到碰撞時重複給經驗
                 this.markedForDeletion = true;
                 // ✅ MMORPG 架構：所有玩家都能共享經驗，不依賴室長端
-                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
                 if (isMultiplayer) {
                     // 多人模式：給所有玩家經驗（經驗共享）
                     // 只有本地玩家播放音效（避免重複播放）
