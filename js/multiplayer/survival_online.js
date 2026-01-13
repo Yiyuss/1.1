@@ -2678,6 +2678,9 @@ async function connectWebSocket() {
         } else if (msg.type === 'game-data') {
           // 處理遊戲數據
           const data = msg.data;
+          // 優先使用 fromUid（WebSocket 消息格式），其次使用 uid
+          const senderUid = (msg.fromUid && typeof msg.fromUid === "string") ? msg.fromUid : (msg.uid && typeof msg.uid === "string") ? msg.uid : null;
+          
           if (data.t === "state") {
             Runtime.onStateMessage(data);
           } else if (data.t === "event") {
@@ -2688,17 +2691,17 @@ async function connectWebSocket() {
             Runtime.onFullSnapshotMessage(data);
           } else if (data.t === "pos" && _isHost) {
             // 隊長端處理隊員發送的 pos 消息
-            if (msg.uid && typeof msg.uid === "string") {
-              handleHostDataMessage(msg.uid, { t: "pos", x: data.x, y: data.y });
+            if (senderUid) {
+              handleHostDataMessage(senderUid, { t: "pos", x: data.x, y: data.y });
             } else {
-              console.warn("[SurvivalOnline] connectWebSocket: pos 消息缺少 uid", msg);
+              console.warn("[SurvivalOnline] connectWebSocket: pos 消息缺少 uid/fromUid", msg);
             }
           } else if (data.t === "input" && _isHost) {
             // 隊長端處理隊員發送的 input 消息
-            if (msg.uid && typeof msg.uid === "string") {
-              handleHostDataMessage(msg.uid, { t: "input", mx: data.mx, my: data.my, at: data.at });
+            if (senderUid) {
+              handleHostDataMessage(senderUid, { t: "input", mx: data.mx, my: data.my, at: data.at });
             } else {
-              console.warn("[SurvivalOnline] connectWebSocket: input 消息缺少 uid", msg);
+              console.warn("[SurvivalOnline] connectWebSocket: input 消息缺少 uid/fromUid", msg);
             }
           }
         } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
@@ -3513,11 +3516,29 @@ function handleHostDataMessage(fromUid, msg) {
     }
     const fromMember = _membersState ? _membersState.get(fromUid) : null;
     const fromCharacterId = (fromMember && fromMember.characterId) ? fromMember.characterId : null;
+    // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
+    let fromRemotePlayer = null;
+    try {
+      if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
+        fromRemotePlayer = RemotePlayerManager.get(fromUid);
+      }
+    } catch (_) {}
     players[fromUid] = { 
       x, 
       y, 
       name: name,
-      characterId: fromCharacterId // 添加角色ID
+      characterId: fromCharacterId, // 添加角色ID
+      // 添加更多狀態信息（如果遠程玩家對象已存在）
+      health: (fromRemotePlayer && typeof fromRemotePlayer.health === "number") ? fromRemotePlayer.health : 100,
+      maxHealth: (fromRemotePlayer && typeof fromRemotePlayer.maxHealth === "number") ? fromRemotePlayer.maxHealth : 100,
+      _isDead: (fromRemotePlayer && typeof fromRemotePlayer._isDead === "boolean") ? fromRemotePlayer._isDead : false,
+      _resurrectionProgress: (fromRemotePlayer && typeof fromRemotePlayer._resurrectionProgress === "number") ? fromRemotePlayer._resurrectionProgress : 0,
+      isUltimateActive: (fromRemotePlayer && typeof fromRemotePlayer.isUltimateActive === "boolean") ? fromRemotePlayer.isUltimateActive : false,
+      ultimateImageKey: (fromRemotePlayer && fromRemotePlayer._ultimateImageKey) ? fromRemotePlayer._ultimateImageKey : null,
+      ultimateEndTime: (fromRemotePlayer && typeof fromRemotePlayer.ultimateEndTime === "number") ? fromRemotePlayer.ultimateEndTime : 0,
+      width: (fromRemotePlayer && typeof fromRemotePlayer.width === "number" && fromRemotePlayer.width > 0) ? fromRemotePlayer.width : null,
+      height: (fromRemotePlayer && typeof fromRemotePlayer.height === "number" && fromRemotePlayer.height > 0) ? fromRemotePlayer.height : null,
+      collisionRadius: (fromRemotePlayer && typeof fromRemotePlayer.collisionRadius === "number" && fromRemotePlayer.collisionRadius > 0) ? fromRemotePlayer.collisionRadius : null
     };
 
     // 廣播給所有 client（通過 WebSocket）
