@@ -21,9 +21,20 @@ const WaveSystem = {
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
         
-        // M2：廣播波次開始事件（僅組隊模式且為室長）
+        // MMO 架構：每個玩家都廣播波次開始事件，不依賴隊長端
         try {
-            if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.role === "host") {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            
+            if (isSurvivalMode && typeof Game !== "undefined" && Game.multiplayer) {
+                // ✅ MMO 架構：每個玩家都廣播波次開始事件，不依賴隊長端
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                     window.SurvivalOnlineBroadcastEvent("wave_start", { wave: this.currentWave });
                 }
@@ -74,9 +85,20 @@ const WaveSystem = {
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
         
-        // M2：廣播波次開始事件（僅組隊模式且為室長）
+        // MMO 架構：每個玩家都廣播波次開始事件，不依賴隊長端
         try {
-            if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.role === "host") {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            
+            if (isSurvivalMode && typeof Game !== "undefined" && Game.multiplayer) {
+                // ✅ MMO 架構：每個玩家都廣播波次開始事件，不依賴隊長端
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                     window.SurvivalOnlineBroadcastEvent("wave_start", { wave: this.currentWave });
                 }
