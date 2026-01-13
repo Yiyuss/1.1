@@ -112,8 +112,14 @@ class ShockwaveEffect extends Entity {
                 // 造成傷害（單機和多人模式都執行）
                 enemy.takeDamage(finalDamage);
                 // 命中後施加暫時緩速：99% 超慢但仍可移動（1.5秒）
+                let slowMs = null;
+                let slowFactor = null;
                 if (enemy && typeof enemy.applySlow === 'function') {
-                    try { enemy.applySlow(1500, 0.01); } catch (_) {}
+                    try { 
+                        slowMs = 1500;
+                        slowFactor = 0.01;
+                        enemy.applySlow(slowMs, slowFactor);
+                    } catch (_) {}
                 }
                 if (typeof DamageNumbers !== 'undefined') {
                     const dirX = enemy.x - this.cx;
@@ -121,17 +127,23 @@ class ShockwaveEffect extends Entity {
                     DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, { dirX, dirY, enemyId: enemy.id });
                 }
                 
-                // 多人模式：發送enemy_damage（用於同步傷害數字，不影響傷害計算）
+                // 多人模式：發送enemy_damage（用於同步傷害數字和減速效果，不影響傷害計算）
                 if (isSurvivalMode && isMultiplayer && enemy && enemy.id) {
                     if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                        window.SurvivalOnlineRuntime.sendToNet({
+                        const msg = {
                             t: "enemy_damage",
                             enemyId: enemy.id,
                             damage: finalDamage,
                             weaponType: this.weaponType || "UNKNOWN",
                             isCrit: isCrit,
                             lifesteal: lifestealAmount
-                        });
+                        };
+                        // ✅ MMORPG 架構：如果應用減速效果，同步減速信息
+                        if (slowMs !== null && slowFactor !== null) {
+                            msg.slowMs = slowMs;
+                            msg.slowFactor = slowFactor;
+                        }
+                        window.SurvivalOnlineRuntime.sendToNet(msg);
                     }
                 }
                 this.hitEnemies.add(enemy.id);
