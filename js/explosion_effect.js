@@ -78,53 +78,46 @@ class ExplosionEffect extends Entity {
         for (const enemy of Game.enemies) {
             if (!enemy || enemy.markedForDeletion || enemy.health <= 0) continue;
             
-            // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
-            // 隊員端：造成實際傷害並發送enemy_damage給主機
-            // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理
-            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-            const isGuest = (isMultiplayer && Game.multiplayer.role === "guest");
-            const isHostRemotePlayer = (isMultiplayer && Game.multiplayer.role === "host" && this.player && this.player._isRemotePlayer);
-            
-            // 隊員端：造成實際傷害並發送enemy_damage
+            // ✅ MMO 架構：每個玩家都獨立造成傷害，通用單機和MMO
+            // 單機模式：直接造成傷害
+            // 多人模式：每個玩家都造成傷害，並發送enemy_damage（用於同步傷害數字）
             // 注意：EXPLOSION 是固定傷害，不經過 DamageSystem，所以沒有吸血
-            if (isGuest) {
-                enemy.takeDamage(fixedDamage);
-                if (typeof DamageNumbers !== 'undefined') {
-                    this._showSpecialDamageNumber(fixedDamage, enemy.x, enemy.y - (enemy.height || 0) / 2);
-                }
-                // 發送enemy_damage給主機（固定傷害沒有吸血）
-                if (enemy && enemy.id) {
-                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                        window.SurvivalOnlineRuntime.sendToNet({
-                            t: "enemy_damage",
-                            enemyId: enemy.id,
-                            damage: fixedDamage,
-                            weaponType: "EXPLOSION",
-                            isCrit: false,
-                            lifesteal: 0,
-                            playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                        });
-                    }
-                }
-                this.hitEnemies.push({
-                    enemy: enemy,
-                    x: enemy.x,
-                    y: enemy.y
-                });
-            } 
-            // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理（不重複計算）
-            else if (!isHostRemotePlayer) {
-                enemy.takeDamage(fixedDamage);
-                if (typeof DamageNumbers !== 'undefined') {
-                    this._showSpecialDamageNumber(fixedDamage, enemy.x, enemy.y - (enemy.height || 0) / 2);
-                }
-                this.hitEnemies.push({
-                    enemy: enemy,
-                    x: enemy.x,
-                    y: enemy.y
-                });
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            
+            // 造成傷害（單機和多人模式都執行）
+            enemy.takeDamage(fixedDamage);
+            if (typeof DamageNumbers !== 'undefined') {
+                this._showSpecialDamageNumber(fixedDamage, enemy.x, enemy.y - (enemy.height || 0) / 2);
             }
-            // 主機端的遠程玩家武器：不造成傷害（由隊員端的enemy_damage處理）
+            this.hitEnemies.push({
+                enemy: enemy,
+                x: enemy.x,
+                y: enemy.y
+            });
+            
+            // 多人模式：發送enemy_damage（用於同步傷害數字，不影響傷害計算）
+            if (isSurvivalMode && isMultiplayer && enemy && enemy.id) {
+                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                    window.SurvivalOnlineRuntime.sendToNet({
+                        t: "enemy_damage",
+                        enemyId: enemy.id,
+                        damage: fixedDamage,
+                        weaponType: "EXPLOSION",
+                        isCrit: false,
+                        lifesteal: 0,
+                        playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
+                    });
+                }
+            }
             
             // 显示特殊的红色伤害数字（放大2倍，显示时间2倍）
             if (typeof DamageNumbers !== 'undefined') {
