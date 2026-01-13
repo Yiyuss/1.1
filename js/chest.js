@@ -92,10 +92,14 @@ class Chest extends Entity {
     }
 
     update(deltaTime) {
-        // M4：支援多玩家收集（本地玩家 + 遠程玩家）
+        // ✅ MMORPG 架構：防止重複處理，如果已經被標記為刪除，不再處理
+        if (this.markedForDeletion) return;
+        
+        // ✅ MMORPG 架構：支援多玩家收集（本地玩家 + 遠程玩家），不依賴室長端
         const allPlayers = [];
         if (Game.player) allPlayers.push(Game.player);
-        if (Game.multiplayer && Game.multiplayer.role === "host" && Array.isArray(Game.remotePlayers)) {
+        // ✅ MMORPG 架構：所有玩家都能檢查遠程玩家，不依賴室長端
+        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
             for (const remotePlayer of Game.remotePlayers) {
                 if (remotePlayer && !remotePlayer.markedForDeletion) {
                     allPlayers.push(remotePlayer);
@@ -105,12 +109,12 @@ class Chest extends Entity {
         
         // 檢查是否被任何玩家收集
         for (const player of allPlayers) {
-            const dx = this.x - player.x;
-            const dy = this.y - player.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist <= (this.collisionRadius + player.collisionRadius)) {
+        const dx = this.x - player.x;
+        const dy = this.y - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= (this.collisionRadius + player.collisionRadius)) {
                 this.collect(player);
-                return;
+                return; // 只處理一次，防止重複
             }
         }
         this.x = Utils.clamp(this.x, this.width / 2, (Game.worldWidth || Game.canvas.width) - this.width / 2);
@@ -263,20 +267,38 @@ class Chest extends Entity {
     }
 
     collect(player) {
+        // ✅ MMORPG 架構：防止重複撿取，如果已經被標記為刪除，不再處理
+        if (this.markedForDeletion) return;
+        
         // M4：支援遠程玩家收集（但只有本地玩家觸發升級選單）
         const targetPlayer = player || Game.player;
         if (!targetPlayer) {
+            this.markedForDeletion = true;
             this.destroy();
             return;
         }
         
+        // ✅ MMORPG 架構：立即標記為刪除，防止多個玩家同時檢測到碰撞時重複處理
+        this.markedForDeletion = true;
+        
         // 只有本地玩家收集時才顯示升級選單（避免重複顯示）
         if (targetPlayer === Game.player) {
-            if (typeof AudioManager !== 'undefined') {
-                AudioManager.playSound('level_up');
-            }
+        if (typeof AudioManager !== 'undefined') {
+            AudioManager.playSound('level_up');
+        }
             if (typeof UI !== 'undefined' && UI.showLevelUpMenu) {
-                UI.showLevelUpMenu();
+        UI.showLevelUpMenu();
+            }
+        }
+        // ✅ MMORPG 架構：廣播寶箱被撿取事件，讓所有玩家都知道寶箱已消失
+        // 注意：升級選單只在撿取者端顯示，其他玩家收到事件時只移除寶箱
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        if (isMultiplayer) {
+            if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                window.SurvivalOnlineBroadcastEvent("chest_collected", {
+                    x: this.x,
+                    y: this.y
+                });
             }
         }
         this.destroy();
@@ -331,11 +353,26 @@ class PineappleUltimatePickup extends Chest {
             if (t >= 1) this._landed = true;
         }
 
-        // 與玩家碰觸收集（必須落地後）
-        if (this._landed) {
-            const player = Game.player;
-            if (player && this.isColliding(player)) {
-                this.collect();
+        // ✅ MMORPG 架構：與玩家碰觸收集（必須落地後），檢查所有玩家（本地+遠程）
+        if (this._landed && !this.markedForDeletion) {
+            // 檢查是否被任何玩家收集（本地玩家 + 遠程玩家）
+            const allPlayers = [];
+            if (Game.player) allPlayers.push(Game.player);
+            // ✅ MMORPG 架構：所有玩家都能檢查遠程玩家，不依賴室長端
+            if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
+                for (const remotePlayer of Game.remotePlayers) {
+                    if (remotePlayer && !remotePlayer.markedForDeletion) {
+                        allPlayers.push(remotePlayer);
+                    }
+                }
+            }
+            
+            // 檢查是否被任何玩家收集
+            for (const player of allPlayers) {
+                if (this.isColliding(player)) {
+                    this.collect();
+                    return; // 只處理一次，防止重複
+                }
             }
         }
 
@@ -435,10 +472,14 @@ class PineappleUltimatePickup extends Chest {
     }
 
     collect() {
-        // M4：支援遠程玩家收集鳳梨大絕掉落物
+        // ✅ MMORPG 架構：防止重複撿取，如果已經被標記為刪除，不再處理
+        if (this.markedForDeletion) return;
+        
+        // ✅ MMORPG 架構：支援遠程玩家收集鳳梨大絕掉落物，不依賴室長端
         const allPlayers = [];
         if (Game.player) allPlayers.push(Game.player);
-        if (Game.multiplayer && Game.multiplayer.role === "host" && Array.isArray(Game.remotePlayers)) {
+        // ✅ MMORPG 架構：所有玩家都能檢查遠程玩家，不依賴室長端
+        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
             for (const remotePlayer of Game.remotePlayers) {
                 if (remotePlayer && !remotePlayer.markedForDeletion) {
                     allPlayers.push(remotePlayer);
@@ -449,11 +490,13 @@ class PineappleUltimatePickup extends Chest {
         // 檢查是否被任何玩家收集
         for (const player of allPlayers) {
             if (this.isColliding(player)) {
-                // 組隊模式：給所有玩家經驗（經驗共享）
+                // ✅ MMORPG 架構：立即標記為刪除，防止重複處理（多個玩家同時檢測到碰撞時）
+                this.markedForDeletion = true;
+                // ✅ MMORPG 架構：所有玩家都能共享鳳梨掉落物經驗，不依賴室長端
                 const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-                if (isMultiplayer && Game.multiplayer.role === "host") {
-                    // 室長端：給所有玩家經驗
-                    // 只有本地玩家播放音效
+                if (isMultiplayer) {
+                    // 多人模式：給所有玩家經驗（經驗共享）
+                    // 只有本地玩家播放音效（避免重複播放）
                     if (player === Game.player && !player._isRemotePlayer) {
                         try {
                             if (typeof AudioManager !== 'undefined') {
@@ -521,6 +564,15 @@ class PineappleUltimatePickup extends Chest {
                         } catch (_) {}
                         const bonus = Math.max(0, Math.floor(needNow * 0.30));
                         player.gainExperience(base + bonus);
+                    }
+                }
+                // ✅ MMORPG 架構：廣播鳳梨掉落物被撿取事件，讓所有玩家都知道鳳梨已消失
+                if (isMultiplayer) {
+                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                        window.SurvivalOnlineBroadcastEvent("pineapple_pickup_collected", {
+                            x: this.x,
+                            y: this.y
+                        });
                     }
                 }
                 this.destroy();
