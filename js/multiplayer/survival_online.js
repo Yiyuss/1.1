@@ -334,6 +334,20 @@ const RemotePlayerManager = (() => {
       if (player && typeof player.update === "function") {
         // M4：使用完整的 Player.update，包括武器更新、回血等
         // 注意：死亡時 update() 會自動跳過移動和武器更新，只處理復活邏輯
+        
+        // ✅ 標準連線遊戲：使用速度外推預測位置（在收到新狀態之前）
+        if (player._isRemotePlayer && player._velocityX !== undefined && player._velocityY !== undefined) {
+          const now = Date.now();
+          const timeSinceLastState = Math.max(0, now - (player._lastStateTime || now));
+          // 只在短時間內使用速度外推（避免長時間預測導致錯誤）
+          if (timeSinceLastState < 100 && (Math.abs(player._velocityX) > 0.1 || Math.abs(player._velocityY) > 0.1)) {
+            const extrapolationFactor = Math.min(1.0, timeSinceLastState / 50); // 最多外推50ms
+            const deltaSeconds = deltaTime / 1000;
+            player.x += player._velocityX * deltaSeconds * extrapolationFactor;
+            player.y += player._velocityY * deltaSeconds * extrapolationFactor;
+          }
+        }
+        
         player.update(deltaTime);
       }
     }
@@ -461,34 +475,64 @@ const Runtime = (() => {
             console.log(`[SurvivalOnline] onStateMessage: 成功創建/更新遠程玩家 ${uid}`);
             // ✅ 修復：保存名字到遠程玩家對象（確保繪製時能獲取到正確的名字）
             remotePlayer._remotePlayerName = playerName;
-            // ✅ 修復：更新位置（使用基於時間的平滑插值，減少抖動）
-            // 注意：遠程玩家的位置應該優先使用狀態消息的位置，而不是輸入消息
-            // 因為狀態消息包含完整的位置信息，而輸入消息只是移動方向
+            // ✅ 標準連線遊戲移動同步：使用速度外推 + 平滑插值
+            // 這是所有連線遊戲（包括不到10MB的小遊戲）的標準做法
             const targetX = p.x;
             const targetY = p.y;
             if (typeof targetX === "number" && typeof targetY === "number") {
-              // 計算距離，如果距離很大則直接跳轉（避免網絡延遲造成的劇烈移動）
               const dx = targetX - remotePlayer.x;
               const dy = targetY - remotePlayer.y;
               const distance = Math.sqrt(dx * dx + dy * dy);
               
-              // 如果距離超過 200 像素，直接跳轉（可能是網絡延遲或重連）
-              if (distance > 200) {
+              // 初始化速度追蹤
+              if (!remotePlayer._lastStateTime) {
+                remotePlayer._lastStateTime = now;
+                remotePlayer._lastStateX = targetX;
+                remotePlayer._lastStateY = targetY;
+                remotePlayer._velocityX = 0;
+                remotePlayer._velocityY = 0;
+              }
+              
+              // 如果距離很大，直接跳轉（網絡延遲或重連）
+              if (distance > 150) {
                 remotePlayer.x = targetX;
                 remotePlayer.y = targetY;
-                // 清除輸入，避免衝突
+                remotePlayer._velocityX = 0;
+                remotePlayer._velocityY = 0;
+                remotePlayer._lastStateTime = now;
+                remotePlayer._lastStateX = targetX;
+                remotePlayer._lastStateY = targetY;
                 remotePlayer._remoteInput = null;
-              } else if (distance > 5) {
-                // 使用基於時間的插值（更平滑，減少抖動）
-                // 使用更大的插值係數，讓移動更快速但保持平滑
-                // 距離越大，插值係數越大（快速接近），距離越小，插值係數越小（平滑移動）
-                const lerpFactor = Math.min(0.7, Math.max(0.3, distance / 100)); // 動態插值係數
+              } else if (distance > 0.5) {
+                // ✅ 標準做法：計算速度並使用速度外推
+                const timeDelta = Math.max(1, now - remotePlayer._lastStateTime); // 毫秒
+                const newVelocityX = (targetX - remotePlayer._lastStateX) / timeDelta * 1000; // 像素/秒
+                const newVelocityY = (targetY - remotePlayer._lastStateY) / timeDelta * 1000;
+                
+                // 平滑速度（避免突然變化）
+                const velocityLerp = 0.3; // 速度平滑係數
+                remotePlayer._velocityX = remotePlayer._velocityX * (1 - velocityLerp) + newVelocityX * velocityLerp;
+                remotePlayer._velocityY = remotePlayer._velocityY * (1 - velocityLerp) + newVelocityY * velocityLerp;
+                
+                // ✅ 標準做法：使用很小的插值係數（0.1-0.2），讓移動更直接、不飄
+                // 這是所有連線遊戲的標準做法
+                const lerpFactor = Math.min(0.2, Math.max(0.1, distance / 50)); // 很小的插值係數
                 remotePlayer.x = remotePlayer.x + (targetX - remotePlayer.x) * lerpFactor;
                 remotePlayer.y = remotePlayer.y + (targetY - remotePlayer.y) * lerpFactor;
+                
+                // 更新狀態追蹤
+                remotePlayer._lastStateTime = now;
+                remotePlayer._lastStateX = targetX;
+                remotePlayer._lastStateY = targetY;
               } else {
                 // 距離很小，直接設置（避免微小抖動）
                 remotePlayer.x = targetX;
                 remotePlayer.y = targetY;
+                remotePlayer._velocityX = 0;
+                remotePlayer._velocityY = 0;
+                remotePlayer._lastStateTime = now;
+                remotePlayer._lastStateX = targetX;
+                remotePlayer._lastStateY = targetY;
               }
             }
             // ✅ 修復：更新其他狀態（確保血量正確同步）
@@ -625,10 +669,19 @@ const Runtime = (() => {
     try {
       // 根據事件類型執行輕量模擬
       if (eventType === "wave_start") {
-        // 波次開始
+        // ✅ 真正的MMORPG：波次開始 - 同步波次開始時間，確保所有客戶端在同一時間生成相同的敵人
         if (typeof WaveSystem !== "undefined" && WaveSystem.currentWave !== undefined) {
-          WaveSystem.currentWave = eventData.wave || 1;
-          WaveSystem.waveStartTime = payload.timestamp || Date.now();
+          const syncedWave = eventData.wave || 1;
+          // ✅ 真正的MMORPG：優先使用 eventData.timestamp（從 wave_start 事件傳遞），其次使用 payload.timestamp
+          const syncedStartTime = (eventData.timestamp && typeof eventData.timestamp === "number") 
+            ? eventData.timestamp 
+            : (payload.timestamp && typeof payload.timestamp === "number") 
+              ? payload.timestamp 
+              : Date.now();
+          console.log(`[SurvivalOnline] 同步波次開始: wave=${syncedWave}, startTime=${syncedStartTime}, 本地時間=${Date.now()}, 時間差=${Date.now() - syncedStartTime}ms`);
+          WaveSystem.currentWave = syncedWave;
+          WaveSystem.waveStartTime = syncedStartTime; // ✅ 使用同步的時間，而不是本地時間
+          WaveSystem.lastEnemySpawnTime = syncedStartTime; // ✅ 重置敵人生成時間，確保從波次開始時間計算
           if (typeof UI !== "undefined" && UI.updateWaveInfo) {
             UI.updateWaveInfo(WaveSystem.currentWave);
           }
@@ -777,7 +830,9 @@ const Runtime = (() => {
           console.warn("[SurvivalOnline] 隊員端顯示傷害數字失敗:", e);
         }
       } else if (eventType === "projectile_spawn") {
+        // ✅ 真正的MMORPG：所有玩家都能看到其他玩家的技能特效
         // 隊員端生成投射物視覺效果（僅視覺，不影響傷害計算）
+        console.log(`[SurvivalOnline] onEventMessage: 收到投射物生成事件, weaponType=${eventData.weaponType}, x=${eventData.x}, y=${eventData.y}`);
         try {
           if (typeof Game !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
             // 檢查是否已存在相同ID的投射物（避免重複生成）
@@ -1710,7 +1765,7 @@ const Runtime = (() => {
       return;
     }
     const now = Date.now();
-    if (now - lastSendAt < 100) return; // 10Hz
+    if (now - lastSendAt < 16) return; // ✅ 標準連線遊戲：60Hz更新頻率，讓移動更平滑自然
     lastSendAt = now;
     
     // MMO 架構：每個玩家都發送自己的完整狀態
@@ -3123,7 +3178,8 @@ function _handleWeaponUpgradeMessage(fromUid, msg) {
     return;
   }
   
-  // 找到對應的遠程玩家並應用武器升級
+  // ✅ 真正的MMORPG：找到對應的遠程玩家並應用武器升級
+  console.log(`[SurvivalOnline] _handleWeaponUpgradeMessage: 處理武器升級, fromUid=${fromUid}, weaponType=${weaponType}`);
   try {
     let remotePlayer = null;
     if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
@@ -3136,6 +3192,7 @@ function _handleWeaponUpgradeMessage(fromUid, msg) {
       
       if (existingWeapon) {
         // 如果已有此武器，則升級
+        console.log(`[SurvivalOnline] _handleWeaponUpgradeMessage: 升級現有武器 ${weaponType}, 當前等級=${existingWeapon.level || 1}`);
         if (typeof remotePlayer.upgradeWeapon === 'function') {
           remotePlayer.upgradeWeapon(weaponType);
         } else if (existingWeapon.levelUp && typeof existingWeapon.levelUp === 'function') {
@@ -3143,8 +3200,10 @@ function _handleWeaponUpgradeMessage(fromUid, msg) {
         }
       } else {
         // 否則添加新武器
+        console.log(`[SurvivalOnline] _handleWeaponUpgradeMessage: 添加新武器 ${weaponType}`);
         remotePlayer.addWeapon(weaponType);
       }
+      console.log(`[SurvivalOnline] _handleWeaponUpgradeMessage: 遠程玩家 ${fromUid} 的武器列表:`, remotePlayer.weapons ? remotePlayer.weapons.map(w => `${w.type}(Lv${w.level || 1})`) : []);
     } else {
       console.warn("[SurvivalOnline] _handleWeaponUpgradeMessage: 找不到遠程玩家", fromUid);
     }
