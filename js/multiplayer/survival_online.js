@@ -1425,27 +1425,15 @@ const Runtime = (() => {
     if (payload.t !== "snapshot") return;
     
     try {
-      // 只處理自己的狀態（其他玩家的狀態由 onStateMessage 處理）
+      // MMO 架構：不再校正位置，只同步關鍵狀態
+      // 每個玩家都是獨立的，位置由客戶端自己控制，不被服務器校正
       if (payload.players && _uid && payload.players[_uid]) {
         const myState = payload.players[_uid];
         if (typeof Game !== "undefined" && Game.player) {
           const player = Game.player;
           
-          // 位置：使用插值平滑過渡（不硬跳）
-          const targetX = myState.x || player.x;
-          const targetY = myState.y || player.y;
-          const dx = targetX - player.x;
-          const dy = targetY - player.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          // 如果距離較大（>50px），使用插值；否則直接設置
-          if (dist > 50) {
-            const lerp = 0.3; // 插值係數
-            player.x += dx * lerp;
-            player.y += dy * lerp;
-          } else {
-            player.x = targetX;
-            player.y = targetY;
-          }
+          // ✅ MMO 架構：不再校正位置，只同步關鍵狀態（血量、能量、等級等）
+          // 位置由客戶端自己控制，不被服務器校正，確保每個玩家都是獨立的
           
           // 血量/能量/等級/經驗：硬覆蓋保一致
           if (typeof myState.hp === "number") player.health = Math.max(0, Math.min(myState.hp, player.maxHealth || 100));
@@ -1548,51 +1536,9 @@ const Runtime = (() => {
         }
       }
 
-      // 處理敵人狀態（同步敵人的位置和血量）
-      if (payload.enemies && Array.isArray(payload.enemies) && typeof Game !== "undefined" && Array.isArray(Game.enemies)) {
-        // 建立敵人ID映射
-        const enemyMap = new Map();
-        for (const enemy of Game.enemies) {
-          if (enemy && enemy.id) {
-            enemyMap.set(enemy.id, enemy);
-          }
-        }
-        
-        // 同步敵人狀態
-        for (const enemyState of payload.enemies) {
-          if (!enemyState.id) continue;
-          const enemy = enemyMap.get(enemyState.id);
-          if (enemy) {
-            // 同步位置（使用插值）
-            if (typeof enemyState.x === "number" && typeof enemyState.y === "number") {
-              const dx = enemyState.x - enemy.x;
-              const dy = enemyState.y - enemy.y;
-              const dist = Math.sqrt(dx * dx + dy * dy);
-              if (dist > 50) {
-                const lerp = 0.3;
-                enemy.x += dx * lerp;
-                enemy.y += dy * lerp;
-              } else {
-                enemy.x = enemyState.x;
-                enemy.y = enemyState.y;
-              }
-            }
-            // 同步血量
-            if (typeof enemyState.hp === "number") enemy.health = Math.max(0, enemyState.hp);
-            if (typeof enemyState.maxHp === "number") enemy.maxHealth = enemyState.maxHp;
-          }
-        }
-        
-        // 移除已死亡的敵人（室長端已標記為刪除的敵人）
-        const aliveEnemyIds = new Set(payload.enemies.map(e => e.id).filter(id => id));
-        for (let i = Game.enemies.length - 1; i >= 0; i--) {
-          const enemy = Game.enemies[i];
-          if (enemy && enemy.id && !aliveEnemyIds.has(enemy.id)) {
-            // 室長端已刪除此敵人，客戶端也應該刪除
-            enemy.markedForDeletion = true;
-          }
-        }
-      }
+      // ✅ MMO 架構：不再同步敵人，每個客戶端自己生成
+      // 使用確定性生成確保所有客戶端生成相同的敵人
+      // 敵人同步已移除，每個客戶端自己生成和更新敵人
     } catch (e) {
       console.warn("[SurvivalOnline] M3 快照處理失敗:", e);
     }
@@ -1609,10 +1555,10 @@ const Runtime = (() => {
   }
 
   function tick(game, deltaTime) {
-    // 添加日志以确认 tick 被调用（仅第一次，避免日志过多）
+    // MMO 架構：每個玩家都發送自己的完整狀態，不依賴隊長端
     if (!_tickCalled) {
       _tickCalled = true;
-      console.log(`[SurvivalOnline] tick: 第一次被調用, enabled=${enabled}, isHost=${_isHost}`);
+      console.log(`[SurvivalOnline] tick: 第一次被調用 (MMO架構), enabled=${enabled}`);
     }
     if (!enabled) {
       return;
@@ -1620,31 +1566,45 @@ const Runtime = (() => {
     const now = Date.now();
     if (now - lastSendAt < 100) return; // 10Hz
     lastSendAt = now;
-    const st = collectLocalState(game);
-    if (!st) {
-      return;
-    }
-    // 添加日志以诊断（仅队员端，避免日志过多）
-    if (!_isHost && Math.random() < 0.1) { // 10% 概率记录
-      console.log(`[SurvivalOnline] tick: 調用 sendToNet, isHost=${_isHost}, pos=(${st.x}, ${st.y})`);
-    }
-    sendToNet({ t: "pos", x: st.x, y: st.y });
-
-    // M1：基礎輸入通道（先建立格式；M2 才會由室長權威真正套用）
+    
+    // MMO 架構：每個玩家都發送自己的完整狀態
     try {
-      if (now - lastInputAt >= 100) {
-        lastInputAt = now;
-        let dir = null;
-        try {
-          if (typeof Input !== "undefined" && Input.getMovementDirection) {
-            dir = Input.getMovementDirection();
+      if (typeof Game !== "undefined" && Game.player) {
+        const player = Game.player;
+        const member = _membersState ? _membersState.get(_uid) : null;
+        const characterId = (member && member.characterId) ? member.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
+        
+        // 收集自己的完整狀態
+        const myState = {
+          t: "state",
+          players: {
+            [_uid]: {
+              x: player.x,
+              y: player.y,
+              name: getPlayerNickname(),
+              characterId: characterId,
+              health: (typeof player.health === "number") ? player.health : 100,
+              maxHealth: (typeof player.maxHealth === "number") ? player.maxHealth : 100,
+              _isDead: (typeof player._isDead === "boolean") ? player._isDead : false,
+              _resurrectionProgress: (typeof player._resurrectionProgress === "number") ? player._resurrectionProgress : 0,
+              isUltimateActive: (typeof player.isUltimateActive === "boolean") ? player.isUltimateActive : false,
+              ultimateImageKey: (player._ultimateImageKey) ? player._ultimateImageKey : null,
+              ultimateEndTime: (typeof player.ultimateEndTime === "number") ? player.ultimateEndTime : 0,
+              width: (typeof player.width === "number" && player.width > 0) ? player.width : null,
+              height: (typeof player.height === "number" && player.height > 0) ? player.height : null,
+              collisionRadius: (typeof player.collisionRadius === "number" && player.collisionRadius > 0) ? player.collisionRadius : null
+            }
           }
-        } catch (_) {}
-        const mx = dir && typeof dir.x === "number" ? dir.x : 0;
-        const my = dir && typeof dir.y === "number" ? dir.y : 0;
-        sendToNet({ t: "input", mx, my, at: now });
+        };
+        
+        // 發送自己的狀態（通過 WebSocket 服務器中繼給其他玩家）
+        if (_ws && _ws.readyState === WebSocket.OPEN) {
+          _sendViaWebSocket(myState);
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      console.warn("[SurvivalOnline] tick: 發送狀態失敗:", e);
+    }
   }
 
   function getRemotePlayers() {
@@ -1780,23 +1740,10 @@ const Runtime = (() => {
         }
       } catch (_) {}
 
-      // 收集敵人狀態（用於客戶端同步）
-      try {
-        if (typeof Game !== "undefined" && Array.isArray(Game.enemies)) {
-          for (const enemy of Game.enemies) {
-            if (enemy && !enemy.markedForDeletion) {
-              snapshot.enemies.push({
-                id: enemy.id || `enemy_${Date.now()}_${Math.random()}`,
-                type: enemy.type || "UNKNOWN",
-                x: enemy.x || 0,
-                y: enemy.y || 0,
-                hp: enemy.health || 0,
-                maxHp: enemy.maxHealth || 0
-              });
-            }
-          }
-        }
-      } catch (_) {}
+      // ✅ MMO 架構：不再同步敵人，每個客戶端自己生成
+      // 使用確定性生成確保所有客戶端生成相同的敵人
+      // 敵人同步已移除，每個客戶端自己生成和更新敵人
+      // snapshot.enemies 不再使用
 
       return snapshot;
     } catch (_) {
@@ -1805,100 +1752,29 @@ const Runtime = (() => {
   }
 
   // M2：更新遠程玩家（僅室長端調用）
+  // MMO 架構：每個玩家都更新遠程玩家，不依賴隊長端
   function updateRemotePlayers(deltaTime) {
-    if (!_isHost) return;
+    // ✅ MMO 架構：每個玩家都執行，更新遠程玩家的武器和攻擊效果
     try {
+      // 更新所有遠程玩家的武器和攻擊效果
       RemotePlayerManager.updateAll(deltaTime);
-      const now = Date.now();
       
-      // 定期廣播遠程玩家位置（10Hz，用於即時顯示）
-      if (now - lastSendAt >= 100) {
-        lastSendAt = now;
-        const remoteStates = RemotePlayerManager.getAllStates();
-        const players = {};
-        // 加上 host 自己
-        try {
-          if (typeof Game !== "undefined" && Game.player) {
-            const hostMember = _membersState ? _membersState.get(_uid) : null;
-            const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
-            const hostPlayer = Game.player;
-            players[_uid] = { 
-              x: Game.player.x, 
-              y: Game.player.y, 
-              name: getPlayerNickname(),
-              characterId: hostCharacterId, // 添加角色ID
-              // 添加更多狀態信息
-              health: (hostPlayer && typeof hostPlayer.health === "number") ? hostPlayer.health : 100,
-              maxHealth: (hostPlayer && typeof hostPlayer.maxHealth === "number") ? hostPlayer.maxHealth : 100,
-              _isDead: (hostPlayer && typeof hostPlayer._isDead === "boolean") ? hostPlayer._isDead : false,
-              _resurrectionProgress: (hostPlayer && typeof hostPlayer._resurrectionProgress === "number") ? hostPlayer._resurrectionProgress : 0,
-              isUltimateActive: (hostPlayer && typeof hostPlayer.isUltimateActive === "boolean") ? hostPlayer.isUltimateActive : false,
-              ultimateImageKey: (hostPlayer && hostPlayer._ultimateImageKey) ? hostPlayer._ultimateImageKey : null,
-              ultimateEndTime: (hostPlayer && typeof hostPlayer.ultimateEndTime === "number") ? hostPlayer.ultimateEndTime : 0,
-              width: (hostPlayer && typeof hostPlayer.width === "number" && hostPlayer.width > 0) ? hostPlayer.width : null,
-              height: (hostPlayer && typeof hostPlayer.height === "number" && hostPlayer.height > 0) ? hostPlayer.height : null,
-              collisionRadius: (hostPlayer && typeof hostPlayer.collisionRadius === "number" && hostPlayer.collisionRadius > 0) ? hostPlayer.collisionRadius : null
-            };
-          }
-        } catch (_) {}
-        // 加上所有遠程玩家
-        for (const [uid, state] of Object.entries(remoteStates)) {
-          const member = _membersState ? _membersState.get(uid) : null;
-          const name = (member && typeof member.name === "string") ? member.name : uid.slice(0, 6);
-          const characterId = (member && member.characterId) ? member.characterId : null;
-          const remotePlayer = RemotePlayerManager.get(uid);
-          players[uid] = { 
-            x: state.x, 
-            y: state.y, 
-            name: name,
-            characterId: characterId, // 添加角色ID
-            // 添加更多狀態信息
-            health: (remotePlayer && typeof remotePlayer.health === "number") ? remotePlayer.health : state.hp || 100,
-            maxHealth: (remotePlayer && typeof remotePlayer.maxHealth === "number") ? remotePlayer.maxHealth : state.maxHp || 100,
-            _isDead: (remotePlayer && typeof remotePlayer._isDead === "boolean") ? remotePlayer._isDead : false,
-            _resurrectionProgress: (remotePlayer && typeof remotePlayer._resurrectionProgress === "number") ? remotePlayer._resurrectionProgress : 0,
-            isUltimateActive: (remotePlayer && typeof remotePlayer.isUltimateActive === "boolean") ? remotePlayer.isUltimateActive : false,
-            ultimateImageKey: (remotePlayer && remotePlayer._ultimateImageKey) ? remotePlayer._ultimateImageKey : null,
-            ultimateEndTime: (remotePlayer && typeof remotePlayer.ultimateEndTime === "number") ? remotePlayer.ultimateEndTime : 0,
-            width: (remotePlayer && typeof remotePlayer.width === "number" && remotePlayer.width > 0) ? remotePlayer.width : null,
-            height: (remotePlayer && typeof remotePlayer.height === "number" && remotePlayer.height > 0) ? remotePlayer.height : null,
-            collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : null
-          };
-        }
-        // 使用 WebSocket 廣播給所有 client（通過服務器中繼，不暴露 IP）
-        const memberCount = _membersState ? _membersState.size - 1 : 0; // 減去 host 自己
-        console.log(`[SurvivalOnline] updateRemotePlayers: 廣播狀態給 ${memberCount} 個客戶端，玩家數量=${Object.keys(players).length}`);
-        // 通過 WebSocket 廣播給所有已連接的隊員
-        if (_ws && _ws.readyState === WebSocket.OPEN) {
-          _sendViaWebSocket({ t: "state", players });
-        }
-      }
-
-      // M3：定期發送完整狀態快照（約 3.3Hz，用於收斂一致性）
-      if (now - lastSnapshotAt >= SNAPSHOT_INTERVAL_MS) {
-        lastSnapshotAt = now;
-        const snapshot = collectSnapshot();
-        if (snapshot) {
-          // 使用 WebSocket 廣播快照給所有 client（通過服務器中繼，不暴露 IP）
-          if (_ws && _ws.readyState === WebSocket.OPEN) {
-            _sendViaWebSocket({ t: "snapshot", ...snapshot });
-          }
-        }
-      }
+      // 注意：狀態同步已由 tick 函數處理，這裡只更新遠程玩家的邏輯
+      // 不再需要隊長端廣播，每個玩家都發送自己的狀態
     } catch (_) {}
   }
 
-  // M2：清理遠程玩家（僅室長端調用）
+  // MMO 架構：每個玩家都可以清理遠程玩家（遊戲結束時）
   function clearRemotePlayers() {
-    if (!_isHost) return;
+    // ✅ MMO 架構：每個玩家都可以清理遠程玩家，不依賴隊長端
     try {
       RemotePlayerManager.clear();
     } catch (_) {}
   }
 
-  // M2：廣播事件（僅室長端調用）
+  // MMO 架構：每個玩家都廣播事件，不依賴隊長端
   function broadcastEventFromRuntime(eventType, eventData) {
-    if (!_isHost) return;
+    // ✅ MMO 架構：每個玩家都廣播自己的事件（攻擊、技能等），不依賴隊長端
     try {
       // 調用全局 broadcastEvent 函數
       if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
@@ -1907,75 +1783,11 @@ const Runtime = (() => {
     } catch (_) {}
   }
 
-  // 客戶端發送消息到室長端
+  // MMO 架構：每個玩家都直接發送消息，不依賴隊長端
   function sendToNet(obj) {
     if (!obj) return;
-    if (_isHost) {
-      // host 本地：直接合成 state 並發給 client（避免 host 也要走 dc）
-      if (obj.t === "pos") {
-        const x = obj.x, y = obj.y;
-        const players = {};
-        const hostMember = _membersState ? _membersState.get(_uid) : null;
-        const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
-        const hostPlayer = (typeof Game !== "undefined" && Game.player) ? Game.player : null;
-        players[_uid] = { 
-          x, 
-          y, 
-          name: getPlayerNickname(),
-          characterId: hostCharacterId,
-          // 添加更多狀態信息
-          health: (hostPlayer && typeof hostPlayer.health === "number") ? hostPlayer.health : 100,
-          maxHealth: (hostPlayer && typeof hostPlayer.maxHealth === "number") ? hostPlayer.maxHealth : 100,
-          _isDead: (hostPlayer && typeof hostPlayer._isDead === "boolean") ? hostPlayer._isDead : false,
-          _resurrectionProgress: (hostPlayer && typeof hostPlayer._resurrectionProgress === "number") ? hostPlayer._resurrectionProgress : 0,
-          // 大招狀態同步
-          isUltimateActive: (hostPlayer && hostPlayer.isUltimateActive) || false,
-          ultimateImageKey: (hostPlayer && hostPlayer._ultimateImageKey) || null,
-          ultimateEndTime: (hostPlayer && hostPlayer.ultimateEndTime) || 0,
-          width: (hostPlayer && hostPlayer.width) || null,
-          height: (hostPlayer && hostPlayer.height) || null,
-          collisionRadius: (hostPlayer && hostPlayer.collisionRadius) || null
-        };
-        // 加上目前已知 remote（host 看得到）
-        for (const p of Runtime.getRemotePlayers()) {
-          const member = _membersState ? _membersState.get(p.uid) : null;
-          const characterId = (member && member.characterId) ? member.characterId : (p.characterId) ? p.characterId : null;
-          
-          // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
-          let remotePlayer = null;
-          try {
-            if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
-              remotePlayer = RemotePlayerManager.get(p.uid);
-            }
-          } catch (_) {}
-          
-          players[p.uid] = { 
-            x: p.x, 
-            y: p.y, 
-            name: p.name,
-            characterId: characterId,
-            // 添加更多狀態信息（如果遠程玩家對象已存在）
-            health: (remotePlayer && typeof remotePlayer.health === "number") ? remotePlayer.health : 100,
-            maxHealth: (remotePlayer && typeof remotePlayer.maxHealth === "number") ? remotePlayer.maxHealth : 100,
-            _isDead: (remotePlayer && typeof remotePlayer._isDead === "boolean") ? remotePlayer._isDead : false,
-            _resurrectionProgress: (remotePlayer && typeof remotePlayer._resurrectionProgress === "number") ? remotePlayer._resurrectionProgress : 0,
-            // 大招狀態同步
-            isUltimateActive: (remotePlayer && typeof remotePlayer.isUltimateActive === "boolean") ? remotePlayer.isUltimateActive : ((typeof p.isUltimateActive === "boolean") ? p.isUltimateActive : false),
-            ultimateImageKey: (remotePlayer && remotePlayer._ultimateImageKey) ? remotePlayer._ultimateImageKey : ((typeof p.ultimateImageKey === "string" && p.ultimateImageKey) ? p.ultimateImageKey : null),
-            ultimateEndTime: (remotePlayer && typeof remotePlayer.ultimateEndTime === "number") ? remotePlayer.ultimateEndTime : ((typeof p.ultimateEndTime === "number") ? p.ultimateEndTime : 0),
-            width: (remotePlayer && typeof remotePlayer.width === "number" && remotePlayer.width > 0) ? remotePlayer.width : ((typeof p.width === "number" && p.width > 0) ? p.width : null),
-            height: (remotePlayer && typeof remotePlayer.height === "number" && remotePlayer.height > 0) ? remotePlayer.height : ((typeof p.height === "number" && p.height > 0) ? p.height : null),
-            collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : ((typeof p.collisionRadius === "number" && p.collisionRadius > 0) ? p.collisionRadius : null)
-          };
-        }
-        // 使用 WebSocket 廣播
-        if (_ws && _ws.readyState === WebSocket.OPEN) {
-          _sendViaWebSocket({ t: "state", players });
-        }
-      }
-      return;
-    }
-    // client：送到 host
+    // ✅ MMO 架構：每個玩家都直接通過 WebSocket 發送消息，不依賴隊長端
+    // 注意：狀態同步已由 tick 函數處理，這裡主要用於發送事件（攻擊、技能等）
     _sendViaWebSocket(obj);
   }
 
@@ -2689,21 +2501,8 @@ async function connectWebSocket() {
             Runtime.onSnapshotMessage(data);
           } else if (data.t === "full_snapshot") {
             Runtime.onFullSnapshotMessage(data);
-          } else if (data.t === "pos" && _isHost) {
-            // 隊長端處理隊員發送的 pos 消息
-            if (senderUid) {
-              handleHostDataMessage(senderUid, { t: "pos", x: data.x, y: data.y });
-            } else {
-              console.warn("[SurvivalOnline] connectWebSocket: pos 消息缺少 uid/fromUid", msg);
-            }
-          } else if (data.t === "input" && _isHost) {
-            // 隊長端處理隊員發送的 input 消息
-            if (senderUid) {
-              handleHostDataMessage(senderUid, { t: "input", mx: data.mx, my: data.my, at: data.at });
-            } else {
-              console.warn("[SurvivalOnline] connectWebSocket: input 消息缺少 uid/fromUid", msg);
-            }
-          }
+          // ✅ MMO 架構：pos 和 input 消息已由 tick 函數處理，不再需要 handleHostDataMessage
+          // 舊架構的 pos 和 input 消息處理已移除，現在每個玩家都通過 tick 函數發送自己的狀態
         } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
           // 用戶加入/離開通知（可選）
           console.log(`[SurvivalOnline] connectWebSocket: ${msg.type}, uid=${msg.uid}`);
@@ -3341,9 +3140,10 @@ function sendFullSnapshotToClient(targetUid) {
   }
 }
 
-// M2：事件廣播系統（室長權威）
+// MMO 架構：事件廣播系統（每個玩家都廣播自己的事件）
 function broadcastEvent(eventType, eventData) {
-  if (!_isHost || !_activeRoomId) return;
+  // ✅ MMO 架構：每個玩家都廣播自己的事件，不依賴隊長端
+  if (!_activeRoomId) return;
   const event = {
     t: "event",
     type: eventType,
@@ -3484,7 +3284,12 @@ function handleHostDataMessage(fromUid, msg) {
       }
     } catch (_) {}
     // 已知其他人（Runtime 內 + 這次）
+    // 使用 Set 來追蹤已處理的 UID，避免重複
+    const processedUids = new Set();
     for (const p of Runtime.getRemotePlayers()) {
+      if (processedUids.has(p.uid)) continue; // 跳過已處理的
+      processedUids.add(p.uid);
+      
       const member = _membersState ? _membersState.get(p.uid) : null;
       const characterId = (member && member.characterId) ? member.characterId : (p.characterId) ? p.characterId : null;
       
@@ -3514,32 +3319,35 @@ function handleHostDataMessage(fromUid, msg) {
         collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : null
       };
     }
-    const fromMember = _membersState ? _membersState.get(fromUid) : null;
-    const fromCharacterId = (fromMember && fromMember.characterId) ? fromMember.characterId : null;
-    // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
-    let fromRemotePlayer = null;
-    try {
-      if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
-        fromRemotePlayer = RemotePlayerManager.get(fromUid);
-      }
-    } catch (_) {}
-    players[fromUid] = { 
-      x, 
-      y, 
-      name: name,
-      characterId: fromCharacterId, // 添加角色ID
-      // 添加更多狀態信息（如果遠程玩家對象已存在）
-      health: (fromRemotePlayer && typeof fromRemotePlayer.health === "number") ? fromRemotePlayer.health : 100,
-      maxHealth: (fromRemotePlayer && typeof fromRemotePlayer.maxHealth === "number") ? fromRemotePlayer.maxHealth : 100,
-      _isDead: (fromRemotePlayer && typeof fromRemotePlayer._isDead === "boolean") ? fromRemotePlayer._isDead : false,
-      _resurrectionProgress: (fromRemotePlayer && typeof fromRemotePlayer._resurrectionProgress === "number") ? fromRemotePlayer._resurrectionProgress : 0,
-      isUltimateActive: (fromRemotePlayer && typeof fromRemotePlayer.isUltimateActive === "boolean") ? fromRemotePlayer.isUltimateActive : false,
-      ultimateImageKey: (fromRemotePlayer && fromRemotePlayer._ultimateImageKey) ? fromRemotePlayer._ultimateImageKey : null,
-      ultimateEndTime: (fromRemotePlayer && typeof fromRemotePlayer.ultimateEndTime === "number") ? fromRemotePlayer.ultimateEndTime : 0,
-      width: (fromRemotePlayer && typeof fromRemotePlayer.width === "number" && fromRemotePlayer.width > 0) ? fromRemotePlayer.width : null,
-      height: (fromRemotePlayer && typeof fromRemotePlayer.height === "number" && fromRemotePlayer.height > 0) ? fromRemotePlayer.height : null,
-      collisionRadius: (fromRemotePlayer && typeof fromRemotePlayer.collisionRadius === "number" && fromRemotePlayer.collisionRadius > 0) ? fromRemotePlayer.collisionRadius : null
-    };
+    // 添加這次的 fromUid（如果還沒處理）
+    if (!processedUids.has(fromUid)) {
+      const fromMember = _membersState ? _membersState.get(fromUid) : null;
+      const fromCharacterId = (fromMember && fromMember.characterId) ? fromMember.characterId : null;
+      // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
+      let fromRemotePlayer = null;
+      try {
+        if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
+          fromRemotePlayer = RemotePlayerManager.get(fromUid);
+        }
+      } catch (_) {}
+      players[fromUid] = { 
+        x, 
+        y, 
+        name: name,
+        characterId: fromCharacterId, // 添加角色ID
+        // 添加更多狀態信息（如果遠程玩家對象已存在）
+        health: (fromRemotePlayer && typeof fromRemotePlayer.health === "number") ? fromRemotePlayer.health : 100,
+        maxHealth: (fromRemotePlayer && typeof fromRemotePlayer.maxHealth === "number") ? fromRemotePlayer.maxHealth : 100,
+        _isDead: (fromRemotePlayer && typeof fromRemotePlayer._isDead === "boolean") ? fromRemotePlayer._isDead : false,
+        _resurrectionProgress: (fromRemotePlayer && typeof fromRemotePlayer._resurrectionProgress === "number") ? fromRemotePlayer._resurrectionProgress : 0,
+        isUltimateActive: (fromRemotePlayer && typeof fromRemotePlayer.isUltimateActive === "boolean") ? fromRemotePlayer.isUltimateActive : false,
+        ultimateImageKey: (fromRemotePlayer && fromRemotePlayer._ultimateImageKey) ? fromRemotePlayer._ultimateImageKey : null,
+        ultimateEndTime: (fromRemotePlayer && typeof fromRemotePlayer.ultimateEndTime === "number") ? fromRemotePlayer.ultimateEndTime : 0,
+        width: (fromRemotePlayer && typeof fromRemotePlayer.width === "number" && fromRemotePlayer.width > 0) ? fromRemotePlayer.width : null,
+        height: (fromRemotePlayer && typeof fromRemotePlayer.height === "number" && fromRemotePlayer.height > 0) ? fromRemotePlayer.height : null,
+        collisionRadius: (fromRemotePlayer && typeof fromRemotePlayer.collisionRadius === "number" && fromRemotePlayer.collisionRadius > 0) ? fromRemotePlayer.collisionRadius : null
+      };
+    }
 
     // 廣播給所有 client（通過 WebSocket）
     if (_ws && _ws.readyState === WebSocket.OPEN) {
@@ -3748,64 +3556,13 @@ function handleHostDataMessage(fromUid, msg) {
   }
 }
 
+// ❌ 舊架構殘留：此函數已被 Runtime.sendToNet 取代，保留僅為向後兼容
+// 注意：此函數使用舊的 Host-Client 架構，不應再使用
+// 請使用 Runtime.sendToNet 或直接使用 _sendViaWebSocket
 function sendToNet(obj) {
   if (!obj) return;
-  if (_isHost) {
-    // host 本地：直接合成 state 並發給 client（避免 host 也要走 dc）
-    if (obj.t === "pos") {
-      const x = obj.x, y = obj.y;
-      const players = {};
-      const hostMember = _membersState ? _membersState.get(_uid) : null;
-      const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (typeof Game !== "undefined" && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
-      const hostPlayer = (typeof Game !== "undefined" && Game.player) ? Game.player : null;
-      players[_uid] = { 
-        x, 
-        y, 
-        name: getPlayerNickname(),
-        characterId: hostCharacterId,
-        // 添加更多狀態信息
-        health: (hostPlayer && typeof hostPlayer.health === "number") ? hostPlayer.health : 100,
-        maxHealth: (hostPlayer && typeof hostPlayer.maxHealth === "number") ? hostPlayer.maxHealth : 100,
-        _isDead: (hostPlayer && typeof hostPlayer._isDead === "boolean") ? hostPlayer._isDead : false,
-        _resurrectionProgress: (hostPlayer && typeof hostPlayer._resurrectionProgress === "number") ? hostPlayer._resurrectionProgress : 0,
-        // 大招狀態同步
-        isUltimateActive: (hostPlayer && hostPlayer.isUltimateActive) || false,
-        ultimateImageKey: (hostPlayer && hostPlayer._ultimateImageKey) || null,
-        ultimateEndTime: (hostPlayer && hostPlayer.ultimateEndTime) || 0,
-        width: (hostPlayer && hostPlayer.width) || null,
-        height: (hostPlayer && hostPlayer.height) || null,
-        collisionRadius: (hostPlayer && hostPlayer.collisionRadius) || null
-      };
-      // 加上目前已知 remote（host 看得到）
-      for (const p of Runtime.getRemotePlayers()) {
-        const member = _membersState ? _membersState.get(p.uid) : null;
-        const characterId = (member && member.characterId) ? member.characterId : (p.characterId) ? p.characterId : null;
-        players[p.uid] = { 
-          x: p.x, 
-          y: p.y, 
-          name: p.name,
-          characterId: characterId,
-          // 大招狀態同步
-          isUltimateActive: (typeof p.isUltimateActive === "boolean") ? p.isUltimateActive : false,
-          ultimateImageKey: (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) ? p.ultimateImageKey : null,
-          ultimateEndTime: (typeof p.ultimateEndTime === "number") ? p.ultimateEndTime : 0,
-          width: (typeof p.width === "number" && p.width > 0) ? p.width : null,
-          height: (typeof p.height === "number" && p.height > 0) ? p.height : null,
-          collisionRadius: (typeof p.collisionRadius === "number" && p.collisionRadius > 0) ? p.collisionRadius : null
-        };
-      }
-      // 廣播給所有 client（通過 WebSocket）
-      if (_ws && _ws.readyState === WebSocket.OPEN) {
-        _sendViaWebSocket({ t: "state", players });
-      }
-    }
-    return;
-  }
-  // client：送到 host（通過 WebSocket）
-  // 添加日志以诊断（仅队员端，避免日志过多）
-  if (!_isHost && Math.random() < 0.1) { // 10% 概率记录
-    console.log(`[SurvivalOnline] sendToNet: 隊員端發送消息, type=${obj.t}, isHost=${_isHost}`);
-  }
+  // ⚠️ 警告：此函數使用舊的 Host-Client 架構
+  // ✅ MMO 架構：直接通過 WebSocket 發送，不依賴隊長端
   _sendViaWebSocket(obj);
 }
 
