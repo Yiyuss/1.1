@@ -472,6 +472,9 @@ const Runtime = (() => {
             if (typeof p.width === "number" && p.width > 0) remotePlayer.width = p.width;
             if (typeof p.height === "number" && p.height > 0) remotePlayer.height = p.height;
             if (typeof p.collisionRadius === "number" && p.collisionRadius > 0) remotePlayer.collisionRadius = p.collisionRadius;
+            // ✅ MMORPG 架構：同步玩家朝向（確保遠程玩家朝向正確）
+            if (typeof p.facingRight === "boolean") remotePlayer.facingRight = p.facingRight;
+            if (typeof p.facingAngle === "number") remotePlayer.facingAngle = p.facingAngle;
             
             // ✅ MMORPG 架構：同步共享的金幣和經驗值到本地玩家
             // 金幣和經驗是共享的，所以當其他玩家獲得金幣/經驗時，本地玩家也應該同步
@@ -1693,7 +1696,9 @@ const Runtime = (() => {
               ultimateEndTime: (typeof player.ultimateEndTime === "number") ? player.ultimateEndTime : 0,
               width: (typeof player.width === "number" && player.width > 0) ? player.width : null,
               height: (typeof player.height === "number" && player.height > 0) ? player.height : null,
-              collisionRadius: (typeof player.collisionRadius === "number" && player.collisionRadius > 0) ? player.collisionRadius : null
+              collisionRadius: (typeof player.collisionRadius === "number" && player.collisionRadius > 0) ? player.collisionRadius : null,
+              facingRight: (typeof player.facingRight === "boolean") ? player.facingRight : true,
+              facingAngle: (typeof player.facingAngle === "number") ? player.facingAngle : 0
             }
           }
         };
@@ -2930,6 +2935,17 @@ function _handleEnemyDamageMessage(fromUid, msg) {
           dirX: 0,
           dirY: -1
         });
+        
+        // ✅ MMORPG 架構：如果消息包含減速信息，同步減速效果（確保所有玩家都能看到敵人被減速的視覺效果）
+        const slowMs = typeof msg.slowMs === "number" ? msg.slowMs : null;
+        const slowFactor = typeof msg.slowFactor === "number" ? msg.slowFactor : null;
+        if (slowMs !== null && slowFactor !== null && typeof enemy.applySlow === "function") {
+          try {
+            enemy.applySlow(slowMs, slowFactor);
+          } catch (e) {
+            console.warn("[SurvivalOnline] 同步敵人減速效果失敗:", e);
+          }
+        }
         
         // 顯示傷害數字（所有玩家都能看到其他玩家的傷害）
         if (typeof DamageNumbers !== "undefined" && typeof DamageNumbers.show === "function") {
