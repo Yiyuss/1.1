@@ -126,9 +126,11 @@ const Utils = {
         return x < -margin || x > worldWidth + margin || y < -margin || y > worldHeight + margin;
     },
 
-    // 在指定寬高的矩形邊緣生成隨機位置（世界邊緣）
+    // ✅ 真正的MMORPG：在指定寬高的矩形邊緣生成隨機位置（世界邊緣）
+    // 使用確定性隨機數，確保所有客戶端生成相同的位置
     getRandomEdgePositionInWorld: function(worldWidth, worldHeight, padding = 50) {
-        const edge = Math.floor(Math.random() * 4); // 0: 上, 1: 右, 2: 下, 3: 左
+        // ✅ 真正的MMORPG：使用確定性隨機數選擇邊緣，確保所有客戶端選擇相同的邊緣
+        const edge = Utils.randomInt(0, 4); // 0: 上, 1: 右, 2: 下, 3: 左
         let x, y;
         switch(edge) {
             case 0: // 上邊
