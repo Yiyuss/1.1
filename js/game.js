@@ -2432,10 +2432,15 @@ const Game = {
      * 增加金幣並立即存檔
      * 不變式：僅接受非負整數增量；立即呼叫 saveCoins；更新 UI（若提供）。
      * 依賴：UI.updateCoinsDisplay（存在時）。
+     * ✅ MMORPG 架構：多人模式下共享金幣，所有玩家都獲得相同數量的金幣
+     * 注意：金幣通過狀態同步（tick 函數）同步給其他玩家，不需要直接給遠程玩家增加
      */
     addCoins: function(amount) {
         const inc = Math.max(0, Math.floor(amount || 0));
+        // ✅ MMORPG 架構：多人模式下共享金幣，所有玩家都獲得相同數量的金幣
+        // 金幣通過狀態同步（tick 函數）同步給其他玩家
         this.coins = (this.coins || 0) + inc;
+        
         // 更新金幣收集統計
         this.coinsCollected += inc;
         // 立即存檔以符合自動存檔需求
