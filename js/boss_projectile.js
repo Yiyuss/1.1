@@ -33,27 +33,46 @@ class BossProjectile extends Entity {
         // ✅ MMORPG 架構：追蹤邏輯，追蹤最近的玩家（本地+遠程），不依賴室長端
         let targetPlayer = Game.player;
         if (this.homing) {
+            // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
             // 找到最近的活著的玩家作為目標（本地玩家或遠程玩家）
-            if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
-                let nearestPlayer = Game.player;
-                let nearestDist = Infinity;
-                if (Game.player && !Game.player._isDead) {
-                    const dist = Utils.distance(this.x, this.y, Game.player.x, Game.player.y);
-                    if (dist < nearestDist) {
-                        nearestDist = dist;
-                        nearestPlayer = Game.player;
-                    }
-                }
-                for (const remotePlayer of Game.remotePlayers) {
-                    if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
-                        const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
-                        if (dist < nearestDist) {
-                            nearestDist = dist;
-                            nearestPlayer = remotePlayer;
+            if (Game.multiplayer) {
+                try {
+                    let isSurvivalMode = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) {}
+                    
+                    if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                        const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                        if (typeof rm.getAllPlayers === 'function') {
+                            const remotePlayers = rm.getAllPlayers();
+                            let nearestPlayer = Game.player;
+                            let nearestDist = Infinity;
+                            if (Game.player && !Game.player._isDead) {
+                                const dist = Utils.distance(this.x, this.y, Game.player.x, Game.player.y);
+                                if (dist < nearestDist) {
+                                    nearestDist = dist;
+                                    nearestPlayer = Game.player;
+                                }
+                            }
+                            for (const remotePlayer of remotePlayers) {
+                                if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                                    const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
+                                    if (dist < nearestDist) {
+                                        nearestDist = dist;
+                                        nearestPlayer = remotePlayer;
+                                    }
+                                }
+                            }
+                            targetPlayer = nearestPlayer;
                         }
                     }
-                }
-                targetPlayer = nearestPlayer;
+                } catch (_) {}
             }
             
             if (targetPlayer) {
@@ -80,12 +99,31 @@ class BossProjectile extends Entity {
         // ✅ MMORPG 架構：檢查與所有玩家碰撞（本地+遠程），不依賴室長端
         const allPlayers = [];
         if (Game.player) allPlayers.push(Game.player);
-        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
-            for (const remotePlayer of Game.remotePlayers) {
-                if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
-                    allPlayers.push(remotePlayer);
+        // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+        if (Game.multiplayer) {
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.getAllPlayers === 'function') {
+                        const remotePlayers = rm.getAllPlayers();
+                        for (const remotePlayer of remotePlayers) {
+                            if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                                allPlayers.push(remotePlayer);
+                            }
+                        }
+                    }
                 }
-            }
+            } catch (_) {}
         }
         
         for (const p of allPlayers) {
