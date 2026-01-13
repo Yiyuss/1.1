@@ -259,17 +259,23 @@ class IceFieldEffect extends Entity {
                         );
                     }
                     
-                    // 多人模式：發送enemy_damage（用於同步傷害數字，不影響傷害計算）
+                    // 多人模式：發送enemy_damage（用於同步傷害數字和減速效果，不影響傷害計算）
                     if (isSurvivalMode && isMultiplayer && enemy && enemy.id) {
                         if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                            window.SurvivalOnlineRuntime.sendToNet({
+                            const msg = {
                                 t: "enemy_damage",
                                 enemyId: enemy.id,
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "BIG_ICE_BALL",
                                 isCrit: isCrit,
                                 lifesteal: lifestealAmount
-                            });
+                            };
+                            // ✅ MMORPG 架構：如果應用減速效果，同步減速信息（確保所有玩家都能看到敵人被冰場減速的視覺效果）
+                            if (needsSlow && typeof enemy.applySlow === 'function') {
+                                msg.slowMs = this.slowDurationMs;
+                                msg.slowFactor = this.slowFactor;
+                            }
+                            window.SurvivalOnlineRuntime.sendToNet(msg);
                         }
                     }
                 }
