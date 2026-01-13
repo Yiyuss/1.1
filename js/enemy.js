@@ -256,22 +256,24 @@ class Enemy extends Entity {
     update(deltaTime) {
         // 更新特效位置
         if (this._judgmentEffects) {
-            const canvas = Game.canvas;
-            if (canvas) {
-                const rect = canvas.getBoundingClientRect();
-                const scaleX = rect.width / canvas.width;
-                const scaleY = rect.height / canvas.height;
-                const camX = Game.camera ? Game.camera.x : 0;
-                const camY = Game.camera ? Game.camera.y : 0;
-                for (const el of this._judgmentEffects) {
-                    if (el && el.parentNode) {
-                        const sx = (this.x - camX) * scaleX;
-                        const sy = (this.y - camY) * scaleY;
-                        el.style.left = sx + 'px';
-                        el.style.top = sy + 'px';
+            try {
+                const canvas = Game.canvas;
+                if (canvas) {
+                    const rect = canvas.getBoundingClientRect();
+                    const scaleX = rect.width / canvas.width;
+                    const scaleY = rect.height / canvas.height;
+                    const camX = Game.camera ? Game.camera.x : 0;
+                    const camY = Game.camera ? Game.camera.y : 0;
+                    for (const el of this._judgmentEffects) {
+                        if (el && el.parentNode) {
+                            const sx = (this.x - camX) * scaleX;
+                            const sy = (this.y - camY) * scaleY;
+                            el.style.left = sx + 'px';
+                            el.style.top = sy + 'px';
+                        }
                     }
                 }
-            }
+            } catch (_) {}
         }
         
         // 若進入死亡特效，僅處理後退與淡出，完成後再刪除
@@ -309,27 +311,46 @@ class Enemy extends Entity {
         const _prevX_forFacing = this.x;
         // ✅ MMORPG 架構：向最近的玩家移動（本地玩家 + 遠程玩家），不依賴室長端
         let moveTargetPlayer = Game.player;
-        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
-            // 找到最近的活著的玩家（本地玩家或遠程玩家）
-            let nearestPlayer = Game.player;
-            let nearestDist = Infinity;
-            if (Game.player && !Game.player._isDead) {
-                const dist = Utils.distance(this.x, this.y, Game.player.x, Game.player.y);
-                if (dist < nearestDist) {
-                    nearestDist = dist;
-                    nearestPlayer = Game.player;
-                }
-            }
-            for (const remotePlayer of Game.remotePlayers) {
-                if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
-                    const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
-                    if (dist < nearestDist) {
-                        nearestDist = dist;
-                        nearestPlayer = remotePlayer;
+        // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+        if (Game.multiplayer) {
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.getAllPlayers === 'function') {
+                        const remotePlayers = rm.getAllPlayers();
+                        // 找到最近的活著的玩家（本地玩家或遠程玩家）
+                        let nearestPlayer = Game.player;
+                        let nearestDist = Infinity;
+                        if (Game.player && !Game.player._isDead) {
+                            const dist = Utils.distance(this.x, this.y, Game.player.x, Game.player.y);
+                            if (dist < nearestDist) {
+                                nearestDist = dist;
+                                nearestPlayer = Game.player;
+                            }
+                        }
+                        for (const remotePlayer of remotePlayers) {
+                            if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                                const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
+                                if (dist < nearestDist) {
+                                    nearestDist = dist;
+                                    nearestPlayer = remotePlayer;
+                                }
+                            }
+                        }
+                        moveTargetPlayer = nearestPlayer;
                     }
                 }
-            }
-            moveTargetPlayer = nearestPlayer;
+            } catch (_) {}
         }
         const player = moveTargetPlayer || Game.player; // 如果找不到目标，回退到本地玩家
         const angle = Utils.angle(this.x, this.y, player.x, player.y);
@@ -592,27 +613,46 @@ class Enemy extends Entity {
         // 檢查與玩家的碰撞
         // ✅ MMORPG 架構：支援攻擊所有玩家（本地玩家 + 遠程玩家），不依賴室長端
         let targetPlayer = player;
-        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
-            // 找到最近的活著的玩家（本地玩家或遠程玩家）
-            let nearestPlayer = player;
-            let nearestDist = Infinity;
-            if (player && !player._isDead) {
-                const dist = Utils.distance(this.x, this.y, player.x, player.y);
-                if (dist < nearestDist) {
-                    nearestDist = dist;
-                    nearestPlayer = player;
-                }
-            }
-            for (const remotePlayer of Game.remotePlayers) {
-                if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
-                    const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
-                    if (dist < nearestDist) {
-                        nearestDist = dist;
-                        nearestPlayer = remotePlayer;
+        // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+        if (Game.multiplayer) {
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.getAllPlayers === 'function') {
+                        const remotePlayers = rm.getAllPlayers();
+                        // 找到最近的活著的玩家（本地玩家或遠程玩家）
+                        let nearestPlayer = player;
+                        let nearestDist = Infinity;
+                        if (player && !player._isDead) {
+                            const dist = Utils.distance(this.x, this.y, player.x, player.y);
+                            if (dist < nearestDist) {
+                                nearestDist = dist;
+                                nearestPlayer = player;
+                            }
+                        }
+                        for (const remotePlayer of remotePlayers) {
+                            if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                                const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
+                                if (dist < nearestDist) {
+                                    nearestDist = dist;
+                                    nearestPlayer = remotePlayer;
+                                }
+                            }
+                        }
+                        targetPlayer = nearestPlayer;
                     }
                 }
-            }
-            targetPlayer = nearestPlayer;
+            } catch (_) {}
         }
         
         if (targetPlayer && this.isColliding(targetPlayer)) {
@@ -623,26 +663,45 @@ class Enemy extends Entity {
         if (this.rangedAttack) {
             // 找到最近的活著的玩家作為目標（本地玩家或遠程玩家）
             let targetPlayer = player;
-            if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
-                let nearestPlayer = player;
-                let nearestDist = Infinity;
-                if (player && !player._isDead) {
-                    const dist = Utils.distance(this.x, this.y, player.x, player.y);
-                    if (dist < nearestDist) {
-                        nearestDist = dist;
-                        nearestPlayer = player;
-                    }
-                }
-                for (const remotePlayer of Game.remotePlayers) {
-                    if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
-                        const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
-                        if (dist < nearestDist) {
-                            nearestDist = dist;
-                            nearestPlayer = remotePlayer;
+            // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+            if (Game.multiplayer) {
+                try {
+                    let isSurvivalMode = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) {}
+                    
+                    if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                        const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                        if (typeof rm.getAllPlayers === 'function') {
+                            const remotePlayers = rm.getAllPlayers();
+                            let nearestPlayer = player;
+                            let nearestDist = Infinity;
+                            if (player && !player._isDead) {
+                                const dist = Utils.distance(this.x, this.y, player.x, player.y);
+                                if (dist < nearestDist) {
+                                    nearestDist = dist;
+                                    nearestPlayer = player;
+                                }
+                            }
+                            for (const remotePlayer of remotePlayers) {
+                                if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                                    const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
+                                    if (dist < nearestDist) {
+                                        nearestDist = dist;
+                                        nearestPlayer = remotePlayer;
+                                    }
+                                }
+                            }
+                            targetPlayer = nearestPlayer;
                         }
                     }
-                }
-                targetPlayer = nearestPlayer;
+                } catch (_) {}
             }
             this.updateRangedAttack(deltaTime, targetPlayer);
         }
@@ -1324,26 +1383,45 @@ class Enemy extends Entity {
         // ✅ MMORPG 架構：啟動後退+淡出動畫，延後刪除 0.3 秒
         // 找到最近的活著的玩家作為後退方向（本地玩家或遠程玩家）
         let targetPlayer = Game.player;
-        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
-            let nearestPlayer = Game.player;
-            let nearestDist = Infinity;
-            if (Game.player && !Game.player._isDead) {
-                const dist = Utils.distance(this.x, this.y, Game.player.x, Game.player.y);
-                if (dist < nearestDist) {
-                    nearestDist = dist;
-                    nearestPlayer = Game.player;
-                }
-            }
-            for (const remotePlayer of Game.remotePlayers) {
-                if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
-                    const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
-                    if (dist < nearestDist) {
-                        nearestDist = dist;
-                        nearestPlayer = remotePlayer;
+        // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+        if (Game.multiplayer) {
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.getAllPlayers === 'function') {
+                        const remotePlayers = rm.getAllPlayers();
+                        let nearestPlayer = Game.player;
+                        let nearestDist = Infinity;
+                        if (Game.player && !Game.player._isDead) {
+                            const dist = Utils.distance(this.x, this.y, Game.player.x, Game.player.y);
+                            if (dist < nearestDist) {
+                                nearestDist = dist;
+                                nearestPlayer = Game.player;
+                            }
+                        }
+                        for (const remotePlayer of remotePlayers) {
+                            if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                                const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
+                                if (dist < nearestDist) {
+                                    nearestDist = dist;
+                                    nearestPlayer = remotePlayer;
+                                }
+                            }
+                        }
+                        targetPlayer = nearestPlayer;
                     }
                 }
-            }
-            targetPlayer = nearestPlayer;
+            } catch (_) {}
         }
         const angleToPlayer = Utils.angle(this.x, this.y, (targetPlayer || Game.player).x, (targetPlayer || Game.player).y);
         const pushDist = 20;
