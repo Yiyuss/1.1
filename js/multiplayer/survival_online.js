@@ -457,14 +457,37 @@ const Runtime = (() => {
           const remotePlayer = RemotePlayerManager.getOrCreate(uid, p.x, p.y, characterId, talentLevels);
           if (remotePlayer) {
             console.log(`[SurvivalOnline] onStateMessage: 成功創建/更新遠程玩家 ${uid}`);
-            // 更新位置（使用插值平滑移動）
+            // ✅ 修復：保存名字到遠程玩家對象（確保繪製時能獲取到正確的名字）
+            remotePlayer._remotePlayerName = playerName;
+            // ✅ 修復：更新位置（使用基於時間的平滑插值，減少抖動）
+            // 注意：遠程玩家的位置應該優先使用狀態消息的位置，而不是輸入消息
+            // 因為狀態消息包含完整的位置信息，而輸入消息只是移動方向
             const targetX = p.x;
             const targetY = p.y;
             if (typeof targetX === "number" && typeof targetY === "number") {
-              // 簡單的線性插值（可以改進為更平滑的插值）
-              const lerpFactor = 0.3; // 插值係數（0-1，越小越平滑）
-              remotePlayer.x = remotePlayer.x + (targetX - remotePlayer.x) * lerpFactor;
-              remotePlayer.y = remotePlayer.y + (targetY - remotePlayer.y) * lerpFactor;
+              // 計算距離，如果距離很大則直接跳轉（避免網絡延遲造成的劇烈移動）
+              const dx = targetX - remotePlayer.x;
+              const dy = targetY - remotePlayer.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              
+              // 如果距離超過 200 像素，直接跳轉（可能是網絡延遲或重連）
+              if (distance > 200) {
+                remotePlayer.x = targetX;
+                remotePlayer.y = targetY;
+                // 清除輸入，避免衝突
+                remotePlayer._remoteInput = null;
+              } else if (distance > 5) {
+                // 使用基於時間的插值（更平滑，減少抖動）
+                // 使用更大的插值係數，讓移動更快速但保持平滑
+                // 距離越大，插值係數越大（快速接近），距離越小，插值係數越小（平滑移動）
+                const lerpFactor = Math.min(0.7, Math.max(0.3, distance / 100)); // 動態插值係數
+                remotePlayer.x = remotePlayer.x + (targetX - remotePlayer.x) * lerpFactor;
+                remotePlayer.y = remotePlayer.y + (targetY - remotePlayer.y) * lerpFactor;
+              } else {
+                // 距離很小，直接設置（避免微小抖動）
+                remotePlayer.x = targetX;
+                remotePlayer.y = targetY;
+              }
             }
             // 更新其他狀態
             if (typeof p.health === "number") remotePlayer.health = p.health;
