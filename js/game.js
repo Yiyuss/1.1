@@ -1342,7 +1342,7 @@
                         
                         // ✅ 真正的MMORPG：廣播投射物生成事件，讓所有玩家都能看到技能特效
                         if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                            console.log(`[Game] 廣播投射物生成事件: weaponType=${weaponType}, id=${projectileData.id}, playerUid=${playerUid}`);
+                            console.log(`[Game] 廣播投射物生成事件: weaponType=${projectileData.weaponType}, id=${projectileData.id}, playerUid=${playerUid}`);
                             window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
                         }
                     }
