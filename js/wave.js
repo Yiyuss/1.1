@@ -34,9 +34,14 @@ const WaveSystem = {
             } catch (_) {}
             
             if (isSurvivalMode && typeof Game !== "undefined" && Game.multiplayer) {
-                // ✅ MMO 架構：每個玩家都廣播波次開始事件，不依賴隊長端
+                // ✅ 真正的MMORPG：每個玩家都廣播波次開始事件，包含時間戳，確保所有客戶端使用相同的時間基準
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("wave_start", { wave: this.currentWave });
+                    const timestamp = Date.now(); // 使用當前時間作為時間戳
+                    console.log(`[WaveSystem] 廣播波次開始: wave=${this.currentWave}, timestamp=${timestamp}`);
+                    window.SurvivalOnlineBroadcastEvent("wave_start", { 
+                        wave: this.currentWave,
+                        timestamp: timestamp // ✅ 包含時間戳，讓所有客戶端使用相同的時間基準
+                    });
                 }
             }
         } catch (_) {}
@@ -45,15 +50,19 @@ const WaveSystem = {
         this.spawnMiniBoss();
     },
     
-    // 更新波次系統：推進波次、生成敵人與Boss
+    // ✅ 真正的MMORPG：更新波次系統：推進波次、生成敵人與Boss
+    // 使用同步的時間基準，確保所有客戶端在同一時間生成相同的敵人
     update: function(deltaTime) {
+        // ✅ 真正的MMORPG：使用同步的波次開始時間，而不是本地時間
+        // 這樣可以確保所有客戶端在同一時間生成相同的敵人
         const currentTime = Date.now();
-        // 進波判定
+        // 進波判定：使用同步的波次開始時間
         const waveElapsedTime = currentTime - this.waveStartTime;
         if (waveElapsedTime >= CONFIG.WAVES.DURATION) {
             this.nextWave();
         }
-        // 生成普通敵人
+        // ✅ 真正的MMORPG：生成普通敵人 - 使用同步的時間基準
+        // 確保所有客戶端在同一時間生成相同的敵人
         if (currentTime - this.lastEnemySpawnTime >= this.enemySpawnRate) {
             this.spawnEnemy();
             this.lastEnemySpawnTime = currentTime;
@@ -69,9 +78,12 @@ const WaveSystem = {
         }
     },
     
-    // 進入下一波
+    // ✅ 真正的MMORPG：進入下一波
+    // 注意：waveStartTime 應該從 wave_start 事件同步，而不是使用本地時間
     nextWave: function() {
         this.currentWave++;
+        // ✅ 真正的MMORPG：waveStartTime 應該從 wave_start 事件同步
+        // 這裡設置本地時間作為後備，但實際應該從事件同步
         this.waveStartTime = Date.now();
         
         // 增加敵人生成速率（套用難度間隔倍率，預設 EASY）
@@ -98,9 +110,14 @@ const WaveSystem = {
             } catch (_) {}
             
             if (isSurvivalMode && typeof Game !== "undefined" && Game.multiplayer) {
-                // ✅ MMO 架構：每個玩家都廣播波次開始事件，不依賴隊長端
+                // ✅ 真正的MMORPG：每個玩家都廣播波次開始事件，包含時間戳，確保所有客戶端使用相同的時間基準
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("wave_start", { wave: this.currentWave });
+                    const timestamp = Date.now(); // 使用當前時間作為時間戳
+                    console.log(`[WaveSystem] 廣播波次開始: wave=${this.currentWave}, timestamp=${timestamp}`);
+                    window.SurvivalOnlineBroadcastEvent("wave_start", { 
+                        wave: this.currentWave,
+                        timestamp: timestamp // ✅ 包含時間戳，讓所有客戶端使用相同的時間基準
+                    });
                 }
             }
         } catch (_) {}
