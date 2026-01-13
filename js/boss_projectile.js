@@ -30,20 +30,46 @@ class BossProjectile extends Entity {
             return;
         }
         
-        // 追蹤邏輯
-        if (this.homing && Game.player) {
-            const targetAngle = Utils.angle(this.x, this.y, Game.player.x, Game.player.y);
-            let angleDiff = targetAngle - this.angle;
+        // ✅ MMORPG 架構：追蹤邏輯，追蹤最近的玩家（本地+遠程），不依賴室長端
+        let targetPlayer = Game.player;
+        if (this.homing) {
+            // 找到最近的活著的玩家作為目標（本地玩家或遠程玩家）
+            if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
+                let nearestPlayer = Game.player;
+                let nearestDist = Infinity;
+                if (Game.player && !Game.player._isDead) {
+                    const dist = Utils.distance(this.x, this.y, Game.player.x, Game.player.y);
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearestPlayer = Game.player;
+                    }
+                }
+                for (const remotePlayer of Game.remotePlayers) {
+                    if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                        const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
+                        if (dist < nearestDist) {
+                            nearestDist = dist;
+                            nearestPlayer = remotePlayer;
+                        }
+                    }
+                }
+                targetPlayer = nearestPlayer;
+            }
             
-            // 正規化角度差
-            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-            
-            // 限制轉向速度
-            const maxTurn = this.turnRate * (deltaTime / 16.67);
-            angleDiff = Utils.clamp(angleDiff, -maxTurn, maxTurn);
-            
-            this.angle += angleDiff;
+            if (targetPlayer) {
+                const targetAngle = Utils.angle(this.x, this.y, targetPlayer.x, targetPlayer.y);
+                let angleDiff = targetAngle - this.angle;
+                
+                // 正規化角度差
+                while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+                
+                // 限制轉向速度
+                const maxTurn = this.turnRate * (deltaTime / 16.67);
+                angleDiff = Utils.clamp(angleDiff, -maxTurn, maxTurn);
+                
+                this.angle += angleDiff;
+            }
         }
         
         // 移動
@@ -51,33 +77,44 @@ class BossProjectile extends Entity {
         this.x += Math.cos(this.angle) * this.speed * deltaMul;
         this.y += Math.sin(this.angle) * this.speed * deltaMul;
         
-        // 檢查與玩家碰撞
-        if (Game.player && this.isColliding(Game.player)) {
-            // 技能無敵時完全免疫火彈傷害（即便為重擊類型）
-            try {
-                const p = Game.player;
-                if (p && p.invulnerabilitySource === 'INVINCIBLE') {
-                    // 仍保留命中特效以維持手感，但不扣血
-                    if (typeof AudioManager !== 'undefined') {
-                        AudioManager.playSound('bo');
-                    }
-                    this.createExplosionEffect();
-                    this.destroy();
-                    return;
+        // ✅ MMORPG 架構：檢查與所有玩家碰撞（本地+遠程），不依賴室長端
+        const allPlayers = [];
+        if (Game.player) allPlayers.push(Game.player);
+        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
+            for (const remotePlayer of Game.remotePlayers) {
+                if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                    allPlayers.push(remotePlayer);
                 }
-            } catch (_) {}
-            // 對玩家造成傷害：忽略一般無敵（受傷短暫無敵），但尊重技能無敵
-            // 抽象化技能會在 takeDamage 內部處理回避判定
-            Game.player.takeDamage(this.damage, { ignoreInvulnerability: true, source: 'boss_projectile' });
-            // 新增：命中玩家時播放bo音效
-            if (typeof AudioManager !== 'undefined') {
-                AudioManager.playSound('bo');
             }
-            // 創建爆炸特效
-            this.createExplosionEffect();
-            // 銷毀投射物
-            this.destroy();
-            return;
+        }
+        
+        for (const p of allPlayers) {
+            if (p && this.isColliding(p)) {
+                // 技能無敵時完全免疫火彈傷害（即便為重擊類型）
+                try {
+                    if (p && p.invulnerabilitySource === 'INVINCIBLE') {
+                        // 仍保留命中特效以維持手感，但不扣血
+                        if (typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('bo');
+                        }
+                        this.createExplosionEffect();
+                        this.destroy();
+                        return;
+                    }
+                } catch (_) {}
+                // 對玩家造成傷害：忽略一般無敵（受傷短暫無敵），但尊重技能無敵
+                // 抽象化技能會在 takeDamage 內部處理回避判定
+                p.takeDamage(this.damage, { ignoreInvulnerability: true, source: 'boss_projectile' });
+                // 新增：命中玩家時播放bo音效
+                if (typeof AudioManager !== 'undefined') {
+                    AudioManager.playSound('bo');
+                }
+                // 創建爆炸特效
+                this.createExplosionEffect();
+                // 銷毀投射物
+                this.destroy();
+                return;
+            }
         }
         
         // 檢查邊界
