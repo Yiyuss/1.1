@@ -108,6 +108,9 @@ class DeathlineWarriorEffect extends Entity {
     }
     
     _performNextHit() {
+        // 僅視覺效果：不進行傷害計算
+        if (this._isVisualOnly) return;
+        
         if (this.hitsCompleted >= this.totalHits) return;
         
         const targets = this._findTargets();
@@ -288,7 +291,65 @@ class DeathlineWarriorEffect extends Entity {
     }
     
     update(deltaTime) {
+        // 僅視覺死線戰士/死線超人：需要從遠程玩家位置更新
+        if (this._isVisualOnly && this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.getRemotePlayers === 'function') {
+                const remotePlayers = rt.getRemotePlayers() || [];
+                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+                if (remotePlayer) {
+                    // 更新玩家位置
+                    this.player.x = remotePlayer.x;
+                    this.player.y = remotePlayer.y;
+                    this.x = remotePlayer.x;
+                    this.y = remotePlayer.y;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    // 如果是本地玩家
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                        this.x = Game.player.x;
+                        this.y = Game.player.y;
+                    }
+                } else {
+                    // 如果找不到對應的玩家，標記為刪除
+                    this.markedForDeletion = true;
+                    return;
+                }
+            } else {
+                this.markedForDeletion = true;
+                return;
+            }
+            // 僅視覺模式：只更新位置和視覺效果，不進行傷害計算
+            // 繼續執行動畫更新，但不調用_performNextHit
+        }
+        
         const elapsed = Date.now() - this.startTime;
+        
+        // 僅視覺效果：不進行傷害計算
+        if (this._isVisualOnly) {
+            // 只更新動畫，不執行攻擊
+            const now = Date.now();
+            for (const effect of this.hitEffects) {
+                const effectElapsed = now - effect.startTime;
+                const effectFrameInterval = (effect.duration || 1000) / this.totalFrames;
+                effect.frame = Math.min(
+                    Math.floor(effectElapsed / effectFrameInterval),
+                    this.totalFrames - 1
+                );
+            }
+            this.hitEffects = this.hitEffects.filter(effect => {
+                const effectElapsed = now - effect.startTime;
+                return effectElapsed < (effect.duration || 1000);
+            });
+            // 檢查是否完成
+            if (elapsed >= this.totalDurationMs) {
+                const maxEffectEndTime = this.startTime + this.totalDurationMs + 1000;
+                if (now >= maxEffectEndTime || this.hitEffects.length === 0) {
+                    this.markedForDeletion = true;
+                }
+            }
+            return;
+        }
         
         // 檢查是否需要執行下一次攻擊
         // 確保在總時長內完成所有攻擊
