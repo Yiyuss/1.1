@@ -1406,11 +1406,11 @@ const UI = {
             }
         }
 
-        // 組隊模式：客戶端選擇武器升級時，同步到室長端
+        // ✅ MMORPG 架構：所有玩家選擇武器升級時，都同步給其他玩家
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-        if (isMultiplayer && Game.multiplayer.role === "guest") {
+        if (isMultiplayer) {
             try {
-                // 發送武器升級消息到室長端
+                // 發送武器升級消息給所有玩家（不依賴室長端）
                 if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                     window.SurvivalOnlineRuntime.sendToNet({ 
                         t: "weapon_upgrade", 
