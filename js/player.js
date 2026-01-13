@@ -114,18 +114,10 @@ class Player extends Entity {
         // 這樣可以減少抖動，因為狀態消息的位置是權威的
         let direction = { x: 0, y: 0 };
         if (this._isRemotePlayer) {
-          // 遠程玩家：優先使用狀態消息的位置（已在 onStateMessage 中更新）
-          // 輸入消息僅作為輔助，用於預測移動（可選）
-          // 如果狀態消息更新頻率足夠高，可以完全依賴狀態消息的位置
-          // 這裡保留輸入邏輯作為後備，但主要位置更新在 onStateMessage 中
-          const now = Date.now();
-          if (this._remoteInput && now - (this._lastRemoteInputTime || 0) < 200) {
-            // 只有在最近收到輸入時才使用（200ms內）
-            direction = { x: this._remoteInput.x || 0, y: this._remoteInput.y || 0 };
-          } else {
-            // 沒有輸入或輸入過期，不移動（位置由狀態消息同步）
-            direction = { x: 0, y: 0 };
-          }
+          // ✅ 真正的MMORPG：遠程玩家的位置完全由狀態消息同步，不使用輸入預測
+          // 這樣可以避免輸入消息和狀態消息衝突，讓移動更自然、不飄
+          // 位置更新在 onStateMessage 中處理，這裡不進行移動
+          direction = { x: 0, y: 0 };
         } else {
           // 本地玩家：使用 Input 系統
           direction = Input.getMovementDirection();
@@ -243,18 +235,37 @@ class Player extends Entity {
             }
         }
         
+        // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
         // 檢查遠程玩家
-        if (typeof Game !== 'undefined' && Array.isArray(Game.remotePlayers)) {
-            for (const remotePlayer of Game.remotePlayers) {
-                if (!remotePlayer || remotePlayer === this || remotePlayer._isDead) continue;
-                const dx = remotePlayer.x - this.x;
-                const dy = remotePlayer.y - this.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist <= resurrectionRadius && dist < minDistance) {
-                    minDistance = dist;
-                    nearestRescuer = remotePlayer;
+        if (typeof Game !== 'undefined' && Game.multiplayer) {
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.getAllPlayers === 'function') {
+                        const remotePlayers = rm.getAllPlayers();
+                        for (const remotePlayer of remotePlayers) {
+                            if (!remotePlayer || remotePlayer === this || remotePlayer._isDead) continue;
+                            const dx = remotePlayer.x - this.x;
+                            const dy = remotePlayer.y - this.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            if (dist <= resurrectionRadius && dist < minDistance) {
+                                minDistance = dist;
+                                nearestRescuer = remotePlayer;
+                            }
+                        }
+                    }
                 }
-            }
+            } catch (_) {}
         }
         
         // 檢查通過 Runtime 獲取的遠程玩家
