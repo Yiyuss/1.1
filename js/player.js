@@ -110,15 +110,22 @@ class Player extends Entity {
         // 處理移動（套用deltaTime，以60FPS為基準）
         const deltaMul = deltaTime / 16.67;
         // M4：遠程玩家使用 _remoteInput，本地玩家使用 Input
+        // ✅ 修復：遠程玩家的位置主要由狀態消息同步，輸入消息僅作為輔助
+        // 這樣可以減少抖動，因為狀態消息的位置是權威的
         let direction = { x: 0, y: 0 };
-        if (this._isRemotePlayer && this._remoteInput) {
-          // 遠程玩家：使用接收到的輸入
+        if (this._isRemotePlayer) {
+          // 遠程玩家：優先使用狀態消息的位置（已在 onStateMessage 中更新）
+          // 輸入消息僅作為輔助，用於預測移動（可選）
+          // 如果狀態消息更新頻率足夠高，可以完全依賴狀態消息的位置
+          // 這裡保留輸入邏輯作為後備，但主要位置更新在 onStateMessage 中
           const now = Date.now();
-          // 如果超過 500ms 沒有收到輸入，停止移動
-          if (now - (this._lastRemoteInputTime || 0) > 500) {
-            this._remoteInput = { x: 0, y: 0 };
+          if (this._remoteInput && now - (this._lastRemoteInputTime || 0) < 200) {
+            // 只有在最近收到輸入時才使用（200ms內）
+            direction = { x: this._remoteInput.x || 0, y: this._remoteInput.y || 0 };
+          } else {
+            // 沒有輸入或輸入過期，不移動（位置由狀態消息同步）
+            direction = { x: 0, y: 0 };
           }
-          direction = { x: this._remoteInput.x || 0, y: this._remoteInput.y || 0 };
         } else {
           // 本地玩家：使用 Input 系統
           direction = Input.getMovementDirection();
@@ -695,8 +702,9 @@ class Player extends Entity {
          if (Game.isGameOver) return; // 已經結束了
          
          try {
-             // 檢查本地玩家是否死亡
-             if (!this._isDead) return; // 本地玩家還活著
+             // ✅ 修復：檢查所有玩家（本地+遠程）是否都死亡，不管本地玩家是否死亡
+             // 先檢查本地玩家是否死亡
+             const localPlayerDead = this._isDead;
              
              // 檢查所有遠程玩家是否都死亡
              let allRemotePlayersDead = true;
@@ -746,7 +754,8 @@ class Player extends Entity {
              
             // ✅ MMORPG 架構：如果所有玩家都死亡，觸發遊戲結束
             // 使用防重複機制：第一個檢測到的玩家廣播 game_over 事件
-            if (allRemotePlayersDead) {
+            // ✅ 修復：只有當本地玩家和所有遠程玩家都死亡時，才觸發遊戲結束
+            if (localPlayerDead && allRemotePlayersDead) {
                 // 先檢查是否已經有 game_over 事件在處理中（防止重複觸發）
                 if (Game._gameOverEventSent) return; // 已經有其他玩家觸發了
                 Game._gameOverEventSent = true; // 標記為已觸發
