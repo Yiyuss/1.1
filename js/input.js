@@ -156,7 +156,7 @@ const Input = {
             const clampedY = Utils.clamp(this.mousePosition.y, halfH + margin, Math.max(halfH + margin, worldH - halfH - margin));
             this.mouseTarget = { x: clampedX, y: clampedY };
             this.isMouseMoving = true;
-            console.log('滑鼠點擊目標(已夾限):', this.mouseTarget);
+            // console.log('滑鼠點擊目標(已夾限):', this.mouseTarget); // 已移除：避免刷屏
         });
         
         // 監聽滑鼠移動事件（僅在按住左鍵時拖曳）
