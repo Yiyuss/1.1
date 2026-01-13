@@ -35,6 +35,27 @@ class IceBallProjectile extends Entity {
     }
     
     update(deltaTime) {
+        // 僅視覺大冰球：不進行傷害計算
+        if (this._isVisualOnly) {
+            // 只更新位置，不創建地面特效
+            this.elapsedTime += deltaTime;
+            const t = this.elapsedTime / 1000;
+            
+            if (t >= this.totalTime) {
+                // 到達目標位置，標記為刪除（不創建地面特效）
+                this.x = this.targetX;
+                this.y = this.targetY;
+                this.markedForDeletion = true;
+                return;
+            }
+            
+            // 計算當前位置（拋物線軌跡）
+            const progress = t / this.totalTime;
+            this.x = this.startX + (this.targetX - this.startX) * progress;
+            this.y = this.startY + (this.targetY - this.startY) * progress + this.maxHeight * 4 * progress * (1 - progress);
+            return;
+        }
+        
         this.elapsedTime += deltaTime;
         const t = this.elapsedTime / 1000; // 转换为秒
         
@@ -166,6 +187,12 @@ class IceFieldEffect extends Entity {
         // 检查是否过期
         if (Date.now() - this.startTime >= this.durationMs) {
             this.destroy();
+            return;
+        }
+        
+        // 僅視覺效果：不進行傷害計算
+        if (this._isVisualOnly) {
+            // 只更新視覺效果，不進行傷害計算
             return;
         }
         
