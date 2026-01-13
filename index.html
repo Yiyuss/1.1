@@ -611,9 +611,9 @@
           如果連線不穩：隊員可按「重新連線」，室長可按「清理離線」。
         </div>
         <div style="margin-bottom:12px; display:flex; flex-direction:column; gap:8px; align-items:center;">
-          <label style="font-weight:600; opacity:0.9;">你的暱稱（最多20字）</label>
-          <input id="survival-online-nickname" type="text" placeholder="輸入暱稱" maxlength="20" style="width:min(300px, 80vw); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.3); background:rgba(0,0,0,0.3); color:white; font-size:14px;">
-          <div style="opacity:0.7; font-size:12px;">此暱稱會顯示在組隊HUD中</div>
+          <label style="font-weight:600; opacity:0.9;">你的暱稱（1~5個字符）</label>
+          <input id="survival-online-nickname" type="text" placeholder="輸入暱稱（1~5個字符）" maxlength="5" style="width:min(300px, 80vw); padding:8px 12px; border-radius:6px; border:1px solid rgba(255,255,255,0.3); background:rgba(0,0,0,0.3); color:white; font-size:14px;">
+          <div style="opacity:0.7; font-size:12px;">此暱稱會顯示在遊戲中玩家角色上方，並同步給所有玩家</div>
         </div>
         <div class="select-actions" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
           <button id="survival-online-btn-solo" class="primary">單人開始</button>
