@@ -101,59 +101,48 @@ class JudgmentEffect extends Entity {
                     lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                 }
                 
-                // MMORPG標準：每個玩家獨立執行邏輯並造成傷害
-                // 隊員端：造成實際傷害並發送enemy_damage給主機
-                // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理
+                // ✅ MMO 架構：每個玩家都獨立造成傷害，通用單機和MMO
+                // 單機模式：直接造成傷害
+                // 多人模式：每個玩家都造成傷害，並發送enemy_damage（用於同步傷害數字）
                 const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-                const isGuest = (isMultiplayer && Game.multiplayer.role === "guest");
-                const isHostRemotePlayer = (isMultiplayer && Game.multiplayer.role === "host" && this.player && this.player._isRemotePlayer);
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
                 
-                // 隊員端：造成實際傷害並發送enemy_damage
-                if (isGuest) {
-                    enemy.takeDamage(finalDamage, { weaponType: this.weaponType, attackId: this.attackId });
-                    if (typeof DamageNumbers !== 'undefined') {
-                        const dirX = (enemy.x - sword.targetX) || 1;
-                        const dirY = (enemy.y - sword.targetY) || 0;
-                        const mag = Math.hypot(dirX, dirY) || 1;
-                        DamageNumbers.show(
-                            finalDamage,
-                            enemy.x,
-                            enemy.y - (enemy.height || 0) / 2,
-                            isCrit,
-                            { dirX: dirX / mag, dirY: dirY / mag, enemyId: enemy.id }
-                        );
-                    }
-                    // 發送enemy_damage給主機（包含吸血資訊）
-                    if (enemy && enemy.id) {
-                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                            window.SurvivalOnlineRuntime.sendToNet({
-                                t: "enemy_damage",
-                                enemyId: enemy.id,
-                                damage: finalDamage,
-                                weaponType: this.weaponType || "JUDGMENT",
-                                isCrit: isCrit,
-                                lifesteal: lifestealAmount
-                            });
-                        }
-                    }
-                } 
-                // 主機端：本地玩家造成實際傷害，遠程玩家的傷害由enemy_damage處理（不重複計算）
-                else if (!isHostRemotePlayer) {
-                    enemy.takeDamage(finalDamage, { weaponType: this.weaponType, attackId: this.attackId });
-                    if (typeof DamageNumbers !== 'undefined') {
-                        const dirX = (enemy.x - sword.targetX) || 1;
-                        const dirY = (enemy.y - sword.targetY) || 0;
-                        const mag = Math.hypot(dirX, dirY) || 1;
-                        DamageNumbers.show(
-                            finalDamage,
-                            enemy.x,
-                            enemy.y - (enemy.height || 0) / 2,
-                            isCrit,
-                            { dirX: dirX / mag, dirY: dirY / mag, enemyId: enemy.id }
-                        );
+                // 造成傷害（單機和多人模式都執行）
+                enemy.takeDamage(finalDamage, { weaponType: this.weaponType, attackId: this.attackId });
+                if (typeof DamageNumbers !== 'undefined') {
+                    const dirX = (enemy.x - sword.targetX) || 1;
+                    const dirY = (enemy.y - sword.targetY) || 0;
+                    const mag = Math.hypot(dirX, dirY) || 1;
+                    DamageNumbers.show(
+                        finalDamage,
+                        enemy.x,
+                        enemy.y - (enemy.height || 0) / 2,
+                        isCrit,
+                        { dirX: dirX / mag, dirY: dirY / mag, enemyId: enemy.id }
+                    );
+                }
+                
+                // 多人模式：發送enemy_damage（用於同步傷害數字，不影響傷害計算）
+                if (isSurvivalMode && isMultiplayer && enemy && enemy.id) {
+                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            t: "enemy_damage",
+                            enemyId: enemy.id,
+                            damage: finalDamage,
+                            weaponType: this.weaponType || "JUDGMENT",
+                            isCrit: isCrit,
+                            lifesteal: lifestealAmount
+                        });
                     }
                 }
-                // 主機端的遠程玩家武器：不造成傷害（由隊員端的enemy_damage處理）
                 // 不再記錄敵人，敵人自己負責創建特效
             }
         }
