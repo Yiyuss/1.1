@@ -98,13 +98,31 @@ class Chest extends Entity {
         // ✅ MMORPG 架構：支援多玩家收集（本地玩家 + 遠程玩家），不依賴室長端
         const allPlayers = [];
         if (Game.player) allPlayers.push(Game.player);
-        // ✅ MMORPG 架構：所有玩家都能檢查遠程玩家，不依賴室長端
-        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
-            for (const remotePlayer of Game.remotePlayers) {
-                if (remotePlayer && !remotePlayer.markedForDeletion) {
-                    allPlayers.push(remotePlayer);
+        // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+        if (Game.multiplayer) {
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.getAllPlayers === 'function') {
+                        const remotePlayers = rm.getAllPlayers();
+                        for (const remotePlayer of remotePlayers) {
+                            if (remotePlayer && !remotePlayer.markedForDeletion) {
+                                allPlayers.push(remotePlayer);
+                            }
+                        }
+                    }
                 }
-            }
+            } catch (_) {}
         }
         
         // 檢查是否被任何玩家收集
@@ -358,13 +376,31 @@ class PineappleUltimatePickup extends Chest {
             // 檢查是否被任何玩家收集（本地玩家 + 遠程玩家）
             const allPlayers = [];
             if (Game.player) allPlayers.push(Game.player);
-            // ✅ MMORPG 架構：所有玩家都能檢查遠程玩家，不依賴室長端
-            if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
-                for (const remotePlayer of Game.remotePlayers) {
-                    if (remotePlayer && !remotePlayer.markedForDeletion) {
-                        allPlayers.push(remotePlayer);
+            // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+            if (Game.multiplayer) {
+                try {
+                    let isSurvivalMode = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) {}
+                    
+                    if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                        const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                        if (typeof rm.getAllPlayers === 'function') {
+                            const remotePlayers = rm.getAllPlayers();
+                            for (const remotePlayer of remotePlayers) {
+                                if (remotePlayer && !remotePlayer.markedForDeletion) {
+                                    allPlayers.push(remotePlayer);
+                                }
+                            }
+                        }
                     }
-                }
+                } catch (_) {}
             }
             
             // 檢查是否被任何玩家收集
@@ -478,13 +514,31 @@ class PineappleUltimatePickup extends Chest {
         // ✅ MMORPG 架構：支援遠程玩家收集鳳梨大絕掉落物，不依賴室長端
         const allPlayers = [];
         if (Game.player) allPlayers.push(Game.player);
-        // ✅ MMORPG 架構：所有玩家都能檢查遠程玩家，不依賴室長端
-        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
-            for (const remotePlayer of Game.remotePlayers) {
-                if (remotePlayer && !remotePlayer.markedForDeletion) {
-                    allPlayers.push(remotePlayer);
+        // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+        if (Game.multiplayer) {
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.getAllPlayers === 'function') {
+                        const remotePlayers = rm.getAllPlayers();
+                        for (const remotePlayer of remotePlayers) {
+                            if (remotePlayer && !remotePlayer.markedForDeletion) {
+                                allPlayers.push(remotePlayer);
+                            }
+                        }
+                    }
                 }
-            }
+            } catch (_) {}
         }
         
         // 檢查是否被任何玩家收集
@@ -522,23 +576,30 @@ class PineappleUltimatePickup extends Chest {
                     if (Game.player && typeof Game.player.gainExperience === 'function') {
                         Game.player.gainExperience(expAmount);
                     }
+                    // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
                     // 給所有遠程玩家經驗
-                    if (Array.isArray(Game.remotePlayers)) {
-                        for (const remotePlayer of Game.remotePlayers) {
-                            if (remotePlayer && !remotePlayer.markedForDeletion && typeof remotePlayer.gainExperience === 'function') {
-                                // 使用遠程玩家自己的經驗需求計算
-                                const remoteBase = 50;
-                                let remoteNeedNow = 0;
-                                try {
-                                    if (typeof remotePlayer.experienceToNextLevel === 'number' && typeof remotePlayer.experience === 'number') {
-                                        remoteNeedNow = Math.max(0, Math.floor(remotePlayer.experienceToNextLevel - remotePlayer.experience));
+                    try {
+                        if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                            const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                            if (typeof rm.getAllPlayers === 'function') {
+                                const remotePlayers = rm.getAllPlayers();
+                                for (const remotePlayer of remotePlayers) {
+                                    if (remotePlayer && !remotePlayer.markedForDeletion && typeof remotePlayer.gainExperience === 'function') {
+                                        // 使用遠程玩家自己的經驗需求計算
+                                        const remoteBase = 50;
+                                        let remoteNeedNow = 0;
+                                        try {
+                                            if (typeof remotePlayer.experienceToNextLevel === 'number' && typeof remotePlayer.experience === 'number') {
+                                                remoteNeedNow = Math.max(0, Math.floor(remotePlayer.experienceToNextLevel - remotePlayer.experience));
+                                            }
+                                        } catch (_) {}
+                                        const remoteBonus = Math.max(0, Math.floor(remoteNeedNow * 0.30));
+                                        remotePlayer.gainExperience(remoteBase + remoteBonus);
                                     }
-                                } catch (_) {}
-                                const remoteBonus = Math.max(0, Math.floor(remoteNeedNow * 0.30));
-                                remotePlayer.gainExperience(remoteBase + remoteBonus);
+                                }
                             }
                         }
-                    }
+                    } catch (_) {}
                 } else {
                     // 單人模式：只給收集者經驗
                     // 只有本地玩家播放音效
