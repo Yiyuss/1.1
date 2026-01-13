@@ -281,6 +281,20 @@ const UI = {
                     }
                 } catch(_) {}
                 Game.isGameOver = false;
+                
+                // ✅ 組隊模式：顯示成就彈窗（如果有的話）
+                try {
+                    if ((screenId === 'victory-screen' || screenId === 'game-over-screen') && typeof Achievements !== 'undefined') {
+                        const ids = (typeof Achievements.consumeSessionUnlocked === 'function')
+                            ? Achievements.consumeSessionUnlocked()
+                            : (typeof Achievements.getSessionUnlocked === 'function' ? Achievements.getSessionUnlocked() : []);
+                        if (ids && ids.length) {
+                            this.showAchievementsUnlockModal(ids);
+                            try { if (AudioManager && AudioManager.playSound) AudioManager.playSound('achievements'); } catch (_) {}
+                        }
+                    }
+                } catch (_) {}
+                
                 return; // 組隊模式：已顯示開始畫面和房間大廳，直接返回
             }
         } catch (_) {}
