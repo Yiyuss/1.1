@@ -1054,10 +1054,10 @@ class Player extends Entity {
             }
         } catch (_) {}
 
-        // 組隊模式：如果是客戶端，發送消息到室長端
+        // ✅ MMORPG 架構：所有玩家都發送鳳梨大絕消息，不依賴室長端
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-        if (isMultiplayer && Game.multiplayer.role === "guest") {
-            // 客戶端：發送消息到室長端，由室長端生成掉落物
+        if (isMultiplayer) {
+            // 所有玩家：發送消息給其他玩家，讓他們也能看到鳳梨掉落物
             try {
                 if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                     window.SurvivalOnlineRuntime.sendToNet({ 
@@ -1067,8 +1067,6 @@ class Player extends Entity {
                     });
                 }
             } catch (_) {}
-            // 客戶端不生成掉落物，由室長端生成
-            return;
         }
 
         // 室長端或單人模式：正常生成掉落物
