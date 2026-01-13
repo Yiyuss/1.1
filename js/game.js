@@ -494,12 +494,22 @@ const Game = {
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
-                if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host" && Array.isArray(this.remotePlayers)) {
-                    for (const remotePlayer of this.remotePlayers) {
-                        if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
-                            allPlayers.push(remotePlayer);
+                // ✅ 修復：MMO 架構，所有玩家端都應該檢查所有玩家（本地+遠程），不依賴室長端
+                if (isSurvivalMode && this.multiplayer) {
+                    // 使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+                    try {
+                        if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                            const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                            if (typeof rm.getAllPlayers === 'function') {
+                                const remotePlayers = rm.getAllPlayers();
+                                for (const remotePlayer of remotePlayers) {
+                                    if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                                        allPlayers.push(remotePlayer);
+                                    }
+                                }
+                            }
                         }
-                    }
+                    } catch (_) {}
                 }
             } catch (_) {}
             
@@ -968,15 +978,29 @@ const Game = {
                     
                     // 繪製遠程玩家名稱（在角色上方）
                     const remoteUid = (p._remoteUid) ? p._remoteUid : 'unknown';
-                    const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                    // ✅ 修復：優先從遠程玩家對象獲取名字，其次從 _membersState 獲取
                     let playerName = '玩家';
-                    if (rt && typeof rt.getMembersState === 'function') {
-                        const members = rt.getMembersState();
-                        if (members && typeof members.get === 'function') {
-                            const member = members.get(remoteUid);
-                            if (member && typeof member.name === 'string') {
-                                playerName = member.name;
+                    if (p._remotePlayerName && typeof p._remotePlayerName === 'string' && p._remotePlayerName.trim()) {
+                        playerName = p._remotePlayerName;
+                    } else {
+                        const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                        if (rt && typeof rt.getMembersState === 'function') {
+                            const members = rt.getMembersState();
+                            if (members && typeof members.get === 'function') {
+                                const member = members.get(remoteUid);
+                                if (member && typeof member.name === 'string' && member.name.trim()) {
+                                    playerName = member.name;
+                                } else {
+                                    // 後備：使用 UID 前6位
+                                    playerName = remoteUid.slice(0, 6);
+                                }
+                            } else {
+                                // 後備：使用 UID 前6位
+                                playerName = remoteUid.slice(0, 6);
                             }
+                        } else {
+                            // 後備：使用 UID 前6位
+                            playerName = remoteUid.slice(0, 6);
                         }
                     }
                     this.ctx.save();
