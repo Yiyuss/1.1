@@ -185,19 +185,15 @@
       // 組隊模式：離開生存模式時清理組隊狀態（防止跨模式污染）
       try {
         if (typeof Game !== "undefined" && Game.multiplayer) {
-          // 清理遠程玩家
-          if (Array.isArray(Game.remotePlayers)) {
-            for (const remotePlayer of Game.remotePlayers) {
-              try {
-                if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
-                  for (const weapon of remotePlayer.weapons) {
-                    if (weapon && typeof weapon.destroy === "function") {
-                      try { weapon.destroy(); } catch (_) {}
-                    }
-                  }
-                }
-              } catch (_) {}
+          // ✅ MMORPG 架構：使用 RemotePlayerManager 清理遠程玩家
+          if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+            const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+            if (typeof rm.clear === "function") {
+              rm.clear();
             }
+          }
+          // 向後兼容：也清理 Game.remotePlayers（如果存在）
+          if (Array.isArray(Game.remotePlayers)) {
             Game.remotePlayers = [];
           }
           // 清理組隊系統
