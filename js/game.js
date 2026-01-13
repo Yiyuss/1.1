@@ -998,7 +998,18 @@ const Game = {
         this.player.draw(this.ctx);
         
         // ✅ 繪製本地玩家名稱（在角色上方，僅在組隊模式下顯示）
-        if (isSurvivalMode && this.multiplayer && this.player) {
+        try {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            
+            if (isSurvivalMode && this.multiplayer && this.player) {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
             let playerName = '玩家';
             if (rt && typeof rt.getPlayerNickname === 'function') {
@@ -1018,7 +1029,8 @@ const Game = {
             const nameY = this.player.y - (baseSize * visualScale / 2) - 8;
             this.ctx.fillText(playerName, this.player.x, nameY);
             this.ctx.restore();
-        }
+            }
+        } catch (_) {}
     },
     
     // 繪製背景
