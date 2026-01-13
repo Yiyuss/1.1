@@ -11,10 +11,14 @@ class ExperienceOrb extends Entity {
     }
     
     update(deltaTime) {
-        // M4：支援多玩家收集（本地玩家 + 遠程玩家）
+        // ✅ MMORPG 架構：防止重複處理，如果已經被標記為刪除，不再處理
+        if (this.markedForDeletion) return;
+        
+        // ✅ MMORPG 架構：支援多玩家收集（本地玩家 + 遠程玩家），不依賴室長端
         const allPlayers = [];
         if (Game.player) allPlayers.push(Game.player);
-        if (Game.multiplayer && Game.multiplayer.role === "host" && Array.isArray(Game.remotePlayers)) {
+        // ✅ MMORPG 架構：所有玩家都能檢查遠程玩家，不依賴室長端
+        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
             for (const remotePlayer of Game.remotePlayers) {
                 if (remotePlayer && !remotePlayer.markedForDeletion) {
                     allPlayers.push(remotePlayer);
@@ -51,14 +55,19 @@ class ExperienceOrb extends Entity {
         // 檢查是否被任何玩家收集
         for (const player of allPlayers) {
             if (this.isColliding(player)) {
-                // 組隊模式：給所有玩家經驗（經驗共享）
+                // ✅ MMORPG 架構：立即標記為刪除，防止多個玩家同時檢測到碰撞時重複給經驗
+                this.markedForDeletion = true;
+                // ✅ MMORPG 架構：所有玩家都能共享經驗，不依賴室長端
                 const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-                if (isMultiplayer && Game.multiplayer.role === "host") {
-                    // 室長端：給所有玩家經驗
-                    if (typeof AudioManager !== 'undefined') {
-                        // 尊重 EXP 音效開關
-                        if (AudioManager.expSoundEnabled !== false) {
-                            AudioManager.playSound('collect_exp');
+                if (isMultiplayer) {
+                    // 多人模式：給所有玩家經驗（經驗共享）
+                    // 只有本地玩家播放音效（避免重複播放）
+                    if (player === Game.player && !player._isRemotePlayer) {
+                        if (typeof AudioManager !== 'undefined') {
+                            // 尊重 EXP 音效開關
+                            if (AudioManager.expSoundEnabled !== false) {
+                                AudioManager.playSound('collect_exp');
+                            }
                         }
                     }
                     // 給本地玩家經驗
@@ -74,7 +83,7 @@ class ExperienceOrb extends Entity {
                         }
                     }
                 } else {
-                    // 單人模式或客戶端：只給收集者經驗
+                    // 單人模式：只給收集者經驗
                     if (typeof AudioManager !== 'undefined') {
                         // 尊重 EXP 音效開關
                         if (AudioManager.expSoundEnabled !== false) {
@@ -82,6 +91,16 @@ class ExperienceOrb extends Entity {
                         }
                     }
                     player.gainExperience(this.value);
+                }
+                // ✅ MMORPG 架構：廣播經驗球被撿取事件，讓所有玩家都知道經驗球已消失
+                if (isMultiplayer) {
+                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                        window.SurvivalOnlineBroadcastEvent("exp_orb_collected", {
+                            x: this.x,
+                            y: this.y,
+                            value: this.value
+                        });
+                    }
                 }
                 this.destroy();
                 return;
