@@ -1527,8 +1527,44 @@ const UI = {
         el.style.visibility = 'visible';
         el.style.opacity = '1';
     
-        const onEnded = () => this._returnToStartFrom('game-over-screen');
+        // ✅ 修復：清理之前的事件監聽器，避免重複綁定導致卡住
+        const oldOnEnded = el._gameOverOnEnded;
+        if (oldOnEnded) {
+            el.removeEventListener('ended', oldOnEnded);
+        }
+        
+        const onEnded = () => {
+            try {
+                // 確保影片停止
+                el.pause();
+                el.currentTime = 0;
+                // 返回開始畫面
+                this._returnToStartFrom('game-over-screen');
+            } catch (e) {
+                console.warn("[UI] showGameOverScreen: 處理影片結束事件失敗:", e);
+                // 即使出錯也返回開始畫面
+                this._returnToStartFrom('game-over-screen');
+            }
+        };
+        el._gameOverOnEnded = onEnded; // 保存引用以便清理
         el.addEventListener('ended', onEnded, { once: true });
+        
+        // ✅ 修復：添加超時保護，如果影片卡住超過30秒，自動返回
+        const timeoutId = setTimeout(() => {
+            try {
+                console.warn("[UI] showGameOverScreen: 影片播放超時，自動返回");
+                el.pause();
+                el.currentTime = 0;
+                this._returnToStartFrom('game-over-screen');
+            } catch (e) {
+                console.warn("[UI] showGameOverScreen: 超時處理失敗:", e);
+            }
+        }, 30000); // 30秒超時
+        
+        // 當影片結束時清除超時
+        el.addEventListener('ended', () => {
+            clearTimeout(timeoutId);
+        }, { once: true });
     
         // 確保影片播放
         setTimeout(() => {
@@ -1539,13 +1575,19 @@ const UI = {
                         console.error("播放失敗影片時出錯:", error);
                         // 如果自動播放失敗，嘗試添加用戶交互後再播放
                         document.addEventListener('click', function playOnClick() {
-                            el.play();
+                            el.play().catch(() => {
+                                // 如果播放仍然失敗，直接返回
+                                clearTimeout(timeoutId);
+                                this._returnToStartFrom('game-over-screen');
+                            });
                             document.removeEventListener('click', playOnClick);
-                        }, { once: true });
+                        }.bind(this), { once: true });
                     });
                 }
             } catch (err) {
                 console.error("播放失敗影片時出錯:", err);
+                clearTimeout(timeoutId);
+                this._returnToStartFrom('game-over-screen');
             }
         }, 100);
     },
