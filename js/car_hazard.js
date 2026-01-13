@@ -54,7 +54,7 @@ class CarHazard extends Entity {
             const localPlayer = (typeof Game !== 'undefined') ? Game.player : null;
             if (localPlayer) allPlayers.push(localPlayer);
             
-            // 組隊模式：添加遠程玩家（僅主機端）
+            // ✅ MMORPG 架構：添加遠程玩家，不依賴室長端
             try {
                 let isSurvivalMode = false;
                 try {
@@ -66,7 +66,7 @@ class CarHazard extends Entity {
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
-                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.role === "host" && Array.isArray(Game.remotePlayers)) {
+                if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Array.isArray(Game.remotePlayers)) {
                     for (const remotePlayer of Game.remotePlayers) {
                         if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
                             allPlayers.push(remotePlayer);
