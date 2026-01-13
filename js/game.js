@@ -209,29 +209,13 @@ const Game = {
         }
 
         // 路口地圖：每 10 秒生成 3 台車（直線穿越）
-        // 組隊模式：只在主機端生成車輛，避免不同步
+        // ✅ MMO 架構：所有客戶端都生成車輛（使用確定性隨機數，確保同步）
         if (this.selectedMap && this.selectedMap.id === 'intersection' && !this.isPaused && !this.isGameOver) {
-            // 檢查是否為組隊模式
-            let isSurvivalMode = false;
-            let isGuest = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null);
-                isGuest = (isSurvivalMode && this.multiplayer && this.multiplayer.role === "guest");
-            } catch (_) {}
-            
-            // 組隊模式且為隊員時，不生成車輛（由主機端生成並廣播）
-            if (!isGuest) {
-                this.intersectionCarTimer += deltaTime;
-                if (this.intersectionCarTimer >= this.intersectionCarInterval) {
-                    // 扣回間隔（避免 lag 時累積爆發）
-                    this.intersectionCarTimer = this.intersectionCarTimer % this.intersectionCarInterval;
-                    try { this.spawnIntersectionCars(4); } catch (_) {}
-                }
+            this.intersectionCarTimer += deltaTime;
+            if (this.intersectionCarTimer >= this.intersectionCarInterval) {
+                // 扣回間隔（避免 lag 時累積爆發）
+                this.intersectionCarTimer = this.intersectionCarTimer % this.intersectionCarInterval;
+                try { this.spawnIntersectionCars(4); } catch (_) {}
             }
         }
         
@@ -271,7 +255,7 @@ const Game = {
             }
         } catch (_) {}
 
-        // M2：更新遠程玩家（僅在生存模式組隊模式且為室長時）
+        // M2：更新遠程玩家（所有端都需要更新，不只是隊長）
         try {
           // 確保只在生存模式下執行組隊邏輯
           let isSurvivalMode = false;
@@ -284,9 +268,22 @@ const Game = {
             isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
           } catch (_) {}
           
-          if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
-            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.updateRemotePlayers === "function") {
-              window.SurvivalOnlineRuntime.updateRemotePlayers(deltaTime);
+          if (isSurvivalMode && this.multiplayer) {
+            // 隊長端：更新遠程玩家並廣播狀態
+            // MMO 架構：每個玩家都更新遠程玩家，不依賴隊長端
+            if (this.multiplayer) {
+              if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.updateRemotePlayers === "function") {
+                window.SurvivalOnlineRuntime.updateRemotePlayers(deltaTime);
+              }
+            } else {
+              // 隊員端：更新遠程玩家（隊長）的武器和攻擊效果
+              // 注意：隊員端的遠程玩家位置由 onStateMessage 更新，但武器需要這裡更新
+              if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                if (typeof rm.updateAll === "function") {
+                  rm.updateAll(deltaTime);
+                }
+              }
             }
           }
         } catch (_) {}
@@ -401,7 +398,8 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) {}
             
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+            // MMO 架構：每個玩家都廣播自己的爆炸粒子，不依賴隊長端
+            if (isSurvivalMode && this.multiplayer) {
                 // 批量廣播爆炸粒子（每幀最多發送一次，包含所有新創建的粒子）
                 if (this._pendingExplosionParticles && this._pendingExplosionParticles.length > 0) {
                     if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
@@ -530,7 +528,8 @@ const Game = {
                             isSurvivalMode = (activeId === 'survival' || activeId === null);
                         } catch (_) {}
                         
-                        if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+                        // MMO 架構：每個玩家都廣播勝利事件，不依賴隊長端
+                        if (isSurvivalMode && this.multiplayer) {
                             if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                                 window.SurvivalOnlineBroadcastEvent("game_victory", {
                                     reason: "exit_reached"
@@ -624,7 +623,7 @@ const Game = {
                 weapon.update(deltaTime);
             }
         }
-        // M4：更新遠程玩家的武器（僅在生存模式組隊模式且為室長時）
+        // M4：更新遠程玩家的武器（所有端都需要更新，不只是隊長）
         try {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
@@ -637,12 +636,34 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) {}
             
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host" && Array.isArray(this.remotePlayers)) {
-                for (const remotePlayer of this.remotePlayers) {
-                    if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
-                        for (const weapon of remotePlayer.weapons) {
-                            if (weapon && typeof weapon.update === "function") {
-                                weapon.update(deltaTime);
+            if (isSurvivalMode && this.multiplayer) {
+                // 隊長端：更新遠程玩家（隊員）的武器
+                if (this.multiplayer.role === "host" && Array.isArray(this.remotePlayers)) {
+                    for (const remotePlayer of this.remotePlayers) {
+                        if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
+                            for (const weapon of remotePlayer.weapons) {
+                                if (weapon && typeof weapon.update === "function") {
+                                    weapon.update(deltaTime);
+                                }
+                            }
+                        }
+                    }
+                }
+                // 隊員端：更新遠程玩家（隊長）的武器
+                // 注意：RemotePlayerManager.updateAll 已經在 updateRemotePlayers 中調用，但這裡作為後備
+                // 實際上，RemotePlayerManager.updateAll 會調用 player.update，而 player.update 會更新武器
+                // 但為了確保武器更新，我們也在這裡更新
+                if (this.multiplayer.role === "guest" || this.multiplayer.role === "client") {
+                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                        const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                        const remotePlayers = (typeof rm.getAllPlayers === "function") ? rm.getAllPlayers() : [];
+                        for (const remotePlayer of remotePlayers) {
+                            if (remotePlayer && remotePlayer.weapons && Array.isArray(remotePlayer.weapons)) {
+                                for (const weapon of remotePlayer.weapons) {
+                                    if (weapon && typeof weapon.update === "function") {
+                                        weapon.update(deltaTime);
+                                    }
+                                }
                             }
                         }
                     }
@@ -1054,29 +1075,10 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) {}
             
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
-                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    // 檢查是否為BOSS（BOSS需要特殊處理）
-                    const isBoss = (enemy === this.boss) || (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS');
-                    if (isBoss) {
-                        // BOSS生成事件
-                        window.SurvivalOnlineBroadcastEvent("boss_spawn", {
-                            type: enemy.type || "BOSS",
-                            x: enemy.x || 0,
-                            y: enemy.y || 0,
-                            id: enemy.id
-                        });
-                    } else {
-                        // 普通敵人生成事件
-                        window.SurvivalOnlineBroadcastEvent("enemy_spawn", {
-                            type: enemy.type || "UNKNOWN",
-                            x: enemy.x || 0,
-                            y: enemy.y || 0,
-                            id: enemy.id
-                        });
-                    }
-                }
-            }
+            // MMO 架構：敵人使用確定性生成，不需要廣播
+            // ✅ 每個客戶端自己生成敵人（使用相同的隨機種子）
+            // ⚠️ 舊架構殘留：敵人廣播已移除，改為確定性生成（待實現）
+            // 注意：BOSS 和普通敵人都由確定性生成處理，不需要廣播
         } catch (_) {}
     },
     
@@ -1097,15 +1099,22 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) {}
             
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
-                // 只廣播本地玩家和遠程玩家的投射物
+            // MMO 架構：每個玩家都廣播自己的投射物，不依賴隊長端
+            if (isSurvivalMode && this.multiplayer) {
+                // ✅ MMO 架構：每個玩家都廣播自己的投射物（攻擊、技能等）
                 // 判斷投射物來源：
                 // 1. 本地玩家的投射物：projectile.player === this.player
-                // 2. 遠程玩家的投射物：projectile.player && projectile.player._isRemotePlayer
-                // 3. 環境物體（如 INTERSECTION_CAR）：需要廣播
+                // 2. 遠程玩家的投射物：projectile.player && projectile.player._isRemotePlayer（不廣播，由遠程玩家自己廣播）
+                // 3. 環境物體（如 INTERSECTION_CAR）：需要廣播（但應由生成者廣播，這裡只處理本地生成的）
                 // 4. 其他情況（如環境效果）：不廣播或根據需要廣播
                 const isLocalPlayerProjectile = (projectile.player && projectile.player === this.player);
                 const isRemotePlayerProjectile = (projectile.player && projectile.player._isRemotePlayer);
+                
+                // MMO 架構：只廣播本地玩家的投射物，不廣播遠程玩家的投射物（由遠程玩家自己廣播）
+                if (isRemotePlayerProjectile) {
+                    // 遠程玩家的投射物由遠程玩家自己廣播，這裡不處理
+                    return;
+                }
                 
                 // 檢查是否為 AICompanion（召喚AI）
                 const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') || 
@@ -1348,7 +1357,12 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) {}
             
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+            // MMO 架構：經驗球使用確定性生成，不需要廣播
+            // ✅ 每個客戶端自己生成經驗球（使用相同的隨機種子）
+            // ⚠️ 舊架構殘留：經驗球廣播已移除，改為確定性生成（待實現）
+            // 注意：經驗球由確定性生成處理，不需要廣播
+            if (false && isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+                // ❌ 舊架構：已禁用，改為確定性生成
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                     window.SurvivalOnlineBroadcastEvent("exp_orb_spawn", {
                         x: x || 0,
@@ -1543,7 +1557,8 @@ const Game = {
                     isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
                 } catch (_) {}
                 
-                if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
+                // MMO 架構：每個玩家都廣播自己的鳳梨大絕掉落，不依賴隊長端
+                if (isSurvivalMode && this.multiplayer) {
                     if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                         window.SurvivalOnlineBroadcastEvent("ultimate_pineapple_spawn", {
                             x: targetX,
@@ -1581,9 +1596,10 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) {}
             
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
-                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("exit_spawn", {
+                // MMO 架構：每個玩家都廣播出口生成，不依賴隊長端
+                if (isSurvivalMode && this.multiplayer) {
+                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                        window.SurvivalOnlineBroadcastEvent("exit_spawn", {
                         x: exitX,
                         y: exitY,
                         width: 300,
@@ -1703,12 +1719,13 @@ const Game = {
             } catch (_) {}
             
             // 組隊模式：廣播勝利事件，讓所有隊員也能看到勝利影片
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
-                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("game_victory", {
-                        reason: "exit_reached"
-                    });
-                }
+                // MMO 架構：每個玩家都廣播勝利事件，不依賴隊長端
+                if (isSurvivalMode && this.multiplayer) {
+                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                        window.SurvivalOnlineBroadcastEvent("game_victory", {
+                            reason: "exit_reached"
+                        });
+                    }
                 // 室長：先更新房間狀態為 closed，再離開房間
                 if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToClosed === 'function') {
                     window.SurvivalOnlineUI.updateRoomStatusToClosed().catch(() => {});
@@ -1959,6 +1976,37 @@ const Game = {
             console.warn('BulletSystem.reset 失敗：', e);
         }
 
+        // MMO 架構：多人模式設置確定性隨機數種子，確保所有客戶端生成相同的敵人
+        try {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.sessionId) {
+                // 多人模式：使用房間ID和sessionId作為種子，確保所有客戶端使用相同的種子
+                const roomId = this.multiplayer.roomId || '';
+                const sessionId = this.multiplayer.sessionId || '';
+                const seed = `${roomId}_${sessionId}`;
+                if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
+                    DeterministicRandom.init(seed);
+                    console.log(`[Game] 多人模式：設置確定性隨機數種子: ${seed}`);
+                }
+            } else {
+                // 單機模式：不使用種子
+                if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
+                    DeterministicRandom.init(null);
+                }
+            }
+        } catch (e) {
+            console.warn("[Game] 設置確定性隨機數種子失敗:", e);
+        }
+        
         // 重置波次系統
         WaveSystem.init();
         
