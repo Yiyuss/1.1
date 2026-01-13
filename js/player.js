@@ -322,6 +322,11 @@ class Player extends Entity {
             const screenX = this.x - camX - shakeX;
             const screenY = this.y - camY - shakeY;
             if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
+                // 為遠程玩家使用唯一的ID（避免與本地玩家衝突）
+                const overlayId = this._isRemotePlayer && this._remoteUid 
+                    ? `remote-player-${this._remoteUid}` 
+                    : 'player';
+                
                 // 特殊處理：player4.png 需要保持 500:627 的寬高比
                 // 特殊處理：player5.png 需要保持 500:467 的寬高比
                 // 特殊處理：playerN3.png 需要保持 267:300 的寬高比
@@ -334,7 +339,7 @@ class Player extends Entity {
                     // 以高度為基準計算顯示尺寸（保持與其他角色相近的高度）
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                    window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
                 } else if (imgKey === 'player5' && imgObj.complete) {
                     // player5.png 保持寬高比 (500:467)
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
@@ -343,7 +348,7 @@ class Player extends Entity {
                     // 以高度為基準計算顯示尺寸（保持與其他角色相近的高度）
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                    window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
                 } else if (imgKey === 'playerN3' && imgObj.complete) {
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 267;
                     const imgHeight = imgObj.naturalHeight || imgObj.height || 300;
@@ -351,7 +356,7 @@ class Player extends Entity {
                     // 以高度為基準計算顯示尺寸（保持與其他角色相近的高度）
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                    window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
                 } else if (imgKey === 'player3' && imgObj.complete) {
                     // player3.gif 保持原比例（1:1），使用模式原有的尺寸計算
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 320;
@@ -360,7 +365,7 @@ class Player extends Entity {
                     // 使用模式原有的尺寸計算方式，保持原比例
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                    window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
                 } else if (imgKey === 'player6' && imgObj.complete) {
                     // player6.gif 保持寬高比 (242:320)
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 242;
@@ -368,7 +373,7 @@ class Player extends Entity {
                     const aspectRatio = imgWidth / imgHeight; // 242/320 ≈ 0.756
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                    window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
                 } else if (imgKey === 'player' && imgObj.complete) {
                     // player.gif 保持原比例（1:1），使用模式原有的尺寸計算
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 320;
@@ -377,7 +382,7 @@ class Player extends Entity {
                     // 使用模式原有的尺寸計算方式，保持原比例
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                    window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
                 } else if ((imgKey === 'player2' || imgKey === 'player2-1') && imgObj.complete) {
                     // player2.png / player2-1.png 保持原比例（290x242），使用模式原有的尺寸計算
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
@@ -386,16 +391,17 @@ class Player extends Entity {
                     // 使用模式原有的尺寸計算方式，保持原比例
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                    window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
                 } else {
                     // 其他角色使用正方形顯示（保持原有行為）
                     const renderSize = Math.max(1, Math.floor(baseSize * visualScale));
-                    window.GifOverlay.showOrUpdate('player', imgObj.src, screenX, screenY, renderSize);
+                    window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, renderSize);
                 }
                 // 第二位角色大絕期間：將玩家GIF置於守護領域之上（z-index 5 > 4）
+                // 注意：遠程玩家使用不同的ID，需要根據overlayId來獲取元素
                 if (this.isUltimateActive && this._ultimateImageKey === 'playerN2') {
                     try {
-                        const playerGifEl = document.getElementById('gif-overlay-player');
+                        const playerGifEl = document.getElementById(`gif-overlay-${overlayId}`);
                         if (playerGifEl) {
                             playerGifEl.style.zIndex = '5'; // 高於守護領域的 z-index 4
                         }
@@ -403,7 +409,7 @@ class Player extends Entity {
                 } else {
                     // 非第二位角色大絕時，恢復預設 z-index
                     try {
-                        const playerGifEl = document.getElementById('gif-overlay-player');
+                        const playerGifEl = document.getElementById(`gif-overlay-${overlayId}`);
                         if (playerGifEl) {
                             playerGifEl.style.zIndex = '3'; // 恢復預設值
                         }
@@ -696,40 +702,48 @@ class Player extends Entity {
              // 檢查所有遠程玩家是否都死亡
              let allRemotePlayersDead = true;
              
-             // 通過 RemotePlayerManager 獲取遠程玩家
-             if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.getAllPlayers === 'function') {
-                 const remotePlayers = RemotePlayerManager.getAllPlayers();
-                 if (remotePlayers && remotePlayers.length > 0) {
-                     for (const remotePlayer of remotePlayers) {
-                         if (remotePlayer && !remotePlayer._isDead) {
-                             allRemotePlayersDead = false;
-                             break;
-                         }
-                     }
-                 } else {
-                     // 沒有遠程玩家，只有本地玩家死亡就結束
-                     allRemotePlayersDead = true;
-                 }
-             } else {
-                 // 如果 RemotePlayerManager 不可用，嘗試通過 Runtime 獲取
-                 if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.getRemotePlayers === 'function') {
-                     const remotePlayers = window.SurvivalOnlineRuntime.getRemotePlayers() || [];
-                     if (remotePlayers.length > 0) {
-                         for (const remotePlayer of remotePlayers) {
-                             if (remotePlayer && !remotePlayer._isDead) {
-                                 allRemotePlayersDead = false;
-                                 break;
-                             }
-                         }
-                     } else {
-                         // 沒有遠程玩家，只有本地玩家死亡就結束
-                         allRemotePlayersDead = true;
-                     }
-                 } else {
-                     // 無法獲取遠程玩家信息，假設只有本地玩家
-                     allRemotePlayersDead = true;
-                 }
-             }
+            // 通過 RemotePlayerManager 獲取遠程玩家（完整的 Player 對象）
+            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                if (typeof rm.getAllPlayers === 'function') {
+                    const remotePlayers = rm.getAllPlayers();
+                    if (remotePlayers && remotePlayers.length > 0) {
+                        for (const remotePlayer of remotePlayers) {
+                            // 檢查完整的 Player 對象的死亡狀態
+                            if (remotePlayer && typeof remotePlayer._isDead === "boolean" && !remotePlayer._isDead) {
+                                allRemotePlayersDead = false;
+                                break;
+                            }
+                        }
+                    } else {
+                        // 沒有遠程玩家，只有本地玩家死亡就結束
+                        allRemotePlayersDead = true;
+                    }
+                } else {
+                    // 如果 RemotePlayerManager 不可用，嘗試通過 Runtime 獲取（簡化狀態）
+                    if (typeof window.SurvivalOnlineRuntime.getRemotePlayers === 'function') {
+                        const remotePlayers = window.SurvivalOnlineRuntime.getRemotePlayers() || [];
+                        if (remotePlayers.length > 0) {
+                            for (const remotePlayer of remotePlayers) {
+                                // 檢查簡化狀態的死亡標記
+                                if (remotePlayer && typeof remotePlayer._isDead === "boolean" && !remotePlayer._isDead) {
+                                    allRemotePlayersDead = false;
+                                    break;
+                                }
+                            }
+                        } else {
+                            // 沒有遠程玩家，只有本地玩家死亡就結束
+                            allRemotePlayersDead = true;
+                        }
+                    } else {
+                        // 無法獲取遠程玩家信息，假設只有本地玩家
+                        allRemotePlayersDead = true;
+                    }
+                }
+            } else {
+                // 無法獲取遠程玩家信息，假設只有本地玩家
+                allRemotePlayersDead = true;
+            }
              
              // 如果所有玩家都死亡，觸發遊戲結束
              if (allRemotePlayersDead) {
