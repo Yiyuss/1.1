@@ -307,8 +307,31 @@ class Enemy extends Entity {
         
         const deltaMul = deltaTime / 16.67;
         const _prevX_forFacing = this.x;
-        // 向玩家移動
-        const player = Game.player;
+        // ✅ MMORPG 架構：向最近的玩家移動（本地玩家 + 遠程玩家），不依賴室長端
+        let moveTargetPlayer = Game.player;
+        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
+            // 找到最近的活著的玩家（本地玩家或遠程玩家）
+            let nearestPlayer = Game.player;
+            let nearestDist = Infinity;
+            if (Game.player && !Game.player._isDead) {
+                const dist = Utils.distance(this.x, this.y, Game.player.x, Game.player.y);
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearestPlayer = Game.player;
+                }
+            }
+            for (const remotePlayer of Game.remotePlayers) {
+                if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                    const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearestPlayer = remotePlayer;
+                    }
+                }
+            }
+            moveTargetPlayer = nearestPlayer;
+        }
+        const player = moveTargetPlayer || Game.player; // 如果找不到目标，回退到本地玩家
         const angle = Utils.angle(this.x, this.y, player.x, player.y);
         
         // 計算候選位置（分軸移動）
@@ -1298,8 +1321,31 @@ class Enemy extends Entity {
             }
         }
         
-        // 啟動後退+淡出動畫，延後刪除 0.3 秒
-        const angleToPlayer = Utils.angle(this.x, this.y, Game.player.x, Game.player.y);
+        // ✅ MMORPG 架構：啟動後退+淡出動畫，延後刪除 0.3 秒
+        // 找到最近的活著的玩家作為後退方向（本地玩家或遠程玩家）
+        let targetPlayer = Game.player;
+        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
+            let nearestPlayer = Game.player;
+            let nearestDist = Infinity;
+            if (Game.player && !Game.player._isDead) {
+                const dist = Utils.distance(this.x, this.y, Game.player.x, Game.player.y);
+                if (dist < nearestDist) {
+                    nearestDist = dist;
+                    nearestPlayer = Game.player;
+                }
+            }
+            for (const remotePlayer of Game.remotePlayers) {
+                if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                    const dist = Utils.distance(this.x, this.y, remotePlayer.x, remotePlayer.y);
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        nearestPlayer = remotePlayer;
+                    }
+                }
+            }
+            targetPlayer = nearestPlayer;
+        }
+        const angleToPlayer = Utils.angle(this.x, this.y, (targetPlayer || Game.player).x, (targetPlayer || Game.player).y);
         const pushDist = 20;
         const frames = this.deathDuration / 16.67;
         const pushSpeed = pushDist / frames;
