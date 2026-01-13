@@ -53,23 +53,33 @@ const MEMBER_STALE_MS = 45000; // 45s：超過視為離線/殘留
 const START_COUNTDOWN_MS = 3000; // M1：開始倒數（收到 starting 後倒數）
 
 // 玩家名稱驗證和處理
-const PLAYER_NAME_MAX_LENGTH = 20; // 最大長度
+const PLAYER_NAME_MAX_LENGTH = 5; // 最大長度：5個字符（中文字、英文字、數字）
 const PLAYER_NAME_MIN_LENGTH = 1; // 最小長度
 const PLAYER_NAME_STORAGE_KEY = "survival_player_nickname"; // localStorage 鍵名
 
 // 名稱驗證和清理函數
+// ✅ 限制：1~5個字符（中文字、英文字、數字），可交叉搭配，不能有其他(例如空白鍵、符號)
 function sanitizePlayerName(name) {
   if (!name || typeof name !== "string") return null;
   
   // 移除首尾空白
   name = name.trim();
   
-  // 檢查長度
+  // 檢查長度：1~5個字符
   if (name.length < PLAYER_NAME_MIN_LENGTH || name.length > PLAYER_NAME_MAX_LENGTH) {
     return null;
   }
   
-  // 移除危險字符（HTML 標籤、腳本等）
+  // 只允許中文字、英文字、數字
+  // 中文字：\u4e00-\u9fff（CJK統一漢字）
+  // 英文字：a-zA-Z
+  // 數字：0-9
+  const validPattern = /^[\u4e00-\u9fffa-zA-Z0-9]+$/;
+  if (!validPattern.test(name)) {
+    return null;
+  }
+  
+  // 移除危險字符（HTML 標籤、腳本等）- 雖然已經通過正則驗證，但為了安全還是移除
   name = name.replace(/[<>\"'&]/g, "");
   
   // 移除控制字符
@@ -2160,14 +2170,28 @@ async function leaveRoom() {
     _signalsUnsub = null;
   }
 
-  // M2：清理遠程玩家
+  // ✅ 清理邏輯：清理遠程玩家
   try {
     if (typeof RemotePlayerManager !== "undefined" && RemotePlayerManager.clear) {
       RemotePlayerManager.clear();
     }
   } catch (_) {}
+  
+  // ✅ 清理邏輯：清理 Game.remotePlayers（避免殘留）
+  try {
+    if (typeof Game !== "undefined" && Array.isArray(Game.remotePlayers)) {
+      Game.remotePlayers.length = 0;
+    }
+  } catch (_) {}
+  
+  // ✅ 清理邏輯：清理 Runtime 中的遠程玩家
+  try {
+    if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
+      Runtime.setEnabled(false);
+    }
+  } catch (_) {}
 
-  // 關閉 WebSocket 連接
+  // ✅ 清理邏輯：關閉 WebSocket 連接
   try { 
     if (_ws) {
       _ws.onmessage = null;
@@ -2180,42 +2204,55 @@ async function leaveRoom() {
   _ws = null;
   _wsReconnectAttempts = 0;
   
-  // 停止自動清理
+  // ✅ 清理邏輯：停止自動清理
   stopAutoCleanup();
   
-  // 清理速率限制追蹤
+  // ✅ 清理邏輯：清理速率限制追蹤
   _rateLimitTracker.clear();
 
   Runtime.setEnabled(false);
 
-  // 移除成員
+  // ✅ 清理邏輯：移除成員
   try {
     if (_activeRoomId && _uid) {
       await deleteDoc(memberDocRef(_activeRoomId, _uid));
     }
   } catch (_) {}
 
-  // 若我是室長：嘗試關房（無後端下無法保證；規則允許就關）
+  // ✅ 清理邏輯：若我是室長：嘗試關房（無後端下無法保證；規則允許就關）
   try {
     if (_isHost && _activeRoomId) {
       await updateDoc(roomDocRef(_activeRoomId), { status: "closed", updatedAt: serverTimestamp() });
     }
   } catch (_) {}
 
+  // ✅ 清理邏輯：重置所有狀態變量
   _activeRoomId = null;
   _isHost = false;
   _hostUid = null;
   _roomState = null;
   _membersState = new Map();
 
-  // 停止心跳
+  // ✅ 清理邏輯：停止心跳
   try { if (_memberHeartbeatTimer) clearInterval(_memberHeartbeatTimer); } catch (_) {}
   _memberHeartbeatTimer = null;
 
-  // 停止開局倒數（避免離開後誤觸發進入遊戲）
+  // ✅ 清理邏輯：停止開局倒數（避免離開後誤觸發進入遊戲）
   try { if (_startTimer) clearTimeout(_startTimer); } catch (_) {}
   _startTimer = null;
   _startSessionId = null;
+  
+  // ✅ 清理邏輯：清理重連計時器
+  try { if (_reconnectTimer) clearTimeout(_reconnectTimer); } catch (_) {}
+  _reconnectTimer = null;
+  _reconnectAttempts = 0;
+  
+  // ✅ 清理邏輯：離開房間時清理暱稱（避免跨房間污染）
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem) {
+      localStorage.removeItem(PLAYER_NAME_STORAGE_KEY);
+    }
+  } catch (_) {}
 }
 
 async function setReady(ready) {
@@ -2408,6 +2445,40 @@ function listenMembers(roomId) {
         }
       }
       _membersState = m;
+
+      // ✅ 室長側：檢查房間是否為空，如果為空則自動刪除房間
+      try {
+        if (_isHost && _activeRoomId) {
+          const memberCount = _membersState.size;
+          // 如果房間為空（沒有成員），自動刪除房間
+          if (memberCount === 0) {
+            console.log(`[SurvivalOnline] 房間 ${_activeRoomId} 已空，自動刪除`);
+            const roomIdToDelete = _activeRoomId;
+            // 清理本地狀態（先清理，避免後續操作）
+            _activeRoomId = null;
+            _isHost = false;
+            _hostUid = null;
+            _roomState = null;
+            stopAutoCleanup();
+            // 異步刪除房間文檔（不等待，避免阻塞）
+            (async () => {
+              try {
+                // 刪除房間文檔（Firestore 會自動刪除子集合）
+                await deleteDoc(roomDocRef(roomIdToDelete));
+              } catch (e) {
+                console.warn(`[SurvivalOnline] 刪除空房間失敗:`, e);
+                // 如果刪除失敗，至少設置為 closed 狀態
+                try {
+                  await updateDoc(roomDocRef(roomIdToDelete), { status: "closed", updatedAt: serverTimestamp() });
+                } catch (_) {}
+              }
+            })().catch(() => {});
+            return; // 不再更新 UI，因為房間已不存在
+          }
+        }
+      } catch (e) {
+        console.warn("[SurvivalOnline] 檢查空房間失敗:", e);
+      }
 
       // 室長側保險：人數超過上限時，移出最新加入的非室長成員
       try {
@@ -4069,7 +4140,7 @@ function bindUI() {
     });
   }
   
-  // 防止暱稱輸入框的鍵盤事件影響遊戲主體
+  // ✅ 暱稱輸入框：限制為5個字符（中文字、英文字、數字），防止空白鍵、符號等
   const nicknameInput = _qs("survival-online-nickname");
   if (nicknameInput) {
     // 阻止所有鍵盤事件傳播到遊戲主體
@@ -4079,13 +4150,54 @@ function bindUI() {
     nicknameInput.addEventListener("keyup", (e) => {
       e.stopPropagation();
     }, true);
-    // 特別處理空白鍵，防止觸發遊戲功能
-    nicknameInput.addEventListener("keydown", (e) => {
-      if (e.key === " " || e.code === "Space" || e.keyCode === 32) {
-        // 允許空白鍵正常輸入，但阻止傳播
-        e.stopPropagation();
+    
+    // ✅ 輸入驗證：只允許中文字、英文字、數字，不允許空白鍵、符號等
+    nicknameInput.addEventListener("input", (e) => {
+      const value = e.target.value;
+      // 只保留中文字、英文字、數字
+      const validPattern = /[\u4e00-\u9fffa-zA-Z0-9]/g;
+      const validChars = value.match(validPattern) || [];
+      const newValue = validChars.slice(0, 5).join(""); // 限制為5個字符
+      if (newValue !== value) {
+        e.target.value = newValue;
       }
     });
+    
+    // ✅ 阻止空白鍵和符號輸入
+    nicknameInput.addEventListener("keydown", (e) => {
+      // 允許的鍵：中文字（通過輸入事件處理）、英文字、數字、退格、刪除、方向鍵等
+      const allowedKeys = [
+        "Backspace", "Delete", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown",
+        "Home", "End", "Tab"
+      ];
+      const key = e.key;
+      const code = e.code;
+      
+      // 如果是空白鍵或符號，阻止輸入
+      if (key === " " || key === "Space" || code === "Space") {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      
+      // 如果是符號（非中文字、非英文字、非數字），阻止輸入
+      if (!/[\u4e00-\u9fffa-zA-Z0-9]/.test(key) && !allowedKeys.includes(key) && key.length === 1) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    });
+    
+    // 載入時載入上次保存的暱稱
+    try {
+      const saved = localStorage.getItem(PLAYER_NAME_STORAGE_KEY);
+      if (saved) {
+        const sanitized = sanitizePlayerName(saved);
+        if (sanitized) {
+          nicknameInput.value = sanitized;
+        }
+      }
+    } catch (_) {}
   }
   
   // 同樣處理房間碼輸入框
@@ -4330,6 +4442,23 @@ try {
 } catch (_) {}
 
 // 更新房間狀態為 closed（供 game.js 調用）
+// ✅ 更新房間狀態為 lobby（正常結束遊戲時回到大廳）
+async function updateRoomStatusToLobby() {
+  if (!_isHost || !_activeRoomId) return;
+  try {
+    await ensureAuth();
+    await updateDoc(roomDocRef(_activeRoomId), { 
+      status: "lobby", 
+      updatedAt: serverTimestamp() 
+    });
+    if (_roomState) {
+      _roomState.status = "lobby";
+    }
+  } catch (e) {
+    console.warn("[SurvivalOnline] 更新房間狀態為 lobby 失敗:", e);
+  }
+}
+
 async function updateRoomStatusToClosed() {
   try {
     if (!_isHost || !_activeRoomId) return;
@@ -4353,6 +4482,8 @@ window.SurvivalOnlineUI = {
   getRuntime,
   handleEscape,
   updateRoomStatusToClosed,
+  updateRoomStatusToLobby,
+  openLobbyScreen,
 };
 
 // 提供給 game.js 的 runtime bridge（避免 game.js import）
@@ -4366,14 +4497,46 @@ window.SurvivalOnlineRuntime = {
   savePlayerNickname: savePlayerNickname
 };
 
-// 頁面關閉/刷新：盡力離開房間（不保證完成，仍以心跳/超時判定為主）
+// ✅ 清理邏輯：頁面關閉/刷新/F5：盡力離開房間並清理所有資源（不保證完成，仍以心跳/超時判定為主）
 try {
   window.addEventListener("beforeunload", () => {
     try {
+      // 清理遠程玩家
+      if (typeof RemotePlayerManager !== "undefined" && RemotePlayerManager.clear) {
+        RemotePlayerManager.clear();
+      }
+      // 清理 Game.remotePlayers
+      if (typeof Game !== "undefined" && Array.isArray(Game.remotePlayers)) {
+        Game.remotePlayers.length = 0;
+      }
+      // 關閉 WebSocket
+      if (_ws) {
+        try {
+          _ws.onmessage = null;
+          _ws.onopen = null;
+          _ws.onclose = null;
+          _ws.onerror = null;
+          _ws.close();
+        } catch (_) {}
+        _ws = null;
+      }
+      // 停止所有計時器
+      try { if (_memberHeartbeatTimer) clearInterval(_memberHeartbeatTimer); } catch (_) {}
+      try { if (_startTimer) clearTimeout(_startTimer); } catch (_) {}
+      try { if (_reconnectTimer) clearTimeout(_reconnectTimer); } catch (_) {}
+      try { if (_autoCleanupTimer) clearInterval(_autoCleanupTimer); } catch (_) {}
+      // 離開房間
       if (window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === "function") {
         window.SurvivalOnlineUI.leaveRoom().catch(() => {});
       }
     } catch (_) {}
+  });
+  
+  // ✅ 清理邏輯：頁面可見性變化時也清理（切換標籤頁等）
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      // 頁面隱藏時不清理，只在完全關閉時清理
+    }
   });
 } catch (_) {}
 
