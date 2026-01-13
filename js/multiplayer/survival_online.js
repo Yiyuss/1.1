@@ -2970,6 +2970,142 @@ function _handleEnemyDamageMessage(fromUid, msg) {
   }
 }
 
+// ✅ MMORPG 架構：處理 weapon_upgrade 消息（所有玩家都可以調用）
+function _handleWeaponUpgradeMessage(fromUid, msg) {
+  if (!msg || typeof msg !== "object") return;
+  if (!fromUid || typeof fromUid !== "string") {
+    console.warn("[SurvivalOnline] _handleWeaponUpgradeMessage: fromUid 無效", fromUid);
+    return;
+  }
+  
+  // 速率限制：每秒最多 10 次武器升級（防止濫用）
+  if (!_checkRateLimit(fromUid, "upgrade", 10)) {
+    console.warn("[SurvivalOnline] 武器升級速率過高，忽略:", fromUid);
+    return;
+  }
+  
+  const weaponType = typeof msg.weaponType === "string" ? msg.weaponType : null;
+  if (!weaponType) {
+    console.warn("[SurvivalOnline] _handleWeaponUpgradeMessage: weaponType 無效", weaponType);
+    return;
+  }
+  
+  // 跳過自己的武器升級消息（因為已經在本地處理過了）
+  if (fromUid === _uid) {
+    return;
+  }
+  
+  // 找到對應的遠程玩家並應用武器升級
+  try {
+    let remotePlayer = null;
+    if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
+      remotePlayer = RemotePlayerManager.get(fromUid);
+    }
+    
+    if (remotePlayer && typeof remotePlayer.addWeapon === 'function') {
+      // 檢查是否已有此武器
+      const existingWeapon = remotePlayer.weapons ? remotePlayer.weapons.find(w => w && w.type === weaponType) : null;
+      
+      if (existingWeapon) {
+        // 如果已有此武器，則升級
+        if (typeof remotePlayer.upgradeWeapon === 'function') {
+          remotePlayer.upgradeWeapon(weaponType);
+        } else if (existingWeapon.levelUp && typeof existingWeapon.levelUp === 'function') {
+          existingWeapon.levelUp();
+        }
+      } else {
+        // 否則添加新武器
+        remotePlayer.addWeapon(weaponType);
+      }
+    } else {
+      console.warn("[SurvivalOnline] _handleWeaponUpgradeMessage: 找不到遠程玩家", fromUid);
+    }
+  } catch (e) {
+    console.warn("[SurvivalOnline] 同步武器升級失敗:", e);
+  }
+}
+
+// ✅ MMORPG 架構：處理 input 消息（所有玩家都可以調用）
+function _handleInputMessage(fromUid, msg) {
+  if (!msg || typeof msg !== "object") return;
+  if (!fromUid || typeof fromUid !== "string") {
+    console.warn("[SurvivalOnline] _handleInputMessage: fromUid 無效", fromUid);
+    return;
+  }
+  
+  // 速率限制：每秒最多 60 次輸入（防止濫用，但允許正常移動）
+  if (!_checkRateLimit(fromUid, "input", 60)) {
+    // 輸入速率過高時忽略，但不影響其他功能
+    return;
+  }
+  
+  const inputX = typeof msg.x === "number" ? msg.x : 0;
+  const inputY = typeof msg.y === "number" ? msg.y : 0;
+  
+  // 跳過自己的輸入消息（因為已經在本地處理過了）
+  if (fromUid === _uid) {
+    return;
+  }
+  
+  // 找到對應的遠程玩家並更新輸入
+  try {
+    let remotePlayer = null;
+    if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
+      remotePlayer = RemotePlayerManager.get(fromUid);
+    }
+    
+    if (remotePlayer) {
+      // 更新遠程玩家的輸入
+      remotePlayer._remoteInput = { x: inputX, y: inputY };
+      remotePlayer._lastRemoteInputTime = Date.now();
+    }
+  } catch (e) {
+    console.warn("[SurvivalOnline] 同步輸入失敗:", e);
+  }
+}
+
+// ✅ MMORPG 架構：處理 ultimate_pineapple 消息（所有玩家都可以調用）
+function _handleUltimatePineappleMessage(fromUid, msg) {
+  if (!msg || typeof msg !== "object") return;
+  if (!fromUid || typeof fromUid !== "string") {
+    console.warn("[SurvivalOnline] _handleUltimatePineappleMessage: fromUid 無效", fromUid);
+    return;
+  }
+  
+  // 速率限制：每秒最多 5 次鳳梨大絕（防止濫用）
+  if (!_checkRateLimit(fromUid, "ultimate", 5)) {
+    console.warn("[SurvivalOnline] 鳳梨大絕速率過高，忽略:", fromUid);
+    return;
+  }
+  
+  const x = typeof msg.x === "number" ? msg.x : 0;
+  const y = typeof msg.y === "number" ? msg.y : 0;
+  
+  // 跳過自己的鳳梨大絕消息（因為已經在本地處理過了）
+  if (fromUid === _uid) {
+    return;
+  }
+  
+  // 找到對應的遠程玩家並生成鳳梨掉落物
+  try {
+    let remotePlayer = null;
+    if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
+      remotePlayer = RemotePlayerManager.get(fromUid);
+    }
+    
+    // 使用遠程玩家的位置（如果可用），否則使用消息中的位置
+    const spawnX = (remotePlayer && typeof remotePlayer.x === "number") ? remotePlayer.x : x;
+    const spawnY = (remotePlayer && typeof remotePlayer.y === "number") ? remotePlayer.y : y;
+    
+    // 生成鳳梨掉落物（所有玩家都能看到）
+    if (typeof Game !== "undefined" && typeof Game.spawnPineappleUltimatePickup === "function") {
+      Game.spawnPineappleUltimatePickup(spawnX, spawnY, {});
+    }
+  } catch (e) {
+    console.warn("[SurvivalOnline] 同步鳳梨大絕失敗:", e);
+  }
+}
+
 function handleHostDataMessage(fromUid, msg) {
   if (!msg || typeof msg !== "object") return;
   if (!fromUid || typeof fromUid !== "string") {
