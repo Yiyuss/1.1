@@ -34,18 +34,39 @@ const Utils = {
     },
     
     // 隨機整數（包含最小值和最大值）
+    // MMO 架構：多人模式使用確定性隨機數生成器，單機模式使用普通 Math.random()
     randomInt: function(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
+        if (typeof DeterministicRandom !== "undefined" && DeterministicRandom.getSeed() !== null) {
+            // 多人模式：使用確定性隨機數生成器
+            return DeterministicRandom.randomInt(min, max);
+        } else {
+            // 單機模式：使用普通 Math.random()
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
     },
     
     // 隨機浮點數（包含最小值，不包含最大值）
     randomFloat: function(min, max) {
-        return Math.random() * (max - min) + min;
+        if (typeof DeterministicRandom !== "undefined" && DeterministicRandom.getSeed() !== null) {
+            // 多人模式：使用確定性隨機數生成器
+            const r = DeterministicRandom.random();
+            return r * (max - min) + min;
+        } else {
+            // 單機模式：使用普通 Math.random()
+            return Math.random() * (max - min) + min;
+        }
     },
     
     // 從數組中隨機選擇一個元素
+    // MMO 架構：多人模式使用確定性隨機數生成器，單機模式使用普通 Math.random()
     randomChoice: function(array) {
-        return array[Math.floor(Math.random() * array.length)];
+        if (typeof DeterministicRandom !== "undefined" && DeterministicRandom.getSeed() !== null) {
+            // 多人模式：使用確定性隨機數生成器
+            return DeterministicRandom.randomChoice(array);
+        } else {
+            // 單機模式：使用普通 Math.random()
+            return array[Math.floor(Math.random() * array.length)];
+        }
     },
     
     // 洗牌數組
