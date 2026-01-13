@@ -70,6 +70,9 @@ class JudgmentEffect extends Entity {
     }
     
     _applyDamage(sword) {
+        // 僅視覺效果：不進行傷害計算
+        if (this._isVisualOnly) return;
+        
         if (sword.appliedDamage) return;
         sword.appliedDamage = true;
         
@@ -156,8 +159,85 @@ class JudgmentEffect extends Entity {
     }
     
     update(deltaTime) {
+        // 僅視覺裁決：需要從遠程玩家位置更新
+        if (this._isVisualOnly && this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.getRemotePlayers === 'function') {
+                const remotePlayers = rt.getRemotePlayers() || [];
+                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+                if (remotePlayer) {
+                    // 更新玩家位置
+                    this.player.x = remotePlayer.x;
+                    this.player.y = remotePlayer.y;
+                    this.x = remotePlayer.x;
+                    this.y = remotePlayer.y;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    // 如果是本地玩家
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                        this.x = Game.player.x;
+                        this.y = Game.player.y;
+                    }
+                } else {
+                    // 如果找不到對應的玩家，標記為刪除
+                    this.markedForDeletion = true;
+                    return;
+                }
+            } else {
+                this.markedForDeletion = true;
+                return;
+            }
+            // 僅視覺模式：只更新位置和視覺效果，不進行傷害計算
+        }
+        
         const currentTime = Date.now();
         const elapsed = currentTime - this.startTime;
+        
+        // 僅視覺效果：不進行傷害計算
+        if (this._isVisualOnly) {
+            // 只更新視覺效果，不調用_applyDamage
+            for (const sword of this.swords) {
+                if (sword.state === 'falling') {
+                    // 更新目標位置（敵人可能移動）
+                    if (sword.targetEnemy && !sword.targetEnemy.markedForDeletion && sword.targetEnemy.health > 0) {
+                        sword.targetX = sword.targetEnemy.x;
+                        sword.targetY = sword.targetEnemy.y;
+                    }
+                    
+                    // 計算下落進度（0到1）
+                    const fallProgress = Math.min(1, elapsed / this.fallDurationMs);
+                    
+                    // 線性插值計算當前位置
+                    sword.currentX = sword.startX + (sword.targetX - sword.startX) * fallProgress;
+                    sword.currentY = sword.startY + (sword.targetY - sword.startY) * fallProgress;
+                    
+                    // 如果到達目標位置，切換到命中狀態（但不造成傷害）
+                    if (fallProgress >= 1 && !sword.appliedDamage) {
+                        sword.state = 'hit';
+                        sword.hitTime = currentTime;
+                        sword.appliedDamage = true; // 標記為已應用，避免重複
+                    }
+                } else if (sword.state === 'hit') {
+                    // 命中後短暫停留，然後淡出
+                    const hitElapsed = currentTime - sword.hitTime;
+                    if (hitElapsed >= 100) {
+                        sword.state = 'fading';
+                    }
+                } else if (sword.state === 'fading') {
+                    // 淡出中（已處理）
+                }
+            }
+            
+            // 檢查是否所有劍都完成
+            const allFinished = this.swords.every(sword => 
+                sword.state === 'fading' && sword.hitTime && 
+                (currentTime - sword.hitTime - 100) >= this.fadeOutDurationMs
+            );
+            if (allFinished && this.swords.length > 0) {
+                this.markedForDeletion = true;
+            }
+            return;
+        }
         
         // 更新每把劍的狀態
         let allFinished = true;
