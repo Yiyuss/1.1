@@ -17,13 +17,31 @@ class ExperienceOrb extends Entity {
         // ✅ MMORPG 架構：支援多玩家收集（本地玩家 + 遠程玩家），不依賴室長端
         const allPlayers = [];
         if (Game.player) allPlayers.push(Game.player);
-        // ✅ MMORPG 架構：所有玩家都能檢查遠程玩家，不依賴室長端
-        if (Game.multiplayer && Array.isArray(Game.remotePlayers)) {
-            for (const remotePlayer of Game.remotePlayers) {
-                if (remotePlayer && !remotePlayer.markedForDeletion) {
-                    allPlayers.push(remotePlayer);
+        // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+        if (Game.multiplayer) {
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.getAllPlayers === 'function') {
+                        const remotePlayers = rm.getAllPlayers();
+                        for (const remotePlayer of remotePlayers) {
+                            if (remotePlayer && !remotePlayer.markedForDeletion) {
+                                allPlayers.push(remotePlayer);
+                            }
+                        }
+                    }
                 }
-            }
+            } catch (_) {}
         }
         
         // 找到最近的玩家（用於吸引）
@@ -75,36 +93,43 @@ class ExperienceOrb extends Entity {
                         Game.player.gainExperience(this.value);
                     }
                     // 給所有遠程玩家經驗
-                    if (Array.isArray(Game.remotePlayers)) {
-                        for (const remotePlayer of Game.remotePlayers) {
-                            if (remotePlayer && !remotePlayer.markedForDeletion) {
-                                remotePlayer.gainExperience(this.value);
+                    // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+                    try {
+                        if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                            const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                            if (typeof rm.getAllPlayers === 'function') {
+                                const remotePlayers = rm.getAllPlayers();
+                                for (const remotePlayer of remotePlayers) {
+                                    if (remotePlayer && !remotePlayer.markedForDeletion) {
+                                        remotePlayer.gainExperience(this.value);
+                                    }
+                                }
                             }
                         }
-                    }
-                } else {
-                    // 單人模式：只給收集者經驗
-                    if (typeof AudioManager !== 'undefined') {
-                        // 尊重 EXP 音效開關
-                        if (AudioManager.expSoundEnabled !== false) {
-                            AudioManager.playSound('collect_exp');
-                        }
-                    }
-                    player.gainExperience(this.value);
+                    } catch (_) {}
                 }
-                // ✅ MMORPG 架構：廣播經驗球被撿取事件，讓所有玩家都知道經驗球已消失
-                if (isMultiplayer) {
-                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                        window.SurvivalOnlineBroadcastEvent("exp_orb_collected", {
-                            x: this.x,
-                            y: this.y,
-                            value: this.value
-                        });
+            } else {
+                // 單人模式：只給收集者經驗
+                if (typeof AudioManager !== 'undefined') {
+                    // 尊重 EXP 音效開關
+                    if (AudioManager.expSoundEnabled !== false) {
+                        AudioManager.playSound('collect_exp');
                     }
                 }
-                this.destroy();
-                return;
+                player.gainExperience(this.value);
             }
+            // ✅ MMORPG 架構：廣播經驗球被撿取事件，讓所有玩家都知道經驗球已消失
+            if (isMultiplayer) {
+                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("exp_orb_collected", {
+                        x: this.x,
+                        y: this.y,
+                        value: this.value
+                    });
+                }
+            }
+            this.destroy();
+            return;
         }
     }
     
