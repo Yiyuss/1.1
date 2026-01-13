@@ -444,12 +444,14 @@ const Runtime = (() => {
         continue; // 不覆蓋自己
       }
       
-      // 獲取成員數據（角色ID和天賦等級）- 優先從狀態消息獲取，其次從 _membersState 獲取
+      // 獲取成員數據（角色ID、天賦等級、名字）- 優先從狀態消息獲取，其次從 _membersState 獲取
       const member = _membersState ? _membersState.get(uid) : null;
       const characterId = ((typeof p.characterId === "string") ? p.characterId : null) || (member && member.characterId) || null;
       const talentLevels = (member && member.talentLevels) ? member.talentLevels : null;
+      // ✅ 修復：定義 playerName 變量（確保在作用域內可用）
+      const playerName = (typeof p.name === "string" && p.name.trim()) ? p.name : (member && typeof member.name === "string" && member.name.trim()) ? member.name : uid.slice(0, 6);
       
-      console.log(`[SurvivalOnline] onStateMessage: 處理玩家 ${uid}, 位置=(${p.x}, ${p.y}), characterId=${characterId}`);
+      console.log(`[SurvivalOnline] onStateMessage: 處理玩家 ${uid}, 位置=(${p.x}, ${p.y}), characterId=${characterId}, name=${playerName}`);
       
       // 創建或更新遠程玩家對象
       try {
@@ -489,8 +491,10 @@ const Runtime = (() => {
                 remotePlayer.y = targetY;
               }
             }
-            // 更新其他狀態
-            if (typeof p.health === "number") remotePlayer.health = p.health;
+            // ✅ 修復：更新其他狀態（確保血量正確同步）
+            if (typeof p.health === "number") {
+              remotePlayer.health = Math.max(0, Math.min(p.health, p.maxHealth || remotePlayer.maxHealth || 100));
+            }
             if (typeof p.maxHealth === "number") remotePlayer.maxHealth = p.maxHealth;
             if (typeof p.energy === "number") remotePlayer.energy = p.energy;
             if (typeof p.maxEnergy === "number") remotePlayer.maxEnergy = p.maxEnergy;
