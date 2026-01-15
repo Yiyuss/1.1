@@ -251,6 +251,35 @@ function handleGameData(ws, roomId, uid, data) {
     return;
   }
   
+  // ✅ 权威服务器：处理地图信息
+  if (gameState && data.type === 'map' && data.map) {
+    // 保存地图信息到游戏状态（用于路口车辆生成等）
+    gameState.setMap(data.map);
+    console.log(`[GameState] 收到地图信息: roomId=${actualRoomId}, mapId=${data.map.id || 'unknown'}, uid=${uid}`);
+    return;
+  }
+  
+  // ✅ 权威服务器：处理世界大小（从客户端同步）
+  if (gameState && data.type === 'world-size' && typeof data.worldWidth === 'number' && typeof data.worldHeight === 'number') {
+    // 保存世界大小到游戏状态（确保与客户端一致）
+    gameState.setWorldSize(data.worldWidth, data.worldHeight);
+    console.log(`[GameState] 收到世界大小: roomId=${actualRoomId}, ${data.worldWidth}x${data.worldHeight}, uid=${uid}`);
+    return;
+  }
+  
+  // ✅ 权威服务器：处理障碍物和装饰数据（可选，用于状态同步）
+  if (gameState && data.type === 'obstacles' && Array.isArray(data.obstacles)) {
+    gameState.setObstacles(data.obstacles);
+    console.log(`[GameState] 收到障碍物数据: roomId=${actualRoomId}, count=${data.obstacles.length}, uid=${uid}`);
+    return;
+  }
+  
+  if (gameState && data.type === 'decorations' && Array.isArray(data.decorations)) {
+    gameState.setDecorations(data.decorations);
+    console.log(`[GameState] 收到装饰数据: roomId=${actualRoomId}, count=${data.decorations.length}, uid=${uid}`);
+    return;
+  }
+  
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
   if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate')) {
     // 服务器处理输入
@@ -326,21 +355,34 @@ function handleDisconnect(ws) {
 // ✅ 权威服务器：游戏循环
 function gameLoop() {
   const now = Date.now();
-  const deltaTime = now - lastGameUpdate;
+  let deltaTime = now - lastGameUpdate;
   lastGameUpdate = now;
+  
+  // ✅ 防止时间跳跃：限制deltaTime最大值（防止服务器暂停或时间异常）
+  // 如果deltaTime超过100ms（约6帧），限制为100ms，避免游戏状态异常
+  if (deltaTime > 100) {
+    deltaTime = 100;
+  }
   
   // 更新所有游戏状态
   for (const [roomId, gameState] of gameStates.entries()) {
-    // 更新游戏状态
-    gameState.update(deltaTime);
-    
-    // 广播游戏状态给所有客户端
-    const state = gameState.getState();
-    broadcastToRoom(roomId, null, {
-      type: 'game-state',
-      state: state,
-      timestamp: now
-    });
+    try {
+      // 更新游戏状态
+      gameState.update(deltaTime);
+      
+      // 广播游戏状态给所有客户端
+      const state = gameState.getState();
+      broadcastToRoom(roomId, null, {
+        type: 'game-state',
+        state: state,
+        timestamp: now
+      });
+    } catch (error) {
+      // ✅ 错误处理：单个房间的错误不影响其他房间
+      console.error(`[GameState] 房间 ${roomId} 更新失败:`, error);
+      // 可以选择清理该房间的游戏状态，或继续运行
+      // 当前实现：记录错误，继续运行其他房间
+    }
   }
   
   // 60Hz 游戏循环
