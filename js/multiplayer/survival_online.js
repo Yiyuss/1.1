@@ -2941,6 +2941,42 @@ async function connectWebSocket() {
         }, 100); // 延迟100ms确保连接已建立
       }
       
+      // ✅ 权威服务器：发送地图信息到服务器（用于路口车辆生成等）
+      if (typeof Game !== 'undefined' && Game.selectedMap) {
+        setTimeout(() => {
+          if (_ws && _ws.readyState === WebSocket.OPEN) {
+            _sendViaWebSocket({
+              type: 'game-data',
+              data: {
+                type: 'map',
+                map: {
+                  id: Game.selectedMap.id || null,
+                  name: Game.selectedMap.name || null
+                }
+              }
+            });
+          }
+        }, 200); // 延迟200ms确保CONFIG已发送
+      }
+      
+      // ✅ 权威服务器：发送世界大小到服务器（确保与客户端一致）
+      // 720P九宫格：3840x2160 (1280*3 x 720*3)
+      // 4K模式：根据实际配置
+      if (typeof Game !== 'undefined' && typeof Game.worldWidth === 'number' && typeof Game.worldHeight === 'number') {
+        setTimeout(() => {
+          if (_ws && _ws.readyState === WebSocket.OPEN) {
+            _sendViaWebSocket({
+              type: 'game-data',
+              data: {
+                type: 'world-size',
+                worldWidth: Game.worldWidth,
+                worldHeight: Game.worldHeight
+              }
+            });
+          }
+        }, 300); // 延迟300ms确保地图信息已发送
+      }
+      
       Runtime.setEnabled(true);
       _setText("survival-online-status", "已連線（WebSocket）");
     };
@@ -3331,6 +3367,11 @@ function handleServerGameState(state, timestamp) {
       updateExperienceOrbsFromServer(state.experienceOrbs);
     }
     
+    // ✅ 更新路口车辆（服务器权威）
+    if (Array.isArray(state.carHazards)) {
+      updateCarHazardsFromServer(state.carHazards);
+    }
+    
     // 更新波次
     if (typeof state.wave === 'number' && typeof WaveSystem !== 'undefined') {
       WaveSystem.currentWave = state.wave;
@@ -3486,6 +3527,55 @@ function updateProjectilesFromServer(projectiles) {
       proj.x = projState.x;
       proj.y = projState.y;
       proj.angle = projState.angle;
+    }
+  }
+}
+
+// ✅ 不影响单机：只在多人模式下执行
+function updateCarHazardsFromServer(carHazards) {
+  if (typeof Game === 'undefined' || !Game.multiplayer || !Game.projectiles) return;
+  if (typeof CarHazard === 'undefined') return;
+  
+  // 创建车辆ID映射
+  const serverCarIds = new Set(carHazards.map(c => c.id));
+  
+  // 移除服务器不存在的车辆（从projectiles数组中移除）
+  for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+    const proj = Game.projectiles[i];
+    if (proj && (proj.weaponType === 'INTERSECTION_CAR' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
+      if (!serverCarIds.has(proj.id)) {
+        Game.projectiles.splice(i, 1);
+      }
+    }
+  }
+  
+  // 更新或创建车辆
+  for (const carState of carHazards) {
+    let car = Game.projectiles.find(p => p.id === carState.id && (p.weaponType === 'INTERSECTION_CAR' || (p.constructor && p.constructor.name === 'CarHazard')));
+    if (!car) {
+      // 创建新车辆（仅视觉，伤害由服务器计算）
+      car = new CarHazard({
+        x: carState.x || 0,
+        y: carState.y || 0,
+        vx: carState.vx || 0,
+        vy: carState.vy || 0,
+        width: carState.width || 200,
+        height: carState.height || 100,
+        imageKey: carState.imageKey || 'car',
+        damage: carState.damage || 100,
+        despawnPad: carState.despawnPad || 400
+      });
+      car.id = carState.id;
+      car._isVisualOnly = true; // 仅视觉，伤害由服务器计算
+      Game.projectiles.push(car);
+    }
+    if (car) {
+      // 更新位置和速度
+      car.x = carState.x;
+      car.y = carState.y;
+      car.vx = carState.vx;
+      car.vy = carState.vy;
+      car.hitPlayer = carState.hitPlayer || false;
     }
   }
 }
