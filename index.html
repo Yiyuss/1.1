@@ -1229,16 +1229,47 @@
         <script src="js/car_hazard.js"></script>
         <script src="js/boss_projectile.js"></script>
         <script src="js/bottle_projectile.js"></script>
-        <script src="js/enemy.js?v=20260113_1"></script>
+        <script src="js/enemy.js?v=20260113_2"></script>
+        <script>
+            // ✅ 调试：检查 Enemy 类是否已加载
+            if (typeof Enemy === 'undefined') {
+                console.error('[index.html] ❌ Enemy 类未定义！脚本加载失败或顺序错误。');
+                console.error('[index.html] 请检查：1) enemy.js 是否正确加载 2) Entity 类是否已定义');
+            } else {
+                console.log('[index.html] ✅ Enemy 类已加载:', typeof Enemy);
+            }
+            // ✅ 调试：检查 Entity 类是否已加载（Enemy 继承自 Entity）
+            if (typeof Entity === 'undefined') {
+                console.error('[index.html] ❌ Entity 类未定义！Enemy 类无法正常工作。');
+            } else {
+                console.log('[index.html] ✅ Entity 类已加载:', typeof Entity);
+            }
+        </script>
         <script src="js/experience.js?v=20260113_1"></script>
         <script src="js/chest.js"></script>
     <script src="js/ui.js"></script>
         <!-- GIF 覆蓋層工具：確保玩家 GIF 在 Canvas 上正常動畫 -->
     <script src="js/gif_overlay.js"></script>
-        <script src="js/wave.js?v=20260113_1"></script>
+        <script src="js/wave.js?v=20260113_2"></script>
+        <script>
+            // ✅ 调试：再次检查 Enemy 类（在 wave.js 加载后）
+            if (typeof Enemy === 'undefined') {
+                console.error('[index.html] ❌ wave.js 加载后，Enemy 类仍未定义！');
+            } else {
+                console.log('[index.html] ✅ wave.js 加载后，Enemy 类已定义');
+            }
+        </script>
         <script src="js/talent.js"></script>
     <script src="js/player.js"></script>
         <script src="js/projectile.js"></script>
+        <script>
+            // ✅ 调试：检查 Projectile 类是否已加载（用于投射物同步）
+            if (typeof Projectile === 'undefined') {
+                console.error('[index.html] ❌ Projectile 类未定义！投射物同步可能失败。');
+            } else {
+                console.log('[index.html] ✅ Projectile 类已加载:', typeof Projectile);
+            }
+        </script>
         <script src="js/invincible.js"></script>
         <script src="js/weapon.js"></script>
         <script src="js/ai_companion.js"></script>
