@@ -1151,6 +1151,36 @@
                 );
                 if (!Game.bossProjectiles) Game.bossProjectiles = [];
                 Game.bossProjectiles.push(p);
+                
+                // ✅ MMORPG 架構：廣播BOSS投射物生成事件，讓所有玩家都能看到
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                if (isMultiplayer) {
+                    try {
+                        let isSurvivalMode = false;
+                        try {
+                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                ? GameModeManager.getCurrent()
+                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                    ? ModeManager.getActiveModeId()
+                                    : null);
+                            isSurvivalMode = (activeId === 'survival' || activeId === null);
+                        } catch (_) {}
+                        
+                        if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                            window.SurvivalOnlineBroadcastEvent("boss_projectile_spawn", {
+                                x: this.x,
+                                y: this.y,
+                                targetX: target.x,
+                                targetY: target.y,
+                                type: 'BOTTLE',
+                                speed: this.rangedAttack.PROJECTILE_SPEED,
+                                damage: this.rangedAttack.PROJECTILE_DAMAGE,
+                                width: bottleW,
+                                height: bottleH
+                            });
+                        }
+                    } catch (_) {}
+                }
             } catch (_) {}
             return;
         }
@@ -1159,17 +1189,19 @@
         const angle = Utils.angle(this.x, this.y, target.x, target.y);
         
         // 創建 BOSS 火彈投射物（大Boss+50%，小Boss+35%）
+        const projectileSize = ((this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS')
+            ? this.rangedAttack.PROJECTILE_SIZE * 1.5 
+            : ((this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS')
+                ? this.rangedAttack.PROJECTILE_SIZE * 1.35 
+                : this.rangedAttack.PROJECTILE_SIZE));
+        
         const projectile = new BossProjectile(
             this.x, 
             this.y, 
             angle,
             this.rangedAttack.PROJECTILE_SPEED,
             this.rangedAttack.PROJECTILE_DAMAGE,
-            ((this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS')
-                ? this.rangedAttack.PROJECTILE_SIZE * 1.5 
-                : ((this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS')
-                    ? this.rangedAttack.PROJECTILE_SIZE * 1.35 
-                    : this.rangedAttack.PROJECTILE_SIZE)),
+            projectileSize,
             this.rangedAttack.HOMING,
             this.rangedAttack.TURN_RATE
         );
@@ -1179,6 +1211,36 @@
             Game.bossProjectiles = [];
         }
         Game.bossProjectiles.push(projectile);
+        
+        // ✅ MMORPG 架構：廣播BOSS投射物生成事件，讓所有玩家都能看到
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        if (isMultiplayer) {
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("boss_projectile_spawn", {
+                        x: this.x,
+                        y: this.y,
+                        angle: angle,
+                        speed: this.rangedAttack.PROJECTILE_SPEED,
+                        damage: this.rangedAttack.PROJECTILE_DAMAGE,
+                        size: projectileSize,
+                        homing: this.rangedAttack.HOMING || false,
+                        turnRate: this.rangedAttack.TURN_RATE || 0,
+                        type: 'BOSS_PROJECTILE'
+                    });
+                }
+            } catch (_) {}
+        }
     }
     
     // 受到傷害
@@ -1439,6 +1501,33 @@
         this.isDying = true;
         this.deathElapsed = 0;
         this.collisionRadius = 0;
+        
+        // ✅ MMORPG 架構：廣播敵人死亡事件，讓所有玩家都能看到死亡動畫
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        if (isMultiplayer) {
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("enemy_death", {
+                        enemyId: this.id || null,
+                        x: this.x,
+                        y: this.y,
+                        type: this.type,
+                        deathVelX: this.deathVelX,
+                        deathVelY: this.deathVelY
+                    });
+                }
+            } catch (_) {}
+        }
         
         if (typeof AudioManager !== 'undefined') {
             AudioManager.playSound('enemy_death');
