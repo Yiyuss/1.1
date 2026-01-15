@@ -1242,23 +1242,20 @@
                 console.log('[index.html] ✅ 加载 enemy.js 前：CONFIG 已定义');
             }
         </script>
+        <script src="js/enemy.js?v=2026011304"></script>
         <script>
-            // ✅ 尝试动态加载 enemy.js 以捕获错误
-            const enemyScript = document.createElement('script');
-            enemyScript.src = 'js/enemy.js?v=2026011304';
-            enemyScript.onerror = function() {
-                console.error('[index.html] ❌ enemy.js 动态加载失败！URL:', this.src);
-                console.error('[index.html] 尝试检查文件是否存在...');
-            };
-            enemyScript.onload = function() {
-                console.log('[index.html] ✅ enemy.js 动态加载成功');
-                if (typeof Enemy === 'undefined') {
-                    console.error('[index.html] ❌ enemy.js 已加载但 Enemy 类未定义！可能是执行错误。');
-                } else {
-                    console.log('[index.html] ✅ Enemy 类已定义:', typeof Enemy);
-                }
-            };
-            document.head.appendChild(enemyScript);
+            // ✅ 检查 enemy.js 是否成功加载并定义了 Enemy 类
+            if (typeof Enemy === 'undefined') {
+                console.error('[index.html] ❌ enemy.js 加载后 Enemy 类未定义！');
+                console.error('[index.html] 可能原因：1) 文件加载失败 2) 语法错误 3) 依赖项未定义');
+                // 检查是否有语法错误
+                const scripts = Array.from(document.querySelectorAll('script[src*="enemy.js"]'));
+                scripts.forEach((script, idx) => {
+                    console.error(`[index.html] 脚本 ${idx}: src=${script.src}`);
+                });
+            } else {
+                console.log('[index.html] ✅ Enemy 类已定义:', typeof Enemy);
+            }
         </script>
         <script>
             // ✅ 调试：检查依赖项
