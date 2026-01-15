@@ -234,7 +234,8 @@ class DivineJudgmentEffect extends Entity {
                         damage: finalDamage,
                         weaponType: this._damageWeaponType || "DIVINE_JUDGMENT",
                         isCrit: isCrit,
-                        lifesteal: lifestealAmount
+                        lifesteal: lifestealAmount,
+                        playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                     });
                 }
             }
