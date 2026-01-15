@@ -1,4 +1,6 @@
 // 經驗寶石類
+// ✅ 防止重複聲明：如果已經定義，跳過
+if (typeof ExperienceOrb === 'undefined') {
 class ExperienceOrb extends Entity {
     constructor(x, y, value) {
         super(x, y, CONFIG.EXPERIENCE.SIZE, CONFIG.EXPERIENCE.SIZE);
@@ -163,3 +165,4 @@ class ExperienceOrb extends Entity {
         ctx.restore();
     }
 }
+} // ✅ 結束 if (typeof ExperienceOrb === 'undefined')
