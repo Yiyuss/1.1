@@ -109,29 +109,28 @@ class ExperienceOrb extends Entity {
                             }
                         }
                     } catch (_) {}
-                }
-            } else {
-                // 單人模式：只給收集者經驗
-                if (typeof AudioManager !== 'undefined') {
-                    // 尊重 EXP 音效開關
-                    if (AudioManager.expSoundEnabled !== false) {
-                        AudioManager.playSound('collect_exp');
+                    // ✅ MMORPG 架構：廣播經驗球被撿取事件，讓所有玩家都知道經驗球已消失
+                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                        window.SurvivalOnlineBroadcastEvent("exp_orb_collected", {
+                            x: this.x,
+                            y: this.y,
+                            value: this.value
+                        });
                     }
+                } else {
+                    // 單人模式：只給收集者經驗
+                    if (typeof AudioManager !== 'undefined') {
+                        // 尊重 EXP 音效開關
+                        if (AudioManager.expSoundEnabled !== false) {
+                            AudioManager.playSound('collect_exp');
+                        }
+                    }
+                    player.gainExperience(this.value);
                 }
-                player.gainExperience(this.value);
+                // 銷毀經驗球並返回（只執行一次）
+                this.destroy();
+                return;
             }
-            // ✅ MMORPG 架構：廣播經驗球被撿取事件，讓所有玩家都知道經驗球已消失
-            if (isMultiplayer) {
-                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("exp_orb_collected", {
-                        x: this.x,
-                        y: this.y,
-                        value: this.value
-                    });
-                }
-            }
-            this.destroy();
-            return;
         }
     }
     
