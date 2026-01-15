@@ -134,9 +134,10 @@ class ShockwaveEffect extends Entity {
                             t: "enemy_damage",
                             enemyId: enemy.id,
                             damage: finalDamage,
-                            weaponType: this.weaponType || "UNKNOWN",
+                            weaponType: this.weaponType || "MIND_MAGIC",
                             isCrit: isCrit,
-                            lifesteal: lifestealAmount
+                            lifesteal: lifestealAmount,
+                            playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                         };
                         // ✅ MMORPG 架構：如果應用減速效果，同步減速信息
                         if (slowMs !== null && slowFactor !== null) {
