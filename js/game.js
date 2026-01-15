@@ -1148,23 +1148,19 @@
                     if (isLocalPlayerProjectile && typeof window !== 'undefined' && window.SurvivalOnlineRuntime) {
                         // 发送攻击输入到服务器
                         const attackInput = {
-                            type: 'game-data',
-                            data: {
-                                type: 'input',
-                                inputType: 'attack',
-                                weaponType: projectile.weaponType || 'UNKNOWN',
-                                x: projectile.x || this.player.x,
-                                y: projectile.y || this.player.y,
-                                angle: projectile.angle || 0,
-                                damage: projectile.damage || 10,
-                                speed: projectile.speed || 5,
-                                size: projectile.size || 20,
-                                timestamp: Date.now()
-                            }
+                            type: 'attack',
+                            weaponType: projectile.weaponType || 'UNKNOWN',
+                            x: projectile.x || this.player.x,
+                            y: projectile.y || this.player.y,
+                            angle: projectile.angle || 0,
+                            damage: projectile.damage || 10,
+                            speed: projectile.speed || 5,
+                            size: projectile.size || 20,
+                            timestamp: Date.now()
                         };
                         
                         if (typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                            window.SurvivalOnlineRuntime.sendToNet(attackInput.data);
+                            window.SurvivalOnlineRuntime.sendToNet(attackInput);
                         }
                         
                         // 在权威服务器模式下，不创建本地投射物（由服务器创建）
