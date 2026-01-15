@@ -1844,15 +1844,11 @@ const Runtime = (() => {
         // 发送输入到服务器
         if (_ws && _ws.readyState === WebSocket.OPEN && (vx !== 0 || vy !== 0)) {
           _sendViaWebSocket({
-            type: 'game-data',
-            data: {
-              type: 'input',
-              inputType: 'move',
-              vx: vx,
-              vy: vy,
-              deltaTime: deltaTime,
-              timestamp: now
-            }
+            type: 'move',
+            vx: vx,
+            vy: vy,
+            deltaTime: deltaTime,
+            timestamp: now
           });
         }
       }
