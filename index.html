@@ -1229,12 +1229,16 @@
         <script src="js/car_hazard.js"></script>
         <script src="js/boss_projectile.js"></script>
         <script src="js/bottle_projectile.js"></script>
-        <script src="js/enemy.js?v=20260113_3"></script>
+        <script src="js/enemy.js?v=20260113_4"></script>
         <script>
             // ✅ 调试：检查 Enemy 类是否已加载
             if (typeof Enemy === 'undefined') {
                 console.error('[index.html] ❌ Enemy 类未定义！脚本加载失败或顺序错误。');
                 console.error('[index.html] 请检查：1) enemy.js 是否正确加载 2) Entity 类是否已定义');
+                console.error('[index.html] Entity 类状态:', typeof Entity);
+                // 尝试手动检查 enemy.js 是否加载
+                const scripts = Array.from(document.querySelectorAll('script[src*="enemy.js"]'));
+                console.error('[index.html] 找到的 enemy.js 脚本标签:', scripts.length, scripts.map(s => s.src));
             } else {
                 console.log('[index.html] ✅ Enemy 类已加载:', typeof Enemy);
             }
@@ -1245,12 +1249,41 @@
                 console.log('[index.html] ✅ Entity 类已加载:', typeof Entity);
             }
         </script>
-        <script src="js/experience.js?v=20260113_3"></script>
+        <script>
+            // ✅ 调试：检查 Enemy 类是否已加载
+            if (typeof Enemy === 'undefined') {
+                console.error('[index.html] ❌ Enemy 类未定义！脚本加载失败或顺序错误。');
+                console.error('[index.html] 请检查：1) enemy.js 是否正确加载 2) Entity 类是否已定义');
+                console.error('[index.html] Entity 类状态:', typeof Entity);
+            } else {
+                console.log('[index.html] ✅ Enemy 类已加载:', typeof Enemy);
+            }
+            // ✅ 调试：检查 Entity 类是否已加载（Enemy 继承自 Entity）
+            if (typeof Entity === 'undefined') {
+                console.error('[index.html] ❌ Entity 类未定义！Enemy 类无法正常工作。');
+            } else {
+                console.log('[index.html] ✅ Entity 类已加载:', typeof Entity);
+            }
+        </script>
+        <script src="js/experience.js?v=20260113_4"></script>
+        <script>
+            // ✅ 调试：检查 ExperienceOrb 类是否已加载
+            if (typeof ExperienceOrb === 'undefined') {
+                console.error('[index.html] ❌ ExperienceOrb 类未定义！');
+            } else {
+                console.log('[index.html] ✅ ExperienceOrb 类已加载:', typeof ExperienceOrb);
+                // 检查是否有重复定义
+                const scripts = Array.from(document.querySelectorAll('script[src*="experience.js"]'));
+                if (scripts.length > 1) {
+                    console.warn('[index.html] ⚠️ 发现多个 experience.js 脚本标签:', scripts.length);
+                }
+            }
+        </script>
         <script src="js/chest.js"></script>
     <script src="js/ui.js"></script>
         <!-- GIF 覆蓋層工具：確保玩家 GIF 在 Canvas 上正常動畫 -->
     <script src="js/gif_overlay.js"></script>
-        <script src="js/wave.js?v=20260113_3"></script>
+        <script src="js/wave.js?v=20260113_4"></script>
         <script>
             // ✅ 调试：再次检查 Enemy 类（在 wave.js 加载后）
             if (typeof Enemy === 'undefined') {
