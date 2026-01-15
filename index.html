@@ -1229,16 +1229,36 @@
         <script src="js/car_hazard.js"></script>
         <script src="js/boss_projectile.js"></script>
         <script src="js/bottle_projectile.js"></script>
-        <script src="js/enemy.js?v=20260113_4"></script>
         <script>
+            // ✅ 在加载 enemy.js 之前检查依赖
+            if (typeof Entity === 'undefined') {
+                console.error('[index.html] ❌ 加载 enemy.js 前：Entity 类未定义！');
+            } else {
+                console.log('[index.html] ✅ 加载 enemy.js 前：Entity 类已定义');
+            }
+            if (typeof CONFIG === 'undefined') {
+                console.error('[index.html] ❌ 加载 enemy.js 前：CONFIG 未定义！');
+            } else {
+                console.log('[index.html] ✅ 加载 enemy.js 前：CONFIG 已定义');
+            }
+        </script>
+        <script src="js/enemy.js?v=20260113_4" onerror="console.error('[index.html] ❌ enemy.js 加载失败！', this.src, arguments);"></script>
+        <script>
+            // ✅ 调试：检查依赖项
+            console.log('[index.html] 依赖检查: Entity=', typeof Entity, ', CONFIG=', typeof CONFIG, ', Game=', typeof Game);
             // ✅ 调试：检查 Enemy 类是否已加载
             if (typeof Enemy === 'undefined') {
                 console.error('[index.html] ❌ Enemy 类未定义！脚本加载失败或顺序错误。');
-                console.error('[index.html] 请检查：1) enemy.js 是否正确加载 2) Entity 类是否已定义');
+                console.error('[index.html] 请检查：1) enemy.js 是否正确加载 2) Entity 类是否已定义 3) CONFIG 是否已定义');
                 console.error('[index.html] Entity 类状态:', typeof Entity);
+                console.error('[index.html] CONFIG 状态:', typeof CONFIG);
                 // 尝试手动检查 enemy.js 是否加载
                 const scripts = Array.from(document.querySelectorAll('script[src*="enemy.js"]'));
                 console.error('[index.html] 找到的 enemy.js 脚本标签:', scripts.length, scripts.map(s => s.src));
+                // 检查脚本是否加载成功
+                scripts.forEach((script, idx) => {
+                    console.error(`[index.html] 脚本 ${idx}: src=${script.src}, readyState=${script.readyState}, onerror=${script.onerror}`);
+                });
             } else {
                 console.log('[index.html] ✅ Enemy 类已加载:', typeof Enemy);
             }
