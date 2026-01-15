@@ -3,7 +3,6 @@
 (function() {
     'use strict';
     if (typeof ExperienceOrb !== 'undefined') {
-        console.warn('[experience.js] ExperienceOrb 类已存在，跳过定义');
         return;
     }
     try {
