@@ -600,6 +600,7 @@ class Weapon {
             const arc1 = cfgS ? (cfgS.ARC_DEG_BASE || 80) : 80;
             const vis1 = cfgS && typeof cfgS.VISUAL_SCALE === 'number' ? cfgS.VISUAL_SCALE : 1.0;
             const effect1 = new SlashEffect(this.player, baseAngle, dmg, radius1, arc1, durationMs);
+            effect1.weaponType = 'FRENZY_SLASH'; // ✅ 设置正确的weaponType
             effect1.visualScale = vis1;
             // 前景斬擊圖：knife；命中濺血：knife2（SlashEffect 預設）
             effect1.overlayImageKey = 'knife';
@@ -617,6 +618,7 @@ class Weapon {
             setTimeout(() => {
                 try {
                     const effect2 = new SlashEffect(this.player, baseAngle, dmg, dynamicRadius2, arcDeg2, durationMs);
+                    effect2.weaponType = 'FRENZY_SLASH'; // ✅ 设置正确的weaponType
                     effect2.visualScale = vis2;
                     effect2.overlayImageKey = 'knife';
                     effect2.hitOverlayImageKey = 'knife2';
