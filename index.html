@@ -1309,10 +1309,16 @@
                     console.error('[index.html] ❌ ExperienceOrb 类未定义！');
                 } else {
                     console.log('[index.html] ✅ ExperienceOrb 类已加载:', typeof ExperienceOrb);
-                    // 检查是否有重复定义
-                    const scripts = Array.from(document.querySelectorAll('script[src*="experience.js"]'));
-                    if (scripts.length > 1) {
-                        console.warn('[index.html] ⚠️ 发现多个 experience.js 脚本标签:', scripts.length);
+                    // 检查是否有重复的主 experience.js 文件（排除挑战模式的独立文件）
+                    const mainScripts = Array.from(document.querySelectorAll('script[src*="js/experience.js"]'));
+                    if (mainScripts.length > 1) {
+                        console.warn('[index.html] ⚠️ 发现多个主 experience.js 脚本标签:', mainScripts.length, mainScripts.map(s => s.src));
+                    } else {
+                        // 这是正常的：js/experience.js (生存模式) 和 js/modes/challenge/experience.js (挑战模式) 是两个不同的文件
+                        const allScripts = Array.from(document.querySelectorAll('script[src*="experience.js"]'));
+                        if (allScripts.length === 2) {
+                            console.log('[index.html] ℹ️ 检测到 2 个 experience.js 文件（正常）：生存模式 + 挑战模式独立系统');
+                        }
                     }
                 }
             }, 200);
