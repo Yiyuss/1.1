@@ -1342,38 +1342,16 @@
         <script src="js/modes/defense/td_gif_overlay.js"></script>
         <!-- 防禦模式核心組件 -->
         <script src="js/modes/defense/td_config.js"></script>
-        <script>console.log('td_config.js 加載完成, TD_CONFIG:', typeof TD_CONFIG);</script>
         <!-- 防禦模式傷害數字系統（獨立於生存模式，避免跨模式污染） -->
         <script src="js/modes/defense/td_damage_numbers.js"></script>
-        <script>console.log('td_damage_numbers.js 加載完成, TDDamageNumbers:', typeof TDDamageNumbers);</script>
         <script src="js/modes/defense/td_map.js"></script>
-        <script>console.log('td_map.js 加載完成, TDMap:', typeof TDMap);</script>
         <script src="js/modes/defense/td_enemy.js"></script>
-        <script>console.log('td_enemy.js 加載完成, TDEnemyManager:', typeof TDEnemyManager);</script>
         <script src="js/modes/defense/td_tower.js"></script>
-        <script>console.log('td_tower.js 加載完成, TDTowerManager:', typeof TDTowerManager);</script>
         <script src="js/modes/defense/td_player.js"></script>
-        <script>console.log('td_player.js 加載完成, TDPlayer:', typeof TDPlayer);</script>
         <script src="js/modes/defense/td_game.js"></script>
-        <script>console.log('td_game.js 加載完成, TDGame:', typeof TDGame);</script>
         <script src="js/modes/defense/td_ui_enhanced.js"></script>
-        <script>console.log('td_ui_enhanced.js 加載完成, TDEnhancedUI:', typeof TDEnhancedUI);</script>
         <script src="js/modes/defense/td_dom_ui.js"></script>
         <script src="js/modes/defense/td_settlement.js"></script>
-        <script>console.log('td_settlement.js 加載完成, TDDefenseSettlement:', typeof TDDefenseSettlement);</script>
-        
-        <!-- TD組件可用性檢查 -->
-        <script>
-        console.log('=== TD組件總結 ===');
-        console.log('TD_CONFIG:', typeof TD_CONFIG);
-        console.log('TDMap:', typeof TDMap);
-        console.log('TDEnemyManager:', typeof TDEnemyManager);
-        console.log('TDTowerManager:', typeof TDTowerManager);
-        console.log('TDPlayer:', typeof TDPlayer);
-        console.log('TDGame:', typeof TDGame);
-        console.log('TDEnhancedUI:', typeof TDEnhancedUI);
-        console.log('================');
-        </script>
         
         <!-- 防禦模式 UI 模組：提供 HUD 與 ESC 菜單 --> 
         <script src="js/modes/defense/ui.js"></script> 
@@ -1395,19 +1373,6 @@
         <!-- 注意：加上版本參數避免 GitHub Pages / 瀏覽器快取舊版 JS 造成規則調試困難 -->
         <script type="module" src="js/multiplayer/survival_online.js?v=20260110_2"></script>
         <script src="js/main.js"></script>
-        
-        <!-- TD組件可用性檢查 -->
-        <script>
-        console.log('=== TD組件總結（最終檢查） ===');
-        console.log('TD_CONFIG:', typeof TD_CONFIG);
-        console.log('TDMap:', typeof TDMap);
-        console.log('TDEnemyManager:', typeof TDEnemyManager);
-        console.log('TDTowerManager:', typeof TDTowerManager);
-        console.log('TDPlayer:', typeof TDPlayer);
-        console.log('TDGame:', typeof TDGame);
-        console.log('TDEnhancedUI:', typeof TDEnhancedUI);
-        console.log('=============================');
-        </script>
     </div>
     <!-- 統一的過渡層（所有模式共用，播放 LOAD.mp4） -->
     <div id="transition-layer" class="hidden">
