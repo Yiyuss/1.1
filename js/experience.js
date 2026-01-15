@@ -1,5 +1,6 @@
 // 經驗寶石類
 // ✅ 防止重複聲明：如果已經定義，跳過
+try {
 if (typeof ExperienceOrb === 'undefined') {
 class ExperienceOrb extends Entity {
     constructor(x, y, value) {
@@ -166,3 +167,7 @@ class ExperienceOrb extends Entity {
     }
 }
 } // ✅ 結束 if (typeof ExperienceOrb === 'undefined')
+} catch(e) {
+    console.error('[experience.js] ❌ 执行错误:', e);
+    console.error('[experience.js] 错误堆栈:', e.stack);
+}
