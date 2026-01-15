@@ -1513,22 +1513,29 @@ const Runtime = (() => {
                 Game.projectiles.push(car);
               } else if (typeof Projectile !== "undefined") {
                 // 普通投射物
-                const projectile = new Projectile(
-                  eventData.x || 0,
-                  eventData.y || 0,
-                  eventData.angle || 0,
-                  weaponType,
-                  0, // 傷害設為0（僅視覺，傷害已在隊長端計算）
-                  eventData.speed || 0,
-                  eventData.size || 0
-                );
-                projectile.id = projectileId;
-                projectile.homing = eventData.homing || false;
-                projectile.turnRatePerSec = eventData.turnRatePerSec || 0;
-                projectile.assignedTargetId = eventData.assignedTargetId || null;
-                projectile._isVisualOnly = true; // 標記為僅視覺投射物
-                projectile.player = null; // 不關聯玩家（避免碰撞檢測）
-                Game.projectiles.push(projectile);
+                try {
+                  const projectile = new Projectile(
+                    eventData.x || 0,
+                    eventData.y || 0,
+                    eventData.angle || 0,
+                    weaponType,
+                    0, // 傷害設為0（僅視覺，傷害已在隊長端計算）
+                    eventData.speed || 0,
+                    eventData.size || 0
+                  );
+                  projectile.id = projectileId;
+                  projectile.homing = eventData.homing || false;
+                  projectile.turnRatePerSec = eventData.turnRatePerSec || 0;
+                  projectile.assignedTargetId = eventData.assignedTargetId || null;
+                  projectile._isVisualOnly = true; // 標記為僅視覺投射物
+                  projectile.player = null; // 不關聯玩家（避免碰撞檢測）
+                  Game.projectiles.push(projectile);
+                  console.log(`[SurvivalOnline] ✅ 成功創建遠程投射物: weaponType=${weaponType}, id=${projectileId}, x=${eventData.x}, y=${eventData.y}`);
+                } catch (e) {
+                  console.error(`[SurvivalOnline] ❌ 創建遠程投射物失敗:`, e, `weaponType=${weaponType}`);
+                }
+              } else {
+                console.warn(`[SurvivalOnline] ⚠️ Projectile 类未定义，无法创建远程投射物: weaponType=${weaponType}`);
               }
             }
           }
@@ -1565,13 +1572,19 @@ const Runtime = (() => {
           console.warn("[SurvivalOnline] 隊員端生成出口失敗:", e);
         }
       } else if (eventType === "game_victory") {
-        // 隊員端處理遊戲勝利事件（到達出口）
+        // ✅ MMORPG 架構：所有玩家都能處理遊戲勝利事件（到達出口）
         try {
-          if (typeof Game !== "undefined" && typeof Game.victory === "function") {
-            Game.victory();
+          // 防止重複觸發
+          if (typeof Game !== "undefined") {
+            if (Game._victoryEventSent) return; // 已經處理過了
+            Game._victoryEventSent = true; // 標記為已處理
+            
+            if (typeof Game.victory === "function") {
+              Game.victory();
+            }
           }
         } catch (e) {
-          console.warn("[SurvivalOnline] 隊員端處理遊戲勝利事件失敗:", e);
+          console.warn("[SurvivalOnline] 處理遊戲勝利事件失敗:", e);
         }
       }
     } catch (e) {
