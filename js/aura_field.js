@@ -107,7 +107,8 @@ class AuraField extends Entity {
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "AURA_FIELD",
                                 isCrit: isCrit,
-                                lifesteal: lifestealAmount
+                                lifesteal: lifestealAmount,
+                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                             });
                         }
                     }
