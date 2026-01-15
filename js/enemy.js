@@ -1,7 +1,13 @@
 // 敵人類
 // ✅ 防止重複聲明：如果已經定義，跳過
-if (typeof Enemy === 'undefined') {
-class Enemy extends Entity {
+(function() {
+    'use strict';
+    if (typeof Enemy !== 'undefined') {
+        console.warn('[enemy.js] Enemy 类已存在，跳过定义');
+        return;
+    }
+    try {
+        class Enemy extends Entity {
     constructor(x, y, type) {
         const enemyConfig = CONFIG.ENEMIES[type];
         super(x, y, enemyConfig.SIZE, enemyConfig.SIZE);
@@ -1453,4 +1459,14 @@ class Enemy extends Entity {
         this.speed = this.baseSpeed * factor;
     }
 }
-} // ✅ 結束 if (typeof Enemy === 'undefined')
+        // 将类暴露到全局作用域
+        if (typeof window !== 'undefined') {
+            window.Enemy = Enemy;
+        } else if (typeof global !== 'undefined') {
+            global.Enemy = Enemy;
+        }
+    } catch(e) {
+        console.error('[enemy.js] ❌ 定义 Enemy 类时出错:', e);
+        console.error('[enemy.js] 错误堆栈:', e.stack);
+    }
+})();
