@@ -355,6 +355,10 @@ class Projectile extends Entity {
                 break;
         }
         
+        // ✅ 根據角度旋轉投射物（讓投射物朝向正確方向）
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle || 0);
+        
         if (imageName && Game.images && Game.images[imageName]) {
             const size = Math.max(this.width, this.height);
             if (this.weaponType === 'BAGUETTE_THROW') {
@@ -365,9 +369,9 @@ class Projectile extends Entity {
                 const aspect = iw / ih;
                 const renderW = size;
                 const renderH = Math.max(1, Math.floor(size / Math.max(0.01, aspect))); // 以寬為基準縮放高度
-                ctx.drawImage(img, this.x - renderW / 2, this.y - renderH / 2, renderW, renderH);
+                ctx.drawImage(img, -renderW / 2, -renderH / 2, renderW, renderH);
             } else {
-            ctx.drawImage(Game.images[imageName], this.x - size / 2, this.y - size / 2, size, size);
+                ctx.drawImage(Game.images[imageName], -size / 2, -size / 2, size, size);
             }
         } else {
             // 備用：使用純色圓形
@@ -379,7 +383,7 @@ class Projectile extends Entity {
             if (this.weaponType === 'HEART_TRANSMISSION') color = '#0ff'; // 與追蹤綿羊相同的備用顏色
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.width / 2, 0, Math.PI * 2);
+            ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
             ctx.fill();
         }
         
@@ -395,7 +399,7 @@ class Projectile extends Entity {
         if (shouldDrawTail) {
             ctx.globalAlpha = 0.5;
             ctx.beginPath();
-            ctx.arc(this.x - Math.cos(this.angle) * 10, this.y - Math.sin(this.angle) * 10, this.width / 3, 0, Math.PI * 2);
+            ctx.arc(-10, 0, this.width / 3, 0, Math.PI * 2);
             ctx.fill();
         }
         
