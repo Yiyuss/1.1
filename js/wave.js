@@ -53,6 +53,9 @@ const WaveSystem = {
     // ✅ 真正的MMORPG：更新波次系統：推進波次、生成敵人與Boss
     // 使用同步的時間基準，確保所有客戶端在同一時間生成相同的敵人
     update: function(deltaTime) {
+        // ✅ 权威服务器：在多人模式下，客户端不生成敌人（由服务器生成）
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        
         // ✅ 真正的MMORPG：使用同步的波次開始時間，而不是本地時間
         // 這樣可以確保所有客戶端在同一時間生成相同的敵人
         const currentTime = Date.now();
@@ -61,20 +64,26 @@ const WaveSystem = {
         if (waveElapsedTime >= CONFIG.WAVES.DURATION) {
             this.nextWave();
         }
-        // ✅ 真正的MMORPG：生成普通敵人 - 使用同步的時間基準
-        // 確保所有客戶端在同一時間生成相同的敵人
-        if (currentTime - this.lastEnemySpawnTime >= this.enemySpawnRate) {
-            this.spawnEnemy();
-            this.lastEnemySpawnTime = currentTime;
+        
+        if (!isMultiplayer) {
+            // ✅ 真正的MMORPG：生成普通敵人 - 使用同步的時間基準
+            // 確保所有客戶端在同一時間生成相同的敵人
+            if (currentTime - this.lastEnemySpawnTime >= this.enemySpawnRate) {
+                this.spawnEnemy();
+                this.lastEnemySpawnTime = currentTime;
+            }
         }
         // 移除：時間間隔生成小BOSS，改為每波一次由 nextWave 觸發
         // if (currentTime - this.lastMiniBossTime >= CONFIG.WAVES.MINI_BOSS_INTERVAL) {
         //     this.spawnMiniBoss();
         //     this.lastMiniBossTime = currentTime;
         // }
-        // 生成大BOSS（僅在第20波且尚未生成出口時生成）
-        if (this.currentWave === CONFIG.WAVES.BOSS_WAVE && Game.boss === null && Game.exit === null) {
-            this.spawnBoss();
+        
+        if (!isMultiplayer) {
+            // 生成大BOSS（僅在第20波且尚未生成出口時生成）
+            if (this.currentWave === CONFIG.WAVES.BOSS_WAVE && Game.boss === null && Game.exit === null) {
+                this.spawnBoss();
+            }
         }
     },
     
@@ -122,8 +131,12 @@ const WaveSystem = {
             }
         } catch (_) {}
         
-        // 每一波固定生成一個小BOSS（避免重複生成）
-        this.spawnMiniBoss();
+        // ✅ 权威服务器：在多人模式下，客户端不生成小BOSS（由服务器生成）
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        if (!isMultiplayer) {
+            // 每一波固定生成一個小BOSS（避免重複生成）
+            this.spawnMiniBoss();
+        }
         
         console.log(`Wave ${this.currentWave} started!`);
     },
