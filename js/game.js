@@ -1145,27 +1145,54 @@
                     
                     // ✅ 权威服务器：发送攻击输入到服务器，而不是创建投射物
                     // 在权威服务器模式下，客户端不创建投射物，只发送输入
+                    // ⚠️ 注意：持续效果类（AuraField、OrbitBall等）不应该标记为_isVisualOnly
+                    // 因为每个玩家的持续伤害应该独立计算并叠加（真正的MMORPG体验）
                     if (isLocalPlayerProjectile && typeof window !== 'undefined' && window.SurvivalOnlineRuntime) {
-                        // 发送攻击输入到服务器
-                        const attackInput = {
-                            type: 'attack',
-                            weaponType: projectile.weaponType || 'UNKNOWN',
-                            x: projectile.x || this.player.x,
-                            y: projectile.y || this.player.y,
-                            angle: projectile.angle || 0,
-                            damage: projectile.damage || 10,
-                            speed: projectile.speed || 5,
-                            size: projectile.size || 20,
-                            timestamp: Date.now()
-                        };
+                        // 检查是否是持续效果类（这些效果需要每个客户端独立计算伤害）
+                        const isPersistentEffect = (
+                            projectile.weaponType === 'AURA_FIELD' ||
+                            projectile.weaponType === 'GRAVITY_WAVE' ||
+                            projectile.weaponType === 'ORBIT' ||
+                            projectile.weaponType === 'CHICKEN_BLESSING' ||
+                            projectile.weaponType === 'ROTATING_MUFFIN' ||
+                            projectile.weaponType === 'HEART_COMPANION' ||
+                            projectile.weaponType === 'PINEAPPLE_ORBIT' ||
+                            projectile.weaponType === 'LASER' ||
+                            projectile.weaponType === 'RADIANT_GLORY' ||
+                            (projectile.constructor && (
+                                projectile.constructor.name === 'AuraField' ||
+                                projectile.constructor.name === 'GravityWaveField' ||
+                                projectile.constructor.name === 'OrbitBall' ||
+                                projectile.constructor.name === 'LaserBeam' ||
+                                projectile.constructor.name === 'RadiantGloryEffect'
+                            ))
+                        );
                         
-                        if (typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                            window.SurvivalOnlineRuntime.sendToNet(attackInput);
+                        // 只有标准投射物（Projectile）才发送到服务器并标记为视觉投射物
+                        // 持续效果类由每个客户端独立计算，伤害叠加（真正的MMORPG）
+                        if (!isPersistentEffect) {
+                            // 发送攻击输入到服务器
+                            const attackInput = {
+                                type: 'attack',
+                                weaponType: projectile.weaponType || 'UNKNOWN',
+                                x: projectile.x || this.player.x,
+                                y: projectile.y || this.player.y,
+                                angle: projectile.angle || 0,
+                                damage: projectile.damage || 10,
+                                speed: projectile.speed || 5,
+                                size: projectile.size || 20,
+                                timestamp: Date.now()
+                            };
+                            
+                            if (typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                                window.SurvivalOnlineRuntime.sendToNet(attackInput);
+                            }
+                            
+                            // 在权威服务器模式下，标准投射物由服务器创建
+                            // 但为了视觉效果，仍然创建视觉投射物
+                            projectile._isVisualOnly = true;
                         }
-                        
-                        // 在权威服务器模式下，不创建本地投射物（由服务器创建）
-                        // 但为了视觉效果，仍然创建视觉投射物
-                        projectile._isVisualOnly = true;
+                        // 持续效果类不标记为_isVisualOnly，保持每个客户端独立计算伤害
                     }
                     
                     if (isLocalPlayerProjectile || isRemotePlayerProjectile || isAICompanion || isEnvironmentHazard) {
