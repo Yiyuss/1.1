@@ -209,8 +209,8 @@
             }
 
             // 路口地圖：每 10 秒生成 3 台車（直線穿越）
-            // ✅ MMORPG 架構：所有客戶端都生成車輛（使用確定性隨機數，確保同步）
-            // 注意：路口車輛的生成時機和位置都需要同步，使用確定性隨機數確保所有玩家生成相同的車輛
+            // ✅ MMORPG 架構：在多人模式下，車輛由服務器端生成（服務器權威）
+            // 在單機模式下，由客戶端生成
             if (this.selectedMap && this.selectedMap.id === 'intersection' && !this.isPaused && !this.isGameOver) {
                 try {
                     let isSurvivalMode = false;
@@ -225,14 +225,18 @@
                         isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
                     } catch (_) {}
                     
-                    // 在多人模式下，使用確定性隨機數確保所有玩家在同一時間生成相同的車輛
-                    // Utils.randomInt 在多人模式下會自動使用 DeterministicRandom
-                    this.intersectionCarTimer += deltaTime;
-                    if (this.intersectionCarTimer >= this.intersectionCarInterval) {
-                        // 扣回間隔（避免 lag 時累積爆發）
-                        this.intersectionCarTimer = this.intersectionCarTimer % this.intersectionCarInterval;
-                        this.spawnIntersectionCars(4);
+                    // ✅ MMORPG 架構：在多人模式下，車輛由服務器端生成，客戶端不生成
+                    // 在單機模式下，由客戶端生成
+                    if (!isSurvivalMode || !isMultiplayer) {
+                        // 單機模式或其他模式：客戶端生成
+                        this.intersectionCarTimer += deltaTime;
+                        if (this.intersectionCarTimer >= this.intersectionCarInterval) {
+                            // 扣回間隔（避免 lag 時累積爆發）
+                            this.intersectionCarTimer = this.intersectionCarTimer % this.intersectionCarInterval;
+                            this.spawnIntersectionCars(4);
+                        }
                     }
+                    // 多人模式：車輛由服務器端生成，通過 updateCarHazardsFromServer 同步
                 } catch (e) {
                     console.warn("[Game] 生成路口車輛失敗:", e);
                 }
@@ -2582,6 +2586,34 @@
                 for (let i = 0; i < count; i++) {
                     tryPlace(t);
                 }
+            }
+            
+            // ✅ MMORPG 架構：廣播地圖裝飾生成事件，讓所有玩家都能看到相同的裝飾
+            try {
+                let isSurvivalMode = false;
+                let isMultiplayer = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                } catch (_) {}
+                
+                if (isSurvivalMode && isMultiplayer && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    const decorationsData = this.decorations.map(deco => ({
+                        x: deco.x,
+                        y: deco.y,
+                        width: deco.width,
+                        height: deco.height,
+                        imageKey: deco.imageKey
+                    }));
+                    window.SurvivalOnlineBroadcastEvent("decorations_spawn", { decorations: decorationsData });
+                }
+            } catch (e) {
+                console.warn("[Game] 廣播地圖裝飾生成事件失敗:", e);
             }
         }
         ,
