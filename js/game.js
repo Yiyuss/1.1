@@ -209,13 +209,32 @@
             }
 
             // 路口地圖：每 10 秒生成 3 台車（直線穿越）
-            // ✅ MMO 架構：所有客戶端都生成車輛（使用確定性隨機數，確保同步）
+            // ✅ MMORPG 架構：所有客戶端都生成車輛（使用確定性隨機數，確保同步）
+            // 注意：路口車輛的生成時機和位置都需要同步，使用確定性隨機數確保所有玩家生成相同的車輛
             if (this.selectedMap && this.selectedMap.id === 'intersection' && !this.isPaused && !this.isGameOver) {
-                this.intersectionCarTimer += deltaTime;
-                if (this.intersectionCarTimer >= this.intersectionCarInterval) {
-                    // 扣回間隔（避免 lag 時累積爆發）
-                    this.intersectionCarTimer = this.intersectionCarTimer % this.intersectionCarInterval;
-                    try { this.spawnIntersectionCars(4); } catch (_) {}
+                try {
+                    let isSurvivalMode = false;
+                    let isMultiplayer = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                        isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                    } catch (_) {}
+                    
+                    // 在多人模式下，使用確定性隨機數確保所有玩家在同一時間生成相同的車輛
+                    // Utils.randomInt 在多人模式下會自動使用 DeterministicRandom
+                    this.intersectionCarTimer += deltaTime;
+                    if (this.intersectionCarTimer >= this.intersectionCarInterval) {
+                        // 扣回間隔（避免 lag 時累積爆發）
+                        this.intersectionCarTimer = this.intersectionCarTimer % this.intersectionCarInterval;
+                        this.spawnIntersectionCars(4);
+                    }
+                } catch (e) {
+                    console.warn("[Game] 生成路口車輛失敗:", e);
                 }
             }
             
@@ -1149,7 +1168,11 @@
                     // 因为每个玩家的持续伤害应该独立计算并叠加（真正的MMORPG体验）
                     if (isLocalPlayerProjectile && typeof window !== 'undefined' && window.SurvivalOnlineRuntime) {
                         // 检查是否是持续效果类（这些效果需要每个客户端独立计算伤害）
+                        // 持续伤害类技能列表（每个玩家的伤害独立计算并叠加）：
+                        // - 守护领域、引力波、环绕球类（绵羊护体、鸡腿庇佑、旋转松饼、心意相随、凤梨环绕）
+                        // - 激光、光芒万丈、大波球、狂热大波、心灵震波
                         const isPersistentEffect = (
+                            // 武器类型检查
                             projectile.weaponType === 'AURA_FIELD' ||
                             projectile.weaponType === 'GRAVITY_WAVE' ||
                             projectile.weaponType === 'ORBIT' ||
@@ -1159,13 +1182,21 @@
                             projectile.weaponType === 'PINEAPPLE_ORBIT' ||
                             projectile.weaponType === 'LASER' ||
                             projectile.weaponType === 'RADIANT_GLORY' ||
+                            projectile.weaponType === 'BIG_ICE_BALL' ||
+                            projectile.weaponType === 'FRENZY_ICE_BALL' ||
+                            projectile.weaponType === 'MIND_MAGIC' ||
+                            // 构造函数名称检查（更可靠）
                             (projectile.constructor && (
                                 projectile.constructor.name === 'AuraField' ||
                                 projectile.constructor.name === 'GravityWaveField' ||
                                 projectile.constructor.name === 'OrbitBall' ||
                                 projectile.constructor.name === 'LaserBeam' ||
-                                projectile.constructor.name === 'RadiantGloryEffect'
-                            ))
+                                projectile.constructor.name === 'RadiantGloryEffect' ||
+                                projectile.constructor.name === 'IceFieldEffect' ||
+                                projectile.constructor.name === 'ShockwaveEffect'
+                            )) ||
+                            // 检查是否有持续伤害属性（tickDamage、tickIntervalMs）
+                            (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
                         );
                         
                         // 只有标准投射物（Projectile）才发送到服务器并标记为视觉投射物
@@ -1181,6 +1212,11 @@
                                 damage: projectile.damage || 10,
                                 speed: projectile.speed || 5,
                                 size: projectile.size || 20,
+                                // ✅ 权威服务器：传递追踪相关参数
+                                homing: projectile.homing || false,
+                                turnRatePerSec: projectile.turnRatePerSec || 0,
+                                assignedTargetId: projectile.assignedTargetId || null,
+                                maxDistance: projectile.maxDistance || 1000,
                                 timestamp: Date.now()
                             };
                             
@@ -1209,6 +1245,12 @@
                             playerUid = projectile.player._remoteUid;
                         } else if (isAICompanion && projectile.player && projectile.player._isRemotePlayer && projectile.player._remoteUid) {
                             playerUid = projectile.player._remoteUid;
+                        } else if (isAICompanion && projectile._remotePlayerUid) {
+                            // ✅ MMORPG架构：AICompanion有_remotePlayerUid属性（远程玩家的AI）
+                            playerUid = projectile._remotePlayerUid;
+                        } else if (projectile._remotePlayerUid) {
+                            // ✅ MMORPG架构：技能效果有_remotePlayerUid属性（远程玩家的AI创建的技能）
+                            playerUid = projectile._remotePlayerUid;
                         }
                         
                         // 構建投射物數據
@@ -1223,7 +1265,9 @@
                             homing: projectile.homing || false,
                             turnRatePerSec: projectile.turnRatePerSec || 0,
                             playerUid: playerUid,
-                            assignedTargetId: projectile.assignedTargetId || null
+                            assignedTargetId: projectile.assignedTargetId || null,
+                            // ✅ MMORPG架构：传递伤害值，让远程玩家也能计算伤害
+                            damage: projectile.damage || 0
                         };
                         
                         // 如果是 AICompanion，添加額外屬性
@@ -1257,6 +1301,7 @@
                         
                         // 如果是連鎖閃電（ChainLightningEffect），添加額外屬性
                         if (projectile.weaponType === "CHAIN_LIGHTNING" || projectile.weaponType === "FRENZY_LIGHTNING") {
+                            projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
                             projectileData.duration = projectile.durationMs || 1000;
                             projectileData.maxChains = projectile.maxChains || 0;
                             projectileData.chainRadius = projectile.chainRadius || 220;
@@ -1270,6 +1315,7 @@
                         
                         // 如果是斬擊（SlashEffect），添加額外屬性
                         if (projectile.weaponType === "SLASH") {
+                            projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
                             projectileData.angle = projectile.angle || 0;
                             projectileData.radius = projectile.radius || 60;
                             projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : 80);
@@ -1279,6 +1325,7 @@
                         
                         // 如果是裁決（JudgmentEffect），添加額外屬性
                         if (projectile.weaponType === "JUDGMENT") {
+                            projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
                             projectileData.swordCount = projectile.swordCount || 1;
                             projectileData.detectRadius = projectile.detectRadius || 400;
                             projectileData.aoeRadius = projectile.aoeRadius || 100;
@@ -1295,6 +1342,7 @@
                         
                         // 如果是死線戰士/死線超人（DeathlineWarriorEffect），添加額外屬性
                         if (projectile.weaponType === "DEATHLINE_WARRIOR" || projectile.weaponType === "DEATHLINE_SUPERMAN") {
+                            projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
                             projectileData.detectRadius = projectile.detectRadius || 600;
                             projectileData.totalHits = projectile.totalHits || 3;
                             projectileData.totalDurationMs = projectile.totalDurationMs || 1200;
@@ -1305,6 +1353,7 @@
                         
                         // 如果是神裁（DivineJudgmentEffect），添加額外屬性
                         if (projectile.weaponType === "DIVINE_JUDGMENT") {
+                            projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
                             projectileData.detectRadius = projectile.detectRadius || 400;
                             projectileData.aoeRadius = projectile.aoeRadius || 100;
                             projectileData.fallDurationMs = projectile.fallDurationMs || 250;
@@ -1319,12 +1368,14 @@
                         
                         // 如果是光環領域（AuraField），添加額外屬性
                         if (projectile.weaponType === "AURA_FIELD") {
+                            projectileData.damage = projectile.tickDamage || projectile.damage || 0; // ✅ 传递持续伤害值
                             projectileData.radius = projectile.radius || 150;
                             projectileData.visualScale = projectile.visualScale || 1.95;
                         }
                         
                         // 如果是重力波（GravityWaveField），添加額外屬性
                         if (projectile.weaponType === "GRAVITY_WAVE") {
+                            projectileData.damage = projectile.tickDamage || projectile.damage || 0; // ✅ 传递持续伤害值
                             projectileData.radius = projectile.radius || 150;
                             projectileData.pushMultiplier = projectile.pushMultiplier || 0;
                             projectileData.visualScale = projectile.visualScale || 1.95;
@@ -1351,6 +1402,7 @@
                         
                         // 如果是光芒萬丈（RadiantGloryEffect），添加額外屬性
                         if (projectile.weaponType === "RADIANT_GLORY") {
+                            projectileData.damage = projectile.tickDamage || projectile.damage || 0; // ✅ 传递持续伤害值
                             projectileData.width = projectile.width || 8;
                             projectileData.duration = projectile.duration || 1000;
                             projectileData.tickInterval = projectile.tickIntervalMs || 120;
@@ -1360,6 +1412,7 @@
                         
                         // 如果是狂熱斬擊（FRENZY_SLASH），使用SLASH的處理（因為它使用SlashEffect）
                         if (projectile.weaponType === "FRENZY_SLASH") {
+                            projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
                             projectileData.angle = projectile.angle || 0;
                             projectileData.radius = projectile.radius || 60;
                             projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : 80);
@@ -1898,6 +1951,8 @@
             this.pineappleUltimatePickups = [];
             this.obstacles = [];
             this.decorations = [];
+            // ✅ MMORPG 架構：重置障礙物和裝飾生成標記
+            this._obstaclesAndDecorationsSpawned = false;
             // M4/M5：清理遠程玩家（確保重置時完全清理）
             if (Array.isArray(this.remotePlayers)) {
                 for (const remotePlayer of this.remotePlayers) {
@@ -2175,10 +2230,38 @@
                 avatarEl.alt = this.selectedCharacter?.name || '玩家';
             }
 
-            // 生成障礙物（3個S1與3個S2）
-            this.spawnObstacles();
-            // 生成地圖裝飾（各1個S3–S8）
-            this.spawnDecorations();
+            // ✅ MMORPG 架構：障礙物和地圖裝飾需要同步
+            // 在多人模式下，只有第一個玩家（或使用確定性隨機數）生成，然後廣播給其他玩家
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            
+            if (isSurvivalMode && isMultiplayer) {
+                // 多人模式：使用確定性隨機數生成器，確保所有玩家生成相同的障礙物和裝飾
+                // 注意：如果 DeterministicRandom 未初始化，則由第一個玩家生成並廣播
+                const hasDeterministicRandom = (typeof DeterministicRandom !== 'undefined' && DeterministicRandom.getSeed() !== null);
+                if (hasDeterministicRandom) {
+                    // 使用確定性隨機數生成器，所有玩家會生成相同的位置
+                    this.spawnObstacles();
+                    this.spawnDecorations();
+                } else {
+                    // 如果沒有確定性隨機數，由第一個玩家生成並廣播
+                    // 這裡先不生成，等待收到同步事件
+                    // 注意：如果沒有收到同步事件，則本地生成（向後兼容）
+                    this._obstaclesAndDecorationsSpawned = false;
+                }
+            } else {
+                // 單機模式：正常生成
+                this.spawnObstacles();
+                this.spawnDecorations();
+            }
             
             // 重置時間
             this.lastUpdateTime = Date.now();
@@ -2355,6 +2438,33 @@
                 for (let i = 0; i < counts[t]; i++) {
                     tryPlace(t);
                 }
+            }
+            
+            // ✅ MMORPG 架構：廣播障礙物生成事件，讓所有玩家都能看到相同的障礙物
+            try {
+                let isSurvivalMode = false;
+                let isMultiplayer = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                } catch (_) {}
+                
+                if (isSurvivalMode && isMultiplayer && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    const obstaclesData = this.obstacles.map(obs => ({
+                        x: obs.x,
+                        y: obs.y,
+                        imageKey: obs.imageKey,
+                        size: obs.size || size
+                    }));
+                    window.SurvivalOnlineBroadcastEvent("obstacles_spawn", { obstacles: obstaclesData });
+                }
+            } catch (e) {
+                console.warn("[Game] 廣播障礙物生成事件失敗:", e);
             }
         }
         ,
