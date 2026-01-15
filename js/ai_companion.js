@@ -82,14 +82,14 @@ class AICompanion extends Entity {
     update(deltaTime) {
         if (!this.player || !Game || Game.isGameOver) return;
         
-        // 僅視覺AI：需要從遠程玩家位置更新，不進行傷害計算
-        if (this._isVisualOnly && this._remotePlayerUid) {
+        // ✅ MMORPG架构：远程玩家的AI也需要更新位置，但也要造成伤害
+        if (this._remotePlayerUid) {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
             if (rt && typeof rt.getRemotePlayers === 'function') {
                 const remotePlayers = rt.getRemotePlayers() || [];
                 const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
                 if (remotePlayer) {
-                    // 更新玩家位置
+                    // 更新玩家位置（远程玩家的AI跟随远程玩家）
                     this.player.x = remotePlayer.x;
                     this.player.y = remotePlayer.y;
                 } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
@@ -106,9 +106,11 @@ class AICompanion extends Entity {
                 this.markedForDeletion = true;
                 return;
             }
-            // 僅視覺模式：只更新位置，不發射技能
-            // 繼續執行跟隨玩家邏輯
-        } else {
+        }
+        
+        // ✅ MMORPG架构：所有AI（本地和远程）都应该造成伤害
+        // 每个玩家的AI独立计算伤害，伤害叠加（真正的MMORPG体验）
+        {
             // 正常模式：根據召喚AI等級決定使用哪個技能
             if (this.summonAILevel >= 2) {
                 // 召喚AI LV2：使用狂熱雷擊
@@ -226,7 +228,16 @@ class AICompanion extends Entity {
                 : 220;
             
             // 創建連鎖閃電效果，使用AI作為"玩家"（這樣會從AI位置開始連鎖）
+            // ✅ MMORPG架构：传递正确的player信息，让技能效果能正确识别是远程玩家的AI
             const effect = new ChainLightningEffect(this, damage, durationMs, this.chainLightningMaxChains, chainRadius);
+            
+            // 如果AI属于远程玩家，传递远程玩家信息给技能效果
+            if (this._remotePlayerUid && this.player) {
+                // 确保技能效果知道这是远程玩家的AI创建的
+                effect._remotePlayerUid = this._remotePlayerUid;
+                // 使用真正的Player对象，而不是AICompanion（用于识别远程玩家投射物）
+                effect._aiCompanion = this; // 保存AI引用，用于位置更新
+            }
             
             // 添加到遊戲投射物列表
             if (typeof Game !== 'undefined' && Game.addProjectile) {
@@ -305,7 +316,16 @@ class AICompanion extends Entity {
             const chainsPerBranch = 10;
             
             // 創建狂熱雷擊效果，使用AI作為"玩家"（這樣會從AI位置開始連鎖）
+            // ✅ MMORPG架构：传递正确的player信息，让技能效果能正确识别是远程玩家的AI
             const effect = new FrenzyLightningEffect(this, damage, durationMs, branchCount, chainsPerBranch, chainRadius);
+            
+            // 如果AI属于远程玩家，传递远程玩家信息给技能效果
+            if (this._remotePlayerUid && this.player) {
+                // 确保技能效果知道这是远程玩家的AI创建的
+                effect._remotePlayerUid = this._remotePlayerUid;
+                // 使用真正的Player对象，而不是AICompanion（用于识别远程玩家投射物）
+                effect._aiCompanion = this; // 保存AI引用，用于位置更新
+            }
             
             // 添加到遊戲投射物列表
             if (typeof Game !== 'undefined' && Game.addProjectile) {
