@@ -1058,6 +1058,31 @@ class Player extends Entity {
             Game.cameraShake.active = true;
             Game.cameraShake.intensity = 8; // 與 BOSS 爆炸一致的強度
             Game.cameraShake.duration = 200; // 毫秒
+            
+            // ✅ MMORPG 架構：廣播鏡頭震動效果，讓所有玩家都能看到
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+            if (isMultiplayer) {
+                try {
+                    let isSurvivalMode = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) {}
+                    
+                    if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                        window.SurvivalOnlineBroadcastEvent("screen_effect", {
+                            type: 'ultimate_activation',
+                            x: this.x,
+                            y: this.y,
+                            cameraShake: { active: true, intensity: 8, duration: 200 }
+                        });
+                    }
+                } catch (_) {}
+            }
         } catch (_) {}
     }
 
@@ -1263,6 +1288,31 @@ class Player extends Entity {
             Game.cameraShake.active = true;
             Game.cameraShake.intensity = 10; // 比普通大绝更强的震动
             Game.cameraShake.duration = 300; // 300毫秒
+            
+            // ✅ MMORPG 架構：廣播鏡頭震動效果，讓所有玩家都能看到
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+            if (isMultiplayer) {
+                try {
+                    let isSurvivalMode = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) {}
+                    
+                    if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                        window.SurvivalOnlineBroadcastEvent("screen_effect", {
+                            type: 'explosion_ultimate',
+                            x: this.x,
+                            y: this.y,
+                            cameraShake: { active: true, intensity: 10, duration: 300 }
+                        });
+                    }
+                } catch (_) {}
+            }
         } catch (_) {}
     }
 }
