@@ -3,7 +3,6 @@
 (function() {
     'use strict';
     if (typeof Enemy !== 'undefined') {
-        console.warn('[enemy.js] Enemy 类已存在，跳过定义');
         return;
     }
     try {
