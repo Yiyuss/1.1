@@ -421,6 +421,32 @@ class BossProjectile extends Entity {
         // 創建鏡頭震動效果
         this.createCameraShake();
         
+        // ✅ MMORPG 架構：廣播屏幕閃光和鏡頭震動效果，讓所有玩家都能看到
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        if (isMultiplayer) {
+            try {
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("screen_effect", {
+                        type: 'boss_projectile_explosion',
+                        x: this.x,
+                        y: this.y,
+                        screenFlash: { active: true, intensity: 0.3, duration: 150 },
+                        cameraShake: { active: true, intensity: 8, duration: 200 }
+                    });
+                }
+            } catch (_) {}
+        }
+        
         // 播放爆炸音效（使用既有 'bo' 音效，避免未載入的 'explosion' 名稱）
         if (typeof AudioManager !== 'undefined') {
             AudioManager.playSound('bo');
