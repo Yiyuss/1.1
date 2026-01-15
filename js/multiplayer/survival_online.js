@@ -756,6 +756,162 @@ const Runtime = (() => {
         } catch (e) {
           console.warn("[SurvivalOnline] 處理寶箱被撿取事件失敗:", e);
         }
+      } else if (eventType === "explosion_particles") {
+        // ✅ MMORPG 架構：所有玩家都能看到爆炸粒子效果
+        try {
+          if (typeof Game !== "undefined" && Array.isArray(eventData.particles)) {
+            if (!Game.explosionParticles) Game.explosionParticles = [];
+            for (const particleData of eventData.particles) {
+              if (particleData.x !== undefined && particleData.y !== undefined) {
+                Game.explosionParticles.push({
+                  x: particleData.x,
+                  y: particleData.y,
+                  vx: particleData.vx || 0,
+                  vy: particleData.vy || 0,
+                  life: particleData.life || 1000,
+                  maxLife: particleData.maxLife || 1000,
+                  size: particleData.size || 3,
+                  color: particleData.color || '#ff0000',
+                  source: particleData.source || null
+                });
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 生成爆炸粒子失敗:", e);
+        }
+      } else if (eventType === "enemy_death") {
+        // ✅ MMORPG 架構：所有玩家都能看到敵人死亡動畫
+        try {
+          if (typeof Game !== "undefined" && eventData.enemyId && Array.isArray(Game.enemies)) {
+            const enemy = Game.enemies.find(e => e && e.id === eventData.enemyId);
+            if (enemy && !enemy.isDying) {
+              // 觸發敵人死亡動畫
+              enemy.isDying = true;
+              enemy.deathElapsed = 0;
+              enemy.collisionRadius = 0;
+              if (typeof eventData.deathVelX === 'number') enemy.deathVelX = eventData.deathVelX;
+              if (typeof eventData.deathVelY === 'number') enemy.deathVelY = eventData.deathVelY;
+            }
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 處理敵人死亡事件失敗:", e);
+        }
+      } else if (eventType === "screen_effect") {
+        // ✅ MMORPG 架構：所有玩家都能看到屏幕效果（閃光和震動）
+        try {
+          if (typeof Game !== "undefined" && eventData.type) {
+            // 處理屏幕閃光
+            if (eventData.screenFlash && typeof eventData.screenFlash === 'object') {
+              if (!Game.screenFlash) {
+                Game.screenFlash = { active: false, intensity: 0, duration: 0 };
+              }
+              Game.screenFlash.active = eventData.screenFlash.active || false;
+              Game.screenFlash.intensity = eventData.screenFlash.intensity || 0.3;
+              Game.screenFlash.duration = eventData.screenFlash.duration || 150;
+            }
+            
+            // 處理鏡頭震動
+            if (eventData.cameraShake && typeof eventData.cameraShake === 'object') {
+              if (!Game.cameraShake) {
+                Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+              }
+              Game.cameraShake.active = eventData.cameraShake.active || false;
+              Game.cameraShake.intensity = eventData.cameraShake.intensity || 8;
+              Game.cameraShake.duration = eventData.cameraShake.duration || 200;
+            }
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 處理屏幕效果失敗:", e);
+        }
+      } else if (eventType === "obstacles_spawn") {
+        // ✅ MMORPG 架構：所有玩家都能看到相同的障礙物
+        try {
+          if (typeof Game !== "undefined" && Array.isArray(eventData.obstacles) && typeof Obstacle !== "undefined") {
+            // 清除現有障礙物（避免重複）
+            Game.obstacles = [];
+            
+            // 生成障礙物
+            for (const obsData of eventData.obstacles) {
+              if (obsData.x !== undefined && obsData.y !== undefined && obsData.imageKey) {
+                const obstacle = new Obstacle(obsData.x, obsData.y, obsData.imageKey, obsData.size || 150);
+                Game.obstacles.push(obstacle);
+              }
+            }
+            
+            // 標記為已生成，避免重複生成
+            if (Game._obstaclesAndDecorationsSpawned !== undefined) {
+              Game._obstaclesAndDecorationsSpawned = true;
+            }
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 生成障礙物失敗:", e);
+        }
+      } else if (eventType === "decorations_spawn") {
+        // ✅ MMORPG 架構：所有玩家都能看到相同的地圖裝飾
+        try {
+          if (typeof Game !== "undefined" && Array.isArray(eventData.decorations)) {
+            // 清除現有裝飾（避免重複）
+            Game.decorations = [];
+            
+            // 生成裝飾
+            for (const decoData of eventData.decorations) {
+              if (decoData.x !== undefined && decoData.y !== undefined && decoData.imageKey) {
+                Game.decorations.push({
+                  x: decoData.x,
+                  y: decoData.y,
+                  width: decoData.width || 100,
+                  height: decoData.height || 100,
+                  imageKey: decoData.imageKey
+                });
+              }
+            }
+            
+            // 標記為已生成，避免重複生成
+            if (Game._obstaclesAndDecorationsSpawned !== undefined) {
+              Game._obstaclesAndDecorationsSpawned = true;
+            }
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 生成地圖裝飾失敗:", e);
+        }
+      } else if (eventType === "boss_projectile_spawn") {
+        // ✅ MMORPG 架構：所有玩家都能看到BOSS遠程攻擊投射物
+        try {
+          if (typeof Game !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
+            if (eventData.type === 'BOTTLE' && typeof BottleProjectile !== 'undefined') {
+              // 路口 HUMAN2：拋物線投擲瓶子
+              const p = new BottleProjectile(
+                eventData.x,
+                eventData.y,
+                eventData.targetX || eventData.x,
+                eventData.targetY || eventData.y,
+                eventData.speed || 5,
+                eventData.damage || 10,
+                eventData.width || 10,
+                eventData.height || 14
+              );
+              if (!Game.bossProjectiles) Game.bossProjectiles = [];
+              Game.bossProjectiles.push(p);
+            } else if (eventData.type === 'BOSS_PROJECTILE' && typeof BossProjectile !== 'undefined') {
+              // BOSS 火彈投射物
+              const projectile = new BossProjectile(
+                eventData.x,
+                eventData.y,
+                eventData.angle || 0,
+                eventData.speed || 5,
+                eventData.damage || 10,
+                eventData.size || 20,
+                eventData.homing || false,
+                eventData.turnRate || 0
+              );
+              if (!Game.bossProjectiles) Game.bossProjectiles = [];
+              Game.bossProjectiles.push(projectile);
+            }
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 生成BOSS投射物失敗:", e);
+        }
       } else if (eventType === "ultimate_pineapple_spawn") {
         // ✅ MMORPG 架構：所有玩家都能生成鳳梨大絕掉落物，不依賴室長端
         try {
@@ -987,7 +1143,8 @@ const Runtime = (() => {
                       eventData.summonAILevel || 1
                     );
                     ai.id = projectileId;
-                    ai._isVisualOnly = true; // 標記為僅視覺（隊員端不進行傷害計算）
+                    // ✅ MMORPG架构：远程玩家的AI也应该造成伤害（每个玩家的AI独立计算伤害）
+                    // 不标记为_isVisualOnly，让每个玩家的AI都能独立计算伤害并叠加
                     ai._remotePlayerUid = eventData.playerUid;
                     Game.projectiles.push(ai);
                   } else {
@@ -1021,22 +1178,24 @@ const Runtime = (() => {
                 
                 if (targetPlayer) {
                   if (weaponType === "CHAIN_LIGHTNING") {
+                    // ✅ MMORPG架构：远程玩家的连锁闪电也应该造成伤害（每个玩家的伤害独立计算并叠加）
                     const effect = new ChainLightningEffect(
                       targetPlayer,
-                      0, // 傷害設為0（僅視覺）
+                      eventData.damage || 0, // 使用实际伤害值，不是0
                       eventData.duration || 1000,
                       eventData.maxChains || 0,
                       eventData.chainRadius || 220,
                       eventData.palette || null
                     );
                     effect.id = projectileId;
-                    effect._isVisualOnly = true;
+                    // 不标记为_isVisualOnly，让每个玩家的连锁闪电都能独立计算伤害
                     effect._remotePlayerUid = eventData.playerUid;
                     Game.projectiles.push(effect);
                   } else if (weaponType === "FRENZY_LIGHTNING" && typeof FrenzyLightningEffect !== "undefined") {
+                    // ✅ MMORPG架构：远程玩家的狂热雷击也应该造成伤害（每个玩家的伤害独立计算并叠加）
                     const effect = new FrenzyLightningEffect(
                       targetPlayer,
-                      0, // 傷害設為0（僅視覺）
+                      eventData.damage || 0, // 使用实际伤害值，不是0
                       eventData.duration || 1000,
                       eventData.branchCount || 10,
                       eventData.chainsPerBranch || 10,
@@ -1044,7 +1203,7 @@ const Runtime = (() => {
                       eventData.palette || null
                     );
                     effect.id = projectileId;
-                    effect._isVisualOnly = true;
+                    // 不标记为_isVisualOnly，让每个玩家的狂热雷击都能独立计算伤害
                     effect._remotePlayerUid = eventData.playerUid;
                     Game.projectiles.push(effect);
                   }
@@ -1101,9 +1260,10 @@ const Runtime = (() => {
                 }
                 
                 if (targetPlayer) {
+                  // ✅ MMORPG架构：远程玩家的裁决也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new JudgmentEffect(
                     targetPlayer,
-                    0, // 傷害設為0（僅視覺）
+                    eventData.damage || 0, // 使用实际伤害值，不是0
                     eventData.swordCount || 1,
                     eventData.detectRadius || 400,
                     eventData.aoeRadius || 100,
@@ -1113,7 +1273,7 @@ const Runtime = (() => {
                     eventData.fadeOutDurationMs || 300
                   );
                   effect.id = projectileId;
-                  effect._isVisualOnly = true;
+                  // 不标记为_isVisualOnly，让每个玩家的裁决都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
                   Game.projectiles.push(effect);
                 }
@@ -1136,13 +1296,14 @@ const Runtime = (() => {
                 }
                 
                 if (targetPlayer) {
+                  // ✅ MMORPG架构：远程玩家的爆炸也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new ExplosionEffect(
                     targetPlayer,
                     eventData.x || targetPlayer.x,
                     eventData.y || targetPlayer.y
                   );
                   effect.id = projectileId;
-                  effect._isVisualOnly = true;
+                  // 不标记为_isVisualOnly，让每个玩家的爆炸都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
                   Game.projectiles.push(effect);
                 }
@@ -1165,9 +1326,10 @@ const Runtime = (() => {
                 }
                 
                 if (targetPlayer) {
+                  // ✅ MMORPG架构：远程玩家的死线战士/死线超人也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new DeathlineWarriorEffect(
                     targetPlayer,
-                    0, // 傷害設為0（僅視覺）
+                    eventData.damage || 0, // 使用实际伤害值，不是0
                     eventData.detectRadius || 600,
                     eventData.totalHits || 3,
                     eventData.totalDurationMs || 1200,
@@ -1177,7 +1339,7 @@ const Runtime = (() => {
                     eventData.displayScale || 0.5
                   );
                   effect.id = projectileId;
-                  effect._isVisualOnly = true;
+                  // 不标记为_isVisualOnly，让每个玩家的死线战士/死线超人都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
                   Game.projectiles.push(effect);
                 }
@@ -1200,8 +1362,9 @@ const Runtime = (() => {
                 }
                 
                 if (targetPlayer) {
+                  // ✅ MMORPG架构：远程玩家的神界裁决也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new DivineJudgmentEffect(targetPlayer, {
-                    damage: 0, // 傷害設為0（僅視覺）
+                    damage: eventData.damage || 0, // 使用实际伤害值，不是0
                     detectRadius: eventData.detectRadius || 400,
                     aoeRadius: eventData.aoeRadius || 100,
                     fallDurationMs: eventData.fallDurationMs || 250,
@@ -1213,7 +1376,7 @@ const Runtime = (() => {
                     patrolSpeedFactor: eventData.patrolSpeedFactor || 0.35
                   });
                   effect.id = projectileId;
-                  effect._isVisualOnly = true;
+                  // 不标记为_isVisualOnly，让每个玩家的神界裁决都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
                   if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
                   Game.projectiles.push(effect);
@@ -1237,13 +1400,14 @@ const Runtime = (() => {
                 }
                 
                 if (targetPlayer) {
+                  // ✅ MMORPG架构：远程玩家的守护领域也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new AuraField(
                     targetPlayer,
                     eventData.radius || 150,
-                    0 // 傷害設為0（僅視覺）
+                    eventData.damage || 0 // 使用实际伤害值，不是0
                   );
                   effect.id = projectileId;
-                  effect._isVisualOnly = true;
+                  // 不标记为_isVisualOnly，让每个玩家的守护领域都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
                   if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
                   Game.projectiles.push(effect);
@@ -1267,14 +1431,15 @@ const Runtime = (() => {
                 }
                 
                 if (targetPlayer) {
+                  // ✅ MMORPG架构：远程玩家的引力波也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new GravityWaveField(
                     targetPlayer,
                     eventData.radius || 150,
-                    0, // 傷害設為0（僅視覺）
+                    eventData.damage || 0, // 使用实际伤害值，不是0
                     eventData.pushMultiplier || 0
                   );
                   effect.id = projectileId;
-                  effect._isVisualOnly = true;
+                  // 不标记为_isVisualOnly，让每个玩家的引力波都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
                   if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
                   Game.projectiles.push(effect);
@@ -1388,9 +1553,10 @@ const Runtime = (() => {
                 }
                 
                 if (targetPlayer) {
+                  // ✅ MMORPG架构：远程玩家的光芒万丈也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new RadiantGloryEffect(
                     targetPlayer,
-                    0, // 傷害設為0（僅視覺）
+                    eventData.damage || 0, // 使用实际伤害值，不是0
                     eventData.width || 8,
                     eventData.duration || 1000,
                     eventData.tickInterval || 120,
@@ -1398,7 +1564,7 @@ const Runtime = (() => {
                     eventData.rotationSpeed || 1.0
                   );
                   effect.id = projectileId;
-                  effect._isVisualOnly = true;
+                  // 不标记为_isVisualOnly，让每个玩家的光芒万丈都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
                   Game.projectiles.push(effect);
                 }
@@ -1421,16 +1587,18 @@ const Runtime = (() => {
                 }
                 
                 if (targetPlayer) {
+                  // ✅ MMORPG架构：远程玩家的狂热斩击也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new SlashEffect(
                     targetPlayer,
                     eventData.angle || 0,
-                    0, // 傷害設為0（僅視覺）
+                    eventData.damage || 0, // 使用实际伤害值，不是0
                     eventData.radius || 60,
                     eventData.arcDeg || 80,
                     eventData.duration || 1000
                   );
                   effect.id = projectileId;
-                  effect._isVisualOnly = true;
+                  effect.weaponType = 'FRENZY_SLASH'; // ✅ 设置正确的weaponType
+                  // 不标记为_isVisualOnly，让每个玩家的狂热斩击都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
                   if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
                   Game.projectiles.push(effect);
@@ -3260,6 +3428,26 @@ function updateEnemiesFromServer(enemies) {
       enemy.y = enemyState.y;
       enemy.health = enemyState.health;
       enemy.maxHealth = enemyState.maxHealth;
+      
+      // ✅ MMORPG 架構：同步敵人死亡狀態，讓所有玩家都能看到死亡動畫
+      if (typeof enemyState.isDying === 'boolean') {
+        enemy.isDying = enemyState.isDying;
+      }
+      if (typeof enemyState.deathElapsed === 'number') {
+        enemy.deathElapsed = enemyState.deathElapsed;
+      }
+      if (typeof enemyState.deathVelX === 'number') {
+        enemy.deathVelX = enemyState.deathVelX;
+      }
+      if (typeof enemyState.deathVelY === 'number') {
+        enemy.deathVelY = enemyState.deathVelY;
+      }
+      
+      // ✅ MMORPG 架構：同步敵人受傷紅閃，讓所有玩家都能看到
+      if (typeof enemyState.hitFlashTime === 'number') {
+        enemy.hitFlashTime = enemyState.hitFlashTime;
+      }
+      
       if (enemyState.isDead) {
         enemy.health = 0;
         enemy.markedForDeletion = true;
