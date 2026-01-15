@@ -1242,7 +1242,24 @@
                 console.log('[index.html] ✅ 加载 enemy.js 前：CONFIG 已定义');
             }
         </script>
-        <script src="js/enemy.js?v=20260113_4" onerror="console.error('[index.html] ❌ enemy.js 加载失败！', this.src, arguments);"></script>
+        <script>
+            // ✅ 尝试动态加载 enemy.js 以捕获错误
+            const enemyScript = document.createElement('script');
+            enemyScript.src = 'js/enemy.js?v=2026011304';
+            enemyScript.onerror = function() {
+                console.error('[index.html] ❌ enemy.js 动态加载失败！URL:', this.src);
+                console.error('[index.html] 尝试检查文件是否存在...');
+            };
+            enemyScript.onload = function() {
+                console.log('[index.html] ✅ enemy.js 动态加载成功');
+                if (typeof Enemy === 'undefined') {
+                    console.error('[index.html] ❌ enemy.js 已加载但 Enemy 类未定义！可能是执行错误。');
+                } else {
+                    console.log('[index.html] ✅ Enemy 类已定义:', typeof Enemy);
+                }
+            };
+            document.head.appendChild(enemyScript);
+        </script>
         <script>
             // ✅ 调试：检查依赖项
             console.log('[index.html] 依赖检查: Entity=', typeof Entity, ', CONFIG=', typeof CONFIG, ', Game=', typeof Game);
@@ -1285,7 +1302,7 @@
                 console.log('[index.html] ✅ Entity 类已加载:', typeof Entity);
             }
         </script>
-        <script src="js/experience.js?v=20260113_4"></script>
+        <script src="js/experience.js?v=2026011304"></script>
         <script>
             // ✅ 调试：检查 ExperienceOrb 类是否已加载
             if (typeof ExperienceOrb === 'undefined') {
@@ -1303,7 +1320,7 @@
     <script src="js/ui.js"></script>
         <!-- GIF 覆蓋層工具：確保玩家 GIF 在 Canvas 上正常動畫 -->
     <script src="js/gif_overlay.js"></script>
-        <script src="js/wave.js?v=20260113_4"></script>
+        <script src="js/wave.js?v=2026011304"></script>
         <script>
             // ✅ 调试：再次检查 Enemy 类（在 wave.js 加载后）
             if (typeof Enemy === 'undefined') {
@@ -1424,7 +1441,7 @@
         <script src="js/modes/3d/index.js"></script>
         <!-- 生存模式組隊（測試）：Firebase signaling + WebRTC relay-only；僅在生存模式流程中使用 -->
         <!-- 注意：加上版本參數避免 GitHub Pages / 瀏覽器快取舊版 JS 造成規則調試困難 -->
-        <script type="module" src="js/multiplayer/survival_online.js?v=20260110_2"></script>
+        <script type="module" src="js/multiplayer/survival_online.js?v=2026011304"></script>
         <script src="js/main.js"></script>
     </div>
     <!-- 統一的過渡層（所有模式共用，播放 LOAD.mp4） -->
