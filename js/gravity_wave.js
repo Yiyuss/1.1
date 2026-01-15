@@ -102,7 +102,8 @@ class GravityWaveField extends Entity {
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "GRAVITY_WAVE",
                                 isCrit: isCrit,
-                                lifesteal: lifestealAmount
+                                lifesteal: lifestealAmount,
+                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                             });
                         }
                     }
