@@ -158,7 +158,8 @@ class ChainLightningEffect extends Entity {
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "CHAIN_LIGHTNING",
                                 isCrit: isCrit,
-                                lifesteal: lifestealAmount
+                                lifesteal: lifestealAmount,
+                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                             });
                         }
                     }
@@ -468,7 +469,8 @@ class FrenzyLightningEffect extends Entity {
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "CHAIN_LIGHTNING",
                                 isCrit: isCrit,
-                                lifesteal: lifestealAmount
+                                lifesteal: lifestealAmount,
+                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                             });
                         }
                     }
