@@ -142,7 +142,8 @@ class JudgmentEffect extends Entity {
                             damage: finalDamage,
                             weaponType: this.weaponType || "JUDGMENT",
                             isCrit: isCrit,
-                            lifesteal: lifestealAmount
+                            lifesteal: lifestealAmount,
+                            playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                         });
                     }
                 }
