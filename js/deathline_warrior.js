@@ -253,7 +253,8 @@ class DeathlineWarriorEffect extends Entity {
                         damage: finalDamage,
                         weaponType: this.weaponType || "DEATHLINE_WARRIOR",
                         isCrit: isCrit,
-                        lifesteal: lifestealAmount
+                        lifesteal: lifestealAmount,
+                        playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                     });
                 }
             }
