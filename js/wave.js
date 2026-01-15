@@ -130,6 +130,11 @@ const WaveSystem = {
     
     // 生成普通敵人
     spawnEnemy: function() {
+        // ✅ 安全检查：确保 Enemy 类已加载
+        if (typeof Enemy === 'undefined') {
+            console.error('[WaveSystem] Enemy 类未定义！请检查脚本加载顺序。');
+            return; // 跳过生成，避免错误
+        }
         // 檢查是否達到最大敵人數量（套用困難加成）
         const effectiveMax = CONFIG.OPTIMIZATION.MAX_ENEMIES + Math.max(0, (Game.maxEnemiesBonus || 0));
         if (Game.enemies.length >= effectiveMax) {
@@ -325,6 +330,11 @@ const WaveSystem = {
                 else sx = Utils.randomInt(inner, worldW - inner);
             }
             // 根據地圖選擇小BOSS類型（已在上面確定）
+            // ✅ 安全检查：确保 Enemy 类已加载
+            if (typeof Enemy === 'undefined') {
+                console.error('[WaveSystem] Enemy 类未定义！请检查脚本加载顺序。');
+                return; // 跳过生成，避免错误
+            }
             const miniBoss = new Enemy(sx, sy, miniBossType);
             Game.addEnemy(miniBoss);
             console.log('Mini Boss spawned!');
@@ -366,6 +376,11 @@ const WaveSystem = {
     
     // 生成大BOSS
     spawnBoss: function() {
+        // ✅ 安全检查：确保 Enemy 类已加载
+        if (typeof Enemy === 'undefined') {
+            console.error('[WaveSystem] Enemy 类未定义！请检查脚本加载顺序。');
+            return; // 跳过生成，避免错误
+        }
         // 根據地圖選擇大BOSS類型
         let bossType = 'BOSS';
         if (Game.selectedMap && Game.selectedMap.id === 'garden') bossType = 'ELF_BOSS';
