@@ -268,7 +268,8 @@ class IceFieldEffect extends Entity {
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "BIG_ICE_BALL",
                                 isCrit: isCrit,
-                                lifesteal: lifestealAmount
+                                lifesteal: lifestealAmount,
+                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                             };
                             // ✅ MMORPG 架構：如果應用減速效果，同步減速信息（確保所有玩家都能看到敵人被冰場減速的視覺效果）
                             if (needsSlow && typeof enemy.applySlow === 'function') {
