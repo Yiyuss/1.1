@@ -110,9 +110,24 @@ class Projectile extends Entity {
             return;
         }
         
+        // ✅ 权威服务器：视觉投射物不计算伤害（伤害由服务器计算）
+        if (this._isVisualOnly) {
+            // 视觉投射物只检查碰撞用于显示效果，不计算伤害
+            return;
+        }
+        
         // 檢查與敵人的碰撞
         for (const enemy of Game.enemies) {
             if (this.isColliding(enemy)) {
+                // ✅ 权威服务器：在多人模式下，客户端不计算伤害（由服务器计算）
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                if (isMultiplayer) {
+                    // 多人模式下，伤害由服务器计算，客户端只显示视觉效果
+                    // 投射物会被服务器移除，这里只标记为视觉投射物
+                    this._isVisualOnly = true;
+                    continue;
+                }
+                
                 // 使用 DamageSystem 計算浮動與爆擊；若不可用則維持原邏輯
                 let finalDamage = this.damage;
                 let isCrit = false;
@@ -129,10 +144,7 @@ class Projectile extends Entity {
                     lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                 }
                 
-                // ✅ MMO 架構：每個玩家都獨立造成傷害，通用單機和MMO
-                // 單機模式：直接造成傷害
-                // 多人模式：每個玩家都造成傷害，並發送enemy_damage（用於同步傷害數字）
-                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                // ✅ 单机模式：直接造成伤害
                 let isSurvivalMode = false;
                 try {
                     const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
@@ -158,7 +170,7 @@ class Projectile extends Entity {
                     }
                 }
                 
-                // 造成傷害（單機和多人模式都執行）
+                // 造成傷害（仅单机模式执行）
                 enemy.takeDamage(finalDamage, {
                     weaponType: this.weaponType,
                     playerUid: playerUid,
