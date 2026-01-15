@@ -1695,6 +1695,11 @@
         
         // 遊戲結束
         gameOver: function() {
+            // ✅ 防重複觸發：如果已經處理過失敗事件，直接返回
+            if (this._gameOverEventSent) {
+                return; // 已經處理過了，避免無限循環
+            }
+            this._gameOverEventSent = true; // 標記為已處理
             this.isGameOver = true;
             // ✅ 正常結束：組隊模式下回到房間，單機模式下正常返回開始畫面
             try {
@@ -1731,6 +1736,11 @@
         
         // 遊戲勝利
         victory: function() {
+            // ✅ 防重複觸發：如果已經處理過勝利事件，直接返回
+            if (this._victoryEventSent) {
+                return; // 已經處理過了，避免無限循環
+            }
+            this._victoryEventSent = true; // 標記為已處理
             this.isGameOver = true;
             // ✅ 正常結束：組隊模式下回到房間，單機模式下正常返回開始畫面
             try {
@@ -1747,6 +1757,7 @@
                 
                 // 組隊模式：廣播勝利事件，讓所有隊員也能看到勝利影片
                 // MMO 架構：每個玩家都廣播勝利事件，不依賴隊長端
+                // ✅ 只在第一次觸發時廣播，避免無限循環
                 if (isSurvivalMode && this.multiplayer) {
                     if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                         window.SurvivalOnlineBroadcastEvent("game_victory", {
@@ -1862,6 +1873,9 @@
             this.gameTime = 0;
             this.isPaused = false;
             this.isGameOver = false;
+            // ✅ 重置事件标志，確保新遊戲可以正常觸發勝利和失敗事件
+            this._victoryEventSent = false;
+            this._gameOverEventSent = false;
             this.boss = null;
             this.exit = null;
             
