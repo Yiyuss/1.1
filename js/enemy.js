@@ -1,5 +1,6 @@
 // 敵人類
 // ✅ 防止重複聲明：如果已經定義，跳過
+try {
 if (typeof Enemy === 'undefined') {
 class Enemy extends Entity {
     constructor(x, y, type) {
@@ -1454,3 +1455,7 @@ class Enemy extends Entity {
     }
 }
 } // ✅ 結束 if (typeof Enemy === 'undefined')
+} catch(e) {
+    console.error('[enemy.js] ❌ 执行错误:', e);
+    console.error('[enemy.js] 错误堆栈:', e.stack);
+}
