@@ -1,7 +1,13 @@
 // 經驗寶石類
 // ✅ 防止重複聲明：如果已經定義，跳過
-if (typeof ExperienceOrb === 'undefined') {
-class ExperienceOrb extends Entity {
+(function() {
+    'use strict';
+    if (typeof ExperienceOrb !== 'undefined') {
+        console.warn('[experience.js] ExperienceOrb 类已存在，跳过定义');
+        return;
+    }
+    try {
+        class ExperienceOrb extends Entity {
     constructor(x, y, value) {
         super(x, y, CONFIG.EXPERIENCE.SIZE, CONFIG.EXPERIENCE.SIZE);
         this.value = value || CONFIG.EXPERIENCE.VALUE;
@@ -165,4 +171,14 @@ class ExperienceOrb extends Entity {
         ctx.restore();
     }
 }
-} // ✅ 結束 if (typeof ExperienceOrb === 'undefined')
+        // 将类暴露到全局作用域
+        if (typeof window !== 'undefined') {
+            window.ExperienceOrb = ExperienceOrb;
+        } else if (typeof global !== 'undefined') {
+            global.ExperienceOrb = ExperienceOrb;
+        }
+    } catch(e) {
+        console.error('[experience.js] ❌ 定义 ExperienceOrb 类时出错:', e);
+        console.error('[experience.js] 错误堆栈:', e.stack);
+    }
+})();
