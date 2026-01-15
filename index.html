@@ -1242,20 +1242,22 @@
                 console.log('[index.html] ✅ 加载 enemy.js 前：CONFIG 已定义');
             }
         </script>
-        <script src="js/enemy.js?v=2026011304"></script>
+        <script src="js/enemy.js?v=2026011304" onerror="console.error('[index.html] ❌ enemy.js 脚本加载失败！', this.src);" onload="console.log('[index.html] ✅ enemy.js 脚本标签加载完成'); setTimeout(function(){ if (typeof Enemy === 'undefined') { console.error('[index.html] ❌ enemy.js 加载完成但 Enemy 类未定义！可能是执行错误或文件内容错误。'); } else { console.log('[index.html] ✅ Enemy 类已定义:', typeof Enemy); } }, 100);"></script>
         <script>
-            // ✅ 检查 enemy.js 是否成功加载并定义了 Enemy 类
-            if (typeof Enemy === 'undefined') {
-                console.error('[index.html] ❌ enemy.js 加载后 Enemy 类未定义！');
-                console.error('[index.html] 可能原因：1) 文件加载失败 2) 语法错误 3) 依赖项未定义');
-                // 检查是否有语法错误
-                const scripts = Array.from(document.querySelectorAll('script[src*="enemy.js"]'));
-                scripts.forEach((script, idx) => {
-                    console.error(`[index.html] 脚本 ${idx}: src=${script.src}`);
-                });
-            } else {
-                console.log('[index.html] ✅ Enemy 类已定义:', typeof Enemy);
-            }
+            // ✅ 延迟检查 Enemy 类（等待脚本执行完成）
+            setTimeout(function() {
+                if (typeof Enemy === 'undefined') {
+                    console.error('[index.html] ❌ enemy.js 加载后 Enemy 类未定义！');
+                    console.error('[index.html] 可能原因：1) 文件加载失败 2) 语法错误 3) 依赖项未定义 4) GitHub Pages 文件内容错误');
+                    // 检查是否有语法错误
+                    const scripts = Array.from(document.querySelectorAll('script[src*="enemy.js"]'));
+                    scripts.forEach((script, idx) => {
+                        console.error(`[index.html] 脚本 ${idx}: src=${script.src}, readyState=${script.readyState}`);
+                    });
+                } else {
+                    console.log('[index.html] ✅ Enemy 类已定义:', typeof Enemy);
+                }
+            }, 200);
         </script>
         <script>
             // ✅ 调试：检查依赖项
@@ -1299,19 +1301,21 @@
                 console.log('[index.html] ✅ Entity 类已加载:', typeof Entity);
             }
         </script>
-        <script src="js/experience.js?v=2026011304"></script>
+        <script src="js/experience.js?v=2026011304" onerror="console.error('[index.html] ❌ experience.js 脚本加载失败！', this.src);" onload="console.log('[index.html] ✅ experience.js 脚本标签加载完成'); setTimeout(function(){ if (typeof ExperienceOrb === 'undefined') { console.error('[index.html] ❌ experience.js 加载完成但 ExperienceOrb 类未定义！'); } else { console.log('[index.html] ✅ ExperienceOrb 类已定义:', typeof ExperienceOrb); } }, 100);"></script>
         <script>
-            // ✅ 调试：检查 ExperienceOrb 类是否已加载
-            if (typeof ExperienceOrb === 'undefined') {
-                console.error('[index.html] ❌ ExperienceOrb 类未定义！');
-            } else {
-                console.log('[index.html] ✅ ExperienceOrb 类已加载:', typeof ExperienceOrb);
-                // 检查是否有重复定义
-                const scripts = Array.from(document.querySelectorAll('script[src*="experience.js"]'));
-                if (scripts.length > 1) {
-                    console.warn('[index.html] ⚠️ 发现多个 experience.js 脚本标签:', scripts.length);
+            // ✅ 延迟检查 ExperienceOrb 类（等待脚本执行完成）
+            setTimeout(function() {
+                if (typeof ExperienceOrb === 'undefined') {
+                    console.error('[index.html] ❌ ExperienceOrb 类未定义！');
+                } else {
+                    console.log('[index.html] ✅ ExperienceOrb 类已加载:', typeof ExperienceOrb);
+                    // 检查是否有重复定义
+                    const scripts = Array.from(document.querySelectorAll('script[src*="experience.js"]'));
+                    if (scripts.length > 1) {
+                        console.warn('[index.html] ⚠️ 发现多个 experience.js 脚本标签:', scripts.length);
+                    }
                 }
-            }
+            }, 200);
         </script>
         <script src="js/chest.js"></script>
     <script src="js/ui.js"></script>
