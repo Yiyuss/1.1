@@ -1,0 +1,16 @@
+{
+  "name": "game-websocket-server",
+  "version": "1.0.0",
+  "description": "WebSocket server for game data relay",
+  "main": "websocket-server.js",
+  "scripts": {
+    "start": "node websocket-server.js"
+  },
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
+
