@@ -1550,8 +1550,25 @@ const Runtime = (() => {
             if (Game._gameOverEventSent) return; // 已經處理過了
             Game._gameOverEventSent = true; // 標記為已處理
             
-            if (typeof Game.gameOver === "function") {
-              Game.gameOver();
+            // ✅ 修復：直接調用遊戲結束邏輯，不再次調用 Game.gameOver()（避免循環）
+            // 因為 Game.gameOver() 會再次廣播事件，導致循環
+            Game.isGameOver = true;
+            // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
+            if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
+              window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => {});
+            }
+            // 先顯示開始畫面（作為背景），然後顯示房間大廳覆蓋層
+            try {
+              const startScreen = document.getElementById('start-screen');
+              if (startScreen) startScreen.classList.remove('hidden');
+            } catch (_) {}
+            // 回到房間大廳（覆蓋層）
+            if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
+              window.SurvivalOnlineUI.openLobbyScreen();
+            }
+            // 顯示遊戲結束畫面
+            if (typeof UI !== 'undefined' && typeof UI.showGameOverScreen === 'function') {
+              UI.showGameOverScreen();
             }
           }
         } catch (e) {
@@ -1579,8 +1596,25 @@ const Runtime = (() => {
             if (Game._victoryEventSent) return; // 已經處理過了
             Game._victoryEventSent = true; // 標記為已處理
             
-            if (typeof Game.victory === "function") {
-              Game.victory();
+            // ✅ 修復：直接調用勝利邏輯，不再次調用 Game.victory()（避免循環）
+            // 因為 Game.victory() 會再次廣播事件，導致循環
+            Game.isGameOver = true;
+            // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
+            if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
+              window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => {});
+            }
+            // 先顯示開始畫面（作為背景），然後顯示房間大廳覆蓋層
+            try {
+              const startScreen = document.getElementById('start-screen');
+              if (startScreen) startScreen.classList.remove('hidden');
+            } catch (_) {}
+            // 回到房間大廳（覆蓋層）
+            if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
+              window.SurvivalOnlineUI.openLobbyScreen();
+            }
+            // 顯示勝利畫面
+            if (typeof UI !== 'undefined' && typeof UI.showVictoryScreen === 'function') {
+              UI.showVictoryScreen();
             }
           }
         } catch (e) {
@@ -1769,66 +1803,61 @@ const Runtime = (() => {
   }
 
   function tick(game, deltaTime) {
-    // MMO 架構：每個玩家都發送自己的完整狀態，不依賴隊長端
-    if (!_tickCalled) {
-      _tickCalled = true;
-      console.log(`[SurvivalOnline] tick: 第一次被調用 (MMO架構), enabled=${enabled}`);
-    }
+    // ✅ 权威服务器：客户端只发送输入，不发送游戏状态
+    // ✅ 不影响单机：只在多人模式下执行
     if (!enabled) {
       return;
     }
+    if (!_tickCalled) {
+      _tickCalled = true;
+      console.log(`[SurvivalOnline] tick: 第一次被調用 (权威服务器架构), enabled=${enabled}`);
+    }
     const now = Date.now();
-    if (now - lastSendAt < 16) return; // ✅ 標準連線遊戲：60Hz更新頻率，讓移動更平滑自然
+    if (now - lastSendAt < 16) return; // ✅ 標準連線遊戲：60Hz更新頻率
     lastSendAt = now;
     
-    // MMO 架構：每個玩家都發送自己的完整狀態
+    // ✅ 权威服务器：只发送输入，不发送游戏状态
     try {
-      if (typeof Game !== "undefined" && Game.player) {
+      if (typeof Game !== "undefined" && Game.player && typeof Input !== "undefined") {
         const player = Game.player;
-        const member = _membersState ? _membersState.get(_uid) : null;
-        const characterId = (member && member.characterId) ? member.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
         
-        // 收集自己的完整狀態
-        // ✅ MMORPG 架構：包含經驗值和金幣，確保所有玩家都能同步
-        const myState = {
-          t: "state",
-          players: {
-            [_uid]: {
-              x: player.x,
-              y: player.y,
-              name: getPlayerNickname(),
-              characterId: characterId,
-              health: (typeof player.health === "number") ? player.health : 100,
-              maxHealth: (typeof player.maxHealth === "number") ? player.maxHealth : 100,
-              energy: (typeof player.energy === "number") ? player.energy : 0,
-              maxEnergy: (typeof player.maxEnergy === "number") ? player.maxEnergy : 100,
-              level: (typeof player.level === "number") ? player.level : 1,
-              exp: (typeof player.experience === "number") ? player.experience : 0,
-              expToNext: (typeof player.experienceToNextLevel === "number") ? player.experienceToNextLevel : 100,
-              coins: (typeof Game !== "undefined" && typeof Game.coins === "number") ? Game.coins : 0, // ✅ 添加金幣同步
-              _isDead: (typeof player._isDead === "boolean") ? player._isDead : false,
-              _resurrectionProgress: (typeof player._resurrectionProgress === "number") ? player._resurrectionProgress : 0,
-              isUltimateActive: (typeof player.isUltimateActive === "boolean") ? player.isUltimateActive : false,
-              ultimateImageKey: (player._ultimateImageKey) ? player._ultimateImageKey : null,
-              ultimateEndTime: (typeof player.ultimateEndTime === "number") ? player.ultimateEndTime : 0,
-              width: (typeof player.width === "number" && player.width > 0) ? player.width : null,
-              height: (typeof player.height === "number" && player.height > 0) ? player.height : null,
-              collisionRadius: (typeof player.collisionRadius === "number" && player.collisionRadius > 0) ? player.collisionRadius : null,
-              facingRight: (typeof player.facingRight === "boolean") ? player.facingRight : true,
-              facingAngle: (typeof player.facingAngle === "number") ? player.facingAngle : 0,
-              // ✅ MMORPG 架構：同步玩家受傷紅閃效果（確保所有玩家都能看到其他玩家受傷的視覺效果）
-              hitFlashTime: (typeof player.hitFlashTime === "number" && player.hitFlashTime > 0) ? player.hitFlashTime : 0
+        // 收集输入（按键和鼠标）
+        const keys = Input.keys || {};
+        const mousePos = Input.mousePosition || { x: 0, y: 0 };
+        
+        // 计算移动方向
+        let vx = 0;
+        let vy = 0;
+        const speed = 5; // 玩家移动速度
+        
+        if (keys['w'] || keys['W'] || keys['ArrowUp']) vy -= speed;
+        if (keys['s'] || keys['S'] || keys['ArrowDown']) vy += speed;
+        if (keys['a'] || keys['A'] || keys['ArrowLeft']) vx -= speed;
+        if (keys['d'] || keys['D'] || keys['ArrowRight']) vx += speed;
+        
+        // 标准化速度（对角线移动）
+        if (vx !== 0 && vy !== 0) {
+          vx *= 0.707;
+          vy *= 0.707;
+        }
+        
+        // 发送输入到服务器
+        if (_ws && _ws.readyState === WebSocket.OPEN && (vx !== 0 || vy !== 0)) {
+          _sendViaWebSocket({
+            type: 'game-data',
+            data: {
+              type: 'input',
+              inputType: 'move',
+              vx: vx,
+              vy: vy,
+              deltaTime: deltaTime,
+              timestamp: now
             }
-          }
-        };
-        
-        // 發送自己的狀態（通過 WebSocket 服務器中繼給其他玩家）
-        if (_ws && _ws.readyState === WebSocket.OPEN) {
-          _sendViaWebSocket(myState);
+          });
         }
       }
     } catch (e) {
-      console.warn("[SurvivalOnline] tick: 發送狀態失敗:", e);
+      console.warn("[SurvivalOnline] tick: 發送輸入失敗:", e);
     }
   }
 
@@ -2725,6 +2754,29 @@ async function connectWebSocket() {
         isHost: _isHost
       }));
       
+      // ✅ 权威服务器：发送CONFIG数据到服务器（用于敌人生成）
+      if (typeof CONFIG !== 'undefined') {
+        // 只发送必要的CONFIG数据（减少流量）
+        const configData = {
+          WAVES: CONFIG.WAVES || null,
+          ENEMIES: CONFIG.ENEMIES || null,
+          OPTIMIZATION: CONFIG.OPTIMIZATION || null,
+          TUNING: CONFIG.TUNING || null
+        };
+        
+        setTimeout(() => {
+          if (_ws && _ws.readyState === WebSocket.OPEN) {
+            _sendViaWebSocket({
+              type: 'game-data',
+              data: {
+                type: 'config',
+                config: configData
+              }
+            });
+          }
+        }, 100); // 延迟100ms确保连接已建立
+      }
+      
       Runtime.setEnabled(true);
       _setText("survival-online-status", "已連線（WebSocket）");
     };
@@ -2764,6 +2816,9 @@ async function connectWebSocket() {
             // ✅ MMO 架構：pos 消息已由 tick 函數處理，不再需要 handleHostDataMessage
             // 舊架構的 pos 消息處理已移除，現在每個玩家都通過 tick 函數發送自己的狀態
           }
+        } else if (msg.type === 'game-state') {
+          // ✅ 权威服务器：接收服务器游戏状态
+          handleServerGameState(msg.state, msg.timestamp);
         } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
           // 用戶加入/離開通知（可選）
           console.log(`[SurvivalOnline] connectWebSocket: ${msg.type}, uid=${msg.uid}`);
@@ -3063,6 +3118,219 @@ function _cleanupRateLimitTracker() {
     // 清理超過 5 秒沒有活動的追蹤
     if (now - tracker.lastResetTime > 5000) {
       _rateLimitTracker.delete(uid);
+    }
+  }
+}
+
+// ✅ 权威服务器：处理服务器游戏状态
+// ✅ 不影响单机：只在多人模式下执行（通过 Runtime.setEnabled 控制）
+function handleServerGameState(state, timestamp) {
+  if (!state || typeof state !== 'object') return;
+  
+  // ✅ 安全检查：只在多人模式下执行
+  if (typeof Game === 'undefined' || !Game.multiplayer) return;
+  
+  try {
+    // 更新玩家状态
+    if (Array.isArray(state.players)) {
+      for (const playerState of state.players) {
+        if (playerState.uid === _uid) {
+          // 本地玩家：只同步关键状态（血量、能量等），位置由输入控制
+          if (typeof Game !== 'undefined' && Game.player) {
+            Game.player.health = playerState.health || Game.player.health;
+            Game.player.maxHealth = playerState.maxHealth || Game.player.maxHealth;
+            Game.player.energy = playerState.energy || Game.player.energy;
+            Game.player.maxEnergy = playerState.maxEnergy || Game.player.maxEnergy;
+            Game.player.level = playerState.level || Game.player.level;
+            Game.player.experience = playerState.experience || Game.player.experience;
+            Game.player.gold = playerState.gold || Game.player.gold;
+          }
+        } else {
+          // 远程玩家：更新位置和状态
+          updateRemotePlayerFromServer(playerState);
+        }
+      }
+    }
+    
+    // 更新敌人（服务器权威）
+    if (Array.isArray(state.enemies)) {
+      updateEnemiesFromServer(state.enemies);
+    }
+    
+    // 更新投射物（服务器权威）
+    if (Array.isArray(state.projectiles)) {
+      updateProjectilesFromServer(state.projectiles);
+    }
+    
+    // 更新经验球（服务器权威）
+    if (Array.isArray(state.experienceOrbs)) {
+      updateExperienceOrbsFromServer(state.experienceOrbs);
+    }
+    
+    // 更新波次
+    if (typeof state.wave === 'number' && typeof WaveSystem !== 'undefined') {
+      WaveSystem.currentWave = state.wave;
+      if (typeof UI !== 'undefined' && UI.updateWaveInfo) {
+        UI.updateWaveInfo(state.wave);
+      }
+    }
+    
+    // 更新游戏状态
+    if (typeof Game !== 'undefined') {
+      Game.gameTime = state.gameTime || Game.gameTime;
+      if (state.isGameOver) {
+        Game.isGameOver = true;
+        if (typeof Game.gameOver === 'function') {
+          Game.gameOver();
+        }
+      }
+      if (state.isVictory) {
+        if (typeof Game.victory === 'function') {
+          Game.victory();
+        }
+      }
+    }
+  } catch (e) {
+    console.error('[SurvivalOnline] 处理服务器游戏状态失败:', e);
+  }
+}
+
+// ✅ 不影响单机：只在多人模式下执行
+function updateRemotePlayerFromServer(playerState) {
+  if (typeof Game === 'undefined' || !Game.multiplayer) return;
+  
+  // 使用 RemotePlayerManager 更新远程玩家
+  if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
+    let remotePlayer = RemotePlayerManager.get(playerState.uid);
+    if (!remotePlayer) {
+      // 创建远程玩家
+      if (typeof RemotePlayerManager.create === 'function') {
+        remotePlayer = RemotePlayerManager.create(playerState.uid, playerState);
+      }
+    }
+    if (remotePlayer) {
+      // 更新位置（插值平滑）
+      const dx = playerState.x - remotePlayer.x;
+      const dy = playerState.y - remotePlayer.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 1) {
+        const lerp = 0.3;
+        remotePlayer.x += dx * lerp;
+        remotePlayer.y += dy * lerp;
+      } else {
+        remotePlayer.x = playerState.x;
+        remotePlayer.y = playerState.y;
+      }
+      
+      // 更新状态
+      remotePlayer.health = playerState.health || remotePlayer.health;
+      remotePlayer.maxHealth = playerState.maxHealth || remotePlayer.maxHealth;
+      remotePlayer.energy = playerState.energy || remotePlayer.energy;
+      remotePlayer.maxEnergy = playerState.maxEnergy || remotePlayer.maxEnergy;
+      remotePlayer.level = playerState.level || remotePlayer.level;
+      remotePlayer.facing = playerState.facing || remotePlayer.facing;
+      remotePlayer.isDead = playerState.isDead || false;
+    }
+  }
+}
+
+// ✅ 不影响单机：只在多人模式下执行
+function updateEnemiesFromServer(enemies) {
+  if (typeof Game === 'undefined' || !Game.multiplayer || !Game.enemies) return;
+  
+  // 创建敌人ID映射
+  const serverEnemyIds = new Set(enemies.map(e => e.id));
+  const localEnemyIds = new Set(Game.enemies.map(e => e.id));
+  
+  // 移除服务器不存在的敌人
+  for (let i = Game.enemies.length - 1; i >= 0; i--) {
+    if (!serverEnemyIds.has(Game.enemies[i].id)) {
+      Game.enemies.splice(i, 1);
+    }
+  }
+  
+  // 更新或创建敌人
+  for (const enemyState of enemies) {
+    let enemy = Game.enemies.find(e => e.id === enemyState.id);
+    if (!enemy && typeof Enemy !== 'undefined') {
+      // 创建新敌人
+      enemy = new Enemy(enemyState.x, enemyState.y, enemyState.type);
+      enemy.id = enemyState.id;
+      Game.enemies.push(enemy);
+    }
+    if (enemy) {
+      // 更新位置和状态
+      enemy.x = enemyState.x;
+      enemy.y = enemyState.y;
+      enemy.health = enemyState.health;
+      enemy.maxHealth = enemyState.maxHealth;
+      if (enemyState.isDead) {
+        enemy.health = 0;
+        enemy.markedForDeletion = true;
+      }
+    }
+  }
+}
+
+// ✅ 不影响单机：只在多人模式下执行
+function updateProjectilesFromServer(projectiles) {
+  if (typeof Game === 'undefined' || !Game.multiplayer || !Game.projectiles) return;
+  
+  // 创建投射物ID映射
+  const serverProjectileIds = new Set(projectiles.map(p => p.id));
+  const localProjectileIds = new Set(Game.projectiles.map(p => p.id));
+  
+  // 移除服务器不存在的投射物
+  for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+    if (!serverProjectileIds.has(Game.projectiles[i].id)) {
+      Game.projectiles.splice(i, 1);
+    }
+  }
+  
+  // 更新或创建投射物
+  for (const projState of projectiles) {
+    let proj = Game.projectiles.find(p => p.id === projState.id);
+    if (!proj && typeof Projectile !== 'undefined') {
+      // 创建新投射物（仅视觉）
+      proj = new Projectile(projState.x, projState.y, projState.angle, projState.weaponType, 0, projState.speed, projState.size);
+      proj.id = projState.id;
+      proj._isVisualOnly = true; // 仅视觉，伤害由服务器计算
+      Game.projectiles.push(proj);
+    }
+    if (proj) {
+      // 更新位置
+      proj.x = projState.x;
+      proj.y = projState.y;
+      proj.angle = projState.angle;
+    }
+  }
+}
+
+// ✅ 不影响单机：只在多人模式下执行
+function updateExperienceOrbsFromServer(orbs) {
+  if (typeof Game === 'undefined' || !Game.multiplayer || !Game.experienceOrbs) return;
+  
+  // 创建经验球ID映射
+  const serverOrbIds = new Set(orbs.map(o => o.id));
+  
+  // 移除服务器不存在的经验球
+  for (let i = Game.experienceOrbs.length - 1; i >= 0; i--) {
+    if (!serverOrbIds.has(Game.experienceOrbs[i].id)) {
+      Game.experienceOrbs.splice(i, 1);
+    }
+  }
+  
+  // 更新或创建经验球
+  for (const orbState of orbs) {
+    let orb = Game.experienceOrbs.find(o => o.id === orbState.id);
+    if (!orb && typeof ExperienceOrb !== 'undefined') {
+      orb = new ExperienceOrb(orbState.x, orbState.y, orbState.value);
+      orb.id = orbState.id;
+      Game.experienceOrbs.push(orb);
+    }
+    if (orb) {
+      orb.x = orbState.x;
+      orb.y = orbState.y;
     }
   }
 }
