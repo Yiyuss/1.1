@@ -203,7 +203,8 @@ class LaserBeam extends Entity {
                                 damage: finalDamage,
                                 weaponType: this.weaponType || "UNKNOWN",
                                 isCrit: isCrit,
-                                lifesteal: lifestealAmount
+                                lifesteal: lifestealAmount,
+                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                             });
                         }
                     }
