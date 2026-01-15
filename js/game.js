@@ -1143,6 +1143,35 @@
                     const isEnvironmentHazard = (projectile.weaponType === "INTERSECTION_CAR") ||
                                                 (projectile.constructor && projectile.constructor.name === 'CarHazard');
                     
+                    // ✅ 权威服务器：发送攻击输入到服务器，而不是创建投射物
+                    // 在权威服务器模式下，客户端不创建投射物，只发送输入
+                    if (isLocalPlayerProjectile && typeof window !== 'undefined' && window.SurvivalOnlineRuntime) {
+                        // 发送攻击输入到服务器
+                        const attackInput = {
+                            type: 'game-data',
+                            data: {
+                                type: 'input',
+                                inputType: 'attack',
+                                weaponType: projectile.weaponType || 'UNKNOWN',
+                                x: projectile.x || this.player.x,
+                                y: projectile.y || this.player.y,
+                                angle: projectile.angle || 0,
+                                damage: projectile.damage || 10,
+                                speed: projectile.speed || 5,
+                                size: projectile.size || 20,
+                                timestamp: Date.now()
+                            }
+                        };
+                        
+                        if (typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                            window.SurvivalOnlineRuntime.sendToNet(attackInput.data);
+                        }
+                        
+                        // 在权威服务器模式下，不创建本地投射物（由服务器创建）
+                        // 但为了视觉效果，仍然创建视觉投射物
+                        projectile._isVisualOnly = true;
+                    }
+                    
                     if (isLocalPlayerProjectile || isRemotePlayerProjectile || isAICompanion || isEnvironmentHazard) {
                         // 為投射物分配唯一ID（如果還沒有）
                         if (!projectile.id) {
