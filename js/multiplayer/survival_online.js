@@ -5312,24 +5312,24 @@ try {
 } catch (_) { }
 
 
-// ✅ 权威服务器：处理服务器广播的游戏状态
-function handleServerGameState(state, timestamp) {
-  if (!state || !state.enemies) return;
 
-  // 1. 同步敌人
-  syncEnemies(state.enemies);
+// function handleServerGameState(state, timestamp) {
+if (!state || !state.enemies) return;
 
-  // 2. 同步游戏时间/波次（可选，避免频繁跳变）
-  if (state.wave && typeof WaveSystem !== 'undefined') {
-    if (WaveSystem.currentWave !== state.wave) {
-      console.log(`[SurvivalOnline] 同步波次: ${WaveSystem.currentWave} -> ${state.wave}`);
-      WaveSystem.currentWave = state.wave;
-      // 更新UI
-      if (typeof UI !== 'undefined' && UI.updateWaveInfo) {
-        UI.updateWaveInfo(WaveSystem.currentWave);
-      }
+// 1. 同步敌人
+syncEnemies(state.enemies);
+
+// 2. 同步游戏时间/波次（可选，避免频繁跳变）
+if (state.wave && typeof WaveSystem !== 'undefined') {
+  if (WaveSystem.currentWave !== state.wave) {
+    console.log(`[SurvivalOnline] 同步波次: ${WaveSystem.currentWave} -> ${state.wave}`);
+    WaveSystem.currentWave = state.wave;
+    // 更新UI
+    if (typeof UI !== 'undefined' && UI.updateWaveInfo) {
+      UI.updateWaveInfo(WaveSystem.currentWave);
     }
   }
+}
 }
 
 // 同步敵人列表（核心邏輯）
