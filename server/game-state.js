@@ -25,7 +25,7 @@ class GameState {
     this.gameTime = 0;
     this.lastUpdateTime = Date.now();
     this.config = null; // CONFIG数据（从客户端同步）
-    
+
     // ✅ 世界大小（与客户端CONFIG一致）
     // 客户端计算方式：worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3)
     // 720P九宫格模式：1280 * 3 = 3840 (宽度), 720 * 3 = 2160 (高度)
@@ -78,24 +78,24 @@ class GameState {
         player.vy = input.vy || 0;
         player.x += player.vx * (input.deltaTime || 16.67) / 16.67;
         player.y += player.vy * (input.deltaTime || 16.67) / 16.67;
-        
+
         // ✅ 边界检查（使用实例的世界大小）
         const worldWidth = this.worldWidth || 1920;
         const worldHeight = this.worldHeight || 1080;
         player.x = Math.max(0, Math.min(worldWidth, player.x));
         player.y = Math.max(0, Math.min(worldHeight, player.y));
-        
+
         // 更新面向
         if (player.vx !== 0 || player.vy !== 0) {
           player.facing = Math.atan2(player.vy, player.vx);
         }
         break;
-        
+
       case 'attack':
         // 服务器创建投射物
         this.createProjectile(uid, input);
         break;
-        
+
       case 'use_ultimate':
         // 服务器处理大招
         this.handleUltimate(uid, input);
@@ -111,22 +111,22 @@ class GameState {
     // ✅ 参数验证和边界检查
     const worldWidth = this.worldWidth || 1920;
     const worldHeight = this.worldHeight || 1080;
-    
+
     // 验证位置（必须在世界范围内）
     let x = typeof input.x === 'number' ? input.x : player.x;
     let y = typeof input.y === 'number' ? input.y : player.y;
     x = Math.max(0, Math.min(worldWidth, x));
     y = Math.max(0, Math.min(worldHeight, y));
-    
+
     // 验证伤害（必须为正数）
     const damage = (typeof input.damage === 'number' && input.damage > 0) ? input.damage : 10;
-    
+
     // 验证速度（必须为正数）
     const speed = (typeof input.speed === 'number' && input.speed > 0) ? input.speed : 5;
-    
+
     // 验证大小（必须为正数）
     const size = (typeof input.size === 'number' && input.size > 0) ? input.size : 20;
-    
+
     // 验证最大飞行距离（必须为正数）
     const maxDistance = (typeof input.maxDistance === 'number' && input.maxDistance > 0) ? input.maxDistance : 1000;
 
@@ -147,7 +147,7 @@ class GameState {
       distance: 0, // 已飞行距离
       createdAt: Date.now()
     };
-    
+
     this.projectiles.push(projectile);
     return projectile;
   }
@@ -156,11 +156,11 @@ class GameState {
   handleUltimate(uid, input) {
     const player = this.players.get(uid);
     if (!player || player.isDead) return;
-    
+
     // ✅ 服务器权威：处理玩家大招
     // 注意：大招主要是视觉效果和特殊效果，服务器端只需要同步状态
     // 具体的大招逻辑（如凤梨掉落物、爆炸等）由客户端处理并通过事件广播同步
-    
+
     // 服务器端只同步大招状态（如果需要）
     // 例如：设置 isUltimateActive 标志（如果需要服务器端验证）
     // 当前实现：大招由客户端处理，服务器端不需要额外逻辑
@@ -183,6 +183,9 @@ class GameState {
 
     // ✅ 服务器权威：经验球收集检测
     this.updateExperienceOrbs(deltaTime);
+
+    // ✅ 服务器权威：宝箱超时自动清除
+    this.updateChests(deltaTime);
 
     // ✅ 服务器权威：更新路口车辆
     this.updateCarHazards(deltaTime);
@@ -216,19 +219,19 @@ class GameState {
   // 更新投射物
   updateProjectiles(deltaTime) {
     const deltaMul = deltaTime / 16.67;
-    
+
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const proj = this.projectiles[i];
-      
+
       // ✅ 服务器权威：追踪目标逻辑（homing）
       if (proj.homing && this.enemies.length > 0) {
         let target = null;
-        
+
         // 优先追踪分配的目标
         if (proj.assignedTargetId) {
           target = this.enemies.find(e => e.id === proj.assignedTargetId && !e.isDead && e.health > 0);
         }
-        
+
         // 若分配目标不存在，寻找最近敌人
         if (!target) {
           let minDist = Infinity;
@@ -243,29 +246,29 @@ class GameState {
             }
           }
         }
-        
+
         // 更新投射物角度（追踪目标）
         if (target) {
           const desiredAngle = Math.atan2(target.y - proj.y, target.x - proj.x);
           let delta = desiredAngle - proj.angle;
-          
+
           // 规范化角度差到 [-π, π]
           while (delta > Math.PI) delta -= Math.PI * 2;
           while (delta < -Math.PI) delta += Math.PI * 2;
-          
+
           // 限制每帧最大转向量
           const maxTurn = (proj.turnRatePerSec || 0) * (deltaTime / 1000);
           if (delta > maxTurn) delta = maxTurn;
           if (delta < -maxTurn) delta = -maxTurn;
-          
+
           proj.angle += delta;
         }
       }
-      
+
       // 移动投射物
       proj.x += Math.cos(proj.angle) * proj.speed * deltaMul;
       proj.y += Math.sin(proj.angle) * proj.speed * deltaMul;
-      
+
       // 初始化投射物距离（如果不存在）
       if (proj.distance === undefined) {
         proj.distance = 0;
@@ -273,18 +276,18 @@ class GameState {
       if (proj.maxDistance === undefined) {
         proj.maxDistance = 1000; // 默认最大飞行距离
       }
-      
+
       // 计算已飞行距离
       const dx = Math.cos(proj.angle) * proj.speed * deltaMul;
       const dy = Math.sin(proj.angle) * proj.speed * deltaMul;
       proj.distance += Math.sqrt(dx * dx + dy * dy);
-      
+
       // 检查最大飞行距离
       if (proj.distance >= proj.maxDistance) {
         this.projectiles.splice(i, 1);
         continue;
       }
-      
+
       // ✅ 检查边界（使用实例的世界大小）
       const worldWidth = this.worldWidth || 1920;
       const worldHeight = this.worldHeight || 1080;
@@ -293,7 +296,7 @@ class GameState {
         this.projectiles.splice(i, 1);
         continue;
       }
-      
+
       // ✅ 服务器权威：检查与障碍物碰撞
       // 注意：障碍物是静态的，存储在 this.obstacles 中
       let hitObstacle = false;
@@ -303,7 +306,7 @@ class GameState {
         const obsW = obstacle.width || obstacle.size || 150;
         const obsH = obstacle.height || obstacle.size || 150;
         const projRadius = (proj.size || 20) / 2;
-        
+
         // 圆形与矩形碰撞检测
         const rectX = obsX - obsW / 2;
         const rectY = obsY - obsH / 2;
@@ -312,42 +315,42 @@ class GameState {
         const dx = proj.x - closestX;
         const dy = proj.y - closestY;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        
+
         if (dist < projRadius) {
           hitObstacle = true;
           break;
         }
       }
-      
+
       if (hitObstacle) {
         // 投射物与障碍物碰撞，移除投射物
         this.projectiles.splice(i, 1);
         continue;
       }
-      
+
       // 检查与敌人碰撞（服务器权威计算伤害）
       for (const enemy of this.enemies) {
         if (enemy.health <= 0 || enemy.isDead) continue;
-        
+
         const dx = proj.x - enemy.x;
         const dy = proj.y - enemy.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const collisionRadius = (proj.size || 20) / 2 + (enemy.size || 32) / 2;
-        
+
         if (dist < collisionRadius) {
           // 服务器计算伤害
           enemy.health -= proj.damage;
-          
+
           // ✅ 服务器权威：设置敌人受伤红闪状态
           enemy.hitFlashTime = 150; // 默认150ms红闪时间（与客户端一致）
-          
+
           if (enemy.health <= 0) {
             enemy.health = 0;
             enemy.isDead = true;
             // 生成经验球
             this.spawnExperienceOrb(enemy.x, enemy.y, 5);
           }
-          
+
           // 移除投射物（当前不支持穿透，碰撞后立即移除）
           // TODO: 如果需要支持穿透，可以添加 pierce 属性
           this.projectiles.splice(i, 1);
@@ -360,10 +363,10 @@ class GameState {
   // 更新敌人
   updateEnemies(deltaTime) {
     const now = Date.now();
-    
+
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
-      
+
       // ✅ MMORPG 架構：更新敵人死亡動畫狀態
       if (enemy.isDying) {
         const deltaMul = deltaTime / 16.67;
@@ -372,14 +375,14 @@ class GameState {
         enemy.deathElapsed = Math.min(deathDuration, enemy.deathElapsed);
         enemy.x += (enemy.deathVelX || 0) * deltaMul;
         enemy.y += (enemy.deathVelY || 0) * deltaMul;
-        
+
         // 死亡動畫完成後移除
         if (enemy.deathElapsed >= deathDuration) {
           this.enemies.splice(i, 1);
           continue;
         }
       }
-      
+
       if (enemy.isDead || enemy.health <= 0) {
         // 如果敵人死亡但還沒有開始死亡動畫，觸發死亡動畫
         if (!enemy.isDying) {
@@ -396,7 +399,7 @@ class GameState {
               nearestPlayer = player;
             }
           }
-          
+
           if (nearestPlayer) {
             const angle = Math.atan2(nearestPlayer.y - enemy.y, nearestPlayer.x - enemy.x);
             const pushDist = 20;
@@ -405,7 +408,7 @@ class GameState {
             enemy.deathVelX = -Math.cos(angle) * pushSpeed;
             enemy.deathVelY = -Math.sin(angle) * pushSpeed;
           }
-          
+
           enemy.isDying = true;
           enemy.deathElapsed = 0;
           enemy.deathDuration = 300;
@@ -414,12 +417,12 @@ class GameState {
         // 不立即移除，等待死亡動畫完成
         continue;
       }
-      
+
       // ✅ MMORPG 架構：更新敵人受傷紅閃狀態
       if (enemy.hitFlashTime && enemy.hitFlashTime > 0) {
         enemy.hitFlashTime = Math.max(0, enemy.hitFlashTime - deltaTime);
       }
-      
+
       // 初始化敌人攻击冷却
       if (!enemy.lastAttackTime) {
         enemy.lastAttackTime = 0;
@@ -430,7 +433,7 @@ class GameState {
       if (!enemy.damage) {
         enemy.damage = 10; // 默认伤害
       }
-      
+
       // 敌人AI（服务器运行）
       // 找到最近的玩家
       let nearestPlayer = null;
@@ -445,33 +448,33 @@ class GameState {
           nearestPlayer = player;
         }
       }
-      
+
       // 敌人移动（服务器权威）
       if (nearestPlayer) {
         const angle = Math.atan2(nearestPlayer.y - enemy.y, nearestPlayer.x - enemy.x);
         const speed = enemy.speed || 2;
         enemy.x += Math.cos(angle) * speed * (deltaTime / 16.67);
         enemy.y += Math.sin(angle) * speed * (deltaTime / 16.67);
-        
+
         // ✅ 敌人边界检查（防止敌人移动到世界外）
         const worldWidth = this.worldWidth || 1920;
         const worldHeight = this.worldHeight || 1080;
         const margin = 100; // 允许敌人稍微超出边界（用于生成和移动）
         enemy.x = Math.max(-margin, Math.min(worldWidth + margin, enemy.x));
         enemy.y = Math.max(-margin, Math.min(worldHeight + margin, enemy.y));
-        
+
         // ✅ 服务器权威：敌人攻击玩家（碰撞检测和伤害计算）
         const enemySize = enemy.size || 32;
         const playerSize = 32; // 默认玩家大小
         const collisionRadius = (enemySize / 2) + (playerSize / 2);
-        
+
         if (nearestDist < collisionRadius) {
           // 检查攻击冷却
           if (now - enemy.lastAttackTime >= enemy.attackCooldown) {
             // 服务器计算伤害
             nearestPlayer.health = Math.max(0, nearestPlayer.health - enemy.damage);
             enemy.lastAttackTime = now;
-            
+
             // 检查玩家是否死亡
             if (nearestPlayer.health <= 0) {
               nearestPlayer.health = 0;
@@ -488,14 +491,14 @@ class GameState {
   // 解决方案：将CONFIG数据作为参数传入，或从客户端同步
   spawnEnemies(now, config = null) {
     if (now - this.lastEnemySpawnTime < this.enemySpawnRate) return;
-    
+
     this.lastEnemySpawnTime = now;
-    
+
     // 如果没有CONFIG，使用简化逻辑
     if (!config || !config.WAVES || !config.ENEMIES) {
       // 简化版：每波生成固定数量的敌人
       const enemyCount = Math.min(5, 20 - this.enemies.length);
-      
+
       for (let i = 0; i < enemyCount; i++) {
         const edge = Math.floor(Math.random() * 4);
         let x, y;
@@ -505,7 +508,7 @@ class GameState {
           case 2: x = Math.random() * 1920; y = 1130; break;
           case 3: x = -50; y = Math.random() * 1080; break;
         }
-        
+
         this.enemies.push({
           id: `enemy_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
           x, y,
@@ -519,30 +522,30 @@ class GameState {
       }
       return;
     }
-    
+
     // 完整版：使用CONFIG数据（需要从客户端同步CONFIG）
     const maxEnemies = (config.OPTIMIZATION && config.OPTIMIZATION.MAX_ENEMIES) || 100;
     if (this.enemies.length >= maxEnemies) return;
-    
+
     // 获取可用的敌人类型
     const availableTypes = (config.WAVES.ENEMY_TYPES || [])
       .filter(entry => entry.WAVE <= this.wave)
       .map(entry => entry.TYPE);
-    
+
     if (availableTypes.length === 0) return;
-    
+
     // 计算生成数量
     const base = config.WAVES.SPAWN_COUNT.INITIAL || 3;
     const inc = config.WAVES.SPAWN_COUNT.INCREASE_PER_WAVE || 0.9;
     const max = config.WAVES.SPAWN_COUNT.MAXIMUM || 12;
     const countBase = Math.min(Math.floor(base + (this.wave - 1) * inc), max);
     const count = Math.max(1, countBase);
-    
+
     for (let i = 0; i < count && this.enemies.length < maxEnemies; i++) {
       // 随机选择敌人类型
       const enemyType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
       const enemyConfig = config.ENEMIES[enemyType] || { SIZE: 32, HEALTH: 100, SPEED: 2 };
-      
+
       // ✅ 在世界边缘生成（使用实例的世界大小）
       const worldWidth = this.worldWidth || 1920;
       const worldHeight = this.worldHeight || 1080;
@@ -554,12 +557,12 @@ class GameState {
         case 2: x = Math.random() * worldWidth; y = worldHeight + 50; break;
         case 3: x = -50; y = Math.random() * worldHeight; break;
       }
-      
+
       // 计算血量（根据波次）
       const healthMultiplier = config.WAVES.HEALTH_MULTIPLIER_PER_WAVE || 1.05;
       const baseHealth = enemyConfig.HEALTH || 100;
       const health = Math.floor(baseHealth * Math.pow(healthMultiplier, this.wave - 1));
-      
+
       this.enemies.push({
         id: `enemy_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
         x, y,
@@ -589,21 +592,21 @@ class GameState {
   updateExperienceOrbs(deltaTime) {
     for (let i = this.experienceOrbs.length - 1; i >= 0; i--) {
       const orb = this.experienceOrbs[i];
-      
+
       // 检查是否被任何玩家收集
       for (const player of this.players.values()) {
         if (player.isDead) continue;
-        
+
         const dx = player.x - orb.x;
         const dy = player.y - orb.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const collisionRadius = (orb.size || 20) / 2 + 16; // 玩家半径约16
-        
+
         if (dist < collisionRadius) {
           // ✅ 方案1：经验共享 - 所有玩家都获得经验
           // 注意：经验值由客户端计算（因为涉及升级需求等复杂逻辑）
           // 服务器端只负责移除经验球，经验值由客户端通过事件广播同步
-          
+
           // 移除经验球
           this.experienceOrbs.splice(i, 1);
           break;
@@ -612,11 +615,54 @@ class GameState {
     }
   }
 
+  // ✅ 服务器权威：添加宝箱（由主机通知）
+  addChest(chestData) {
+    if (!chestData || !chestData.id) return;
+
+    // 检查是否已存在
+    if (this.chests.some(c => c.id === chestData.id)) return;
+
+    this.chests.push({
+      id: chestData.id,
+      x: chestData.x,
+      y: chestData.y,
+      type: chestData.type || 'NORMAL', // NORMAL, PINEAPPLE
+      createdAt: Date.now(),
+      ttl: 60000 // 1分钟后过期
+    });
+    console.log(`[GameState] 添加宝箱: ${chestData.id}`);
+  }
+
+  // ✅ 服务器权威：尝试收集宝箱
+  collectChest(uid, chestId) {
+    const chestIndex = this.chests.findIndex(c => c.id === chestId);
+    if (chestIndex === -1) {
+      // 宝箱不存在或已被收集
+      return false;
+    }
+
+    // 移除宝箱
+    this.chests.splice(chestIndex, 1);
+    console.log(`[GameState] 宝箱被收集: ${chestId} by ${uid}`);
+    return true;
+  }
+
+  // ✅ 服务器权威：更新宝箱（超时清除）
+  updateChests(deltaTime) {
+    const now = Date.now();
+    for (let i = this.chests.length - 1; i >= 0; i--) {
+      const chest = this.chests[i];
+      if (now - chest.createdAt > chest.ttl) {
+        this.chests.splice(i, 1);
+      }
+    }
+  }
+
   // 更新波次
   updateWave(now) {
     const waveElapsed = now - this.waveStartTime;
     const waveDuration = 60000; // 60秒一波
-    
+
     if (waveElapsed >= waveDuration) {
       this.wave++;
       this.waveStartTime = now;
@@ -634,7 +680,7 @@ class GameState {
         break;
       }
     }
-    
+
     if (allDead && this.players.size > 0) {
       this.isGameOver = true;
     }
@@ -667,7 +713,7 @@ class GameState {
   setMap(mapData) {
     this.selectedMap = mapData;
   }
-  
+
   // ✅ 设置世界大小（从客户端同步）
   setWorldSize(worldWidth, worldHeight) {
     if (typeof worldWidth === 'number' && worldWidth > 0) {
