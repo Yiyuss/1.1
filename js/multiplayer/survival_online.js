@@ -3059,8 +3059,19 @@ async function connectWebSocket() {
           } else if (data.t === "input") {
             // ✅ MMORPG 架構：所有玩家都處理 input 消息，同步遠程玩家移動
             _handleInputMessage(senderUid, data);
-            // ✅ MMO 架構：pos 消息已由 tick 函數處理，不再需要 handleHostDataMessage
-            // 舊架構的 pos 消息處理已移除，現在每個玩家都通過 tick 函數發送自己的狀態
+          } else if (data.t === "pos") {
+            // ✅ MMORPG 架構：處理 pos 消息 (Client-Authoritative)
+            // 當收到其他玩家發送的 pos 數據時，更新本地對該玩家的狀態
+
+            // 構造一個符合 onStateMessage 格式的 payload，複用現有邏輯
+            const pseudoStateMSG = {
+              t: "state",
+              players: {
+                [senderUid]: data // data 本身包含 x, y, health 等字段
+              }
+            };
+            // 調用 Runtime.onStateMessage 進行更新
+            Runtime.onStateMessage(pseudoStateMSG);
           }
         } else if (msg.type === 'game-state') {
           // ✅ 权威服务器：接收服务器游戏状态
