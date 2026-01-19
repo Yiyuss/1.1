@@ -6,10 +6,14 @@
  * - 保持既有參數與繪製順序不變，視覺效果完全一致。
  */
 class Chest extends Entity {
-    constructor(x, y) {
+    constructor(x, y, id = null) {
         const size = 48;
         super(x, y, size, size);
         this.collisionRadius = size / 2;
+        // ✅ MMORPG 架構：唯一ID（用於服務器驗證）
+        this.id = id || Utils.generateUUID();
+        // 防止重複收集標記
+        this.isCollecting = false;
 
         // 光束幾何
         this.beamH = 120;
@@ -20,9 +24,9 @@ class Chest extends Entity {
         // 可微調參數（保持原值）
         this.tune = {
             // 外層光束透明與邊緣柔化
-            outerAlpha0:   0.62,
-            outerAlpha35:  0.42,
-            outerAlpha80:  0.16,
+            outerAlpha0: 0.62,
+            outerAlpha35: 0.42,
+            outerAlpha80: 0.16,
             outerAlpha100: 0.04,
             shadowAlphaOuter: 0.38,
             shadowBlurOuter: 26,
@@ -38,9 +42,9 @@ class Chest extends Entity {
             useCore: true,
             coreBaseW: 12,
             coreTopW: 6,
-            coreAlpha0:   0.82,
-            coreAlpha40:  0.58,
-            coreAlpha85:  0.18,
+            coreAlpha0: 0.82,
+            coreAlpha40: 0.58,
+            coreAlpha85: 0.18,
             coreAlpha100: 0.00,
             coreComposite: 'screen',
             shadowAlphaCore: 0.28,
@@ -79,7 +83,7 @@ class Chest extends Entity {
 
             // 呼吸振幅
             breathAmplitudeOuter: 0.04,
-            breathAmplitudeCore:  0.02,
+            breathAmplitudeCore: 0.02,
 
             // 合成與前景薄環
             compositeBack: 'source-over',
@@ -94,7 +98,7 @@ class Chest extends Entity {
     update(deltaTime) {
         // ✅ MMORPG 架構：防止重複處理，如果已經被標記為刪除，不再處理
         if (this.markedForDeletion) return;
-        
+
         // ✅ MMORPG 架構：支援多玩家收集（本地玩家 + 遠程玩家），不依賴室長端
         const allPlayers = [];
         if (Game.player) allPlayers.push(Game.player);
@@ -109,8 +113,8 @@ class Chest extends Entity {
                             ? ModeManager.getActiveModeId()
                             : null);
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
-                } catch (_) {}
-                
+                } catch (_) { }
+
                 if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
                     const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
                     if (typeof rm.getAllPlayers === 'function') {
@@ -122,15 +126,15 @@ class Chest extends Entity {
                         }
                     }
                 }
-            } catch (_) {}
+            } catch (_) { }
         }
-        
+
         // 檢查是否被任何玩家收集
         for (const player of allPlayers) {
-        const dx = this.x - player.x;
-        const dy = this.y - player.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist <= (this.collisionRadius + player.collisionRadius)) {
+            const dx = this.x - player.x;
+            const dy = this.y - player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist <= (this.collisionRadius + player.collisionRadius)) {
                 this.collect(player);
                 return; // 只處理一次，防止重複
             }
@@ -286,8 +290,8 @@ class Chest extends Entity {
 
     collect(player) {
         // ✅ MMORPG 架構：防止重複撿取，如果已經被標記為刪除，不再處理
-        if (this.markedForDeletion) return;
-        
+        if (this.markedForDeletion || this.isCollecting) return;
+
         // M4：支援遠程玩家收集（但只有本地玩家觸發升級選單）
         const targetPlayer = player || Game.player;
         if (!targetPlayer) {
@@ -295,28 +299,42 @@ class Chest extends Entity {
             this.destroy();
             return;
         }
-        
-        // ✅ MMORPG 架構：立即標記為刪除，防止多個玩家同時檢測到碰撞時重複處理
-        this.markedForDeletion = true;
-        
-        // 只有本地玩家收集時才顯示升級選單（避免重複顯示）
-        if (targetPlayer === Game.player) {
-        if (typeof AudioManager !== 'undefined') {
-            AudioManager.playSound('level_up');
-        }
-            if (typeof UI !== 'undefined' && UI.showLevelUpMenu) {
-        UI.showLevelUpMenu();
-            }
-        }
-        // ✅ MMORPG 架構：廣播寶箱被撿取事件，讓所有玩家都知道寶箱已消失
-        // 注意：升級選單只在撿取者端顯示，其他玩家收到事件時只移除寶箱
+
+        // ✅ MMORPG 架構：多人模式下，先發送請求給服務器驗證
+        // 由服務器確認後廣播 chest_collected 事件，再執行實際收集邏輯
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+
         if (isMultiplayer) {
-            if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                window.SurvivalOnlineBroadcastEvent("chest_collected", {
+            // 標記為正在收集，防止重複發送請求
+            this.isCollecting = true;
+
+            // 發送收集請求
+            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                window.SurvivalOnlineRuntime.sendToNet({
+                    type: 'try_collect_chest',
+                    chestId: this.id,
+                    chestType: 'NORMAL',
                     x: this.x,
                     y: this.y
                 });
+            }
+            // 這裡不執行 destroy，等待服務器回傳 chest_collected 事件
+            // 當收到 chest_collected 事件時，在 external event handler 中處理移除和獎勵
+            return;
+        }
+
+        // --- 單機模式邏輯 (保持不變) ---
+
+        // ✅ MMORPG 架構：立即標記為刪除，防止多個玩家同時檢測到碰撞時重複處理
+        this.markedForDeletion = true;
+
+        // 只有本地玩家收集時才顯示升級選單（避免重複顯示）
+        if (targetPlayer === Game.player) {
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('level_up');
+            }
+            if (typeof UI !== 'undefined' && UI.showLevelUpMenu) {
+                UI.showLevelUpMenu();
             }
         }
         this.destroy();
@@ -328,7 +346,8 @@ class Chest extends Entity {
 // - 收集後給予「50 + 當下所需升級的30%經驗」並播放 collect_exp 音效
 class PineappleUltimatePickup extends Chest {
     constructor(x, y, opts = {}) {
-        super(x, y);
+        // 如果 opts 包含 id，則使用之
+        super(x, y, (opts && opts.id) ? opts.id : null);
         // 視覺尺寸：A45.png 53x100
         this.width = 53;
         this.height = 100;
@@ -337,11 +356,11 @@ class PineappleUltimatePickup extends Chest {
             this.collisionRadius = Math.max(this.width, this.height) / 2;
             this.setCollisionPolygon([
                 [-this.width / 2, -this.height / 2],
-                [ this.width / 2, -this.height / 2],
-                [ this.width / 2,  this.height / 2],
-                [-this.width / 2,  this.height / 2]
+                [this.width / 2, -this.height / 2],
+                [this.width / 2, this.height / 2],
+                [-this.width / 2, this.height / 2]
             ]);
-        } catch (_) {}
+        } catch (_) { }
 
         // 掉落參數（保留欄位，避免外部有人傳入；但目前規則為「純30%當下所需升級經驗」）
         this.expValue = (opts && typeof opts.expValue === 'number') ? Math.max(0, Math.floor(opts.expValue)) : 0;
@@ -387,8 +406,8 @@ class PineappleUltimatePickup extends Chest {
                                 ? ModeManager.getActiveModeId()
                                 : null);
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
-                    } catch (_) {}
-                    
+                    } catch (_) { }
+
                     if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
                         const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
                         if (typeof rm.getAllPlayers === 'function') {
@@ -400,9 +419,9 @@ class PineappleUltimatePickup extends Chest {
                             }
                         }
                     }
-                } catch (_) {}
+                } catch (_) { }
             }
-            
+
             // 檢查是否被任何玩家收集
             for (const player of allPlayers) {
                 if (this.isColliding(player)) {
@@ -507,138 +526,64 @@ class PineappleUltimatePickup extends Chest {
         ctx.restore();
     }
 
-    collect() {
-        // ✅ MMORPG 架構：防止重複撿取，如果已經被標記為刪除，不再處理
-        if (this.markedForDeletion) return;
-        
-        // ✅ MMORPG 架構：支援遠程玩家收集鳳梨大絕掉落物，不依賴室長端
-        const allPlayers = [];
-        if (Game.player) allPlayers.push(Game.player);
-        // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
-        if (Game.multiplayer) {
-            try {
-                let isSurvivalMode = false;
-                try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
-                    isSurvivalMode = (activeId === 'survival' || activeId === null);
-                } catch (_) {}
-                
-                if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
-                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
-                    if (typeof rm.getAllPlayers === 'function') {
-                        const remotePlayers = rm.getAllPlayers();
-                        for (const remotePlayer of remotePlayers) {
-                            if (remotePlayer && !remotePlayer.markedForDeletion) {
-                                allPlayers.push(remotePlayer);
-                            }
-                        }
-                    }
-                }
-            } catch (_) {}
-        }
-        
-        // 檢查是否被任何玩家收集
-        for (const player of allPlayers) {
-            if (this.isColliding(player)) {
-                // ✅ MMORPG 架構：立即標記為刪除，防止重複處理（多個玩家同時檢測到碰撞時）
-                this.markedForDeletion = true;
-                // ✅ MMORPG 架構：所有玩家都能共享鳳梨掉落物經驗，不依賴室長端
-                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-                if (isMultiplayer) {
-                    // 多人模式：給所有玩家經驗（經驗共享）
-                    // 只有本地玩家播放音效（避免重複播放）
-                    if (player === Game.player && !player._isRemotePlayer) {
-                        try {
-                            if (typeof AudioManager !== 'undefined') {
-                                if (AudioManager.expSoundEnabled !== false) {
-                                    AudioManager.playSound('collect_exp');
-                                }
-                            }
-                        } catch (_) {}
-                    }
-                    
-                    // 計算經驗值（使用本地玩家的經驗需求計算）
-                    const base = 50;
-                    let needNow = 0;
-                    try {
-                        if (Game.player && typeof Game.player.experienceToNextLevel === 'number' && typeof Game.player.experience === 'number') {
-                            needNow = Math.max(0, Math.floor(Game.player.experienceToNextLevel - Game.player.experience));
-                        }
-                    } catch (_) {}
-                    const bonus = Math.max(0, Math.floor(needNow * 0.30));
-                    const expAmount = base + bonus;
-                    
-                    // 給本地玩家經驗
-                    if (Game.player && typeof Game.player.gainExperience === 'function') {
-                        Game.player.gainExperience(expAmount);
-                    }
-                    // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
-                    // 給所有遠程玩家經驗
-                    try {
-                        if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
-                            const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
-                            if (typeof rm.getAllPlayers === 'function') {
-                                const remotePlayers = rm.getAllPlayers();
-                                for (const remotePlayer of remotePlayers) {
-                                    if (remotePlayer && !remotePlayer.markedForDeletion && typeof remotePlayer.gainExperience === 'function') {
-                                        // 使用遠程玩家自己的經驗需求計算
-                                        const remoteBase = 50;
-                                        let remoteNeedNow = 0;
-                                        try {
-                                            if (typeof remotePlayer.experienceToNextLevel === 'number' && typeof remotePlayer.experience === 'number') {
-                                                remoteNeedNow = Math.max(0, Math.floor(remotePlayer.experienceToNextLevel - remotePlayer.experience));
-                                            }
-                                        } catch (_) {}
-                                        const remoteBonus = Math.max(0, Math.floor(remoteNeedNow * 0.30));
-                                        remotePlayer.gainExperience(remoteBase + remoteBonus);
-                                    }
-                                }
-                            }
-                        }
-                    } catch (_) {}
-                } else {
-                    // 單人模式：只給收集者經驗
-                    // 只有本地玩家播放音效
-                    if (player === Game.player && !player._isRemotePlayer) {
-                        try {
-                            if (typeof AudioManager !== 'undefined') {
-                                if (AudioManager.expSoundEnabled !== false) {
-                                    AudioManager.playSound('collect_exp');
-                                }
-                            }
-                        } catch (_) {}
-                    }
-                    
-                    // 給予經驗
-                    if (player && typeof player.gainExperience === 'function') {
-                        // 平衡：每顆鳳梨給「50 + 當下所需升級的30%經驗」
-                        const base = 50;
-                        let needNow = 0;
-                        try {
-                            if (typeof player.experienceToNextLevel === 'number' && typeof player.experience === 'number') {
-                                needNow = Math.max(0, Math.floor(player.experienceToNextLevel - player.experience));
-                            }
-                        } catch (_) {}
-                        const bonus = Math.max(0, Math.floor(needNow * 0.30));
-                        player.gainExperience(base + bonus);
-                    }
-                }
-                // ✅ MMORPG 架構：廣播鳳梨掉落物被撿取事件，讓所有玩家都知道鳳梨已消失
-                if (isMultiplayer) {
-                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                        window.SurvivalOnlineBroadcastEvent("pineapple_pickup_collected", {
-                            x: this.x,
-                            y: this.y
-                        });
-                    }
-                }
-                this.destroy();
-                return;
+    collect(player) {
+        // ✅ MMORPG 架構：防止重複撿取
+        if (this.markedForDeletion || this.isCollecting) return;
+
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+
+        if (isMultiplayer) {
+            // 標記為正在收集
+            this.isCollecting = true;
+
+            // 發送收集請求
+            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                window.SurvivalOnlineRuntime.sendToNet({
+                    type: 'try_collect_chest',
+                    chestId: this.id,
+                    chestType: 'PINEAPPLE',
+                    x: this.x,
+                    y: this.y
+                });
             }
+            // 等待服務器廣播
+            return;
         }
+
+        // --- 單機模式邏輯 (保持不變) ---
+
+        // ✅ MMORPG 架構：立即標記為刪除，防止重複處理（多個玩家同時檢測到碰撞時）
+        this.markedForDeletion = true;
+
+        // 確認玩家
+        const targetPlayer = player || Game.player;
+
+        // 單人模式：給予經驗
+        // 只有本地玩家播放音效
+        if (targetPlayer === Game.player && !targetPlayer._isRemotePlayer) {
+            try {
+                if (typeof AudioManager !== 'undefined') {
+                    if (AudioManager.expSoundEnabled !== false) {
+                        AudioManager.playSound('collect_exp');
+                    }
+                }
+            } catch (_) { }
+        }
+
+        // 給予經驗
+        if (targetPlayer && typeof targetPlayer.gainExperience === 'function') {
+            // 平衡：每顆鳳梨給「50 + 當下所需升級的30%經驗」
+            const base = 50;
+            let needNow = 0;
+            try {
+                if (typeof targetPlayer.experienceToNextLevel === 'number' && typeof targetPlayer.experience === 'number') {
+                    needNow = Math.max(0, Math.floor(targetPlayer.experienceToNextLevel - targetPlayer.experience));
+                }
+            } catch (_) { }
+            const bonus = Math.max(0, Math.floor(needNow * 0.30));
+            targetPlayer.gainExperience(base + bonus);
+        }
+
+        this.destroy();
     }
 }
