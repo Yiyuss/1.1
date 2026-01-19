@@ -5,8 +5,8 @@ const WaveSystem = {
     lastEnemySpawnTime: 0,
     enemySpawnRate: CONFIG.WAVES.ENEMY_SPAWN_RATE.INITIAL,
     lastMiniBossTime: 0,
-    
-    init: function() {
+
+    init: function () {
         this.currentWave = 1;
         this.waveStartTime = Date.now();
         this.lastEnemySpawnTime = 0;
@@ -17,10 +17,10 @@ const WaveSystem = {
         this.enemySpawnRate = Math.max(baseInit * mult, CONFIG.WAVES.ENEMY_SPAWN_RATE.MINIMUM);
         this.lastMiniBossTime = 0;
         this.lastMiniBossWave = 0; // 追蹤本波是否已生成小BOSS
-        
+
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
-        
+
         // MMO 架構：每個玩家都廣播波次開始事件，不依賴隊長端
         try {
             let isSurvivalMode = false;
@@ -31,31 +31,39 @@ const WaveSystem = {
                         ? ModeManager.getActiveModeId()
                         : null);
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
-            } catch (_) {}
-            
+            } catch (_) { }
+
             if (isSurvivalMode && typeof Game !== "undefined" && Game.multiplayer) {
                 // ✅ 真正的MMORPG：每個玩家都廣播波次開始事件，包含時間戳，確保所有客戶端使用相同的時間基準
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                     const timestamp = Date.now(); // 使用當前時間作為時間戳
                     console.log(`[WaveSystem] 廣播波次開始: wave=${this.currentWave}, timestamp=${timestamp}`);
-                    window.SurvivalOnlineBroadcastEvent("wave_start", { 
+                    window.SurvivalOnlineBroadcastEvent("wave_start", {
                         wave: this.currentWave,
                         timestamp: timestamp // ✅ 包含時間戳，讓所有客戶端使用相同的時間基準
                     });
                 }
             }
-        } catch (_) {}
-        
-        // 第一波固定生成一支小BOSS
-        this.spawnMiniBoss();
+        } catch (_) { }
+
+        // 第一波固定生成一支小BOSS（僅單機模式）
+        // ✅ 权威服务器：在多人模式下，客戶端不生成小BOSS（由服務器生成）
+        let isMultiplayer = false;
+        try {
+            isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        } catch (_) { }
+
+        if (!isMultiplayer) {
+            this.spawnMiniBoss();
+        }
     },
-    
+
     // ✅ 真正的MMORPG：更新波次系統：推進波次、生成敵人與Boss
     // 使用同步的時間基準，確保所有客戶端在同一時間生成相同的敵人
-    update: function(deltaTime) {
+    update: function (deltaTime) {
         // ✅ 权威服务器：在多人模式下，客户端不生成敌人（由服务器生成）
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-        
+
         // ✅ 真正的MMORPG：使用同步的波次開始時間，而不是本地時間
         // 這樣可以確保所有客戶端在同一時間生成相同的敵人
         const currentTime = Date.now();
@@ -64,7 +72,7 @@ const WaveSystem = {
         if (waveElapsedTime >= CONFIG.WAVES.DURATION) {
             this.nextWave();
         }
-        
+
         if (!isMultiplayer) {
             // ✅ 真正的MMORPG：生成普通敵人 - 使用同步的時間基準
             // 確保所有客戶端在同一時間生成相同的敵人
@@ -78,7 +86,7 @@ const WaveSystem = {
         //     this.spawnMiniBoss();
         //     this.lastMiniBossTime = currentTime;
         // }
-        
+
         if (!isMultiplayer) {
             // 生成大BOSS（僅在第20波且尚未生成出口時生成）
             if (this.currentWave === CONFIG.WAVES.BOSS_WAVE && Game.boss === null && Game.exit === null) {
@@ -86,15 +94,15 @@ const WaveSystem = {
             }
         }
     },
-    
+
     // ✅ 真正的MMORPG：進入下一波
     // 注意：waveStartTime 應該從 wave_start 事件同步，而不是使用本地時間
-    nextWave: function() {
+    nextWave: function () {
         this.currentWave++;
         // ✅ 真正的MMORPG：waveStartTime 應該從 wave_start 事件同步
         // 這裡設置本地時間作為後備，但實際應該從事件同步
         this.waveStartTime = Date.now();
-        
+
         // 增加敵人生成速率（套用難度間隔倍率，預設 EASY）
         const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.EASY) || {});
         const mult = diff.spawnIntervalMultiplier || 1;
@@ -102,10 +110,10 @@ const WaveSystem = {
             (CONFIG.WAVES.ENEMY_SPAWN_RATE.INITIAL - (this.currentWave - 1) * CONFIG.WAVES.ENEMY_SPAWN_RATE.DECREASE_PER_WAVE) * mult,
             CONFIG.WAVES.ENEMY_SPAWN_RATE.MINIMUM
         );
-        
+
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
-        
+
         // MMO 架構：每個玩家都廣播波次開始事件，不依賴隊長端
         try {
             let isSurvivalMode = false;
@@ -116,33 +124,33 @@ const WaveSystem = {
                         ? ModeManager.getActiveModeId()
                         : null);
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
-            } catch (_) {}
-            
+            } catch (_) { }
+
             if (isSurvivalMode && typeof Game !== "undefined" && Game.multiplayer) {
                 // ✅ 真正的MMORPG：每個玩家都廣播波次開始事件，包含時間戳，確保所有客戶端使用相同的時間基準
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                     const timestamp = Date.now(); // 使用當前時間作為時間戳
                     console.log(`[WaveSystem] 廣播波次開始: wave=${this.currentWave}, timestamp=${timestamp}`);
-                    window.SurvivalOnlineBroadcastEvent("wave_start", { 
+                    window.SurvivalOnlineBroadcastEvent("wave_start", {
                         wave: this.currentWave,
                         timestamp: timestamp // ✅ 包含時間戳，讓所有客戶端使用相同的時間基準
                     });
                 }
             }
-        } catch (_) {}
-        
+        } catch (_) { }
+
         // ✅ 权威服务器：在多人模式下，客户端不生成小BOSS（由服务器生成）
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
         if (!isMultiplayer) {
             // 每一波固定生成一個小BOSS（避免重複生成）
             this.spawnMiniBoss();
         }
-        
+
         console.log(`Wave ${this.currentWave} started!`);
     },
-    
+
     // 生成普通敵人
-    spawnEnemy: function() {
+    spawnEnemy: function () {
         // ✅ 安全检查：确保 Enemy 类已加载
         if (typeof Enemy === 'undefined') {
             console.error('[WaveSystem] Enemy 类未定义！请检查脚本加载顺序。');
@@ -207,11 +215,11 @@ const WaveSystem = {
             const worldW = (Game.worldWidth || Game.canvas.width);
             const worldH = (Game.worldHeight || Game.canvas.height);
             const rad = (CONFIG.ENEMIES[enemyType] && CONFIG.ENEMIES[enemyType].COLLISION_RADIUS) ? CONFIG.ENEMIES[enemyType].COLLISION_RADIUS : 16;
-            
+
             // 針對花園地圖大體積敵人增加內縮距離，避免一開始就卡在邊界
             let inner = rad + 12; // 默認內縮距離
-            const isGardenLargeEnemy = (Game.selectedMap && Game.selectedMap.id === 'garden') && 
-                                      (enemyType === 'ELF_MINI_BOSS' || enemyType === 'ELF_BOSS');
+            const isGardenLargeEnemy = (Game.selectedMap && Game.selectedMap.id === 'garden') &&
+                (enemyType === 'ELF_MINI_BOSS' || enemyType === 'ELF_BOSS');
             if (isGardenLargeEnemy) {
                 // 花園大體積敵人需要更大的內縮距離
                 // 使用敵人實際尺寸的一半作為內縮距離，確保不會卡在邊界
@@ -273,9 +281,9 @@ const WaveSystem = {
             Game.addEnemy(enemy);
         }
     },
-    
+
     // 生成小BOSS
-    spawnMiniBoss: function() {
+    spawnMiniBoss: function () {
         // 每波僅生成一次
         if (this.lastMiniBossWave === this.currentWave) {
             return;
@@ -288,13 +296,13 @@ const WaveSystem = {
             // 在世界邊緣生成小BOSS（加入內縮與分散避免重疊）
             const worldW = (Game.worldWidth || Game.canvas.width);
             const worldH = (Game.worldHeight || Game.canvas.height);
-            
+
             // 根據地圖選擇小BOSS類型（在計算內縮距離之前確定）
             let miniBossType = 'MINI_BOSS';
             if (Game.selectedMap && Game.selectedMap.id === 'garden') miniBossType = 'ELF_MINI_BOSS';
             else if (Game.selectedMap && Game.selectedMap.id === 'intersection') miniBossType = 'HUMAN_MINI_BOSS';
             const rad = (CONFIG.ENEMIES[miniBossType] && CONFIG.ENEMIES[miniBossType].COLLISION_RADIUS) ? CONFIG.ENEMIES[miniBossType].COLLISION_RADIUS : 32;
-            
+
             // 針對花園地圖花護衛增加內縮距離，避免一開始就卡在邊界
             let inner = rad + 12; // 默認內縮距離
             if (Game.selectedMap && Game.selectedMap.id === 'garden' && miniBossType === 'ELF_MINI_BOSS') {
@@ -386,9 +394,9 @@ const WaveSystem = {
             }
         }
     },
-    
+
     // 生成大BOSS
-    spawnBoss: function() {
+    spawnBoss: function () {
         // ✅ 安全检查：确保 Enemy 类已加载
         if (typeof Enemy === 'undefined') {
             console.error('[WaveSystem] Enemy 类未定义！请检查脚本加载顺序。');
@@ -404,11 +412,11 @@ const WaveSystem = {
             (Game.worldHeight || CONFIG.CANVAS_HEIGHT) / 2,
             bossType
         );
-        
+
         Game.addEnemy(boss);
         Game.boss = boss;
         console.log('Boss spawned!');
-        
+
         // 立即切換到BOSS音樂（在遊戲內直接觸發，不需要切換分頁）
         try {
             if (typeof AudioScene !== 'undefined' && AudioScene.enterBoss) {
