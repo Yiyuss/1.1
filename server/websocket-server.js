@@ -140,7 +140,7 @@ ws.onerror = (err) => console.error('❌ 错误:', err);
 
 wss.on('connection', (ws, req) => {
   console.log(`[WebSocket] 新連接: ${req.socket.remoteAddress}`);
-  
+
   ws.on('message', (data) => {
     try {
       const msg = JSON.parse(data.toString());
@@ -176,24 +176,24 @@ function handleMessage(ws, msg) {
 
 function handleJoin(ws, roomId, uid, isHost) {
   console.log(`[WebSocket] 用戶加入: roomId=${roomId}, uid=${uid}, isHost=${isHost}`);
-  
+
   // 保存用戶信息
   users.set(ws, { roomId, uid, isHost });
-  
+
   // 加入房間
   if (!rooms.has(roomId)) {
     rooms.set(roomId, new Set());
   }
   rooms.get(roomId).add(ws);
-  
+
   // ✅ 权威服务器：初始化或获取游戏状态
   if (!gameStates.has(roomId)) {
     gameStates.set(roomId, new GameState(roomId));
     console.log(`[GameState] 創建新遊戲狀態: roomId=${roomId}`);
   }
-  
+
   const gameState = gameStates.get(roomId);
-  
+
   // ✅ 权威服务器：添加玩家到游戏状态
   gameState.addPlayer(uid, {
     x: 1920 / 2,
@@ -208,7 +208,7 @@ function handleJoin(ws, roomId, uid, isHost) {
     characterId: 'pineapple', // 从客户端获取
     nickname: '玩家' // 从客户端获取
   });
-  
+
   // 發送確認
   ws.send(JSON.stringify({
     type: 'joined',
@@ -216,13 +216,13 @@ function handleJoin(ws, roomId, uid, isHost) {
     uid,
     isHost
   }));
-  
+
   // ✅ 权威服务器：立即发送当前游戏状态
   ws.send(JSON.stringify({
     type: 'game-state',
     state: gameState.getState()
   }));
-  
+
   // 通知房間內其他用戶（可選，用於統計）
   broadcastToRoom(roomId, ws, {
     type: 'user-joined',
@@ -233,15 +233,15 @@ function handleJoin(ws, roomId, uid, isHost) {
 
 function handleGameData(ws, roomId, uid, data) {
   const userInfo = users.get(ws);
-  
+
   if (!userInfo) {
     console.warn(`[WebSocket] 用戶未加入房間: uid=${uid}`);
     return;
   }
-  
+
   // 使用用戶信息中的 roomId（更安全）
   const actualRoomId = userInfo.roomId;
-  
+
   // ✅ 权威服务器：处理CONFIG数据
   const gameState = gameStates.get(actualRoomId);
   if (gameState && data.type === 'config' && data.config) {
@@ -250,7 +250,7 @@ function handleGameData(ws, roomId, uid, data) {
     console.log(`[GameState] 收到CONFIG数据: roomId=${actualRoomId}, uid=${uid}`);
     return;
   }
-  
+
   // ✅ 权威服务器：处理地图信息
   if (gameState && data.type === 'map' && data.map) {
     // 保存地图信息到游戏状态（用于路口车辆生成等）
@@ -258,7 +258,7 @@ function handleGameData(ws, roomId, uid, data) {
     console.log(`[GameState] 收到地图信息: roomId=${actualRoomId}, mapId=${data.map.id || 'unknown'}, uid=${uid}`);
     return;
   }
-  
+
   // ✅ 权威服务器：处理世界大小（从客户端同步）
   if (gameState && data.type === 'world-size' && typeof data.worldWidth === 'number' && typeof data.worldHeight === 'number') {
     // 保存世界大小到游戏状态（确保与客户端一致）
@@ -266,20 +266,20 @@ function handleGameData(ws, roomId, uid, data) {
     console.log(`[GameState] 收到世界大小: roomId=${actualRoomId}, ${data.worldWidth}x${data.worldHeight}, uid=${uid}`);
     return;
   }
-  
+
   // ✅ 权威服务器：处理障碍物和装饰数据（可选，用于状态同步）
   if (gameState && data.type === 'obstacles' && Array.isArray(data.obstacles)) {
     gameState.setObstacles(data.obstacles);
     console.log(`[GameState] 收到障碍物数据: roomId=${actualRoomId}, count=${data.obstacles.length}, uid=${uid}`);
     return;
   }
-  
+
   if (gameState && data.type === 'decorations' && Array.isArray(data.decorations)) {
     gameState.setDecorations(data.decorations);
     console.log(`[GameState] 收到装饰数据: roomId=${actualRoomId}, count=${data.decorations.length}, uid=${uid}`);
     return;
   }
-  
+
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
   if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate')) {
     // 服务器处理输入
@@ -287,7 +287,45 @@ function handleGameData(ws, roomId, uid, data) {
     // 不需要转发，服务器会定期广播状态
     return;
   }
-  
+
+  // ✅ 权威服务器：处理宝箱生成（由主机通知）
+  if (gameState && data.type === 'chest_spawn') {
+    // 主机决定生成宝箱，服务器记录状态
+    gameState.addChest({
+      id: data.id,
+      x: data.x,
+      y: data.y,
+      type: data.chestType || 'NORMAL'
+    });
+    // 继续转发广播给其他玩家
+    broadcastToRoom(actualRoomId, ws, {
+      type: 'game-data',
+      fromUid: uid,
+      data
+    });
+    return;
+  }
+
+  // ✅ 权威服务器：处理宝箱收集尝试（解决竞争条件）
+  if (gameState && data.type === 'try_collect_chest') {
+    const success = gameState.collectChest(uid, data.chestId);
+    if (success) {
+      // 收集成功，广播给所有人（包括自己）
+      broadcastToRoom(actualRoomId, null, {
+        type: 'game-data',
+        fromUid: uid,
+        data: {
+          type: 'chest_collected',
+          chestId: data.chestId,
+          collectorUid: uid,
+          chestType: data.chestType // 传递类型以区分普通宝箱和凤梨
+        }
+      });
+    }
+    //此消息不需要直接转发，只有成功才广播结果
+    return;
+  }
+
   // 其他类型的消息（如聊天）仍然转发
   broadcastToRoom(actualRoomId, ws, {
     type: 'game-data',
@@ -299,17 +337,17 @@ function handleGameData(ws, roomId, uid, data) {
 function broadcastToRoom(roomId, excludeWs, msg) {
   const room = rooms.get(roomId);
   if (!room) return;
-  
+
   const msgStr = JSON.stringify(msg);
   let count = 0;
-  
+
   for (const ws of room) {
     if (ws !== excludeWs && ws.readyState === WebSocket.OPEN) {
       ws.send(msgStr);
       count++;
     }
   }
-  
+
   if (count > 0) {
     console.log(`[WebSocket] 廣播消息到房間 ${roomId}: ${count} 個用戶`);
   }
@@ -320,7 +358,7 @@ function handleDisconnect(ws) {
   if (userInfo) {
     const { roomId, uid } = userInfo;
     console.log(`[WebSocket] 用戶斷開: roomId=${roomId}, uid=${uid}`);
-    
+
     // ✅ 权威服务器：从游戏状态移除玩家
     const gameState = gameStates.get(roomId);
     if (gameState) {
@@ -331,7 +369,7 @@ function handleDisconnect(ws) {
         console.log(`[GameState] 清理遊戲狀態: roomId=${roomId}`);
       }
     }
-    
+
     // 從房間移除
     const room = rooms.get(roomId);
     if (room) {
@@ -347,7 +385,7 @@ function handleDisconnect(ws) {
         });
       }
     }
-    
+
     users.delete(ws);
   }
 }
@@ -357,19 +395,19 @@ function gameLoop() {
   const now = Date.now();
   let deltaTime = now - lastGameUpdate;
   lastGameUpdate = now;
-  
+
   // ✅ 防止时间跳跃：限制deltaTime最大值（防止服务器暂停或时间异常）
   // 如果deltaTime超过100ms（约6帧），限制为100ms，避免游戏状态异常
   if (deltaTime > 100) {
     deltaTime = 100;
   }
-  
+
   // 更新所有游戏状态
   for (const [roomId, gameState] of gameStates.entries()) {
     try {
       // 更新游戏状态
       gameState.update(deltaTime);
-      
+
       // 广播游戏状态给所有客户端
       const state = gameState.getState();
       broadcastToRoom(roomId, null, {
@@ -384,7 +422,7 @@ function gameLoop() {
       // 当前实现：记录错误，继续运行其他房间
     }
   }
-  
+
   // 60Hz 游戏循环
   setTimeout(gameLoop, GAME_TICK_INTERVAL);
 }
@@ -392,8 +430,8 @@ function gameLoop() {
 server.listen(PORT, HOST, () => {
   const protocol = serverOptions.cert ? 'wss' : 'ws';
   console.log(`[WebSocket] 服務器啟動: ${protocol}://${HOST}:${PORT}`);
-  console.log(`[GameState] 权威服务器模式已启用，游戏循环: ${1000/GAME_TICK_INTERVAL}Hz`);
-  
+  console.log(`[GameState] 权威服务器模式已启用，游戏循环: ${1000 / GAME_TICK_INTERVAL}Hz`);
+
   // ✅ 启动游戏循环
   lastGameUpdate = Date.now();
   gameLoop();
