@@ -923,9 +923,12 @@ const Game = {
                 const remotePlayers = (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager && typeof window.SurvivalOnlineRuntime.RemotePlayerManager.getAllPlayers === 'function')
                     ? window.SurvivalOnlineRuntime.RemotePlayerManager.getAllPlayers()
                     : [];
-                if (remotePlayers.length > 0) {
-                    console.log(`[Game] drawEntities: 繪製 ${remotePlayers.length} 個遠程玩家`);
+
+                // 嘗試強制獲取（如果不為空但長度為0）
+                if (remotePlayers.length === 0 && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && window.SurvivalOnlineRuntime.Runtime.remotePlayers) {
+                    // 二次檢查 Runtime 內部
                 }
+
                 for (const p of remotePlayers) {
                     if (!p || typeof p.x !== 'number' || typeof p.y !== 'number') {
                         console.warn(`[Game] drawEntities: 跳過無效遠程玩家`, p);
@@ -1224,13 +1227,16 @@ const Game = {
                             timestamp: Date.now()
                         };
 
-                        if (typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                            window.SurvivalOnlineRuntime.sendToNet(attackInput);
-                        }
+                        // ✅ MMORPG 體驗優化：客戶端權威
+                        // 不發送 'attack' 輸入（會被伺服器攔截），改為監聽 'damage_enemy' 事件廣播傷害結果
+                        // if (typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                        //     window.SurvivalOnlineRuntime.sendToNet(attackInput);
+                        // }
 
-                        // 在权威服务器模式下，标准投射物由服务器创建
-                        // 但为了视觉效果，仍然创建视觉投射物
-                        projectile._isVisualOnly = true;
+                        // ✅ MMORPG 體驗優化：客戶端權威 + 預測
+                        // 不標記為 _isVisualOnly，讓攻擊在本地立即生效（造成傷害），提供「無延遲」的打擊感
+                        // 雖然這降低了防作弊安全性，但符合用戶對流暢Co-op體驗的要求
+                        // projectile._isVisualOnly = true; 
                     }
                     // 持续效果类不标记为_isVisualOnly，保持每个客户端独立计算伤害
                 }
@@ -1639,11 +1645,26 @@ const Game = {
     },
 
     // 生成寶箱（免費升級觸發）
-    spawnChest: function (x, y) {
-        const chest = new Chest(x, y);
+    // 生成寶箱（免費升級觸發）
+    // opts: { fromServer: boolean, id: string }
+    spawnChest: function (x, y, opts = {}) {
+        const isFromServer = opts && opts.fromServer;
+        const id = (opts && opts.id) ? opts.id : (typeof Utils !== 'undefined' && Utils.generateUUID ? Utils.generateUUID() : `chest_${Date.now()}_${Math.random()}`);
+
+        // ✅ MMORPG 架構：服務器權威寶箱生成
+        // 如果是多人在線且非來自服務器通知
+        if (this.multiplayer && this.multiplayer.enabled && !isFromServer) {
+            // 如果是 Guest (非 Host)，不主動生成（等待 Host 通知）
+            // 注意：這是為了處理 Enemy.die() 到處觸發的情況
+            if (!this.multiplayer.isHost) {
+                return;
+            }
+        }
+
+        const chest = new Chest(x, y, id);
         this.chests.push(chest);
 
-        // ✅ MMORPG 架構：所有玩家都能廣播寶箱生成事件，不依賴室長端
+        // ✅ MMORPG 架構：主機廣播生成事件
         try {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
@@ -1653,15 +1674,18 @@ const Game = {
                     : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
                         ? ModeManager.getActiveModeId()
                         : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
-            // ✅ MMORPG 架構：所有玩家都能廣播寶箱生成事件，不依賴室長端
-            if (isSurvivalMode && this.multiplayer) {
-                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("chest_spawn", {
+            // 如果我是 Host 且這不是來自服務器的消息，我需要廣播
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && this.multiplayer.isHost && !isFromServer) {
+                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                    window.SurvivalOnlineRuntime.sendToNet({
+                        type: 'chest_spawn',
                         x: x || 0,
-                        y: y || 0
+                        y: y || 0,
+                        id: id,
+                        chestType: 'NORMAL'
                     });
                 }
             }
@@ -1669,14 +1693,22 @@ const Game = {
     },
 
     // 鳳梨大絕：生成可拾取的大鳳梨（不吸、需碰觸；特效與寶箱同款光束）
+    // 鳳梨大絕：生成可拾取的大鳳梨
     spawnPineappleUltimatePickup: function (targetX, targetY, opts = {}) {
         try {
             if (typeof PineappleUltimatePickup === 'undefined') return;
+
+            const isFromServer = opts && opts.fromServer;
+            // 如果沒有 ID，生成一個
+            if (!opts.id) {
+                opts.id = (typeof Utils !== 'undefined' && Utils.generateUUID ? Utils.generateUUID() : `pine_${Date.now()}_${Math.random()}`);
+            }
+
             const o = new PineappleUltimatePickup(targetX, targetY, opts);
             this.pineappleUltimatePickups.push(o);
-            // M2：廣播鳳梨大絕掉落事件（僅生存模式組隊模式且為室長）
+
+            // M2：廣播鳳梨大絕掉落事件
             try {
-                // 確保只在生存模式下執行組隊邏輯
                 let isSurvivalMode = false;
                 try {
                     const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
@@ -1684,16 +1716,19 @@ const Game = {
                         : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
                             ? ModeManager.getActiveModeId()
                             : null);
-                    isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) { }
 
-                // MMO 架構：每個玩家都廣播自己的鳳梨大絕掉落，不依賴隊長端
-                if (isSurvivalMode && this.multiplayer) {
-                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                        window.SurvivalOnlineBroadcastEvent("ultimate_pineapple_spawn", {
+                // MMO 架構：每個玩家都廣播自己的鳳梨大絕掉落
+                // 如果不是來自服務器，則廣播之
+                if (isSurvivalMode && this.multiplayer && !isFromServer) {
+                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            type: 'chest_spawn', // 統一使用 chest_spawn 並指定 type
                             x: targetX,
                             y: targetY,
-                            opts: opts // 傳遞 opts 以便客戶端重建
+                            id: opts.id,
+                            chestType: 'PINEAPPLE'
                         });
                     }
                 }
