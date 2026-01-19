@@ -1,0 +1,17 @@
+[Unit]
+Description=Toilet MMO Game WebSocket Server
+Documentation=https://github.com/Yiyuss/1.1
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/game-websocket
+ExecStart=/usr/bin/node websocket-server.js
+Restart=on-failure
+RestartSec=10
+# 安全性增強
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target
