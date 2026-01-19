@@ -33,6 +33,10 @@ class GameState {
     // 默认使用720P九宫格模式，客户端会同步实际值
     this.worldWidth = 3840; // 默认世界宽度（720P九宫格：1280 * 3）
     this.worldHeight = 2160; // 默认世界高度（720P九宫格：720 * 3）
+
+    // ✅ MMORPG 逻辑：Boss生成跟踪
+    this.minibossSpawnedForWave = false;
+    this.bossSpawned = false;
   }
 
   // 添加玩家
@@ -197,6 +201,18 @@ class GameState {
     // 注意：服务器端只在多人模式下生成车辆，单机模式由客户端生成
     if (this.selectedMap && this.selectedMap.id === 'intersection' && this.players.size > 0) {
       this.spawnCarHazards(now);
+    }
+
+    // ✅ 服务器权威：生成小BOSS (每波一次)
+    if (!this.minibossSpawnedForWave && this.config) {
+      this.spawnMiniBoss(this.config);
+      this.minibossSpawnedForWave = true;
+    }
+
+    // ✅ 服务器权威：生成大BOSS (第20波)
+    if (this.wave === 20 && !this.bossSpawned && this.config) {
+      this.spawnBoss(this.config);
+      this.bossSpawned = true;
     }
 
     // 更新波次
@@ -588,6 +604,84 @@ class GameState {
     this.experienceOrbs.push(orb);
   }
 
+  // ✅ 服务器权威：生成小Boss
+  spawnMiniBoss(config) {
+    if (!config || !config.ENEMIES) return;
+
+    const wave = this.wave;
+    let type = 'MINI_BOSS';
+
+    // 根据地图选择 Boss 类型 (参考 WaveSystem)
+    if (this.selectedMap) {
+      if (this.selectedMap.id === 'forest') type = 'MINI_BOSS'; // 森林沿用
+      else if (this.selectedMap.id === 'garden') type = 'ELF_MINI_BOSS';
+      else if (this.selectedMap.id === 'intersection') type = 'HUMAN_MINI_BOSS';
+      // 其他地图逻辑...
+    }
+
+    const enemyConfig = config.ENEMIES[type] || config.ENEMIES['MINI_BOSS'];
+    if (!enemyConfig) return;
+
+    // 世界中心附近随机生成
+    const worldWidth = this.worldWidth || 3840;
+    const worldHeight = this.worldHeight || 2160;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 300 + Math.random() * 200;
+    const x = worldWidth / 2 + Math.cos(angle) * dist;
+    const y = worldHeight / 2 + Math.sin(angle) * dist;
+
+    // 血量计算 (复制 Client 逻辑的服务器版)
+    const baseHealth = enemyConfig.HEALTH || 500;
+    // 简单模拟 Client 增长公式 (1.2^wave)
+    const health = Math.floor(baseHealth * Math.pow(1.2, wave - 1));
+
+    this.enemies.push({
+      id: `boss_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      x, y,
+      type: type,
+      health: health,
+      maxHealth: health,
+      speed: enemyConfig.SPEED || 3,
+      size: enemyConfig.SIZE || 64,
+      isDead: false,
+      damage: 20
+    });
+    console.log(`[GameState] 生成小BOSS: ${type} (Wave ${wave})`);
+  }
+
+  // ✅ 服务器权威：生成大Boss
+  spawnBoss(config) {
+    if (!config || !config.ENEMIES) return;
+
+    let type = 'BOSS';
+    if (this.selectedMap) {
+      if (this.selectedMap.id === 'garden') type = 'ELF_BOSS';
+      else if (this.selectedMap.id === 'intersection') type = 'HUMAN_BOSS';
+    }
+
+    const enemyConfig = config.ENEMIES[type] || config.ENEMIES['BOSS'];
+    if (!enemyConfig) return;
+
+    const worldWidth = this.worldWidth || 3840;
+    const worldHeight = this.worldHeight || 2160;
+
+    const health = 50000; // 固定或从 config 读取 (Tunings)
+
+    this.enemies.push({
+      id: `final_boss_${Date.now()}`,
+      x: worldWidth / 2,
+      y: worldHeight / 2,
+      type: type,
+      health: health,
+      maxHealth: health,
+      speed: enemyConfig.SPEED || 4,
+      size: enemyConfig.SIZE || 128,
+      isDead: false,
+      damage: 50
+    });
+    console.log(`[GameState] 生成大BOSS: ${type}`);
+  }
+
   // ✅ 服务器权威：更新经验球（检测玩家收集）
   updateExperienceOrbs(deltaTime) {
     for (let i = this.experienceOrbs.length - 1; i >= 0; i--) {
@@ -667,6 +761,9 @@ class GameState {
       this.wave++;
       this.waveStartTime = now;
       this.enemySpawnRate = Math.max(500, 2000 - (this.wave - 1) * 100);
+
+      // 重置 Boss 生成标记
+      this.minibossSpawnedForWave = false;
     }
   }
 
