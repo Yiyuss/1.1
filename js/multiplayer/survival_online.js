@@ -61,15 +61,15 @@ const PLAYER_NAME_STORAGE_KEY = "survival_player_nickname"; // localStorage 鍵�
 // ✅ 限制：1~5個字符（中文字、英文字、數字），可交叉搭配，不能有其他(例如空白鍵、符號)
 function sanitizePlayerName(name) {
   if (!name || typeof name !== "string") return null;
-  
+
   // 移除首尾空白
   name = name.trim();
-  
+
   // 檢查長度：1~5個字符
   if (name.length < PLAYER_NAME_MIN_LENGTH || name.length > PLAYER_NAME_MAX_LENGTH) {
     return null;
   }
-  
+
   // 只允許中文字、英文字、數字
   // 中文字：\u4e00-\u9fff（CJK統一漢字）
   // 英文字：a-zA-Z
@@ -78,18 +78,18 @@ function sanitizePlayerName(name) {
   if (!validPattern.test(name)) {
     return null;
   }
-  
+
   // 移除危險字符（HTML 標籤、腳本等）- 雖然已經通過正則驗證，但為了安全還是移除
   name = name.replace(/[<>\"'&]/g, "");
-  
+
   // 移除控制字符
   name = name.replace(/[\x00-\x1F\x7F]/g, "");
-  
+
   // 再次檢查長度（移除字符後可能變短）
   if (name.length < PLAYER_NAME_MIN_LENGTH) {
     return null;
   }
-  
+
   return name;
 }
 
@@ -103,8 +103,8 @@ function getPlayerNickname() {
         return sanitized;
       }
     }
-  } catch (_) {}
-  
+  } catch (_) { }
+
   // 如果沒有保存的暱稱或驗證失敗，返回默認值
   return `玩家-${_uid ? _uid.slice(0, 4) : "0000"}`;
 }
@@ -113,7 +113,7 @@ function getPlayerNickname() {
 function savePlayerNickname(name) {
   const sanitized = sanitizePlayerName(name);
   if (!sanitized) return false;
-  
+
   try {
     localStorage.setItem(PLAYER_NAME_STORAGE_KEY, sanitized);
     return true;
@@ -165,9 +165,9 @@ const RemotePlayerManager = (() => {
         return null;
       }
     }
-    
+
     const existingPlayer = remotePlayers.get(uid);
-    
+
     // 如果遠程玩家已存在，檢查角色是否需要更新（僅在遊戲開始前，避免影響遊戲進行中的玩家）
     if (existingPlayer && characterId) {
       const currentCharId = (existingPlayer._remoteCharacter && existingPlayer._remoteCharacter.id) ? existingPlayer._remoteCharacter.id : null;
@@ -195,7 +195,7 @@ const RemotePlayerManager = (() => {
                 if (char.critChanceBonusPct) existingPlayer._characterBaseCritBonusPct = char.critChanceBonusPct;
                 if (char.canUseUltimate === false) existingPlayer.canUseUltimate = false;
                 existingPlayer.spriteImageKey = char.spriteImageKey || 'player';
-                
+
                 // 重新應用天賦效果
                 if (talentLevels && typeof talentLevels === "object") {
                   if (typeof BuffSystem !== "undefined" && BuffSystem.applyBuffsFromTalentLevels) {
@@ -211,7 +211,7 @@ const RemotePlayerManager = (() => {
       }
       return existingPlayer;
     }
-    
+
     // 創建新的遠程玩家
     if (!existingPlayer) {
       try {
@@ -239,7 +239,7 @@ const RemotePlayerManager = (() => {
               if (char.canUseUltimate === false) player.canUseUltimate = false;
               player.spriteImageKey = char.spriteImageKey || 'player';
               player.health = player.maxHealth;
-              
+
               // 應用天賦效果（使用該玩家自己的天賦等級，而不是本地天賦數據）
               try {
                 if (talentLevels && typeof talentLevels === "object") {
@@ -250,7 +250,7 @@ const RemotePlayerManager = (() => {
                     // 後備方案：臨時替換 TalentSystem.getTalentLevel 來使用遠程玩家的天賦
                     const originalGetTalentLevel = (typeof TalentSystem !== "undefined" && TalentSystem.getTalentLevel) ? TalentSystem.getTalentLevel.bind(TalentSystem) : null;
                     if (originalGetTalentLevel && typeof TalentSystem !== "undefined") {
-                      TalentSystem.getTalentLevel = function(id) {
+                      TalentSystem.getTalentLevel = function (id) {
                         const level = (talentLevels && typeof talentLevels[id] === "number") ? talentLevels[id] : 0;
                         const cfg = this.tieredTalents[id];
                         if (!cfg) return 0;
@@ -301,7 +301,7 @@ const RemotePlayerManager = (() => {
       }
       return null;
     }
-    
+
     return existingPlayer;
   }
 
@@ -314,17 +314,17 @@ const RemotePlayerManager = (() => {
           const idx = Game.remotePlayers.indexOf(player);
           if (idx >= 0) Game.remotePlayers.splice(idx, 1);
         }
-      } catch (_) {}
+      } catch (_) { }
       // 清理玩家的武器
       try {
         if (player.weapons && Array.isArray(player.weapons)) {
           for (const weapon of player.weapons) {
             if (weapon && typeof weapon.destroy === "function") {
-              try { weapon.destroy(); } catch (_) {}
+              try { weapon.destroy(); } catch (_) { }
             }
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
     remotePlayers.delete(uid);
   }
@@ -334,7 +334,7 @@ const RemotePlayerManager = (() => {
       if (player && typeof player.update === "function") {
         // M4：使用完整的 Player.update，包括武器更新、回血等
         // 注意：死亡時 update() 會自動跳過移動和武器更新，只處理復活邏輯
-        
+
         // ✅ 標準連線遊戲：使用速度外推預測位置（在收到新狀態之前）
         if (player._isRemotePlayer && player._velocityX !== undefined && player._velocityY !== undefined) {
           const now = Date.now();
@@ -347,7 +347,7 @@ const RemotePlayerManager = (() => {
             player.y += player._velocityY * deltaSeconds * extrapolationFactor;
           }
         }
-        
+
         player.update(deltaTime);
       }
     }
@@ -397,11 +397,11 @@ const RemotePlayerManager = (() => {
         if (player && player.weapons && Array.isArray(player.weapons)) {
           for (const weapon of player.weapons) {
             if (weapon && typeof weapon.destroy === "function") {
-              try { weapon.destroy(); } catch (_) {}
+              try { weapon.destroy(); } catch (_) { }
             }
           }
         }
-      } catch (_) {}
+      } catch (_) { }
     }
     remotePlayers.clear();
   }
@@ -444,9 +444,9 @@ const Runtime = (() => {
     }
     const now = Date.now();
     const players = payload.players || {};
-    
+
     console.log(`[SurvivalOnline] onStateMessage: 收到狀態消息，玩家數量=${Object.keys(players).length}, enabled=${enabled}, isHost=${_isHost}`);
-    
+
     // 所有端（包括隊長和隊員）：根據接收到的狀態創建/更新遠程玩家對象
     for (const [uid, p] of Object.entries(players)) {
       if (!p || typeof p.x !== "number" || typeof p.y !== "number") {
@@ -457,16 +457,16 @@ const Runtime = (() => {
         console.log(`[SurvivalOnline] onStateMessage: 跳過自己 ${uid}`);
         continue; // 不覆蓋自己
       }
-      
+
       // 獲取成員數據（角色ID、天賦等級、名字）- 優先從狀態消息獲取，其次從 _membersState 獲取
       const member = _membersState ? _membersState.get(uid) : null;
       const characterId = ((typeof p.characterId === "string") ? p.characterId : null) || (member && member.characterId) || null;
       const talentLevels = (member && member.talentLevels) ? member.talentLevels : null;
       // ✅ 修復：定義 playerName 變量（確保在作用域內可用）
       const playerName = (typeof p.name === "string" && p.name.trim()) ? p.name : (member && typeof member.name === "string" && member.name.trim()) ? member.name : uid.slice(0, 6);
-      
+
       console.log(`[SurvivalOnline] onStateMessage: 處理玩家 ${uid}, 位置=(${p.x}, ${p.y}), characterId=${characterId}, name=${playerName}`);
-      
+
       // 創建或更新遠程玩家對象
       try {
         if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.getOrCreate === "function") {
@@ -483,7 +483,7 @@ const Runtime = (() => {
               const dx = targetX - remotePlayer.x;
               const dy = targetY - remotePlayer.y;
               const distance = Math.sqrt(dx * dx + dy * dy);
-              
+
               // 初始化速度追蹤
               if (!remotePlayer._lastStateTime) {
                 remotePlayer._lastStateTime = now;
@@ -492,7 +492,7 @@ const Runtime = (() => {
                 remotePlayer._velocityX = 0;
                 remotePlayer._velocityY = 0;
               }
-              
+
               // 如果距離很大，直接跳轉（網絡延遲或重連）
               if (distance > 150) {
                 remotePlayer.x = targetX;
@@ -508,18 +508,18 @@ const Runtime = (() => {
                 const timeDelta = Math.max(1, now - remotePlayer._lastStateTime); // 毫秒
                 const newVelocityX = (targetX - remotePlayer._lastStateX) / timeDelta * 1000; // 像素/秒
                 const newVelocityY = (targetY - remotePlayer._lastStateY) / timeDelta * 1000;
-                
+
                 // 平滑速度（避免突然變化）
                 const velocityLerp = 0.3; // 速度平滑係數
                 remotePlayer._velocityX = remotePlayer._velocityX * (1 - velocityLerp) + newVelocityX * velocityLerp;
                 remotePlayer._velocityY = remotePlayer._velocityY * (1 - velocityLerp) + newVelocityY * velocityLerp;
-                
+
                 // ✅ 標準做法：使用很小的插值係數（0.1-0.2），讓移動更直接、不飄
                 // 這是所有連線遊戲的標準做法
                 const lerpFactor = Math.min(0.2, Math.max(0.1, distance / 50)); // 很小的插值係數
                 remotePlayer.x = remotePlayer.x + (targetX - remotePlayer.x) * lerpFactor;
                 remotePlayer.y = remotePlayer.y + (targetY - remotePlayer.y) * lerpFactor;
-                
+
                 // 更新狀態追蹤
                 remotePlayer._lastStateTime = now;
                 remotePlayer._lastStateX = targetX;
@@ -556,7 +556,7 @@ const Runtime = (() => {
             // ✅ MMORPG 架構：同步玩家朝向（確保遠程玩家朝向正確）
             if (typeof p.facingRight === "boolean") remotePlayer.facingRight = p.facingRight;
             if (typeof p.facingAngle === "number") remotePlayer.facingAngle = p.facingAngle;
-            
+
             // ✅ MMORPG 架構：同步玩家受傷紅閃效果（確保所有玩家都能看到其他玩家受傷的視覺效果）
             if (typeof p.hitFlashTime === "number" && p.hitFlashTime > 0) {
               remotePlayer.hitFlashTime = p.hitFlashTime;
@@ -566,9 +566,9 @@ const Runtime = (() => {
                   const remotePlayerId = `remote-player-${uid}`;
                   window.GifOverlay.flash(remotePlayerId, { color: '#ff0000', durationMs: remotePlayer.hitFlashDuration || 150, opacity: 0.8 });
                 }
-              } catch (_) {}
+              } catch (_) { }
             }
-            
+
             // ✅ MMORPG 架構：同步共享的金幣和經驗值到本地玩家
             // 金幣和經驗是共享的，所以當其他玩家獲得金幣/經驗時，本地玩家也應該同步
             if (typeof p.coins === "number" && typeof Game !== "undefined") {
@@ -589,7 +589,7 @@ const Runtime = (() => {
                 Game.player.level = p.level;
               }
             }
-            
+
             // 確保角色圖片正確設置（如果角色ID存在但圖片未設置）
             if (characterId && !remotePlayer.spriteImageKey) {
               try {
@@ -614,7 +614,7 @@ const Runtime = (() => {
         console.error(`[SurvivalOnline] 創建/更新遠程玩家失敗:`, e);
       }
     }
-    
+
     // 保存位置信息（用於其他用途）
     for (const [uid, p] of Object.entries(players)) {
       if (!p || typeof p.x !== "number" || typeof p.y !== "number") continue;
@@ -648,13 +648,13 @@ const Runtime = (() => {
           if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.remove === "function") {
             RemotePlayerManager.remove(uid);
           }
-        } catch (_) {}
+        } catch (_) { }
         // 隱藏對應的GIF覆蓋層
         try {
           if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hide === 'function') {
             window.GifOverlay.hide(`remote-player-${uid}`);
           }
-        } catch (_) {}
+        } catch (_) { }
       }
     }
   }
@@ -665,7 +665,7 @@ const Runtime = (() => {
     if (payload.t !== "event") return;
     const eventType = payload.type;
     const eventData = payload.data || {};
-    
+
     try {
       // 根據事件類型執行輕量模擬
       if (eventType === "wave_start") {
@@ -673,10 +673,10 @@ const Runtime = (() => {
         if (typeof WaveSystem !== "undefined" && WaveSystem.currentWave !== undefined) {
           const syncedWave = eventData.wave || 1;
           // ✅ 真正的MMORPG：優先使用 eventData.timestamp（從 wave_start 事件傳遞），其次使用 payload.timestamp
-          const syncedStartTime = (eventData.timestamp && typeof eventData.timestamp === "number") 
-            ? eventData.timestamp 
-            : (payload.timestamp && typeof payload.timestamp === "number") 
-              ? payload.timestamp 
+          const syncedStartTime = (eventData.timestamp && typeof eventData.timestamp === "number")
+            ? eventData.timestamp
+            : (payload.timestamp && typeof payload.timestamp === "number")
+              ? payload.timestamp
               : Date.now();
           console.log(`[SurvivalOnline] 同步波次開始: wave=${syncedWave}, startTime=${syncedStartTime}, 本地時間=${Date.now()}, 時間差=${Date.now() - syncedStartTime}ms`);
           WaveSystem.currentWave = syncedWave;
@@ -810,7 +810,7 @@ const Runtime = (() => {
               Game.screenFlash.intensity = eventData.screenFlash.intensity || 0.3;
               Game.screenFlash.duration = eventData.screenFlash.duration || 150;
             }
-            
+
             // 處理鏡頭震動
             if (eventData.cameraShake && typeof eventData.cameraShake === 'object') {
               if (!Game.cameraShake) {
@@ -830,7 +830,7 @@ const Runtime = (() => {
           if (typeof Game !== "undefined" && Array.isArray(eventData.obstacles) && typeof Obstacle !== "undefined") {
             // 清除現有障礙物（避免重複）
             Game.obstacles = [];
-            
+
             // 生成障礙物
             for (const obsData of eventData.obstacles) {
               if (obsData.x !== undefined && obsData.y !== undefined && obsData.imageKey) {
@@ -838,7 +838,7 @@ const Runtime = (() => {
                 Game.obstacles.push(obstacle);
               }
             }
-            
+
             // 標記為已生成，避免重複生成
             if (Game._obstaclesAndDecorationsSpawned !== undefined) {
               Game._obstaclesAndDecorationsSpawned = true;
@@ -853,7 +853,7 @@ const Runtime = (() => {
           if (typeof Game !== "undefined" && Array.isArray(eventData.decorations)) {
             // 清除現有裝飾（避免重複）
             Game.decorations = [];
-            
+
             // 生成裝飾
             for (const decoData of eventData.decorations) {
               if (decoData.x !== undefined && decoData.y !== undefined && decoData.imageKey) {
@@ -866,7 +866,7 @@ const Runtime = (() => {
                 });
               }
             }
-            
+
             // 標記為已生成，避免重複生成
             if (Game._obstaclesAndDecorationsSpawned !== undefined) {
               Game._obstaclesAndDecorationsSpawned = true;
@@ -912,35 +912,95 @@ const Runtime = (() => {
         } catch (e) {
           console.warn("[SurvivalOnline] 生成BOSS投射物失敗:", e);
         }
+      } else if (eventType === "chest_spawn") {
+        // ✅ MMORPG 架構：所有玩家都能生成寶箱（由主機通知，帶唯一ID）
+        try {
+          if (typeof Game !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
+            const chest = new Chest(eventData.x, eventData.y, eventData.id); // 使用傳入的ID
+            if (!Game.chests) Game.chests = [];
+            Game.chests.push(chest);
+          }
+        } catch (e) {
+          console.warn("[SurvivalOnline] 生成寶箱失敗:", e);
+        }
       } else if (eventType === "ultimate_pineapple_spawn") {
-        // ✅ MMORPG 架構：所有玩家都能生成鳳梨大絕掉落物，不依賴室長端
+        // ✅ MMORPG 架構：所有玩家都能生成鳳梨大絕掉落物（由主機通知，帶唯一ID）
         try {
           if (typeof Game !== "undefined" && typeof Game.spawnPineappleUltimatePickup === "function" && eventData.x !== undefined && eventData.y !== undefined) {
             const opts = eventData.opts || {};
+            if (eventData.id) opts.id = eventData.id; // 確保ID傳遞
             Game.spawnPineappleUltimatePickup(eventData.x, eventData.y, opts);
           }
-        } catch (_) {}
-      } else if (eventType === "pineapple_pickup_collected") {
-        // ✅ MMORPG 架構：所有玩家都能處理鳳梨掉落物被撿取事件，移除鳳梨
+        } catch (_) { }
+      } else if (eventType === "chest_collected") {
+        // ✅ MMORPG 架構：處理寶箱/鳳梨被收集事件（統一處理）
         try {
-          if (typeof Game !== "undefined" && Array.isArray(Game.pineappleUltimatePickups) && eventData.x !== undefined && eventData.y !== undefined) {
-            // 找到最接近的鳳梨並移除（容差：50像素）
-            const tolerance = 50;
-            for (let i = Game.pineappleUltimatePickups.length - 1; i >= 0; i--) {
-              const pickup = Game.pineappleUltimatePickups[i];
-              if (pickup && !pickup.markedForDeletion) {
-                const dist = Math.sqrt(Math.pow(pickup.x - eventData.x, 2) + Math.pow(pickup.y - eventData.y, 2));
-                if (dist <= tolerance) {
-                  pickup.destroy();
-                  Game.pineappleUltimatePickups.splice(i, 1);
+          if (typeof Game !== "undefined") {
+            const isPineapple = (eventData.chestType === 'PINEAPPLE');
+            const list = isPineapple ? Game.pineappleUltimatePickups : Game.chests;
+
+            // 根據ID查找（比距離更準確）
+            let chestIndex = -1;
+            if (list) {
+              chestIndex = list.findIndex(c => c.id === eventData.chestId);
+            }
+
+            // 如果找不到ID但有座標（兼容舊版或ID未同步），則嘗試用距離
+            if (chestIndex === -1 && eventData.x !== undefined && eventData.y !== undefined) {
+              const tolerance = 50;
+              for (let i = list.length - 1; i >= 0; i--) {
+                const item = list[i];
+                if (Math.abs(item.x - eventData.x) < tolerance && Math.abs(item.y - eventData.y) < tolerance) {
+                  chestIndex = i;
                   break;
                 }
               }
             }
+
+            if (chestIndex !== -1) {
+              const chest = list[chestIndex];
+
+              // 如果是我收集的，觸發獎勵
+              if (eventData.collectorUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                if (isPineapple) {
+                  // 鳳梨獎勵逻辑
+                  if (typeof AudioManager !== 'undefined' && AudioManager.expSoundEnabled !== false) {
+                    AudioManager.playSound('collect_exp');
+                  }
+                  const player = Game.player;
+                  if (player && typeof player.gainExperience === 'function') {
+                    const base = 50;
+                    let needNow = 0;
+                    try {
+                      if (typeof player.experienceToNextLevel === 'number' && typeof player.experience === 'number') {
+                        needNow = Math.max(0, Math.floor(player.experienceToNextLevel - player.experience));
+                      }
+                    } catch (_) { }
+                    const bonus = Math.max(0, Math.floor(needNow * 0.30));
+                    player.gainExperience(base + bonus);
+                  }
+                } else {
+                  // 普通寶箱獎勵逻辑
+                  if (typeof AudioManager !== 'undefined') {
+                    AudioManager.playSound('level_up');
+                  }
+                  if (typeof UI !== 'undefined' && UI.showLevelUpMenu) {
+                    UI.showLevelUpMenu();
+                  }
+                }
+              }
+
+              // 移除物件
+              if (chest && typeof chest.destroy === 'function') chest.destroy();
+              list.splice(chestIndex, 1);
+            }
           }
         } catch (e) {
-          console.warn("[SurvivalOnline] 處理鳳梨掉落物被撿取事件失敗:", e);
+          console.warn("[SurvivalOnline] 處理寶箱收集事件失敗:", e);
         }
+      } else if (eventType === "pineapple_pickup_collected") {
+        // 舊版事件兼容（如果服務器還在發送舊事件，轉發給 chest_collected 邏輯或忽略）
+        // 由於我們更新了服務器發送 chest_collected，這裡應該不會再收到，但保留為空以防萬一
       } else if (eventType === "exp_orb_collected") {
         // ✅ MMORPG 架構：所有玩家都能處理經驗球被撿取事件，移除經驗球
         try {
@@ -974,7 +1034,7 @@ const Runtime = (() => {
             const dirX = typeof eventData.dirX === "number" ? eventData.dirX : 0;
             const dirY = typeof eventData.dirY === "number" ? eventData.dirY : -1;
             const enemyId = eventData.enemyId;
-            
+
             // 顯示傷害數字
             DamageNumbers.show(damage, enemyX, enemyY - enemyHeight / 2, isCrit, {
               dirX: dirX,
@@ -996,7 +1056,7 @@ const Runtime = (() => {
             const existingProjectile = Game.projectiles.find(p => p.id === projectileId);
             if (!existingProjectile) {
               const weaponType = eventData.weaponType || "UNKNOWN";
-              
+
               // 根據武器類型創建對應的投射物
               if (weaponType === "ORBIT" || weaponType === "CHICKEN_BLESSING" || weaponType === "ROTATING_MUFFIN" || weaponType === "HEART_COMPANION" || weaponType === "PINEAPPLE_ORBIT") {
                 // 環繞投射物：需要找到對應的玩家（使用完整的 Player 對象）
@@ -1017,12 +1077,12 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer && typeof OrbitBall !== "undefined") {
-                  const imageKey = (weaponType === "CHICKEN_BLESSING") ? "chicken" : 
-                                   (weaponType === "ROTATING_MUFFIN") ? "muffin" :
-                                   (weaponType === "HEART_COMPANION") ? "heart" :
-                                   (weaponType === "PINEAPPLE_ORBIT") ? "A45" : "lightning";
+                  const imageKey = (weaponType === "CHICKEN_BLESSING") ? "chicken" :
+                    (weaponType === "ROTATING_MUFFIN") ? "muffin" :
+                      (weaponType === "HEART_COMPANION") ? "heart" :
+                        (weaponType === "PINEAPPLE_ORBIT") ? "A45" : "lightning";
                   const initialAngle = eventData.angle || 0;
                   const radius = eventData.radius || 60;
                   const orb = new OrbitBall(
@@ -1059,7 +1119,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   const beam = new LaserBeam(
                     targetPlayer,
@@ -1093,7 +1153,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   const shockwave = new ShockwaveEffect(
                     targetPlayer,
@@ -1127,14 +1187,14 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   // 檢查是否已存在該玩家的 AICompanion（避免重複創建）
-                  const existingAI = Game.projectiles.find(p => 
-                    p && p.constructor && p.constructor.name === 'AICompanion' && 
+                  const existingAI = Game.projectiles.find(p =>
+                    p && p.constructor && p.constructor.name === 'AICompanion' &&
                     p._remotePlayerUid === eventData.playerUid
                   );
-                  
+
                   if (!existingAI) {
                     const ai = new AICompanion(
                       targetPlayer,
@@ -1175,7 +1235,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   if (weaponType === "CHAIN_LIGHTNING") {
                     // ✅ MMORPG架构：远程玩家的连锁闪电也应该造成伤害（每个玩家的伤害独立计算并叠加）
@@ -1225,7 +1285,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   const effect = new SlashEffect(
                     targetPlayer,
@@ -1258,7 +1318,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的裁决也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new JudgmentEffect(
@@ -1294,7 +1354,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的爆炸也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new ExplosionEffect(
@@ -1324,7 +1384,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的死线战士/死线超人也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new DeathlineWarriorEffect(
@@ -1360,7 +1420,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的神界裁决也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new DivineJudgmentEffect(targetPlayer, {
@@ -1398,7 +1458,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的守护领域也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new AuraField(
@@ -1429,7 +1489,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的引力波也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new GravityWaveField(
@@ -1461,7 +1521,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer && eventData.targetX !== undefined && eventData.targetY !== undefined) {
                   const effect = new IceBallProjectile(
                     eventData.x || targetPlayer.x,
@@ -1495,7 +1555,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   const effect = new YoungDadaGloryEffect(
                     targetPlayer,
@@ -1523,7 +1583,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   const effect = new FrenzyYoungDadaGloryEffect(
                     targetPlayer,
@@ -1551,7 +1611,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的光芒万丈也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new RadiantGloryEffect(
@@ -1585,7 +1645,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的狂热斩击也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new SlashEffect(
@@ -1620,7 +1680,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   const effect = new SingEffect(
                     targetPlayer,
@@ -1650,7 +1710,7 @@ const Runtime = (() => {
                     targetPlayer = Game.player;
                   }
                 }
-                
+
                 if (targetPlayer) {
                   const effect = new InvincibleEffect(
                     targetPlayer,
@@ -1717,19 +1777,19 @@ const Runtime = (() => {
           if (typeof Game !== "undefined") {
             if (Game._gameOverEventSent) return; // 已經處理過了
             Game._gameOverEventSent = true; // 標記為已處理
-            
+
             // ✅ 修復：直接調用遊戲結束邏輯，不再次調用 Game.gameOver()（避免循環）
             // 因為 Game.gameOver() 會再次廣播事件，導致循環
             Game.isGameOver = true;
             // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
             if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
-              window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => {});
+              window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => { });
             }
             // 先顯示開始畫面（作為背景），然後顯示房間大廳覆蓋層
             try {
               const startScreen = document.getElementById('start-screen');
               if (startScreen) startScreen.classList.remove('hidden');
-            } catch (_) {}
+            } catch (_) { }
             // 回到房間大廳（覆蓋層）
             if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
               window.SurvivalOnlineUI.openLobbyScreen();
@@ -1763,19 +1823,19 @@ const Runtime = (() => {
           if (typeof Game !== "undefined") {
             if (Game._victoryEventSent) return; // 已經處理過了
             Game._victoryEventSent = true; // 標記為已處理
-            
+
             // ✅ 修復：直接調用勝利邏輯，不再次調用 Game.victory()（避免循環）
             // 因為 Game.victory() 會再次廣播事件，導致循環
             Game.isGameOver = true;
             // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
             if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
-              window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => {});
+              window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => { });
             }
             // 先顯示開始畫面（作為背景），然後顯示房間大廳覆蓋層
             try {
               const startScreen = document.getElementById('start-screen');
               if (startScreen) startScreen.classList.remove('hidden');
-            } catch (_) {}
+            } catch (_) { }
             // 回到房間大廳（覆蓋層）
             if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
               window.SurvivalOnlineUI.openLobbyScreen();
@@ -1798,20 +1858,20 @@ const Runtime = (() => {
   function onFullSnapshotMessage(payload) {
     if (!payload || typeof payload !== "object") return;
     if (payload.t !== "full_snapshot") return;
-    
+
     try {
       console.log("[SurvivalOnline] M5: 收到全量快照，開始恢復遊戲狀態");
-      
+
       // 恢復 sessionId
       if (payload.sessionId && typeof Game !== "undefined" && Game.multiplayer) {
         Game.multiplayer.sessionId = payload.sessionId;
       }
-      
+
       // 恢復遊戲時間
       if (typeof payload.gameTime === "number" && typeof Game !== "undefined") {
         Game.gameTime = payload.gameTime;
       }
-      
+
       // 恢復波次
       if (typeof payload.currentWave === "number" && typeof WaveSystem !== "undefined") {
         WaveSystem.currentWave = payload.currentWave;
@@ -1819,16 +1879,16 @@ const Runtime = (() => {
           UI.updateWaveInfo(WaveSystem.currentWave);
         }
       }
-      
+
       // 先處理玩家狀態（使用 M3 的邏輯）
       onSnapshotMessage(payload);
-      
+
       // 恢復敵人（僅在室長端，客戶端不生成敵人）
       // 注意：客戶端不應該真正生成敵人，只是記錄用於視覺效果
       // 實際的敵人生成和戰鬥邏輯由室長處理
-      
+
       // 恢復經驗球和寶箱（同樣，客戶端只做記錄）
-      
+
       console.log("[SurvivalOnline] M5: 遊戲狀態恢復完成");
     } catch (e) {
       console.warn("[SurvivalOnline] M5: 全量快照處理失敗:", e);
@@ -1839,7 +1899,7 @@ const Runtime = (() => {
   function onSnapshotMessage(payload) {
     if (!payload || typeof payload !== "object") return;
     if (payload.t !== "snapshot") return;
-    
+
     try {
       // MMO 架構：不再校正位置，只同步關鍵狀態
       // 每個玩家都是獨立的，位置由客戶端自己控制，不被服務器校正
@@ -1847,10 +1907,10 @@ const Runtime = (() => {
         const myState = payload.players[_uid];
         if (typeof Game !== "undefined" && Game.player) {
           const player = Game.player;
-          
+
           // ✅ MMO 架構：不再校正位置，只同步關鍵狀態（血量、能量、等級等）
           // 位置由客戶端自己控制，不被服務器校正，確保每個玩家都是獨立的
-          
+
           // 血量/能量/等級/經驗：硬覆蓋保一致
           if (typeof myState.hp === "number") player.health = Math.max(0, Math.min(myState.hp, player.maxHealth || 100));
           if (typeof myState.maxHp === "number") player.maxHealth = myState.maxHp;
@@ -1859,7 +1919,7 @@ const Runtime = (() => {
           if (typeof myState.level === "number") player.level = myState.level;
           if (typeof myState.exp === "number") player.experience = myState.exp;
           if (typeof myState.expToNext === "number") player.experienceToNextLevel = myState.expToNext;
-          
+
           // 金幣同步（組隊模式共享金幣）
           if (typeof myState.coins === "number" && typeof Game !== "undefined") {
             Game.coins = Math.max(0, Math.floor(myState.coins));
@@ -1868,7 +1928,7 @@ const Runtime = (() => {
               UI.updateCoinsDisplay(Game.coins);
             }
           }
-          
+
           // 大招狀態同步
           if (typeof myState.isUltimateActive === "boolean") {
             player.isUltimateActive = myState.isUltimateActive;
@@ -1891,7 +1951,7 @@ const Runtime = (() => {
           if (typeof myState.collisionRadius === "number" && myState.collisionRadius > 0) {
             player.collisionRadius = myState.collisionRadius;
           }
-          
+
           // 死亡和復活狀態同步
           if (typeof myState._isDead === "boolean") {
             player._isDead = myState._isDead;
@@ -1907,7 +1967,7 @@ const Runtime = (() => {
           if (typeof myState._resurrectionProgress === "number") {
             player._resurrectionProgress = myState._resurrectionProgress;
           }
-          
+
           // 更新 UI
           if (typeof UI !== "undefined") {
             if (UI.updateHealthBar) UI.updateHealthBar(player.health, player.maxHealth);
@@ -1971,58 +2031,44 @@ const Runtime = (() => {
   }
 
   function tick(game, deltaTime) {
-    // ✅ 权威服务器：客户端只发送输入，不发送游戏状态
-    // ✅ 不影响单机：只在多人模式下执行
-    if (!enabled) {
-      return;
-    }
-    if (!_tickCalled) {
-      _tickCalled = true;
-      console.log(`[SurvivalOnline] tick: 第一次被調用 (权威服务器架构), enabled=${enabled}`);
-    }
+    if (!enabled) return;
+
+    // 限制發送頻率 (10Hz / 100ms)
     const now = Date.now();
-    if (now - lastSendAt < 16) return; // ✅ 標準連線遊戲：60Hz更新頻率
+    if (now - lastSendAt < 100) return;
     lastSendAt = now;
-    
-    // ✅ 权威服务器：只发送输入，不发送游戏状态
-    try {
-      if (typeof Game !== "undefined" && Game.player && typeof Input !== "undefined") {
-        const player = Game.player;
-        
-        // 收集输入（按键和鼠标）
-        const keys = Input.keys || {};
-        const mousePos = Input.mousePosition || { x: 0, y: 0 };
-        
-        // 计算移动方向
-        let vx = 0;
-        let vy = 0;
-        const speed = 5; // 玩家移动速度
-        
-        if (keys['w'] || keys['W'] || keys['ArrowUp']) vy -= speed;
-        if (keys['s'] || keys['S'] || keys['ArrowDown']) vy += speed;
-        if (keys['a'] || keys['A'] || keys['ArrowLeft']) vx -= speed;
-        if (keys['d'] || keys['D'] || keys['ArrowRight']) vx += speed;
-        
-        // 标准化速度（对角线移动）
-        if (vx !== 0 && vy !== 0) {
-          vx *= 0.707;
-          vy *= 0.707;
-        }
-        
-        // 发送输入到服务器
-        if (_ws && _ws.readyState === WebSocket.OPEN && (vx !== 0 || vy !== 0)) {
-          _sendViaWebSocket({
-            type: 'move',
-            vx: vx,
-            vy: vy,
-            deltaTime: deltaTime,
-            timestamp: now
-          });
-        }
-      }
-    } catch (e) {
-      console.warn("[SurvivalOnline] tick: 發送輸入失敗:", e);
-    }
+
+    if (typeof Game === "undefined" || !Game.player) return;
+
+    // 構建位置和狀態消息 (Client-Authoritative)
+    const payload = {
+      t: "pos",
+      x: Game.player.x,
+      y: Game.player.y,
+      health: Game.player.health,
+      maxHealth: Game.player.maxHealth,
+      energy: Game.player.energy,
+      maxEnergy: Game.player.maxEnergy,
+      level: Game.player.level,
+      exp: Game.player.experience,
+      expToNext: Game.player.experienceToNextLevel,
+      facingRight: Game.player.facingRight,
+      facingAngle: Game.player.facingAngle,
+      _isDead: Game.player._isDead,
+      _resurrectionProgress: Game.player._resurrectionProgress,
+      isUltimateActive: Game.player.isUltimateActive,
+      ultimateImageKey: Game.player._ultimateImageKey,
+      ultimateEndTime: Game.player.ultimateEndTime,
+      width: Game.player.width,
+      height: Game.player.height,
+      collisionRadius: Game.player.collisionRadius,
+      // 傳遞金幣（共享）
+      coins: Game.coins,
+      hitFlashTime: Game.player.hitFlashTime || 0
+    };
+
+    // 發送
+    _sendViaWebSocket(payload);
   }
 
   function getRemotePlayers() {
@@ -2050,7 +2096,7 @@ const Runtime = (() => {
           const p = Game.player;
           const hostMember = _membersState ? _membersState.get(_uid) : null;
           const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
-            snapshot.players[_uid] = {
+          snapshot.players[_uid] = {
             x: p.x || 0,
             y: p.y || 0,
             hp: p.health || 0,
@@ -2075,7 +2121,7 @@ const Runtime = (() => {
             collisionRadius: p.collisionRadius || (CONFIG.PLAYER.SIZE / 2)
           };
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // 收集遠程玩家狀態
       try {
@@ -2129,7 +2175,7 @@ const Runtime = (() => {
             };
           }
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // 收集 BOSS 狀態
       try {
@@ -2143,7 +2189,7 @@ const Runtime = (() => {
             type: boss.type || "BOSS"
           };
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // 收集出口狀態
       try {
@@ -2156,7 +2202,7 @@ const Runtime = (() => {
             height: exit.height || 0
           };
         }
-      } catch (_) {}
+      } catch (_) { }
 
       // ✅ MMO 架構：不再同步敵人，每個客戶端自己生成
       // 使用確定性生成確保所有客戶端生成相同的敵人
@@ -2176,10 +2222,10 @@ const Runtime = (() => {
     try {
       // 更新所有遠程玩家的武器和攻擊效果
       RemotePlayerManager.updateAll(deltaTime);
-      
+
       // 注意：狀態同步已由 tick 函數處理，這裡只更新遠程玩家的邏輯
       // 不再需要隊長端廣播，每個玩家都發送自己的狀態
-    } catch (_) {}
+    } catch (_) { }
   }
 
   // MMO 架構：每個玩家都可以清理遠程玩家（遊戲結束時）
@@ -2187,7 +2233,7 @@ const Runtime = (() => {
     // ✅ MMO 架構：每個玩家都可以清理遠程玩家，不依賴隊長端
     try {
       RemotePlayerManager.clear();
-    } catch (_) {}
+    } catch (_) { }
   }
 
   // MMO 架構：每個玩家都廣播事件，不依賴隊長端
@@ -2198,7 +2244,7 @@ const Runtime = (() => {
       if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
         window.SurvivalOnlineBroadcastEvent(eventType, eventData);
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   // MMO 架構：每個玩家都直接發送消息，不依賴隊長端
@@ -2213,7 +2259,7 @@ const Runtime = (() => {
 })();
 
 // M2：全局事件廣播函數（供其他模組調用）
-window.SurvivalOnlineBroadcastEvent = function(eventType, eventData) {
+window.SurvivalOnlineBroadcastEvent = function (eventType, eventData) {
   if (typeof broadcastEvent === "function") {
     broadcastEvent(eventType, eventData);
   }
@@ -2274,14 +2320,14 @@ async function ensureAuth() {
     const unsub = onAuthStateChanged(_auth, (user) => {
       if (user) {
         _uid = user.uid;
-        try { unsub(); } catch (_) {}
+        try { unsub(); } catch (_) { }
         resolve();
       }
     });
     // 若還沒登入，先匿名登入
     signInAnonymously(_auth).catch((e) => {
       // 常見原因：Authorized domains 沒加入、或瀏覽器阻擋第三方 cookie/存儲
-      try { console.warn("[SurvivalOnline] signInAnonymously failed:", e); } catch (_) {}
+      try { console.warn("[SurvivalOnline] signInAnonymously failed:", e); } catch (_) { }
     });
   });
   return _uid;
@@ -2329,8 +2375,8 @@ async function createRoom(initial) {
         if (typeof TalentSystem !== "undefined" && typeof TalentSystem.getTalentLevels === "function") {
           talentLevels = TalentSystem.getTalentLevels();
         }
-      } catch (_) {}
-      
+      } catch (_) { }
+
       // 獲取角色ID：優先使用 _pendingStartParams，其次使用 Game.selectedCharacter，最後使用默認角色
       let characterId = null;
       if (_pendingStartParams && _pendingStartParams.selectedCharacter && _pendingStartParams.selectedCharacter.id) {
@@ -2346,7 +2392,7 @@ async function createRoom(initial) {
           }
         }
       }
-      
+
       await setDoc(memberDocRef(roomId, _uid), {
         uid: _uid,
         role: "host",
@@ -2357,10 +2403,10 @@ async function createRoom(initial) {
         characterId: characterId,
         talentLevels: talentLevels, // 保存天賦等級
       });
-      
+
       // 啟動自動清理機制（主機端）
       startAutoCleanup();
-      
+
       return { roomId, hostUid: _uid, mapId, diffId };
     } catch (e) {
       lastErr = e;
@@ -2394,8 +2440,8 @@ async function joinRoom(roomId) {
     if (typeof TalentSystem !== "undefined" && typeof TalentSystem.getTalentLevels === "function") {
       talentLevels = TalentSystem.getTalentLevels();
     }
-  } catch (_) {}
-  
+  } catch (_) { }
+
   // 獲取角色ID：優先使用 _pendingStartParams，其次使用 Game.selectedCharacter，最後使用默認角色
   let characterId = null;
   if (_pendingStartParams && _pendingStartParams.selectedCharacter && _pendingStartParams.selectedCharacter.id) {
@@ -2411,7 +2457,7 @@ async function joinRoom(roomId) {
       }
     }
   }
-  
+
   try {
     await setDoc(memberDocRef(roomId, _uid), {
       uid: _uid,
@@ -2439,7 +2485,7 @@ async function joinRoom(roomId) {
         data = snap.data() || {};
         break;
       }
-    } catch (_) {}
+    } catch (_) { }
     // 小延遲避免剛寫入 member 後規則判定尚未就緒
     await new Promise((r) => setTimeout(r, 120));
   }
@@ -2449,9 +2495,9 @@ async function joinRoom(roomId) {
 
 async function leaveRoom() {
   try {
-    if (_activeRoomUnsub) { try { _activeRoomUnsub(); } catch (_) {} }
-    if (_membersUnsub) { try { _membersUnsub(); } catch (_) {} }
-    if (_signalsUnsub) { try { _signalsUnsub(); } catch (_) {} }
+    if (_activeRoomUnsub) { try { _activeRoomUnsub(); } catch (_) { } }
+    if (_membersUnsub) { try { _membersUnsub(); } catch (_) { } }
+    if (_signalsUnsub) { try { _signalsUnsub(); } catch (_) { } }
   } finally {
     _activeRoomUnsub = null;
     _membersUnsub = null;
@@ -2463,38 +2509,38 @@ async function leaveRoom() {
     if (typeof RemotePlayerManager !== "undefined" && RemotePlayerManager.clear) {
       RemotePlayerManager.clear();
     }
-  } catch (_) {}
-  
+  } catch (_) { }
+
   // ✅ 清理邏輯：清理 Game.remotePlayers（避免殘留）
   try {
     if (typeof Game !== "undefined" && Array.isArray(Game.remotePlayers)) {
       Game.remotePlayers.length = 0;
     }
-  } catch (_) {}
-  
+  } catch (_) { }
+
   // ✅ 清理邏輯：清理 Runtime 中的遠程玩家
   try {
     if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
       Runtime.setEnabled(false);
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // ✅ 清理邏輯：關閉 WebSocket 連接
-  try { 
+  try {
     if (_ws) {
       _ws.onmessage = null;
       _ws.onopen = null;
       _ws.onclose = null;
       _ws.onerror = null;
-      _ws.close(); 
+      _ws.close();
     }
-  } catch (_) {}
+  } catch (_) { }
   _ws = null;
   _wsReconnectAttempts = 0;
-  
+
   // ✅ 清理邏輯：停止自動清理
   stopAutoCleanup();
-  
+
   // ✅ 清理邏輯：清理速率限制追蹤
   _rateLimitTracker.clear();
 
@@ -2505,14 +2551,14 @@ async function leaveRoom() {
     if (_activeRoomId && _uid) {
       await deleteDoc(memberDocRef(_activeRoomId, _uid));
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // ✅ 清理邏輯：若我是室長：嘗試關房（無後端下無法保證；規則允許就關）
   try {
     if (_isHost && _activeRoomId) {
       await updateDoc(roomDocRef(_activeRoomId), { status: "closed", updatedAt: serverTimestamp() });
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // ✅ 清理邏輯：重置所有狀態變量
   _activeRoomId = null;
@@ -2522,25 +2568,25 @@ async function leaveRoom() {
   _membersState = new Map();
 
   // ✅ 清理邏輯：停止心跳
-  try { if (_memberHeartbeatTimer) clearInterval(_memberHeartbeatTimer); } catch (_) {}
+  try { if (_memberHeartbeatTimer) clearInterval(_memberHeartbeatTimer); } catch (_) { }
   _memberHeartbeatTimer = null;
 
   // ✅ 清理邏輯：停止開局倒數（避免離開後誤觸發進入遊戲）
-  try { if (_startTimer) clearTimeout(_startTimer); } catch (_) {}
+  try { if (_startTimer) clearTimeout(_startTimer); } catch (_) { }
   _startTimer = null;
   _startSessionId = null;
-  
+
   // ✅ 清理邏輯：清理重連計時器
-  try { if (_reconnectTimer) clearTimeout(_reconnectTimer); } catch (_) {}
+  try { if (_reconnectTimer) clearTimeout(_reconnectTimer); } catch (_) { }
   _reconnectTimer = null;
   _reconnectAttempts = 0;
-  
+
   // ✅ 清理邏輯：離開房間時清理暱稱（避免跨房間污染）
   try {
     if (typeof localStorage !== 'undefined' && localStorage.getItem) {
       localStorage.removeItem(PLAYER_NAME_STORAGE_KEY);
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 async function setReady(ready) {
@@ -2550,7 +2596,7 @@ async function setReady(ready) {
 }
 
 function _startMemberHeartbeat() {
-  try { if (_memberHeartbeatTimer) clearInterval(_memberHeartbeatTimer); } catch (_) {}
+  try { if (_memberHeartbeatTimer) clearInterval(_memberHeartbeatTimer); } catch (_) { }
   _memberHeartbeatTimer = null;
   if (!_activeRoomId) return;
   _memberHeartbeatTimer = setInterval(async () => {
@@ -2584,7 +2630,7 @@ function _joinedAtMs(member) {
     const t = member && member.joinedAt ? member.joinedAt : null;
     if (t && typeof t.toMillis === "function") return t.toMillis();
     if (typeof t === "number") return t;
-  } catch (_) {}
+  } catch (_) { }
   return 0;
 }
 
@@ -2594,7 +2640,7 @@ async function hostUpdateSettings({ mapId, diffId }) {
   if (mapId) patch.mapId = mapId;
   if (diffId) patch.diffId = diffId;
   await updateDoc(roomDocRef(_activeRoomId), patch);
-  
+
   // 更新房間狀態以延長過期時間
   if (_roomState) {
     _roomState.updatedAt = Date.now();
@@ -2613,7 +2659,7 @@ async function hostStartGame() {
     startAt: serverTimestamp(),
     updatedAt: serverTimestamp()
   });
-  
+
   // 更新房間狀態以延長過期時間
   if (_roomState) {
     _roomState.updatedAt = Date.now();
@@ -2638,7 +2684,7 @@ async function sendSignal(payload) {
 }
 
 function listenRoom(roomId) {
-  if (_activeRoomUnsub) { try { _activeRoomUnsub(); } catch (_) {} }
+  if (_activeRoomUnsub) { try { _activeRoomUnsub(); } catch (_) { } }
   _activeRoomUnsub = onSnapshot(
     roomDocRef(roomId),
     (snap) => {
@@ -2655,7 +2701,7 @@ function listenRoom(roomId) {
           });
         }
       }
-      
+
       // 更新本地 updatedAt 時間戳（用於過期檢查）
       if (_roomState && _roomState.updatedAt) {
         try {
@@ -2665,9 +2711,9 @@ function listenRoom(roomId) {
           } else if (typeof updatedAt === "number") {
             _roomState._lastUpdateMs = updatedAt;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
-      
+
       // 同步 host 的下拉（避免用輪詢）
       _syncHostSelectsFromRoom();
       updateLobbyUI();
@@ -2675,7 +2721,7 @@ function listenRoom(roomId) {
       // 房間被室長解散/關閉：所有人自動離開回到遊戲開始畫面
       if (_roomState && _roomState.status === "closed") {
         _setText("survival-online-status", "隊伍已解散");
-        leaveRoom().catch(() => {});
+        leaveRoom().catch(() => { });
         closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
         return;
       }
@@ -2695,20 +2741,20 @@ function listenRoom(roomId) {
         const code = err && err.code ? String(err.code) : "";
         if (code.includes("permission-denied")) {
           _setText("survival-online-status", "你已被室長移出隊伍");
-          leaveRoom().catch(() => {});
+          leaveRoom().catch(() => { });
           closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
           return;
         }
         const msg = (err && err.message) ? String(err.message) : "房間監聽錯誤";
         _setText("survival-online-status", `房間監聽錯誤：${msg}`);
         console.warn("[SurvivalOnline] room listener error:", err);
-      } catch (_) {}
+      } catch (_) { }
     }
   );
 }
 
 function listenMembers(roomId) {
-  if (_membersUnsub) { try { _membersUnsub(); } catch (_) {} }
+  if (_membersUnsub) { try { _membersUnsub(); } catch (_) { } }
   const col = collection(_db, "rooms", roomId, "members");
   _membersUnsub = onSnapshot(
     col,
@@ -2729,7 +2775,7 @@ function listenMembers(roomId) {
             if (typeof RemotePlayerManager !== "undefined" && RemotePlayerManager.remove) {
               RemotePlayerManager.remove(leftUid);
             }
-          } catch (_) {}
+          } catch (_) { }
         }
       }
       _membersState = m;
@@ -2758,9 +2804,9 @@ function listenMembers(roomId) {
                 // 如果刪除失敗，至少設置為 closed 狀態
                 try {
                   await updateDoc(roomDocRef(roomIdToDelete), { status: "closed", updatedAt: serverTimestamp() });
-                } catch (_) {}
+                } catch (_) { }
               }
-            })().catch(() => {});
+            })().catch(() => { });
             return; // 不再更新 UI，因為房間已不存在
           }
         }
@@ -2778,11 +2824,11 @@ function listenMembers(roomId) {
               .sort((a, b) => _joinedAtMs(b) - _joinedAtMs(a)); // 最新的優先移出
             const needKick = Math.max(0, arr.length - MAX_PLAYERS);
             for (let i = 0; i < needKick && i < extras.length; i++) {
-              hostKickMember(extras[i].uid).catch(() => {});
+              hostKickMember(extras[i].uid).catch(() => { });
             }
           }
         }
-      } catch (_) {}
+      } catch (_) { }
 
       updateLobbyUI();
     },
@@ -2791,14 +2837,14 @@ function listenMembers(roomId) {
         const code = err && err.code ? String(err.code) : "";
         if (code.includes("permission-denied")) {
           _setText("survival-online-status", "你已被室長移出隊伍");
-          leaveRoom().catch(() => {});
+          leaveRoom().catch(() => { });
           closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
           return;
         }
         const msg = (err && err.message) ? String(err.message) : "成員監聽錯誤";
         _setText("survival-online-status", `成員監聽錯誤：${msg}`);
         console.warn("[SurvivalOnline] members listener error:", err);
-      } catch (_) {}
+      } catch (_) { }
     }
   );
 }
@@ -2816,7 +2862,7 @@ async function hostKickMember(targetUid) {
       if (typeof RemotePlayerManager !== "undefined" && RemotePlayerManager.remove) {
         RemotePlayerManager.remove(targetUid);
       }
-    } catch (_) {}
+    } catch (_) { }
     _setText("survival-online-status", "已移出隊伍成員");
   } catch (e) {
     const msg = (e && e.message) ? String(e.message) : "移出失敗";
@@ -2829,14 +2875,14 @@ async function hostDisbandTeam() {
   // 軟解散：把 room status 設為 closed，所有人 listener 會自動離開
   try {
     await updateDoc(roomDocRef(_activeRoomId), { status: "closed", updatedAt: serverTimestamp() });
-  } catch (_) {}
-  await leaveRoom().catch(() => {});
+  } catch (_) { }
+  await leaveRoom().catch(() => { });
   closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
   _setText("survival-online-status", "隊伍已解散");
 }
 
 function listenSignals(roomId) {
-  if (_signalsUnsub) { try { _signalsUnsub(); } catch (_) {} }
+  if (_signalsUnsub) { try { _signalsUnsub(); } catch (_) { } }
   // 注意：where + orderBy(createdAt) 會要求複合索引；為了「免建索引、少麻煩」
   // 這裡改成只用 where(toUid==me) + limit，然後逐筆消費刪除即可（順序在本設計不重要）。
   const q = query(
@@ -2864,7 +2910,7 @@ function listenSignals(roomId) {
             console.error(`[SurvivalOnline] listenSignals: 處理信號失敗:`, e);
           }
           // 消費後刪除，避免重播
-          try { 
+          try {
             await deleteDoc(doc(_db, "rooms", roomId, "signals", sid));
             console.log(`[SurvivalOnline] listenSignals: 已刪除信號 sid=${sid}`);
           } catch (e) {
@@ -2879,7 +2925,7 @@ function listenSignals(roomId) {
         const msg = (err && err.message) ? String(err.message) : "監聽器錯誤";
         _setText("survival-online-status", `信令監聽錯誤：${msg}`);
         console.warn("[SurvivalOnline] signals listener error:", err);
-      } catch (_) {}
+      } catch (_) { }
     }
   );
 }
@@ -2898,18 +2944,18 @@ async function connectWebSocket() {
     // 關閉舊連接
     try {
       _ws.close();
-    } catch (_) {}
+    } catch (_) { }
   }
-  
+
   console.log(`[SurvivalOnline] connectWebSocket: 開始連接，activeRoomId=${_activeRoomId}, uid=${_uid}, isHost=${_isHost}`);
-  
+
   try {
     _ws = new WebSocket(WEBSOCKET_SERVER_URL);
-    
+
     _ws.onopen = () => {
       console.log(`[SurvivalOnline] connectWebSocket: WebSocket 已打開`);
       _wsReconnectAttempts = 0;
-      
+
       // 發送加入房間消息
       _ws.send(JSON.stringify({
         type: 'join',
@@ -2917,7 +2963,7 @@ async function connectWebSocket() {
         uid: _uid,
         isHost: _isHost
       }));
-      
+
       // ✅ 权威服务器：发送CONFIG数据到服务器（用于敌人生成）
       if (typeof CONFIG !== 'undefined') {
         // 只发送必要的CONFIG数据（减少流量）
@@ -2927,7 +2973,7 @@ async function connectWebSocket() {
           OPTIMIZATION: CONFIG.OPTIMIZATION || null,
           TUNING: CONFIG.TUNING || null
         };
-        
+
         setTimeout(() => {
           if (_ws && _ws.readyState === WebSocket.OPEN) {
             _sendViaWebSocket({
@@ -2940,7 +2986,7 @@ async function connectWebSocket() {
           }
         }, 100); // 延迟100ms确保连接已建立
       }
-      
+
       // ✅ 权威服务器：发送地图信息到服务器（用于路口车辆生成等）
       if (typeof Game !== 'undefined' && Game.selectedMap) {
         setTimeout(() => {
@@ -2958,7 +3004,7 @@ async function connectWebSocket() {
           }
         }, 200); // 延迟200ms确保CONFIG已发送
       }
-      
+
       // ✅ 权威服务器：发送世界大小到服务器（确保与客户端一致）
       // 720P九宫格：3840x2160 (1280*3 x 720*3)
       // 4K模式：根据实际配置
@@ -2976,15 +3022,15 @@ async function connectWebSocket() {
           }
         }, 300); // 延迟300ms确保地图信息已发送
       }
-      
+
       Runtime.setEnabled(true);
       _setText("survival-online-status", "已連線（WebSocket）");
     };
-    
+
     _ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
-        
+
         if (msg.type === 'joined') {
           console.log(`[SurvivalOnline] connectWebSocket: 已加入房間`);
         } else if (msg.type === 'game-data') {
@@ -2992,7 +3038,7 @@ async function connectWebSocket() {
           const data = msg.data;
           // 優先使用 fromUid（WebSocket 消息格式），其次使用 uid
           const senderUid = (msg.fromUid && typeof msg.fromUid === "string") ? msg.fromUid : (msg.uid && typeof msg.uid === "string") ? msg.uid : null;
-          
+
           if (data.t === "state") {
             Runtime.onStateMessage(data);
           } else if (data.t === "event") {
@@ -3027,18 +3073,18 @@ async function connectWebSocket() {
         console.error(`[SurvivalOnline] connectWebSocket: 處理消息失敗:`, e);
       }
     };
-    
+
     _ws.onclose = () => {
       console.log(`[SurvivalOnline] connectWebSocket: WebSocket 已關閉`);
       Runtime.setEnabled(false);
       _setText("survival-online-status", "連線已中斷");
-      
+
       // 自動重連機制
       if (_wsReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         _wsReconnectAttempts++;
         _setText("survival-online-status", `重新連線中... (${_wsReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
         console.log(`[SurvivalOnline] 自動重連嘗試 ${_wsReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}`);
-        
+
         setTimeout(() => {
           connectWebSocket().catch((e) => {
             console.warn("[SurvivalOnline] 自動重連失敗:", e);
@@ -3053,23 +3099,23 @@ async function connectWebSocket() {
             if (typeof Game !== "undefined" && Game.gameOver) {
               Game.gameOver();
             }
-          } catch (_) {}
-          leaveRoom().catch(() => {});
+          } catch (_) { }
+          leaveRoom().catch(() => { });
           closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
         }, 1000);
       }
     };
-    
+
     _ws.onerror = (err) => {
       console.error(`[SurvivalOnline] connectWebSocket: WebSocket 錯誤:`, err);
       // 检查是否是证书错误（Firefox 和 Chrome 的错误信息不同）
       const errorMsg = err.message || err.toString() || '';
-      const isCertError = errorMsg.includes('CERT_AUTHORITY_INVALID') || 
-                         errorMsg.includes('SEC_ERROR_UNKNOWN_ISSUER') ||
-                         errorMsg.includes('SSL_ERROR_BAD_CERT_DOMAIN') ||
-                         errorMsg.includes('证书') ||
-                         errorMsg.includes('certificate');
-      
+      const isCertError = errorMsg.includes('CERT_AUTHORITY_INVALID') ||
+        errorMsg.includes('SEC_ERROR_UNKNOWN_ISSUER') ||
+        errorMsg.includes('SSL_ERROR_BAD_CERT_DOMAIN') ||
+        errorMsg.includes('证书') ||
+        errorMsg.includes('certificate');
+
       if (isCertError) {
         // Firefox 需要单独访问 HTTPS 页面接受证书
         const browser = navigator.userAgent.includes('Firefox') ? 'Firefox' : '浏览器';
@@ -3079,7 +3125,7 @@ async function connectWebSocket() {
         _setText("survival-online-status", "連線失敗：WebSocket 錯誤");
       }
     };
-    
+
   } catch (e) {
     console.error(`[SurvivalOnline] connectWebSocket: 連接失敗:`, e);
     _ws = null;
@@ -3135,7 +3181,7 @@ async function sendMessageViaFirebase(toUid, message) {
 // 監聽 Firebase 消息（替代 WebRTC DataChannel）
 let _messagesUnsub = null;
 function listenMessages(roomId) {
-  if (_messagesUnsub) { try { _messagesUnsub(); } catch (_) {} }
+  if (_messagesUnsub) { try { _messagesUnsub(); } catch (_) { } }
   const q = query(
     collection(_db, "rooms", roomId, "messages"),
     where("toUid", "==", _uid),
@@ -3153,9 +3199,9 @@ function listenMessages(roomId) {
           const data = msgDoc.data() || {};
           const fromUid = data.fromUid;
           const message = data.message;
-          
+
           if (!fromUid || !message) continue;
-          
+
           // 處理消息
           try {
             if (_isHost) {
@@ -3173,7 +3219,7 @@ function listenMessages(roomId) {
           } catch (e) {
             console.error(`[SurvivalOnline] listenMessages: 處理消息失敗:`, e);
           }
-          
+
           // 標記為已消費並刪除
           try {
             await updateDoc(msgDoc.ref, { consumed: true });
@@ -3196,7 +3242,7 @@ function sendFullSnapshotToClient(targetUid) {
   try {
     const snapshot = collectSnapshot();
     if (!snapshot) return;
-    
+
     // 添加額外的全量信息（敵人、掉落物等）
     const fullSnapshot = {
       ...snapshot,
@@ -3209,7 +3255,7 @@ function sendFullSnapshotToClient(targetUid) {
       chests: [],
       projectiles: []
     };
-    
+
     // 收集所有敵人狀態
     try {
       if (typeof Game !== "undefined" && Array.isArray(Game.enemies)) {
@@ -3226,8 +3272,8 @@ function sendFullSnapshotToClient(targetUid) {
           }
         }
       }
-    } catch (_) {}
-    
+    } catch (_) { }
+
     // 收集所有經驗球狀態
     try {
       if (typeof Game !== "undefined" && Array.isArray(Game.experienceOrbs)) {
@@ -3241,8 +3287,8 @@ function sendFullSnapshotToClient(targetUid) {
           }
         }
       }
-    } catch (_) {}
-    
+    } catch (_) { }
+
     // 收集所有寶箱狀態
     try {
       if (typeof Game !== "undefined" && Array.isArray(Game.chests)) {
@@ -3255,8 +3301,8 @@ function sendFullSnapshotToClient(targetUid) {
           }
         }
       }
-    } catch (_) {}
-    
+    } catch (_) { }
+
     // 發送給指定隊員（通過 WebSocket 廣播，服務器會轉發給目標用戶）
     if (_ws && _ws.readyState === WebSocket.OPEN) {
       _sendViaWebSocket(fullSnapshot);
@@ -3292,18 +3338,18 @@ function _checkRateLimit(uid, type, maxPerSecond) {
     _rateLimitTracker.set(uid, { lastResetTime: now, counts: {} });
   }
   const tracker = _rateLimitTracker.get(uid);
-  
+
   // 每秒重置計數
   if (now - tracker.lastResetTime >= 1000) {
     tracker.counts = {};
     tracker.lastResetTime = now;
   }
-  
+
   // 初始化計數
   if (!tracker.counts[type]) {
     tracker.counts[type] = 0;
   }
-  
+
   // 檢查是否超過限制
   tracker.counts[type]++;
   if (tracker.counts[type] > maxPerSecond) {
@@ -3326,10 +3372,10 @@ function _cleanupRateLimitTracker() {
 // ✅ 不影响单机：只在多人模式下执行（通过 Runtime.setEnabled 控制）
 function handleServerGameState(state, timestamp) {
   if (!state || typeof state !== 'object') return;
-  
+
   // ✅ 安全检查：只在多人模式下执行
   if (typeof Game === 'undefined' || !Game.multiplayer) return;
-  
+
   try {
     // 更新玩家状态
     if (Array.isArray(state.players)) {
@@ -3351,27 +3397,27 @@ function handleServerGameState(state, timestamp) {
         }
       }
     }
-    
+
     // 更新敌人（服务器权威）
     if (Array.isArray(state.enemies)) {
       updateEnemiesFromServer(state.enemies);
     }
-    
+
     // 更新投射物（服务器权威）
     if (Array.isArray(state.projectiles)) {
       updateProjectilesFromServer(state.projectiles);
     }
-    
+
     // 更新经验球（服务器权威）
     if (Array.isArray(state.experienceOrbs)) {
       updateExperienceOrbsFromServer(state.experienceOrbs);
     }
-    
+
     // ✅ 更新路口车辆（服务器权威）
     if (Array.isArray(state.carHazards)) {
       updateCarHazardsFromServer(state.carHazards);
     }
-    
+
     // 更新波次
     if (typeof state.wave === 'number' && typeof WaveSystem !== 'undefined') {
       WaveSystem.currentWave = state.wave;
@@ -3379,7 +3425,7 @@ function handleServerGameState(state, timestamp) {
         UI.updateWaveInfo(state.wave);
       }
     }
-    
+
     // 更新游戏状态
     if (typeof Game !== 'undefined') {
       Game.gameTime = state.gameTime || Game.gameTime;
@@ -3403,7 +3449,7 @@ function handleServerGameState(state, timestamp) {
 // ✅ 不影响单机：只在多人模式下执行
 function updateRemotePlayerFromServer(playerState) {
   if (typeof Game === 'undefined' || !Game.multiplayer) return;
-  
+
   // 使用 RemotePlayerManager 更新远程玩家
   if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
     let remotePlayer = RemotePlayerManager.get(playerState.uid);
@@ -3426,7 +3472,7 @@ function updateRemotePlayerFromServer(playerState) {
         remotePlayer.x = playerState.x;
         remotePlayer.y = playerState.y;
       }
-      
+
       // 更新状态
       remotePlayer.health = playerState.health || remotePlayer.health;
       remotePlayer.maxHealth = playerState.maxHealth || remotePlayer.maxHealth;
@@ -3442,18 +3488,18 @@ function updateRemotePlayerFromServer(playerState) {
 // ✅ 不影响单机：只在多人模式下执行
 function updateEnemiesFromServer(enemies) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.enemies) return;
-  
+
   // 创建敌人ID映射
   const serverEnemyIds = new Set(enemies.map(e => e.id));
   const localEnemyIds = new Set(Game.enemies.map(e => e.id));
-  
+
   // 移除服务器不存在的敌人
   for (let i = Game.enemies.length - 1; i >= 0; i--) {
     if (!serverEnemyIds.has(Game.enemies[i].id)) {
       Game.enemies.splice(i, 1);
     }
   }
-  
+
   // 更新或创建敌人
   for (const enemyState of enemies) {
     let enemy = Game.enemies.find(e => e.id === enemyState.id);
@@ -3469,7 +3515,7 @@ function updateEnemiesFromServer(enemies) {
       enemy.y = enemyState.y;
       enemy.health = enemyState.health;
       enemy.maxHealth = enemyState.maxHealth;
-      
+
       // ✅ MMORPG 架構：同步敵人死亡狀態，讓所有玩家都能看到死亡動畫
       if (typeof enemyState.isDying === 'boolean') {
         enemy.isDying = enemyState.isDying;
@@ -3483,12 +3529,12 @@ function updateEnemiesFromServer(enemies) {
       if (typeof enemyState.deathVelY === 'number') {
         enemy.deathVelY = enemyState.deathVelY;
       }
-      
+
       // ✅ MMORPG 架構：同步敵人受傷紅閃，讓所有玩家都能看到
       if (typeof enemyState.hitFlashTime === 'number') {
         enemy.hitFlashTime = enemyState.hitFlashTime;
       }
-      
+
       if (enemyState.isDead) {
         enemy.health = 0;
         enemy.markedForDeletion = true;
@@ -3500,18 +3546,18 @@ function updateEnemiesFromServer(enemies) {
 // ✅ 不影响单机：只在多人模式下执行
 function updateProjectilesFromServer(projectiles) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.projectiles) return;
-  
+
   // 创建投射物ID映射
   const serverProjectileIds = new Set(projectiles.map(p => p.id));
   const localProjectileIds = new Set(Game.projectiles.map(p => p.id));
-  
+
   // 移除服务器不存在的投射物
   for (let i = Game.projectiles.length - 1; i >= 0; i--) {
     if (!serverProjectileIds.has(Game.projectiles[i].id)) {
       Game.projectiles.splice(i, 1);
     }
   }
-  
+
   // 更新或创建投射物
   for (const projState of projectiles) {
     let proj = Game.projectiles.find(p => p.id === projState.id);
@@ -3535,10 +3581,10 @@ function updateProjectilesFromServer(projectiles) {
 function updateCarHazardsFromServer(carHazards) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.projectiles) return;
   if (typeof CarHazard === 'undefined') return;
-  
+
   // 创建车辆ID映射
   const serverCarIds = new Set(carHazards.map(c => c.id));
-  
+
   // 移除服务器不存在的车辆（从projectiles数组中移除）
   for (let i = Game.projectiles.length - 1; i >= 0; i--) {
     const proj = Game.projectiles[i];
@@ -3548,7 +3594,7 @@ function updateCarHazardsFromServer(carHazards) {
       }
     }
   }
-  
+
   // 更新或创建车辆
   for (const carState of carHazards) {
     let car = Game.projectiles.find(p => p.id === carState.id && (p.weaponType === 'INTERSECTION_CAR' || (p.constructor && p.constructor.name === 'CarHazard')));
@@ -3583,17 +3629,17 @@ function updateCarHazardsFromServer(carHazards) {
 // ✅ 不影响单机：只在多人模式下执行
 function updateExperienceOrbsFromServer(orbs) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.experienceOrbs) return;
-  
+
   // 创建经验球ID映射
   const serverOrbIds = new Set(orbs.map(o => o.id));
-  
+
   // 移除服务器不存在的经验球
   for (let i = Game.experienceOrbs.length - 1; i >= 0; i--) {
     if (!serverOrbIds.has(Game.experienceOrbs[i].id)) {
       Game.experienceOrbs.splice(i, 1);
     }
   }
-  
+
   // 更新或创建经验球
   for (const orbState of orbs) {
     let orb = Game.experienceOrbs.find(o => o.id === orbState.id);
@@ -3620,29 +3666,29 @@ function _handleEnemyDamageMessage(fromUid, msg) {
       return;
     }
   }
-  
+
   // 速率限制：每秒最多 2000 次傷害（防止 DDoS，但允許正常高強度戰鬥）
   // 計算：假設 20 個武器 × 3 次/秒 × 20 個敵人 = 1200 次/秒，加上持續傷害技能約 800 次/秒 = 2000 次/秒
   if (!_checkRateLimit(fromUid, "damage", 2000)) {
     console.warn("[SurvivalOnline] 傷害速率過高，忽略:", fromUid);
     return;
   }
-  
+
   const enemyId = typeof msg.enemyId === "string" ? msg.enemyId : null;
   const damage = typeof msg.damage === "number" ? Math.max(0, msg.damage) : 0;
   const weaponType = typeof msg.weaponType === "string" ? msg.weaponType : "UNKNOWN";
   const isCrit = (msg.isCrit === true);
   const playerUid = typeof msg.playerUid === "string" ? msg.playerUid : fromUid; // 發送傷害的玩家UID
   const lifesteal = typeof msg.lifesteal === "number" ? Math.max(0, msg.lifesteal) : 0; // 吸血量
-  
+
   if (!enemyId || damage <= 0) return;
-  
+
   // ✅ MMORPG 架構：跳過自己的傷害消息（避免重複計算）
   // 因為自己造成的傷害已經在本地計算過了
   if (playerUid === _uid) {
     return; // 跳過自己的傷害消息
   }
-  
+
   // 找到對應的敵人
   try {
     if (typeof Game !== "undefined" && Array.isArray(Game.enemies)) {
@@ -3650,14 +3696,14 @@ function _handleEnemyDamageMessage(fromUid, msg) {
       if (enemy && !enemy.markedForDeletion && !enemy.isDying) {
         // ✅ MMORPG 架構：對敵人造成傷害（同步其他玩家的傷害）
         // 注意：這裡不重新計算傷害，因為其他玩家已經計算過了（包括爆擊和天賦）
-        enemy.takeDamage(damage, { 
+        enemy.takeDamage(damage, {
           weaponType: weaponType,
           playerUid: playerUid,
           isCrit: isCrit,
           dirX: 0,
           dirY: -1
         });
-        
+
         // ✅ MMORPG 架構：如果消息包含減速信息，同步減速效果（確保所有玩家都能看到敵人被減速的視覺效果）
         const slowMs = typeof msg.slowMs === "number" ? msg.slowMs : null;
         const slowFactor = typeof msg.slowFactor === "number" ? msg.slowFactor : null;
@@ -3668,21 +3714,32 @@ function _handleEnemyDamageMessage(fromUid, msg) {
             console.warn("[SurvivalOnline] 同步敵人減速效果失敗:", e);
           }
         }
-        
+
         // 顯示傷害數字（所有玩家都能看到其他玩家的傷害）
         if (typeof DamageNumbers !== "undefined" && typeof DamageNumbers.show === "function") {
-          DamageNumbers.show(damage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, { 
-            dirX: 0, 
-            dirY: -1, 
-            enemyId: enemyId 
+          DamageNumbers.show(damage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, {
+            dirX: 0,
+            dirY: -1,
+            enemyId: enemyId
           });
+        }
+
+        // ✅ MMORPG 架構：同步擊退效果 (Knockback)
+        // 這是 "Real Banana" 的關鍵：如果 A 把敵人打飛，B 也必須看到敵人飛出去，否則位置會不同步
+        const kbX = typeof msg.knockbackX === "number" ? msg.knockbackX : 0;
+        const kbY = typeof msg.knockbackY === "number" ? msg.knockbackY : 0;
+
+        if ((kbX !== 0 || kbY !== 0)) {
+          // 直接修改敵人的速度，模擬被擊退
+          if (typeof enemy.vx === 'number') enemy.vx = kbX;
+          if (typeof enemy.vy === 'number') enemy.vy = kbY;
         }
       }
     }
   } catch (e) {
     console.warn("[SurvivalOnline] 同步敵人傷害失敗:", e);
   }
-  
+
   // 處理吸血邏輯：將吸血量應用到遠程玩家
   if (lifesteal > 0 && playerUid) {
     // 速率限制：每秒最多 2000 次吸血（與傷害同步）
@@ -3690,14 +3747,14 @@ function _handleEnemyDamageMessage(fromUid, msg) {
       // 吸血速率過高時忽略，但不影響傷害處理
       return;
     }
-    
+
     try {
       // 找到對應的遠程玩家
       let remotePlayer = null;
       if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
         remotePlayer = RemotePlayerManager.get(playerUid);
       }
-      
+
       if (remotePlayer && typeof remotePlayer.health === 'number' && typeof remotePlayer.maxHealth === 'number') {
         // 應用吸血回復
         remotePlayer.health = Math.min(remotePlayer.maxHealth, remotePlayer.health + lifesteal);
@@ -3715,24 +3772,24 @@ function _handleWeaponUpgradeMessage(fromUid, msg) {
     console.warn("[SurvivalOnline] _handleWeaponUpgradeMessage: fromUid 無效", fromUid);
     return;
   }
-  
+
   // 速率限制：每秒最多 10 次武器升級（防止濫用）
   if (!_checkRateLimit(fromUid, "upgrade", 10)) {
     console.warn("[SurvivalOnline] 武器升級速率過高，忽略:", fromUid);
     return;
   }
-  
+
   const weaponType = typeof msg.weaponType === "string" ? msg.weaponType : null;
   if (!weaponType) {
     console.warn("[SurvivalOnline] _handleWeaponUpgradeMessage: weaponType 無效", weaponType);
     return;
   }
-  
+
   // 跳過自己的武器升級消息（因為已經在本地處理過了）
   if (fromUid === _uid) {
     return;
   }
-  
+
   // ✅ 真正的MMORPG：找到對應的遠程玩家並應用武器升級
   console.log(`[SurvivalOnline] _handleWeaponUpgradeMessage: 處理武器升級, fromUid=${fromUid}, weaponType=${weaponType}`);
   try {
@@ -3740,11 +3797,11 @@ function _handleWeaponUpgradeMessage(fromUid, msg) {
     if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
       remotePlayer = RemotePlayerManager.get(fromUid);
     }
-    
+
     if (remotePlayer && typeof remotePlayer.addWeapon === 'function') {
       // 檢查是否已有此武器
       const existingWeapon = remotePlayer.weapons ? remotePlayer.weapons.find(w => w && w.type === weaponType) : null;
-      
+
       if (existingWeapon) {
         // 如果已有此武器，則升級
         console.log(`[SurvivalOnline] _handleWeaponUpgradeMessage: 升級現有武器 ${weaponType}, 當前等級=${existingWeapon.level || 1}`);
@@ -3774,28 +3831,28 @@ function _handleInputMessage(fromUid, msg) {
     console.warn("[SurvivalOnline] _handleInputMessage: fromUid 無效", fromUid);
     return;
   }
-  
+
   // 速率限制：每秒最多 60 次輸入（防止濫用，但允許正常移動）
   if (!_checkRateLimit(fromUid, "input", 60)) {
     // 輸入速率過高時忽略，但不影響其他功能
     return;
   }
-  
+
   const inputX = typeof msg.x === "number" ? msg.x : 0;
   const inputY = typeof msg.y === "number" ? msg.y : 0;
-  
+
   // 跳過自己的輸入消息（因為已經在本地處理過了）
   if (fromUid === _uid) {
     return;
   }
-  
+
   // 找到對應的遠程玩家並更新輸入
   try {
     let remotePlayer = null;
     if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
       remotePlayer = RemotePlayerManager.get(fromUid);
     }
-    
+
     if (remotePlayer) {
       // 更新遠程玩家的輸入
       remotePlayer._remoteInput = { x: inputX, y: inputY };
@@ -3813,32 +3870,32 @@ function _handleUltimatePineappleMessage(fromUid, msg) {
     console.warn("[SurvivalOnline] _handleUltimatePineappleMessage: fromUid 無效", fromUid);
     return;
   }
-  
+
   // 速率限制：每秒最多 5 次鳳梨大絕（防止濫用）
   if (!_checkRateLimit(fromUid, "ultimate", 5)) {
     console.warn("[SurvivalOnline] 鳳梨大絕速率過高，忽略:", fromUid);
     return;
   }
-  
+
   const x = typeof msg.x === "number" ? msg.x : 0;
   const y = typeof msg.y === "number" ? msg.y : 0;
-  
+
   // 跳過自己的鳳梨大絕消息（因為已經在本地處理過了）
   if (fromUid === _uid) {
     return;
   }
-  
+
   // 找到對應的遠程玩家並生成鳳梨掉落物
   try {
     let remotePlayer = null;
     if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
       remotePlayer = RemotePlayerManager.get(fromUid);
     }
-    
+
     // 使用遠程玩家的位置（如果可用），否則使用消息中的位置
     const spawnX = (remotePlayer && typeof remotePlayer.x === "number") ? remotePlayer.x : x;
     const spawnY = (remotePlayer && typeof remotePlayer.y === "number") ? remotePlayer.y : y;
-    
+
     // 生成鳳梨掉落物（所有玩家都能看到）
     if (typeof Game !== "undefined" && typeof Game.spawnPineappleUltimatePickup === "function") {
       Game.spawnPineappleUltimatePickup(spawnX, spawnY, {});
@@ -3871,27 +3928,27 @@ function handleHostDataMessage(fromUid, msg) {
     const name = typeof player.name === "string" ? player.name : (fromUid && typeof fromUid.slice === "function" ? fromUid.slice(0, 6) : "unknown");
     const x = typeof msg.x === "number" ? msg.x : 0;
     const y = typeof msg.y === "number" ? msg.y : 0;
-    
+
     // 獲取成員的角色ID和天賦等級
     const member = _membersState ? _membersState.get(fromUid) : null;
     const characterId = (member && member.characterId) ? member.characterId : null;
     const talentLevels = (member && member.talentLevels && typeof member.talentLevels === 'object') ? member.talentLevels : null;
-    
+
     // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
     let remotePlayer = null;
     try {
       if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
         remotePlayer = RemotePlayerManager.get(fromUid);
       }
-    } catch (_) {}
-    
+    } catch (_) { }
+
     // 在 host 端也顯示（讓 host 看得到別人）- 包含完整狀態信息
-    Runtime.onStateMessage({ 
-      t: "state", 
-      players: { 
-        [fromUid]: { 
-          x, 
-          y, 
+    Runtime.onStateMessage({
+      t: "state",
+      players: {
+        [fromUid]: {
+          x,
+          y,
           name,
           characterId: characterId,
           // 添加更多狀態信息（如果遠程玩家對象已存在）
@@ -3905,8 +3962,8 @@ function handleHostDataMessage(fromUid, msg) {
           width: (remotePlayer && typeof remotePlayer.width === "number" && remotePlayer.width > 0) ? remotePlayer.width : null,
           height: (remotePlayer && typeof remotePlayer.height === "number" && remotePlayer.height > 0) ? remotePlayer.height : null,
           collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : null
-        } 
-      } 
+        }
+      }
     });
 
     // 彙總全員狀態（含 host 自己）
@@ -3917,9 +3974,9 @@ function handleHostDataMessage(fromUid, msg) {
         const hostMember = _membersState ? _membersState.get(_uid) : null;
         const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
         const hostPlayer = Game.player;
-        players[_uid] = { 
-          x: Game.player.x, 
-          y: Game.player.y, 
+        players[_uid] = {
+          x: Game.player.x,
+          y: Game.player.y,
           name: getPlayerNickname(),
           characterId: hostCharacterId, // 添加角色ID
           // 添加更多狀態信息
@@ -3935,28 +3992,28 @@ function handleHostDataMessage(fromUid, msg) {
           collisionRadius: (hostPlayer && typeof hostPlayer.collisionRadius === "number" && hostPlayer.collisionRadius > 0) ? hostPlayer.collisionRadius : null
         };
       }
-    } catch (_) {}
+    } catch (_) { }
     // 已知其他人（Runtime 內 + 這次）
     // 使用 Set 來追蹤已處理的 UID，避免重複
     const processedUids = new Set();
     for (const p of Runtime.getRemotePlayers()) {
       if (processedUids.has(p.uid)) continue; // 跳過已處理的
       processedUids.add(p.uid);
-      
+
       const member = _membersState ? _membersState.get(p.uid) : null;
       const characterId = (member && member.characterId) ? member.characterId : (p.characterId) ? p.characterId : null;
-      
+
       // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
       let remotePlayer = null;
       try {
         if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
           remotePlayer = RemotePlayerManager.get(p.uid);
         }
-      } catch (_) {}
-      
-      players[p.uid] = { 
-        x: p.x, 
-        y: p.y, 
+      } catch (_) { }
+
+      players[p.uid] = {
+        x: p.x,
+        y: p.y,
         name: p.name,
         characterId: characterId, // 添加角色ID
         // 添加更多狀態信息（如果遠程玩家對象已存在）
@@ -3982,10 +4039,10 @@ function handleHostDataMessage(fromUid, msg) {
         if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
           fromRemotePlayer = RemotePlayerManager.get(fromUid);
         }
-      } catch (_) {}
-      players[fromUid] = { 
-        x, 
-        y, 
+      } catch (_) { }
+      players[fromUid] = {
+        x,
+        y,
         name: name,
         characterId: fromCharacterId, // 添加角色ID
         // 添加更多狀態信息（如果遠程玩家對象已存在）
@@ -4003,8 +4060,14 @@ function handleHostDataMessage(fromUid, msg) {
     }
 
     // 廣播給所有 client（通過 WebSocket）
+    // ✅ 優化：限制同步頻率為 10Hz（100ms），避免流量過大
+    // 但要確保數據已更新（上面的代碼已經更新了 players）
     if (_ws && _ws.readyState === WebSocket.OPEN) {
-      _sendViaWebSocket({ t: "state", players });
+      const now = Date.now();
+      if (now - lastSendAt >= 100) { // 100ms = 10Hz
+        _sendViaWebSocket({ t: "state", players });
+        lastSendAt = now;
+      }
     }
     return;
   }
@@ -4013,21 +4076,27 @@ function handleHostDataMessage(fromUid, msg) {
     _handleUltimatePineappleMessage(fromUid, msg);
     return;
   }
-  
+
   if (msg.t === "weapon_upgrade") {
     // ✅ MMORPG 架構：所有玩家都能處理武器升級，不依賴隊長端
     _handleWeaponUpgradeMessage(fromUid, msg);
     return;
   }
-  
+
   if (msg.t === "enemy_damage") {
     // ✅ MMORPG 架構：所有玩家都處理 enemy_damage 消息，同步其他玩家的傷害
     // 注意：這裡使用 handleHostDataMessage 是為了向後兼容，但實際上所有玩家都應該處理
     // 新的實現使用 _handleEnemyDamageMessage 函數，所有玩家都可以調用
+
+    // 如果是自己發出的傷害消息，忽略（因為本地已經預測執行了）
+    if (fromUid === _uid) {
+      return;
+    }
+
     _handleEnemyDamageMessage(fromUid, msg);
     return;
   }
-  
+
   if (msg.t === "input") {
     // ✅ MMORPG 架構：所有玩家都能處理輸入消息，不依賴隊長端
     _handleInputMessage(fromUid, msg);
@@ -4061,27 +4130,27 @@ async function handleSignal(sig) {
 
 async function reconnectClient() {
   if (!_activeRoomId || !_uid) return;
-  
+
   // 清除舊的重連定時器
   if (_reconnectTimer) {
     clearTimeout(_reconnectTimer);
     _reconnectTimer = null;
   }
-  
+
   try {
     _setText("survival-online-status", "重新連線中…");
-  } catch (_) {}
-  
+  } catch (_) { }
+
   // 清理舊 WebSocket 連接
-  try { 
+  try {
     if (_ws) {
       _ws.onclose = null; // 避免觸發自動重連循環
-      _ws.close(); 
+      _ws.close();
     }
-  } catch (_) {}
+  } catch (_) { }
   _ws = null;
   Runtime.setEnabled(false);
-  
+
   // 等待房間信息就緒
   if (!_activeRoomId) {
     for (let i = 0; i < 20; i++) {
@@ -4093,7 +4162,7 @@ async function reconnectClient() {
     _setText("survival-online-status", "無法重新連線：找不到房間");
     return;
   }
-  
+
   try {
     await connectWebSocket();
   } catch (e) {
@@ -4107,18 +4176,18 @@ let _autoCleanupTimer = null;
 
 function startAutoCleanup() {
   if (!_isHost || _autoCleanupTimer) return;
-  
+
   // 每 5 分鐘自動清理一次離線成員
   _autoCleanupTimer = setInterval(async () => {
     if (!_isHost || !_activeRoomId) {
       stopAutoCleanup();
       return;
     }
-    
+
     try {
       const stale = Array.from(_membersState.values())
         .filter(m => m && m.uid && m.uid !== _uid && m.role !== "host" && _isMemberStale(m));
-      
+
       for (const m of stale) {
         try {
           await hostKickMember(m.uid);
@@ -4126,10 +4195,10 @@ function startAutoCleanup() {
           console.warn("[SurvivalOnline] 自動清理成員失敗:", m.uid, e);
         }
       }
-      
+
       // 清理速率限制追蹤器
       _cleanupRateLimitTracker();
-      
+
       // 檢查房間是否過期（超過 2 小時未更新）
       try {
         if (_roomState && _roomState.updatedAt) {
@@ -4142,7 +4211,7 @@ function startAutoCleanup() {
           } else if (_roomState._lastUpdateMs) {
             lastUpdateMs = _roomState._lastUpdateMs;
           }
-          
+
           const ROOM_EXPIRY_MS = 2 * 60 * 60 * 1000; // 2 小時
           if (lastUpdateMs > 0 && (Date.now() - lastUpdateMs) > ROOM_EXPIRY_MS) {
             console.warn("[SurvivalOnline] 房間已過期（超過 2 小時未更新），建議解散");
@@ -4220,7 +4289,7 @@ function updateLobbyUI() {
       }
     };
     const unlockedSet = new Set(loadUnlockedCharacters());
-    
+
     // 獲取當前選擇的角色ID（優先使用成員數據，其次使用_pendingStartParams，最後使用Game.selectedCharacter）
     let currentCharacterId = null;
     if (_membersState && _membersState.has(_uid)) {
@@ -4244,18 +4313,18 @@ function updateLobbyUI() {
         }
       }
     }
-    
+
     // 檢查是否需要更新選項（避免重複清空導致事件綁定丟失）
     const existingOptions = Array.from(selChar.options).map(opt => opt.value);
     const shouldUpdate = existingOptions.length === 0 || existingOptions.some(id => !unlockedSet.has(id));
-    
+
     if (shouldUpdate) {
       // 清空現有選項
       selChar.innerHTML = "";
-      
+
       // 獲取所有角色配置
       const characters = (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) ? CONFIG.CHARACTERS : [];
-      
+
       // 只添加已解鎖的角色
       for (const char of characters) {
         if (!char || !char.id) continue;
@@ -4276,7 +4345,7 @@ function updateLobbyUI() {
         selChar.value = currentCharacterId;
       }
     }
-    
+
     // 如果當前選擇的角色不在已解鎖列表中，強制選擇默認角色
     if (currentCharacterId && !unlockedSet.has(currentCharacterId)) {
       const defaultOpt = selChar.querySelector('option[value="margaret"]');
@@ -4285,7 +4354,7 @@ function updateLobbyUI() {
         currentCharacterId = 'margaret';
       }
     }
-    
+
     // 檢查準備狀態：如果已準備，禁用角色選擇下拉框
     let isReady = false;
     if (_membersState && _membersState.has(_uid)) {
@@ -4411,24 +4480,24 @@ function _updateDifficultyOptions() {
   const selMap = _qs("survival-online-host-map");
   const selDiff = _qs("survival-online-host-diff");
   if (!selMap || !selDiff) return;
-  
+
   const mapId = selMap.value;
   const currentDiff = selDiff.value;
-  
+
   // 清空現有選項
   selDiff.innerHTML = "";
-  
+
   // 添加簡單和困難（所有地圖都有）
   const easyOpt = document.createElement("option");
   easyOpt.value = "EASY";
   easyOpt.textContent = "簡單";
   selDiff.appendChild(easyOpt);
-  
+
   const hardOpt = document.createElement("option");
   hardOpt.value = "HARD";
   hardOpt.textContent = "困難";
   selDiff.appendChild(hardOpt);
-  
+
   // 僅宇宙地圖添加修羅難度
   if (mapId === "desert") {
     const asuraOpt = document.createElement("option");
@@ -4436,13 +4505,13 @@ function _updateDifficultyOptions() {
     asuraOpt.textContent = "修羅";
     selDiff.appendChild(asuraOpt);
   }
-  
+
   // 如果當前選擇的是修羅難度，但地圖不是宇宙，則切換到困難
   if (currentDiff === "ASURA" && mapId !== "desert") {
     selDiff.value = "HARD";
     // 同步更新房間設置
     if (_isHost && _activeRoomId) {
-      hostUpdateSettings({ diffId: "HARD" }).catch(() => {});
+      hostUpdateSettings({ diffId: "HARD" }).catch(() => { });
     }
   } else if (currentDiff && ["EASY", "HARD", "ASURA"].includes(currentDiff)) {
     // 保持當前選擇（如果有效）
@@ -4469,7 +4538,7 @@ function _syncHostSelectsFromRoom() {
         // 如果房間設置了修羅但地圖不是宇宙，強制改為困難
         selDiff.value = "HARD";
         if (_isHost && _activeRoomId) {
-          hostUpdateSettings({ diffId: "HARD" }).catch(() => {});
+          hostUpdateSettings({ diffId: "HARD" }).catch(() => { });
         }
       } else {
         selDiff.value = _roomState.diffId;
@@ -4518,7 +4587,7 @@ function openSelectScreen(params) {
   _hide("difficulty-select-screen");
   _hide("desert-difficulty-select-screen");
   _show("survival-online-select-screen");
-  
+
   // 載入保存的暱稱
   const nicknameInput = _qs("survival-online-nickname");
   if (nicknameInput) {
@@ -4565,7 +4634,7 @@ function closeLobbyToStart() {
     if (charSel) charSel.classList.add("hidden");
     const mapSel = document.getElementById("map-select-screen");
     if (mapSel) mapSel.classList.add("hidden");
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function closeLobbyOverlayKeepRoom() {
@@ -4576,7 +4645,7 @@ function closeLobbyOverlayKeepRoom() {
     if (_activeRoomId) {
       _setText("survival-online-status", "已在隊伍中（介面已關閉）");
     }
-  } catch (_) {}
+  } catch (_) { }
 }
 
 function startSurvivalNow(params) {
@@ -4588,10 +4657,10 @@ function startSurvivalNow(params) {
     _hide("character-select-screen");
     _hide("survival-online-select-screen");
     _hide("survival-online-lobby-screen");
-  } catch (_) {}
+  } catch (_) { }
 
   const useId = params && params.selectedDifficultyId ? params.selectedDifficultyId : (typeof Game !== "undefined" ? (Game.selectedDifficultyId || "EASY") : "EASY");
-  try { if (typeof Game !== "undefined") Game.selectedDifficultyId = useId; } catch (_) {}
+  try { if (typeof Game !== "undefined") Game.selectedDifficultyId = useId; } catch (_) { }
 
   // 透過 GameModeManager 啟動生存模式
   if (typeof window !== "undefined" && window.GameModeManager && typeof window.GameModeManager.start === "function") {
@@ -4607,11 +4676,43 @@ function startSurvivalNow(params) {
         sessionId: (params && params.sessionId) ? params.sessionId : (_roomState && _roomState.sessionId ? _roomState.sessionId : null)
       } : null,
     });
+
+    // ✅ MMORPG 架構：綁定傷害廣播監聽器
+    // 當本地發生傷害時，廣播給其他玩家
+    setTimeout(() => {
+      if (typeof Game !== "undefined" && Game.events && typeof Game.events.on === "function") {
+        // 防止重複綁定 (移除舊的如果存在)
+        if (Game._damageBroadcastListener) {
+          Game.events.off('damage_enemy', Game._damageBroadcastListener);
+        }
+
+        // 定義監聽器
+        Game._damageBroadcastListener = (data) => {
+          // 只廣播本地玩家造成的傷害 (data.playerUid === _uid)
+          if (data && data.playerUid && data.playerUid === _uid) {
+            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && typeof window.SurvivalOnlineRuntime.Runtime.sendMessage === "function") {
+              window.SurvivalOnlineRuntime.Runtime.sendMessage({
+                t: 'enemy_damage',
+                enemyId: data.enemyId,
+                damage: data.damage,
+                isCrit: data.isCrit,
+                weaponType: data.weaponType
+              });
+            }
+          }
+        };
+
+        // 綁定新監聽器
+        Game.events.on('damage_enemy', Game._damageBroadcastListener);
+        console.log("[SurvivalOnline] 已綁定 damage_enemy 廣播監聽器");
+      }
+    }, 1000); // 延遲綁定以確保 Game 已完全初始化
+
     return;
   }
   // 回退（極端情況）
-  try { if (typeof Game !== "undefined" && typeof Game.startNewGame === "function") Game.startNewGame(); } catch (_) {}
-  try { _show("game-screen"); } catch (_) {}
+  try { if (typeof Game !== "undefined" && typeof Game.startNewGame === "function") Game.startNewGame(); } catch (_) { }
+  try { _show("game-screen"); } catch (_) { }
 }
 
 function tryStartSurvivalFromRoom() {
@@ -4623,7 +4724,7 @@ function tryStartSurvivalFromRoom() {
     const sid = _roomState.sessionId || null;
     if (sid && _startSessionId && sid === _startSessionId) return;
     _startSessionId = sid || _startSessionId || "NO_SESSION";
-  } catch (_) {}
+  } catch (_) { }
   if (_startTimer) return;
 
   // 套用 host 的 map/diff（室長優先權）
@@ -4634,7 +4735,7 @@ function tryStartSurvivalFromRoom() {
       const mapCfg = maps.find((m) => m && m.id === _roomState.mapId);
       if (mapCfg) Game.selectedMap = mapCfg;
     }
-  } catch (_) {}
+  } catch (_) { }
 
   // M1：倒數後啟動（讓全員「差不多同一時間」進入）
   const delay = (typeof _roomState.startDelayMs === "number") ? Math.max(0, Math.floor(_roomState.startDelayMs)) : START_COUNTDOWN_MS;
@@ -4660,7 +4761,7 @@ function tryStartSurvivalFromRoom() {
       _startTimer = null;
     }
     if (overlayEl) overlayEl.classList.add("hidden");
-    
+
     // 獲取當前選擇的角色（優先使用下拉框選擇，其次使用_pendingStartParams，最後使用Game.selectedCharacter）
     let selectedCharacter = null;
     const selChar = _qs("survival-online-character-select");
@@ -4676,12 +4777,12 @@ function tryStartSurvivalFromRoom() {
     if (!selectedCharacter && typeof Game !== "undefined" && Game.selectedCharacter) {
       selectedCharacter = Game.selectedCharacter;
     }
-    
+
     // 室長更新房間狀態為 playing（遊戲開始）
     if (_isHost && _activeRoomId) {
-      updateDoc(roomDocRef(_activeRoomId), { 
-        status: "playing", 
-        updatedAt: serverTimestamp() 
+      updateDoc(roomDocRef(_activeRoomId), {
+        status: "playing",
+        updatedAt: serverTimestamp()
       }).catch((e) => {
         console.warn("[SurvivalOnline] 更新房間狀態為 playing 失敗:", e);
       });
@@ -4690,7 +4791,7 @@ function tryStartSurvivalFromRoom() {
         _roomState.status = "playing";
       }
     }
-    
+
     // 確保 WebSocket 已連接（遊戲開始前連接）
     if (!_ws || _ws.readyState !== WebSocket.OPEN) {
       console.log(`[SurvivalOnline] startGame: WebSocket 未連接，嘗試連接...`);
@@ -4698,24 +4799,24 @@ function tryStartSurvivalFromRoom() {
         console.error(`[SurvivalOnline] startGame: WebSocket 連接失敗:`, e);
       });
     }
-    
+
     // 確保 Runtime 啟用（遊戲開始時啟用狀態同步）
     if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
       Runtime.setEnabled(true);
     }
-    
+
     // 確保角色不為 null（如果為 null，使用默認角色）
     if (!selectedCharacter) {
       if (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS) && CONFIG.CHARACTERS.length > 0) {
         selectedCharacter = CONFIG.CHARACTERS.find(c => c && c.id === 'margaret') || CONFIG.CHARACTERS[0];
       }
     }
-    
+
     // 更新 Game.selectedCharacter 確保一致性
     if (selectedCharacter && typeof Game !== "undefined") {
       Game.selectedCharacter = selectedCharacter;
     }
-    
+
     startSurvivalNow({
       selectedDifficultyId: _roomState.diffId || _pendingStartParams.selectedDifficultyId,
       selectedCharacter: selectedCharacter,
@@ -4763,31 +4864,31 @@ function bindUI() {
   const selMap = _qs("survival-online-host-map");
   const selDiff = _qs("survival-online-host-diff");
   const selChar = _qs("survival-online-character-select");
-  
+
   // 角色選擇變更事件：更新到Firestore並更新_pendingStartParams
   if (selChar) {
     selChar.addEventListener("change", async () => {
       if (!_activeRoomId || !_uid) return;
       const selectedCharId = selChar.value;
       if (!selectedCharId) return;
-      
+
       // 獲取角色配置
       let selectedCharacter = null;
       if (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) {
         selectedCharacter = CONFIG.CHARACTERS.find(c => c && c.id === selectedCharId);
       }
-      
+
       // 更新到Firestore
       try {
         await ensureAuth();
-        await updateDoc(memberDocRef(_activeRoomId, _uid), { 
+        await updateDoc(memberDocRef(_activeRoomId, _uid), {
           characterId: selectedCharId,
-          lastSeenAt: serverTimestamp() 
+          lastSeenAt: serverTimestamp()
         });
       } catch (e) {
         console.warn("[SurvivalOnline] 更新角色失敗:", e);
       }
-      
+
       // 更新_pendingStartParams和Game.selectedCharacter
       if (selectedCharacter) {
         if (!_pendingStartParams) _pendingStartParams = {};
@@ -4798,7 +4899,7 @@ function bindUI() {
       }
     });
   }
-  
+
   // ✅ 暱稱輸入框：限制為5個字符（中文字、英文字、數字），防止空白鍵、符號等
   const nicknameInput = _qs("survival-online-nickname");
   if (nicknameInput) {
@@ -4809,7 +4910,7 @@ function bindUI() {
     nicknameInput.addEventListener("keyup", (e) => {
       e.stopPropagation();
     }, true);
-    
+
     // ✅ 輸入驗證：只允許中文字、英文字、數字，不允許空白鍵、符號等
     nicknameInput.addEventListener("input", (e) => {
       const value = e.target.value;
@@ -4821,7 +4922,7 @@ function bindUI() {
         e.target.value = newValue;
       }
     });
-    
+
     // ✅ 阻止空白鍵和符號輸入
     nicknameInput.addEventListener("keydown", (e) => {
       // 允許的鍵：中文字（通過輸入事件處理）、英文字、數字、退格、刪除、方向鍵等
@@ -4831,14 +4932,14 @@ function bindUI() {
       ];
       const key = e.key;
       const code = e.code;
-      
+
       // 如果是空白鍵或符號，阻止輸入
       if (key === " " || key === "Space" || code === "Space") {
         e.preventDefault();
         e.stopPropagation();
         return;
       }
-      
+
       // 如果是符號（非中文字、非英文字、非數字），阻止輸入
       if (!/[\u4e00-\u9fffa-zA-Z0-9]/.test(key) && !allowedKeys.includes(key) && key.length === 1) {
         e.preventDefault();
@@ -4846,7 +4947,7 @@ function bindUI() {
         return;
       }
     });
-    
+
     // 載入時載入上次保存的暱稱
     try {
       const saved = localStorage.getItem(PLAYER_NAME_STORAGE_KEY);
@@ -4856,9 +4957,9 @@ function bindUI() {
           nicknameInput.value = sanitized;
         }
       }
-    } catch (_) {}
+    } catch (_) { }
   }
-  
+
   // 同樣處理房間碼輸入框
   if (inpCode) {
     inpCode.addEventListener("keydown", (e) => {
@@ -4879,7 +4980,7 @@ function bindUI() {
   });
   if (btnSolo) btnSolo.addEventListener("click", () => {
     // 單人：確保離開任何房間/連線
-    leaveRoom().catch(() => {});
+    leaveRoom().catch(() => { });
     startSurvivalNow(_pendingStartParams || {});
   });
   if (btnOnline) btnOnline.addEventListener("click", () => {
@@ -4896,7 +4997,7 @@ function bindUI() {
           savePlayerNickname(nickname);
         }
       }
-      
+
       _setText("survival-online-status", "建立房間中…");
       await enterLobbyAsHost(_pendingStartParams || {});
       updateLobbyUI();
@@ -4908,7 +5009,7 @@ function bindUI() {
         ? "（請確認：Firestore 已建立、Rules 已發布且允許 request.auth != null、Authentication 匿名已啟用、Authorized domains 已加入 yiyuss.github.io）"
         : "";
       _setText("survival-online-status", `建立失敗：${msg}${hint}${code ? ` [${code}]` : ""}`);
-      try { console.warn("[SurvivalOnline] create room failed:", e); } catch (_) {}
+      try { console.warn("[SurvivalOnline] create room failed:", e); } catch (_) { }
     }
   });
   if (btnJoin) btnJoin.addEventListener("click", async () => {
@@ -4926,7 +5027,7 @@ function bindUI() {
           savePlayerNickname(nickname);
         }
       }
-      
+
       _setText("survival-online-status", "加入房間中…");
       await enterLobbyAsGuest(code);
       updateLobbyUI();
@@ -4937,7 +5038,7 @@ function bindUI() {
         ? "（請確認 Firestore Rules/匿名登入/Authorized domains）"
         : "";
       _setText("survival-online-status", `加入失敗：${msg}${hint}${c ? ` [${c}]` : ""}`);
-      try { console.warn("[SurvivalOnline] join room failed:", e); } catch (_) {}
+      try { console.warn("[SurvivalOnline] join room failed:", e); } catch (_) { }
     }
   });
 
@@ -4957,7 +5058,7 @@ function bindUI() {
         document.execCommand("copy");
         document.body.removeChild(tmp);
         _setText("survival-online-status", "已複製房間碼");
-      } catch (_) {}
+      } catch (_) { }
     }
   });
 
@@ -4973,7 +5074,7 @@ function bindUI() {
       if (selChar) {
         selChar.disabled = _ready;
       }
-    } catch (_) {}
+    } catch (_) { }
   });
 
   if (btnStart) btnStart.addEventListener("click", async () => {
@@ -4987,7 +5088,7 @@ function bindUI() {
   });
 
   if (btnLeave) btnLeave.addEventListener("click", async () => {
-    await leaveRoom().catch(() => {});
+    await leaveRoom().catch(() => { });
     closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
     _setText("survival-online-status", "已離開房間");
     updateLobbyUI();
@@ -4998,15 +5099,15 @@ function bindUI() {
     // 低風險確認（避免誤觸）
     const ok = window.confirm("要解散隊伍嗎？所有隊員都會被退出。");
     if (!ok) return;
-    await hostDisbandTeam().catch(() => {});
+    await hostDisbandTeam().catch(() => { });
   });
 
   if (btnReconnect) btnReconnect.addEventListener("click", async () => {
-    await reconnectClient().catch(() => {});
+    await reconnectClient().catch(() => { });
   });
 
   if (btnCleanup) btnCleanup.addEventListener("click", async () => {
-    await hostCleanupStale().catch(() => {});
+    await hostCleanupStale().catch(() => { });
   });
 
   if (selMap) selMap.addEventListener("change", async () => {
@@ -5014,14 +5115,14 @@ function bindUI() {
     const mapId = selMap.value;
     // 地圖改變時，更新難度選項
     _updateDifficultyOptions();
-    try { await hostUpdateSettings({ mapId }); } catch (_) {}
+    try { await hostUpdateSettings({ mapId }); } catch (_) { }
   });
   if (selDiff) selDiff.addEventListener("change", async () => {
     if (!_isHost) return;
     const diffId = selDiff.value;
-    try { await hostUpdateSettings({ diffId }); } catch (_) {}
+    try { await hostUpdateSettings({ diffId }); } catch (_) { }
   });
-  
+
   // 初始化難度選項（根據當前地圖）
   _updateDifficultyOptions();
 
@@ -5068,7 +5169,7 @@ function handleEscape() {
       closeSelectScreenBackToDifficulty();
       return true;
     }
-  } catch (_) {}
+  } catch (_) { }
   return false;
 }
 
@@ -5091,14 +5192,14 @@ try {
         if (!e || e.key !== "Escape") return;
         if (handleEscape()) {
           e.preventDefault();
-          try { e.stopImmediatePropagation(); } catch (_) {}
-          try { e.stopPropagation(); } catch (_) {}
+          try { e.stopImmediatePropagation(); } catch (_) { }
+          try { e.stopPropagation(); } catch (_) { }
         }
-      } catch (_) {}
+      } catch (_) { }
     },
     true // capture
   );
-} catch (_) {}
+} catch (_) { }
 
 // 更新房間狀態為 closed（供 game.js 調用）
 // ✅ 更新房間狀態為 lobby（正常結束遊戲時回到大廳）
@@ -5106,9 +5207,9 @@ async function updateRoomStatusToLobby() {
   if (!_isHost || !_activeRoomId) return;
   try {
     await ensureAuth();
-    await updateDoc(roomDocRef(_activeRoomId), { 
-      status: "lobby", 
-      updatedAt: serverTimestamp() 
+    await updateDoc(roomDocRef(_activeRoomId), {
+      status: "lobby",
+      updatedAt: serverTimestamp()
     });
     if (_roomState) {
       _roomState.status = "lobby";
@@ -5121,9 +5222,9 @@ async function updateRoomStatusToLobby() {
 async function updateRoomStatusToClosed() {
   try {
     if (!_isHost || !_activeRoomId) return;
-    await updateDoc(roomDocRef(_activeRoomId), { 
-      status: "closed", 
-      updatedAt: serverTimestamp() 
+    await updateDoc(roomDocRef(_activeRoomId), {
+      status: "closed",
+      updatedAt: serverTimestamp()
     });
     // 更新本地狀態
     if (_roomState) {
@@ -5176,27 +5277,27 @@ try {
           _ws.onclose = null;
           _ws.onerror = null;
           _ws.close();
-        } catch (_) {}
+        } catch (_) { }
         _ws = null;
       }
       // 停止所有計時器
-      try { if (_memberHeartbeatTimer) clearInterval(_memberHeartbeatTimer); } catch (_) {}
-      try { if (_startTimer) clearTimeout(_startTimer); } catch (_) {}
-      try { if (_reconnectTimer) clearTimeout(_reconnectTimer); } catch (_) {}
-      try { if (_autoCleanupTimer) clearInterval(_autoCleanupTimer); } catch (_) {}
+      try { if (_memberHeartbeatTimer) clearInterval(_memberHeartbeatTimer); } catch (_) { }
+      try { if (_startTimer) clearTimeout(_startTimer); } catch (_) { }
+      try { if (_reconnectTimer) clearTimeout(_reconnectTimer); } catch (_) { }
+      try { if (_autoCleanupTimer) clearInterval(_autoCleanupTimer); } catch (_) { }
       // 離開房間
       if (window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.leaveRoom === "function") {
-        window.SurvivalOnlineUI.leaveRoom().catch(() => {});
+        window.SurvivalOnlineUI.leaveRoom().catch(() => { });
       }
-    } catch (_) {}
+    } catch (_) { }
   });
-  
+
   // ✅ 清理邏輯：頁面可見性變化時也清理（切換標籤頁等）
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       // 頁面隱藏時不清理，只在完全關閉時清理
     }
   });
-} catch (_) {}
+} catch (_) { }
 
 
