@@ -1158,15 +1158,13 @@ class Weapon {
 }
 
 // ✅ 立即導出到全局作用域（確保在類定義後立即可用）
-try {
-    if (typeof window !== 'undefined') {
-        window.Weapon = Weapon;
-    } else if (typeof global !== 'undefined') {
-        global.Weapon = Weapon;
-    } else if (typeof globalThis !== 'undefined') {
-        globalThis.Weapon = Weapon;
-    }
-} catch (_) { }
+// 使用與 player.js / projectile.js 相同的簡單模式
+if (typeof window !== 'undefined') {
+    window.Weapon = Weapon;
+}
+if (typeof globalThis !== 'undefined') {
+    globalThis.Weapon = Weapon;
+}
 
 // 在類內新增：根據「基礎值 +（等級5%）+（天賦基礎%）+（特化+2/4/6）」計算最終基礎傷害
 Weapon.prototype._computeFinalDamage = function(levelMul){
@@ -1269,12 +1267,11 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
 
 // ✅ ES Module 相容：確保導出（已在類定義後立即導出，這裡作為備份）
 // 不影響單機邏輯，只是額外暴露建構子供多人使用。
-try {
-    if (typeof window !== 'undefined' && typeof Weapon !== 'undefined') {
+if (typeof Weapon !== 'undefined') {
+    if (typeof window !== 'undefined') {
         window.Weapon = Weapon;
-    } else if (typeof global !== 'undefined' && typeof Weapon !== 'undefined') {
-        global.Weapon = Weapon;
-    } else if (typeof globalThis !== 'undefined' && typeof Weapon !== 'undefined') {
+    }
+    if (typeof globalThis !== 'undefined') {
         globalThis.Weapon = Weapon;
     }
-} catch (_) { }
+}
