@@ -2693,13 +2693,11 @@ function listenRoom(roomId) {
       if (_roomState && _roomState.hostUid) {
         _hostUid = _roomState.hostUid;
         console.log(`[SurvivalOnline] listenRoom: 設置 hostUid=${_hostUid}, 舊值=${oldHostUid}`);
-        // 如果 hostUid 剛設置且隊員端還沒有連接，嘗試連接 WebSocket
-        if (!_isHost && !oldHostUid && _hostUid && !_ws) {
-          console.log(`[SurvivalOnline] listenRoom: hostUid 剛設置，嘗試連接 WebSocket`);
-          connectWebSocket().catch((e) => {
-            console.error(`[SurvivalOnline] listenRoom: WebSocket 連接失敗:`, e);
-          });
-        }
+        // ✅ 重要：不要在「大廳/未開局」就連 WebSocket
+        // 原因：
+        // - 連線失敗會觸發重連/清理流程，可能把玩家誤導到遊戲失敗或離開流程
+        // - Runtime 若被啟用，可能在非生存模式也開始送同步封包（流量污染）
+        // WebSocket 連線會在 status=starting → tryStartSurvivalFromRoom → startGame 時確保建立
       }
 
       // 更新本地 updatedAt 時間戳（用於過期檢查）
@@ -2976,13 +2974,9 @@ async function connectWebSocket() {
 
         setTimeout(() => {
           if (_ws && _ws.readyState === WebSocket.OPEN) {
-            _sendViaWebSocket({
-              type: 'game-data',
-              data: {
-                type: 'config',
-                config: configData
-              }
-            });
+            // ⚠️ 修復：_sendViaWebSocket 會自動包一層 {type:'game-data', data: obj}
+            // 這裡只需要送內層 data，避免變成 data.type='game-data' 導致服務器忽略
+            _sendViaWebSocket({ type: 'config', config: configData });
           }
         }, 100); // 延迟100ms确保连接已建立
       }
@@ -2992,13 +2986,10 @@ async function connectWebSocket() {
         setTimeout(() => {
           if (_ws && _ws.readyState === WebSocket.OPEN) {
             _sendViaWebSocket({
-              type: 'game-data',
-              data: {
-                type: 'map',
-                map: {
-                  id: Game.selectedMap.id || null,
-                  name: Game.selectedMap.name || null
-                }
+              type: 'map',
+              map: {
+                id: Game.selectedMap.id || null,
+                name: Game.selectedMap.name || null
               }
             });
           }
@@ -3012,18 +3003,14 @@ async function connectWebSocket() {
         setTimeout(() => {
           if (_ws && _ws.readyState === WebSocket.OPEN) {
             _sendViaWebSocket({
-              type: 'game-data',
-              data: {
-                type: 'world-size',
-                worldWidth: Game.worldWidth,
-                worldHeight: Game.worldHeight
-              }
+              type: 'world-size',
+              worldWidth: Game.worldWidth,
+              worldHeight: Game.worldHeight
             });
           }
         }, 300); // 延迟300ms确保地图信息已发送
       }
 
-      Runtime.setEnabled(true);
       _setText("survival-online-status", "已連線（WebSocket）");
     };
 
@@ -3036,6 +3023,13 @@ async function connectWebSocket() {
         } else if (msg.type === 'game-data') {
           // 處理遊戲數據
           const data = msg.data;
+          // ✅ sessionId 防串房/防舊局封包：若 sessionId 不一致，直接丟棄
+          try {
+            const curSid = (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.sessionId) ? Game.multiplayer.sessionId : null;
+            if (curSid && data && typeof data === "object" && data.sessionId && data.sessionId !== curSid) {
+              return;
+            }
+          } catch (_) { }
           // 優先使用 fromUid（WebSocket 消息格式），其次使用 uid
           const senderUid = (msg.fromUid && typeof msg.fromUid === "string") ? msg.fromUid : (msg.uid && typeof msg.uid === "string") ? msg.uid : null;
 
@@ -3106,11 +3100,8 @@ async function connectWebSocket() {
         _setText("survival-online-status", "連線失敗，返回大廳");
         _wsReconnectAttempts = 0;
         setTimeout(() => {
-          try {
-            if (typeof Game !== "undefined" && Game.gameOver) {
-              Game.gameOver();
-            }
-          } catch (_) { }
+          // ✅ 修復：連線失敗不應觸發 Game.gameOver()
+          // 連線中斷 ≠ 遊戲失敗；這裡只做「離開房間 + 回到開始畫面」避免誤判敗北
           leaveRoom().catch(() => { });
           closeLobbyToStart(); // ✅ 離開房間後回到遊戲開始畫面
         }, 1000);
@@ -3151,14 +3142,23 @@ async function connectWebSocket() {
 function _sendViaWebSocket(obj) {
   if (_ws && _ws.readyState === WebSocket.OPEN) {
     try {
+      // ✅ sessionId 防串房/防舊局封包：若目前有 sessionId，盡量附在 data 內
+      // 注意：只影響組隊系統；單機不會呼叫 _sendViaWebSocket
+      let payloadObj = obj;
+      try {
+        const sid = (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.sessionId) ? Game.multiplayer.sessionId : null;
+        if (sid && payloadObj && typeof payloadObj === "object" && !payloadObj.sessionId) {
+          payloadObj = { ...payloadObj, sessionId: sid };
+        }
+      } catch (_) { }
       _ws.send(JSON.stringify({
         type: 'game-data',
         roomId: _activeRoomId,
         uid: _uid,
-        data: obj
+        data: payloadObj
       }));
       // 添加日志以确认发送（仅对 pos 消息，避免日志过多）
-      if (obj.t === "pos") {
+      if (obj && obj.t === "pos") {
         console.log(`[SurvivalOnline] _sendViaWebSocket: 已發送 ${obj.t} 消息, isHost=${_isHost}, uid=${_uid}`);
       }
     } catch (e) {
@@ -4568,9 +4568,8 @@ async function enterLobbyAsHost(initialParams) {
   listenRoom(_activeRoomId);
   listenMembers(_activeRoomId);
   // 移除 listenSignals（不再需要 WebRTC 信令）
-  // 连接 WebSocket
-  await connectWebSocket();
-  Runtime.setEnabled(true);
+  // ✅ 重要：不要在大廳就連 WebSocket / 啟用 Runtime（避免流量與狀態污染）
+  // WebSocket 與 Runtime 會在房間狀態變為 starting → startGame 時建立/啟用
   _syncHostSelectsFromRoom();
   _startMemberHeartbeat();
 }
@@ -4586,8 +4585,8 @@ async function enterLobbyAsGuest(roomId) {
   listenRoom(_activeRoomId);
   listenMembers(_activeRoomId);
   // 移除 listenSignals（不再需要 WebRTC 信令）
-  // 连接 WebSocket（替代 WebRTC）
-  await connectWebSocket();
+  // ✅ 重要：不要在大廳就連 WebSocket（避免連線抖動誤觸清理/失敗流程）
+  // WebSocket 會在房間狀態變為 starting → startGame 時建立
   _startMemberHeartbeat();
 }
 
