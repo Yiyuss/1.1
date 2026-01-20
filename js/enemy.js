@@ -1592,10 +1592,13 @@
                                 deathVelY: this.deathVelY
                             });
                         }
-                    } catch (_) { }
-                }
+                } catch (_) { }
+            }
 
-                if (typeof AudioManager !== 'undefined') {
+                // ✅ 單機元素：音效是單機元素，只在本地播放
+                // 組隊模式下，敵人死亡由伺服器權威處理，音效在 updateEnemiesFromServer 中播放
+                // 重用上面已宣告的 isMultiplayer 變數
+                if (!isMultiplayer && typeof AudioManager !== 'undefined') {
                     AudioManager.playSound('enemy_death');
                 }
 
