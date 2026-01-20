@@ -127,26 +127,8 @@ class ShockwaveEffect extends Entity {
                     DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, { dirX, dirY, enemyId: enemy.id });
                 }
                 
-                // 多人模式：發送enemy_damage（用於同步傷害數字和減速效果，不影響傷害計算）
-                if (isSurvivalMode && isMultiplayer && enemy && enemy.id) {
-                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                        const msg = {
-                            t: "enemy_damage",
-                            enemyId: enemy.id,
-                            damage: finalDamage,
-                            weaponType: this.weaponType || "MIND_MAGIC",
-                            isCrit: isCrit,
-                            lifesteal: lifestealAmount,
-                            playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                        };
-                        // ✅ MMORPG 架構：如果應用減速效果，同步減速信息
-                        if (slowMs !== null && slowFactor !== null) {
-                            msg.slowMs = slowMs;
-                            msg.slowFactor = slowFactor;
-                        }
-                        window.SurvivalOnlineRuntime.sendToNet(msg);
-                    }
-                }
+                // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再發送 enemy_damage
+                // 減速效果由伺服器權威處理，客戶端只顯示視覺效果
                 this.hitEnemies.add(enemy.id);
             }
         }
