@@ -405,12 +405,8 @@ function handleGameData(ws, roomId, uid, data) {
       // 简单上限防滥用（即使被绕过也仅影响组队，不影响存档码键名）
       if (amount > 0 && amount <= 500000) {
         gameState.awardExperienceToAllPlayers(amount, chestId);
-        // ✅ 單機同源：撿到鳳梨掉落物的音效（只讓撿到的人播，避免全隊一直叮）
-        try {
-          if (Array.isArray(gameState.sfxEvents)) {
-            gameState.sfxEvents.push({ type: 'collect_exp', playerUid: uid });
-          }
-        } catch (_) { }
+        // ✅ 音效是單機元素：音效已在客戶端 player.gainExperience() 中播放，不需要透過伺服器發送 sfxEvents
+        // 舊的 sfxEvents 系統已被移除（survival_team_master_plan.md）
       }
     } catch (_) { }
     return;
