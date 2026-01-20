@@ -146,7 +146,8 @@ class BossProjectile extends Entity {
                 try {
                     if (p && p.invulnerabilitySource === 'INVINCIBLE') {
                         // 仍保留命中特效以維持手感，但不扣血
-                        if (typeof AudioManager !== 'undefined') {
+                        // ✅ 流量優化：音效是單機元素，只對本地玩家播放
+                        if (p === Game.player && typeof AudioManager !== 'undefined') {
                             AudioManager.playSound('bo');
                         }
                         this.createExplosionEffect();
@@ -164,8 +165,8 @@ class BossProjectile extends Entity {
                     // 抽象化技能會在 takeDamage 內部處理回避判定
                     p.takeDamage(this.damage, { ignoreInvulnerability: true, source: 'boss_projectile' });
                 }
-                // 新增：命中玩家時播放bo音效
-                if (typeof AudioManager !== 'undefined') {
+                // ✅ 流量優化：音效是單機元素，只對本地玩家播放
+                if (p === Game.player && typeof AudioManager !== 'undefined') {
                     AudioManager.playSound('bo');
                 }
                 // 創建爆炸特效
@@ -468,10 +469,8 @@ class BossProjectile extends Entity {
             } catch (_) {}
         }
         
-        // 播放爆炸音效（使用既有 'bo' 音效，避免未載入的 'explosion' 名稱）
-        if (typeof AudioManager !== 'undefined') {
-            AudioManager.playSound('bo');
-        }
+        // ✅ 流量優化：音效是單機元素，只對本地玩家播放（createExplosionEffect 由碰撞檢測觸發，已在碰撞檢測中播放）
+        // 此處不再播放，避免重複
     }
     
     // 獲取隨機爆炸顏色
