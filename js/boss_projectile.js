@@ -22,6 +22,20 @@ class BossProjectile extends Entity {
     }
     
     update(deltaTime) {
+        // ✅ 權威多人：此類投射物由伺服器權威模擬與扣血；客戶端只做插值顯示
+        try {
+            if (this._isVisualOnly && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                if (typeof this._netTargetX === 'number' && typeof this._netTargetY === 'number') {
+                    const dx = this._netTargetX - this.x;
+                    const dy = this._netTargetY - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 600) { this.x = this._netTargetX; this.y = this._netTargetY; }
+                    else { const lerp = 0.35; this.x += dx * lerp; this.y += dy * lerp; }
+                }
+                if (typeof this._netAngle === 'number') this.angle = this._netAngle;
+                return;
+            }
+        } catch (_) { }
         const currentTime = Date.now();
         
         // 檢查生命週期
@@ -498,3 +512,6 @@ class BossProjectile extends Entity {
         Game.cameraShake.duration = 200; // 持續時間（毫秒）
     }
 }
+
+// ✅ 讓 ES module（例如 survival_online.js）可以從 globalThis 取得建構子
+try { if (typeof window !== 'undefined') window.BossProjectile = BossProjectile; } catch (_) {}
