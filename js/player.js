@@ -1135,20 +1135,22 @@ class Player extends Entity {
             }
         } catch (_) {}
 
-        // ✅ MMORPG 架構：所有玩家都發送鳳梨大絕消息，不依賴室長端
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-        if (isMultiplayer) {
-            // 所有玩家：發送消息給其他玩家，讓他們也能看到鳳梨掉落物
-            try {
-                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                    window.SurvivalOnlineRuntime.sendToNet({ 
-                        t: "ultimate_pineapple", 
-                        x: this.x, 
-                        y: this.y 
-                    });
-                }
-            } catch (_) {}
-        }
+        // ✅ 權威伺服器模式：多人進行中時，鳳梨掉落物由伺服器生成並透過 state.chests(type=PINEAPPLE) 同步
+        // 這裡只保留能量消耗/音效/鏡頭震動等本地視覺，避免本地生成與伺服器權威打架。
+        try {
+            if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                // 視覺：沿用大招啟動的鏡頭震動
+                try {
+                    if (!Game.cameraShake) {
+                        Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+                    }
+                    Game.cameraShake.active = true;
+                    Game.cameraShake.intensity = 8;
+                    Game.cameraShake.duration = 200;
+                } catch (_) {}
+                return;
+            }
+        } catch (_) {}
 
         // 室長端或單人模式：正常生成掉落物
         // 生成：200~800 像素距離，隨機角度
