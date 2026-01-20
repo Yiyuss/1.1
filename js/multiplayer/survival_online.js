@@ -4101,6 +4101,16 @@ function handleServerGameState(state, timestamp) {
       updateProjectilesFromServer(state.projectiles);
     }
 
+    // ✅ B：BOSS/HUMAN2 遠程投射物（伺服器權威；客戶端只顯示）
+    if (Array.isArray(state.bossProjectiles)) {
+      updateBossProjectilesFromServer(state.bossProjectiles);
+    }
+
+    // ✅ B：修羅彈幕（伺服器權威；客戶端只渲染）
+    if (Array.isArray(state.bullets)) {
+      updateBulletsFromServer(state.bullets);
+    }
+
     // ✅ 命中事件（伺服器權威）：用於顯示傷害數字/爆擊標記（不靠本地 takeDamage）
     try {
       if (Array.isArray(state.hitEvents) && typeof DamageNumbers !== "undefined" && typeof DamageNumbers.show === "function") {
@@ -4383,6 +4393,8 @@ function updateEnemiesFromServer(enemies) {
       // 创建新敌人
       enemy = new EnemyCtor(enemyState.x, enemyState.y, enemyState.type);
       enemy.id = enemyState.id;
+      // ✅ 權威多人：敵人 AI/攻擊/遠程投射物由伺服器權威處理；客戶端敵人只做顯示（避免本地生成火彈/瓶子）
+      try { enemy._netSimulated = true; } catch (_) { }
       Game.enemies.push(enemy);
     }
     if (enemy) {
@@ -4495,6 +4507,92 @@ function updateProjectilesFromServer(projectiles) {
       if (typeof proj.y !== 'number' && typeof proj._netTargetY === 'number') proj.y = proj._netTargetY;
     }
   }
+}
+
+// ✅ 不影响单机：只在多人模式下执行（伺服器權威的 BOSS/HUMAN2 遠程投射物）
+function updateBossProjectilesFromServer(bossProjectiles) {
+  if (typeof Game === 'undefined' || !Game.multiplayer) return;
+  if (!Array.isArray(Game.bossProjectiles)) Game.bossProjectiles = [];
+
+  const BossProjectileCtor = _getGlobalCtor("BossProjectile");
+  const BottleProjectileCtor = _getGlobalCtor("BottleProjectile");
+
+  const serverIds = new Set(bossProjectiles.map(p => p && p.id).filter(Boolean));
+  for (let i = Game.bossProjectiles.length - 1; i >= 0; i--) {
+    const p = Game.bossProjectiles[i];
+    if (!p || !serverIds.has(p.id)) {
+      try { if (p && typeof p.destroy === 'function') p.destroy(); } catch (_) { }
+      Game.bossProjectiles.splice(i, 1);
+    }
+  }
+
+  for (const st of bossProjectiles) {
+    if (!st || !st.id) continue;
+    let p = Game.bossProjectiles.find(x => x && x.id === st.id);
+
+    if (!p) {
+      // 只做視覺：不讓本地跑碰撞/扣血
+      if (st.kind === 'BOTTLE' && BottleProjectileCtor) {
+        const w = (typeof st.width === 'number') ? st.width : 12;
+        const h = (typeof st.height === 'number') ? st.height : 16;
+        p = new BottleProjectileCtor(st.x || 0, st.y || 0, st.x || 0, st.y || 0, 1, st.damage || 10, w, h);
+      } else if (BossProjectileCtor) {
+        const size = (typeof st.size === 'number') ? st.size : 18;
+        p = new BossProjectileCtor(st.x || 0, st.y || 0, st.angle || 0, st.speed || 5, st.damage || 10, size, !!st.homing, st.turnRate || 0);
+      }
+      if (p) {
+        p.id = st.id;
+        p._isVisualOnly = true;
+        Game.bossProjectiles.push(p);
+      }
+    }
+
+    if (p) {
+      if (typeof st.x === 'number') p._netTargetX = st.x;
+      if (typeof st.y === 'number') p._netTargetY = st.y;
+      if (typeof st.angle === 'number') p._netAngle = st.angle;
+      if (typeof st.speed === 'number') p.speed = st.speed;
+      if (typeof st.damage === 'number') p.damage = st.damage;
+      if (typeof st.size === 'number') {
+        try { p.size = st.size; p.width = st.size; p.height = st.size; } catch (_) { }
+      }
+      if (typeof st.homing === 'boolean') p.homing = st.homing;
+      if (typeof st.turnRate === 'number') p.turnRate = st.turnRate;
+      if (typeof st.width === 'number') p.width = st.width;
+      if (typeof st.height === 'number') p.height = st.height;
+      if (typeof p.x !== 'number' && typeof p._netTargetX === 'number') p.x = p._netTargetX;
+      if (typeof p.y !== 'number' && typeof p._netTargetY === 'number') p.y = p._netTargetY;
+      p._isVisualOnly = true;
+    }
+  }
+}
+
+// ✅ 不影响单机：只在多人模式下执行（伺服器權威的修羅彈幕 bullets）
+function updateBulletsFromServer(bullets) {
+  try {
+    if (typeof Game === 'undefined' || !Game.multiplayer || !Game.multiplayer.enabled) return;
+    if (typeof BulletSystem === 'undefined') return;
+
+    // 客戶端只渲染：覆蓋 bullets，清空 emitters，避免本地生成
+    BulletSystem.enabled = true;
+    BulletSystem.emitters = [];
+    BulletSystem.bullets = [];
+
+    for (const b of bullets) {
+      if (!b) continue;
+      BulletSystem.bullets.push({
+        x: (typeof b.x === 'number') ? b.x : 0,
+        y: (typeof b.y === 'number') ? b.y : 0,
+        vx: 0,
+        vy: 0,
+        life: (typeof b.life === 'number') ? b.life : 0,
+        maxLife: (typeof b.maxLife === 'number') ? b.maxLife : ((typeof b.life === 'number') ? b.life : 0),
+        size: (typeof b.size === 'number') ? b.size : 12,
+        color: (typeof b.color === 'string') ? b.color : '#ffcc66',
+        damage: (typeof b.damage === 'number') ? b.damage : 0
+      });
+    }
+  } catch (_) { }
 }
 
 // ✅ 不影响单机：只在多人模式下执行
