@@ -36,9 +36,9 @@ class GameState {
     // ✅ transient：本幀命中事件（用於客戶端顯示傷害數字/爆擊標記）
     this.hitEvents = [];
 
-    // ✅ transient：音效/提示事件（用於多人把「單機觸發」補齊，不靠本地生成/碰撞）
-    // 格式：{ type: 'shoot'|'enemy_death'|'collect_exp', playerUid?, weaponType?, x?, y? }
-    this.sfxEvents = [];
+    // ✅ 已移除：sfxEvents（音效是單機元素，不需要通過伺服器發送）
+    // 舊的 sfxEvents 系統已被完全移除（survival_team_master_plan.md）
+    // this.sfxEvents = []; // 已移除
 
     // ✅ transient：視覺特效事件（多人元素；所有人都看得到）
     // 格式：{ type: 'screen_effect'|'explosion_particles', data: {...} }
@@ -960,8 +960,8 @@ class GameState {
     this.projectiles.push(projectile);
 
     // ✅ 流量優化：音效是單機元素，不需要通過伺服器發送（節省流量）
-    // 客戶端會在本地播放音效（weapon.js 中已有 AudioManager.playSound，但多人模式下已跳過，因為伺服器會發送 sfxEvents）
-    // 現在移除伺服器發送後，需要確保客戶端在多人模式下也能正常播放
+    // 客戶端會在本地播放音效（weapon.js 中已有 AudioManager.playSound）
+    // 舊的 sfxEvents 系統已被完全移除（survival_team_master_plan.md）
     return projectile;
   }
 
@@ -1772,7 +1772,8 @@ class GameState {
 
         if (dist < collisionRadius) {
           // ✅ 流量優化：音效是單機元素，不需要通過伺服器發送（節省流量）
-          // 客戶端會在本地播放音效（experience.js 中已有 AudioManager.playSound('collect_exp')）
+          // 客戶端會在本地播放音效：當伺服器同步 experience 時，客戶端 handleServerGameState 會調用
+          // Game.player.gainExperience(deltaExp)，在 gainExperience() 中播放 collect_exp 音效
           // ✅ 经验共享（服务器权威）：移除经验球，并把经验值发给所有玩家
           const value = Math.max(0, Math.floor(orb.value || 0));
           if (value > 0) {
