@@ -13,6 +13,7 @@ class GameState {
     this.obstacles = []; // ObstacleState[] - 障碍物（静态）
     this.decorations = []; // DecorationState[] - 地图装饰（静态）
     this.carHazards = []; // CarHazardState[] - 路口车辆（动态）
+    this.exit = null; // { x, y, width, height } - 出口（Boss 波次後生成）
     this.wave = 1;
     this.waveStartTime = Date.now();
     this.lastEnemySpawnTime = 0;
@@ -37,6 +38,9 @@ class GameState {
     // ✅ MMORPG 逻辑：Boss生成跟踪
     this.minibossSpawnedForWave = false;
     this.bossSpawned = false;
+
+    // ✅ 用於避免重複發放（例如：鳳梨掉落物被多次回報 award_exp）
+    this._awardedExpChestIds = new Set();
   }
 
   // 添加玩家
@@ -173,14 +177,61 @@ class GameState {
     const player = this.players.get(uid);
     if (!player || player.isDead) return;
 
-    // ✅ 服务器权威：处理玩家大招
-    // 注意：大招主要是视觉效果和特殊效果，服务器端只需要同步状态
-    // 具体的大招逻辑（如凤梨掉落物、爆炸等）由客户端处理并通过事件广播同步
+    // ✅ 服务器权威：鳳梨不咬舌（pineapple）的大招改由伺服器生成掉落物（PINEAPPLE chest）
+    // 目的：避免客戶端事件/本地生成與 state.chests 權威打架，並確保所有端看到一致的掉落物。
+    try {
+      if (player.characterId === 'pineapple') {
+        // 能量門檻：需滿能量；成功施放後歸零
+        if (player.energy < (player.maxEnergy || 100)) return;
+        player.energy = 0;
 
-    // 服务器端只同步大招状态（如果需要）
-    // 例如：设置 isUltimateActive 标志（如果需要服务器端验证）
-    // 当前实现：大招由客户端处理，服务器端不需要额外逻辑
-    // 因为大招不涉及服务器权威的游戏状态（如敌人血量、玩家位置等）
+        const count = 5;
+        const minD = 200;
+        const maxD = 800;
+        const flyDurationMs = 600;
+        const worldW = this.worldWidth || 3840;
+        const worldH = this.worldHeight || 2160;
+        const spawnX = player.x;
+        const spawnY = player.y;
+
+        for (let i = 0; i < count; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const dist = minD + Math.random() * (maxD - minD);
+          let tx = spawnX + Math.cos(ang) * dist;
+          let ty = spawnY + Math.sin(ang) * dist;
+          // A45(53x100) 邊界裁切
+          const halfW = 53 / 2;
+          const halfH = 100 / 2;
+          tx = Math.max(halfW, Math.min(worldW - halfW, tx));
+          ty = Math.max(halfH, Math.min(worldH - halfH, ty));
+
+          this.addChest({
+            id: `pine_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+            x: tx,
+            y: ty,
+            type: 'PINEAPPLE',
+            // 給客戶端做飛行動畫
+            spawnX,
+            spawnY,
+            flyDurationMs
+          });
+        }
+        return;
+      }
+    } catch (_) { }
+  }
+
+  // ✅ 共享經驗：用於鳳梨掉落物等特殊獎勵（由客戶端回報 amount，伺服器轉為權威 counter）
+  awardExperienceToAllPlayers(amount, chestId = null) {
+    const inc = Math.max(0, Math.floor(amount || 0));
+    if (!inc) return;
+    if (chestId) {
+      if (this._awardedExpChestIds.has(chestId)) return;
+      this._awardedExpChestIds.add(chestId);
+    }
+    for (const p of this.players.values()) {
+      p.experience = (p.experience || 0) + inc;
+    }
   }
 
   // 更新游戏状态（服务器每帧调用）
@@ -205,6 +256,29 @@ class GameState {
 
     // ✅ 服务器权威：更新路口车辆
     this.updateCarHazards(deltaTime);
+
+    // ✅ 服务器权威：出口触碰判定（任何玩家碰到出口即胜利）
+    try {
+      if (this.exit && !this.isVictory && !this.isGameOver) {
+        const ex = this.exit.x;
+        const ey = this.exit.y;
+        const halfW = (this.exit.width || 0) / 2;
+        const halfH = (this.exit.height || 0) / 2;
+        for (const p of this.players.values()) {
+          if (!p || p.isDead || p.health <= 0) continue;
+          const px = p.x, py = p.y;
+          const closestX = Math.max(ex - halfW, Math.min(px, ex + halfW));
+          const closestY = Math.max(ey - halfH, Math.min(py, ey + halfH));
+          const dx = px - closestX;
+          const dy = py - closestY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 16) { // 玩家半徑約 16
+            this.isVictory = true;
+            break;
+          }
+        }
+      }
+    } catch (_) { }
 
     // 生成敌人（服务器权威）
     this.spawnEnemies(now, this.config);
@@ -400,6 +474,22 @@ class GameState {
                   type: 'NORMAL'
                 });
               }
+
+              // ✅ Boss 波次：生成出口（由伺服器權威），玩家觸碰出口才勝利
+              try {
+                const bossWave = (this.config && this.config.WAVES && this.config.WAVES.BOSS_WAVE) ? this.config.WAVES.BOSS_WAVE : 20;
+                if (
+                  (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS') &&
+                  this.wave === bossWave
+                ) {
+                  this.exit = {
+                    x: (this.worldWidth || 3840) / 2,
+                    y: (this.worldHeight || 2160) / 2,
+                    width: 300,
+                    height: 242
+                  };
+                }
+              } catch (_) { }
             }
           }
 
@@ -1043,6 +1133,7 @@ class GameState {
       obstacles: this.obstacles,
       decorations: this.decorations,
       carHazards: this.carHazards,
+      exit: this.exit,
       wave: this.wave,
       isGameOver: this.isGameOver,
       isVictory: this.isVictory,
