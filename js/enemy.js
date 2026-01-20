@@ -1349,20 +1349,8 @@
                             playerUid = Game.multiplayer.uid;
                         }
 
-                        // ✅ 權威多人：傷害數字改走伺服器 hitEvents（避免 client-authoritative 訊息外洩）
-                        // 這裡保留空白，不再廣播 damage_number。
-
-                        // ✅ MMORPG 架構：發送 damage_enemy 事件供網路同步監聽
-                        // 手動觸發事件，讓 survival_online.js 可以監聽並發送 WebSocket 消息
-                        if (Game.events && typeof Game.events.emit === 'function') {
-                            Game.events.emit('damage_enemy', {
-                                enemyId: this.id,
-                                damage: amount,
-                                isCrit: isCrit,
-                                playerUid: playerUid,
-                                weaponType: options.weaponType || 'UNKNOWN'
-                            });
-                        }
+                        // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再發送 damage_enemy 事件
+                        // 傷害計算完全由伺服器權威處理，客戶端只顯示視覺效果
                     }
                 } catch (_) { }
 
