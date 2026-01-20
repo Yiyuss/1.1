@@ -311,7 +311,7 @@ function handleGameData(ws, roomId, uid, data) {
   }
 
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
-  if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate' || data.type === 'resurrect')) {
+  if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate' || data.type === 'resurrect' || data.type === 'aoe_tick')) {
     // 服务器处理输入
     gameState.handleInput(uid, data);
     // 不需要转发，服务器会定期广播状态
