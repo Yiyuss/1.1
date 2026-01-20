@@ -174,10 +174,10 @@ class LaserBeam extends Entity {
                         lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                     }
                     
-                    // ✅ MMO 架構：每個玩家都獨立造成傷害，通用單機和MMO
-                    // 單機模式：直接造成傷害
-                    // 多人模式：每個玩家都造成傷害，並發送enemy_damage（用於同步傷害數字）
-                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                    // ✅ 權威伺服器模式：持續效果傷害由 game.js 自動發送 aoe_tick 到伺服器
+                    // 單機模式：直接造成傷害並顯示傷害數字
+                    // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器 hitEvents 處理
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                     let isSurvivalMode = false;
                     try {
                         const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
@@ -188,13 +188,15 @@ class LaserBeam extends Entity {
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
-                    // 造成傷害（單機和多人模式都執行）
-                    enemy.takeDamage(finalDamage);
-                    if (typeof DamageNumbers !== 'undefined') {
-                        DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
+                    // 單機模式：直接造成傷害並顯示傷害數字
+                    if (!isSurvivalMode || !isMultiplayer) {
+                        enemy.takeDamage(finalDamage);
+                        if (typeof DamageNumbers !== 'undefined') {
+                            DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
+                        }
                     }
-                    
-                    // ✅ 權威伺服器模式：激光持續效果需要持續發送 aoe_tick input 到伺服器
+                    // 多人模式：LaserBeam 沒有 tickDamage 屬性，所以 game.js 不會自動處理
+                    // 需要手動發送 aoe_tick 到伺服器（使用線段範圍而非圓形範圍）
                     if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
                         if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                             // 計算受影響的敵人範圍
