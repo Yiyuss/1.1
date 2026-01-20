@@ -280,6 +280,11 @@ function handleGameData(ws, roomId, uid, data) {
   if (gameState && data.type === 'config' && data.config) {
     // 保存CONFIG数据到游戏状态
     gameState.config = data.config;
+    // ✅ 同步難度/地圖（用於伺服器側套用與單機同源的 TUNING 規則）
+    try {
+      if (typeof data.diffId === 'string') gameState.diffId = data.diffId;
+      if (typeof data.mapId === 'string') gameState.mapId = data.mapId;
+    } catch (_) { }
     console.log(`[GameState] 收到CONFIG数据: roomId=${actualRoomId}, uid=${uid}`);
     return;
   }
