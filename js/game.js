@@ -2505,30 +2505,106 @@ const Game = {
             const playersListEl = document.getElementById('multiplayer-players-list');
             if (!playersListEl) return;
 
-            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.getMembersState) {
-                const members = window.SurvivalOnlineRuntime.getMembersState();
-                if (members && Array.isArray(members) && members.length > 0) {
+            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime) {
+                // ✅ 多人元素：遊戲內 HUD（純顯示）
+                const hud = (typeof window.SurvivalOnlineRuntime.getHudPlayers === 'function')
+                    ? window.SurvivalOnlineRuntime.getHudPlayers()
+                    : null;
+
+                const members = (typeof window.SurvivalOnlineRuntime.getMembersState === 'function')
+                    ? window.SurvivalOnlineRuntime.getMembersState()
+                    : [];
+
+                // 先建立 uid->role/name 映射（避免 game-state 還沒帶 nickname 時顯示空白）
+                const memberMap = new Map();
+                try {
+                    for (const m of (members || [])) {
+                        if (!m || !m.uid) continue;
+                        memberMap.set(m.uid, m);
+                    }
+                } catch (_) { }
+
+                const list = (hud && Array.isArray(hud) && hud.length) ? hud : [];
+                if (list.length) {
+                    playersListEl.innerHTML = '';
+                    for (const p of list) {
+                        if (!p || !p.uid) continue;
+                        const m = memberMap.get(p.uid) || null;
+                        const name = (p.nickname || (m && m.name) || (p.uid ? p.uid.slice(0, 6) : '未知'));
+                        const role = (m && m.role) ? m.role : 'guest';
+                        const hp = (typeof p.health === 'number') ? p.health : 0;
+                        const maxHp = (typeof p.maxHealth === 'number' && p.maxHealth > 0) ? p.maxHealth : 1;
+                        const pct = Math.max(0, Math.min(1, hp / maxHp));
+
+                        const row = document.createElement('div');
+                        row.style.display = 'flex';
+                        row.style.flexDirection = 'column';
+                        row.style.gap = '2px';
+                        row.style.marginBottom = '6px';
+
+                        const top = document.createElement('div');
+                        top.style.display = 'flex';
+                        top.style.alignItems = 'center';
+                        top.style.justifyContent = 'space-between';
+                        top.style.gap = '8px';
+
+                        const left = document.createElement('div');
+                        left.style.display = 'flex';
+                        left.style.alignItems = 'center';
+                        left.style.gap = '6px';
+
+                        const roleIcon = document.createElement('span');
+                        roleIcon.textContent = role === 'host' ? '👑' : '👤';
+                        roleIcon.style.opacity = '0.8';
+
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = name;
+                        nameSpan.style.opacity = (p.isDead ? '0.55' : '1');
+
+                        const hpText = document.createElement('span');
+                        hpText.textContent = p.isDead ? 'DEAD' : `${Math.max(0, Math.floor(hp))}/${Math.max(1, Math.floor(maxHp))}`;
+                        hpText.style.opacity = '0.75';
+
+                        left.appendChild(roleIcon);
+                        left.appendChild(nameSpan);
+                        top.appendChild(left);
+                        top.appendChild(hpText);
+
+                        const barWrap = document.createElement('div');
+                        barWrap.style.width = '100%';
+                        barWrap.style.height = '6px';
+                        barWrap.style.background = 'rgba(255,255,255,0.18)';
+                        barWrap.style.borderRadius = '6px';
+                        barWrap.style.overflow = 'hidden';
+
+                        const bar = document.createElement('div');
+                        bar.style.height = '100%';
+                        bar.style.width = `${Math.floor(pct * 100)}%`;
+                        bar.style.background = (pct > 0.6) ? '#3ddc84' : (pct > 0.3 ? '#f1c40f' : '#e74c3c');
+                        barWrap.appendChild(bar);
+
+                        row.appendChild(top);
+                        row.appendChild(barWrap);
+                        playersListEl.appendChild(row);
+                    }
+                } else if (members && Array.isArray(members) && members.length > 0) {
+                    // 後備：只顯示名單（避免空白）
                     playersListEl.innerHTML = '';
                     for (const m of members) {
-                        if (m && m.name) {
-                            const div = document.createElement('div');
-                            div.style.display = 'flex';
-                            div.style.alignItems = 'center';
-                            div.style.gap = '6px';
-                            div.style.marginBottom = '4px';
-
-                            const roleIcon = document.createElement('span');
-                            roleIcon.textContent = m.role === 'host' ? '👑' : '👤';
-                            roleIcon.style.opacity = '0.8';
-
-                            const nameSpan = document.createElement('span');
-                            nameSpan.textContent = m.name || (m.uid ? m.uid.slice(0, 6) : '未知');
-                            nameSpan.style.opacity = m.ready ? '1' : '0.7';
-
-                            div.appendChild(roleIcon);
-                            div.appendChild(nameSpan);
-                            playersListEl.appendChild(div);
-                        }
+                        if (!m || !m.name) continue;
+                        const div = document.createElement('div');
+                        div.style.display = 'flex';
+                        div.style.alignItems = 'center';
+                        div.style.gap = '6px';
+                        div.style.marginBottom = '4px';
+                        const roleIcon = document.createElement('span');
+                        roleIcon.textContent = m.role === 'host' ? '👑' : '👤';
+                        roleIcon.style.opacity = '0.8';
+                        const nameSpan = document.createElement('span');
+                        nameSpan.textContent = m.name;
+                        div.appendChild(roleIcon);
+                        div.appendChild(nameSpan);
+                        playersListEl.appendChild(div);
                     }
                 } else {
                     playersListEl.innerHTML = '<div style="opacity:0.6;">載入中...</div>';
@@ -2540,43 +2616,11 @@ const Game = {
     },
 
     // 更新組隊HUD
+    // ⚠️ LEGACY：保留空殼避免舊 patch 斷裂；實作以上方 updateMultiplayerHUD 為準
     updateMultiplayerHUD: function () {
         try {
-            const playersListEl = document.getElementById('multiplayer-players-list');
-            if (!playersListEl) return;
-
-            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.getMembersState) {
-                const members = window.SurvivalOnlineRuntime.getMembersState();
-                if (members && Array.isArray(members) && members.length > 0) {
-                    playersListEl.innerHTML = '';
-                    for (const m of members) {
-                        if (m && m.name) {
-                            const div = document.createElement('div');
-                            div.style.display = 'flex';
-                            div.style.alignItems = 'center';
-                            div.style.gap = '6px';
-                            div.style.marginBottom = '4px';
-
-                            const roleIcon = document.createElement('span');
-                            roleIcon.textContent = m.role === 'host' ? '👑' : '👤';
-                            roleIcon.style.opacity = '0.8';
-
-                            const nameSpan = document.createElement('span');
-                            nameSpan.textContent = m.name || (m.uid ? m.uid.slice(0, 6) : '未知');
-                            nameSpan.style.opacity = m.ready ? '1' : '0.7';
-
-                            div.appendChild(roleIcon);
-                            div.appendChild(nameSpan);
-                            playersListEl.appendChild(div);
-                        }
-                    }
-                } else {
-                    playersListEl.innerHTML = '<div style="opacity:0.6;">載入中...</div>';
-                }
-            }
-        } catch (e) {
-            console.warn('[Game] 更新玩家列表失敗:', e);
-        }
+            // no-op
+        } catch (_) { }
     }
     ,
     // 生成障礙物：3x3世界中隨機位置，不重疊也不卡住玩家
