@@ -116,6 +116,11 @@ class GameState {
         this.createProjectile(uid, input);
         break;
 
+      case 'aoe_tick':
+        // ✅ 服务器权威：持续效果/范围技能 tick（圆形AOE）
+        this.applyAoeTick(uid, input);
+        break;
+
       case 'use_ultimate':
         // 服务器处理大招
         this.handleUltimate(uid, input);
@@ -129,6 +134,84 @@ class GameState {
         // 复活后给一点能量，避免卡死（保持保守）
         player.energy = Math.min(player.maxEnergy || 100, Math.max(0, player.energy || 0));
         break;
+    }
+  }
+
+  // ✅ 通用：敌人受伤/死亡结算（保证所有伤害来源一致掉落/出出口）
+  damageEnemy(enemy, amount) {
+    const dmg = Math.max(0, Math.floor(amount || 0));
+    if (!enemy || enemy.isDead || enemy.health <= 0 || dmg <= 0) return;
+    enemy.health -= dmg;
+    enemy.hitFlashTime = 150;
+    if (enemy.health <= 0) {
+      enemy.health = 0;
+      enemy.isDead = true;
+      this.grantEnemyRewards(enemy);
+    }
+  }
+
+  grantEnemyRewards(enemy) {
+    if (!enemy || enemy._rewardsGranted) return;
+    enemy._rewardsGranted = true;
+
+    // 经验球
+    this.spawnExperienceOrb(enemy.x, enemy.y, enemy.experienceValue || 5);
+
+    // 金幣共享
+    let coinGain = 2;
+    if (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS') coinGain = 50;
+    else if (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS') coinGain = 500;
+    this.awardCoinsToAllPlayers(coinGain);
+
+    // 宝箱
+    if (
+      enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' ||
+      enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS'
+    ) {
+      this.addChest({
+        id: `chest_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        x: enemy.x,
+        y: enemy.y,
+        type: 'NORMAL'
+      });
+    }
+
+    // Boss 波次出口
+    try {
+      const bossWave = (this.config && this.config.WAVES && this.config.WAVES.BOSS_WAVE) ? this.config.WAVES.BOSS_WAVE : 20;
+      if (
+        (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS') &&
+        this.wave === bossWave
+      ) {
+        this.exit = {
+          x: (this.worldWidth || 3840) / 2,
+          y: (this.worldHeight || 2160) / 2,
+          width: 300,
+          height: 242
+        };
+      }
+    } catch (_) { }
+  }
+
+  // ✅ AOE tick：圆形范围伤害（给 Aura/Orbit/Gravity/IceField 等持续效果用）
+  applyAoeTick(uid, input) {
+    const player = this.players.get(uid);
+    if (!player || player.isDead) return;
+
+    const x = (typeof input.x === 'number') ? input.x : player.x;
+    const y = (typeof input.y === 'number') ? input.y : player.y;
+    const radius = Math.max(10, Math.min(800, Math.floor(input.radius || 120)));
+    const damage = Math.max(0, Math.floor(input.damage || 0));
+    if (!damage) return;
+
+    const r2 = radius * radius;
+    for (const enemy of this.enemies) {
+      if (!enemy || enemy.isDead || enemy.health <= 0) continue;
+      const dx = enemy.x - x;
+      const dy = enemy.y - y;
+      if ((dx * dx + dy * dy) <= r2) {
+        this.damageEnemy(enemy, damage);
+      }
     }
   }
 
@@ -449,58 +532,8 @@ class GameState {
         const collisionRadius = (proj.size || 20) / 2 + (enemy.size || 32) / 2;
 
         if (dist < collisionRadius) {
-          // 服务器计算伤害
-          enemy.health -= proj.damage;
-
-          // ✅ 服务器权威：设置敌人受伤红闪状态
-          enemy.hitFlashTime = 150; // 默认150ms红闪时间（与客户端一致）
-
-          if (enemy.health <= 0) {
-            enemy.health = 0;
-            enemy.isDead = true;
-            // ✅ 服务器权威：敌人死亡奖励（经验球/宝箱/金幣共享）只结算一次
-            if (!enemy._rewardsGranted) {
-              enemy._rewardsGranted = true;
-
-              // 经验球：使用敌人经验值（若未提供则 fallback 5）
-              this.spawnExperienceOrb(enemy.x, enemy.y, enemy.experienceValue || 5);
-
-              // 金幣：沿用客户端规则（普通2，小BOSS50，大BOSS500）
-              let coinGain = 2;
-              if (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS') coinGain = 50;
-              else if (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS') coinGain = 500;
-              this.awardCoinsToAllPlayers(coinGain);
-
-              // 宝箱：小BOSS/大BOSS 死亡掉落（NORMAL）
-              if (
-                enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' ||
-                enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS'
-              ) {
-                this.addChest({
-                  id: `chest_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
-                  x: enemy.x,
-                  y: enemy.y,
-                  type: 'NORMAL'
-                });
-              }
-
-              // ✅ Boss 波次：生成出口（由伺服器權威），玩家觸碰出口才勝利
-              try {
-                const bossWave = (this.config && this.config.WAVES && this.config.WAVES.BOSS_WAVE) ? this.config.WAVES.BOSS_WAVE : 20;
-                if (
-                  (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS') &&
-                  this.wave === bossWave
-                ) {
-                  this.exit = {
-                    x: (this.worldWidth || 3840) / 2,
-                    y: (this.worldHeight || 2160) / 2,
-                    width: 300,
-                    height: 242
-                  };
-                }
-              } catch (_) { }
-            }
-          }
+          // 服务器计算伤害（统一结算，保证掉落/出出口一致）
+          this.damageEnemy(enemy, proj.damage);
 
           // 移除投射物（当前不支持穿透，碰撞后立即移除）
           // TODO: 如果需要支持穿透，可以添加 pierce 属性
