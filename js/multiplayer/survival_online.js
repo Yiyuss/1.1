@@ -202,6 +202,7 @@ let _lastCounterSessionId = null;
 let _sessionCountersPrimed = false;
 let _lastSessionCoins = 0;
 let _lastSessionExp = 0;
+let _didServerPosSync = false;
 
 function _multiplayerSanityOnce() {
   try {
@@ -3696,6 +3697,25 @@ function handleServerGameState(state, timestamp) {
                 _sessionCountersPrimed = false;
                 _lastSessionCoins = 0;
                 _lastSessionExp = 0;
+                _didServerPosSync = false;
+              }
+            } catch (_) { }
+
+            // ✅ 致命啟動線修復：第一次收到 server 的本地玩家座標，強制對齊一次
+            // 否則會出現：怪在追伺服器座標，你的鏡頭跟著本地座標 → 看起來「沒有怪/沒有追蹤/只是移動圖片」
+            try {
+              if (!_didServerPosSync && typeof playerState.x === "number" && typeof playerState.y === "number") {
+                Game.player.x = playerState.x;
+                Game.player.y = playerState.y;
+                // 重置 move 差分基準，避免下一幀送出巨量 vx/vy
+                try {
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && window.SurvivalOnlineRuntime.Runtime.tick) {
+                    window.SurvivalOnlineRuntime.Runtime.tick._lastSentX = Game.player.x;
+                    window.SurvivalOnlineRuntime.Runtime.tick._lastSentY = Game.player.y;
+                    window.SurvivalOnlineRuntime.Runtime.tick._lastSentAt = Date.now();
+                  }
+                } catch (_) { }
+                _didServerPosSync = true;
               }
             } catch (_) { }
 
