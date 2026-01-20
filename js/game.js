@@ -1192,7 +1192,18 @@ const Game = {
         // - 標準投射物：不在客戶端生成（避免與伺服器下發重複），但要「送 attack input 給伺服器」
         // - 持續效果/光束等：保留本地視覺（但傷害仍以伺服器權威為準）
         try {
-            if (this.multiplayer && this.multiplayer.enabled) {
+            // ✅ 防污染：只在生存模式下發送攻擊輸入
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) { }
+            
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled) {
                 const isLocalPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
                 if (isLocalPlayerProjectile && typeof window !== 'undefined' &&
                     window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
@@ -2493,7 +2504,8 @@ const Game = {
                     }
 
                     // ✅ MMORPG 架構：將世界大小同步給服務器（確保服務器邊界檢查與客戶端一致）
-                    if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                    // ✅ 防污染：只在生存模式下同步世界大小
+                    if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                         console.log(`[Game] 同步世界大小至伺服器: ${this.worldWidth}x${this.worldHeight}`);
                         window.SurvivalOnlineRuntime.sendToNet({
                             // ✅ 與 server/websocket-server.js 的處理分支一致：'world-size'
@@ -2520,6 +2532,24 @@ const Game = {
     // 更新組隊HUD
     updateMultiplayerHUD: function () {
         try {
+            // ✅ 防污染：只在生存模式下更新組隊HUD，其他模式（main/challenge/defense/stage/3d）不執行
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) { }
+            
+            if (!isSurvivalMode) {
+                // 非生存模式：清空列表，避免污染
+                const playersListEl = document.getElementById('multiplayer-players-list');
+                if (playersListEl) playersListEl.innerHTML = '';
+                return;
+            }
+            
             const playersListEl = document.getElementById('multiplayer-players-list');
             if (!playersListEl) return;
 
