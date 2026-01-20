@@ -1369,3 +1369,11 @@ class Player extends Entity {
         } catch (_) {}
     }
 }
+
+// ✅ ES Module 相容：讓多人模組（`js/multiplayer/survival_online.js`）能透過 globalThis/window 取得 Player ctor
+// 不影響單機邏輯，只是額外暴露建構子供多人使用。
+try {
+    if (typeof window !== 'undefined') {
+        window.Player = Player;
+    }
+} catch (_) { }
