@@ -532,6 +532,16 @@ const Runtime = (() => {
           stateSizes: sizes,
           localCounts
         });
+        // ✅ 再補一條「不會被 ... 折疊」的純文字，讓你不用展開物件也能直接看卡點
+        try {
+          const s = sizes || {};
+          const lc = localCounts || {};
+          console.log(
+            `[SurvivalOnline][BootLine] ws=${wsStateName} gs=${_netStats.gameStateCount} lastGs=${sinceGs === null ? "null" : sinceGs + "ms"} ` +
+            `state(p=${s.players ?? "?"},e=${s.enemies ?? "?"},pr=${s.projectiles ?? "?"},orb=${s.orbs ?? "?"}) ` +
+            `local(e=${lc.enemies ?? "?"},pr=${lc.projectiles ?? "?"},orb=${lc.orbs ?? "?"},ch=${lc.chests ?? "?"})`
+          );
+        } catch (_) { }
       } catch (_) { }
     }, 2000);
   }
