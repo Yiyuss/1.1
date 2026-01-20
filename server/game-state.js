@@ -33,6 +33,10 @@ class GameState {
     // ✅ transient：本幀命中事件（用於客戶端顯示傷害數字/爆擊標記）
     this.hitEvents = [];
 
+    // ✅ transient：音效/提示事件（用於多人把「單機觸發」補齊，不靠本地生成/碰撞）
+    // 格式：{ type: 'shoot'|'enemy_death'|'collect_exp', playerUid?, weaponType?, x?, y? }
+    this.sfxEvents = [];
+
     // ✅ 世界大小（与客户端CONFIG一致）
     // 客户端计算方式：worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3)
     // 720P九宫格模式：1280 * 3 = 3840 (宽度), 720 * 3 = 2160 (高度)
@@ -336,6 +340,10 @@ class GameState {
     if (enemy.health <= 0) {
       enemy.health = 0;
       enemy.isDead = true;
+      // ✅ 單機同源：敵人死亡音效（由客戶端播放；AudioManager 自帶並發上限）
+      try {
+        this.sfxEvents.push({ type: 'enemy_death', x: enemy.x, y: enemy.y });
+      } catch (_) { }
       this.grantEnemyRewards(enemy);
     }
   }
@@ -468,6 +476,15 @@ class GameState {
     };
 
     this.projectiles.push(projectile);
+
+    // ✅ 單機同源：射擊音效（只讓射擊者本地播放，避免全員一起播）
+    try {
+      this.sfxEvents.push({
+        type: 'shoot',
+        playerUid: uid,
+        weaponType: projectile.weaponType
+      });
+    } catch (_) { }
     return projectile;
   }
 
@@ -1115,6 +1132,10 @@ class GameState {
         const collisionRadius = (orb.size || 20) / 2 + 16; // 玩家半径约16
 
         if (dist < collisionRadius) {
+          // ✅ 單機同源：撿到經驗音效（只讓撿到的人播放；多人仍共享經驗數值）
+          try {
+            this.sfxEvents.push({ type: 'collect_exp', playerUid: player.uid, x: orb.x, y: orb.y });
+          } catch (_) { }
           // ✅ 经验共享（服务器权威）：移除经验球，并把经验值发给所有玩家
           const value = Math.max(0, Math.floor(orb.value || 0));
           if (value > 0) {
@@ -1445,9 +1466,11 @@ class GameState {
       isVictory: this.isVictory,
       gameTime: this.gameTime,
       hitEvents: this.hitEvents
+      ,sfxEvents: this.sfxEvents
     };
     // ✅ transient：broadcast 後清空（下一幀重算）
     this.hitEvents = [];
+    this.sfxEvents = [];
     return state;
   }
 }
