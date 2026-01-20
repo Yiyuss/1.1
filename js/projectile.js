@@ -141,11 +141,23 @@ class Projectile extends Entity {
         // 檢查與敵人的碰撞
         for (const enemy of Game.enemies) {
             if (this.isColliding(enemy)) {
-                // ✅ 权威服务器：在多人模式下，客户端不计算伤害（由服务器计算）
-                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-                if (isMultiplayer) {
-                    // 多人模式下，伤害由服务器计算，客户端只显示视觉效果
-                    // 投射物会被服务器移除，这里只标记为视觉投射物
+                // ✅ 權威伺服器模式：投射物傷害由伺服器權威處理
+                // 單機模式：直接造成傷害並顯示傷害數字
+                // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器 hitEvents 處理
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) {}
+                
+                // 多人模式下，伤害由服务器计算，客户端只显示视觉效果
+                // 投射物会被服务器移除，这里只标记为视觉投射物
+                if (isSurvivalMode && isMultiplayer) {
                     this._isVisualOnly = true;
                     continue;
                 }
@@ -166,17 +178,6 @@ class Projectile extends Entity {
                     lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                 }
                 
-                // ✅ 单机模式：直接造成伤害
-                let isSurvivalMode = false;
-                try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
-                    isSurvivalMode = (activeId === 'survival' || activeId === null);
-                } catch (_) {}
-                
                 // 確定傷害來源的 playerUid（用於同步傷害數字）
                 let playerUid = null;
                 let dirX = Math.cos(this.angle);
@@ -192,17 +193,20 @@ class Projectile extends Entity {
                     }
                 }
                 
-                // 造成傷害（仅单机模式执行）
-                enemy.takeDamage(finalDamage, {
-                    weaponType: this.weaponType,
-                    playerUid: playerUid,
-                    isCrit: isCrit,
-                    dirX: dirX,
-                    dirY: dirY
-                });
-                if (typeof DamageNumbers !== 'undefined') {
-                    DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
+                // 單機模式：直接造成傷害並顯示傷害數字
+                if (!isSurvivalMode || !isMultiplayer) {
+                    enemy.takeDamage(finalDamage, {
+                        weaponType: this.weaponType,
+                        playerUid: playerUid,
+                        isCrit: isCrit,
+                        dirX: dirX,
+                        dirY: dirY
+                    });
+                    if (typeof DamageNumbers !== 'undefined') {
+                        DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
+                    }
                 }
+                // 多人模式：傷害由伺服器權威處理，伺服器透過 hitEvents 返回傷害數字
                 
                 // 紳士綿羊（FIREBALL）命中未被消滅的敵人時施加暫時減速（使用設定值）
                 let slowMs = null;
