@@ -50,8 +50,11 @@ class GameState {
       energy: playerData.energy || 100,
       maxEnergy: playerData.maxEnergy || 100,
       level: playerData.level || 1,
-      experience: playerData.experience || 0,
-      gold: playerData.gold || 0,
+      // ✅ 組隊：experience 在伺服器端用作「本場累積獲得量」（供客戶端用 delta 驅動 gainExperience）
+      experience: 0,
+      // ✅ 組隊設定：共享金幣（客戶端會用「delta」寫入自己的 localStorage，保留單機存檔碼不變）
+      sessionCoins: 0,
+      gold: playerData.gold || 0, // 向後相容（舊欄位，勿依賴）
       characterId: playerData.characterId || 'pineapple',
       nickname: playerData.nickname || '玩家',
       facing: playerData.facing || 0, // 面向角度
@@ -62,6 +65,15 @@ class GameState {
     };
     this.players.set(uid, player);
     return player;
+  }
+
+  // ✅ 組隊設定：共享金幣發放（每位玩家都累加相同的 sessionCoins）
+  awardCoinsToAllPlayers(amount) {
+    const inc = Math.max(0, Math.floor(amount || 0));
+    if (!inc) return;
+    for (const p of this.players.values()) {
+      p.sessionCoins = (p.sessionCoins || 0) + inc;
+    }
   }
 
   // 移除玩家
@@ -363,8 +375,32 @@ class GameState {
           if (enemy.health <= 0) {
             enemy.health = 0;
             enemy.isDead = true;
-            // 生成经验球
-            this.spawnExperienceOrb(enemy.x, enemy.y, 5);
+            // ✅ 服务器权威：敌人死亡奖励（经验球/宝箱/金幣共享）只结算一次
+            if (!enemy._rewardsGranted) {
+              enemy._rewardsGranted = true;
+
+              // 经验球：使用敌人经验值（若未提供则 fallback 5）
+              this.spawnExperienceOrb(enemy.x, enemy.y, enemy.experienceValue || 5);
+
+              // 金幣：沿用客户端规则（普通2，小BOSS50，大BOSS500）
+              let coinGain = 2;
+              if (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS') coinGain = 50;
+              else if (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS') coinGain = 500;
+              this.awardCoinsToAllPlayers(coinGain);
+
+              // 宝箱：小BOSS/大BOSS 死亡掉落（NORMAL）
+              if (
+                enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' ||
+                enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS'
+              ) {
+                this.addChest({
+                  id: `chest_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+                  x: enemy.x,
+                  y: enemy.y,
+                  type: 'NORMAL'
+                });
+              }
+            }
           }
 
           // 移除投射物（当前不支持穿透，碰撞后立即移除）
@@ -587,6 +623,7 @@ class GameState {
         maxHealth: health,
         speed: enemyConfig.SPEED || 2,
         size: enemyConfig.SIZE || 32,
+        experienceValue: enemyConfig.EXPERIENCE || 5,
         isDead: false
       });
     }
@@ -643,6 +680,7 @@ class GameState {
       maxHealth: health,
       speed: enemyConfig.SPEED || 3,
       size: enemyConfig.SIZE || 64,
+      experienceValue: enemyConfig.EXPERIENCE || 5,
       isDead: false,
       damage: 20
     });
@@ -676,6 +714,7 @@ class GameState {
       maxHealth: health,
       speed: enemyConfig.SPEED || 4,
       size: enemyConfig.SIZE || 128,
+      experienceValue: enemyConfig.EXPERIENCE || 5,
       isDead: false,
       damage: 50
     });
@@ -697,11 +736,14 @@ class GameState {
         const collisionRadius = (orb.size || 20) / 2 + 16; // 玩家半径约16
 
         if (dist < collisionRadius) {
-          // ✅ 方案1：经验共享 - 所有玩家都获得经验
-          // 注意：经验值由客户端计算（因为涉及升级需求等复杂逻辑）
-          // 服务器端只负责移除经验球，经验值由客户端通过事件广播同步
-
-          // 移除经验球
+          // ✅ 经验共享（服务器权威）：移除经验球，并把经验值发给所有玩家
+          const value = Math.max(0, Math.floor(orb.value || 0));
+          if (value > 0) {
+            for (const p of this.players.values()) {
+              p.experience = (p.experience || 0) + value;
+            }
+          }
+          // 移除经验球（只移除一次）
           this.experienceOrbs.splice(i, 1);
           break;
         }
