@@ -36,3 +36,10 @@ class Obstacle extends Entity {
 Obstacle.collidesCircle = function(cx, cy, r, obstacle) {
     return Utils.circleRectCollision(cx, cy, r, obstacle.x, obstacle.y, obstacle.width, obstacle.height);
 };
+
+// ✅ 讓 ES module（例如 survival_online.js）可以從 globalThis 取得建構子
+try {
+    if (typeof window !== 'undefined') {
+        window.Obstacle = Obstacle;
+    }
+} catch (_) { }
