@@ -329,6 +329,44 @@ const Game = {
             const projectile = this.projectiles[i];
             projectile.update(deltaTime);
 
+            // ✅ 權威伺服器模式：持續效果（tickDamage/tickIntervalMs）由伺服器結算傷害
+            // 這裡用「通用」方式支援多個技能，不需要逐一改 30+ 技能檔案。
+            try {
+                if (this.multiplayer && this.multiplayer.enabled && this.player && projectile && projectile.player === this.player) {
+                    // 只處理有 tickDamage 的持續效果（Aura/Orbit/Gravity/IceField 等）
+                    if (typeof projectile.tickDamage === 'number' && typeof projectile.tickIntervalMs === 'number' && projectile.tickIntervalMs > 0) {
+                        if (!projectile._netTickAcc) projectile._netTickAcc = 0;
+                        projectile._netTickAcc += deltaTime;
+                        // radius 優先用 projectile.radius，其次 maxRadius（震波/場），最後用 size/width 推一個保守值
+                        const radius = (typeof projectile.radius === 'number' && projectile.radius > 0)
+                            ? projectile.radius
+                            : (typeof projectile.maxRadius === 'number' && projectile.maxRadius > 0)
+                                ? projectile.maxRadius
+                                : (typeof projectile.aoeRadius === 'number' && projectile.aoeRadius > 0)
+                                    ? projectile.aoeRadius
+                                    : 150;
+                        const dmg = Math.max(0, Math.floor(projectile.tickDamage || 0));
+
+                        // 避免爆量：單個效果最多每幀送 4 次（tickInterval 典型 120ms）
+                        let loops = 0;
+                        while (projectile._netTickAcc >= projectile.tickIntervalMs && loops++ < 4) {
+                            projectile._netTickAcc -= projectile.tickIntervalMs;
+                            if (dmg > 0 && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                                window.SurvivalOnlineRuntime.sendToNet({
+                                    type: 'aoe_tick',
+                                    weaponType: projectile.weaponType || 'UNKNOWN',
+                                    x: (typeof projectile.x === 'number') ? projectile.x : this.player.x,
+                                    y: (typeof projectile.y === 'number') ? projectile.y : this.player.y,
+                                    radius: Math.max(10, Math.floor(radius)),
+                                    damage: dmg,
+                                    timestamp: Date.now()
+                                });
+                            }
+                        }
+                    }
+                }
+            } catch (_) { }
+
             // 移除標記為刪除的投射物（對於有 DOM 元素的特效，先調用 destroy 清理）
             if (projectile.markedForDeletion) {
                 // 對於 JudgmentEffect 等使用 DOM 的特效，確保清理 DOM 元素
