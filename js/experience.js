@@ -100,60 +100,32 @@
         }
         
         // ✅ MMORPG 架構：在循環外部定義 isMultiplayer，確保在整個收集邏輯中都可訪問
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
         
-        // 檢查是否被任何玩家收集
+        // ✅ 權威伺服器架構：組隊模式下，經驗球由伺服器權威管理，客戶端不應處理收集
+        // 經驗球的位置和收集都由 server/game-state.js 處理，客戶端只負責顯示
+        if (isMultiplayer) {
+            // 組隊模式下，經驗球收集由伺服器權威處理
+            // 客戶端只負責顯示經驗球的位置（吸附動畫等視覺效果）
+            // 音效會在 player.gainExperience() 中播放（當伺服器同步經驗時）
+            return;
+        }
+        
+        // 檢查是否被任何玩家收集（單機模式）
         for (const player of allPlayers) {
             if (this.isColliding(player)) {
-                // ✅ MMORPG 架構：立即標記為刪除，防止多個玩家同時檢測到碰撞時重複給經驗
+                // ✅ 單機模式：立即標記為刪除，防止重複給經驗
                 this.markedForDeletion = true;
-                // ✅ MMORPG 架構：所有玩家都能共享經驗，不依賴室長端
-                if (isMultiplayer) {
-                    // 多人模式：給所有玩家經驗（經驗共享）
-                    // 只有本地玩家播放音效（避免重複播放）
-                    if (player === Game.player && !player._isRemotePlayer) {
-                        if (typeof AudioManager !== 'undefined') {
-                            // 尊重 EXP 音效開關
-                            if (AudioManager.expSoundEnabled !== false) {
-                                AudioManager.playSound('collect_exp');
-                            }
-                        }
+                
+                // 單人模式：只給收集者經驗
+                if (typeof AudioManager !== 'undefined') {
+                    // 尊重 EXP 音效開關
+                    if (AudioManager.expSoundEnabled !== false) {
+                        AudioManager.playSound('collect_exp');
                     }
-                    // 給本地玩家經驗
-                    if (Game.player) {
-                        Game.player.gainExperience(this.value);
-                    }
-                    // 給所有遠程玩家經驗
-                    // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
-                    try {
-                        if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
-                            const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
-                            if (typeof rm.getAllPlayers === 'function') {
-                                const remotePlayers = rm.getAllPlayers();
-                                for (const remotePlayer of remotePlayers) {
-                                    if (remotePlayer && !remotePlayer.markedForDeletion) {
-                                        remotePlayer.gainExperience(this.value);
-                                    }
-                                }
-                            }
-                        }
-                    } catch (_) {}
-                    // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包；且權威多人下不再廣播 exp_orb_collected
-                    try {
-                        const mp = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
-                        // 權威多人：不廣播（由 server state 同步）
-                        if (mp) return;
-                    } catch (_) {}
-                } else {
-                    // 單人模式：只給收集者經驗
-                    if (typeof AudioManager !== 'undefined') {
-                        // 尊重 EXP 音效開關
-                        if (AudioManager.expSoundEnabled !== false) {
-                            AudioManager.playSound('collect_exp');
-                        }
-                    }
-                    player.gainExperience(this.value);
                 }
+                player.gainExperience(this.value, { silent: true }); // 使用 silent 避免重複播放音效
+                
                 // 銷毀經驗球並返回（只執行一次）
                 this.destroy();
                 return;
