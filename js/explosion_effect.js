@@ -78,11 +78,11 @@ class ExplosionEffect extends Entity {
         for (const enemy of Game.enemies) {
             if (!enemy || enemy.markedForDeletion || enemy.health <= 0) continue;
             
-            // ✅ MMO 架構：每個玩家都獨立造成傷害，通用單機和MMO
-            // 單機模式：直接造成傷害
-            // 多人模式：每個玩家都造成傷害，並發送enemy_damage（用於同步傷害數字）
+            // ✅ 權威伺服器模式：爆炸傷害應該由伺服器權威處理
+            // 單機模式：直接造成傷害並顯示傷害數字
+            // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器處理
             // 注意：EXPLOSION 是固定傷害，不經過 DamageSystem，所以沒有吸血
-            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
             let isSurvivalMode = false;
             try {
                 const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
@@ -93,36 +93,19 @@ class ExplosionEffect extends Entity {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) {}
             
-            // 造成傷害（單機和多人模式都執行）
-            enemy.takeDamage(fixedDamage);
-            if (typeof DamageNumbers !== 'undefined') {
-                this._showSpecialDamageNumber(fixedDamage, enemy.x, enemy.y - (enemy.height || 0) / 2);
+            // 單機模式：直接造成傷害並顯示傷害數字
+            if (!isSurvivalMode || !isMultiplayer) {
+                enemy.takeDamage(fixedDamage);
+                if (typeof DamageNumbers !== 'undefined') {
+                    this._showSpecialDamageNumber(fixedDamage, enemy.x, enemy.y - (enemy.height || 0) / 2);
+                }
             }
+            // 多人模式：傷害由伺服器權威處理，伺服器透過 hitEvents 返回傷害數字
             this.hitEnemies.push({
                 enemy: enemy,
                 x: enemy.x,
                 y: enemy.y
             });
-            
-            // 多人模式：發送enemy_damage（用於同步傷害數字，不影響傷害計算）
-            if (isSurvivalMode && isMultiplayer && enemy && enemy.id) {
-                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                    window.SurvivalOnlineRuntime.sendToNet({
-                        t: "enemy_damage",
-                        enemyId: enemy.id,
-                        damage: fixedDamage,
-                        weaponType: "EXPLOSION",
-                        isCrit: false,
-                        lifesteal: 0,
-                        playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                    });
-                }
-            }
-            
-            // 显示特殊的红色伤害数字（放大2倍，显示时间2倍）
-            if (typeof DamageNumbers !== 'undefined') {
-                this._showSpecialDamageNumber(fixedDamage, enemy.x, enemy.y - (enemy.height || 0) / 2);
-            }
         }
         
         // 创建knife2.gif效果覆盖层
