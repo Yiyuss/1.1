@@ -717,7 +717,7 @@ class Player extends Entity {
              // 先檢查本地玩家是否死亡
              const localPlayerDead = this._isDead;
              
-             // 檢查所有遠程玩家是否都死亡
+            // 檢查所有遠程玩家是否都死亡
              let allRemotePlayersDead = true;
              
             // 通過 RemotePlayerManager 獲取遠程玩家（完整的 Player 對象）
@@ -734,8 +734,21 @@ class Player extends Entity {
                             }
                         }
                     } else {
-                        // 沒有遠程玩家，只有本地玩家死亡就結束
-                        allRemotePlayersDead = true;
+                        // ✅ 修復：如果房間其實有其他隊員，但遠端玩家物件尚未建立，不要直接判定「全死」
+                        // 這能避免剛進房/剛重連時，因遠端列表尚未就緒導致誤觸 game_over
+                        try {
+                            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.getMembersState === 'function') {
+                                const members = window.SurvivalOnlineRuntime.getMembersState() || [];
+                                const aliveOthersExist = Array.isArray(members) && members.some(m => m && m.uid && m.uid !== (Game.multiplayer && Game.multiplayer.uid));
+                                if (aliveOthersExist) {
+                                    allRemotePlayersDead = false;
+                                } else {
+                                    allRemotePlayersDead = true;
+                                }
+                            } else {
+                                allRemotePlayersDead = true;
+                            }
+                        } catch (_) { allRemotePlayersDead = true; }
                     }
                 } else {
                     // 如果 RemotePlayerManager 不可用，嘗試通過 Runtime 獲取（簡化狀態）
@@ -750,8 +763,20 @@ class Player extends Entity {
                                 }
                             }
                         } else {
-                            // 沒有遠程玩家，只有本地玩家死亡就結束
-                            allRemotePlayersDead = true;
+                            // ✅ 同上：遠端狀態尚未就緒時避免誤判全死
+                            try {
+                                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.getMembersState === 'function') {
+                                    const members = window.SurvivalOnlineRuntime.getMembersState() || [];
+                                    const aliveOthersExist = Array.isArray(members) && members.some(m => m && m.uid && m.uid !== (Game.multiplayer && Game.multiplayer.uid));
+                                    if (aliveOthersExist) {
+                                        allRemotePlayersDead = false;
+                                    } else {
+                                        allRemotePlayersDead = true;
+                                    }
+                                } else {
+                                    allRemotePlayersDead = true;
+                                }
+                            } catch (_) { allRemotePlayersDead = true; }
                         }
                     } else {
                         // 無法獲取遠程玩家信息，假設只有本地玩家
@@ -894,6 +919,17 @@ class Player extends Entity {
     tryActivateUltimate() {
         if (this.isUltimateActive) return;
         if (Math.floor(this.energy) < this.maxEnergy) return; // 需要100能量
+        // ✅ 組隊模式（權威伺服器）：同步大招輸入到伺服器，避免「本地變身了但伺服器不承認/狀態亂跳」
+        // 注意：不影響單機；只在 multiplayer.enabled 且不是遠程玩家時發送
+        try {
+            if (!this._isRemotePlayer && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled &&
+                typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                window.SurvivalOnlineRuntime.sendToNet({
+                    type: 'use_ultimate',
+                    timestamp: Date.now()
+                });
+            }
+        } catch (_) { }
         this.activateUltimate();
     }
 
