@@ -302,6 +302,24 @@
                 // 客戶端只做視覺（紅閃/死亡動畫/特效位置），避免「客戶端扣血」「敵人亂跑」等互打問題。
                 try {
                     if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                        // 網路插值：平滑追向伺服器目標座標，避免 server state 節流造成「瞬移」
+                        try {
+                            if (typeof this._netTargetX === 'number' && typeof this._netTargetY === 'number') {
+                                const dx = this._netTargetX - this.x;
+                                const dy = this._netTargetY - this.y;
+                                const dist = Math.sqrt(dx * dx + dy * dy);
+                                if (dist > 200) {
+                                    // 距離過大：直接校正（重連/卡頓）
+                                    this.x = this._netTargetX;
+                                    this.y = this._netTargetY;
+                                } else if (dist > 0.1) {
+                                    // 平滑插值（係數隨 dt 調整）
+                                    const lerp = Math.min(0.35, Math.max(0.15, (deltaTime || 16.67) / 100));
+                                    this.x += dx * lerp;
+                                    this.y += dy * lerp;
+                                }
+                            }
+                        } catch (_) { }
                         if (this.hitFlashTime > 0) {
                             this.hitFlashTime = Math.max(0, this.hitFlashTime - deltaTime);
                         }
