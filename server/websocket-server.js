@@ -333,7 +333,7 @@ function handleGameData(ws, roomId, uid, data) {
   }
 
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
-  if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate' || data.type === 'resurrect' || data.type === 'aoe_tick')) {
+  if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate' || data.type === 'resurrect' || data.type === 'aoe_tick' || data.type === 'player-meta')) {
     // 服务器处理输入
     gameState.handleInput(uid, data);
     // 不需要转发，服务器会定期广播状态
@@ -365,7 +365,10 @@ function handleGameData(ws, roomId, uid, data) {
           type: 'chest_collected',
           chestId: data.chestId,
           collectorUid: uid,
-          chestType: data.chestType // 传递类型以区分普通宝箱和凤梨
+          chestType: data.chestType, // 传递类型以区分普通宝箱和凤梨
+          // 向後相容：讓舊客戶端可用座標移除（新客戶端以 chestId 優先）
+          x: data.x,
+          y: data.y
         }
       });
     }
@@ -382,6 +385,12 @@ function handleGameData(ws, roomId, uid, data) {
       // 简单上限防滥用（即使被绕过也仅影响组队，不影响存档码键名）
       if (amount > 0 && amount <= 500000) {
         gameState.awardExperienceToAllPlayers(amount, chestId);
+        // ✅ 單機同源：撿到鳳梨掉落物的音效（只讓撿到的人播，避免全隊一直叮）
+        try {
+          if (Array.isArray(gameState.sfxEvents)) {
+            gameState.sfxEvents.push({ type: 'collect_exp', playerUid: uid });
+          }
+        } catch (_) { }
       }
     } catch (_) { }
     return;
