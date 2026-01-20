@@ -46,9 +46,13 @@ class CarHazard extends Entity {
             return;
         }
 
+        // ✅ 元素分類：
+        // - **多人元素（伺服器權威）**：碰撞扣血/死亡判定（避免雙重扣血、避免不同端結果不一致）
+        // - **單機元素（本地）**：本檔案的碰撞扣血邏輯（僅單機/非權威多人可用）
+        const isServerAuthoritative = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         // 玩家碰撞：只觸發一次傷害
-        // 組隊模式：檢查所有玩家（本地玩家 + 遠程玩家），確保公平性
-        if (!this.hitPlayer) {
+        // 組隊模式：過去會檢查所有玩家（本地玩家 + 遠程玩家）以求公平；但在權威多人下必須關閉，改由伺服器統一判定。
+        if (!isServerAuthoritative && !this.hitPlayer) {
             // 收集所有需要檢查的玩家
             const allPlayers = [];
             const localPlayer = (typeof Game !== 'undefined') ? Game.player : null;
