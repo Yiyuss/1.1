@@ -27,6 +27,12 @@ class GameState {
     this.lastUpdateTime = Date.now();
     this.config = null; // CONFIG数据（从客户端同步）
 
+    // ✅ session：用於「新一局」重置狀態，避免上一局波次/怪物殘留造成開場幾隻血超多
+    this.currentSessionId = null;
+
+    // ✅ transient：本幀命中事件（用於客戶端顯示傷害數字/爆擊標記）
+    this.hitEvents = [];
+
     // ✅ 世界大小（与客户端CONFIG一致）
     // 客户端计算方式：worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3)
     // 720P九宫格模式：1280 * 3 = 3840 (宽度), 720 * 3 = 2160 (高度)
@@ -72,6 +78,61 @@ class GameState {
     };
     this.players.set(uid, player);
     return player;
+  }
+
+  // ✅ 新一局：重置所有「本場」狀態（不影響房間/成員存在）
+  resetForNewSession(sessionId) {
+    if (!sessionId || typeof sessionId !== 'string') return;
+    if (this.currentSessionId === sessionId) return;
+    this.currentSessionId = sessionId;
+
+    this.enemies = [];
+    this.projectiles = [];
+    this.experienceOrbs = [];
+    this.chests = [];
+    this.carHazards = [];
+    this.exit = null;
+    this.wave = 1;
+    this.waveStartTime = Date.now();
+    this.lastEnemySpawnTime = 0;
+    this.lastCarSpawnTime = 0;
+    this.enemySpawnRate = 2000;
+    this.isGameOver = false;
+    this.isVictory = false;
+    this.gameTime = 0;
+    this.hitEvents = [];
+
+    // 玩家：回到安全初始狀態（保守）
+    for (const p of this.players.values()) {
+      if (!p) continue;
+      p.isDead = false;
+      p.health = p.maxHealth || 200;
+      p.energy = Math.min(p.maxEnergy || 100, Math.max(0, p.energy || 0));
+      p.vx = 0; p.vy = 0;
+      p.lastAttackAt = 0;
+      p.lastAutoFireAt = 0;
+      // 注意：experience/sessionCoins 是「本場累積量」，新局要清 0
+      p.experience = 0;
+      p.sessionCoins = 0;
+    }
+  }
+
+  _computeHit(baseDamage, inputMeta) {
+    // 參考 client DamageSystem：浮動±10%，爆擊 10% 基礎 + bonus
+    const fluct = 0.10;
+    const rand = 1 + (Math.random() * 2 * fluct - fluct);
+    let amount = Math.max(1, Math.round((baseDamage || 0) * rand));
+
+    const allowCrit = !(inputMeta && inputMeta.allowCrit === false);
+    const bonusCrit = (inputMeta && typeof inputMeta.critChanceBonusPct === 'number') ? inputMeta.critChanceBonusPct : 0;
+    const overrideCrit = (inputMeta && typeof inputMeta.critChancePctOverride === 'number') ? inputMeta.critChancePctOverride : null;
+    const critChance = overrideCrit != null ? overrideCrit : (0.10 + bonusCrit);
+    let isCrit = false;
+    if (allowCrit && Math.random() < Math.max(0, Math.min(1, critChance))) {
+      isCrit = true;
+      amount = Math.max(1, Math.round(amount * 1.75));
+    }
+    return { amount, isCrit };
   }
 
   // ✅ 組隊設定：共享金幣發放（每位玩家都累加相同的 sessionCoins）
@@ -283,12 +344,17 @@ class GameState {
       y: y,
       angle: typeof input.angle === 'number' ? input.angle : player.facing,
       weaponType: typeof input.weaponType === 'string' ? input.weaponType : 'DAGGER',
+      // ✅ damage：視為 baseDamage，伺服器命中時會套用浮動/爆擊（與單機一致）
       damage: damage,
       speed: speed,
       size: size,
       homing: input.homing === true,
       turnRatePerSec: (typeof input.turnRatePerSec === 'number' && input.turnRatePerSec >= 0) ? input.turnRatePerSec : 0,
       assignedTargetId: typeof input.assignedTargetId === 'string' ? input.assignedTargetId : null,
+      // meta：供命中計算
+      allowCrit: input.allowCrit !== false,
+      critChanceBonusPct: (typeof input.critChanceBonusPct === 'number') ? input.critChanceBonusPct : 0,
+      critChancePctOverride: (typeof input.critChancePctOverride === 'number') ? input.critChancePctOverride : null,
       maxDistance: maxDistance,
       distance: 0, // 已飞行距离
       createdAt: Date.now()
@@ -569,8 +635,19 @@ class GameState {
         const collisionRadius = (proj.size || 20) / 2 + (enemy.size || 32) / 2;
 
         if (dist < collisionRadius) {
-          // 服务器计算伤害（统一结算，保证掉落/出出口一致）
-          this.damageEnemy(enemy, proj.damage);
+          // ✅ 服务器计算伤害（浮動/爆擊）+ 统一结算（掉落/出出口）
+          const hit = this._computeHit(proj.damage, proj);
+          this.damageEnemy(enemy, hit.amount);
+          try {
+            this.hitEvents.push({
+              enemyId: enemy.id,
+              x: enemy.x,
+              y: enemy.y,
+              h: enemy.size || 32,
+              damage: hit.amount,
+              isCrit: hit.isCrit
+            });
+          } catch (_) { }
 
           // 移除投射物（当前不支持穿透，碰撞后立即移除）
           // TODO: 如果需要支持穿透，可以添加 pierce 属性
@@ -1200,7 +1277,7 @@ class GameState {
 
   // 获取完整游戏状态（用于广播）
   getState() {
-    return {
+    const state = {
       players: Array.from(this.players.entries()).map(([uid, player]) => ({
         uid,
         ...player
@@ -1216,8 +1293,12 @@ class GameState {
       wave: this.wave,
       isGameOver: this.isGameOver,
       isVictory: this.isVictory,
-      gameTime: this.gameTime
+      gameTime: this.gameTime,
+      hitEvents: this.hitEvents
     };
+    // ✅ transient：broadcast 後清空（下一幀重算）
+    this.hitEvents = [];
+    return state;
   }
 }
 
