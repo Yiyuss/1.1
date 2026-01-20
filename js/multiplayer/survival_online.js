@@ -1018,21 +1018,44 @@ const Runtime = (() => {
               // 如果是我收集的，觸發獎勵
               if (eventData.collectorUid === (Game.multiplayer && Game.multiplayer.uid)) {
                 if (isPineapple) {
-                  // 鳳梨獎勵逻辑
+                  // ✅ 鳳梨獎勵：權威伺服器模式下，改由伺服器統一累加 experience counter（共享經驗）
                   if (typeof AudioManager !== 'undefined' && AudioManager.expSoundEnabled !== false) {
                     AudioManager.playSound('collect_exp');
                   }
+
+                  const isServerAuthoritative = !!(Game.multiplayer && Game.multiplayer.enabled);
                   const player = Game.player;
-                  if (player && typeof player.gainExperience === 'function') {
-                    const base = 50;
+
+                  // 計算「50 + 當下所需升級的30%」
+                  let expGain = 50;
+                  try {
                     let needNow = 0;
+                    if (player && typeof player.experienceToNextLevel === 'number' && typeof player.experience === 'number') {
+                      needNow = Math.max(0, Math.floor(player.experienceToNextLevel - player.experience));
+                    }
+                    const bonus = Math.max(0, Math.floor(needNow * 0.30));
+                    expGain = Math.max(0, Math.floor(50 + bonus));
+                  } catch (_) { }
+
+                  if (isServerAuthoritative) {
+                    // 送給伺服器做共享（避免客戶端自己 gainExperience 造成不同步）
                     try {
-                      if (typeof player.experienceToNextLevel === 'number' && typeof player.experience === 'number') {
-                        needNow = Math.max(0, Math.floor(player.experienceToNextLevel - player.experience));
+                      if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                          type: 'award_exp',
+                          chestId: eventData.chestId,
+                          amount: expGain,
+                          reason: 'PINEAPPLE'
+                        });
                       }
                     } catch (_) { }
-                    const bonus = Math.max(0, Math.floor(needNow * 0.30));
-                    player.gainExperience(base + bonus);
+                  } else {
+                    // 單機/舊模式：維持原本本地加經驗行為
+                    try {
+                      if (player && typeof player.gainExperience === 'function') {
+                        player.gainExperience(expGain);
+                      }
+                    } catch (_) { }
                   }
                 } else {
                   // 普通寶箱獎勵逻辑
@@ -3519,6 +3542,21 @@ function handleServerGameState(state, timestamp) {
       updateCarHazardsFromServer(state.carHazards);
     }
 
+    // ✅ 更新出口（服务器权威）
+    try {
+      if (typeof Game !== 'undefined') {
+        if (state.exit && typeof state.exit === 'object') {
+          if (!Game.exit) Game.exit = { x: 0, y: 0, width: 0, height: 0 };
+          if (typeof state.exit.x === 'number') Game.exit.x = state.exit.x;
+          if (typeof state.exit.y === 'number') Game.exit.y = state.exit.y;
+          if (typeof state.exit.width === 'number') Game.exit.width = state.exit.width;
+          if (typeof state.exit.height === 'number') Game.exit.height = state.exit.height;
+        } else if (state.exit === null) {
+          Game.exit = null;
+        }
+      }
+    } catch (_) { }
+
     // 更新波次
     if (typeof state.wave === 'number' && typeof WaveSystem !== 'undefined') {
       WaveSystem.currentWave = state.wave;
@@ -3552,34 +3590,50 @@ function updateChestsFromServer(chests) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.chests) return;
   if (typeof Chest === 'undefined') return;
 
-  const serverIds = new Set();
+  // ✅ 分流：NORMAL 寶箱走 Game.chests；PINEAPPLE 掉落物走 Game.pineappleUltimatePickups
+  if (!Array.isArray(Game.pineappleUltimatePickups)) Game.pineappleUltimatePickups = [];
+
+  const serverMap = new Map(); // id -> chestState
   for (const c of chests) {
-    if (c && c.id) serverIds.add(c.id);
+    if (c && c.id) serverMap.set(c.id, c);
   }
 
-  // 移除服务器不存在的宝箱
-  for (let i = Game.chests.length - 1; i >= 0; i--) {
-    const local = Game.chests[i];
-    if (!local || !local.id || !serverIds.has(local.id)) {
-      try { if (local && typeof local.destroy === 'function') local.destroy(); } catch (_) { }
-      Game.chests.splice(i, 1);
+  // 移除服务器不存在的物件（兩個清單都要清）
+  const pruneList = (list) => {
+    for (let i = list.length - 1; i >= 0; i--) {
+      const local = list[i];
+      if (!local || !local.id || !serverMap.has(local.id)) {
+        try { if (local && typeof local.destroy === 'function') local.destroy(); } catch (_) { }
+        list.splice(i, 1);
+      }
     }
-  }
+  };
+  pruneList(Game.chests);
+  pruneList(Game.pineappleUltimatePickups);
 
-  // 创建/更新宝箱
+  // 创建/更新
   for (const chestState of chests) {
     if (!chestState || !chestState.id) continue;
-    let local = Game.chests.find(x => x && x.id === chestState.id);
+    const isPine = (chestState.type === 'PINEAPPLE');
+    const list = isPine ? Game.pineappleUltimatePickups : Game.chests;
+
+    let local = list.find(x => x && x.id === chestState.id);
     if (!local) {
-      // PINEAPPLE 宝箱：用 PineappleUltimatePickup 复用视觉与收集逻辑
-      if (chestState.type === 'PINEAPPLE' && typeof PineappleUltimatePickup !== 'undefined') {
-        local = new PineappleUltimatePickup(chestState.x || 0, chestState.y || 0, { id: chestState.id, flyDurationMs: 0 });
+      if (isPine && typeof PineappleUltimatePickup !== 'undefined') {
+        const opts = {
+          id: chestState.id,
+          spawnX: (typeof chestState.spawnX === 'number') ? chestState.spawnX : (chestState.x || 0),
+          spawnY: (typeof chestState.spawnY === 'number') ? chestState.spawnY : (chestState.y || 0),
+          flyDurationMs: (typeof chestState.flyDurationMs === 'number') ? chestState.flyDurationMs : 600,
+          expValue: 0
+        };
+        local = new PineappleUltimatePickup(chestState.x || 0, chestState.y || 0, opts);
       } else {
         local = new Chest(chestState.x || 0, chestState.y || 0, chestState.id);
       }
-      Game.chests.push(local);
+      list.push(local);
     } else {
-      // 平滑：若已有对象，直接同步位置（宝箱通常静止）
+      // 平滑：靜態為主，直接同步
       if (typeof chestState.x === 'number') local.x = chestState.x;
       if (typeof chestState.y === 'number') local.y = chestState.y;
     }
