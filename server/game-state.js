@@ -8,6 +8,9 @@ class GameState {
     this.players = new Map(); // uid -> PlayerState
     this.enemies = []; // EnemyState[]
     this.projectiles = []; // ProjectileState[]
+    this.bossProjectiles = []; // BossProjectileState[] (BOSS火彈 / HUMAN2瓶子) - 伺服器權威
+    this.bullets = []; // BulletState[] (ASURA 彈幕) - 伺服器權威
+    this.bulletEmitters = []; // BulletEmitterState[] - 伺服器權威
     this.experienceOrbs = []; // ExperienceOrbState[]
     this.chests = []; // ChestState[]
     this.obstacles = []; // ObstacleState[] - 障碍物（静态）
@@ -60,6 +63,326 @@ class GameState {
 
     // ✅ 用於避免重複發放（例如：鳳梨掉落物被多次回報 award_exp）
     this._awardedExpChestIds = new Set();
+  }
+
+  _isBulletSystemEnabled() {
+    try {
+      const bs = (this.config && this.config.BULLET_SYSTEM) ? this.config.BULLET_SYSTEM : null;
+      if (!bs || bs.ENABLED !== true) return false;
+      // 單機同源：修羅難度才會掛載彈幕發射器
+      return (this.diffId === 'ASURA');
+    } catch (_) { return false; }
+  }
+
+  _computeBulletDamage(base = 40) {
+    try {
+      const w = (typeof this.wave === 'number' && this.wave > 0) ? this.wave : 1;
+      return Math.max(1, Math.floor(base + w));
+    } catch (_) { return 41; }
+  }
+
+  _addBullet(x, y, vx, vy, lifeMs, size = 14, color = '#ffcc66', damage = null) {
+    const now = Date.now();
+    const life = Math.max(0, Math.floor(lifeMs || 0));
+    const dmg = (typeof damage === 'number') ? Math.floor(damage) : this._computeBulletDamage(40);
+    const b = {
+      id: `b_${now}_${Math.random().toString(36).slice(2, 9)}`,
+      x: x || 0,
+      y: y || 0,
+      vx: vx || 0,
+      vy: vy || 0,
+      life: life,
+      maxLife: life,
+      size: Math.max(2, Math.floor(size || 14)),
+      color: color || '#ffcc66',
+      damage: dmg
+    };
+    this.bullets.push(b);
+  }
+
+  _ensureBulletEmitterForEnemy(enemy, kind) {
+    if (!enemy || !enemy.id) return;
+    if (!this._isBulletSystemEnabled()) return;
+    // 避免重複掛載
+    if (this.bulletEmitters.some(e => e && e.anchorEnemyId === enemy.id && e.kind === kind)) return;
+
+    const now = Date.now();
+    if (kind === 'MINI_BOSS') {
+      this.bulletEmitters.push({
+        id: `em_${now}_${Math.random().toString(36).slice(2, 9)}`,
+        kind,
+        anchorEnemyId: enemy.id,
+        rateMs: 600,
+        lifeMs: 90000,
+        createdAt: now,
+        lastEmitAt: now,
+        active: true,
+        phase: 0
+      });
+    } else if (kind === 'BOSS') {
+      this.bulletEmitters.push({
+        id: `em_${now}_${Math.random().toString(36).slice(2, 9)}`,
+        kind,
+        anchorEnemyId: enemy.id,
+        rateMs: 450,
+        lifeMs: 120000,
+        createdAt: now,
+        lastEmitAt: now,
+        active: true,
+        phase: 0
+      });
+    }
+  }
+
+  updateBullets(deltaTime) {
+    if (!this._isBulletSystemEnabled()) {
+      // 非修羅：確保乾淨（避免殘留）
+      if (this.bullets.length) this.bullets = [];
+      if (this.bulletEmitters.length) this.bulletEmitters = [];
+      return;
+    }
+
+    const now = Date.now();
+    const deltaMul = (deltaTime || 16.67) / 16.67;
+
+    // 1) 更新發射器（同源 wave.js patternFn）
+    for (let i = this.bulletEmitters.length - 1; i >= 0; i--) {
+      const e = this.bulletEmitters[i];
+      if (!e || !e.active) { this.bulletEmitters.splice(i, 1); continue; }
+      if (e.lifeMs > 0 && now - e.createdAt >= e.lifeMs) { this.bulletEmitters.splice(i, 1); continue; }
+
+      const anchor = this.enemies.find(x => x && x.id === e.anchorEnemyId);
+      if (!anchor || anchor.isDead || anchor.health <= 0) { this.bulletEmitters.splice(i, 1); continue; }
+
+      const rate = Math.max(0, e.rateMs || 0);
+      if (rate > 0 && now - (e.lastEmitAt || 0) >= rate) {
+        const ex = anchor.x;
+        const ey = anchor.y;
+        const phase = (typeof e.phase === 'number') ? e.phase : 0;
+
+        if (e.kind === 'MINI_BOSS') {
+          const count = 12;
+          const speed = 3.2;
+          const life = 3200;
+          const color = '#ffdd77';
+          for (let k = 0; k < count; k++) {
+            const ang = phase + (k / count) * Math.PI * 2;
+            const vx = Math.cos(ang) * speed;
+            const vy = Math.sin(ang) * speed;
+            this._addBullet(ex, ey, vx, vy, life, 14, color);
+          }
+          e.phase = phase + 0.22;
+        } else if (e.kind === 'BOSS') {
+          const count = 18;
+          const speed = 3.5;
+          const life = 3500;
+          const color = '#ffcc66';
+          for (let k = 0; k < count; k++) {
+            const ang = phase + (k / count) * Math.PI * 2;
+            const vx = Math.cos(ang) * speed;
+            const vy = Math.sin(ang) * speed;
+            this._addBullet(ex, ey, vx, vy, life, 16, color);
+          }
+          e.phase = phase + 0.25;
+        }
+
+        e.lastEmitAt = now;
+      }
+    }
+
+    // 2) 更新子彈 + 碰撞（單機同源：ignoreInvulnerability=true，但尊重技能無敵；閃避可生效）
+    for (let i = this.bullets.length - 1; i >= 0; i--) {
+      const b = this.bullets[i];
+      if (!b) { this.bullets.splice(i, 1); continue; }
+
+      b.x += (b.vx || 0) * deltaMul;
+      b.y += (b.vy || 0) * deltaMul;
+      b.life = (b.life || 0) - (deltaTime || 16.67);
+      if (b.life <= 0) { this.bullets.splice(i, 1); continue; }
+
+      const r = (b.size || 8) + 16;
+      for (const p of this.players.values()) {
+        if (!p || p.isDead || p.health <= 0) continue;
+        const dx = p.x - b.x;
+        const dy = p.y - b.y;
+        if (Math.sqrt(dx * dx + dy * dy) < r) {
+          this._applyDamageToPlayer(p, (b.damage || this._computeBulletDamage(40)), { ignoreInvulnerability: true, ignoreDodge: false });
+          // 命中後移除（單機同源）
+          this.bullets.splice(i, 1);
+          break;
+        }
+      }
+    }
+  }
+
+  _isBossRangedEnabled() {
+    try {
+      if (!this.config || !this.config.DIFFICULTY) return false;
+      const diff = this.config.DIFFICULTY[this.diffId] || null;
+      return !!(diff && diff.bossRangedEnabled);
+    } catch (_) { return false; }
+  }
+
+  _shouldEnableRanged(enemyType, enemyConfig) {
+    try {
+      if (!enemyConfig || !enemyConfig.RANGED_ATTACK) return false;
+      // 例外：路口 HUMAN2 瓶子投擲常駐
+      const alwaysEnable = (this.mapId === 'intersection' && enemyType === 'HUMAN2');
+      if (alwaysEnable) return true;
+      const enabledFlag = (enemyConfig.RANGED_ATTACK.ENABLED !== false);
+      return enabledFlag && this._isBossRangedEnabled();
+    } catch (_) { return false; }
+  }
+
+  _spawnBossProjectile(enemy, targetPlayer, deltaTime) {
+    if (!enemy || !targetPlayer) return;
+    const ra = enemy.rangedAttack;
+    if (!ra) return;
+
+    const now = Date.now();
+    const id = `bp_${now}_${Math.random().toString(36).slice(2, 9)}`;
+
+    // HUMAN2：拋物線瓶子（不追蹤）
+    if (enemy.type === 'HUMAN2') {
+      try {
+        const cfgDagger = (this.config && this.config.WEAPONS && this.config.WEAPONS.DAGGER) ? this.config.WEAPONS.DAGGER : {};
+        const baseSize = (typeof cfgDagger.PROJECTILE_SIZE === 'number') ? cfgDagger.PROJECTILE_SIZE : 20;
+        const bottleH = Math.max(14, Math.round(baseSize));
+        const bottleW = Math.max(10, Math.round(bottleH * (54 / 150)));
+
+        // BottleProjectile 同源解算
+        const dx = targetPlayer.x - enemy.x;
+        const dy = targetPlayer.y - enemy.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const spd = Math.max(0.01, (typeof ra.PROJECTILE_SPEED === 'number') ? ra.PROJECTILE_SPEED : 5);
+        const frames = Math.max(18, Math.min(72, dist / spd));
+        const g = 0.08;
+        const vx = dx / frames;
+        const vy = (dy - 0.5 * g * frames * frames) / frames;
+
+        this.bossProjectiles.push({
+          id,
+          kind: 'BOTTLE',
+          x: enemy.x,
+          y: enemy.y,
+          vx,
+          vy,
+          g,
+          width: bottleW,
+          height: bottleH,
+          damage: (typeof ra.PROJECTILE_DAMAGE === 'number') ? ra.PROJECTILE_DAMAGE : 15,
+          createdAt: now,
+          lifeTime: 5000
+        });
+      } catch (_) { }
+      return;
+    }
+
+    // 其他：BOSS 火彈（追蹤可選）
+    try {
+      const angle = Math.atan2(targetPlayer.y - enemy.y, targetPlayer.x - enemy.x);
+      this.bossProjectiles.push({
+        id,
+        kind: 'BOSS_PROJECTILE',
+        x: enemy.x,
+        y: enemy.y,
+        angle,
+        speed: (typeof ra.PROJECTILE_SPEED === 'number') ? ra.PROJECTILE_SPEED : 5,
+        damage: (typeof ra.PROJECTILE_DAMAGE === 'number') ? ra.PROJECTILE_DAMAGE : 40,
+        size: (typeof ra.PROJECTILE_SIZE === 'number') ? ra.PROJECTILE_SIZE : 18,
+        homing: !!ra.HOMING,
+        turnRate: (typeof ra.TURN_RATE === 'number') ? ra.TURN_RATE : 0,
+        createdAt: now,
+        lifeTime: 5000
+      });
+    } catch (_) { }
+  }
+
+  updateBossProjectiles(deltaTime) {
+    if (!this.bossProjectiles || !this.bossProjectiles.length) return;
+    const now = Date.now();
+    const deltaMul = deltaTime / 16.67;
+
+    for (let i = this.bossProjectiles.length - 1; i >= 0; i--) {
+      const p = this.bossProjectiles[i];
+      if (!p) { this.bossProjectiles.splice(i, 1); continue; }
+
+      // 生命週期
+      const createdAt = p.createdAt || now;
+      const lifeTime = (typeof p.lifeTime === 'number') ? p.lifeTime : 5000;
+      if (now - createdAt > lifeTime) {
+        this.bossProjectiles.splice(i, 1);
+        continue;
+      }
+
+      if (p.kind === 'BOTTLE') {
+        // 拋物線
+        const g = (typeof p.g === 'number') ? p.g : 0.08;
+        p.vy = (p.vy || 0) + g * deltaMul;
+        p.x += (p.vx || 0) * deltaMul;
+        p.y += (p.vy || 0) * deltaMul;
+
+        // 碰撞（rect vs player circle），只打一個人就刪除
+        const rectX = p.x - (p.width || 10) / 2;
+        const rectY = p.y - (p.height || 14) / 2;
+        for (const player of this.players.values()) {
+          if (!player || player.isDead || player.health <= 0) continue;
+          const pr = 16;
+          const closestX = Math.max(rectX, Math.min(player.x, rectX + (p.width || 10)));
+          const closestY = Math.max(rectY, Math.min(player.y, rectY + (p.height || 14)));
+          const dx = player.x - closestX;
+          const dy = player.y - closestY;
+          if (Math.sqrt(dx * dx + dy * dy) < pr) {
+            // BottleProjectile：不忽略無敵，不忽略閃避（單機同源）
+            this._applyDamageToPlayer(player, (p.damage || 15), { ignoreInvulnerability: false, ignoreDodge: false });
+            this.bossProjectiles.splice(i, 1);
+            break;
+          }
+        }
+        continue;
+      }
+
+      // BOSS 火彈（可追蹤）
+      const homing = !!p.homing;
+      if (homing) {
+        // 找最近的活人
+        let nearest = null;
+        let nearestDist = Infinity;
+        for (const player of this.players.values()) {
+          if (!player || player.isDead || player.health <= 0) continue;
+          const dx = player.x - p.x;
+          const dy = player.y - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < nearestDist) { nearestDist = dist; nearest = player; }
+        }
+        if (nearest) {
+          const targetAngle = Math.atan2(nearest.y - p.y, nearest.x - p.x);
+          let angleDiff = targetAngle - (p.angle || 0);
+          while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+          while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+          const maxTurn = (p.turnRate || 0) * deltaMul;
+          angleDiff = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
+          p.angle = (p.angle || 0) + angleDiff;
+        }
+      }
+
+      p.x += Math.cos(p.angle || 0) * (p.speed || 5) * deltaMul;
+      p.y += Math.sin(p.angle || 0) * (p.speed || 5) * deltaMul;
+
+      // 碰撞（circle vs player circle）
+      const r = ((p.size || 18) / 2) + 16;
+      for (const player of this.players.values()) {
+        if (!player || player.isDead || player.health <= 0) continue;
+        const dx = player.x - p.x;
+        const dy = player.y - p.y;
+        if (Math.sqrt(dx * dx + dy * dy) < r) {
+          // BossProjectile：忽略受傷短暫無敵，但尊重技能無敵；閃避仍可用（單機同源）
+          this._applyDamageToPlayer(player, (p.damage || 40), { ignoreInvulnerability: true, ignoreDodge: false });
+          this.bossProjectiles.splice(i, 1);
+          break;
+        }
+      }
+    }
   }
 
   // 添加玩家
@@ -155,6 +478,9 @@ class GameState {
 
     this.enemies = [];
     this.projectiles = [];
+    this.bossProjectiles = [];
+    this.bullets = [];
+    this.bulletEmitters = [];
     this.experienceOrbs = [];
     this.chests = [];
     this.carHazards = [];
@@ -180,6 +506,8 @@ class GameState {
       p.vx = 0; p.vy = 0;
       p.lastAttackAt = 0;
       p.lastAutoFireAt = 0;
+      p.invulnerableUntil = 0;
+      p.skillInvulnerableUntil = 0;
       // 注意：experience/sessionCoins 是「本場累積量」，新局要清 0
       p.experience = 0;
       p.sessionCoins = 0;
@@ -629,6 +957,12 @@ class GameState {
     // 更新敌人
     this.updateEnemies(deltaTime);
 
+    // ✅ 伺服器權威：BOSS/HUMAN2 遠程投射物（火彈/瓶子）
+    this.updateBossProjectiles(deltaTime);
+
+    // ✅ 伺服器權威：修羅彈幕（ASURA）
+    this.updateBullets(deltaTime);
+
     // ✅ 可玩性保底：自動攻擊（預設關閉，避免出現「單機沒有的白色球」）
     // 若要啟用：把 this.enableAutoFireFailsafe 設為 true（只建議 Debug）
     try { if (this.enableAutoFireFailsafe) this.updateAutoFire(now); } catch (_) { }
@@ -974,6 +1308,18 @@ class GameState {
             }
           }
         }
+
+        // ✅ 伺服器權威：遠程攻擊（火彈/瓶子）— 與單機 Enemy.updateRangedAttack 同源
+        try {
+          if (enemy.rangedAttack && nearestDist <= (enemy.rangedAttack.RANGE || 0)) {
+            if (!enemy.lastRangedAttackAt) enemy.lastRangedAttackAt = 0;
+            const cd = enemy.rangedAttack.COOLDOWN || 0;
+            if (cd > 0 && now - enemy.lastRangedAttackAt >= cd) {
+              this._spawnBossProjectile(enemy, nearestPlayer, deltaTime);
+              enemy.lastRangedAttackAt = now;
+            }
+          }
+        } catch (_) { }
       }
     }
   }
@@ -1054,6 +1400,9 @@ class GameState {
       // ✅ 血量同源：優先用 TUNING（與單機一致），否則回退 WAVES multiplier
       const health = this._computeEnemyMaxHealth(enemyType, enemyConfig, this.wave, config);
 
+      // ✅ 同源：遠程攻擊（困難以上/特殊例外）由伺服器權威處理
+      const rangedAttack = this._shouldEnableRanged(enemyType, enemyConfig) ? (enemyConfig.RANGED_ATTACK || null) : null;
+
       this.enemies.push({
         id: `enemy_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
         x, y,
@@ -1063,7 +1412,10 @@ class GameState {
         speed: enemyConfig.SPEED || 2,
         size: enemyConfig.SIZE || 32,
         experienceValue: enemyConfig.EXPERIENCE || 5,
-        isDead: false
+        isDead: false,
+        damage: (typeof enemyConfig.DAMAGE === 'number') ? enemyConfig.DAMAGE : 10,
+        rangedAttack,
+        lastRangedAttackAt: 0
       });
     }
   }
@@ -1106,6 +1458,7 @@ class GameState {
     // ✅ 血量同源（TUNING.MINI_BOSS）
     const health = this._computeEnemyMaxHealth(type, enemyConfig, wave, config);
 
+    const rangedAttack = this._shouldEnableRanged(type, enemyConfig) ? (enemyConfig.RANGED_ATTACK || null) : null;
     this.enemies.push({
       id: `boss_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       x, y,
@@ -1116,8 +1469,15 @@ class GameState {
       size: enemyConfig.SIZE || 64,
       experienceValue: enemyConfig.EXPERIENCE || 5,
       isDead: false,
-      damage: 20
+      damage: (typeof enemyConfig.DAMAGE === 'number') ? enemyConfig.DAMAGE : 20,
+      rangedAttack,
+      lastRangedAttackAt: 0
     });
+    // ✅ 修羅彈幕：為每隻小BOSS掛載彈幕發射器（同源 wave.js）
+    try {
+      const last = this.enemies[this.enemies.length - 1];
+      this._ensureBulletEmitterForEnemy(last, 'MINI_BOSS');
+    } catch (_) { }
     console.log(`[GameState] 生成小BOSS: ${type} (Wave ${wave})`);
   }
 
@@ -1140,6 +1500,7 @@ class GameState {
 
     const health = this._computeEnemyMaxHealth(type, enemyConfig, this.wave, config);
 
+    const rangedAttack = this._shouldEnableRanged(type, enemyConfig) ? (enemyConfig.RANGED_ATTACK || null) : null;
     this.enemies.push({
       id: `final_boss_${Date.now()}`,
       x: spawn.x,
@@ -1151,8 +1512,15 @@ class GameState {
       size: enemyConfig.SIZE || 128,
       experienceValue: enemyConfig.EXPERIENCE || 5,
       isDead: false,
-      damage: 50
+      damage: (typeof enemyConfig.DAMAGE === 'number') ? enemyConfig.DAMAGE : 50,
+      rangedAttack,
+      lastRangedAttackAt: 0
     });
+    // ✅ 修羅彈幕：Boss 出現後啟動環狀旋轉彈幕（同源 wave.js）
+    try {
+      const last = this.enemies[this.enemies.length - 1];
+      this._ensureBulletEmitterForEnemy(last, 'BOSS');
+    } catch (_) { }
     console.log(`[GameState] 生成大BOSS: ${type}`);
   }
 
@@ -1523,6 +1891,8 @@ class GameState {
       })),
       enemies: this.enemies,
       projectiles: this.projectiles,
+      bossProjectiles: this.bossProjectiles,
+      bullets: this.bullets,
       experienceOrbs: this.experienceOrbs,
       chests: this.chests,
       obstacles: this.obstacles,
