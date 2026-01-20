@@ -81,6 +81,8 @@ const _netStats = {
 
 function _updateNetStatusLine(extra) {
   try {
+    // ✅ 預設不把 debug counters 顯示在組隊大廳（避免你說的「遊戲結束回大廳還在跑數字」）
+    if (!SURVIVAL_ONLINE_DEBUG) return;
     if (typeof document === "undefined") return;
     const ws = _ws;
     const wsState = ws ? ws.readyState : null;
@@ -3239,7 +3241,10 @@ async function connectWebSocket() {
         type: 'join',
         roomId: _activeRoomId,
         uid: _uid,
-        isHost: _isHost
+        isHost: _isHost,
+        // ✅ 讓伺服器知道角色/暱稱，否則隊友端可能看不到正確貼圖（或全部變同一隻）
+        characterId: (typeof Game !== 'undefined' && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : 'pineapple',
+        nickname: (typeof getPlayerNickname === 'function') ? getPlayerNickname() : '玩家'
       }));
 
       // ✅ 权威服务器：发送CONFIG数据到服务器（用于敌人生成）
@@ -3841,6 +3846,21 @@ function handleServerGameState(state, timestamp) {
     if (Array.isArray(state.projectiles)) {
       updateProjectilesFromServer(state.projectiles);
     }
+
+    // ✅ 命中事件（伺服器權威）：用於顯示傷害數字/爆擊標記（不靠本地 takeDamage）
+    try {
+      if (Array.isArray(state.hitEvents) && typeof DamageNumbers !== "undefined" && typeof DamageNumbers.show === "function") {
+        for (const ev of state.hitEvents) {
+          if (!ev) continue;
+          const dmg = (typeof ev.damage === "number") ? ev.damage : 0;
+          if (dmg <= 0) continue;
+          const x = (typeof ev.x === "number") ? ev.x : 0;
+          const y = (typeof ev.y === "number") ? ev.y : 0;
+          const h = (typeof ev.h === "number") ? ev.h : 0;
+          DamageNumbers.show(Math.round(dmg), x, y - h / 2, ev.isCrit === true, { enemyId: ev.enemyId || null });
+        }
+      }
+    } catch (_) { }
 
     // 更新经验球（服务器权威）
     if (Array.isArray(state.experienceOrbs)) {
@@ -5438,6 +5458,17 @@ function tryStartSurvivalFromRoom() {
     if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
       Runtime.setEnabled(true);
     }
+
+    // ✅ 新一局：通知伺服器重置本場狀態（避免上一局殘留造成開場怪血量異常）
+    try {
+      const sid = sessionId || null;
+      if (sid && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+        window.SurvivalOnlineRuntime.sendToNet({ type: "new-session", sessionId: sid });
+      } else if (sid) {
+        // fallback
+        try { _sendViaWebSocket({ type: "new-session", sessionId: sid }); } catch (_) { }
+      }
+    } catch (_) { }
 
     // 確保角色不為 null（如果為 null，使用默認角色）
     if (!selectedCharacter) {
