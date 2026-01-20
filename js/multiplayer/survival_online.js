@@ -3810,6 +3810,16 @@ function updateEnemiesFromServer(enemies) {
       if (typeof enemyState.y === 'number') enemy._netTargetY = enemyState.y;
       if (typeof enemyState.health === 'number') enemy.health = enemyState.health;
       if (typeof enemyState.maxHealth === 'number') enemy.maxHealth = enemyState.maxHealth;
+      // ✅ 同步敵人屬性（否則某些怪/王會看起來「不追蹤/移動怪怪的」）
+      if (typeof enemyState.type === 'string') enemy.type = enemyState.type;
+      if (typeof enemyState.speed === 'number') enemy.speed = enemyState.speed;
+      if (typeof enemyState.size === 'number') {
+        try {
+          enemy.size = enemyState.size;
+          if (typeof enemy.width === 'number') enemy.width = enemyState.size;
+          if (typeof enemy.height === 'number') enemy.height = enemyState.size;
+        } catch (_) { }
+      }
       if (typeof enemy.x !== 'number' && typeof enemy._netTargetX === 'number') enemy.x = enemy._netTargetX;
       if (typeof enemy.y !== 'number' && typeof enemy._netTargetY === 'number') enemy.y = enemy._netTargetY;
 
@@ -3872,6 +3882,22 @@ function updateProjectilesFromServer(projectiles) {
       if (typeof projState.x === 'number') proj._netTargetX = projState.x;
       if (typeof projState.y === 'number') proj._netTargetY = projState.y;
       if (typeof projState.angle === 'number') proj.angle = projState.angle;
+      // ✅ 同步投射物屬性（否則追蹤/特殊子彈會失效，看起來像「技能不出/不追蹤」）
+      if (typeof projState.weaponType === 'string') proj.weaponType = projState.weaponType;
+      if (typeof projState.speed === 'number') proj.speed = projState.speed;
+      if (typeof projState.size === 'number') {
+        proj.size = projState.size;
+        // 兼容：有些投射物用 width/height 表示尺寸
+        try {
+          if (typeof proj.width === 'number') proj.width = projState.size;
+          if (typeof proj.height === 'number') proj.height = projState.size;
+        } catch (_) { }
+      }
+      if (typeof projState.homing === 'boolean') proj.homing = projState.homing;
+      if (typeof projState.turnRatePerSec === 'number') proj.turnRatePerSec = projState.turnRatePerSec;
+      if (typeof projState.assignedTargetId === 'string' || projState.assignedTargetId === null) proj.assignedTargetId = projState.assignedTargetId;
+      // 保險：多人權威投射物一定是視覺投射物
+      proj._isVisualOnly = true;
       if (typeof proj.x !== 'number' && typeof proj._netTargetX === 'number') proj.x = proj._netTargetX;
       if (typeof proj.y !== 'number' && typeof proj._netTargetY === 'number') proj.y = proj._netTargetY;
     }
