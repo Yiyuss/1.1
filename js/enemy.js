@@ -1222,6 +1222,17 @@
                     return;
                 }
 
+                // ✅ 元素分類：
+                // - **多人元素（伺服器權威）**：敵人 AI/近戰扣血/遠程投射物生成
+                // - **單機元素（本地）**：本檔案的追蹤/攻擊/遠程火彈/瓶子生成
+                // 權威多人時，從伺服器 state.enemies/state.bossProjectiles 同步顯示即可；
+                // 客戶端不允許再跑 AI，避免「本地生成火彈/瓶子」與伺服器互打造成閃爍與混亂。
+                try {
+                    if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled && this._netSimulated) {
+                        return;
+                    }
+                } catch (_) { }
+
                 // 計算發射角度
                 const angle = Utils.angle(this.x, this.y, target.x, target.y);
 
