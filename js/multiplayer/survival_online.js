@@ -4864,114 +4864,13 @@ function updateExperienceOrbsFromServer(orbs) {
   }
 }
 
-// ✅ MMORPG 架構：處理 enemy_damage 消息（所有玩家都可以調用）
+// ❌ 腫瘤切除：此函數已廢棄，傷害計算完全由伺服器權威處理
+// 傷害數字和敵人血量更新都通過 state.hitEvents 和 state.enemies 同步
+// 保留此函數僅為向後兼容，但不會被調用（handleHostDataMessage 在權威伺服器模式下已被禁用）
 function _handleEnemyDamageMessage(fromUid, msg) {
-  if (!msg || typeof msg !== "object") return;
-  if (!fromUid || typeof fromUid !== "string") {
-    // fromUid 無效，嘗試從 msg 中獲取
-    fromUid = (msg.playerUid && typeof msg.playerUid === "string") ? msg.playerUid : null;
-    if (!fromUid) {
-      console.warn("[SurvivalOnline] _handleEnemyDamageMessage: fromUid 無效", fromUid);
-      return;
-    }
-  }
-
-  // 速率限制：每秒最多 2000 次傷害（防止 DDoS，但允許正常高強度戰鬥）
-  // 計算：假設 20 個武器 × 3 次/秒 × 20 個敵人 = 1200 次/秒，加上持續傷害技能約 800 次/秒 = 2000 次/秒
-  if (!_checkRateLimit(fromUid, "damage", 2000)) {
-    console.warn("[SurvivalOnline] 傷害速率過高，忽略:", fromUid);
-    return;
-  }
-
-  const enemyId = typeof msg.enemyId === "string" ? msg.enemyId : null;
-  const damage = typeof msg.damage === "number" ? Math.max(0, msg.damage) : 0;
-  const weaponType = typeof msg.weaponType === "string" ? msg.weaponType : "UNKNOWN";
-  const isCrit = (msg.isCrit === true);
-  const playerUid = typeof msg.playerUid === "string" ? msg.playerUid : fromUid; // 發送傷害的玩家UID
-  const lifesteal = typeof msg.lifesteal === "number" ? Math.max(0, msg.lifesteal) : 0; // 吸血量
-
-  if (!enemyId || damage <= 0) return;
-
-  // ✅ MMORPG 架構：跳過自己的傷害消息（避免重複計算）
-  // 因為自己造成的傷害已經在本地計算過了
-  if (playerUid === _uid) {
-    return; // 跳過自己的傷害消息
-  }
-
-  // 找到對應的敵人
-  try {
-    if (typeof Game !== "undefined" && Array.isArray(Game.enemies)) {
-      const enemy = Game.enemies.find(e => e && e.id === enemyId);
-      if (enemy && !enemy.markedForDeletion && !enemy.isDying) {
-        // ✅ MMORPG 架構：對敵人造成傷害（同步其他玩家的傷害）
-        // 注意：這裡不重新計算傷害，因為其他玩家已經計算過了（包括爆擊和天賦）
-        enemy.takeDamage(damage, {
-          weaponType: weaponType,
-          playerUid: playerUid,
-          isCrit: isCrit,
-          dirX: 0,
-          dirY: -1
-        });
-
-        // ✅ MMORPG 架構：如果消息包含減速信息，同步減速效果（確保所有玩家都能看到敵人被減速的視覺效果）
-        const slowMs = typeof msg.slowMs === "number" ? msg.slowMs : null;
-        const slowFactor = typeof msg.slowFactor === "number" ? msg.slowFactor : null;
-        if (slowMs !== null && slowFactor !== null && typeof enemy.applySlow === "function") {
-          try {
-            enemy.applySlow(slowMs, slowFactor);
-          } catch (e) {
-            console.warn("[SurvivalOnline] 同步敵人減速效果失敗:", e);
-          }
-        }
-
-        // 顯示傷害數字（所有玩家都能看到其他玩家的傷害）
-        if (typeof DamageNumbers !== "undefined" && typeof DamageNumbers.show === "function") {
-          DamageNumbers.show(damage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, {
-            dirX: 0,
-            dirY: -1,
-            enemyId: enemyId
-          });
-        }
-
-        // ✅ MMORPG 架構：同步擊退效果 (Knockback)
-        // 這是 "Real Banana" 的關鍵：如果 A 把敵人打飛，B 也必須看到敵人飛出去，否則位置會不同步
-        const kbX = typeof msg.knockbackX === "number" ? msg.knockbackX : 0;
-        const kbY = typeof msg.knockbackY === "number" ? msg.knockbackY : 0;
-
-        if ((kbX !== 0 || kbY !== 0)) {
-          // 直接修改敵人的速度，模擬被擊退
-          if (typeof enemy.vx === 'number') enemy.vx = kbX;
-          if (typeof enemy.vy === 'number') enemy.vy = kbY;
-        }
-      }
-    }
-  } catch (e) {
-    console.warn("[SurvivalOnline] 同步敵人傷害失敗:", e);
-  }
-
-  // 處理吸血邏輯：將吸血量應用到遠程玩家
-  if (lifesteal > 0 && playerUid) {
-    // 速率限制：每秒最多 2000 次吸血（與傷害同步）
-    if (!_checkRateLimit(fromUid, "lifesteal", 2000)) {
-      // 吸血速率過高時忽略，但不影響傷害處理
-      return;
-    }
-
-    try {
-      // 找到對應的遠程玩家
-      let remotePlayer = null;
-      if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
-        remotePlayer = RemotePlayerManager.get(playerUid);
-      }
-
-      if (remotePlayer && typeof remotePlayer.health === 'number' && typeof remotePlayer.maxHealth === 'number') {
-        // 應用吸血回復
-        remotePlayer.health = Math.min(remotePlayer.maxHealth, remotePlayer.health + lifesteal);
-      }
-    } catch (e) {
-      console.warn("[SurvivalOnline] 同步吸血失敗:", e);
-    }
-  }
+  // ✅ 腫瘤切除：不再處理 enemy_damage 消息，傷害由伺服器 hitEvents 統一處理
+  // 此函數保留僅為向後兼容，實際不會執行任何邏輯
+  return;
 }
 
 // ✅ MMORPG 架構：處理 weapon_upgrade 消息（所有玩家都可以調用）
@@ -5298,16 +5197,9 @@ function handleHostDataMessage(fromUid, msg) {
   }
 
   if (msg.t === "enemy_damage") {
-    // ✅ MMORPG 架構：所有玩家都處理 enemy_damage 消息，同步其他玩家的傷害
-    // 注意：這裡使用 handleHostDataMessage 是為了向後兼容，但實際上所有玩家都應該處理
-    // 新的實現使用 _handleEnemyDamageMessage 函數，所有玩家都可以調用
-
-    // 如果是自己發出的傷害消息，忽略（因為本地已經預測執行了）
-    if (fromUid === _uid) {
-      return;
-    }
-
-    _handleEnemyDamageMessage(fromUid, msg);
+    // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再處理 enemy_damage 消息
+    // _handleEnemyDamageMessage 已廢棄，傷害計算完全由伺服器權威處理
+    // 傷害數字和敵人血量更新都通過 state.hitEvents 和 state.enemies 同步
     return;
   }
 
