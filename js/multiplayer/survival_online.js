@@ -4036,6 +4036,11 @@ function updateEnemiesFromServer(enemies) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.enemies) return;
 
   const EnemyCtor = _getGlobalCtor("Enemy");
+  const isBossType = (t) => (
+    t === 'MINI_BOSS' || t === 'BOSS' ||
+    t === 'ELF_MINI_BOSS' || t === 'ELF_BOSS' ||
+    t === 'HUMAN_MINI_BOSS' || t === 'HUMAN_BOSS'
+  );
 
   // 创建敌人ID映射
   const serverEnemyIds = new Set(enemies.map(e => e.id));
@@ -4058,6 +4063,23 @@ function updateEnemiesFromServer(enemies) {
       Game.enemies.push(enemy);
     }
     if (enemy) {
+      // ✅ 多人視覺回饋：伺服器權威模式下不會呼叫 Enemy.takeDamage()
+      // 因此用「血量下降 delta」顯示傷害數字（不影響邏輯，只是畫面回饋）
+      try {
+        if (typeof enemyState.health === 'number') {
+          const prev = (typeof enemy._netLastHealth === 'number') ? enemy._netLastHealth : enemy.health;
+          const next = enemyState.health;
+          const delta = (typeof prev === 'number') ? (prev - next) : 0;
+          if (delta > 0 && typeof DamageNumbers !== 'undefined' && typeof DamageNumbers.show === 'function') {
+            const ex = (typeof enemyState.x === 'number') ? enemyState.x : (typeof enemy.x === 'number' ? enemy.x : 0);
+            const ey = (typeof enemyState.y === 'number') ? enemyState.y : (typeof enemy.y === 'number' ? enemy.y : 0);
+            const eh = (typeof enemy.height === 'number') ? enemy.height : 0;
+            DamageNumbers.show(Math.round(delta), ex, ey - eh / 2, false, { enemyId: enemyState.id });
+          }
+          enemy._netLastHealth = next;
+        }
+      } catch (_) { }
+
       // ✅ 網路插值：記錄目標位置，交由 Enemy.update 在多人模式下平滑追幀
       if (typeof enemyState.x === 'number') enemy._netTargetX = enemyState.x;
       if (typeof enemyState.y === 'number') enemy._netTargetY = enemyState.y;
@@ -4069,8 +4091,15 @@ function updateEnemiesFromServer(enemies) {
       if (typeof enemyState.size === 'number') {
         try {
           enemy.size = enemyState.size;
-          if (typeof enemy.width === 'number') enemy.width = enemyState.size;
-          if (typeof enemy.height === 'number') enemy.height = enemyState.size;
+          // ✅ 修復：不要把 BOSS/小BOSS 的非等比尺寸覆蓋成正方形（會造成圖片變形）
+          // - 若該敵人有 config.WIDTH/HEIGHT 或屬於 BOSS 類，就維持原本 width/height
+          const t = (typeof enemyState.type === 'string') ? enemyState.type : enemy.type;
+          const cfg = (typeof CONFIG !== 'undefined' && CONFIG && CONFIG.ENEMIES) ? CONFIG.ENEMIES[t] : null;
+          const hasWH = cfg && typeof cfg.WIDTH === 'number' && typeof cfg.HEIGHT === 'number';
+          if (!isBossType(t) && !hasWH) {
+            if (typeof enemy.width === 'number') enemy.width = enemyState.size;
+            if (typeof enemy.height === 'number') enemy.height = enemyState.size;
+          }
         } catch (_) { }
       }
       if (typeof enemy.x !== 'number' && typeof enemy._netTargetX === 'number') enemy.x = enemy._netTargetX;
