@@ -2358,7 +2358,8 @@ const Game = {
                     if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                         console.log(`[Game] 同步世界大小至伺服器: ${this.worldWidth}x${this.worldHeight}`);
                         window.SurvivalOnlineRuntime.sendToNet({
-                            type: 'world_size',
+                            // ✅ 與 server/websocket-server.js 的處理分支一致：'world-size'
+                            type: 'world-size',
                             worldWidth: this.worldWidth,
                             worldHeight: this.worldHeight,
                             mapId: this.selectedMap ? this.selectedMap.id : 'unknown'
