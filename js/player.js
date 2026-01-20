@@ -664,9 +664,10 @@ class Player extends Entity {
              this._ultimateBgmBackup = null;
          }
          
-         // 組隊模式：死亡時停止攻擊和移動，但不結束遊戲
-         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-         if (isMultiplayer) {
+        // 組隊模式：死亡時停止攻擊和移動，但不結束遊戲
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        const isServerAuthoritative = !!(isMultiplayer && Game.multiplayer && Game.multiplayer.enabled);
+        if (isMultiplayer) {
              // 清除所有武器（停止攻擊）
              this.clearWeapons();
              // 血量歸0
@@ -674,16 +675,18 @@ class Player extends Entity {
              // 復活進度重置
              this._resurrectionProgress = 0;
              this._resurrectionRescuer = null;
-            // 廣播死亡狀態
-            if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                window.SurvivalOnlineBroadcastEvent("player_death", {
-                    playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                });
+
+            // ✅ 權威伺服器模式：死亡/全滅判定由伺服器 state.isDead/state.isGameOver 統一權威
+            // 避免客戶端廣播 player_death/game_over 造成互打與循環。
+            if (!isServerAuthoritative) {
+                // 舊模式（非 enabled）才保留事件廣播
+                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    window.SurvivalOnlineBroadcastEvent("player_death", {
+                        playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
+                    });
+                }
+                this._checkAllPlayersDead();
             }
-            
-            // ✅ MMORPG 架構：所有玩家都能檢查遊戲失敗，不依賴隊長端
-            // 使用防重複機制：第一個檢測到所有玩家死亡的玩家廣播 game_over 事件
-            this._checkAllPlayersDead();
          } else {
              // 單人模式：直接結束遊戲
              Game.gameOver();
@@ -691,7 +694,7 @@ class Player extends Entity {
      }
      
      // 復活
-     resurrect() {
+     resurrect(opts = {}) {
          if (!this._isDead) return;
          this._isDead = false;
          this.health = this.maxHealth;
@@ -699,7 +702,17 @@ class Player extends Entity {
          this._resurrectionRescuer = null;
          // 恢復初始武器
          this.addWeapon('DAGGER');
-         // 廣播復活狀態
+         // ✅ 權威伺服器模式：復活狀態由伺服器權威；本地行為僅在 server 回傳時套用
+         try {
+             if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                 const fromServer = !!(opts && opts.fromServer);
+                 if (!fromServer && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                     window.SurvivalOnlineRuntime.sendToNet({ type: 'resurrect', timestamp: Date.now() });
+                 }
+                 return;
+             }
+         } catch (_) { }
+         // 舊模式：廣播復活狀態
          if (typeof Game !== 'undefined' && Game.multiplayer && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
              window.SurvivalOnlineBroadcastEvent("player_resurrect", {
                  playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
@@ -710,6 +723,8 @@ class Player extends Entity {
     // ✅ MMORPG 架構：所有玩家都能檢查遊戲失敗，不依賴隊長端
     _checkAllPlayersDead() {
         if (!Game || !Game.multiplayer) return;
+        // ✅ 權威伺服器模式：全滅判定由伺服器 checkGameOver 統一權威
+        if (Game.multiplayer && Game.multiplayer.enabled) return;
          if (Game.isGameOver) return; // 已經結束了
          
          try {
