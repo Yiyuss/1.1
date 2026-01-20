@@ -359,6 +359,9 @@ const Game = {
                                     y: (typeof projectile.y === 'number') ? projectile.y : this.player.y,
                                     radius: Math.max(10, Math.floor(radius)),
                                     damage: dmg,
+                                    // ✅ 與單機同源：AOE 也要帶爆擊加成（伺服器才會算出爆擊/浮動）
+                                    allowCrit: true,
+                                    critChanceBonusPct: (this.player && typeof this.player.critChanceBonusPct === 'number') ? this.player.critChanceBonusPct : 0,
                                     timestamp: Date.now()
                                 });
                             }
@@ -1215,6 +1218,9 @@ const Game = {
                             turnRatePerSec: projectile.turnRatePerSec || 0,
                             assignedTargetId: projectile.assignedTargetId || null,
                             maxDistance: projectile.maxDistance || 1000,
+                            // ✅ 與單機同源：把玩家爆擊加成帶到伺服器，伺服器才能算出「真的有爆擊/傷害浮動」
+                            allowCrit: true,
+                            critChanceBonusPct: (this.player && typeof this.player.critChanceBonusPct === 'number') ? this.player.critChanceBonusPct : 0,
                             timestamp: Date.now()
                         };
                         try { window.SurvivalOnlineRuntime.sendToNet(attackInput); } catch (_) { }
