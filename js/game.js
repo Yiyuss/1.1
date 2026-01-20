@@ -352,7 +352,17 @@ const Game = {
                         let loops = 0;
                         while (projectile._netTickAcc >= projectile.tickIntervalMs && loops++ < 4) {
                             projectile._netTickAcc -= projectile.tickIntervalMs;
-                            if (dmg > 0 && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                            // ✅ 確保只在生存模式且多人模式下發送
+                            let isSurvivalMode = false;
+                            try {
+                                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                    ? GameModeManager.getCurrent()
+                                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                        ? ModeManager.getActiveModeId()
+                                        : null);
+                                isSurvivalMode = (activeId === 'survival' || activeId === null);
+                            } catch (_) { }
+                            if (dmg > 0 && isSurvivalMode && this.multiplayer && this.multiplayer.enabled && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                                 window.SurvivalOnlineRuntime.sendToNet({
                                     type: 'aoe_tick',
                                     weaponType: projectile.weaponType || 'UNKNOWN',
@@ -658,7 +668,8 @@ const Game = {
                 }
             }
 
-            // 更新組隊HUD（每0.5秒更新一次）
+            // ✅ 更新組隊HUD（每0.5秒更新一次，只在生存模式下執行，避免污染其他模式）
+            // 確保只在生存模式下更新，其他模式（main/challenge/defense/stage/3d）不執行
             if (isSurvivalMode && this.multiplayer && this.multiplayer.sessionId) {
                 this._multiplayerHUDUpdateTimer = (this._multiplayerHUDUpdateTimer || 0) + deltaTime;
                 if (this._multiplayerHUDUpdateTimer >= 500) {
@@ -667,6 +678,9 @@ const Game = {
                         this.updateMultiplayerHUD();
                     }
                 }
+            } else {
+                // ✅ 非生存模式：清除組隊HUD更新計時器，避免污染
+                this._multiplayerHUDUpdateTimer = 0;
             }
         } catch (_) { }
     },
@@ -2399,8 +2413,8 @@ const Game = {
             if (imgObj && imgObj.src) {
                 avatarEl.src = imgObj.src;
             } else {
-                // 後備路徑
-                avatarEl.src = key === 'player' ? 'assets/images/player.png' : 'assets/images/player1-2.png';
+                // 後備路徑（使用 player1-2.png 替代已移除的 player.png）
+                avatarEl.src = 'assets/images/player1-2.png';
             }
             avatarEl.alt = this.selectedCharacter?.name || '玩家';
         }
@@ -2680,7 +2694,16 @@ const Game = {
 
         // ✅ 權威伺服器模式：host 上傳到 server（節省流量、避免 event 通道互打）
         try {
-            if (this.multiplayer && this.multiplayer.enabled && this.multiplayer.isHost) {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) { }
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && this.multiplayer.isHost) {
                 const obstaclesData = this.obstacles.map(obs => ({
                     x: obs.x,
                     y: obs.y,
@@ -2847,7 +2870,16 @@ const Game = {
 
         // ✅ 權威伺服器模式：host 上傳到 server（節省流量、避免 event 通道互打）
         try {
-            if (this.multiplayer && this.multiplayer.enabled && this.multiplayer.isHost) {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) { }
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && this.multiplayer.isHost) {
                 const decorationsData = this.decorations.map(deco => ({
                     x: deco.x,
                     y: deco.y,
