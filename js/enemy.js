@@ -1189,8 +1189,8 @@
                         if (!Game.bossProjectiles) Game.bossProjectiles = [];
                         Game.bossProjectiles.push(p);
 
-                        // ✅ MMORPG 架構：廣播BOSS投射物生成事件，讓所有玩家都能看到
-                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                        // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包（避免污染單機/其他模式）
+                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
                         if (isMultiplayer) {
                             try {
                                 let isSurvivalMode = false;
@@ -1260,8 +1260,8 @@
                 }
                 Game.bossProjectiles.push(projectile);
 
-                // ✅ MMORPG 架構：廣播BOSS投射物生成事件，讓所有玩家都能看到
-                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包（避免污染單機/其他模式）
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
                 if (isMultiplayer) {
                     try {
                         let isSurvivalMode = false;
@@ -1324,7 +1324,8 @@
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) { }
 
-                    if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer) {
+                    // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包（避免污染單機/其他模式/存檔）
+                    if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true) {
                         // 確定傷害來源（本地玩家或遠程玩家）
                         let playerUid = null;
                         let isCrit = false;
@@ -1348,20 +1349,8 @@
                             playerUid = Game.multiplayer.uid;
                         }
 
-                        // 廣播傷害數字事件給所有隊員
-                        if (playerUid && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                            window.SurvivalOnlineBroadcastEvent("damage_number", {
-                                enemyId: this.id || null,
-                                enemyX: this.x || 0,
-                                enemyY: this.y || 0,
-                                enemyHeight: this.height || 0,
-                                damage: amount,
-                                isCrit: isCrit,
-                                playerUid: playerUid,
-                                dirX: dirX,
-                                dirY: dirY
-                            });
-                        }
+                        // ✅ 權威多人：傷害數字改走伺服器 hitEvents（避免 client-authoritative 訊息外洩）
+                        // 這裡保留空白，不再廣播 damage_number。
 
                         // ✅ MMORPG 架構：發送 damage_enemy 事件供網路同步監聽
                         // 手動觸發事件，讓 survival_online.js 可以監聽並發送 WebSocket 消息
@@ -1504,7 +1493,8 @@
                                 isSurvivalMode = (activeId === 'survival' || activeId === null);
                             } catch (_) { }
 
-                            if (isSurvivalMode && Game.multiplayer) {
+                            // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
+                            if (isSurvivalMode && Game.multiplayer && Game.multiplayer.enabled === true) {
                                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                                     window.SurvivalOnlineBroadcastEvent("game_victory", {
                                         reason: "boss_killed"
@@ -1570,7 +1560,8 @@
                 this.collisionRadius = 0;
 
                 // ✅ MMORPG 架構：廣播敵人死亡事件，讓所有玩家都能看到死亡動畫
-                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
                 if (isMultiplayer) {
                     try {
                         let isSurvivalMode = false;
@@ -1583,7 +1574,15 @@
                             isSurvivalMode = (activeId === 'survival' || activeId === null);
                         } catch (_) { }
 
-                        if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                        // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
+                        if (
+                            isSurvivalMode &&
+                            typeof Game !== 'undefined' &&
+                            Game.multiplayer &&
+                            Game.multiplayer.enabled === true &&
+                            typeof window !== "undefined" &&
+                            typeof window.SurvivalOnlineBroadcastEvent === "function"
+                        ) {
                             window.SurvivalOnlineBroadcastEvent("enemy_death", {
                                 enemyId: this.id || null,
                                 x: this.x,
