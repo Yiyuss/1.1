@@ -1317,28 +1317,8 @@ const Runtime = (() => {
           console.warn("[SurvivalOnline] 處理經驗球被撿取事件失敗:", e);
         }
       } else if (eventType === "damage_number") {
-        // 隊員端顯示傷害數字（僅視覺，不影響傷害計算）
-        try {
-          if (typeof DamageNumbers !== "undefined" && typeof DamageNumbers.show === "function" && eventData.enemyId && typeof eventData.damage === "number") {
-            const enemyX = eventData.enemyX || 0;
-            const enemyY = eventData.enemyY || 0;
-            const enemyHeight = eventData.enemyHeight || 0;
-            const damage = eventData.damage || 0;
-            const isCrit = (eventData.isCrit === true);
-            const dirX = typeof eventData.dirX === "number" ? eventData.dirX : 0;
-            const dirY = typeof eventData.dirY === "number" ? eventData.dirY : -1;
-            const enemyId = eventData.enemyId;
-
-            // 顯示傷害數字
-            DamageNumbers.show(damage, enemyX, enemyY - enemyHeight / 2, isCrit, {
-              dirX: dirX,
-              dirY: dirY,
-              enemyId: enemyId
-            });
-          }
-        } catch (e) {
-          console.warn("[SurvivalOnline] 隊員端顯示傷害數字失敗:", e);
-        }
+        // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再處理 damage_number 事件
+        // 這個事件處理已廢棄，傷害數字現在由 handleServerGameState 中的 hitEvents 統一處理
       } else if (eventType === "projectile_spawn") {
         // ✅ 真正的MMORPG：所有玩家都能看到其他玩家的技能特效
         // 隊員端生成投射物視覺效果（僅視覺，不影響傷害計算）
