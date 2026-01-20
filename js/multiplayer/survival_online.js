@@ -4117,7 +4117,21 @@ function handleServerGameState(state, timestamp) {
             } catch (_) { }
 
             // ⚠️ 修復：不可用 `||`，否則 0 會被當成 false 導致不同步（例如死亡/清零）
-            if (typeof playerState.health === "number") Game.player.health = playerState.health;
+            // ✅ 單機同源：檢測血量變化，觸發受傷紅閃效果（單機元素）
+            if (typeof playerState.health === "number") {
+              const prevHealth = Game.player.health || 0;
+              const newHealth = playerState.health;
+              Game.player.health = newHealth;
+              // 如果血量減少（受傷），觸發紅閃效果（單機元素，只對本地玩家顯示）
+              if (newHealth < prevHealth && newHealth > 0 && !Game.player._isDead) {
+                try {
+                  Game.player.hitFlashTime = Game.player.hitFlashDuration || 150;
+                  if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
+                    window.GifOverlay.flash('player', { color: '#ff0000', durationMs: Game.player.hitFlashDuration || 150, opacity: 0.8 });
+                  }
+                } catch (_) {}
+              }
+            }
             if (typeof playerState.maxHealth === "number") Game.player.maxHealth = playerState.maxHealth;
             if (typeof playerState.energy === "number") Game.player.energy = playerState.energy;
             if (typeof playerState.maxEnergy === "number") Game.player.maxEnergy = playerState.maxEnergy;
@@ -4226,36 +4240,8 @@ function handleServerGameState(state, timestamp) {
       }
     } catch (_) { }
 
-    // ✅ 音效/提示事件（伺服器權威）：補齊多人模式缺失的「單機觸發點」
-    try {
-      if (Array.isArray(state.sfxEvents) && typeof AudioManager !== "undefined" && typeof AudioManager.playSound === "function") {
-        const me = _getLocalNetUid ? _getLocalNetUid() : _uid;
-        for (const ev of state.sfxEvents) {
-          if (!ev || typeof ev.type !== "string") continue;
-          if (ev.type === "enemy_death") {
-            // ✅ 音效規則：多人下音效視為「單機元素」→ 只播自己的行為（必須有 playerUid 且等於自己）
-            if (ev.playerUid === me) AudioManager.playSound("enemy_death");
-          } else if (ev.type === "collect_exp") {
-            // ✅ 同上：只播自己撿到的
-            if (ev.playerUid === me) AudioManager.playSound("collect_exp");
-          } else if (ev.type === "shoot") {
-            // ✅ 同上：只播自己射擊
-            if (ev.playerUid !== me) continue;
-            const wt = (typeof ev.weaponType === "string") ? ev.weaponType : "";
-            // 盡量映射到既有音效鍵名
-            if (wt === "DAGGER") AudioManager.playSound("dagger_shoot");
-            else if (wt === "FIREBALL") AudioManager.playSound("fireball_shoot");
-            else if (wt === "LIGHTNING") AudioManager.playSound("lightning_shoot");
-            else if (wt === "LASER") AudioManager.playSound("laser_shoot");
-            else if (wt === "ZAPS") AudioManager.playSound("zaps");
-            else if (wt === "KNIFE") AudioManager.playSound("knife");
-            else if (wt === "BIG_ICE_BALL") AudioManager.playSound("ice2");
-            else if (wt === "BOSS_PROJECTILE") AudioManager.playSound("bo");
-            // BASIC / UNKNOWN：不播（避免噪音）
-          }
-        }
-      }
-    } catch (_) { }
+    // ✅ 流量優化：音效是單機元素，不需要通過伺服器發送 sfxEvents（節省流量）
+    // 所有音效都在客戶端本地播放（與單機一致）
 
     // ✅ 多人元素（視覺特效）：伺服器權威 VFX（例如：BOSS 投射物命中）
     try {
@@ -4333,11 +4319,20 @@ function handleServerGameState(state, timestamp) {
       }
     } catch (_) { }
 
-    // 更新波次
+    // ✅ 單機同源：波次更新（與單機一致，只更新 UI，沒有音效）
+    // 檢測波次變化，同步到 WaveSystem（與單機 wave.js nextWave() 一致）
     if (typeof state.wave === 'number' && typeof WaveSystem !== 'undefined') {
-      WaveSystem.currentWave = state.wave;
-      if (typeof UI !== 'undefined' && UI.updateWaveInfo) {
-        UI.updateWaveInfo(state.wave);
+      const prevWave = WaveSystem.currentWave || 1;
+      if (state.wave !== prevWave) {
+        WaveSystem.currentWave = state.wave;
+        // ✅ 與單機一致：波次更新時同步 waveStartTime（伺服器權威）
+        if (typeof state.waveStartTime === 'number') {
+          WaveSystem.waveStartTime = state.waveStartTime;
+        }
+        // 更新 UI（與單機一致）
+        if (typeof UI !== 'undefined' && UI.updateWaveInfo) {
+          UI.updateWaveInfo(state.wave);
+        }
       }
     }
 
@@ -4473,6 +4468,30 @@ function updateRemotePlayerFromServer(playerState) {
     if (typeof playerState.isDead === 'boolean') remotePlayer._isDead = playerState.isDead;
     if (typeof playerState.resurrectionProgress === 'number') remotePlayer._resurrectionProgress = playerState.resurrectionProgress;
     if (typeof playerState.nickname === 'string') remotePlayer._remotePlayerName = playerState.nickname;
+    
+    // ✅ 單機元素：大招狀態只同步到對應的遠程玩家，不會讓所有玩家一起放大
+    // 大招是單機元素，每個玩家獨立，不會互相影響
+    if (typeof playerState.isUltimateActive === 'boolean') {
+      remotePlayer.isUltimateActive = playerState.isUltimateActive;
+    }
+    if (typeof playerState.ultimateImageKey === 'string' && playerState.ultimateImageKey) {
+      remotePlayer._ultimateImageKey = playerState.ultimateImageKey;
+    } else if (playerState.isUltimateActive === false) {
+      remotePlayer._ultimateImageKey = null;
+    }
+    if (typeof playerState.ultimateEndTime === 'number') {
+      remotePlayer.ultimateEndTime = playerState.ultimateEndTime;
+    }
+    // 體型同步（大招變身）
+    if (typeof playerState.width === 'number' && playerState.width > 0) {
+      remotePlayer.width = playerState.width;
+    }
+    if (typeof playerState.height === 'number' && playerState.height > 0) {
+      remotePlayer.height = playerState.height;
+    }
+    if (typeof playerState.collisionRadius === 'number' && playerState.collisionRadius > 0) {
+      remotePlayer.collisionRadius = playerState.collisionRadius;
+    }
   } catch (_) { }
 }
 
@@ -6435,7 +6454,27 @@ function _setHudPlayersFromServer(players) {
 }
 
 function getHudPlayers() {
-  return Array.isArray(_lastHudPlayers) ? _lastHudPlayers.slice() : [];
+  // ✅ 單機元素：如果HUD只顯示一個玩家，應該只顯示本地玩家的血條/經驗條/能量條
+  // 用戶要求：HUD應該只顯示本地玩家狀態（單機元素），而不是所有玩家的狀態
+  // 如果未來需要顯示多個玩家，可以改回返回所有玩家
+  try {
+    const me = _getLocalNetUid ? _getLocalNetUid() : _uid;
+    if (typeof Game !== 'undefined' && Game.player && me) {
+      // 只返回本地玩家
+      return [{
+        uid: me,
+        nickname: getPlayerNickname(),
+        characterId: (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
+        health: Game.player.health || 0,
+        maxHealth: Game.player.maxHealth || 0,
+        energy: Game.player.energy || 0,
+        maxEnergy: Game.player.maxEnergy || 0,
+        isDead: (typeof Game.player._isDead === 'boolean') ? Game.player._isDead : false
+      }];
+    }
+  } catch (_) { }
+  // 後備：如果無法獲取本地玩家，返回空數組
+  return [];
 }
 
 function handleEscape() {
