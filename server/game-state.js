@@ -65,7 +65,10 @@ class GameState {
       vx: 0,
       vy: 0,
       isDead: false,
-      weapons: playerData.weapons || []
+      weapons: playerData.weapons || [],
+      // ✅ 可玩性保底：若客戶端 attack input 鏈路斷掉，伺服器仍能在多人模式提供最低限度的自動攻擊
+      lastAttackAt: 0,
+      lastAutoFireAt: 0
     };
     this.players.set(uid, player);
     return player;
@@ -113,6 +116,7 @@ class GameState {
 
       case 'attack':
         // 服务器创建投射物
+        try { player.lastAttackAt = Date.now(); } catch (_) { }
         this.createProjectile(uid, input);
         break;
 
@@ -134,6 +138,36 @@ class GameState {
         // 复活后给一点能量，避免卡死（保持保守）
         player.energy = Math.min(player.maxEnergy || 100, Math.max(0, player.energy || 0));
         break;
+    }
+  }
+
+  // ✅ 可玩性保底：多人模式下，如果一段時間收不到 attack input，自動發射基礎投射物
+  // 目的：先恢復「看得到攻擊、打得死怪」的最低可玩狀態，避免卡在空玩法。
+  updateAutoFire(now) {
+    // 限制投射物總量，避免失控
+    const MAX_SERVER_PROJECTILES = 600;
+    if (this.projectiles.length > MAX_SERVER_PROJECTILES) return;
+
+    for (const p of this.players.values()) {
+      if (!p || p.isDead || p.health <= 0) continue;
+      const lastAtk = p.lastAttackAt || 0;
+      // 若最近有正常攻擊輸入，就不啟用保底
+      if (now - lastAtk < 1500) continue;
+      const lastFire = p.lastAutoFireAt || 0;
+      if (now - lastFire < 350) continue; // ~3 shots/sec
+
+      p.lastAutoFireAt = now;
+      this.createProjectile(p.uid, {
+        type: 'attack',
+        weaponType: 'BASIC',
+        x: p.x,
+        y: p.y,
+        angle: (typeof p.facing === 'number') ? p.facing : 0,
+        damage: 10,
+        speed: 8,
+        size: 16,
+        maxDistance: 650
+      });
     }
   }
 
@@ -339,6 +373,9 @@ class GameState {
 
     // 更新敌人
     this.updateEnemies(deltaTime);
+
+    // ✅ 可玩性保底：自動攻擊（只在沒有 attack input 時才會生效）
+    try { this.updateAutoFire(now); } catch (_) { }
 
     // ✅ 服务器权威：经验球收集检测
     this.updateExperienceOrbs(deltaTime);
