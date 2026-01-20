@@ -21,37 +21,13 @@ const WaveSystem = {
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
 
-        // MMO 架構：每個玩家都廣播波次開始事件，不依賴隊長端
-        try {
-            let isSurvivalMode = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null);
-            } catch (_) { }
-
-            if (isSurvivalMode && typeof Game !== "undefined" && Game.multiplayer) {
-                // ✅ 真正的MMORPG：每個玩家都廣播波次開始事件，包含時間戳，確保所有客戶端使用相同的時間基準
-                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    const timestamp = Date.now(); // 使用當前時間作為時間戳
-                    console.log(`[WaveSystem] 廣播波次開始: wave=${this.currentWave}, timestamp=${timestamp}`);
-                    window.SurvivalOnlineBroadcastEvent("wave_start", {
-                        wave: this.currentWave,
-                        timestamp: timestamp // ✅ 包含時間戳，讓所有客戶端使用相同的時間基準
-                    });
-                }
-            }
-        } catch (_) { }
+        // ✅ 多人（權威伺服器）模式：波次由伺服器狀態驅動，不在 WaveSystem 內做任何網路廣播
+        // （避免與 survival_online.js 的 game-state 同步互相打架，也避免多餘流量）
 
         // 第一波固定生成一支小BOSS（僅單機模式）
         // ✅ 权威服务器：在多人模式下，客戶端不生成小BOSS（由服務器生成）
         let isMultiplayer = false;
-        try {
-            isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-        } catch (_) { }
+        try { isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer); } catch (_) { }
 
         if (!isMultiplayer) {
             this.spawnMiniBoss();
@@ -63,6 +39,10 @@ const WaveSystem = {
     update: function (deltaTime) {
         // ✅ 权威服务器：在多人模式下，客户端不生成敌人（由服务器生成）
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        if (isMultiplayer) {
+            // 波次推進與生成都交給伺服器；客戶端只顯示/同步（由 survival_online.js 的 game-state 處理）
+            return;
+        }
 
         // ✅ 真正的MMORPG：使用同步的波次開始時間，而不是本地時間
         // 這樣可以確保所有客戶端在同一時間生成相同的敵人
@@ -73,13 +53,10 @@ const WaveSystem = {
             this.nextWave();
         }
 
-        if (!isMultiplayer) {
-            // ✅ 真正的MMORPG：生成普通敵人 - 使用同步的時間基準
-            // 確保所有客戶端在同一時間生成相同的敵人
-            if (currentTime - this.lastEnemySpawnTime >= this.enemySpawnRate) {
-                this.spawnEnemy();
-                this.lastEnemySpawnTime = currentTime;
-            }
+        // 生成普通敵人（單機）
+        if (currentTime - this.lastEnemySpawnTime >= this.enemySpawnRate) {
+            this.spawnEnemy();
+            this.lastEnemySpawnTime = currentTime;
         }
         // 移除：時間間隔生成小BOSS，改為每波一次由 nextWave 觸發
         // if (currentTime - this.lastMiniBossTime >= CONFIG.WAVES.MINI_BOSS_INTERVAL) {
@@ -87,11 +64,9 @@ const WaveSystem = {
         //     this.lastMiniBossTime = currentTime;
         // }
 
-        if (!isMultiplayer) {
-            // 生成大BOSS（僅在第20波且尚未生成出口時生成）
-            if (this.currentWave === CONFIG.WAVES.BOSS_WAVE && Game.boss === null && Game.exit === null) {
-                this.spawnBoss();
-            }
+        // 生成大BOSS（單機）
+        if (this.currentWave === CONFIG.WAVES.BOSS_WAVE && Game.boss === null && Game.exit === null) {
+            this.spawnBoss();
         }
     },
 
@@ -114,30 +89,7 @@ const WaveSystem = {
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
 
-        // MMO 架構：每個玩家都廣播波次開始事件，不依賴隊長端
-        try {
-            let isSurvivalMode = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null);
-            } catch (_) { }
-
-            if (isSurvivalMode && typeof Game !== "undefined" && Game.multiplayer) {
-                // ✅ 真正的MMORPG：每個玩家都廣播波次開始事件，包含時間戳，確保所有客戶端使用相同的時間基準
-                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    const timestamp = Date.now(); // 使用當前時間作為時間戳
-                    console.log(`[WaveSystem] 廣播波次開始: wave=${this.currentWave}, timestamp=${timestamp}`);
-                    window.SurvivalOnlineBroadcastEvent("wave_start", {
-                        wave: this.currentWave,
-                        timestamp: timestamp // ✅ 包含時間戳，讓所有客戶端使用相同的時間基準
-                    });
-                }
-            }
-        } catch (_) { }
+        // ✅ 多人（權威伺服器）模式：不在這裡做 wave_start 廣播（由伺服器狀態推進）
 
         // ✅ 权威服务器：在多人模式下，客户端不生成小BOSS（由服务器生成）
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
