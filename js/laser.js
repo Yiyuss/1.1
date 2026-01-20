@@ -194,18 +194,34 @@ class LaserBeam extends Entity {
                         DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
                     }
                     
-                    // 多人模式：發送enemy_damage（用於同步傷害數字，不影響傷害計算）
-                    if (isSurvivalMode && isMultiplayer && enemy && enemy.id) {
+                    // ✅ 權威伺服器模式：激光持續效果需要持續發送 aoe_tick input 到伺服器
+                    if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
                         if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                            window.SurvivalOnlineRuntime.sendToNet({
-                                t: "enemy_damage",
-                                enemyId: enemy.id,
-                                damage: finalDamage,
-                                weaponType: this.weaponType || "UNKNOWN",
-                                isCrit: isCrit,
-                                lifesteal: lifestealAmount,
-                                playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                            });
+                            // 計算受影響的敵人範圍
+                            const half = this.width / 2;
+                            const hitEnemies = [];
+                            for (const e of Game.enemies) {
+                                if (!e || e.markedForDeletion) continue;
+                                const d = this.pointSegmentDistance(e.x, e.y, this.startX, this.startY, this.endX, this.endY);
+                                if (d <= half + e.collisionRadius) {
+                                    hitEnemies.push(e.id);
+                                }
+                            }
+                            if (hitEnemies.length > 0) {
+                                window.SurvivalOnlineRuntime.sendToNet({
+                                    type: 'aoe_tick',
+                                    weaponType: this.weaponType || 'LASER',
+                                    x: this.startX,
+                                    y: this.startY,
+                                    endX: this.endX,
+                                    endY: this.endY,
+                                    width: this.width,
+                                    damage: this.damage,
+                                    allowCrit: true,
+                                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
+                                    enemyIds: hitEnemies
+                                });
+                            }
                         }
                     }
                 }
