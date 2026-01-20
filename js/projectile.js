@@ -14,6 +14,15 @@ class Projectile extends Entity {
     }
     
     update(deltaTime) {
+        // ✅ 權威伺服器模式：多人進行中時，客戶端不做任何「投射物碰撞→扣血/傷害」計算
+        // 伺服器會處理碰撞與扣血，並透過 game-state 同步敵人/玩家狀態。
+        // 這裡直接把本地投射物降級為視覺投射物，避免混版本造成的雙重傷害/不同步。
+        try {
+            if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                this._isVisualOnly = true;
+            }
+        } catch (_) { }
+
         // 僅視覺投射物：不更新邏輯，只更新位置（用於隊員端顯示隊長和其他隊員的投射物）
         if (this._isVisualOnly) {
             // 簡單的位置更新（不進行碰撞檢測和傷害計算）
