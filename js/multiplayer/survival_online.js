@@ -538,18 +538,9 @@ const RemotePlayerManager = (() => {
           }
         } catch (_) { }
 
-        // ✅ 標準連線遊戲：使用速度外推預測位置（在收到新狀態之前）
-        if (player._isRemotePlayer && player._velocityX !== undefined && player._velocityY !== undefined) {
-          const now = Date.now();
-          const timeSinceLastState = Math.max(0, now - (player._lastStateTime || now));
-          // 只在短時間內使用速度外推（避免長時間預測導致錯誤）
-          if (timeSinceLastState < 100 && (Math.abs(player._velocityX) > 0.1 || Math.abs(player._velocityY) > 0.1)) {
-            const extrapolationFactor = Math.min(1.0, timeSinceLastState / 50); // 最多外推50ms
-            const deltaSeconds = deltaTime / 1000;
-            player.x += player._velocityX * deltaSeconds * extrapolationFactor;
-            player.y += player._velocityY * deltaSeconds * extrapolationFactor;
-          }
-        }
+        // ✅ 修復：不要同時做「target lerp」與「速度外推」
+        // 兩者疊加會造成你看到的「先大幅度亂跳，再回到正確位置」。
+        // 這裡統一使用 target lerp（上面那段），保持穩定與一致。
 
         player.update(deltaTime);
       }
@@ -3997,6 +3988,36 @@ function handleServerGameState(state, timestamp) {
           const y = (typeof ev.y === "number") ? ev.y : 0;
           const h = (typeof ev.h === "number") ? ev.h : 0;
           DamageNumbers.show(Math.round(dmg), x, y - h / 2, ev.isCrit === true, { enemyId: ev.enemyId || null });
+        }
+      }
+    } catch (_) { }
+
+    // ✅ 音效/提示事件（伺服器權威）：補齊多人模式缺失的「單機觸發點」
+    try {
+      if (Array.isArray(state.sfxEvents) && typeof AudioManager !== "undefined" && typeof AudioManager.playSound === "function") {
+        const me = _getLocalNetUid ? _getLocalNetUid() : _uid;
+        for (const ev of state.sfxEvents) {
+          if (!ev || typeof ev.type !== "string") continue;
+          if (ev.type === "enemy_death") {
+            AudioManager.playSound("enemy_death");
+          } else if (ev.type === "collect_exp") {
+            // 只讓撿到的人播，避免全隊一直叮叮叫
+            if (!ev.playerUid || ev.playerUid === me) AudioManager.playSound("collect_exp");
+          } else if (ev.type === "shoot") {
+            // 只讓射擊者播（單機同源）
+            if (ev.playerUid && ev.playerUid !== me) continue;
+            const wt = (typeof ev.weaponType === "string") ? ev.weaponType : "";
+            // 盡量映射到既有音效鍵名
+            if (wt === "DAGGER") AudioManager.playSound("dagger_shoot");
+            else if (wt === "FIREBALL") AudioManager.playSound("fireball_shoot");
+            else if (wt === "LIGHTNING") AudioManager.playSound("lightning_shoot");
+            else if (wt === "LASER") AudioManager.playSound("laser_shoot");
+            else if (wt === "ZAPS") AudioManager.playSound("zaps");
+            else if (wt === "KNIFE") AudioManager.playSound("knife");
+            else if (wt === "BIG_ICE_BALL") AudioManager.playSound("ice2");
+            else if (wt === "BOSS_PROJECTILE") AudioManager.playSound("bo");
+            // BASIC / UNKNOWN：不播（避免噪音）
+          }
         }
       }
     } catch (_) { }
