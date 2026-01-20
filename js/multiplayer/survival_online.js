@@ -143,6 +143,10 @@ let _startSessionId = null;
 // WebSocket
 let _ws = null; // WebSocket 連接
 let _wsReconnectAttempts = 0; // 重連嘗試次數
+// ✅ 權威伺服器 game-state 節流：避免 60Hz 大包造成卡頓/閃現感
+let _lastServerGameStateAt = 0;
+// ✅ 除錯開關（多人同步熱路徑避免大量 log 造成卡頓/延遲/「閃現感」）
+const SURVIVAL_ONLINE_DEBUG = false;
 
 // 自動重連機制
 let _reconnectAttempts = 0;
@@ -445,7 +449,9 @@ const Runtime = (() => {
     const now = Date.now();
     const players = payload.players || {};
 
-    console.log(`[SurvivalOnline] onStateMessage: 收到狀態消息，玩家數量=${Object.keys(players).length}, enabled=${enabled}, isHost=${_isHost}`);
+    if (SURVIVAL_ONLINE_DEBUG) {
+      console.log(`[SurvivalOnline] onStateMessage: 收到狀態消息，玩家數量=${Object.keys(players).length}, enabled=${enabled}, isHost=${_isHost}`);
+    }
 
     // 所有端（包括隊長和隊員）：根據接收到的狀態創建/更新遠程玩家對象
     for (const [uid, p] of Object.entries(players)) {
@@ -465,14 +471,18 @@ const Runtime = (() => {
       // ✅ 修復：定義 playerName 變量（確保在作用域內可用）
       const playerName = (typeof p.name === "string" && p.name.trim()) ? p.name : (member && typeof member.name === "string" && member.name.trim()) ? member.name : uid.slice(0, 6);
 
-      console.log(`[SurvivalOnline] onStateMessage: 處理玩家 ${uid}, 位置=(${p.x}, ${p.y}), characterId=${characterId}, name=${playerName}`);
+      if (SURVIVAL_ONLINE_DEBUG) {
+        console.log(`[SurvivalOnline] onStateMessage: 處理玩家 ${uid}, 位置=(${p.x}, ${p.y}), characterId=${characterId}, name=${playerName}`);
+      }
 
       // 創建或更新遠程玩家對象
       try {
         if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.getOrCreate === "function") {
           const remotePlayer = RemotePlayerManager.getOrCreate(uid, p.x, p.y, characterId, talentLevels);
           if (remotePlayer) {
-            console.log(`[SurvivalOnline] onStateMessage: 成功創建/更新遠程玩家 ${uid}`);
+            if (SURVIVAL_ONLINE_DEBUG) {
+              console.log(`[SurvivalOnline] onStateMessage: 成功創建/更新遠程玩家 ${uid}`);
+            }
             // ✅ 修復：保存名字到遠程玩家對象（確保繪製時能獲取到正確的名字）
             remotePlayer._remotePlayerName = playerName;
             // ✅ 標準連線遊戲移動同步：使用速度外推 + 平滑插值
@@ -2036,39 +2046,34 @@ const Runtime = (() => {
     // 限制發送頻率 (10Hz / 100ms)
     const now = Date.now();
     if (now - lastSendAt < 100) return;
-    lastSendAt = now;
 
     if (typeof Game === "undefined" || !Game.player) return;
 
-    // 構建位置和狀態消息 (Client-Authoritative)
-    const payload = {
-      t: "pos",
-      x: Game.player.x,
-      y: Game.player.y,
-      health: Game.player.health,
-      maxHealth: Game.player.maxHealth,
-      energy: Game.player.energy,
-      maxEnergy: Game.player.maxEnergy,
-      level: Game.player.level,
-      exp: Game.player.experience,
-      expToNext: Game.player.experienceToNextLevel,
-      facingRight: Game.player.facingRight,
-      facingAngle: Game.player.facingAngle,
-      _isDead: Game.player._isDead,
-      _resurrectionProgress: Game.player._resurrectionProgress,
-      isUltimateActive: Game.player.isUltimateActive,
-      ultimateImageKey: Game.player._ultimateImageKey,
-      ultimateEndTime: Game.player.ultimateEndTime,
-      width: Game.player.width,
-      height: Game.player.height,
-      collisionRadius: Game.player.collisionRadius,
-      // 傳遞金幣（共享）
-      coins: Game.coins,
-      hitFlashTime: Game.player.hitFlashTime || 0
-    };
+    // ✅ 權威伺服器架構：發送「移動輸入」給伺服器（server/game-state.js 只吃 data.type='move'）
+    // 重要：之前送 t:'pos' 伺服器不處理，會導致伺服器端玩家位置不動 → 站樁被打 → 客戶端被覆寫成狂扣血/死亡/清武器
+    // 這裡用「位置差分」估算速度，保持不侵入 Player/Input 的既有邏輯（不影響單機）
+    if (typeof tick._lastSentX !== "number") tick._lastSentX = Game.player.x;
+    if (typeof tick._lastSentY !== "number") tick._lastSentY = Game.player.y;
+    if (typeof tick._lastSentAt !== "number") tick._lastSentAt = now;
 
-    // 發送
-    _sendViaWebSocket(payload);
+    const dt = Math.max(1, now - tick._lastSentAt); // ms
+    const dx = (typeof Game.player.x === "number") ? (Game.player.x - tick._lastSentX) : 0;
+    const dy = (typeof Game.player.y === "number") ? (Game.player.y - tick._lastSentY) : 0;
+    // 轉成「像素/16.67ms」的速度，使 server 端 x += vx * dt/16.67 約等於 dx
+    const vx = dx * 16.67 / dt;
+    const vy = dy * 16.67 / dt;
+
+    _sendViaWebSocket({
+      type: "move",
+      vx,
+      vy,
+      deltaTime: dt
+    });
+
+    tick._lastSentX = Game.player.x;
+    tick._lastSentY = Game.player.y;
+    tick._lastSentAt = now;
+    lastSendAt = now;
   }
 
   function getRemotePlayers() {
@@ -3020,6 +3025,13 @@ async function connectWebSocket() {
 
         if (msg.type === 'joined') {
           console.log(`[SurvivalOnline] connectWebSocket: 已加入房間`);
+        } else if (msg.type === 'game-state') {
+          // ✅ 权威服务器：接收服务器游戏状态（節流處理，避免 60Hz 壓垮前端）
+          const now = Date.now();
+          if (now - _lastServerGameStateAt >= 100) { // 10Hz
+            _lastServerGameStateAt = now;
+            handleServerGameState(msg.state, msg.timestamp);
+          }
         } else if (msg.type === 'game-data') {
           // 處理遊戲數據
           const data = msg.data;
@@ -3053,23 +3065,7 @@ async function connectWebSocket() {
           } else if (data.t === "input") {
             // ✅ MMORPG 架構：所有玩家都處理 input 消息，同步遠程玩家移動
             _handleInputMessage(senderUid, data);
-          } else if (data.t === "pos") {
-            // ✅ MMORPG 架構：處理 pos 消息 (Client-Authoritative)
-            // 當收到其他玩家發送的 pos 數據時，更新本地對該玩家的狀態
-
-            // 構造一個符合 onStateMessage 格式的 payload，複用現有邏輯
-            const pseudoStateMSG = {
-              t: "state",
-              players: {
-                [senderUid]: data // data 本身包含 x, y, health 等字段
-              }
-            };
-            // 調用 Runtime.onStateMessage 進行更新
-            Runtime.onStateMessage(pseudoStateMSG);
           }
-        } else if (msg.type === 'game-state') {
-          // ✅ 权威服务器：接收服务器游戏状态
-          handleServerGameState(msg.state, msg.timestamp);
         } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
           // 用戶加入/離開通知（可選）
           console.log(`[SurvivalOnline] connectWebSocket: ${msg.type}, uid=${msg.uid}`);
@@ -3158,8 +3154,9 @@ function _sendViaWebSocket(obj) {
         data: payloadObj
       }));
       // 添加日志以确认发送（仅对 pos 消息，避免日志过多）
-      if (obj && obj.t === "pos") {
-        console.log(`[SurvivalOnline] _sendViaWebSocket: 已發送 ${obj.t} 消息, isHost=${_isHost}, uid=${_uid}`);
+      // （已停用 pos 廣播；保留 debug 訊息開關）
+      if (SURVIVAL_ONLINE_DEBUG && obj && (obj.t || obj.type)) {
+        console.log(`[SurvivalOnline] _sendViaWebSocket: sent ${(obj.t || obj.type)}, isHost=${_isHost}, uid=${_uid}`);
       }
     } catch (e) {
       console.error(`[SurvivalOnline] _sendViaWebSocket: 發送失敗:`, e);
@@ -3394,13 +3391,14 @@ function handleServerGameState(state, timestamp) {
         if (playerState.uid === _uid) {
           // 本地玩家：只同步关键状态（血量、能量等），位置由输入控制
           if (typeof Game !== 'undefined' && Game.player) {
-            Game.player.health = playerState.health || Game.player.health;
-            Game.player.maxHealth = playerState.maxHealth || Game.player.maxHealth;
-            Game.player.energy = playerState.energy || Game.player.energy;
-            Game.player.maxEnergy = playerState.maxEnergy || Game.player.maxEnergy;
-            Game.player.level = playerState.level || Game.player.level;
-            Game.player.experience = playerState.experience || Game.player.experience;
-            Game.player.gold = playerState.gold || Game.player.gold;
+            // ⚠️ 修復：不可用 `||`，否則 0 會被當成 false 導致不同步（例如死亡/清零）
+            if (typeof playerState.health === "number") Game.player.health = playerState.health;
+            if (typeof playerState.maxHealth === "number") Game.player.maxHealth = playerState.maxHealth;
+            if (typeof playerState.energy === "number") Game.player.energy = playerState.energy;
+            if (typeof playerState.maxEnergy === "number") Game.player.maxEnergy = playerState.maxEnergy;
+            if (typeof playerState.level === "number") Game.player.level = playerState.level;
+            if (typeof playerState.experience === "number") Game.player.experience = playerState.experience;
+            if (typeof playerState.gold === "number") Game.player.gold = playerState.gold;
           }
         } else {
           // 远程玩家：更新位置和状态
@@ -3439,7 +3437,7 @@ function handleServerGameState(state, timestamp) {
 
     // 更新游戏状态
     if (typeof Game !== 'undefined') {
-      Game.gameTime = state.gameTime || Game.gameTime;
+      if (typeof state.gameTime === "number") Game.gameTime = state.gameTime;
       if (state.isGameOver) {
         Game.isGameOver = true;
         if (typeof Game.gameOver === 'function') {
