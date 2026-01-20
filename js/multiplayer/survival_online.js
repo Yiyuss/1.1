@@ -148,6 +148,10 @@ let _lastServerGameStateAt = 0;
 // ✅ 除錯開關（多人同步熱路徑避免大量 log 造成卡頓/延遲/「閃現感」）
 const SURVIVAL_ONLINE_DEBUG = false;
 let _sanityLogged = false;
+let _lastCounterSessionId = null;
+let _sessionCountersPrimed = false;
+let _lastSessionCoins = 0;
+let _lastSessionExp = 0;
 
 function _multiplayerSanityOnce() {
   try {
@@ -161,7 +165,7 @@ function _multiplayerSanityOnce() {
       role,
       sessionId: sid,
       wsOpen: hasWs,
-      serverGameStateThrottledHz: 10,
+      serverGameStateThrottledHz: 30,
       clientEventSpawnsDisabled: true,
       enemyClientAIAndDamageDisabled: true,
       projectileClientDamageDisabled: true
@@ -3069,7 +3073,7 @@ async function connectWebSocket() {
         } else if (msg.type === 'game-state') {
           // ✅ 权威服务器：接收服务器游戏状态（節流處理，避免 60Hz 壓垮前端）
           const now = Date.now();
-          if (now - _lastServerGameStateAt >= 100) { // 10Hz
+          if (now - _lastServerGameStateAt >= 33) { // ~30Hz
             _lastServerGameStateAt = now;
             handleServerGameState(msg.state, msg.timestamp);
           }
@@ -3433,14 +3437,55 @@ function handleServerGameState(state, timestamp) {
         if (playerState.uid === _uid) {
           // 本地玩家：只同步关键状态（血量、能量等），位置由输入控制
           if (typeof Game !== 'undefined' && Game.player) {
+            // ✅ session 切換：重置 delta 計數器，避免把舊場次收益重放一次
+            try {
+              const sid = (Game.multiplayer && Game.multiplayer.sessionId) ? Game.multiplayer.sessionId : null;
+              if (sid && _lastCounterSessionId !== sid) {
+                _lastCounterSessionId = sid;
+                _sessionCountersPrimed = false;
+                _lastSessionCoins = 0;
+                _lastSessionExp = 0;
+              }
+            } catch (_) { }
+
             // ⚠️ 修復：不可用 `||`，否則 0 會被當成 false 導致不同步（例如死亡/清零）
             if (typeof playerState.health === "number") Game.player.health = playerState.health;
             if (typeof playerState.maxHealth === "number") Game.player.maxHealth = playerState.maxHealth;
             if (typeof playerState.energy === "number") Game.player.energy = playerState.energy;
             if (typeof playerState.maxEnergy === "number") Game.player.maxEnergy = playerState.maxEnergy;
             if (typeof playerState.level === "number") Game.player.level = playerState.level;
-            if (typeof playerState.experience === "number") Game.player.experience = playerState.experience;
-            if (typeof playerState.gold === "number") Game.player.gold = playerState.gold;
+
+            // ✅ 經驗共享（伺服器權威）：伺服器的 experience 是「本場累積獲得量」
+            // 客戶端用 delta 驅動 gainExperience，保持原本升級/UI/天賦流程不變。
+            if (typeof playerState.experience === "number") {
+              if (!_sessionCountersPrimed) {
+                _lastSessionExp = Math.max(0, Math.floor(playerState.experience || 0));
+              } else {
+                const nowExp = Math.max(0, Math.floor(playerState.experience || 0));
+                const deltaExp = nowExp - (_lastSessionExp || 0);
+                if (deltaExp > 0 && typeof Game.player.gainExperience === "function") {
+                  Game.player.gainExperience(deltaExp);
+                }
+                _lastSessionExp = nowExp;
+              }
+            }
+
+            // ✅ 金幣共享（伺服器權威）：sessionCoins 用 delta 寫回 Game.addCoins（不改存檔碼鍵名）
+            if (typeof playerState.sessionCoins === "number") {
+              if (!_sessionCountersPrimed) {
+                _lastSessionCoins = Math.max(0, Math.floor(playerState.sessionCoins || 0));
+              } else {
+                const nowCoins = Math.max(0, Math.floor(playerState.sessionCoins || 0));
+                const deltaCoins = nowCoins - (_lastSessionCoins || 0);
+                if (deltaCoins > 0 && typeof Game.addCoins === "function") {
+                  Game.addCoins(deltaCoins);
+                }
+                _lastSessionCoins = nowCoins;
+              }
+            }
+
+            // prime after first local state in this session
+            if (!_sessionCountersPrimed) _sessionCountersPrimed = true;
           }
         } else {
           // 远程玩家：更新位置和状态
@@ -3462,6 +3507,11 @@ function handleServerGameState(state, timestamp) {
     // 更新经验球（服务器权威）
     if (Array.isArray(state.experienceOrbs)) {
       updateExperienceOrbsFromServer(state.experienceOrbs);
+    }
+
+    // ✅ 更新寶箱（服务器权威）
+    if (Array.isArray(state.chests)) {
+      updateChestsFromServer(state.chests);
     }
 
     // ✅ 更新路口车辆（服务器权威）
@@ -3494,6 +3544,45 @@ function handleServerGameState(state, timestamp) {
     }
   } catch (e) {
     console.error('[SurvivalOnline] 处理服务器游戏状态失败:', e);
+  }
+}
+
+// ✅ 宝箱同步（服务器权威）
+function updateChestsFromServer(chests) {
+  if (typeof Game === 'undefined' || !Game.multiplayer || !Game.chests) return;
+  if (typeof Chest === 'undefined') return;
+
+  const serverIds = new Set();
+  for (const c of chests) {
+    if (c && c.id) serverIds.add(c.id);
+  }
+
+  // 移除服务器不存在的宝箱
+  for (let i = Game.chests.length - 1; i >= 0; i--) {
+    const local = Game.chests[i];
+    if (!local || !local.id || !serverIds.has(local.id)) {
+      try { if (local && typeof local.destroy === 'function') local.destroy(); } catch (_) { }
+      Game.chests.splice(i, 1);
+    }
+  }
+
+  // 创建/更新宝箱
+  for (const chestState of chests) {
+    if (!chestState || !chestState.id) continue;
+    let local = Game.chests.find(x => x && x.id === chestState.id);
+    if (!local) {
+      // PINEAPPLE 宝箱：用 PineappleUltimatePickup 复用视觉与收集逻辑
+      if (chestState.type === 'PINEAPPLE' && typeof PineappleUltimatePickup !== 'undefined') {
+        local = new PineappleUltimatePickup(chestState.x || 0, chestState.y || 0, { id: chestState.id, flyDurationMs: 0 });
+      } else {
+        local = new Chest(chestState.x || 0, chestState.y || 0, chestState.id);
+      }
+      Game.chests.push(local);
+    } else {
+      // 平滑：若已有对象，直接同步位置（宝箱通常静止）
+      if (typeof chestState.x === 'number') local.x = chestState.x;
+      if (typeof chestState.y === 'number') local.y = chestState.y;
+    }
   }
 }
 
@@ -3561,11 +3650,13 @@ function updateEnemiesFromServer(enemies) {
       Game.enemies.push(enemy);
     }
     if (enemy) {
-      // 更新位置和状态
-      enemy.x = enemyState.x;
-      enemy.y = enemyState.y;
-      enemy.health = enemyState.health;
-      enemy.maxHealth = enemyState.maxHealth;
+      // ✅ 網路插值：記錄目標位置，交由 Enemy.update 在多人模式下平滑追幀
+      if (typeof enemyState.x === 'number') enemy._netTargetX = enemyState.x;
+      if (typeof enemyState.y === 'number') enemy._netTargetY = enemyState.y;
+      if (typeof enemyState.health === 'number') enemy.health = enemyState.health;
+      if (typeof enemyState.maxHealth === 'number') enemy.maxHealth = enemyState.maxHealth;
+      if (typeof enemy.x !== 'number' && typeof enemy._netTargetX === 'number') enemy.x = enemy._netTargetX;
+      if (typeof enemy.y !== 'number' && typeof enemy._netTargetY === 'number') enemy.y = enemy._netTargetY;
 
       // ✅ MMORPG 架構：同步敵人死亡狀態，讓所有玩家都能看到死亡動畫
       if (typeof enemyState.isDying === 'boolean') {
@@ -3620,10 +3711,12 @@ function updateProjectilesFromServer(projectiles) {
       Game.projectiles.push(proj);
     }
     if (proj) {
-      // 更新位置
-      proj.x = projState.x;
-      proj.y = projState.y;
-      proj.angle = projState.angle;
+      // ✅ 網路插值：記錄目標位置，避免每 33ms 硬跳造成閃現
+      if (typeof projState.x === 'number') proj._netTargetX = projState.x;
+      if (typeof projState.y === 'number') proj._netTargetY = projState.y;
+      if (typeof projState.angle === 'number') proj.angle = projState.angle;
+      if (typeof proj.x !== 'number' && typeof proj._netTargetX === 'number') proj.x = proj._netTargetX;
+      if (typeof proj.y !== 'number' && typeof proj._netTargetY === 'number') proj.y = proj._netTargetY;
     }
   }
 }
@@ -3667,11 +3760,11 @@ function updateCarHazardsFromServer(carHazards) {
       Game.projectiles.push(car);
     }
     if (car) {
-      // 更新位置和速度
-      car.x = carState.x;
-      car.y = carState.y;
-      car.vx = carState.vx;
-      car.vy = carState.vy;
+      // ✅ 網路插值：車輛用目標位置 + 速度，避免瞬移
+      if (typeof carState.x === 'number') car._netTargetX = carState.x;
+      if (typeof carState.y === 'number') car._netTargetY = carState.y;
+      if (typeof carState.vx === 'number') car.vx = carState.vx;
+      if (typeof carState.vy === 'number') car.vy = carState.vy;
       car.hitPlayer = carState.hitPlayer || false;
     }
   }
@@ -3700,8 +3793,13 @@ function updateExperienceOrbsFromServer(orbs) {
       Game.experienceOrbs.push(orb);
     }
     if (orb) {
-      orb.x = orbState.x;
-      orb.y = orbState.y;
+      // ✅ 網路插值：記錄目標位置，避免硬跳/吸附造成不同步
+      if (typeof orbState.x === 'number') orb._netTargetX = orbState.x;
+      if (typeof orbState.y === 'number') orb._netTargetY = orbState.y;
+      if (typeof orb.x !== 'number' && typeof orb._netTargetX === 'number') orb.x = orb._netTargetX;
+      if (typeof orb.y !== 'number' && typeof orb._netTargetY === 'number') orb.y = orb._netTargetY;
+      // value 以伺服器為準（避免不同版本）
+      if (typeof orbState.value === 'number') orb.value = orbState.value;
     }
   }
 }
