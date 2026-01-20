@@ -472,14 +472,14 @@
                 );
                 Game.addProjectile(beam);
             }
-                // ✅ 流量優化：音效是單機元素，只在本地播放（與單機一致）
-                if (typeof AudioManager !== 'undefined') {
+            // ✅ 流量優化：音效是單機元素，只在本地播放（與單機一致）
+            if (typeof AudioManager !== 'undefined') {
                 AudioManager.playSound('laser_shoot');
             }
-                return;
+            return;
         }
 
-                // 特殊技能：光芒萬丈（向四面八方射出10條旋轉雷射）
+        // 特殊技能：光芒萬丈（向四面八方射出10條旋轉雷射）
                 if (this.type === 'RADIANT_GLORY') {
                 const baseWidth = this.config.BEAM_WIDTH_BASE || 8;
                 const widthPx = baseWidth; // 固定使用基礎寬度（與LV1雷射相同）
@@ -507,14 +507,14 @@
                     }
                 }
             }
-                // ✅ 流量優化：音效是單機元素，只在本地播放（與單機一致）
-                if (typeof AudioManager !== 'undefined') {
+            // ✅ 流量優化：音效是單機元素，只在本地播放（與單機一致）
+            if (typeof AudioManager !== 'undefined') {
                 AudioManager.playSound('laser_shoot');
             }
-                return;
+            return;
         }
 
-                // 特殊技能：斬擊（扇形瞬時傷害，短暫演出）
+        // 特殊技能：斬擊（扇形瞬時傷害，短暫演出）
                 if (this.type === 'SLASH') {
                 // 改為依玩家朝向施放（不再自動瞄準最近敵人）
                 const baseAngle = (this.player && typeof this.player.facingAngle === 'number') ? this.player.facingAngle : 0;
@@ -529,14 +529,14 @@
                 const effect = new SlashEffect(this.player, baseAngle, dmg, dynamicRadius, arcDeg, durationMs);
                 // 放大視覺尺寸但不影響傷害邏輯
                 if (typeof this.config.VISUAL_SCALE === 'number') {
-                effect.visualScale = this.config.VISUAL_SCALE;
-            }
+                    effect.visualScale = this.config.VISUAL_SCALE;
+                }
                 // 普通斬擊不顯示濺血（僅狂熱斬擊使用濺血疊層）
-            effect.hitOverlayImageKey = null;
+                effect.hitOverlayImageKey = null;
                 Game.addProjectile(effect);
                 if (typeof AudioManager !== 'undefined') {
-                AudioManager.playSound('knife');
-            }
+                    AudioManager.playSound('knife');
+                }
                 return;
         }
 
@@ -608,15 +608,15 @@
                 const arc1 = cfgS ? (cfgS.ARC_DEG_BASE || 80) : 80;
                 const vis1 = cfgS && typeof cfgS.VISUAL_SCALE === 'number' ? cfgS.VISUAL_SCALE : 1.0;
                 const effect1 = new SlashEffect(this.player, baseAngle, dmg, radius1, arc1, durationMs);
-            effect1.weaponType = 'FRENZY_SLASH'; // ✅ 设置正确的weaponType
-            effect1.visualScale = vis1;
+                effect1.weaponType = 'FRENZY_SLASH'; // ✅ 设置正确的weaponType
+                effect1.visualScale = vis1;
                 // 前景斬擊圖：knife；命中濺血：knife2（SlashEffect 預設）
-            effect1.overlayImageKey = 'knife';
-            effect1.hitOverlayImageKey = 'knife2';
+                effect1.overlayImageKey = 'knife';
+                effect1.hitOverlayImageKey = 'knife2';
                 Game.addProjectile(effect1);
                 if (typeof AudioManager !== 'undefined') {
-                AudioManager.playSound('knife');
-            }
+                    AudioManager.playSound('knife');
+                }
 
                 // 第二段：0.5秒後，使用狂熱斬擊的範圍（升級不增範圍）
                 // 調整為第一刀的兩倍範圍（半徑與視覺尺寸加倍，角度保持）
@@ -667,8 +667,8 @@
 
                 // 4) 音效：沿用唱歌音效（避免重複，震波不再自行播放）
                 if (typeof AudioManager !== 'undefined') {
-                AudioManager.playSound('sing_cast');
-            }
+                    AudioManager.playSound('sing_cast');
+                }
                 return;
         }
 
@@ -764,12 +764,13 @@
                 if (target) {
                     projectile.assignedTargetId = target.id;
                 }
-                Game.addProjectile(projectile);
-
-                // ✅ 流量優化：音效是單機元素，只在本地播放（與單機一致）
+                // ✅ 單機元素：音效是單機元素，只在本地播放
+                // 音效播放必須在 Game.addProjectile 之前，確保組隊模式下也能播放
                 if (i === 0 && typeof AudioManager !== 'undefined') {
                     AudioManager.playSound('lightning_shoot');
                 }
+                
+                Game.addProjectile(projectile);
             }
                 return;
         }
@@ -821,12 +822,13 @@
                 if (target) {
                     projectile.assignedTargetId = target.id;
                 }
-                Game.addProjectile(projectile);
-
-                // 音效（發射一次，使用與追蹤綿羊相同的音效）
+                // ✅ 單機元素：音效是單機元素，只在本地播放
+                // 音效播放必須在 Game.addProjectile 之前，確保組隊模式下也能播放
                 if (i === 0 && typeof AudioManager !== 'undefined') {
                     AudioManager.playSound('lightning_shoot');
                 }
+                
+                Game.addProjectile(projectile);
             }
                 return;
         }
@@ -878,12 +880,13 @@
                 if (target) {
                     projectile.assignedTargetId = target.id;
                 }
-                Game.addProjectile(projectile);
-
-                // 音效（發射一次，使用與追蹤綿羊相同的音效）
+                // ✅ 單機元素：音效是單機元素，只在本地播放
+                // 音效播放必須在 Game.addProjectile 之前，確保組隊模式下也能播放
                 if (i === 0 && typeof AudioManager !== 'undefined') {
                     AudioManager.playSound('lightning_shoot');
                 }
+                
+                Game.addProjectile(projectile);
             }
                 return;
         }
@@ -1022,12 +1025,13 @@
                 if (target) {
                     projectile.assignedTargetId = target.id;
                 }
-                Game.addProjectile(projectile);
-
-                // 音效（發射一次，使用與追蹤綿羊相同的音效）
+                // ✅ 單機元素：音效是單機元素，只在本地播放
+                // 音效播放必須在 Game.addProjectile 之前，確保組隊模式下也能播放
                 if (i === 0 && typeof AudioManager !== 'undefined') {
                     AudioManager.playSound('lightning_shoot');
                 }
+                
+                Game.addProjectile(projectile);
             }
                 return;
         }
@@ -1084,39 +1088,37 @@
                     projectile.player = this.player; // 設置玩家引用
                     // 新增：把玩家的爆擊加成帶到投射物，避免在計算時拿不到玩家
                     projectile.critChanceBonusPct = ((this.player && this.player.critChanceBonusPct) || 0);
-                    Game.addProjectile(projectile);
-
-                    // ✅ 權威伺服器模式：音效是單機元素，但伺服器 sfxEvents 已經會播放，避免重複
+                    
+                    // ✅ 單機元素：音效是單機元素，只在本地播放（與單機一致）
                     // 觸發音效（每次發射只播放一次即可）
+                    // 注意：音效播放必須在 Game.addProjectile 之前，確保組隊模式下也能播放
                     if (i === 0 && typeof AudioManager !== 'undefined') {
-                        // 多人模式：跳過本地播放（伺服器會透過 sfxEvents 播放）
-                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                        if (!isMultiplayer) {
-                            switch (this.type) {
-                                case 'DAGGER':
-                                    AudioManager.playSound('dagger_shoot');
-                                    break;
-                                case 'FIREBALL':
-                                    AudioManager.playSound('fireball_shoot');
-                                    break;
-                                case 'LIGHTNING':
-                                    // 閃電在專用邏輯中已播放
-                                    break;
-                                case 'MUFFIN_THROW':
-                                    // 鬆餅投擲在專用邏輯中已播放
-                                    break;
-                                case 'ORBIT':
-                                    // 可選：為旋球加入音效
-                                    break;
-                                case 'CHICKEN_BLESSING':
-                                    // 可選：為雞腿庇佑加入音效
-                                    break;
-                                case 'ROTATING_MUFFIN':
-                                    // 可選：為旋轉鬆餅加入音效
-                                    break;
-                            }
+                        switch (this.type) {
+                            case 'DAGGER':
+                                AudioManager.playSound('dagger_shoot');
+                                break;
+                            case 'FIREBALL':
+                                AudioManager.playSound('fireball_shoot');
+                                break;
+                            case 'LIGHTNING':
+                                // 閃電在專用邏輯中已播放
+                                break;
+                            case 'MUFFIN_THROW':
+                                // 鬆餅投擲在專用邏輯中已播放
+                                break;
+                            case 'ORBIT':
+                                // 可選：為旋球加入音效
+                                break;
+                            case 'CHICKEN_BLESSING':
+                                // 可選：為雞腿庇佑加入音效
+                                break;
+                            case 'ROTATING_MUFFIN':
+                                // 可選：為旋轉鬆餅加入音效
+                                break;
                         }
                     }
+                    
+                    Game.addProjectile(projectile);
                 }
             }
             
