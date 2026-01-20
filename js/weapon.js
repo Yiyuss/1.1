@@ -1157,6 +1157,17 @@ class Weapon {
     }
 }
 
+// ✅ 立即導出到全局作用域（確保在類定義後立即可用）
+try {
+    if (typeof window !== 'undefined') {
+        window.Weapon = Weapon;
+    } else if (typeof global !== 'undefined') {
+        global.Weapon = Weapon;
+    } else if (typeof globalThis !== 'undefined') {
+        globalThis.Weapon = Weapon;
+    }
+} catch (_) { }
+
 // 在類內新增：根據「基礎值 +（等級5%）+（天賦基礎%）+（特化+2/4/6）」計算最終基礎傷害
 Weapon.prototype._computeFinalDamage = function(levelMul){
     // MMORPG標準：主機端的遠程玩家武器不造成傷害（由隊員端的enemy_damage處理，避免雙重傷害）
