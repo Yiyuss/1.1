@@ -44,7 +44,11 @@ class GameState {
     // ✅ MMORPG 逻辑：Boss生成跟踪
     this.minibossSpawnedForWave = false;
     this.bossSpawned = false;
-    this.lastMiniBossSpawnAt = 0;
+    // ✅ 與單機一致：小BOSS 間隔是「從開局開始算」，不能用 0（否則會立刻刷出一隻大血怪）
+    this.lastMiniBossSpawnAt = Date.now();
+
+    // ✅ 可玩性保底（預設關閉）：只在你明確要「鏈路斷掉也能射」時才打開
+    this.enableAutoFireFailsafe = false;
 
     // ✅ 伺服器端難度/地圖（從 client 同步；用於 TUNING 與生成規則同源）
     this.diffId = 'EASY';
@@ -106,6 +110,8 @@ class GameState {
     this.isVictory = false;
     this.gameTime = 0;
     this.hitEvents = [];
+    // ✅ 修復：避免新局一開始就刷小BOSS
+    this.lastMiniBossSpawnAt = Date.now();
 
     // 玩家：回到安全初始狀態（保守）
     for (const p of this.players.values()) {
@@ -541,8 +547,9 @@ class GameState {
     // 更新敌人
     this.updateEnemies(deltaTime);
 
-    // ✅ 可玩性保底：自動攻擊（只在沒有 attack input 時才會生效）
-    try { this.updateAutoFire(now); } catch (_) { }
+    // ✅ 可玩性保底：自動攻擊（預設關閉，避免出現「單機沒有的白色球」）
+    // 若要啟用：把 this.enableAutoFireFailsafe 設為 true（只建議 Debug）
+    try { if (this.enableAutoFireFailsafe) this.updateAutoFire(now); } catch (_) { }
 
     // ✅ 服务器权威：经验球收集检测
     this.updateExperienceOrbs(deltaTime);
@@ -577,7 +584,8 @@ class GameState {
     } catch (_) { }
 
     // 生成敌人（服务器权威）
-    this.spawnEnemies(now, this.config);
+    // ✅ 修復：沒有收到 CONFIG 前不要生成（避免血量/規則不同源，造成「一開始幾隻怪血超多/很怪」）
+    if (this.config) this.spawnEnemies(now, this.config);
 
     // ✅ 服务器权威：生成路口车辆（仅路口地图，仅多人模式）
     // 注意：服务器端只在多人模式下生成车辆，单机模式由客户端生成
@@ -602,8 +610,8 @@ class GameState {
       this.bossSpawned = true;
     }
 
-    // 更新波次
-    this.updateWave(now);
+    // 更新波次（同樣需要 CONFIG 才同源）
+    if (this.config) this.updateWave(now);
 
     // 检查游戏结束条件
     this.checkGameOver();
