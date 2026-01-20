@@ -4041,42 +4041,40 @@ function updateChestsFromServer(chests) {
 }
 
 // ✅ 不影响单机：只在多人模式下执行
+// ✅ 修復「看不到隊友」：舊版 updateRemotePlayerFromServer 依賴不存在的 RemotePlayerManager.create()，導致遠端玩家根本沒被建立
 function updateRemotePlayerFromServer(playerState) {
-  if (typeof Game === 'undefined' || !Game.multiplayer) return;
+  try {
+    if (typeof Game === 'undefined' || !Game.multiplayer || !Game.multiplayer.enabled) return;
+    if (!playerState || typeof playerState !== 'object') return;
+    if (typeof RemotePlayerManager === 'undefined' || typeof RemotePlayerManager.getOrCreate !== 'function') return;
 
-  // 使用 RemotePlayerManager 更新远程玩家
-  if (typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.get === 'function') {
-    let remotePlayer = RemotePlayerManager.get(playerState.uid);
-    if (!remotePlayer) {
-      // 创建远程玩家
-      if (typeof RemotePlayerManager.create === 'function') {
-        remotePlayer = RemotePlayerManager.create(playerState.uid, playerState);
-      }
-    }
-    if (remotePlayer) {
-      // 更新位置（插值平滑）
-      const dx = playerState.x - remotePlayer.x;
-      const dy = playerState.y - remotePlayer.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist > 1) {
-        const lerp = 0.3;
-        remotePlayer.x += dx * lerp;
-        remotePlayer.y += dy * lerp;
-      } else {
-        remotePlayer.x = playerState.x;
-        remotePlayer.y = playerState.y;
-      }
+    const uid = playerState.uid;
+    if (!uid) return;
 
-      // 更新状态
-      remotePlayer.health = playerState.health || remotePlayer.health;
-      remotePlayer.maxHealth = playerState.maxHealth || remotePlayer.maxHealth;
-      remotePlayer.energy = playerState.energy || remotePlayer.energy;
-      remotePlayer.maxEnergy = playerState.maxEnergy || remotePlayer.maxEnergy;
-      remotePlayer.level = playerState.level || remotePlayer.level;
-      remotePlayer.facing = playerState.facing || remotePlayer.facing;
-      remotePlayer.isDead = playerState.isDead || false;
-    }
-  }
+    const startX = (typeof playerState.x === 'number') ? playerState.x : 0;
+    const startY = (typeof playerState.y === 'number') ? playerState.y : 0;
+    const characterId = (typeof playerState.characterId === 'string') ? playerState.characterId : null;
+    const talentLevels = (playerState.talentLevels && typeof playerState.talentLevels === 'object') ? playerState.talentLevels : null;
+
+    const remotePlayer = RemotePlayerManager.getOrCreate(uid, startX, startY, characterId, talentLevels);
+    if (!remotePlayer) return;
+
+    // 位置：用與 RemotePlayerManager.updateAll 同源的插值（只設 target）
+    if (typeof playerState.x === 'number') remotePlayer._netTargetX = playerState.x;
+    if (typeof playerState.y === 'number') remotePlayer._netTargetY = playerState.y;
+    if (typeof remotePlayer.x !== 'number' && typeof remotePlayer._netTargetX === 'number') remotePlayer.x = remotePlayer._netTargetX;
+    if (typeof remotePlayer.y !== 'number' && typeof remotePlayer._netTargetY === 'number') remotePlayer.y = remotePlayer._netTargetY;
+
+    // 狀態：不可用 `||`（0 會被吃掉）
+    if (typeof playerState.health === 'number') remotePlayer.health = playerState.health;
+    if (typeof playerState.maxHealth === 'number') remotePlayer.maxHealth = playerState.maxHealth;
+    if (typeof playerState.energy === 'number') remotePlayer.energy = playerState.energy;
+    if (typeof playerState.maxEnergy === 'number') remotePlayer.maxEnergy = playerState.maxEnergy;
+    if (typeof playerState.level === 'number') remotePlayer.level = playerState.level;
+    if (typeof playerState.facing === 'number') remotePlayer.facing = playerState.facing;
+    if (typeof playerState.isDead === 'boolean') remotePlayer._isDead = playerState.isDead;
+    if (typeof playerState.nickname === 'string') remotePlayer._remotePlayerName = playerState.nickname;
+  } catch (_) { }
 }
 
 // ✅ 不影响单机：只在多人模式下执行
