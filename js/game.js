@@ -739,7 +739,9 @@ const Game = {
                     const imgH = img.naturalHeight || img.height || deco.height;
                     // 调试：S15特殊处理，输出尺寸信息
                     if (deco.imageKey === 'S15') {
-                        console.log('[S15调试] 图片原始尺寸:', imgW, 'x', imgH, '配置尺寸:', deco.width, 'x', deco.height);
+                        if (typeof window !== 'undefined' && window.SURVIVAL_ONLINE_DEBUG) {
+                            console.log('[S15调试] 图片原始尺寸:', imgW, 'x', imgH, '配置尺寸:', deco.width, 'x', deco.height);
+                        }
                     }
                     // 使用图片的完整原始尺寸作为源，缩放到配置的目标尺寸绘制
                     // 这样即使图片文件是原始尺寸，也会正确缩放到目标尺寸
@@ -1919,14 +1921,10 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) { }
 
-            // 組隊模式：廣播勝利事件，讓所有隊員也能看到勝利影片
-            // MMO 架構：每個玩家都廣播勝利事件，不依賴隊長端
-            // ✅ 只在第一次觸發時廣播，避免無限循環
-            if (isSurvivalMode && this.multiplayer) {
+            // ✅ 權威伺服器模式：多人進行中時，勝利由伺服器 state.isVictory 觸發，不再走 client event 廣播
+            if (isSurvivalMode && this.multiplayer && !(this.multiplayer && this.multiplayer.enabled)) {
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("game_victory", {
-                        reason: "exit_reached"
-                    });
+                    window.SurvivalOnlineBroadcastEvent("game_victory", { reason: "exit_reached" });
                 }
                 // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
                 if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
@@ -2487,6 +2485,12 @@ const Game = {
      * 設計：避免與玩家過近、避免與既有障礙重疊。
      */
     spawnObstacles: function () {
+        // ✅ 權威伺服器模式：多人進行中時，由 host 上傳 obstacles 到 server，所有端由 state.obstacles 同步
+        try {
+            if (this.multiplayer && this.multiplayer.enabled && !this.multiplayer.isHost) {
+                return;
+            }
+        } catch (_) { }
         const size = 150;
         const half = size / 2;
         const types = ['S1', 'S2'];
@@ -2524,7 +2528,23 @@ const Game = {
             }
         }
 
-        // ✅ MMORPG 架構：廣播障礙物生成事件，讓所有玩家都能看到相同的障礙物
+        // ✅ 權威伺服器模式：host 上傳到 server（節省流量、避免 event 通道互打）
+        try {
+            if (this.multiplayer && this.multiplayer.enabled && this.multiplayer.isHost) {
+                const obstaclesData = this.obstacles.map(obs => ({
+                    x: obs.x,
+                    y: obs.y,
+                    imageKey: obs.imageKey,
+                    size: obs.size || size
+                }));
+                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                    window.SurvivalOnlineRuntime.sendToNet({ type: 'obstacles', obstacles: obstaclesData });
+                }
+                return;
+            }
+        } catch (_) { }
+
+        // ✅ 舊模式：廣播障礙物生成事件
         try {
             let isSurvivalMode = false;
             let isMultiplayer = false;
@@ -2560,6 +2580,12 @@ const Game = {
      * 設計：避免與障礙與既有裝飾矩形重疊；允許靠近玩家。
      */
     spawnDecorations: function () {
+        // ✅ 權威伺服器模式：多人進行中時，由 host 上傳 decorations 到 server，所有端由 state.decorations 同步
+        try {
+            if (this.multiplayer && this.multiplayer.enabled && !this.multiplayer.isHost) {
+                return;
+            }
+        } catch (_) { }
         // 第二、第三、第四、第五張地圖（forest、desert、garden、intersection）不生成裝飾物，僅保留 S1/S2 障礙物。
         // 注意：不更改任何顯示文字與其他地圖行為；維持第一張地圖邏輯。
         // 第四張地圖（garden）的 S10-S16 裝飾物邏輯保留在註釋中，供未來其他地圖使用。
@@ -2668,7 +2694,24 @@ const Game = {
             }
         }
 
-        // ✅ MMORPG 架構：廣播地圖裝飾生成事件，讓所有玩家都能看到相同的裝飾
+        // ✅ 權威伺服器模式：host 上傳到 server（節省流量、避免 event 通道互打）
+        try {
+            if (this.multiplayer && this.multiplayer.enabled && this.multiplayer.isHost) {
+                const decorationsData = this.decorations.map(deco => ({
+                    x: deco.x,
+                    y: deco.y,
+                    width: deco.width,
+                    height: deco.height,
+                    imageKey: deco.imageKey
+                }));
+                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                    window.SurvivalOnlineRuntime.sendToNet({ type: 'decorations', decorations: decorationsData });
+                }
+                return;
+            }
+        } catch (_) { }
+
+        // ✅ 舊模式：廣播地圖裝飾生成事件
         try {
             let isSurvivalMode = false;
             let isMultiplayer = false;
