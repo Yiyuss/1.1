@@ -2233,12 +2233,15 @@ const Runtime = (() => {
                 const backup = player._ultimateBackup;
                 if (backup && backup.weapons) {
                   // 恢復武器
-                  player.weapons = backup.weapons.map(info => {
-                    const w = new Weapon(player, info.type);
-                    w.level = info.level;
-                    w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
-                    return w;
-                  });
+                  const WeaponCtor = _getGlobalCtor("Weapon");
+                  if (WeaponCtor) {
+                    player.weapons = backup.weapons.map(info => {
+                      const w = new WeaponCtor(player, info.type);
+                      w.level = info.level;
+                      w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
+                      return w;
+                    });
+                  }
                 }
                 // 恢復額外防禦
                 if (player._ultimateExtraDefense > 0) {
