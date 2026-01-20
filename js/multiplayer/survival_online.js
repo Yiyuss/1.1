@@ -3722,7 +3722,9 @@ function _applyVfxEvent(eventType, eventData) {
     if (eventType === "explosion_particles") {
       if (eventData && Array.isArray(eventData.particles)) {
         if (!Game.explosionParticles) Game.explosionParticles = [];
-        for (const particleData of eventData.particles) {
+        // ✅ 防卡：一次最多處理 350 顆
+        const list = eventData.particles.slice(0, 350);
+        for (const particleData of list) {
           if (particleData && particleData.x !== undefined && particleData.y !== undefined) {
             Game.explosionParticles.push({
               x: particleData.x,
@@ -3740,6 +3742,16 @@ function _applyVfxEvent(eventType, eventData) {
       }
     } else if (eventType === "screen_effect") {
       if (eventData && typeof eventData === "object") {
+        // ✅ 開放世界感：距離過遠的爆炸不應震動/閃光（避免全圖抖動）
+        try {
+          if (typeof eventData.x === "number" && typeof eventData.y === "number" && Game.player) {
+            const dx = (Game.player.x || 0) - eventData.x;
+            const dy = (Game.player.y || 0) - eventData.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            // 1200px 內才套用（可視距/地圖大小的保守值）
+            if (dist > 1200) return;
+          }
+        } catch (_) { }
         if (eventData.screenFlash && typeof eventData.screenFlash === "object") {
           if (!Game.screenFlash) Game.screenFlash = { active: false, intensity: 0, duration: 0 };
           Game.screenFlash.active = eventData.screenFlash.active || false;
@@ -3747,10 +3759,15 @@ function _applyVfxEvent(eventType, eventData) {
           Game.screenFlash.duration = eventData.screenFlash.duration || 150;
         }
         if (eventData.cameraShake && typeof eventData.cameraShake === "object") {
-          if (!Game.cameraShake) Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
-          Game.cameraShake.active = eventData.cameraShake.active || false;
-          Game.cameraShake.intensity = eventData.cameraShake.intensity || 8;
-          Game.cameraShake.duration = eventData.cameraShake.duration || 200;
+          // ✅ 震動屬於單機元素：只允許「自己角色」觸發鏡頭震動
+          // eventData.playerUid 由發送端（client vfx）或伺服器 vfxEvents（命中玩家）提供
+          const me = _getLocalNetUid ? _getLocalNetUid() : _uid;
+          if (eventData.playerUid && eventData.playerUid === me) {
+            if (!Game.cameraShake) Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+            Game.cameraShake.active = eventData.cameraShake.active || false;
+            Game.cameraShake.intensity = eventData.cameraShake.intensity || 8;
+            Game.cameraShake.duration = eventData.cameraShake.duration || 200;
+          }
         }
       }
     }
@@ -3929,8 +3946,54 @@ function broadcastEvent(eventType, eventData) {
       // ✅ 多人元素（視覺特效）：粒子/鏡頭效果走專用 vfx 通道（只轉發，不進入權威 state）
       // 音效已被定義為單機元素：不在此處播放/同步音效。
       if (eventType === "explosion_particles" || eventType === "screen_effect") {
-        if (_ws && _ws.readyState === WebSocket.OPEN) {
-          _sendViaWebSocket({ type: "vfx", eventType, eventData: (eventData && typeof eventData === "object") ? eventData : {} });
+        // ✅ 高頻保護：爆炸粒子可能每幀產生，需合併/限速，否則流量爆炸
+        if (!broadcastEvent._vfx) broadcastEvent._vfx = { pendingParticles: [], lastSendAt: 0, flushTimer: null };
+        const vfx = broadcastEvent._vfx;
+
+        if (eventType === "explosion_particles") {
+          const particles = (eventData && Array.isArray(eventData.particles)) ? eventData.particles : [];
+          if (particles.length) {
+            // 合併進待發送隊列（只保留最新一段，避免累積過大）
+            // 上限：最多 350 顆（再多也看不出差異，反而會卡）
+            const capped = particles.slice(0, 350);
+            vfx.pendingParticles.push(...capped);
+            if (vfx.pendingParticles.length > 350) {
+              vfx.pendingParticles = vfx.pendingParticles.slice(vfx.pendingParticles.length - 350);
+            }
+          }
+
+          const now = Date.now();
+          const intervalMs = 100; // 10Hz
+          const sendNow = (now - (vfx.lastSendAt || 0)) >= intervalMs;
+
+          const flush = () => {
+            vfx.flushTimer = null;
+            if (!_ws || _ws.readyState !== WebSocket.OPEN) return;
+            if (!_wsJoinedAck) return;
+            if (!vfx.pendingParticles.length) return;
+            const out = vfx.pendingParticles.slice(0, 350);
+            vfx.pendingParticles = [];
+            vfx.lastSendAt = Date.now();
+            _sendViaWebSocket({ type: "vfx", eventType: "explosion_particles", eventData: { particles: out } });
+          };
+
+          if (sendNow) {
+            flush();
+          } else if (!vfx.flushTimer) {
+            vfx.flushTimer = setTimeout(flush, intervalMs);
+          }
+        } else {
+          // screen_effect：低頻，直接送（仍加上 playerUid 供「只震自己」判斷）
+          if (_ws && _ws.readyState === WebSocket.OPEN) {
+            let ed = (eventData && typeof eventData === "object") ? eventData : {};
+            try {
+              if (!ed.playerUid) {
+                const me = _getLocalNetUid ? _getLocalNetUid() : _uid;
+                ed = { ...ed, playerUid: me };
+              }
+            } catch (_) { }
+            _sendViaWebSocket({ type: "vfx", eventType, eventData: ed });
+          }
         }
         return;
       }
@@ -4190,6 +4253,16 @@ function handleServerGameState(state, timestamp) {
             else if (wt === "BOSS_PROJECTILE") AudioManager.playSound("bo");
             // BASIC / UNKNOWN：不播（避免噪音）
           }
+        }
+      }
+    } catch (_) { }
+
+    // ✅ 多人元素（視覺特效）：伺服器權威 VFX（例如：BOSS 投射物命中）
+    try {
+      if (Array.isArray(state.vfxEvents)) {
+        for (const v of state.vfxEvents) {
+          if (!v || typeof v.type !== "string") continue;
+          _applyVfxEvent(v.type, v.data);
         }
       }
     } catch (_) { }
