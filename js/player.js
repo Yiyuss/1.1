@@ -714,8 +714,12 @@ class Player extends Entity {
          try {
              if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
                  const fromServer = !!(opts && opts.fromServer);
-                 if (!fromServer && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                     window.SurvivalOnlineRuntime.sendToNet({ type: 'resurrect', timestamp: Date.now() });
+                 // ✅ 切腫瘤：禁止客戶端主動送 resurrect（會變成自救外掛/繞過救援機制）
+                 // 權威多人只允許伺服器在救援成功時回傳狀態來復活（fromServer:true）。
+                 if (!fromServer) {
+                     // 回到死亡狀態（保持安全），等待伺服器救援完成
+                     this._isDead = true;
+                     this.health = 0;
                  }
                  return;
              }
