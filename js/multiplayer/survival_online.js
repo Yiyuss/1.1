@@ -1082,9 +1082,19 @@ const Runtime = (() => {
 
           if (isPineapple) {
             // ✅ 鳳梨掉落：共享經驗（伺服器權威 counter）；回報 amount（與單機同源：50 + 30% 當下所需升級經驗）
+            // ✅ 確保只在生存模式且多人模式下發送
             try {
+              let isSurvivalMode = false;
+              try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                  ? GameModeManager.getCurrent()
+                  : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                      ? ModeManager.getActiveModeId()
+                      : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+              } catch (_) { }
               const p = Game.player;
-              if (p && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+              if (p && isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                 const base = 50;
                 let needNow = 0;
                 try {
@@ -2289,12 +2299,20 @@ const Runtime = (() => {
             player._resurrectionProgress = myState._resurrectionProgress;
           }
 
-          // 更新 UI
+          // ✅ 單機元素：UI 更新應該只由本地玩家更新，不應該在組隊模式下執行
+          // 注意：onSnapshotMessage 應該已經在組隊模式下被停用（第2191行），但為了安全起見，這裡再次檢查
+          // 在組隊模式下，UI 更新應該由 handleServerGameState 處理，而不是這裡
           if (typeof UI !== "undefined") {
-            if (UI.updateHealthBar) UI.updateHealthBar(player.health, player.maxHealth);
-            if (UI.updateEnergyBar) UI.updateEnergyBar(player.energy, player.maxEnergy);
-            if (UI.updateLevel) UI.updateLevel(player.level);
-            if (UI.updateExpBar) UI.updateExpBar(player.experience, player.experienceToNextLevel);
+            // ✅ 確保只在非組隊模式下更新 UI（避免 HUD 跳到其他玩家身上）
+            try {
+              const isMultiplayer = (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled);
+              if (!isMultiplayer) {
+                if (UI.updateHealthBar) UI.updateHealthBar(player.health, player.maxHealth);
+                if (UI.updateEnergyBar) UI.updateEnergyBar(player.energy, player.maxEnergy);
+                if (UI.updateLevel) UI.updateLevel(player.level);
+                if (UI.updateExpBar) UI.updateExpBar(player.experience, player.experienceToNextLevel);
+              }
+            } catch (_) {}
           }
         }
       }
@@ -3590,8 +3608,8 @@ async function connectWebSocket() {
           } else if (data.t === "full_snapshot") {
             Runtime.onFullSnapshotMessage(data);
           } else if (data.t === "enemy_damage") {
-            // ✅ MMORPG 架構：所有玩家都處理 enemy_damage 消息，同步其他玩家的傷害
-            _handleEnemyDamageMessage(senderUid, data);
+            // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再處理 enemy_damage 消息
+            // _handleEnemyDamageMessage 已廢棄，傷害計算完全由伺服器權威處理
           } else if (data.t === "ultimate_pineapple") {
             // ✅ MMORPG 架構：所有玩家都處理 ultimate_pineapple 消息，同步鳳梨大絕掉落物
             _handleUltimatePineappleMessage(senderUid, data);
@@ -4167,6 +4185,23 @@ function handleServerGameState(state, timestamp) {
             if (typeof playerState.energy === "number") Game.player.energy = playerState.energy;
             if (typeof playerState.maxEnergy === "number") Game.player.maxEnergy = playerState.maxEnergy;
             if (typeof playerState.level === "number") Game.player.level = playerState.level;
+            
+            // ✅ 單機元素：左上角 HUD（血量/經驗/能量/等級）只顯示本地玩家狀態
+            // 在組隊模式下，使用伺服器同步的本地玩家狀態更新 HUD
+            if (typeof UI !== "undefined") {
+              try {
+                if (UI.updateHealthBar && typeof Game.player.health === "number" && typeof Game.player.maxHealth === "number") {
+                  UI.updateHealthBar(Game.player.health, Game.player.maxHealth);
+                }
+                if (UI.updateEnergyBar && typeof Game.player.energy === "number" && typeof Game.player.maxEnergy === "number") {
+                  UI.updateEnergyBar(Game.player.energy, Game.player.maxEnergy);
+                }
+                if (UI.updateLevel && typeof Game.player.level === "number") {
+                  UI.updateLevel(Game.player.level);
+                }
+                // 經驗條由 gainExperience() 中的 UI.updateExpBar 更新，這裡不需要重複更新
+              } catch (_) {}
+            }
 
             // ✅ 經驗共享（伺服器權威）：伺服器的 experience 是「本場累積獲得量」
             // 客戶端用 delta 驅動 gainExperience，保持原本升級/UI/天賦流程不變。
@@ -4589,8 +4624,14 @@ function updateEnemiesFromServer(enemies) {
       if (typeof enemy.y !== 'number' && typeof enemy._netTargetY === 'number') enemy.y = enemy._netTargetY;
 
       // ✅ MMORPG 架構：同步敵人死亡狀態，讓所有玩家都能看到死亡動畫
+      // ✅ 單機元素：音效是單機元素，只在本地播放
       if (typeof enemyState.isDying === 'boolean') {
+        const wasDying = enemy.isDying;
         enemy.isDying = enemyState.isDying;
+        // 當敵人從非死亡狀態變為死亡狀態時，播放死亡音效
+        if (!wasDying && enemyState.isDying && typeof AudioManager !== 'undefined') {
+          AudioManager.playSound('enemy_death');
+        }
       }
       if (typeof enemyState.deathElapsed === 'number') {
         enemy.deathElapsed = enemyState.deathElapsed;
@@ -5956,35 +5997,14 @@ function startSurvivalNow(params) {
     });
 
     // ✅ MMORPG 架構：綁定傷害廣播監聽器
-    // 當本地發生傷害時，廣播給其他玩家
+    // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再需要 damage_enemy 監聽器
+    // 移除舊的 damage_enemy 監聽器（如果存在）
     setTimeout(() => {
-      if (typeof Game !== "undefined" && Game.events && typeof Game.events.on === "function") {
-        // 防止重複綁定 (移除舊的如果存在)
-        if (Game._damageBroadcastListener) {
-          Game.events.off('damage_enemy', Game._damageBroadcastListener);
-        }
-
-        // 定義監聽器
-        Game._damageBroadcastListener = (data) => {
-          // 只廣播本地玩家造成的傷害 (data.playerUid === _uid)
-          if (data && data.playerUid && data.playerUid === _uid) {
-            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && typeof window.SurvivalOnlineRuntime.Runtime.sendMessage === "function") {
-              window.SurvivalOnlineRuntime.Runtime.sendMessage({
-                t: 'enemy_damage',
-                enemyId: data.enemyId,
-                damage: data.damage,
-                isCrit: data.isCrit,
-                weaponType: data.weaponType
-              });
-            }
-          }
-        };
-
-        // 綁定新監聽器
-        Game.events.on('damage_enemy', Game._damageBroadcastListener);
-        console.log("[SurvivalOnline] 已綁定 damage_enemy 廣播監聽器");
+      if (typeof Game !== "undefined" && Game.events && typeof Game.events.off === "function" && Game._damageBroadcastListener) {
+        Game.events.off('damage_enemy', Game._damageBroadcastListener);
+        Game._damageBroadcastListener = null;
       }
-    }, 1000); // 延遲綁定以確保 Game 已完全初始化
+    }, 1000);
 
     return;
   }
