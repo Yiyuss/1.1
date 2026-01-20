@@ -225,20 +225,7 @@ class DivineJudgmentEffect extends Entity {
                 );
             }
             
-            // 多人模式：發送enemy_damage（用於同步傷害數字，不影響傷害計算）
-            if (isSurvivalMode && isMultiplayer && enemy && enemy.id) {
-                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                    window.SurvivalOnlineRuntime.sendToNet({
-                        t: "enemy_damage",
-                        enemyId: enemy.id,
-                        damage: finalDamage,
-                        weaponType: this._damageWeaponType || "DIVINE_JUDGMENT",
-                        isCrit: isCrit,
-                        lifesteal: lifestealAmount,
-                        playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                    });
-                }
-            }
+            // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再發送 enemy_damage
         }
         // 音效（與裁決一致）
         if (typeof AudioManager !== 'undefined') {
