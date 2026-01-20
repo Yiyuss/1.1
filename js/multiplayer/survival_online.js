@@ -271,6 +271,25 @@ const RECONNECT_DELAY_MS = 3000; // 3 秒
 const RemotePlayerManager = (() => {
   const remotePlayers = new Map(); // uid -> Player
 
+  // ✅ 遠端玩家貼圖保底：確保 spriteImageKey 對應的圖片已載入
+  // 目的：修復「看不到隊友角色貼圖」但其實 remote Player 物件已存在的情況（Game.images[key] 未載入/未就緒）
+  function _ensureSpriteLoaded(spriteKey) {
+    try {
+      if (!spriteKey) return;
+      if (typeof Game !== 'undefined' && Game.images && Game.images[spriteKey] && Game.images[spriteKey].complete) return;
+
+      // 優先使用 ResourceLoader 的映射表（能正確分辨 png/gif）
+      if (typeof ResourceLoader !== 'undefined' && ResourceLoader && typeof ResourceLoader.getImageList === 'function' && typeof ResourceLoader.loadImage === 'function') {
+        const list = ResourceLoader.getImageList();
+        const item = Array.isArray(list) ? list.find(x => x && x.name === spriteKey && x.src) : null;
+        if (item && item.src) {
+          ResourceLoader.loadImage(spriteKey, item.src);
+          return;
+        }
+      }
+    } catch (_) { }
+  }
+
   // M4：使用完整的 Player 類（而不是簡化的 RemotePlayer）
   // 這樣遠程玩家也能有武器、造成傷害、收集經驗等
   function getOrCreate(uid, startX, startY, characterId, talentLevels = null) {
@@ -312,6 +331,7 @@ const RemotePlayerManager = (() => {
                 if (char.critChanceBonusPct) existingPlayer._characterBaseCritBonusPct = char.critChanceBonusPct;
                 if (char.canUseUltimate === false) existingPlayer.canUseUltimate = false;
                 existingPlayer.spriteImageKey = char.spriteImageKey || 'player';
+                _ensureSpriteLoaded(existingPlayer.spriteImageKey);
 
                 // 重新應用天賦效果
                 if (talentLevels && typeof talentLevels === "object") {
@@ -355,6 +375,7 @@ const RemotePlayerManager = (() => {
               if (char.critChanceBonusPct) player._characterBaseCritBonusPct = char.critChanceBonusPct;
               if (char.canUseUltimate === false) player.canUseUltimate = false;
               player.spriteImageKey = char.spriteImageKey || 'player';
+              _ensureSpriteLoaded(player.spriteImageKey);
               player.health = player.maxHealth;
 
               // 應用天賦效果（使用該玩家自己的天賦等級，而不是本地天賦數據）
@@ -4090,22 +4111,8 @@ function updateEnemiesFromServer(enemies) {
       Game.enemies.push(enemy);
     }
     if (enemy) {
-      // ✅ 多人視覺回饋：伺服器權威模式下不會呼叫 Enemy.takeDamage()
-      // 因此用「血量下降 delta」顯示傷害數字（不影響邏輯，只是畫面回饋）
-      try {
-        if (typeof enemyState.health === 'number') {
-          const prev = (typeof enemy._netLastHealth === 'number') ? enemy._netLastHealth : enemy.health;
-          const next = enemyState.health;
-          const delta = (typeof prev === 'number') ? (prev - next) : 0;
-          if (delta > 0 && typeof DamageNumbers !== 'undefined' && typeof DamageNumbers.show === 'function') {
-            const ex = (typeof enemyState.x === 'number') ? enemyState.x : (typeof enemy.x === 'number' ? enemy.x : 0);
-            const ey = (typeof enemyState.y === 'number') ? enemyState.y : (typeof enemy.y === 'number' ? enemy.y : 0);
-            const eh = (typeof enemy.height === 'number') ? enemy.height : 0;
-            DamageNumbers.show(Math.round(delta), ex, ey - eh / 2, false, { enemyId: enemyState.id });
-          }
-          enemy._netLastHealth = next;
-        }
-      } catch (_) { }
+      // ✅ 多人視覺回饋：傷害數字統一改用 server hitEvents（含爆擊標記）
+      // 避免「health delta」顯示與 hitEvents 疊加，造成顏色/大小混亂與節流誤判
 
       // ✅ 網路插值：記錄目標位置，交由 Enemy.update 在多人模式下平滑追幀
       if (typeof enemyState.x === 'number') enemy._netTargetX = enemyState.x;
