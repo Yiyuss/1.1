@@ -205,4 +205,11 @@ class CarHazard extends Entity {
     }
 }
 
+// ✅ 讓 ES module（例如 survival_online.js）可以從 globalThis 取得建構子
+try {
+    if (typeof window !== 'undefined') {
+        window.CarHazard = CarHazard;
+    }
+} catch (_) { }
+
 
