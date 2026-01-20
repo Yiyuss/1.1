@@ -364,6 +364,13 @@ class Chest extends Entity {
     }
 }
 
+// ✅ 讓 ES module（例如 survival_online.js）可以從 globalThis 取得建構子
+try {
+    if (typeof window !== 'undefined') {
+        window.Chest = Chest;
+    }
+} catch (_) { }
+
 // 鳳梨大絕掉落物：外觀/特效沿用寶箱（BOX.png）光束，但圖片改為 A45.png（53x100）
 // - 不會被吸引（不是 ExperienceOrb），必須玩家碰觸才能收集
 // - 收集後給予「50 + 當下所需升級的30%經驗」並播放 collect_exp 音效
