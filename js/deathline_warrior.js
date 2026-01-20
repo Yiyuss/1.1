@@ -190,20 +190,7 @@ class DeathlineWarriorEffect extends Entity {
                     });
                 }
                 
-                // 多人模式：發送enemy_damage（用於同步傷害數字，不影響傷害計算）
-                if (isSurvivalMode && isMultiplayer && enemy && enemy.id) {
-                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                        window.SurvivalOnlineRuntime.sendToNet({
-                            t: "enemy_damage",
-                            enemyId: enemy.id,
-                            damage: finalDamage,
-                            weaponType: this.weaponType || "DEATHLINE_WARRIOR",
-                            isCrit: isCrit,
-                            lifesteal: lifestealAmount,
-                            playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                        });
-                    }
-                }
+                // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再發送 enemy_damage
             }
         } else {
             // 單體傷害（死線戰士）
