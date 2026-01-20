@@ -485,6 +485,11 @@ const Game = {
         // 檢查玩家與出口的碰撞（第20波BOSS死亡後）
         // 組隊模式：檢查所有玩家（本地玩家 + 遠程玩家），任何一個玩家觸碰到出口都會觸發勝利
         if (this.exit && !this.isGameOver) {
+            // ✅ 權威伺服器模式：多人進行中時，出口觸碰與勝利由伺服器判定（state.isVictory）
+            // 這裡不做本地碰撞判定，避免不同步/重複勝利/事件循環。
+            if (this.multiplayer && this.multiplayer.enabled) {
+                // 僅保留繪製（draw）即可
+            } else {
             const exitCenterX = this.exit.x;
             const exitCenterY = this.exit.y;
             const exitHalfWidth = this.exit.width / 2;
@@ -563,6 +568,7 @@ const Game = {
                     this.victory();
                     break; // 觸發勝利後跳出循環
                 }
+            }
             }
         }
 
@@ -1652,6 +1658,11 @@ const Game = {
         const isFromServer = opts && opts.fromServer;
         const id = (opts && opts.id) ? opts.id : (typeof Utils !== 'undefined' && Utils.generateUUID ? Utils.generateUUID() : `chest_${Date.now()}_${Math.random()}`);
 
+        // ✅ 權威伺服器模式：多人進行中時，寶箱由伺服器 state.chests 同步，避免本地生成/廣播互打
+        if (this.multiplayer && this.multiplayer.enabled && !isFromServer) {
+            return;
+        }
+
         // ✅ MMORPG 架構：服務器權威寶箱生成
         // 如果是多人在線且非來自服務器通知
         if (this.multiplayer && this.multiplayer.enabled && !isFromServer) {
@@ -1700,6 +1711,10 @@ const Game = {
             if (typeof PineappleUltimatePickup === 'undefined') return;
 
             const isFromServer = opts && opts.fromServer;
+            // ✅ 權威伺服器模式：多人進行中時，鳳梨掉落物由伺服器 state.chests(type=PINEAPPLE) 同步
+            if (this.multiplayer && this.multiplayer.enabled && !isFromServer) {
+                return;
+            }
             // 如果沒有 ID，生成一個
             if (!opts.id) {
                 opts.id = (typeof Utils !== 'undefined' && Utils.generateUUID ? Utils.generateUUID() : `pine_${Date.now()}_${Math.random()}`);
@@ -1739,6 +1754,10 @@ const Game = {
 
     // 生成出口（第20波BOSS死亡後）
     spawnExit: function () {
+        // ✅ 權威伺服器模式：多人進行中時，出口由伺服器 state.exit 同步，避免本地生成/事件互打
+        if (this.multiplayer && this.multiplayer.enabled) {
+            return;
+        }
         // 在地圖中心生成出口
         const exitX = (this.worldWidth || CONFIG.CANVAS_WIDTH) / 2;
         const exitY = (this.worldHeight || CONFIG.CANVAS_HEIGHT) / 2;
