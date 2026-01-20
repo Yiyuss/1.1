@@ -109,7 +109,9 @@
                 // 例如：1位=100%, 2位=180%, 3位=260%, 4位=340%, 5位=420%
                 // ============================================================================
                 try {
-                    if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.sessionId) {
+                    // ✅ 權威伺服器模式：多人進行中時（multiplayer.enabled），敵人血量由伺服器下發
+                    // 客戶端在 Enemy constructor 再套一次組隊加成會「重複加成」導致血量/難度爆炸與不同步。
+                    if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.sessionId && !(Game.multiplayer && Game.multiplayer.enabled)) {
                         // 獲取組隊玩家數量
                         let playerCount = 1; // 預設至少1位（自己）
                         if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.getMembersState === 'function') {
@@ -295,6 +297,17 @@
                     }
                     return; // 停止其他行為（不再攻擊/移動）
                 }
+
+                // ✅ 權威伺服器模式：多人進行中時，敵人 AI/移動/攻擊/投射物 由伺服器處理
+                // 客戶端只做視覺（紅閃/死亡動畫/特效位置），避免「客戶端扣血」「敵人亂跑」等互打問題。
+                try {
+                    if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                        if (this.hitFlashTime > 0) {
+                            this.hitFlashTime = Math.max(0, this.hitFlashTime - deltaTime);
+                        }
+                        return;
+                    }
+                } catch (_) { }
 
                 if (typeof this.hasCollisionPolygon === 'function' && !this.hasCollisionPolygon()) {
                     let imageName = null;
@@ -1091,6 +1104,12 @@
 
             // 攻擊玩家
             attackPlayer(deltaTime, targetPlayer) {
+                // ✅ 權威伺服器模式：多人進行中時，玩家扣血由伺服器權威結算
+                try {
+                    if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                        return;
+                    }
+                } catch (_) { }
                 // M4：支援攻擊遠程玩家
                 const player = targetPlayer || Game.player;
                 if (!player) return;
@@ -1247,6 +1266,13 @@
             takeDamage(amount, options = {}) {
                 // 死亡淡出期間不再受傷，避免重複死亡觸發
                 if (this.isDying) return;
+                // ✅ 權威伺服器模式：多人進行中時，不在客戶端改動敵人血量/死亡（由伺服器下發）
+                // 這可防止「本地打死了但伺服器沒死」造成的不同步與各種連鎖 bug。
+                try {
+                    if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                        return;
+                    }
+                } catch (_) { }
 
                 this.health -= amount;
                 // 啟動紅閃
