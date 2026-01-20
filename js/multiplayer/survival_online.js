@@ -468,6 +468,12 @@ const Runtime = (() => {
   function onStateMessage(payload) {
     if (!payload || typeof payload !== "object") return;
     if (payload.t !== "state") return;
+    // ✅ 權威伺服器模式：忽略舊的 t:"state"（避免與 server game-state 的玩家位置/狀態互打）
+    try {
+      if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+        return;
+      }
+    } catch (_) { }
     if (!enabled) {
       console.warn("[SurvivalOnline] onStateMessage: Runtime未啟用，忽略狀態消息");
       return;
@@ -2123,9 +2129,9 @@ const Runtime = (() => {
   function tick(game, deltaTime) {
     if (!enabled) return;
 
-    // 限制發送頻率 (10Hz / 100ms)
+    // 限制發送頻率 (~30Hz / 33ms)
     const now = Date.now();
-    if (now - lastSendAt < 100) return;
+    if (now - lastSendAt < 33) return;
 
     if (typeof Game === "undefined" || !Game.player) return;
 
