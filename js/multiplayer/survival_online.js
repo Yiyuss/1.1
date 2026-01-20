@@ -503,6 +503,45 @@ const Runtime = (() => {
   let lastInputAt = 0;
   let _tickCalled = false; // 用于诊断
   const remotePlayers = new Map(); // uid -> { x, y, name, updatedAt }
+  let _netHeartbeatTimer = null;
+
+  function _startNetHeartbeat() {
+    try { if (_netHeartbeatTimer) return; } catch (_) { }
+    _netHeartbeatTimer = setInterval(() => {
+      try {
+        if (!enabled) return;
+        if (typeof Game === "undefined" || !Game.multiplayer || !Game.multiplayer.enabled) return;
+        // 每 2 秒打印一次「啟動線硬指標」：不用你猜/不用你自己測
+        const ws = _ws;
+        const wsState = ws ? ws.readyState : null;
+        const wsStateName = (wsState === 0) ? "CONNECTING" : (wsState === 1) ? "OPEN" : (wsState === 2) ? "CLOSING" : (wsState === 3) ? "CLOSED" : "null";
+        const sinceGs = _netStats.lastGameStateAt ? (Date.now() - _netStats.lastGameStateAt) : null;
+        const sizes = _netStats.lastStateSizes || null;
+        const localCounts = {
+          enemies: (typeof Game !== "undefined" && Array.isArray(Game.enemies)) ? Game.enemies.length : null,
+          projectiles: (typeof Game !== "undefined" && Array.isArray(Game.projectiles)) ? Game.projectiles.length : null,
+          orbs: (typeof Game !== "undefined" && Array.isArray(Game.experienceOrbs)) ? Game.experienceOrbs.length : null,
+          chests: (typeof Game !== "undefined" && Array.isArray(Game.chests)) ? Game.chests.length : null,
+        };
+        console.log("[SurvivalOnline][Boot]", {
+          ws: wsStateName,
+          url: _netStats.wsUrl || (ws && ws.url) || null,
+          joinedMsAgo: _netStats.joinedAt ? (Date.now() - _netStats.joinedAt) : null,
+          gameStateCount: _netStats.gameStateCount,
+          lastGameStateMsAgo: sinceGs,
+          stateSizes: sizes,
+          localCounts
+        });
+      } catch (_) { }
+    }, 2000);
+  }
+
+  function _stopNetHeartbeat() {
+    try {
+      if (_netHeartbeatTimer) clearInterval(_netHeartbeatTimer);
+    } catch (_) { }
+    _netHeartbeatTimer = null;
+  }
 
   function setEnabled(v) {
     const wasEnabled = enabled;
@@ -511,6 +550,9 @@ const Runtime = (() => {
     if (!enabled) {
       remotePlayers.clear();
       console.log(`[SurvivalOnline] Runtime.setEnabled: 已清除遠程玩家列表`);
+      _stopNetHeartbeat();
+    } else {
+      _startNetHeartbeat();
     }
   }
 
