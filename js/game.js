@@ -582,25 +582,16 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) { }
 
-            // 如果有多人模式，也认为是生存模式（确保队员端也能调用tick）
-            if (!isSurvivalMode && this.multiplayer) {
-                // 检查是否有 roomId 或 sessionId（队员端可能有 sessionId）
-                if (this.multiplayer.roomId || this.multiplayer.sessionId) {
-                    isSurvivalMode = true;
-                }
+            // ✅ 修復：不要因為存在 multiplayer/Runtime 就把「非生存模式」誤判為生存模式
+            // 這會導致其他模式也開始跑多人 tick / 吃流量 / 狀態污染
+            // 組隊只允許在 survival 模式啟用，且必須 multiplayer.enabled === true
+            if (!isSurvivalMode) {
+                // 非生存模式：完全不跑組隊 tick
             }
 
-            // 如果 window.SurvivalOnlineRuntime 存在，也认为是生存模式（确保队员端也能调用tick）
-            if (!isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && typeof window.SurvivalOnlineRuntime.Runtime.tick === 'function') {
-                isSurvivalMode = true;
-            }
-
-            // 强制检查：如果有多人模式，直接认为是生存模式（最保险的方式）
-            if (!isSurvivalMode && this.multiplayer && (this.multiplayer.roomId || this.multiplayer.sessionId || this.multiplayer.role)) {
-                isSurvivalMode = true;
-            }
-
-            if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && typeof window.SurvivalOnlineRuntime.Runtime.tick === 'function') {
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled &&
+                typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime &&
+                typeof window.SurvivalOnlineRuntime.Runtime.tick === 'function') {
                 window.SurvivalOnlineRuntime.Runtime.tick(this, deltaTime);
             } else {
                 // 添加日志以诊断（仅记录一次，避免日志过多）
@@ -1206,8 +1197,8 @@ const Game = {
                         (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
                     );
 
-                    // 只有标准投射物（Projectile）才发送到服务器并标记为视觉投射物
-                    // 持续效果类由每个客户端独立计算，伤害叠加（真正的MMORPG）
+                    // 只有标准投射物（Projectile）才发送到服务器
+                    // 持续效果类由每个客户端独立计算（本地表现），但权威伤害/敌人状态以伺服器为准
                     if (!isPersistentEffect) {
                         // 发送攻击输入到服务器
                         const attackInput = {
@@ -1227,11 +1218,13 @@ const Game = {
                             timestamp: Date.now()
                         };
 
-                        // ✅ MMORPG 體驗優化：客戶端權威
-                        // 不發送 'attack' 輸入（會被伺服器攔截），改為監聽 'damage_enemy' 事件廣播傷害結果
-                        // if (typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                        //     window.SurvivalOnlineRuntime.sendToNet(attackInput);
-                        // }
+                        // ✅ 權威伺服器：組隊模式下必須把攻擊輸入送到伺服器，否則伺服器敵人永遠不會掉血
+                        try {
+                            if (this.multiplayer && this.multiplayer.enabled && typeof window !== 'undefined' &&
+                                window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                                window.SurvivalOnlineRuntime.sendToNet(attackInput);
+                            }
+                        } catch (_) { }
 
                         // ✅ MMORPG 體驗優化：客戶端權威 + 預測
                         // 不標記為 _isVisualOnly，讓攻擊在本地立即生效（造成傷害），提供「無延遲」的打擊感
