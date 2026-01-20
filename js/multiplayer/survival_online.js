@@ -941,6 +941,9 @@ const Runtime = (() => {
             eventType === "chest_spawn" ||
             eventType === "boss_projectile_spawn" ||
             eventType === "projectile_spawn" ||
+            // ✅ 伺服器權威：粒子/鏡頭效果也不走 event（避免各端不同步/刷流量）
+            eventType === "explosion_particles" ||
+            eventType === "screen_effect" ||
             // ✅ 伺服器權威：勝利/失敗/出口/經驗球被撿取，改走 state.isVictory/state.isGameOver/state.exit/state.experienceOrbs
             // 避免舊 event 通道復活造成互打與循環。
             eventType === "exit_spawn" ||
@@ -1073,8 +1076,9 @@ const Runtime = (() => {
             }
           }
 
-          // 2) 只有撿到的人拿獎勵
-          if (collectorUid && collectorUid !== myUid) return;
+          // 2) 只有撿到的人拿獎勵（含音效）：多人下音效視為單機元素 → 必須明確是自己才允許
+          const isCollector = (collectorUid && collectorUid === myUid);
+          if (!isCollector) return;
 
           if (isPineapple) {
             // ✅ 鳳梨掉落：共享經驗（伺服器權威 counter）；回報 amount（與單機同源：50 + 30% 當下所需升級經驗）
@@ -1278,95 +1282,6 @@ const Runtime = (() => {
             Game.spawnPineappleUltimatePickup(eventData.x, eventData.y, opts);
           }
         } catch (_) { }
-      } else if (eventType === "chest_collected") {
-        // ✅ MMORPG 架構：處理寶箱/鳳梨被收集事件（統一處理）
-        try {
-          if (typeof Game !== "undefined") {
-            const isPineapple = (eventData.chestType === 'PINEAPPLE');
-            const list = isPineapple ? Game.pineappleUltimatePickups : Game.chests;
-
-            // 根據ID查找（比距離更準確）
-            let chestIndex = -1;
-            if (list) {
-              chestIndex = list.findIndex(c => c.id === eventData.chestId);
-            }
-
-            // 如果找不到ID但有座標（兼容舊版或ID未同步），則嘗試用距離
-            if (chestIndex === -1 && eventData.x !== undefined && eventData.y !== undefined) {
-              const tolerance = 50;
-              for (let i = list.length - 1; i >= 0; i--) {
-                const item = list[i];
-                if (Math.abs(item.x - eventData.x) < tolerance && Math.abs(item.y - eventData.y) < tolerance) {
-                  chestIndex = i;
-                  break;
-                }
-              }
-            }
-
-            if (chestIndex !== -1) {
-              const chest = list[chestIndex];
-
-              // 如果是我收集的，觸發獎勵
-              if (eventData.collectorUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                if (isPineapple) {
-                  // ✅ 鳳梨獎勵：權威伺服器模式下，改由伺服器統一累加 experience counter（共享經驗）
-                  if (typeof AudioManager !== 'undefined' && AudioManager.expSoundEnabled !== false) {
-                    AudioManager.playSound('collect_exp');
-                  }
-
-                  const isServerAuthoritative = !!(Game.multiplayer && Game.multiplayer.enabled);
-                  const player = Game.player;
-
-                  // 計算「50 + 當下所需升級的30%」
-                  let expGain = 50;
-                  try {
-                    let needNow = 0;
-                    if (player && typeof player.experienceToNextLevel === 'number' && typeof player.experience === 'number') {
-                      needNow = Math.max(0, Math.floor(player.experienceToNextLevel - player.experience));
-                    }
-                    const bonus = Math.max(0, Math.floor(needNow * 0.30));
-                    expGain = Math.max(0, Math.floor(50 + bonus));
-                  } catch (_) { }
-
-                  if (isServerAuthoritative) {
-                    // 送給伺服器做共享（避免客戶端自己 gainExperience 造成不同步）
-                    try {
-                      if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                        window.SurvivalOnlineRuntime.sendToNet({
-                          type: 'award_exp',
-                          chestId: eventData.chestId,
-                          amount: expGain,
-                          reason: 'PINEAPPLE'
-                        });
-                      }
-                    } catch (_) { }
-                  } else {
-                    // 單機/舊模式：維持原本本地加經驗行為
-                    try {
-                      if (player && typeof player.gainExperience === 'function') {
-                        player.gainExperience(expGain);
-                      }
-                    } catch (_) { }
-                  }
-                } else {
-                  // 普通寶箱獎勵逻辑
-                  if (typeof AudioManager !== 'undefined') {
-                    AudioManager.playSound('level_up');
-                  }
-                  if (typeof UI !== 'undefined' && UI.showLevelUpMenu) {
-                    UI.showLevelUpMenu();
-                  }
-                }
-              }
-
-              // 移除物件
-              if (chest && typeof chest.destroy === 'function') chest.destroy();
-              list.splice(chestIndex, 1);
-            }
-          }
-        } catch (e) {
-          console.warn("[SurvivalOnline] 處理寶箱收集事件失敗:", e);
-        }
       } else if (eventType === "pineapple_pickup_collected") {
         // 舊版事件兼容（如果服務器還在發送舊事件，轉發給 chest_collected 邏輯或忽略）
         // 由於我們更新了服務器發送 chest_collected，這裡應該不會再收到，但保留為空以防萬一
@@ -2229,6 +2144,8 @@ const Runtime = (() => {
   function onFullSnapshotMessage(payload) {
     if (!payload || typeof payload !== "object") return;
     if (payload.t !== "full_snapshot") return;
+    // ✅ LEGACY：權威多人已由伺服器 game-state 取代（避免舊重連恢復邏輯回魂）
+    try { if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return; } catch (_) { }
 
     try {
       console.log("[SurvivalOnline] M5: 收到全量快照，開始恢復遊戲狀態");
@@ -2270,6 +2187,8 @@ const Runtime = (() => {
   function onSnapshotMessage(payload) {
     if (!payload || typeof payload !== "object") return;
     if (payload.t !== "snapshot") return;
+    // ✅ LEGACY：權威多人已由伺服器 game-state 取代
+    try { if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return; } catch (_) { }
 
     try {
       // MMO 架構：不再校正位置，只同步關鍵狀態
@@ -2493,12 +2412,36 @@ const Runtime = (() => {
           }
         } catch (_) { }
 
+        // ✅ B：天賦/角色加成同源（例：不獸控制吸血）
+        // 伺服器權威命中後需要回復血量，不能留在客戶端（避免不同步/作弊）。
+        let lifesteal = null;
+        try {
+          if (p.weapons && Array.isArray(p.weapons)) {
+            const wpn = p.weapons.find(w => w && w.type === "UNCONTROLLABLE_BEAST");
+            const cfg = wpn && wpn.config ? wpn.config : null;
+            if (cfg) {
+              const level = wpn.level || 1;
+              const basePct = (typeof cfg.LIFESTEAL_BASE_PCT === "number") ? cfg.LIFESTEAL_BASE_PCT : 0.001;
+              const perLevelPct = (typeof cfg.LIFESTEAL_PER_LEVEL === "number") ? cfg.LIFESTEAL_PER_LEVEL : 0.001;
+              const cooldownMs = (typeof cfg.LIFESTEAL_COOLDOWN_MS === "number") ? cfg.LIFESTEAL_COOLDOWN_MS : 100;
+              const minHeal = (typeof cfg.MIN_HEAL === "number") ? cfg.MIN_HEAL : 1;
+              const pct = basePct + (perLevelPct * (Math.max(1, level) - 1));
+              lifesteal = {
+                pct: Math.max(0, pct),
+                cooldownMs: Math.max(0, Math.floor(cooldownMs)),
+                minHeal: Math.max(0, Math.floor(minHeal))
+              };
+            }
+          }
+        } catch (_) { }
+
         const meta = {
           type: "player-meta",
           dodgeRate: Math.max(0, Math.min(0.95, finalDodgeRate)),
           damageReductionFlat: reduction,
           invulnerabilityDurationMs: invulnMs,
-          skillInvulnerableUntil
+          skillInvulnerableUntil,
+          lifesteal
         };
         const sig = JSON.stringify(meta);
         if (sig !== tick._lastMetaSig) {
@@ -2527,6 +2470,8 @@ const Runtime = (() => {
   const SNAPSHOT_INTERVAL_MS = 300; // 每 300ms 發送一次快照（約 3.3Hz）
 
   function collectSnapshot() {
+  // ✅ LEGACY：舊 host 快照系統（M3）— 權威多人已由伺服器 game-state 取代
+  try { if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return null; } catch (_) { }
     if (!_isHost) return null;
     try {
       const snapshot = {
@@ -3594,6 +3539,17 @@ async function connectWebSocket() {
           // 優先使用 fromUid（WebSocket 消息格式），其次使用 uid
           const senderUid = (msg.fromUid && typeof msg.fromUid === "string") ? msg.fromUid : (msg.uid && typeof msg.uid === "string") ? msg.uid : null;
 
+          // ✅ 權威伺服器模式：兼容 server 發的「data.type」（非 data.t）
+          // 例如：websocket-server.js 會廣播 { data: { type: 'chest_collected', ... } }
+          try {
+            if (data && typeof data === "object" && typeof data.type === "string") {
+              if (data.type === "chest_collected") {
+                Runtime.onEventMessage({ t: "event", type: "chest_collected", data });
+                return;
+              }
+            }
+          } catch (_) { }
+
           if (data.t === "state") {
             Runtime.onStateMessage(data);
           } else if (data.t === "event") {
@@ -3614,6 +3570,9 @@ async function connectWebSocket() {
           } else if (data.t === "input") {
             // ✅ MMORPG 架構：所有玩家都處理 input 消息，同步遠程玩家移動
             _handleInputMessage(senderUid, data);
+          } else if (data.t === "vfx") {
+            // ✅ 多人元素（視覺特效）：VFX 事件（WS 轉發）— 所有人都看得到
+            _applyVfxEvent(data.eventType, data.eventData);
           }
         } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
           // 用戶加入/離開通知（可選）
@@ -3694,6 +3653,23 @@ async function connectWebSocket() {
 
 // 通過 WebSocket 發送消息
 function _sendViaWebSocket(obj) {
+  // ✅ 權威伺服器模式：硬斷路舊通道封包（避免殘留 LEGACY 邏輯送包吃流量/干擾）
+  // 這些 t:"state/snapshot/full_snapshot/pos" 都屬於舊 host/client 權威同步，不應在多人權威房間出現。
+  try {
+    if (
+      typeof Game !== "undefined" &&
+      Game.multiplayer &&
+      Game.multiplayer.enabled &&
+      obj &&
+      typeof obj === "object" &&
+      typeof obj.t === "string"
+    ) {
+      const legacyT = obj.t;
+      if (legacyT === "state" || legacyT === "snapshot" || legacyT === "full_snapshot" || legacyT === "pos") {
+        return;
+      }
+    }
+  } catch (_) { }
   if (_ws && _ws.readyState === WebSocket.OPEN) {
     try {
       // ✅ sessionId 防串房/防舊局封包：若目前有 sessionId，盡量附在 data 內
@@ -3737,6 +3713,48 @@ function _sendViaWebSocket(obj) {
       });
     }
   }
+}
+
+// ✅ 多人元素（視覺特效）：VFX 套用（所有人都看得到）
+function _applyVfxEvent(eventType, eventData) {
+  try {
+    if (typeof Game === "undefined") return;
+    if (eventType === "explosion_particles") {
+      if (eventData && Array.isArray(eventData.particles)) {
+        if (!Game.explosionParticles) Game.explosionParticles = [];
+        for (const particleData of eventData.particles) {
+          if (particleData && particleData.x !== undefined && particleData.y !== undefined) {
+            Game.explosionParticles.push({
+              x: particleData.x,
+              y: particleData.y,
+              vx: particleData.vx || 0,
+              vy: particleData.vy || 0,
+              life: particleData.life || 1000,
+              maxLife: particleData.maxLife || 1000,
+              size: particleData.size || 3,
+              color: particleData.color || "#ff0000",
+              source: particleData.source || null
+            });
+          }
+        }
+      }
+    } else if (eventType === "screen_effect") {
+      if (eventData && typeof eventData === "object") {
+        if (eventData.screenFlash && typeof eventData.screenFlash === "object") {
+          if (!Game.screenFlash) Game.screenFlash = { active: false, intensity: 0, duration: 0 };
+          Game.screenFlash.active = eventData.screenFlash.active || false;
+          Game.screenFlash.intensity = eventData.screenFlash.intensity || 0.3;
+          Game.screenFlash.duration = eventData.screenFlash.duration || 150;
+        }
+        if (eventData.cameraShake && typeof eventData.cameraShake === "object") {
+          if (!Game.cameraShake) Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+          Game.cameraShake.active = eventData.cameraShake.active || false;
+          Game.cameraShake.intensity = eventData.cameraShake.intensity || 8;
+          Game.cameraShake.duration = eventData.cameraShake.duration || 200;
+        }
+      }
+    }
+  } catch (_) { }
 }
 
 // 通過 Firebase 發送消息（替代 WebRTC DataChannel）
@@ -3821,6 +3839,8 @@ function listenMessages(roomId) {
 
 // M5：發送全量快照給指定隊員（用於重連恢復）
 function sendFullSnapshotToClient(targetUid) {
+  // ✅ LEGACY：舊重連全量快照（M5）— 權威多人已由伺服器 state 全量同步取代
+  try { if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return; } catch (_) { }
   if (!_isHost || !targetUid) return;
   try {
     const snapshot = collectSnapshot();
@@ -3906,6 +3926,14 @@ function broadcastEvent(eventType, eventData) {
   // 這些應完全由 server game-state 驅動，避免權威打架與流量浪費。
   try {
     if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+      // ✅ 多人元素（視覺特效）：粒子/鏡頭效果走專用 vfx 通道（只轉發，不進入權威 state）
+      // 音效已被定義為單機元素：不在此處播放/同步音效。
+      if (eventType === "explosion_particles" || eventType === "screen_effect") {
+        if (_ws && _ws.readyState === WebSocket.OPEN) {
+          _sendViaWebSocket({ type: "vfx", eventType, eventData: (eventData && typeof eventData === "object") ? eventData : {} });
+        }
+        return;
+      }
       if (
         eventType === "wave_start" ||
         eventType === "enemy_spawn" ||
@@ -4142,13 +4170,14 @@ function handleServerGameState(state, timestamp) {
         for (const ev of state.sfxEvents) {
           if (!ev || typeof ev.type !== "string") continue;
           if (ev.type === "enemy_death") {
-            AudioManager.playSound("enemy_death");
+            // ✅ 音效規則：多人下音效視為「單機元素」→ 只播自己的行為（必須有 playerUid 且等於自己）
+            if (ev.playerUid === me) AudioManager.playSound("enemy_death");
           } else if (ev.type === "collect_exp") {
-            // 只讓撿到的人播，避免全隊一直叮叮叫
-            if (!ev.playerUid || ev.playerUid === me) AudioManager.playSound("collect_exp");
+            // ✅ 同上：只播自己撿到的
+            if (ev.playerUid === me) AudioManager.playSound("collect_exp");
           } else if (ev.type === "shoot") {
-            // 只讓射擊者播（單機同源）
-            if (ev.playerUid && ev.playerUid !== me) continue;
+            // ✅ 同上：只播自己射擊
+            if (ev.playerUid !== me) continue;
             const wt = (typeof ev.weaponType === "string") ? ev.weaponType : "";
             // 盡量映射到既有音效鍵名
             if (wt === "DAGGER") AudioManager.playSound("dagger_shoot");
@@ -4956,9 +4985,7 @@ function handleHostDataMessage(fromUid, msg) {
   } catch (_) { }
   if (msg.t === "reconnect_request") {
     // M5：隊員請求全量快照（重連恢復）
-    if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-      sendFullSnapshotToClient(fromUid);
-    }
+    // ✅ LEGACY：權威多人下已停用
     return;
   } else if (msg.t === "pos") {
     // 收到玩家位置，室長彙總後廣播
