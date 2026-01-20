@@ -68,6 +68,33 @@ const WEBSOCKET_CANDIDATE_URLS = [
 ];
 const WS_CONNECT_TIMEOUT_MS = 6000;
 
+// ✅ 啟動線可觀測性（不是「報告」，是讓系統自己判斷卡在哪一段）
+// - 你目前的症狀是「WS 已連線/已加入，但世界是空的」：
+//   這通常代表：沒有收到 game-state / 或 state 內容一直為空 / 或無法建構 Enemy/Projectile 類
+const _netStats = {
+  wsUrl: null,
+  joinedAt: 0,
+  gameStateCount: 0,
+  lastGameStateAt: 0,
+  lastStateSizes: null,
+};
+
+function _updateNetStatusLine(extra) {
+  try {
+    if (typeof document === "undefined") return;
+    const ws = _ws;
+    const wsState = ws ? ws.readyState : null;
+    const wsStateName = (wsState === 0) ? "CONNECTING" : (wsState === 1) ? "OPEN" : (wsState === 2) ? "CLOSING" : (wsState === 3) ? "CLOSED" : "null";
+    const last = _netStats.lastGameStateAt ? `${Date.now() - _netStats.lastGameStateAt}ms` : "never";
+    const sizes = _netStats.lastStateSizes
+      ? `p=${_netStats.lastStateSizes.players}, e=${_netStats.lastStateSizes.enemies}, pr=${_netStats.lastStateSizes.projectiles}, orb=${_netStats.lastStateSizes.orbs}`
+      : "no-state";
+    const url = _netStats.wsUrl ? _netStats.wsUrl : (ws && ws.url ? ws.url : "");
+    const msg = `WS:${wsStateName} ${url} | gs#${_netStats.gameStateCount} last:${last} ${sizes}${extra ? " | " + extra : ""}`;
+    _setText("survival-online-status", msg);
+  } catch (_) { }
+}
+
 const MAX_PLAYERS = 5;
 const ROOM_TTL_MS = 1000 * 60 * 60; // 1小時（僅用於前端清理提示；真正清理由規則/人為）
 const MEMBER_HEARTBEAT_MS = 15000; // 15s：更新 lastSeenAt（避免關頁/斷線殘留）
@@ -2163,6 +2190,13 @@ const Runtime = (() => {
     if (typeof Game === "undefined" || !Game.player) return;
     // ✅ 未連線成功（OPEN）時不要送任何封包（避免空耗與刷屏）
     if (!_ws || _ws.readyState !== WebSocket.OPEN) return;
+    // ✅ watchdog：WS OPEN 但長時間沒有收到 game-state，代表「伺服器沒廣播/被擋/房間沒掛上」
+    try {
+      const sinceOpen = _netStats.joinedAt ? (Date.now() - _netStats.joinedAt) : 0;
+      if (sinceOpen > 5000 && !_netStats.lastGameStateAt) {
+        _updateNetStatusLine("NO game-state >5s (server not broadcasting?)");
+      }
+    } catch (_) { }
 
     // ✅ 權威伺服器架構：發送「移動輸入」給伺服器（server/game-state.js 只吃 data.type='move'）
     // 重要：之前送 t:'pos' 伺服器不處理，會導致伺服器端玩家位置不動 → 站樁被打 → 客戶端被覆寫成狂扣血/死亡/清武器
@@ -3085,6 +3119,7 @@ async function connectWebSocket() {
 
       _ws = new WebSocket(url);
       const wsRef = _ws;
+      _netStats.wsUrl = url;
 
       // 連線超時計時器（CONNECTING 卡住時，onerror/onclose 可能不會觸發）
       let timeoutId = null;
@@ -3107,6 +3142,8 @@ async function connectWebSocket() {
 
       console.log(`[SurvivalOnline] connectWebSocket: WebSocket 已打開 url=${url}`);
       _wsReconnectAttempts = 0;
+      _netStats.joinedAt = Date.now();
+      _updateNetStatusLine("opened");
 
       // 發送加入房間消息
       wsRef.send(JSON.stringify({
@@ -3173,11 +3210,25 @@ async function connectWebSocket() {
 
         if (msg.type === 'joined') {
           console.log(`[SurvivalOnline] connectWebSocket: 已加入房間`);
+          _updateNetStatusLine("joined");
         } else if (msg.type === 'game-state') {
           // ✅ 权威服务器：接收服务器游戏状态（節流處理，避免 60Hz 壓垮前端）
           const now = Date.now();
           if (now - _lastServerGameStateAt >= 33) { // ~30Hz
             _lastServerGameStateAt = now;
+            _netStats.gameStateCount++;
+            _netStats.lastGameStateAt = now;
+            try {
+              const s = msg.state || {};
+              _netStats.lastStateSizes = {
+                players: Array.isArray(s.players) ? s.players.length : 0,
+                enemies: Array.isArray(s.enemies) ? s.enemies.length : 0,
+                projectiles: Array.isArray(s.projectiles) ? s.projectiles.length : 0,
+                orbs: Array.isArray(s.experienceOrbs) ? s.experienceOrbs.length : 0,
+              };
+              // 如果一直是空世界，這裡會直接顯示出來（e=0, pr=0）
+              _updateNetStatusLine();
+            } catch (_) { }
             handleServerGameState(msg.state, msg.timestamp);
           }
         } else if (msg.type === 'game-data') {
@@ -3227,6 +3278,7 @@ async function connectWebSocket() {
       console.log(`[SurvivalOnline] connectWebSocket: WebSocket 已關閉`);
       Runtime.setEnabled(false);
       _setText("survival-online-status", "連線已中斷");
+        _updateNetStatusLine("closed");
 
       // 自動重連機制
       if (_wsReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
