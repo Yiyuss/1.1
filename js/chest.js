@@ -99,6 +99,29 @@ class Chest extends Entity {
         // ✅ MMORPG 架構：防止重複處理，如果已經被標記為刪除，不再處理
         if (this.markedForDeletion) return;
 
+        // ✅ 權威伺服器模式：多人進行中時，只允許「本地玩家」觸發收集請求
+        // 否則每個客戶端都會用遠程玩家去判碰撞，導致多人重複送 try_collect_chest（必炸）
+        try {
+            if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                const player = Game.player;
+                if (player) {
+                    const dx = this.x - player.x;
+                    const dy = this.y - player.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist <= (this.collisionRadius + player.collisionRadius)) {
+                        this.collect(player);
+                        return;
+                    }
+                }
+                // 多人模式下不再檢查遠程玩家
+                this.x = Utils.clamp(this.x, this.width / 2, (Game.worldWidth || Game.canvas.width) - this.width / 2);
+                this.y = Utils.clamp(this.y, this.height / 2, (Game.worldHeight || Game.canvas.height) - this.height / 2);
+                const dt = Math.max(1, deltaTime);
+                this._beamPhase += dt * 0.0025;
+                return;
+            }
+        } catch (_) { }
+
         // ✅ MMORPG 架構：支援多玩家收集（本地玩家 + 遠程玩家），不依賴室長端
         const allPlayers = [];
         if (Game.player) allPlayers.push(Game.player);
@@ -390,43 +413,49 @@ class PineappleUltimatePickup extends Chest {
             if (t >= 1) this._landed = true;
         }
 
-        // ✅ MMORPG 架構：與玩家碰觸收集（必須落地後），檢查所有玩家（本地+遠程）
+        // ✅ 權威伺服器模式：多人進行中時，只允許本地玩家觸發收集請求
         if (this._landed && !this.markedForDeletion) {
-            // 檢查是否被任何玩家收集（本地玩家 + 遠程玩家）
-            const allPlayers = [];
-            if (Game.player) allPlayers.push(Game.player);
-            // ✅ MMORPG 架構：使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
-            if (Game.multiplayer) {
-                try {
-                    let isSurvivalMode = false;
+            const isServerAuthoritative = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+            if (isServerAuthoritative) {
+                const player = Game.player;
+                if (player && this.isColliding(player)) {
+                    this.collect(player);
+                    return;
+                }
+            } else {
+                // 單機：維持原行為（本地+遠程玩家）
+                const allPlayers = [];
+                if (Game.player) allPlayers.push(Game.player);
+                if (Game.multiplayer) {
                     try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
-                        isSurvivalMode = (activeId === 'survival' || activeId === null);
-                    } catch (_) { }
+                        let isSurvivalMode = false;
+                        try {
+                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                ? GameModeManager.getCurrent()
+                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                    ? ModeManager.getActiveModeId()
+                                    : null);
+                            isSurvivalMode = (activeId === 'survival' || activeId === null);
+                        } catch (_) { }
 
-                    if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
-                        const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
-                        if (typeof rm.getAllPlayers === 'function') {
-                            const remotePlayers = rm.getAllPlayers();
-                            for (const remotePlayer of remotePlayers) {
-                                if (remotePlayer && !remotePlayer.markedForDeletion) {
-                                    allPlayers.push(remotePlayer);
+                        if (isSurvivalMode && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                            const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                            if (typeof rm.getAllPlayers === 'function') {
+                                const remotePlayers = rm.getAllPlayers();
+                                for (const remotePlayer of remotePlayers) {
+                                    if (remotePlayer && !remotePlayer.markedForDeletion) {
+                                        allPlayers.push(remotePlayer);
+                                    }
                                 }
                             }
                         }
+                    } catch (_) { }
+                }
+                for (const p of allPlayers) {
+                    if (this.isColliding(p)) {
+                        this.collect(p);
+                        return;
                     }
-                } catch (_) { }
-            }
-
-            // 檢查是否被任何玩家收集
-            for (const player of allPlayers) {
-                if (this.isColliding(player)) {
-                    this.collect();
-                    return; // 只處理一次，防止重複
                 }
             }
         }
