@@ -206,10 +206,13 @@ function handleMessage(ws, msg) {
 
 function handleJoin(ws, msg) {
   const { roomId, uid, isHost } = msg || {};
-  console.log(`[WebSocket] 用戶加入: roomId=${roomId}, uid=${uid}, isHost=${isHost}`);
+  const authUid = (msg && typeof msg.authUid === 'string') ? msg.authUid : null;
+  const instanceId = (msg && typeof msg.instanceId === 'string') ? msg.instanceId : null;
+  // uid 在這裡視為「netUid」（客戶端會送 `${authUid}:${instanceId}`）
+  console.log(`[WebSocket] 用戶加入: roomId=${roomId}, uid=${uid}, isHost=${isHost}, authUid=${authUid || 'null'}, instanceId=${instanceId || 'null'}`);
 
   // 保存用戶信息
-  users.set(ws, { roomId, uid, isHost });
+  users.set(ws, { roomId, uid, isHost, authUid, instanceId });
 
   // 加入房間
   if (!rooms.has(roomId)) {
@@ -260,6 +263,8 @@ function handleJoin(ws, msg) {
   broadcastToRoom(roomId, ws, {
     type: 'user-joined',
     uid,
+    authUid,
+    instanceId,
     isHost
   });
 }
