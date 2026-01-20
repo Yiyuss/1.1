@@ -1617,20 +1617,8 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) { }
 
-            // MMO 架構：經驗球使用確定性生成，不需要廣播
-            // ✅ 每個客戶端自己生成經驗球（使用相同的隨機種子）
-            // ⚠️ 舊架構殘留：經驗球廣播已移除，改為確定性生成（待實現）
-            // 注意：經驗球由確定性生成處理，不需要廣播
-            if (false && isSurvivalMode && this.multiplayer && this.multiplayer.role === "host") {
-                // ❌ 舊架構：已禁用，改為確定性生成
-                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("exp_orb_spawn", {
-                        x: x || 0,
-                        y: y || 0,
-                        value: value || 0
-                    });
-                }
-            }
+            // ✅ 權威伺服器模式：經驗球由伺服器權威生成與同步，不再需要客戶端廣播
+            // 經驗球由伺服器 game-state 同步，客戶端只負責視覺渲染
         } catch (_) { }
 
         const orb = new ExperienceOrb(x, y, value);
@@ -2038,7 +2026,8 @@ const Game = {
             } catch (_) { }
 
             // ✅ 權威伺服器模式：多人進行中時，勝利由伺服器 state.isVictory 觸發，不再走 client event 廣播
-            if (isSurvivalMode && this.multiplayer && !(this.multiplayer && this.multiplayer.enabled)) {
+            // 只在舊模式（非 enabled）下才廣播，enabled 模式下由伺服器權威控制
+            if (isSurvivalMode && this.multiplayer && !this.multiplayer.enabled) {
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                     window.SurvivalOnlineBroadcastEvent("game_victory", { reason: "exit_reached" });
                 }
