@@ -997,8 +997,19 @@ class Player extends Entity {
         if (Math.floor(this.energy) < this.maxEnergy) return; // 需要100能量
         // ✅ 組隊模式（權威伺服器）：同步大招輸入到伺服器，避免「本地變身了但伺服器不承認/狀態亂跳」
         // 注意：不影響單機；只在 multiplayer.enabled 且不是遠程玩家時發送
+        // ✅ 防污染：只在生存模式下發送大招輸入
         try {
-            if (!this._isRemotePlayer && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled &&
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) { }
+            
+            if (!this._isRemotePlayer && isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled &&
                 typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                 // ✅ 多人元素：發送大招動畫狀態到伺服器（讓其他客戶端能看到變身效果）
                 // 注意：大招功能本身是單機元素，會在本地執行 activateUltimate()
