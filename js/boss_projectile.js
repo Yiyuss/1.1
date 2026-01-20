@@ -442,8 +442,8 @@ class BossProjectile extends Entity {
         // 創建鏡頭震動效果
         this.createCameraShake();
         
-        // ✅ MMORPG 架構：廣播屏幕閃光和鏡頭震動效果，讓所有玩家都能看到
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包（避免污染單機/其他模式）
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
         if (isMultiplayer) {
             try {
                 let isSurvivalMode = false;
