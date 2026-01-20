@@ -2219,9 +2219,37 @@ const Runtime = (() => {
             }
           }
 
-          // 大招狀態同步
+          // ✅ 多人元素：大招動畫狀態同步（讓所有客戶端能看到其他玩家的大招變身效果）
+          // 注意：大招功能本身是單機元素（武器變化、屬性加成等），只在本地執行
+          // 但大招動畫（isUltimateActive、ultimateImageKey、體型變化）是多人元素，需要同步
           if (typeof myState.isUltimateActive === "boolean") {
+            const wasUltimateActive = player.isUltimateActive;
             player.isUltimateActive = myState.isUltimateActive;
+            // ✅ 單機元素：如果伺服器通知大招結束，本地執行 deactivateUltimate（恢復武器、屬性等）
+            // 但只執行功能恢復，不執行視覺恢復（視覺由伺服器同步）
+            if (wasUltimateActive && !myState.isUltimateActive && typeof player.deactivateUltimate === 'function') {
+              // 只恢復功能（武器、屬性），不恢復體型（體型由伺服器同步）
+              try {
+                const backup = player._ultimateBackup;
+                if (backup && backup.weapons) {
+                  // 恢復武器
+                  player.weapons = backup.weapons.map(info => {
+                    const w = new Weapon(player, info.type);
+                    w.level = info.level;
+                    w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
+                    return w;
+                  });
+                }
+                // 恢復額外防禦
+                if (player._ultimateExtraDefense > 0) {
+                  const currentDefense = player.baseDefense || 1;
+                  player.baseDefense = Math.max(1, currentDefense - player._ultimateExtraDefense);
+                }
+                player._ultimateExtraDefense = 0;
+                // 清理備份
+                player._ultimateBackup = null;
+              } catch (_) {}
+            }
           }
           if (typeof myState.ultimateImageKey === "string" && myState.ultimateImageKey) {
             player._ultimateImageKey = myState.ultimateImageKey;
@@ -2231,7 +2259,7 @@ const Runtime = (() => {
           if (typeof myState.ultimateEndTime === "number") {
             player.ultimateEndTime = myState.ultimateEndTime;
           }
-          // 體型同步
+          // ✅ 多人元素：體型同步（大招變身時的視覺效果）
           if (typeof myState.width === "number" && myState.width > 0) {
             player.width = myState.width;
           }
