@@ -887,6 +887,24 @@ class Player extends Entity {
         const ignoreMultiplier = !!(options && options.ignoreMultiplier);
         const mul = ignoreMultiplier ? 1.0 : ((this.experienceGainMultiplier != null) ? this.experienceGainMultiplier : 1.0);
         const finalAmount = Math.max(0, Math.floor((amount || 0) * mul));
+        
+        // ✅ 單機元素：音效是單機元素，只在本地播放
+        // 在組隊模式下，經驗由伺服器同步，需要在 gainExperience 中播放音效
+        // 在單機模式下，經驗球收集時會播放音效，這裡不需要重複播放
+        if (finalAmount > 0 && typeof AudioManager !== 'undefined') {
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+            // 組隊模式下：經驗由伺服器同步，在這裡播放音效
+            // 單機模式下：經驗球收集時會在 experience.js 中播放音效，這裡不播放（避免重複）
+            if (isMultiplayer) {
+                // 尊重 EXP 音效開關
+                if (AudioManager.expSoundEnabled !== false) {
+                    AudioManager.playSound('collect_exp');
+                }
+            }
+            // 單機模式下，如果 options.silent 為 false 或未設置，則不播放音效（由 experience.js 播放）
+            // 如果 options.silent 為 true，則不播放音效（由調用者控制，例如從其他來源獲得經驗時）
+        }
+        
         this.experience += finalAmount;
         
         // 檢查是否升級
