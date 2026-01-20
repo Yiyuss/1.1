@@ -1128,15 +1128,70 @@ const Game = {
 
     // 添加投射物
     addProjectile: function (projectile) {
-        this.projectiles.push(projectile);
-
-        // ✅ 權威伺服器模式：多人進行中時，投射物/技能特效由伺服器 game-state 統一下發
-        // 避免舊的「事件廣播 projectile_spawn」與伺服器投射物同步互打。
+        // ✅ 權威伺服器模式：多人進行中時
+        // - 標準投射物：不在客戶端生成（避免與伺服器下發重複），但要「送 attack input 給伺服器」
+        // - 持續效果/光束等：保留本地視覺（但傷害仍以伺服器權威為準）
         try {
             if (this.multiplayer && this.multiplayer.enabled) {
+                const isLocalPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
+                if (isLocalPlayerProjectile && typeof window !== 'undefined' &&
+                    window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+
+                    const isPersistentEffect = (
+                        projectile.weaponType === 'AURA_FIELD' ||
+                        projectile.weaponType === 'GRAVITY_WAVE' ||
+                        projectile.weaponType === 'ORBIT' ||
+                        projectile.weaponType === 'CHICKEN_BLESSING' ||
+                        projectile.weaponType === 'ROTATING_MUFFIN' ||
+                        projectile.weaponType === 'HEART_COMPANION' ||
+                        projectile.weaponType === 'PINEAPPLE_ORBIT' ||
+                        projectile.weaponType === 'LASER' ||
+                        projectile.weaponType === 'RADIANT_GLORY' ||
+                        projectile.weaponType === 'BIG_ICE_BALL' ||
+                        projectile.weaponType === 'FRENZY_ICE_BALL' ||
+                        projectile.weaponType === 'MIND_MAGIC' ||
+                        (projectile.constructor && (
+                            projectile.constructor.name === 'AuraField' ||
+                            projectile.constructor.name === 'GravityWaveField' ||
+                            projectile.constructor.name === 'OrbitBall' ||
+                            projectile.constructor.name === 'LaserBeam' ||
+                            projectile.constructor.name === 'RadiantGloryEffect' ||
+                            projectile.constructor.name === 'IceFieldEffect' ||
+                            projectile.constructor.name === 'ShockwaveEffect'
+                        )) ||
+                        (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
+                    );
+
+                    // 標準投射物：送給伺服器生成/碰撞/扣血
+                    if (!isPersistentEffect) {
+                        const attackInput = {
+                            type: 'attack',
+                            weaponType: projectile.weaponType || 'UNKNOWN',
+                            x: projectile.x || this.player.x,
+                            y: projectile.y || this.player.y,
+                            angle: projectile.angle || 0,
+                            damage: projectile.damage || 10,
+                            speed: projectile.speed || 5,
+                            size: projectile.size || 20,
+                            homing: projectile.homing || false,
+                            turnRatePerSec: projectile.turnRatePerSec || 0,
+                            assignedTargetId: projectile.assignedTargetId || null,
+                            maxDistance: projectile.maxDistance || 1000,
+                            timestamp: Date.now()
+                        };
+                        try { window.SurvivalOnlineRuntime.sendToNet(attackInput); } catch (_) { }
+                        return; // 不本地生成標準投射物
+                    }
+                }
+
+                // 持續效果/其他：保留本地視覺
+                this.projectiles.push(projectile);
                 return;
             }
         } catch (_) { }
+
+        // 單機 / 舊多人（非 enabled）維持原行為
+        this.projectiles.push(projectile);
 
         // 組隊模式：隊長端廣播投射物給隊員端（僅視覺，不影響傷害計算）
         try {
