@@ -407,6 +407,9 @@ class GameState {
       vx: 0,
       vy: 0,
       isDead: false,
+      // ✅ 多人元素：救援/復活（伺服器權威；客戶端只顯示 UI）
+      resurrectionProgress: 0, // 0..100
+      resurrectionRescuerUid: null,
       weapons: playerData.weapons || [],
       // ✅ 可玩性保底：若客戶端 attack input 鏈路斷掉，伺服器仍能在多人模式提供最低限度的自動攻擊
       lastAttackAt: 0,
@@ -460,6 +463,11 @@ class GameState {
     if (player.health <= 0) {
       player.health = 0;
       player.isDead = true;
+      // ✅ 死亡時重置救援進度（避免殘留）
+      try {
+        player.resurrectionProgress = 0;
+        player.resurrectionRescuerUid = null;
+      } catch (_) { }
       return;
     }
 
@@ -508,6 +516,8 @@ class GameState {
       p.lastAutoFireAt = 0;
       p.invulnerableUntil = 0;
       p.skillInvulnerableUntil = 0;
+      p.resurrectionProgress = 0;
+      p.resurrectionRescuerUid = null;
       // 注意：experience/sessionCoins 是「本場累積量」，新局要清 0
       p.experience = 0;
       p.sessionCoins = 0;
@@ -957,6 +967,9 @@ class GameState {
     // 更新敌人
     this.updateEnemies(deltaTime);
 
+    // ✅ 多人元素：救援/復活（伺服器權威；客戶端只顯示）
+    this.updateResurrections(deltaTime);
+
     // ✅ 伺服器權威：BOSS/HUMAN2 遠程投射物（火彈/瓶子）
     this.updateBossProjectiles(deltaTime);
 
@@ -1029,6 +1042,44 @@ class GameState {
 
     // 检查游戏结束条件
     this.checkGameOver();
+  }
+
+  updateResurrections(deltaTime) {
+    const dt = Math.max(0, (typeof deltaTime === 'number') ? deltaTime : 16.67);
+    const rescueRadius = 52; // 與 client: (collisionRadius||26)*2 同源
+    const progressPerMs = 0.01; // +10%/sec（修正舊註解意圖；仍是多人增量功能）
+
+    for (const dead of this.players.values()) {
+      if (!dead || !dead.isDead || dead.health > 0) continue;
+
+      let rescuer = null;
+      let minDist = Infinity;
+      for (const p of this.players.values()) {
+        if (!p || p === dead || p.isDead || p.health <= 0) continue;
+        const dx = p.x - dead.x;
+        const dy = p.y - dead.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= rescueRadius && dist < minDist) {
+          minDist = dist;
+          rescuer = p;
+        }
+      }
+
+      if (rescuer) {
+        dead.resurrectionRescuerUid = rescuer.uid;
+        dead.resurrectionProgress = Math.min(100, (dead.resurrectionProgress || 0) + progressPerMs * dt);
+        if (dead.resurrectionProgress >= 100) {
+          dead.isDead = false;
+          dead.health = dead.maxHealth || 200;
+          dead.resurrectionProgress = 0;
+          dead.resurrectionRescuerUid = null;
+        }
+      } else {
+        dead.resurrectionRescuerUid = null;
+        // 不倒退進度（同 client 舊邏輯：保持當前進度）
+        if (typeof dead.resurrectionProgress !== 'number') dead.resurrectionProgress = 0;
+      }
+    }
   }
 
   // 更新玩家状态
@@ -1305,6 +1356,11 @@ class GameState {
             if (nearestPlayer.health <= 0) {
               nearestPlayer.health = 0;
               nearestPlayer.isDead = true;
+              // ✅ 死亡時重置救援進度（避免殘留）
+              try {
+                nearestPlayer.resurrectionProgress = 0;
+                nearestPlayer.resurrectionRescuerUid = null;
+              } catch (_) { }
             }
           }
         }
@@ -1885,9 +1941,28 @@ class GameState {
   // 获取完整游戏状态（用于广播）
   getState() {
     const state = {
-      players: Array.from(this.players.entries()).map(([uid, player]) => ({
+      // ✅ 多人元素（省流量）：只下發客戶端渲染/同步真正需要的欄位
+      // - 避免把 server internal/meta/weapons 等一起塞進 game-state，造成流量膨脹與前端負擔
+      // - 不影響單機存檔/引繼碼（本檔案僅用於組隊 WS）
+      players: Array.from(this.players.entries()).map(([uid, p]) => ({
         uid,
-        ...player
+        x: p.x,
+        y: p.y,
+        vx: p.vx,
+        vy: p.vy,
+        facing: p.facing,
+        health: p.health,
+        maxHealth: p.maxHealth,
+        energy: p.energy,
+        maxEnergy: p.maxEnergy,
+        level: p.level,
+        experience: p.experience,
+        sessionCoins: p.sessionCoins,
+        isDead: p.isDead,
+        resurrectionProgress: p.resurrectionProgress,
+        resurrectionRescuerUid: p.resurrectionRescuerUid,
+        characterId: p.characterId,
+        nickname: p.nickname
       })),
       enemies: this.enemies,
       projectiles: this.projectiles,
