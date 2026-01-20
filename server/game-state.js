@@ -422,11 +422,35 @@ class GameState {
       meta: {
         dodgeRate: 0,
         damageReductionFlat: 0,
-        invulnerabilityDurationMs: 1000
+        invulnerabilityDurationMs: 1000,
+        // ✅ 單機同源：不獸控制（吸血）等「命中後回復」類效果需在伺服器權威結算
+        lifesteal: { pct: 0, cooldownMs: 100, minHeal: 1, lastAt: 0 }
       }
     };
     this.players.set(uid, player);
     return player;
+  }
+
+  _applyLifesteal(uid, damageAmount) {
+    const player = this.players.get(uid);
+    if (!player || player.isDead || player.health <= 0) return;
+    if (player.health >= (player.maxHealth || 0)) return;
+    const now = Date.now();
+    try {
+      const ls = player.meta && player.meta.lifesteal ? player.meta.lifesteal : null;
+      if (!ls) return;
+      const pct = (typeof ls.pct === 'number') ? ls.pct : 0;
+      if (!(pct > 0)) return;
+      const cooldownMs = (typeof ls.cooldownMs === 'number') ? Math.max(0, Math.floor(ls.cooldownMs)) : 100;
+      const minHeal = (typeof ls.minHeal === 'number') ? Math.max(0, Math.floor(ls.minHeal)) : 1;
+      const lastAt = (typeof ls.lastAt === 'number') ? ls.lastAt : 0;
+      if (cooldownMs > 0 && (now - lastAt) < cooldownMs) return;
+
+      const heal = Math.max(minHeal, Math.floor(Math.max(0, damageAmount || 0) * pct));
+      if (heal <= 0) return;
+      player.health = Math.min(player.maxHealth || player.health, player.health + heal);
+      ls.lastAt = now;
+    } catch (_) { }
   }
 
   _applyDamageToPlayer(player, amount, opts = {}) {
@@ -683,12 +707,8 @@ class GameState {
         break;
 
       case 'resurrect':
-        // ✅ 服务器权威：复活（与客户端救援/复活 UI 对齐）
-        // 注意：仅用于本场，且只影响组队系统。
-        player.isDead = false;
-        player.health = player.maxHealth || 200;
-        // 复活后给一点能量，避免卡死（保持保守）
-        player.energy = Math.min(player.maxEnergy || 100, Math.max(0, player.energy || 0));
+        // ✅ 切腫瘤：禁止客戶端 input 直接復活（避免繞過救援機制）
+        // 權威多人復活只允許由 updateResurrections() 的救援成功路徑觸發。
         break;
 
       case 'player-meta':
@@ -699,6 +719,18 @@ class GameState {
           if (typeof input.damageReductionFlat === 'number') player.meta.damageReductionFlat = Math.max(0, Math.floor(input.damageReductionFlat));
           if (typeof input.invulnerabilityDurationMs === 'number') player.meta.invulnerabilityDurationMs = Math.max(0, Math.floor(input.invulnerabilityDurationMs));
           if (typeof input.skillInvulnerableUntil === 'number') player.skillInvulnerableUntil = Math.max(0, Math.floor(input.skillInvulnerableUntil));
+          // ✅ 單機同源：不獸控制（吸血）— 只同步最終參數，伺服器權威結算回復
+          if (input.lifesteal && typeof input.lifesteal === 'object') {
+            if (!player.meta.lifesteal) player.meta.lifesteal = { pct: 0, cooldownMs: 100, minHeal: 1, lastAt: 0 };
+            if (typeof input.lifesteal.pct === 'number') player.meta.lifesteal.pct = Math.max(0, input.lifesteal.pct);
+            if (typeof input.lifesteal.cooldownMs === 'number') player.meta.lifesteal.cooldownMs = Math.max(0, Math.floor(input.lifesteal.cooldownMs));
+            if (typeof input.lifesteal.minHeal === 'number') player.meta.lifesteal.minHeal = Math.max(0, Math.floor(input.lifesteal.minHeal));
+          } else if (input.lifesteal === null) {
+            // 允許客戶端明確清空（例如：技能被移除）
+            if (player.meta && player.meta.lifesteal) {
+              player.meta.lifesteal.pct = 0;
+            }
+          }
         } catch (_) { }
         break;
     }
@@ -735,7 +767,8 @@ class GameState {
   }
 
   // ✅ 通用：敌人受伤/死亡结算（保证所有伤害来源一致掉落/出出口）
-  damageEnemy(enemy, amount) {
+  // opts.sourceUid：造成這次傷害/擊殺的玩家（用於音效等「只播自己」的本地化規則）
+  damageEnemy(enemy, amount, opts = {}) {
     const dmg = Math.max(0, Math.floor(amount || 0));
     if (!enemy || enemy.isDead || enemy.health <= 0 || dmg <= 0) return;
     enemy.health -= dmg;
@@ -745,7 +778,7 @@ class GameState {
       enemy.isDead = true;
       // ✅ 單機同源：敵人死亡音效（由客戶端播放；AudioManager 自帶並發上限）
       try {
-        this.sfxEvents.push({ type: 'enemy_death', x: enemy.x, y: enemy.y });
+        this.sfxEvents.push({ type: 'enemy_death', playerUid: (opts && opts.sourceUid) ? opts.sourceUid : null, x: enemy.x, y: enemy.y });
       } catch (_) { }
       this.grantEnemyRewards(enemy);
     }
@@ -813,7 +846,9 @@ class GameState {
       if ((dx * dx + dy * dy) <= r2) {
         // ✅ 與單機一致：AOE 也套用浮動/爆擊（並回傳命中事件供前端顯示）
         const hit = this._computeHit(damage, input);
-        this.damageEnemy(enemy, hit.amount);
+        this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
+        // ✅ 單機同源：命中後吸血（不獸控制）
+        this._applyLifesteal(uid, hit.amount);
         try {
           this.hitEvents.push({
             enemyId: enemy.id,
@@ -1216,7 +1251,9 @@ class GameState {
         if (dist < collisionRadius) {
           // ✅ 服务器计算伤害（浮動/爆擊）+ 统一结算（掉落/出出口）
           const hit = this._computeHit(proj.damage, proj);
-          this.damageEnemy(enemy, hit.amount);
+          this.damageEnemy(enemy, hit.amount, { sourceUid: proj.playerUid });
+          // ✅ 單機同源：命中後吸血（不獸控制）
+          this._applyLifesteal(proj.playerUid, hit.amount);
           try {
             this.hitEvents.push({
               enemyId: enemy.id,
