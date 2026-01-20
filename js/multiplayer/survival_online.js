@@ -108,6 +108,24 @@ const PLAYER_NAME_MAX_LENGTH = 5; // 最大長度：5個字符（中文字、英
 const PLAYER_NAME_MIN_LENGTH = 1; // 最小長度
 const PLAYER_NAME_STORAGE_KEY = "survival_player_nickname"; // localStorage 鍵名
 
+// ✅ 多開/多裝置唯一識別（每個分頁一個 instanceId）
+// - authUid: Firebase 匿名登入 uid（用於 Firestore 權限）
+// - netUid : `${authUid}:${instanceId}`（用於 WebSocket/GameState 唯一識別，避免名字覆蓋/血量共用/看不到隊友）
+const SURVIVAL_ONLINE_INSTANCE_KEY = "survival_online_instance_id"; // sessionStorage
+
+function _getOrCreateInstanceId() {
+  try {
+    if (typeof sessionStorage === "undefined") return "no-session";
+    let v = sessionStorage.getItem(SURVIVAL_ONLINE_INSTANCE_KEY);
+    if (v && typeof v === "string" && v.length >= 4) return v;
+    v = Math.random().toString(36).slice(2, 8) + "-" + Date.now().toString(36).slice(-4);
+    sessionStorage.setItem(SURVIVAL_ONLINE_INSTANCE_KEY, v);
+    return v;
+  } catch (_) {
+    return "no-session";
+  }
+}
+
 // 名稱驗證和清理函數
 // ✅ 限制：1~5個字符（中文字、英文字、數字），可交叉搭配，不能有其他(例如空白鍵、符號)
 function sanitizePlayerName(name) {
@@ -177,6 +195,8 @@ let _app = null;
 let _auth = null;
 let _db = null;
 let _uid = null;
+let _instanceId = null;
+let _netUid = null;
 
 // 房間狀態
 let _activeRoomId = null;
@@ -2588,6 +2608,10 @@ async function ensureAuth() {
     const unsub = onAuthStateChanged(_auth, (user) => {
       if (user) {
         _uid = user.uid;
+        try {
+          _instanceId = _getOrCreateInstanceId();
+          _netUid = `${_uid}:${_instanceId}`;
+        } catch (_) { }
         try { unsub(); } catch (_) { }
         resolve();
       }
@@ -2599,6 +2623,10 @@ async function ensureAuth() {
     });
   });
   return _uid;
+}
+
+function _getLocalNetUid() {
+  return (_netUid && typeof _netUid === "string") ? _netUid : _uid;
 }
 
 function roomDocRef(roomId) {
@@ -2661,6 +2689,7 @@ async function createRoom(initial) {
         }
       }
 
+      const iid = _instanceId || _getOrCreateInstanceId();
       await setDoc(memberDocRef(roomId, _uid), {
         uid: _uid,
         role: "host",
@@ -2670,7 +2699,20 @@ async function createRoom(initial) {
         name: getPlayerNickname(),
         characterId: characterId,
         talentLevels: talentLevels, // 保存天賦等級
-      });
+        hostInstanceId: iid,
+        instances: {
+          [iid]: {
+            instanceId: iid,
+            role: "host",
+            ready: false,
+            joinedAt: createdAt,
+            lastSeenAt: createdAt,
+            name: getPlayerNickname(),
+            characterId: characterId,
+            talentLevels: talentLevels
+          }
+        }
+      }, { merge: true });
 
       // 啟動自動清理機制（主機端）
       startAutoCleanup();
@@ -2727,6 +2769,7 @@ async function joinRoom(roomId) {
   }
 
   try {
+    const iid = _instanceId || _getOrCreateInstanceId();
     await setDoc(memberDocRef(roomId, _uid), {
       uid: _uid,
       role: "guest",
@@ -2736,7 +2779,19 @@ async function joinRoom(roomId) {
       name: getPlayerNickname(),
       characterId: characterId,
       talentLevels: talentLevels, // 保存天賦等級
-    });
+      instances: {
+        [iid]: {
+          instanceId: iid,
+          role: "guest",
+          ready: false,
+          joinedAt: serverTimestamp(),
+          lastSeenAt: serverTimestamp(),
+          name: getPlayerNickname(),
+          characterId: characterId,
+          talentLevels: talentLevels
+        }
+      }
+    }, { merge: true });
   } catch (e) {
     const c = e && e.code ? String(e.code) : "";
     const msg = e && e.message ? String(e.message) : "unknown";
@@ -2860,7 +2915,14 @@ async function leaveRoom() {
 async function setReady(ready) {
   if (!_activeRoomId) return;
   await ensureAuth();
-  await updateDoc(memberDocRef(_activeRoomId, _uid), { ready: !!ready, lastSeenAt: serverTimestamp() });
+  const iid = _instanceId || _getOrCreateInstanceId();
+  await updateDoc(memberDocRef(_activeRoomId, _uid), {
+    ready: !!ready,
+    lastSeenAt: serverTimestamp(),
+    [`instances.${iid}.ready`]: !!ready,
+    [`instances.${iid}.lastSeenAt`]: serverTimestamp(),
+    [`instances.${iid}.name`]: getPlayerNickname(),
+  });
 }
 
 function _startMemberHeartbeat() {
@@ -2871,7 +2933,12 @@ function _startMemberHeartbeat() {
     try {
       if (!_activeRoomId || !_uid) return;
       // 只更新自己的 lastSeenAt（不影響 SaveCode/localStorage）
-      await updateDoc(memberDocRef(_activeRoomId, _uid), { lastSeenAt: serverTimestamp() });
+      const iid = _instanceId || _getOrCreateInstanceId();
+      await updateDoc(memberDocRef(_activeRoomId, _uid), {
+        lastSeenAt: serverTimestamp(),
+        [`instances.${iid}.lastSeenAt`]: serverTimestamp(),
+        [`instances.${iid}.name`]: getPlayerNickname(),
+      });
     } catch (_) {
       // 心跳失敗不致命（可能是離線、權限、或暫時限流）
     }
@@ -3264,7 +3331,9 @@ async function connectWebSocket() {
       wsRef.send(JSON.stringify({
         type: 'join',
         roomId: _activeRoomId,
-        uid: _uid,
+        uid: _getLocalNetUid(),
+        authUid: _uid,
+        instanceId: (_instanceId || _getOrCreateInstanceId()),
         isHost: _isHost,
         // ✅ 讓伺服器知道角色/暱稱，否則隊友端可能看不到正確貼圖（或全部變同一隻）
         characterId: (typeof Game !== 'undefined' && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : 'pineapple',
@@ -3488,7 +3557,7 @@ function _sendViaWebSocket(obj) {
       _ws.send(JSON.stringify({
         type: 'game-data',
         roomId: _activeRoomId,
-        uid: _uid,
+        uid: _getLocalNetUid(),
         data: payloadObj
       }));
       // 添加日志以确认发送（仅对 pos 消息，避免日志过多）
@@ -3765,7 +3834,7 @@ function handleServerGameState(state, timestamp) {
     // 更新玩家状态
     if (Array.isArray(state.players)) {
       for (const playerState of state.players) {
-        if (playerState.uid === _uid) {
+        if (playerState.uid === _getLocalNetUid()) {
           // 本地玩家：只同步关键状态（血量、能量等），位置由输入控制
           if (typeof Game !== 'undefined' && Game.player) {
             // ✅ session 切換：重置 delta 計數器，避免把舊場次收益重放一次
@@ -5029,19 +5098,60 @@ function updateLobbyUI() {
   const list = _qs("survival-online-members");
   if (list) {
     list.innerHTML = "";
-    const arr = Array.from(_membersState.values());
-    // ✅ 修復：有些舊資料/規則下 members.role 可能缺失或錯誤，UI 必須以 room.hostUid 為準
-    const _isHostMember = (m) => {
+    const raw = Array.from(_membersState.values());
+    // ✅ 多開顯示：若同一 uid 有多個 instances，展開為多列（避免「隊員進來蓋掉室長名字」）
+    const rows = [];
+    for (const m of raw) {
+      if (!m || !m.uid) continue;
+      const instances = (m.instances && typeof m.instances === "object") ? m.instances : null;
+      if (instances) {
+        for (const [iid, inst] of Object.entries(instances)) {
+          if (!iid) continue;
+          rows.push({ member: m, inst: inst || {}, instanceId: iid });
+        }
+      } else {
+        rows.push({ member: m, inst: null, instanceId: null });
+      }
+    }
+
+    const _isHostRow = (r) => {
       try {
-        if (!m) return false;
-        if (m.role === "host") return true;
-        if (_hostUid && m.uid && m.uid === _hostUid) return true;
+        if (!r || !r.member) return false;
+        if (_hostUid && r.member.uid && r.member.uid === _hostUid) {
+          // 若有 hostInstanceId，僅該 instance 顯示室長；否則同 uid 都當作室長（向後相容）
+          if (r.member.hostInstanceId && r.instanceId) return r.member.hostInstanceId === r.instanceId;
+          return true;
+        }
+        if (r.inst && r.inst.role === "host") return true;
+        if (r.member.role === "host") return true;
       } catch (_) { }
       return false;
     };
-    arr.sort((a, b) => (_isHostMember(a) ? -1 : 1) - (_isHostMember(b) ? -1 : 1));
-    for (const m of arr) {
-      const stale = _isMemberStale(m);
+
+    const _staleRow = (r) => {
+      try {
+        // instance 有 lastSeenAt 時，優先用 instance；否則 fallback member
+        const inst = r && r.inst ? r.inst : null;
+        if (inst && inst.lastSeenAt) return _isMemberStale(inst);
+        return _isMemberStale(r ? r.member : null);
+      } catch (_) { }
+      return false;
+    };
+
+    // 排序：室長 instance 置頂，其次依 joinedAt
+    rows.sort((a, b) => {
+      const ah = _isHostRow(a) ? 0 : 1;
+      const bh = _isHostRow(b) ? 0 : 1;
+      if (ah !== bh) return ah - bh;
+      const aj = _joinedAtMs((a && a.inst) ? a.inst : (a ? a.member : null));
+      const bj = _joinedAtMs((b && b.inst) ? b.inst : (b ? b.member : null));
+      return aj - bj;
+    });
+
+    for (const r of rows) {
+      const m = r.member;
+      const inst = r.inst;
+      const stale = _staleRow(r);
       const div = document.createElement("div");
       div.style.display = "flex";
       div.style.justifyContent = "space-between";
@@ -5053,9 +5163,13 @@ function updateLobbyUI() {
       div.style.background = stale ? "rgba(0,0,0,0.18)" : "rgba(0,0,0,0.25)";
       div.style.opacity = stale ? "0.6" : "1";
       const left = document.createElement("div");
-      const roleLabel = _isHostMember(m) ? "室長" : "玩家";
-      const name = (m && typeof m.name === "string" && m.name.trim()) ? m.name.trim() : ((m.uid || "").slice(0, 6));
-      left.textContent = `${roleLabel}：${name}${stale ? "（離線）" : ""}`;
+      const roleLabel = _isHostRow(r) ? "室長" : "玩家";
+      const nm = (inst && typeof inst.name === "string" && inst.name.trim())
+        ? inst.name.trim()
+        : (m && typeof m.name === "string" && m.name.trim())
+          ? m.name.trim()
+          : ((m.uid || "").slice(0, 6));
+      left.textContent = `${roleLabel}：${nm}${stale ? "（離線）" : ""}`;
       const right = document.createElement("div");
       right.style.display = "flex";
       right.style.alignItems = "center";
@@ -5063,19 +5177,21 @@ function updateLobbyUI() {
       right.style.opacity = "0.95";
       const status = document.createElement("div");
       // stale 視為未準備（避免卡住室長開始條件）
-      status.textContent = (!stale && m.ready) ? "已準備" : "未準備";
+      const ready = (!stale && ((inst && inst.ready) || (!inst && m.ready)));
+      status.textContent = ready ? "已準備" : "未準備";
       status.style.opacity = "0.9";
       right.appendChild(status);
 
       // 室長操作：踢人（僅對非室長、非自己）
-      if (_isHost && m && m.uid && m.uid !== _uid && m.role !== "host") {
+      // 注意：Firestore rules 下只能刪除「整個 member doc」，因此踢人仍以 uid 為單位（多開測試時同 uid 視為同一帳號）
+      if (_isHost && m && m.uid && m.uid !== _uid && m.role !== "host" && !_isHostRow(r)) {
         const btnKick = document.createElement("button");
         btnKick.className = "ghost";
         btnKick.textContent = "移出";
         btnKick.style.padding = "4px 10px";
         btnKick.style.fontSize = "12px";
         btnKick.addEventListener("click", async () => {
-          const ok = window.confirm(`要把「${name}」移出隊伍嗎？`);
+          const ok = window.confirm(`要把「${nm}」移出隊伍嗎？`);
           if (!ok) return;
           await hostKickMember(m.uid);
           updateLobbyUI();
@@ -5093,15 +5209,45 @@ function updateLobbyUI() {
   if (btnStart) {
     let can = !!_isHost && _activeRoomId;
     if (can) {
-      const ms = Array.from(_membersState.values());
+      // ✅ 多開：把 members.instances 展開後做 ready 判定
+      const raw = Array.from(_membersState.values());
+      const rows = [];
+      for (const m of raw) {
+        if (!m || !m.uid) continue;
+        const instances = (m.instances && typeof m.instances === "object") ? m.instances : null;
+        if (instances) {
+          for (const [iid, inst] of Object.entries(instances)) {
+            rows.push({ member: m, inst: inst || {}, instanceId: iid });
+          }
+        } else {
+          rows.push({ member: m, inst: null, instanceId: null });
+        }
+      }
+
+      const isHostRow = (r) => {
+        if (!r || !r.member) return false;
+        if (_hostUid && r.member.uid && r.member.uid === _hostUid) {
+          if (r.member.hostInstanceId && r.instanceId) return r.member.hostInstanceId === r.instanceId;
+          return true;
+        }
+        if (r.inst && r.inst.role === "host") return true;
+        if (r.member.role === "host") return true;
+        return false;
+      };
+      const isStaleRow = (r) => {
+        const inst = r && r.inst ? r.inst : null;
+        if (inst && inst.lastSeenAt) return _isMemberStale(inst);
+        return _isMemberStale(r ? r.member : null);
+      };
+
       // 規則：
-      // - 人數 1~5
-      // - 非 host 成員必須 ready 且不 stale；stale 一律視為未準備（避免殘留占位卡死）
-      can = ms.length > 0 && ms.length <= MAX_PLAYERS && ms.every((m) => {
-        if (!m || !m.uid) return false;
-        if (m.role === "host") return true;
-        if (_isMemberStale(m)) return false;
-        return !!m.ready;
+      // - 展開後人數 1~5
+      // - 非 host instance 必須 ready 且不 stale；stale 一律視為未準備
+      can = rows.length > 0 && rows.length <= MAX_PLAYERS && rows.every((r) => {
+        if (!r || !r.member || !r.member.uid) return false;
+        if (isHostRow(r)) return true;
+        if (isStaleRow(r)) return false;
+        return !!(r.inst ? r.inst.ready : r.member.ready);
       });
     }
     btnStart.disabled = !can;
