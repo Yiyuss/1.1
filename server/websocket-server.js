@@ -33,6 +33,8 @@ const users = new Map();
 
 // ✅ 权威服务器：游戏状态管理 roomId -> GameState
 const gameStates = new Map();
+// 靜態資料（障礙物/裝飾）是否已送出：roomId -> boolean
+const staticSent = new Map();
 
 // ✅ 权威服务器：游戏循环
 // - 模拟：60Hz（保持碰撞/AI 细腻）
@@ -309,7 +311,7 @@ function handleGameData(ws, roomId, uid, data) {
   }
 
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
-  if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate')) {
+  if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate' || data.type === 'resurrect')) {
     // 服务器处理输入
     gameState.handleInput(uid, data);
     // 不需要转发，服务器会定期广播状态
@@ -325,12 +327,7 @@ function handleGameData(ws, roomId, uid, data) {
       y: data.y,
       type: data.chestType || 'NORMAL'
     });
-    // 继续转发广播给其他玩家
-    broadcastToRoom(actualRoomId, ws, {
-      type: 'game-data',
-      fromUid: uid,
-      data
-    });
+    // ✅ 伺服器權威：不再轉發 chest_spawn（以 state.chests 同步即可，避免多餘流量與重複生成）
     return;
   }
 
@@ -405,6 +402,7 @@ function handleDisconnect(ws) {
       // 如果房间为空，清理游戏状态
       if (rooms.get(roomId) && rooms.get(roomId).size <= 1) {
         gameStates.delete(roomId);
+        staticSent.delete(roomId);
         console.log(`[GameState] 清理遊戲狀態: roomId=${roomId}`);
       }
     }
@@ -450,6 +448,15 @@ function gameLoop() {
       // 广播游戏状态给所有客户端（节流到 30Hz）
       if (now - lastBroadcastAt >= BROADCAST_INTERVAL) {
         const state = gameState.getState();
+        // ✅ 靜態資料只送一次，後續省流量（避免每幀帶大陣列）
+        if (staticSent.get(roomId)) {
+          try {
+            delete state.obstacles;
+            delete state.decorations;
+          } catch (_) { }
+        } else {
+          staticSent.set(roomId, true);
+        }
         broadcastToRoom(roomId, null, {
           type: 'game-state',
           state: state,
