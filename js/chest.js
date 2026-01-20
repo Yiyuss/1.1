@@ -325,9 +325,19 @@ class Chest extends Entity {
 
         // ✅ MMORPG 架構：多人模式下，先發送請求給服務器驗證
         // 由服務器確認後廣播 chest_collected 事件，再執行實際收集邏輯
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        // ✅ 防污染：只在生存模式下發送收集請求
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        let isSurvivalMode = false;
+        try {
+            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                    ? ModeManager.getActiveModeId()
+                    : null);
+            isSurvivalMode = (activeId === 'survival' || activeId === null);
+        } catch (_) { }
 
-        if (isMultiplayer) {
+        if (isSurvivalMode && isMultiplayer) {
             // 標記為正在收集，防止重複發送請求
             this.isCollecting = true;
 
@@ -566,9 +576,19 @@ class PineappleUltimatePickup extends Chest {
         // ✅ MMORPG 架構：防止重複撿取
         if (this.markedForDeletion || this.isCollecting) return;
 
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        // ✅ 防污染：只在生存模式下發送收集請求
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        let isSurvivalMode = false;
+        try {
+            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                    ? ModeManager.getActiveModeId()
+                    : null);
+            isSurvivalMode = (activeId === 'survival' || activeId === null);
+        } catch (_) { }
 
-        if (isMultiplayer) {
+        if (isSurvivalMode && isMultiplayer) {
             // 標記為正在收集
             this.isCollecting = true;
 
