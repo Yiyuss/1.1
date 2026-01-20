@@ -58,7 +58,15 @@ const FIREBASE_CONFIG = {
 };
 
 // WebSocket 服務器配置（使用 WSS 以支持 HTTPS 頁面）
+// 注意：部分網路環境會封鎖非 443 連線（例如 8080），會造成瀏覽器一直卡在 CONNECTING（readyState=0）
+// 因此提供候選清單：先試 8080，失敗/超時就自動切換到 443 方案（需 VPS 有配置對應入口）。
 const WEBSOCKET_SERVER_URL = "wss://ws.yiyuss-ws.com:8080";
+const WEBSOCKET_CANDIDATE_URLS = [
+  WEBSOCKET_SERVER_URL,
+  "wss://ws.yiyuss-ws.com",       // 443（若有反代/直聽）
+  "wss://ws.yiyuss-ws.com/ws",    // 443 路徑（若有反代）
+];
+const WS_CONNECT_TIMEOUT_MS = 6000;
 
 const MAX_PLAYERS = 5;
 const ROOM_TTL_MS = 1000 * 60 * 60; // 1小時（僅用於前端清理提示；真正清理由規則/人為）
@@ -2153,6 +2161,8 @@ const Runtime = (() => {
     if (now - lastSendAt < 33) return;
 
     if (typeof Game === "undefined" || !Game.player) return;
+    // ✅ 未連線成功（OPEN）時不要送任何封包（避免空耗與刷屏）
+    if (!_ws || _ws.readyState !== WebSocket.OPEN) return;
 
     // ✅ 權威伺服器架構：發送「移動輸入」給伺服器（server/game-state.js 只吃 data.type='move'）
     // 重要：之前送 t:'pos' 伺服器不處理，會導致伺服器端玩家位置不動 → 站樁被打 → 客戶端被覆寫成狂扣血/死亡/清武器
@@ -3062,15 +3072,44 @@ async function connectWebSocket() {
 
   console.log(`[SurvivalOnline] connectWebSocket: 開始連接，activeRoomId=${_activeRoomId}, uid=${_uid}, isHost=${_isHost}`);
 
-  try {
-    _ws = new WebSocket(WEBSOCKET_SERVER_URL);
+  // ✅ 多端點 + 連線超時：避免 readyState=0 永久卡住導致「只能移動圖片」
+  const urls = Array.isArray(WEBSOCKET_CANDIDATE_URLS) && WEBSOCKET_CANDIDATE_URLS.length
+    ? WEBSOCKET_CANDIDATE_URLS
+    : [WEBSOCKET_SERVER_URL];
 
-    _ws.onopen = () => {
-      console.log(`[SurvivalOnline] connectWebSocket: WebSocket 已打開`);
+  let lastErr = null;
+  for (const url of urls) {
+    try {
+      _setText("survival-online-status", `連線中... (${url})`);
+      console.log(`[SurvivalOnline] connectWebSocket: 嘗試 ${url}`);
+
+      _ws = new WebSocket(url);
+      const wsRef = _ws;
+
+      // 連線超時計時器（CONNECTING 卡住時，onerror/onclose 可能不會觸發）
+      let timeoutId = null;
+      timeoutId = setTimeout(() => {
+        try {
+          if (wsRef && wsRef.readyState === WebSocket.CONNECTING) {
+            console.warn(`[SurvivalOnline] connectWebSocket: 連線超時，關閉並切換下一個 URL: ${url}`);
+            try { wsRef.close(); } catch (_) { }
+          }
+        } catch (_) { }
+      }, WS_CONNECT_TIMEOUT_MS);
+
+      const opened = await new Promise((resolve, reject) => {
+        wsRef.onopen = () => resolve(true);
+        wsRef.onerror = (e) => reject(e || new Error("ws error"));
+        wsRef.onclose = () => reject(new Error("ws closed"));
+      });
+      try { if (timeoutId) clearTimeout(timeoutId); } catch (_) { }
+      if (!opened) throw new Error("ws not opened");
+
+      console.log(`[SurvivalOnline] connectWebSocket: WebSocket 已打開 url=${url}`);
       _wsReconnectAttempts = 0;
 
       // 發送加入房間消息
-      _ws.send(JSON.stringify({
+      wsRef.send(JSON.stringify({
         type: 'join',
         roomId: _activeRoomId,
         uid: _uid,
@@ -3088,7 +3127,7 @@ async function connectWebSocket() {
         };
 
         setTimeout(() => {
-          if (_ws && _ws.readyState === WebSocket.OPEN) {
+          if (wsRef && wsRef.readyState === WebSocket.OPEN) {
             // ⚠️ 修復：_sendViaWebSocket 會自動包一層 {type:'game-data', data: obj}
             // 這裡只需要送內層 data，避免變成 data.type='game-data' 導致服務器忽略
             _sendViaWebSocket({ type: 'config', config: configData });
@@ -3099,7 +3138,7 @@ async function connectWebSocket() {
       // ✅ 权威服务器：发送地图信息到服务器（用于路口车辆生成等）
       if (typeof Game !== 'undefined' && Game.selectedMap) {
         setTimeout(() => {
-          if (_ws && _ws.readyState === WebSocket.OPEN) {
+          if (wsRef && wsRef.readyState === WebSocket.OPEN) {
             _sendViaWebSocket({
               type: 'map',
               map: {
@@ -3116,7 +3155,7 @@ async function connectWebSocket() {
       // 4K模式：根据实际配置
       if (typeof Game !== 'undefined' && typeof Game.worldWidth === 'number' && typeof Game.worldHeight === 'number') {
         setTimeout(() => {
-          if (_ws && _ws.readyState === WebSocket.OPEN) {
+          if (wsRef && wsRef.readyState === WebSocket.OPEN) {
             _sendViaWebSocket({
               type: 'world-size',
               worldWidth: Game.worldWidth,
@@ -3127,9 +3166,8 @@ async function connectWebSocket() {
       }
 
       _setText("survival-online-status", "已連線（WebSocket）");
-    };
 
-    _ws.onmessage = (ev) => {
+      wsRef.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
 
@@ -3185,7 +3223,7 @@ async function connectWebSocket() {
       }
     };
 
-    _ws.onclose = () => {
+      wsRef.onclose = () => {
       console.log(`[SurvivalOnline] connectWebSocket: WebSocket 已關閉`);
       Runtime.setEnabled(false);
       _setText("survival-online-status", "連線已中斷");
@@ -3214,7 +3252,7 @@ async function connectWebSocket() {
       }
     };
 
-    _ws.onerror = (err) => {
+      wsRef.onerror = (err) => {
       console.error(`[SurvivalOnline] connectWebSocket: WebSocket 錯誤:`, err);
       // 检查是否是证书错误（Firefox 和 Chrome 的错误信息不同）
       const errorMsg = err.message || err.toString() || '';
@@ -3234,11 +3272,19 @@ async function connectWebSocket() {
       }
     };
 
-  } catch (e) {
-    console.error(`[SurvivalOnline] connectWebSocket: 連接失敗:`, e);
-    _ws = null;
-    throw e;
+      // 成功建立並掛好 handler 後，直接返回
+      return;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[SurvivalOnline] connectWebSocket: ${url} 失敗/超時，嘗試下一個`, e);
+      try { if (_ws) _ws.close(); } catch (_) { }
+      _ws = null;
+    }
   }
+
+  console.error(`[SurvivalOnline] connectWebSocket: 全部候選 URL 皆失敗`, lastErr);
+  _setText("survival-online-status", "連線失敗：WebSocket 無法連上（可能是 8080 被封鎖/未配置 443）");
+  throw (lastErr || new Error("WebSocket connect failed"));
 }
 
 // ❌ 已刪除：舊的 WebRTC 函數（connectClientToHost, hostAcceptOffer）
@@ -3272,10 +3318,15 @@ function _sendViaWebSocket(obj) {
       console.error(`[SurvivalOnline] _sendViaWebSocket: 發送失敗:`, e);
     }
   } else {
-    console.warn(`[SurvivalOnline] _sendViaWebSocket: WebSocket 不可用，消息未發送`, {
-      wsReadyState: _ws ? _ws.readyState : 'null',
-      messageType: obj.t
-    });
+    // ✅ 節流：ws 未連上時不要每 33ms 刷屏
+    const now = Date.now();
+    if (!_sendViaWebSocket._lastWarnAt || (now - _sendViaWebSocket._lastWarnAt > 1500)) {
+      _sendViaWebSocket._lastWarnAt = now;
+      console.warn(`[SurvivalOnline] _sendViaWebSocket: WebSocket 不可用，消息未發送`, {
+        wsReadyState: _ws ? _ws.readyState : 'null',
+        messageType: obj ? (obj.t || obj.type) : undefined
+      });
+    }
   }
 }
 
