@@ -427,7 +427,7 @@ class GameState {
       y: playerData.y || (this.worldHeight / 2),
       health: playerData.health || 200,
       maxHealth: playerData.maxHealth || 200,
-      energy: playerData.energy || 100,
+      energy: playerData.energy || 0, // ✅ 單機同源：初始能量為 0，不是 100
       maxEnergy: playerData.maxEnergy || 100,
       level: playerData.level || 1,
       // ✅ 組隊：experience 在伺服器端用作「本場累積獲得量」（供客戶端用 delta 驅動 gainExperience）
@@ -810,10 +810,8 @@ class GameState {
     if (enemy.health <= 0) {
       enemy.health = 0;
       enemy.isDead = true;
-      // ✅ 單機同源：敵人死亡音效（由客戶端播放；AudioManager 自帶並發上限）
-      try {
-        this.sfxEvents.push({ type: 'enemy_death', playerUid: (opts && opts.sourceUid) ? opts.sourceUid : null, x: enemy.x, y: enemy.y });
-      } catch (_) { }
+      // ✅ 流量優化：音效是單機元素，不需要通過伺服器發送（節省流量）
+      // 客戶端會在本地播放音效（enemy.js 中已有 AudioManager.playSound('enemy_death')）
       this.grantEnemyRewards(enemy);
     }
   }
@@ -949,14 +947,9 @@ class GameState {
 
     this.projectiles.push(projectile);
 
-    // ✅ 單機同源：射擊音效（只讓射擊者本地播放，避免全員一起播）
-    try {
-      this.sfxEvents.push({
-        type: 'shoot',
-        playerUid: uid,
-        weaponType: projectile.weaponType
-      });
-    } catch (_) { }
+    // ✅ 流量優化：音效是單機元素，不需要通過伺服器發送（節省流量）
+    // 客戶端會在本地播放音效（weapon.js 中已有 AudioManager.playSound，但多人模式下已跳過，因為伺服器會發送 sfxEvents）
+    // 現在移除伺服器發送後，需要確保客戶端在多人模式下也能正常播放
     return projectile;
   }
 
@@ -1692,10 +1685,8 @@ class GameState {
         const collisionRadius = (orb.size || 20) / 2 + 16; // 玩家半径约16
 
         if (dist < collisionRadius) {
-          // ✅ 單機同源：撿到經驗音效（只讓撿到的人播放；多人仍共享經驗數值）
-          try {
-            this.sfxEvents.push({ type: 'collect_exp', playerUid: player.uid, x: orb.x, y: orb.y });
-          } catch (_) { }
+          // ✅ 流量優化：音效是單機元素，不需要通過伺服器發送（節省流量）
+          // 客戶端會在本地播放音效（experience.js 中已有 AudioManager.playSound('collect_exp')）
           // ✅ 经验共享（服务器权威）：移除经验球，并把经验值发给所有玩家
           const value = Math.max(0, Math.floor(orb.value || 0));
           if (value > 0) {
@@ -2046,16 +2037,17 @@ class GameState {
       carHazards: this.carHazards,
       exit: this.exit,
       wave: this.wave,
+      waveStartTime: this.waveStartTime, // ✅ 單機同源：波次開始時間（用於同步 WaveSystem.waveStartTime）
       isGameOver: this.isGameOver,
       isVictory: this.isVictory,
       gameTime: this.gameTime,
       hitEvents: this.hitEvents
-      ,sfxEvents: this.sfxEvents
+      // ✅ 流量優化：移除 sfxEvents（音效是單機元素，不需要通過伺服器發送）
       ,vfxEvents: this.vfxEvents
     };
     // ✅ transient：broadcast 後清空（下一幀重算）
     this.hitEvents = [];
-    this.sfxEvents = [];
+    // ✅ 流量優化：移除 sfxEvents（音效是單機元素，不需要通過伺服器發送）
     this.vfxEvents = [];
     return state;
   }
