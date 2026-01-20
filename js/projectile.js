@@ -352,7 +352,9 @@ class Projectile extends Entity {
                                 maxLife: effectDuration
                             });
                         }
-                        if (typeof AudioManager !== 'undefined') {
+                        // ✅ 流量優化：音效是單機元素，只對本地玩家播放（因為是本地玩家的投射物）
+                        // 投射物命中敵人時的 bo 音效，只對本地玩家播放
+                        if (typeof Game !== 'undefined' && Game.player && this.player === Game.player && typeof AudioManager !== 'undefined') {
                             AudioManager.playSound('bo');
                         }
                     } catch (_) {}
