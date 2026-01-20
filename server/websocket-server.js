@@ -333,10 +333,30 @@ function handleGameData(ws, roomId, uid, data) {
   }
 
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
-  if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate' || data.type === 'resurrect' || data.type === 'aoe_tick' || data.type === 'player-meta')) {
+  if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate' || data.type === 'aoe_tick' || data.type === 'player-meta')) {
     // 服务器处理输入
     gameState.handleInput(uid, data);
     // 不需要转发，服务器会定期广播状态
+    return;
+  }
+
+  // ✅ 多人元素（視覺特效）：VFX 事件通道（只轉發，不進入權威 game-state）
+  // 目的：讓隊友也看得到粒子/鏡頭效果，但不影響單機與權威邏輯。
+  // 注意：音效已被你定義為單機元素 → 不在這裡處理任何音效。
+  if (gameState && data.type === 'vfx' && typeof data.eventType === 'string') {
+    // 基本白名單，避免變成任意訊息轉發管道
+    const et = data.eventType;
+    if (et === 'explosion_particles' || et === 'screen_effect') {
+      broadcastToRoom(actualRoomId, null, {
+        type: 'game-data',
+        fromUid: uid,
+        data: {
+          t: 'vfx',
+          eventType: et,
+          eventData: (data.eventData && typeof data.eventData === 'object') ? data.eventData : {}
+        }
+      });
+    }
     return;
   }
 
@@ -396,7 +416,13 @@ function handleGameData(ws, roomId, uid, data) {
     return;
   }
 
-  // 其他类型的消息（如聊天）仍然转发
+  // ✅ LEGACY 清理：權威多人房間（有 gameState）時，禁止轉發未知 game-data
+  // 目的：切掉舊事件/舊通道殘留，避免復活造成互打與浪費流量。
+  if (gameState) {
+    return;
+  }
+
+  // 非權威房間：允許轉發（保留向後相容，如聊天/測試）
   broadcastToRoom(actualRoomId, ws, {
     type: 'game-data',
     fromUid: uid,
