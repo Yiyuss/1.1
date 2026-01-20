@@ -34,9 +34,13 @@ const users = new Map();
 // ✅ 权威服务器：游戏状态管理 roomId -> GameState
 const gameStates = new Map();
 
-// ✅ 权威服务器：游戏循环（60Hz = 16.67ms）
-const GAME_TICK_INTERVAL = 16.67; // 毫秒
+// ✅ 权威服务器：游戏循环
+// - 模拟：60Hz（保持碰撞/AI 细腻）
+// - 广播：30Hz（降低 VPS 流量与客户端负担）
+const GAME_TICK_INTERVAL = 16.67; // 模拟毫秒
+const BROADCAST_INTERVAL = 33.33; // 广播毫秒
 let lastGameUpdate = Date.now();
+let lastBroadcastAt = Date.now();
 
 // ✅ 安全配置：速率限制 (Rate Limiting)
 const RATE_LIMIT_WINDOW = 1000; // 1秒窗口
@@ -350,6 +354,20 @@ function handleGameData(ws, roomId, uid, data) {
     return;
   }
 
+  // ✅ 权威服务器：经验共享奖励（由客户端回报 amount，服务器转为权威 counter）
+  // 用途：鳳梨不咬舌掉落物等「特殊经验奖励」
+  if (gameState && data.type === 'award_exp') {
+    try {
+      const amount = Math.max(0, Math.floor(data.amount || 0));
+      const chestId = (typeof data.chestId === 'string') ? data.chestId : null;
+      // 简单上限防滥用（即使被绕过也仅影响组队，不影响存档码键名）
+      if (amount > 0 && amount <= 500000) {
+        gameState.awardExperienceToAllPlayers(amount, chestId);
+      }
+    } catch (_) { }
+    return;
+  }
+
   // 其他类型的消息（如聊天）仍然转发
   broadcastToRoom(actualRoomId, ws, {
     type: 'game-data',
@@ -371,10 +389,7 @@ function broadcastToRoom(roomId, excludeWs, msg) {
       count++;
     }
   }
-
-  if (count > 0) {
-    console.log(`[WebSocket] 廣播消息到房間 ${roomId}: ${count} 個用戶`);
-  }
+  // 避免高頻（game-state / 輸入）洗爆 log，否則會導致卡頓與流量浪費
 }
 
 function handleDisconnect(ws) {
@@ -432,19 +447,26 @@ function gameLoop() {
       // 更新游戏状态
       gameState.update(deltaTime);
 
-      // 广播游戏状态给所有客户端
-      const state = gameState.getState();
-      broadcastToRoom(roomId, null, {
-        type: 'game-state',
-        state: state,
-        timestamp: now
-      });
+      // 广播游戏状态给所有客户端（节流到 30Hz）
+      if (now - lastBroadcastAt >= BROADCAST_INTERVAL) {
+        const state = gameState.getState();
+        broadcastToRoom(roomId, null, {
+          type: 'game-state',
+          state: state,
+          timestamp: now
+        });
+      }
     } catch (error) {
       // ✅ 错误处理：单个房间的错误不影响其他房间
       console.error(`[GameState] 房间 ${roomId} 更新失败:`, error);
       // 可以选择清理该房间的游戏状态，或继续运行
       // 当前实现：记录错误，继续运行其他房间
     }
+  }
+
+  // 更新广播节流时间戳
+  if (now - lastBroadcastAt >= BROADCAST_INTERVAL) {
+    lastBroadcastAt = now;
   }
 
   // 60Hz 游戏循环
