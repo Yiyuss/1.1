@@ -549,7 +549,7 @@ class GameState {
   }
 
   // ✅ 新一局：重置所有「本場」狀態（不影響房間/成員存在）
-  resetForNewSession(sessionId) {
+  resetForNewSession(sessionId, playerUpdates = null) {
     if (!sessionId || typeof sessionId !== 'string') return;
     if (this.currentSessionId === sessionId) return;
     this.currentSessionId = sessionId;
@@ -576,8 +576,16 @@ class GameState {
     this.lastMiniBossSpawnAt = Date.now();
 
     // 玩家：回到安全初始狀態（保守）
+    // ✅ 如果提供了 playerUpdates（Map<uid, {maxHealth, ...}>），更新對應玩家的 maxHealth
     for (const p of this.players.values()) {
       if (!p) continue;
+      // ✅ 更新 maxHealth（如果客戶端發送了計算好的值）
+      if (playerUpdates && playerUpdates.has(p.uid)) {
+        const update = playerUpdates.get(p.uid);
+        if (typeof update.maxHealth === 'number' && update.maxHealth > 0) {
+          p.maxHealth = update.maxHealth;
+        }
+      }
       p.isDead = false;
       p.health = p.maxHealth || 200;
       p.energy = Math.min(p.maxEnergy || 100, Math.max(0, p.energy || 0));
@@ -678,14 +686,20 @@ class GameState {
     }
   }
 
-  _computeHit(baseDamage, inputMeta) {
+  _computeHit(baseDamage, inputMeta, player = null) {
     // 參考 client DamageSystem：浮動±10%，爆擊 10% 基礎 + bonus
     const fluct = 0.10;
     const rand = 1 + (Math.random() * 2 * fluct - fluct);
     let amount = Math.max(1, Math.round((baseDamage || 0) * rand));
 
     const allowCrit = !(inputMeta && inputMeta.allowCrit === false);
-    const bonusCrit = (inputMeta && typeof inputMeta.critChanceBonusPct === 'number') ? inputMeta.critChanceBonusPct : 0;
+    // ✅ 優先使用 player.meta.critChanceBonusPct（持續同步），其次使用 inputMeta.critChanceBonusPct（攻擊時傳入）
+    let bonusCrit = 0;
+    if (player && player.meta && typeof player.meta.critChanceBonusPct === 'number') {
+      bonusCrit = player.meta.critChanceBonusPct;
+    } else if (inputMeta && typeof inputMeta.critChanceBonusPct === 'number') {
+      bonusCrit = inputMeta.critChanceBonusPct;
+    }
     const overrideCrit = (inputMeta && typeof inputMeta.critChancePctOverride === 'number') ? inputMeta.critChancePctOverride : null;
     const critChance = overrideCrit != null ? overrideCrit : (0.10 + bonusCrit);
     let isCrit = false;
@@ -758,13 +772,15 @@ class GameState {
         break;
 
       case 'player-meta':
-        // ✅ 單機同源：同步本地玩家的防禦/迴避/無敵等最終值（避免多人「被連打秒死」）
+        // ✅ 單機同源：同步本地玩家的防禦/迴避/無敵/爆擊率等最終值（避免多人「被連打秒死」）
         try {
           if (!player.meta) player.meta = {};
           if (typeof input.dodgeRate === 'number') player.meta.dodgeRate = Math.max(0, Math.min(0.95, input.dodgeRate));
           if (typeof input.damageReductionFlat === 'number') player.meta.damageReductionFlat = Math.max(0, Math.floor(input.damageReductionFlat));
           if (typeof input.invulnerabilityDurationMs === 'number') player.meta.invulnerabilityDurationMs = Math.max(0, Math.floor(input.invulnerabilityDurationMs));
           if (typeof input.skillInvulnerableUntil === 'number') player.skillInvulnerableUntil = Math.max(0, Math.floor(input.skillInvulnerableUntil));
+          // ✅ 新增：爆擊率同步（天賦 + 升級 + 角色基礎）
+          if (typeof input.critChanceBonusPct === 'number') player.meta.critChanceBonusPct = Math.max(0, input.critChanceBonusPct);
           // ✅ 單機同源：不獸控制（吸血）— 只同步最終參數，伺服器權威結算回復
           if (input.lifesteal && typeof input.lifesteal === 'object') {
             if (!player.meta.lifesteal) player.meta.lifesteal = { pct: 0, cooldownMs: 100, minHeal: 1, lastAt: 0 };
@@ -889,7 +905,8 @@ class GameState {
       const dy = enemy.y - y;
       if ((dx * dx + dy * dy) <= r2) {
         // ✅ 與單機一致：AOE 也套用浮動/爆擊（並回傳命中事件供前端顯示）
-        const hit = this._computeHit(damage, input);
+        // ✅ 使用 player.meta.critChanceBonusPct（持續同步的爆擊率）
+        const hit = this._computeHit(damage, input, player);
         this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
         // ✅ 單機同源：命中後吸血（不獸控制）
         this._applyLifesteal(uid, hit.amount);
@@ -1363,7 +1380,9 @@ class GameState {
 
         if (dist < collisionRadius) {
           // ✅ 服务器计算伤害（浮動/爆擊）+ 统一结算（掉落/出出口）
-          const hit = this._computeHit(proj.damage, proj);
+          // ✅ 使用 player.meta.critChanceBonusPct（持續同步的爆擊率）
+          const projPlayer = this.players.get(proj.playerUid);
+          const hit = this._computeHit(proj.damage, proj, projPlayer);
           this.damageEnemy(enemy, hit.amount, { sourceUid: proj.playerUid });
           // ✅ 單機同源：命中後吸血（不獸控制）
           this._applyLifesteal(proj.playerUid, hit.amount);
