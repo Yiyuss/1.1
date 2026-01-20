@@ -1267,10 +1267,14 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     return value;
 };
 
-// ✅ ES Module 相容：讓多人模組（`js/multiplayer/survival_online.js`）能透過 globalThis/window 取得 Weapon ctor
+// ✅ ES Module 相容：確保導出（已在類定義後立即導出，這裡作為備份）
 // 不影響單機邏輯，只是額外暴露建構子供多人使用。
 try {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof Weapon !== 'undefined') {
         window.Weapon = Weapon;
+    } else if (typeof global !== 'undefined' && typeof Weapon !== 'undefined') {
+        global.Weapon = Weapon;
+    } else if (typeof globalThis !== 'undefined' && typeof Weapon !== 'undefined') {
+        globalThis.Weapon = Weapon;
     }
 } catch (_) { }
