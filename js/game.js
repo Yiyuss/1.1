@@ -222,7 +222,8 @@ const Game = {
                             ? ModeManager.getActiveModeId()
                             : null);
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
-                    isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                    // ✅ 隔離：只允許「組隊 survival（enabled）」走多人路徑
+                    isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
                 } catch (_) { }
 
                 // ✅ MMORPG 架構：在多人模式下，車輛由服務器端生成，客戶端不生成
@@ -455,8 +456,9 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
-            // MMO 架構：每個玩家都廣播自己的爆炸粒子，不依賴隊長端
-            if (isSurvivalMode && this.multiplayer) {
+            // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
+            // 避免污染單機/其他模式/存檔引繼碼（那些模式不該送 WS vfx）。
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled === true) {
                 // 批量廣播爆炸粒子（每幀最多發送一次，包含所有新創建的粒子）
                 if (this._pendingExplosionParticles && this._pendingExplosionParticles.length > 0) {
                     if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
@@ -600,8 +602,8 @@ const Game = {
                             isSurvivalMode = (activeId === 'survival' || activeId === null);
                         } catch (_) { }
 
-                        // MMO 架構：每個玩家都廣播勝利事件，不依賴隊長端
-                        if (isSurvivalMode && this.multiplayer) {
+                        // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
+                        if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled === true) {
                             if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                                 window.SurvivalOnlineBroadcastEvent("game_victory", {
                                     reason: "exit_reached"
@@ -1566,10 +1568,22 @@ const Game = {
                         projectileData.despawnPad = projectile.despawnPad || 400;
                     }
 
-                    // ✅ 真正的MMORPG：廣播投射物生成事件，讓所有玩家都能看到技能特效
-                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                        console.log(`[Game] 廣播投射物生成事件: weaponType=${projectileData.weaponType}, id=${projectileData.id}, playerUid=${playerUid}`);
-                        window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
+                    // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
+                    if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled === true) {
+                        let isSurvivalMode = false;
+                        try {
+                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                                ? GameModeManager.getCurrent()
+                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                    ? ModeManager.getActiveModeId()
+                                    : null);
+                            isSurvivalMode = (activeId === 'survival' || activeId === null);
+                        } catch (_) { }
+
+                        if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                            console.log(`[Game] 廣播投射物生成事件: weaponType=${projectileData.weaponType}, id=${projectileData.id}, playerUid=${playerUid}`);
+                            window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
+                        }
                     }
                 }
             }
@@ -1873,7 +1887,7 @@ const Game = {
         };
         console.log('出口已生成在地圖中心');
 
-        // 組隊模式：廣播出口生成事件，讓所有隊員也能看到出口
+        // 組隊模式：廣播出口生成事件（隔離：只允許 survival+enabled）
         try {
             let isSurvivalMode = false;
             try {
@@ -1885,8 +1899,8 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
-            // MMO 架構：每個玩家都廣播出口生成，不依賴隊長端
-            if (isSurvivalMode && this.multiplayer) {
+            // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled === true) {
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                     window.SurvivalOnlineBroadcastEvent("exit_spawn", {
                         x: exitX,
@@ -2404,7 +2418,8 @@ const Game = {
 
         // ✅ MMORPG 架構：障礙物和地圖裝飾需要同步
         // 在多人模式下，只有第一個玩家（或使用確定性隨機數）生成，然後廣播給其他玩家
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        // ✅ 隔離：只允許「組隊 survival（enabled）」走多人路徑（避免影響單機/其他模式）
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
         let isSurvivalMode = false;
         try {
             const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
@@ -2701,7 +2716,8 @@ const Game = {
                         ? ModeManager.getActiveModeId()
                         : null);
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
-                isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
+                isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
             } catch (_) { }
 
             if (isSurvivalMode && isMultiplayer && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
@@ -2868,7 +2884,8 @@ const Game = {
                         ? ModeManager.getActiveModeId()
                         : null);
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
-                isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
+                isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
             } catch (_) { }
 
             if (isSurvivalMode && isMultiplayer && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
