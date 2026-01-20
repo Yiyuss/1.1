@@ -25,6 +25,23 @@ class Projectile extends Entity {
 
         // 僅視覺投射物：不更新邏輯，只更新位置（用於隊員端顯示隊長和其他隊員的投射物）
         if (this._isVisualOnly) {
+            // 網路插值：如果有伺服器目標位置，優先平滑追幀（避免瞬移）
+            try {
+                if (typeof this._netTargetX === 'number' && typeof this._netTargetY === 'number') {
+                    const dx = this._netTargetX - this.x;
+                    const dy = this._netTargetY - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 220) {
+                        this.x = this._netTargetX;
+                        this.y = this._netTargetY;
+                    } else if (dist > 0.1) {
+                        const lerp = Math.min(0.45, Math.max(0.2, (deltaTime || 16.67) / 80));
+                        this.x += dx * lerp;
+                        this.y += dy * lerp;
+                    }
+                }
+            } catch (_) { }
+
             // 簡單的位置更新（不進行碰撞檢測和傷害計算）
             const deltaMul = deltaTime / 16.67;
             if (this.homing && this.assignedTargetId) {
