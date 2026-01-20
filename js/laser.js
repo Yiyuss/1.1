@@ -83,7 +83,13 @@ class LaserBeam extends Entity {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
             if (rt && typeof rt.getRemotePlayers === 'function') {
                 const remotePlayers = rt.getRemotePlayers() || [];
-                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+                // ✅ 修復：getRemotePlayers 返回的對象有 uid 屬性，但 Player 對象使用 _remoteUid
+                // 需要同時檢查 uid 和 _remoteUid
+                const remotePlayer = remotePlayers.find(p => 
+                    (p.uid === this._remotePlayerUid) || 
+                    (p._remoteUid === this._remotePlayerUid) ||
+                    (p._isRemotePlayer && p._remoteUid === this._remotePlayerUid)
+                );
                 if (remotePlayer) {
                     // 更新玩家位置
                     this.player.x = remotePlayer.x;
@@ -94,13 +100,52 @@ class LaserBeam extends Entity {
                         this.player = Game.player;
                     }
                 } else {
-                    // 如果找不到對應的玩家，標記為刪除
+                    // ✅ 修復：如果找不到對應的玩家，不要立即刪除，先嘗試使用 RemotePlayerManager
+                    try {
+                        if (rt && rt.RemotePlayerManager && typeof rt.RemotePlayerManager.get === 'function') {
+                            const remotePlayerObj = rt.RemotePlayerManager.get(this._remotePlayerUid);
+                            if (remotePlayerObj) {
+                                this.player.x = remotePlayerObj.x;
+                                this.player.y = remotePlayerObj.y;
+                            } else {
+                                // 如果還是找不到，標記為刪除
+                                this.markedForDeletion = true;
+                                return;
+                            }
+                        } else {
+                            // 如果找不到對應的玩家，標記為刪除
+                            this.markedForDeletion = true;
+                            return;
+                        }
+                    } catch (_) {
+                        this.markedForDeletion = true;
+                        return;
+                    }
+                }
+            } else {
+                // ✅ 修復：如果 getRemotePlayers 不可用，嘗試使用 RemotePlayerManager
+                try {
+                    if (rt && rt.RemotePlayerManager && typeof rt.RemotePlayerManager.get === 'function') {
+                        const remotePlayerObj = rt.RemotePlayerManager.get(this._remotePlayerUid);
+                        if (remotePlayerObj) {
+                            this.player.x = remotePlayerObj.x;
+                            this.player.y = remotePlayerObj.y;
+                        } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                            if (typeof Game !== 'undefined' && Game.player) {
+                                this.player = Game.player;
+                            }
+                        } else {
+                            this.markedForDeletion = true;
+                            return;
+                        }
+                    } else {
+                        this.markedForDeletion = true;
+                        return;
+                    }
+                } catch (_) {
                     this.markedForDeletion = true;
                     return;
                 }
-            } else {
-                this.markedForDeletion = true;
-                return;
             }
         }
         
