@@ -166,10 +166,10 @@ class DeathlineWarriorEffect extends Entity {
                     lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                 }
                 
-                // ✅ MMO 架構：每個玩家都獨立造成傷害，通用單機和MMO
-                // 單機模式：直接造成傷害
-                // 多人模式：每個玩家都造成傷害，並發送enemy_damage（用於同步傷害數字）
-                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+                // ✅ 權威伺服器模式：持續效果傷害由 game.js 自動發送 aoe_tick 到伺服器
+                // 單機模式：直接造成傷害並顯示傷害數字
+                // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器 hitEvents 處理
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                 let isSurvivalMode = false;
                 try {
                     const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
@@ -180,17 +180,18 @@ class DeathlineWarriorEffect extends Entity {
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
-                // 造成傷害（單機和多人模式都執行）
-                enemy.takeDamage(finalDamage);
-                if (typeof DamageNumbers !== 'undefined') {
-                    DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { 
-                        dirX: 0, 
-                        dirY: -1, 
-                        enemyId: enemy.id 
-                    });
+                // 單機模式：直接造成傷害並顯示傷害數字
+                if (!isSurvivalMode || !isMultiplayer) {
+                    enemy.takeDamage(finalDamage);
+                    if (typeof DamageNumbers !== 'undefined') {
+                        DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { 
+                            dirX: 0, 
+                            dirY: -1, 
+                            enemyId: enemy.id 
+                        });
+                    }
                 }
-                
-                // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再發送 enemy_damage
+                // 多人模式：傷害由 game.js 自動發送 aoe_tick 到伺服器，伺服器透過 hitEvents 返回傷害數字
             }
         } else {
             // 單體傷害（死線戰士）
@@ -207,10 +208,10 @@ class DeathlineWarriorEffect extends Entity {
                 lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
             }
             
-            // ✅ MMO 架構：每個玩家都獨立造成傷害，通用單機和MMO
-            // 單機模式：直接造成傷害
-            // 多人模式：每個玩家都造成傷害，並發送enemy_damage（用於同步傷害數字）
-            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+            // ✅ 權威伺服器模式：傷害應該由伺服器權威處理
+            // 單機模式：直接造成傷害並顯示傷害數字
+            // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器 hitEvents 處理
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
             let isSurvivalMode = false;
             try {
                 const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
@@ -221,30 +222,18 @@ class DeathlineWarriorEffect extends Entity {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) {}
             
-            // 造成傷害（單機和多人模式都執行）
-            target.takeDamage(finalDamage);
-            if (typeof DamageNumbers !== 'undefined') {
-                DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { 
-                    dirX: 0, 
-                    dirY: -1, 
-                    enemyId: target.id 
-                });
-            }
-            
-            // 多人模式：發送enemy_damage（用於同步傷害數字，不影響傷害計算）
-            if (isSurvivalMode && isMultiplayer && target && target.id) {
-                if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                    window.SurvivalOnlineRuntime.sendToNet({
-                        t: "enemy_damage",
-                        enemyId: target.id,
-                        damage: finalDamage,
-                        weaponType: this.weaponType || "DEATHLINE_WARRIOR",
-                        isCrit: isCrit,
-                        lifesteal: lifestealAmount,
-                        playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
+            // 單機模式：直接造成傷害並顯示傷害數字
+            if (!isSurvivalMode || !isMultiplayer) {
+                target.takeDamage(finalDamage);
+                if (typeof DamageNumbers !== 'undefined') {
+                    DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { 
+                        dirX: 0, 
+                        dirY: -1, 
+                        enemyId: target.id 
                     });
                 }
             }
+            // 多人模式：傷害由伺服器權威處理，伺服器透過 hitEvents 返回傷害數字
         }
         
         // 在造成傷害後創建雪碧圖特效（每次攻擊都創建）
