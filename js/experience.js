@@ -138,14 +138,18 @@
                             }
                         }
                     } catch (_) {}
-                    // ✅ MMORPG 架構：廣播經驗球被撿取事件，讓所有玩家都知道經驗球已消失
-                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                        window.SurvivalOnlineBroadcastEvent("exp_orb_collected", {
-                            x: this.x,
-                            y: this.y,
-                            value: this.value
-                        });
-                    }
+                    // ✅ 伺服器權威：多人進行中時不再廣播 exp_orb_collected（以 state.experienceOrbs 同步為準）
+                    try {
+                        if (!(typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled)) {
+                            if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                                window.SurvivalOnlineBroadcastEvent("exp_orb_collected", {
+                                    x: this.x,
+                                    y: this.y,
+                                    value: this.value
+                                });
+                            }
+                        }
+                    } catch (_) {}
                 } else {
                     // 單人模式：只給收集者經驗
                     if (typeof AudioManager !== 'undefined') {
