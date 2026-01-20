@@ -982,9 +982,25 @@ class Player extends Entity {
         try {
             if (!this._isRemotePlayer && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled &&
                 typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                // ✅ 多人元素：發送大招動畫狀態到伺服器（讓其他客戶端能看到變身效果）
+                // 注意：大招功能本身是單機元素，會在本地執行 activateUltimate()
+                // 但大招動畫（isUltimateActive、ultimateImageKey、體型變化）是多人元素，需要同步
+                const charUltimate = (Game.selectedCharacter && CONFIG.CHARACTER_ULTIMATES && CONFIG.CHARACTER_ULTIMATES[Game.selectedCharacter.id]) 
+                    ? CONFIG.CHARACTER_ULTIMATES[Game.selectedCharacter.id] 
+                    : null;
+                const ultimateImageKey = (charUltimate && charUltimate.IMAGE_KEY) 
+                    ? charUltimate.IMAGE_KEY 
+                    : CONFIG.ULTIMATE.IMAGE_KEY;
+                const sizeMultiplier = (charUltimate && typeof charUltimate.PLAYER_SIZE_MULTIPLIER === 'number')
+                    ? charUltimate.PLAYER_SIZE_MULTIPLIER
+                    : CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER;
+                
                 window.SurvivalOnlineRuntime.sendToNet({
                     type: 'use_ultimate',
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
+                    ultimateImageKey: ultimateImageKey,
+                    durationMs: CONFIG.ULTIMATE.DURATION_MS,
+                    sizeMultiplier: sizeMultiplier
                 });
             }
         } catch (_) { }
@@ -1300,10 +1316,16 @@ class Player extends Entity {
         }
         this._ultimateExtraDefense = 0;
         
-        // 恢復尺寸與碰撞半徑
-        this.width = this._ultimateBackup.width;
-        this.height = this._ultimateBackup.height;
-        this.collisionRadius = this._ultimateBackup.collisionRadius;
+        // ✅ 多人元素：體型恢復由伺服器同步（不在此處恢復，避免與伺服器狀態衝突）
+        // 單機模式下才在此處恢復體型
+        const isMultiplayerMode = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        if (!isMultiplayerMode) {
+            // 恢復尺寸與碰撞半徑（單機模式）
+            this.width = this._ultimateBackup.width;
+            this.height = this._ultimateBackup.height;
+            this.collisionRadius = this._ultimateBackup.collisionRadius;
+        }
+        // 組隊模式下，體型由伺服器同步（handleServerGameState 會處理）
         
         // 恢復原本武器與等級
         this.weapons = this._ultimateBackup.weapons.map(info => {
@@ -1332,8 +1354,8 @@ class Player extends Entity {
         // 大招結束後：移除玩家名下的所有「守護領域」常駐場域
         // 理由：守護領域為常駐效果，避免大招期間的臨時LV10場域在結束後殘留。
         // ✅ 單機元素：只清理本地玩家的守護領域（不影響遠程玩家）
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-        if (!isMultiplayer || !this._isRemotePlayer) {
+        const isMultiplayerMode2 = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        if (!isMultiplayerMode2 || !this._isRemotePlayer) {
             try {
                 if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
                     for (const p of Game.projectiles) {
