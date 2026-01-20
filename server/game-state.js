@@ -87,10 +87,64 @@ class GameState {
       weapons: playerData.weapons || [],
       // ✅ 可玩性保底：若客戶端 attack input 鏈路斷掉，伺服器仍能在多人模式提供最低限度的自動攻擊
       lastAttackAt: 0,
-      lastAutoFireAt: 0
+      lastAutoFireAt: 0,
+
+      // ✅ 單機同源：受傷短暫無敵 / 防禦 / 迴避（由 client 提供 meta，伺服器只做權威判定）
+      invulnerableUntil: 0,
+      // ✅ 單機同源：技能無敵（INVINCIBLE）應永遠優先（即使 ignoreInvulnerability=true 的重擊也要尊重）
+      skillInvulnerableUntil: 0,
+      meta: {
+        dodgeRate: 0,
+        damageReductionFlat: 0,
+        invulnerabilityDurationMs: 1000
+      }
     };
     this.players.set(uid, player);
     return player;
+  }
+
+  _applyDamageToPlayer(player, amount, opts = {}) {
+    if (!player || player.isDead || player.health <= 0) return;
+    const now = Date.now();
+    const ignoreInvulnerability = !!opts.ignoreInvulnerability;
+    const ignoreDodge = !!opts.ignoreDodge;
+
+    // ✅ 技能無敵（單機 invulnerabilitySource === 'INVINCIBLE'）：永遠優先
+    try {
+      const untilSkill = player.skillInvulnerableUntil || 0;
+      if (untilSkill && now < untilSkill) return;
+    } catch (_) { }
+
+    // 無敵判定
+    if (!ignoreInvulnerability) {
+      const until = player.invulnerableUntil || 0;
+      if (until && now < until) return;
+    }
+
+    // 迴避判定（由 client 計算最終 dodgeRate 並送到 meta）
+    if (!ignoreDodge) {
+      const r = player.meta && typeof player.meta.dodgeRate === 'number' ? player.meta.dodgeRate : 0;
+      const rate = Math.max(0, Math.min(0.95, r));
+      if (rate > 0 && Math.random() < rate) return;
+    }
+
+    // 防禦平減（與單機：baseDefense + damageReductionFlat）
+    const red = player.meta && typeof player.meta.damageReductionFlat === 'number' ? player.meta.damageReductionFlat : 0;
+    const effective = Math.max(0, Math.floor(amount || 0) - Math.max(0, Math.floor(red)));
+    if (effective <= 0) return;
+
+    player.health = Math.max(0, (player.health || 0) - effective);
+    if (player.health <= 0) {
+      player.health = 0;
+      player.isDead = true;
+      return;
+    }
+
+    // 受傷短暫無敵（單機同源）
+    const dur = player.meta && typeof player.meta.invulnerabilityDurationMs === 'number'
+      ? Math.max(0, Math.floor(player.meta.invulnerabilityDurationMs))
+      : 1000;
+    player.invulnerableUntil = now + (dur || 0);
   }
 
   // ✅ 新一局：重置所有「本場」狀態（不影響房間/成員存在）
@@ -297,6 +351,17 @@ class GameState {
         player.health = player.maxHealth || 200;
         // 复活后给一点能量，避免卡死（保持保守）
         player.energy = Math.min(player.maxEnergy || 100, Math.max(0, player.energy || 0));
+        break;
+
+      case 'player-meta':
+        // ✅ 單機同源：同步本地玩家的防禦/迴避/無敵等最終值（避免多人「被連打秒死」）
+        try {
+          if (!player.meta) player.meta = {};
+          if (typeof input.dodgeRate === 'number') player.meta.dodgeRate = Math.max(0, Math.min(0.95, input.dodgeRate));
+          if (typeof input.damageReductionFlat === 'number') player.meta.damageReductionFlat = Math.max(0, Math.floor(input.damageReductionFlat));
+          if (typeof input.invulnerabilityDurationMs === 'number') player.meta.invulnerabilityDurationMs = Math.max(0, Math.floor(input.invulnerabilityDurationMs));
+          if (typeof input.skillInvulnerableUntil === 'number') player.skillInvulnerableUntil = Math.max(0, Math.floor(input.skillInvulnerableUntil));
+        } catch (_) { }
         break;
     }
   }
@@ -898,8 +963,8 @@ class GameState {
         if (nearestDist < collisionRadius) {
           // 检查攻击冷却
           if (now - enemy.lastAttackTime >= enemy.attackCooldown) {
-            // 服务器计算伤害
-            nearestPlayer.health = Math.max(0, nearestPlayer.health - enemy.damage);
+            // ✅ 單機同源：受傷無敵/迴避/防禦（由 player-meta 提供最終值）
+            this._applyDamageToPlayer(nearestPlayer, enemy.damage, { ignoreDodge: false, ignoreInvulnerability: false });
             enemy.lastAttackTime = now;
 
             // 检查玩家是否死亡
@@ -1313,8 +1378,11 @@ class GameState {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < playerRadius) {
-            // 服务器计算伤害
-            player.health = Math.max(0, player.health - (car.damage || 100));
+            // ✅ 單機同源：車輛屬於環境重擊
+            // - 忽略受傷短暫無敵（HIT_FLASH），避免「撞到但不扣血」
+            // - 忽略閃避（抽象化/天賦），避免環境傷害被迴避
+            // - 仍尊重技能無敵（INVINCIBLE）由 _applyDamageToPlayer 內部處理
+            this._applyDamageToPlayer(player, (car.damage || 100), { ignoreInvulnerability: true, ignoreDodge: true });
             car.hitPlayer = true;
 
             // 检查玩家是否死亡
