@@ -545,6 +545,8 @@ const Runtime = (() => {
 
   function _startNetHeartbeat() {
     try { if (_netHeartbeatTimer) return; } catch (_) { }
+    // ✅ 預設不在控制台刷心跳（避免你說的污染與心理壓力）；需要時再手動開 debug
+    if (!SURVIVAL_ONLINE_DEBUG) return;
     _netHeartbeatTimer = setInterval(() => {
       try {
         if (!enabled) return;
@@ -3261,7 +3263,12 @@ async function connectWebSocket() {
           if (wsRef && wsRef.readyState === WebSocket.OPEN) {
             // ⚠️ 修復：_sendViaWebSocket 會自動包一層 {type:'game-data', data: obj}
             // 這裡只需要送內層 data，避免變成 data.type='game-data' 導致服務器忽略
-            _sendViaWebSocket({ type: 'config', config: configData });
+            _sendViaWebSocket({
+              type: 'config',
+              config: configData,
+              diffId: (typeof Game !== 'undefined' && Game.selectedDifficultyId) ? Game.selectedDifficultyId : 'EASY',
+              mapId: (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null
+            });
           }
         }, 100); // 延迟100ms确保连接已建立
       }
