@@ -20,6 +20,28 @@
     update(deltaTime) {
         // ✅ MMORPG 架構：防止重複處理，如果已經被標記為刪除，不再處理
         if (this.markedForDeletion) return;
+
+        // ✅ 權威伺服器模式：多人進行中時，經驗球只做「顯示/插值」，不做吸附/碰撞/給經驗/廣播事件
+        // 經驗共享由伺服器 updateExperienceOrbs 統一結算，再透過 game-state 同步回來。
+        try {
+            if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                // 網路插值（如果 survival_online.js 有提供 _netTargetX/Y）
+                if (typeof this._netTargetX === 'number' && typeof this._netTargetY === 'number') {
+                    const dx = this._netTargetX - this.x;
+                    const dy = this._netTargetY - this.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist > 220) {
+                        this.x = this._netTargetX;
+                        this.y = this._netTargetY;
+                    } else if (dist > 0.1) {
+                        const lerp = Math.min(0.45, Math.max(0.2, (deltaTime || 16.67) / 80));
+                        this.x += dx * lerp;
+                        this.y += dy * lerp;
+                    }
+                }
+                return;
+            }
+        } catch (_) {}
         
         // ✅ MMORPG 架構：支援多玩家收集（本地玩家 + 遠程玩家），不依賴室長端
         const allPlayers = [];
