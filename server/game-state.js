@@ -593,14 +593,12 @@ class GameState {
       this.spawnCarHazards(now);
     }
 
-    // ✅ 與單機一致：小BOSS 每 3 分鐘一次（CONFIG.WAVES.MINI_BOSS_INTERVAL）
+    // ✅ 與單機一致：第 1 波固定生成一隻小BOSS；之後每波開始都會生成一隻
+    // 單機依據：js/wave.js init() 與 nextWave() 都會呼叫 spawnMiniBoss()
     try {
-      const interval = (this.config && this.config.WAVES && typeof this.config.WAVES.MINI_BOSS_INTERVAL === 'number')
-        ? this.config.WAVES.MINI_BOSS_INTERVAL
-        : 180000;
-      if (this.config && now - (this.lastMiniBossSpawnAt || 0) >= interval) {
+      if (this.config && this.wave === 1 && this.minibossSpawnedForWave === false) {
         this.spawnMiniBoss(this.config);
-        this.lastMiniBossSpawnAt = now;
+        this.minibossSpawnedForWave = true;
       }
     } catch (_) { }
 
@@ -1178,7 +1176,10 @@ class GameState {
   // 更新波次
   updateWave(now) {
     const waveElapsed = now - this.waveStartTime;
-    const waveDuration = 60000; // 60秒一波
+    // ✅ 與單機一致：使用 CONFIG.WAVES.DURATION（缺省 60s）
+    const waveDuration = (this.config && this.config.WAVES && typeof this.config.WAVES.DURATION === 'number')
+      ? this.config.WAVES.DURATION
+      : 60000; // 60秒一波
 
     if (waveElapsed >= waveDuration) {
       this.wave++;
@@ -1193,8 +1194,14 @@ class GameState {
         this.enemySpawnRate = Math.max(min, initial - (this.wave - 1) * dec);
       } catch (_) { }
 
-      // 重置 Boss 生成标记（兼容舊欄位）
+      // ✅ 與單機一致：每一波固定生成一隻小BOSS（由 nextWave 觸發）
       this.minibossSpawnedForWave = false;
+      try {
+        if (this.config) {
+          this.spawnMiniBoss(this.config);
+          this.minibossSpawnedForWave = true;
+        }
+      } catch (_) { }
     }
   }
 
