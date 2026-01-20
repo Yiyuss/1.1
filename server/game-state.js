@@ -40,6 +40,10 @@ class GameState {
     // 格式：{ type: 'shoot'|'enemy_death'|'collect_exp', playerUid?, weaponType?, x?, y? }
     this.sfxEvents = [];
 
+    // ✅ transient：視覺特效事件（多人元素；所有人都看得到）
+    // 格式：{ type: 'screen_effect'|'explosion_particles', data: {...} }
+    this.vfxEvents = [];
+
     // ✅ 世界大小（与客户端CONFIG一致）
     // 客户端计算方式：worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3)
     // 720P九宫格模式：1280 * 3 = 3840 (宽度), 720 * 3 = 2160 (高度)
@@ -335,6 +339,21 @@ class GameState {
           if (Math.sqrt(dx * dx + dy * dy) < pr) {
             // BottleProjectile：不忽略無敵，不忽略閃避（單機同源）
             this._applyDamageToPlayer(player, (p.damage || 15), { ignoreInvulnerability: false, ignoreDodge: false });
+            // ✅ VFX（多人元素）：瓶子命中 → 閃光/震動（由客戶端套用距離門檻）
+            try {
+              this.vfxEvents.push({
+                type: 'screen_effect',
+                data: {
+                  type: 'boss_projectile_explosion',
+                  x: p.x,
+                  y: p.y,
+                  // ✅ 震動屬於單機元素：只讓「被命中的玩家」震動
+                  playerUid: player.uid,
+                  screenFlash: { active: true, intensity: 0.3, duration: 150 },
+                  cameraShake: { active: true, intensity: 8, duration: 200 }
+                }
+              });
+            } catch (_) { }
             this.bossProjectiles.splice(i, 1);
             break;
           }
@@ -378,6 +397,21 @@ class GameState {
         if (Math.sqrt(dx * dx + dy * dy) < r) {
           // BossProjectile：忽略受傷短暫無敵，但尊重技能無敵；閃避仍可用（單機同源）
           this._applyDamageToPlayer(player, (p.damage || 40), { ignoreInvulnerability: true, ignoreDodge: false });
+          // ✅ VFX（多人元素）：火彈命中 → 閃光/震動
+          try {
+            this.vfxEvents.push({
+              type: 'screen_effect',
+              data: {
+                type: 'boss_projectile_explosion',
+                x: p.x,
+                y: p.y,
+                // ✅ 震動屬於單機元素：只讓「被命中的玩家」震動
+                playerUid: player.uid,
+                screenFlash: { active: true, intensity: 0.3, duration: 150 },
+                cameraShake: { active: true, intensity: 8, duration: 200 }
+              }
+            });
+          } catch (_) { }
           this.bossProjectiles.splice(i, 1);
           break;
         }
@@ -2017,10 +2051,12 @@ class GameState {
       gameTime: this.gameTime,
       hitEvents: this.hitEvents
       ,sfxEvents: this.sfxEvents
+      ,vfxEvents: this.vfxEvents
     };
     // ✅ transient：broadcast 後清空（下一幀重算）
     this.hitEvents = [];
     this.sfxEvents = [];
+    this.vfxEvents = [];
     return state;
   }
 }
