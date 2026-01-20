@@ -3989,6 +3989,8 @@ function handleServerGameState(state, timestamp) {
     _multiplayerSanityOnce();
     // 更新玩家状态
     if (Array.isArray(state.players)) {
+      // ✅ 多人元素：提供給「遊戲內 HUD」使用（純顯示，不影響單機/升級選單）
+      try { _setHudPlayersFromServer(state.players); } catch (_) { }
       for (const playerState of state.players) {
         if (playerState.uid === _getLocalNetUid()) {
           // 本地玩家：只同步关键状态（血量、能量等），位置由输入控制
@@ -4081,6 +4083,13 @@ function handleServerGameState(state, timestamp) {
                     Game.player.die();
                   }
                 }
+              }
+            } catch (_) { }
+
+            // ✅ 多人元素：救援進度（伺服器權威）— 只做 UI 顯示
+            try {
+              if (typeof playerState.resurrectionProgress === "number") {
+                Game.player._resurrectionProgress = Math.max(0, Math.min(100, playerState.resurrectionProgress));
               }
             } catch (_) { }
           }
@@ -4360,6 +4369,7 @@ function updateRemotePlayerFromServer(playerState) {
     if (typeof playerState.level === 'number') remotePlayer.level = playerState.level;
     if (typeof playerState.facing === 'number') remotePlayer.facing = playerState.facing;
     if (typeof playerState.isDead === 'boolean') remotePlayer._isDead = playerState.isDead;
+    if (typeof playerState.resurrectionProgress === 'number') remotePlayer._resurrectionProgress = playerState.resurrectionProgress;
     if (typeof playerState.nickname === 'string') remotePlayer._remotePlayerName = playerState.nickname;
   } catch (_) { }
 }
@@ -6292,6 +6302,42 @@ function getMembersState() {
   }));
 }
 
+// ✅ 多人元素：提供「遊戲內 HUD」用的玩家狀態（來自權威 game-state）
+let _lastHudPlayers = [];
+function _setHudPlayersFromServer(players) {
+  try {
+    if (!Array.isArray(players)) return;
+    const byUid = new Map();
+    for (const p of players) {
+      if (!p || !p.uid) continue;
+      byUid.set(p.uid, {
+        uid: p.uid,
+        nickname: (typeof p.nickname === 'string') ? p.nickname : null,
+        characterId: (typeof p.characterId === 'string') ? p.characterId : null,
+        health: (typeof p.health === 'number') ? p.health : 0,
+        maxHealth: (typeof p.maxHealth === 'number') ? p.maxHealth : 0,
+        isDead: (typeof p.isDead === 'boolean') ? p.isDead : false
+      });
+    }
+    // 依 members 順序輸出（體感更穩定）
+    const out = [];
+    if (_membersState) {
+      for (const m of _membersState.values()) {
+        const uid = m && m.uid;
+        const st = uid ? byUid.get(uid) : null;
+        if (st) out.push(st);
+      }
+    }
+    // 若 members 還沒到，退回 server 的原順序
+    if (!out.length) _lastHudPlayers = Array.from(byUid.values());
+    else _lastHudPlayers = out;
+  } catch (_) { }
+}
+
+function getHudPlayers() {
+  return Array.isArray(_lastHudPlayers) ? _lastHudPlayers.slice() : [];
+}
+
 function handleEscape() {
   // 只在組隊介面可見時處理 ESC；回傳 true 代表已處理（外部可 stopPropagation）
   try {
@@ -6395,6 +6441,7 @@ window.SurvivalOnlineRuntime = {
   sendToNet: Runtime.sendToNet,
   broadcastEvent: Runtime.broadcastEvent,
   getMembersState: getMembersState,
+  getHudPlayers: getHudPlayers,
   getPlayerNickname: getPlayerNickname,
   sanitizePlayerName: sanitizePlayerName,
   savePlayerNickname: savePlayerNickname
