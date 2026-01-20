@@ -464,7 +464,7 @@ class Weapon {
                 );
                 Game.addProjectile(beam);
             }
-            // 播放雷射音效
+            // ✅ 流量優化：音效是單機元素，只在本地播放（與單機一致）
             if (typeof AudioManager !== 'undefined') {
                 AudioManager.playSound('laser_shoot');
             }
@@ -499,7 +499,7 @@ class Weapon {
                     }
                 }
             }
-            // 播放雷射音效
+            // ✅ 流量優化：音效是單機元素，只在本地播放（與單機一致）
             if (typeof AudioManager !== 'undefined') {
                 AudioManager.playSound('laser_shoot');
             }
@@ -758,7 +758,7 @@ class Weapon {
                 }
                 Game.addProjectile(projectile);
 
-                // 音效（發射一次）
+                // ✅ 流量優化：音效是單機元素，只在本地播放（與單機一致）
                 if (i === 0 && typeof AudioManager !== 'undefined') {
                     AudioManager.playSound('lightning_shoot');
                 }
@@ -1078,22 +1078,26 @@ class Weapon {
             projectile.critChanceBonusPct = ((this.player && this.player.critChanceBonusPct) || 0);
             Game.addProjectile(projectile);
 
+            // ✅ 權威伺服器模式：音效是單機元素，但伺服器 sfxEvents 已經會播放，避免重複
             // 觸發音效（每次發射只播放一次即可）
             if (i === 0 && typeof AudioManager !== 'undefined') {
-                switch (this.type) {
-                    case 'DAGGER':
-                        AudioManager.playSound('dagger_shoot');
-                        break;
-                    case 'FIREBALL':
-                        AudioManager.playSound('fireball_shoot');
-                        break;
-                    case 'LIGHTNING':
-                        // 閃電在專用邏輯中已播放
-                        break;
-                    case 'MUFFIN_THROW':
-                        // 鬆餅投擲在專用邏輯中已播放
-                        break;
-                    case 'ORBIT':
+                // 多人模式：跳過本地播放（伺服器會透過 sfxEvents 播放）
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                if (!isMultiplayer) {
+                    switch (this.type) {
+                        case 'DAGGER':
+                            AudioManager.playSound('dagger_shoot');
+                            break;
+                        case 'FIREBALL':
+                            AudioManager.playSound('fireball_shoot');
+                            break;
+                        case 'LIGHTNING':
+                            // 閃電在專用邏輯中已播放
+                            break;
+                        case 'MUFFIN_THROW':
+                            // 鬆餅投擲在專用邏輯中已播放
+                            break;
+                        case 'ORBIT':
                         // 可選：為旋球加入音效
                         break;
                     case 'CHICKEN_BLESSING':
