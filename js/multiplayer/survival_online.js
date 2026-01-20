@@ -3733,7 +3733,9 @@ function updateEnemiesFromServer(enemies) {
 
       if (enemyState.isDead) {
         enemy.health = 0;
-        enemy.markedForDeletion = true;
+        // ✅ 伺服器權威：不要在客戶端先行刪除
+        // 伺服器會先跑 isDying 動畫，完成後才把該 enemy 從 state.enemies 移除。
+        // 若這裡標記刪除，會導致死亡動畫消失/閃爍與不同步。
       }
     }
   }
