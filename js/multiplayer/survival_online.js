@@ -147,6 +147,7 @@ let _wsReconnectAttempts = 0; // 重連嘗試次數
 let _lastServerGameStateAt = 0;
 // ✅ 除錯開關（多人同步熱路徑避免大量 log 造成卡頓/延遲/「閃現感」）
 const SURVIVAL_ONLINE_DEBUG = false;
+try { if (typeof window !== "undefined") window.SURVIVAL_ONLINE_DEBUG = SURVIVAL_ONLINE_DEBUG; } catch (_) { }
 let _sanityLogged = false;
 let _lastCounterSessionId = null;
 let _sessionCountersPrimed = false;
@@ -715,7 +716,16 @@ const Runtime = (() => {
             eventType === "exp_orb_spawn" ||
             eventType === "chest_spawn" ||
             eventType === "boss_projectile_spawn" ||
-            eventType === "projectile_spawn"
+            eventType === "projectile_spawn" ||
+            // ✅ 伺服器權威：勝利/失敗/出口/經驗球被撿取，改走 state.isVictory/state.isGameOver/state.exit/state.experienceOrbs
+            // 避免舊 event 通道復活造成互打與循環。
+            eventType === "exit_spawn" ||
+            eventType === "game_victory" ||
+            eventType === "game_over" ||
+            eventType === "exp_orb_collected" ||
+            eventType === "ultimate_pineapple_spawn" ||
+            eventType === "obstacles_spawn" ||
+            eventType === "decorations_spawn"
           ) {
             return;
           }
@@ -1836,7 +1846,9 @@ const Runtime = (() => {
                   projectile._isVisualOnly = true; // 標記為僅視覺投射物
                   projectile.player = null; // 不關聯玩家（避免碰撞檢測）
                   Game.projectiles.push(projectile);
-                  console.log(`[SurvivalOnline] ✅ 成功創建遠程投射物: weaponType=${weaponType}, id=${projectileId}, x=${eventData.x}, y=${eventData.y}`);
+                  if (SURVIVAL_ONLINE_DEBUG) {
+                    console.log(`[SurvivalOnline] ✅ 成功創建遠程投射物: weaponType=${weaponType}, id=${projectileId}, x=${eventData.x}, y=${eventData.y}`);
+                  }
                 } catch (e) {
                   console.error(`[SurvivalOnline] ❌ 創建遠程投射物失敗:`, e, `weaponType=${weaponType}`);
                 }
@@ -3382,7 +3394,9 @@ function sendFullSnapshotToClient(targetUid) {
     // 發送給指定隊員（通過 WebSocket 廣播，服務器會轉發給目標用戶）
     if (_ws && _ws.readyState === WebSocket.OPEN) {
       _sendViaWebSocket(fullSnapshot);
-      console.log(`[SurvivalOnline] M5: 已發送全量快照給隊員 ${targetUid}`);
+      if (SURVIVAL_ONLINE_DEBUG) {
+        console.log(`[SurvivalOnline] M5: 已發送全量快照給隊員 ${targetUid}`);
+      }
     }
   } catch (e) {
     console.warn("[SurvivalOnline] M5: 發送全量快照失敗:", e);
@@ -3393,6 +3407,30 @@ function sendFullSnapshotToClient(targetUid) {
 function broadcastEvent(eventType, eventData) {
   // ✅ MMO 架構：每個玩家都廣播自己的事件，不依賴隊長端
   if (!_activeRoomId) return;
+  // ✅ 權威伺服器模式：多人進行中時，禁止廣播「世界權威事件」
+  // 這些應完全由 server game-state 驅動，避免權威打架與流量浪費。
+  try {
+    if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+      if (
+        eventType === "wave_start" ||
+        eventType === "enemy_spawn" ||
+        eventType === "boss_spawn" ||
+        eventType === "exp_orb_spawn" ||
+        eventType === "exp_orb_collected" ||
+        eventType === "chest_spawn" ||
+        eventType === "chest_collected" ||
+        eventType === "boss_projectile_spawn" ||
+        eventType === "projectile_spawn" ||
+        eventType === "obstacles_spawn" ||
+        eventType === "decorations_spawn" ||
+        eventType === "exit_spawn" ||
+        eventType === "game_victory" ||
+        eventType === "game_over"
+      ) {
+        return;
+      }
+    }
+  } catch (_) { }
   const event = {
     t: "event",
     type: eventType,
@@ -3509,6 +3547,28 @@ function handleServerGameState(state, timestamp) {
 
             // prime after first local state in this session
             if (!_sessionCountersPrimed) _sessionCountersPrimed = true;
+
+            // ✅ 死亡/復活：以伺服器 isDead 權威驅動本地狀態（避免客戶端自判/廣播互打）
+            try {
+              if (typeof playerState.isDead === "boolean") {
+                if (playerState.isDead) {
+                  if (!Game.player._isDead && typeof Game.player.die === "function") {
+                    Game.player.die();
+                  }
+                } else {
+                  if (Game.player._isDead && typeof Game.player.resurrect === "function") {
+                    Game.player.resurrect({ fromServer: true });
+                  }
+                }
+              } else {
+                // 向後相容：若未帶 isDead，使用 health 判斷
+                if (typeof playerState.health === "number" && playerState.health <= 0) {
+                  if (!Game.player._isDead && typeof Game.player.die === "function") {
+                    Game.player.die();
+                  }
+                }
+              }
+            } catch (_) { }
           }
         } else {
           // 远程玩家：更新位置和状态
@@ -3541,6 +3601,41 @@ function handleServerGameState(state, timestamp) {
     if (Array.isArray(state.carHazards)) {
       updateCarHazardsFromServer(state.carHazards);
     }
+
+    // ✅ 靜態世界：障礙物/裝飾（只在 server 有帶時套用；server 會在首次廣播帶一次，後續省流量）
+    try {
+      if (Array.isArray(state.obstacles) && state.obstacles.length && typeof Obstacle !== 'undefined') {
+        if (typeof Game !== "undefined") {
+          Game.obstacles = [];
+          for (const o of state.obstacles) {
+            if (!o) continue;
+            const ox = (typeof o.x === 'number') ? o.x : 0;
+            const oy = (typeof o.y === 'number') ? o.y : 0;
+            const imageKey = o.imageKey || 'S1';
+            const size = (typeof o.size === 'number') ? o.size : (typeof o.width === 'number' ? o.width : 150);
+            Game.obstacles.push(new Obstacle(ox, oy, imageKey, size));
+          }
+          Game._obstaclesAndDecorationsSpawned = true;
+        }
+      }
+      if (Array.isArray(state.decorations) && state.decorations.length) {
+        if (typeof Game !== "undefined") {
+          Game.decorations = [];
+          for (const d of state.decorations) {
+            if (!d) continue;
+            if (typeof d.x !== 'number' || typeof d.y !== 'number' || !d.imageKey) continue;
+            Game.decorations.push({
+              x: d.x,
+              y: d.y,
+              width: (typeof d.width === 'number') ? d.width : 100,
+              height: (typeof d.height === 'number') ? d.height : 100,
+              imageKey: d.imageKey
+            });
+          }
+          Game._obstaclesAndDecorationsSpawned = true;
+        }
+      }
+    } catch (_) { }
 
     // ✅ 更新出口（服务器权威）
     try {
