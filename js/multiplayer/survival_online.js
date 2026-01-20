@@ -107,6 +107,7 @@ const START_COUNTDOWN_MS = 3000; // M1：開始倒數（收到 starting 後倒�
 const PLAYER_NAME_MAX_LENGTH = 5; // 最大長度：5個字符（中文字、英文字、數字）
 const PLAYER_NAME_MIN_LENGTH = 1; // 最小長度
 const PLAYER_NAME_STORAGE_KEY = "survival_player_nickname"; // localStorage 鍵名
+const PLAYER_NAME_INSTANCE_KEY_PREFIX = "survival_player_nickname__"; // sessionStorage per instance
 
 // ✅ 多開/多裝置唯一識別（每個分頁一個 instanceId）
 // - authUid: Firebase 匿名登入 uid（用於 Firestore 權限）
@@ -124,6 +125,11 @@ function _getOrCreateInstanceId() {
   } catch (_) {
     return "no-session";
   }
+}
+
+function _getInstanceNicknameKey() {
+  const iid = _instanceId || _getOrCreateInstanceId();
+  return PLAYER_NAME_INSTANCE_KEY_PREFIX + String(iid || "no-session");
 }
 
 // 名稱驗證和清理函數
@@ -165,6 +171,18 @@ function sanitizePlayerName(name) {
 // 獲取玩家暱稱（從 localStorage 或生成默認值）
 function getPlayerNickname() {
   try {
+    // ✅ 多開相容：同一台電腦開兩個分頁測試時，localStorage 會共用，會造成「兩人同名/互蓋」。
+    // 因此組隊暱稱優先讀 sessionStorage（每分頁唯一），再回退 localStorage（跨次保存）。
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        const v2 = sessionStorage.getItem(_getInstanceNicknameKey());
+        if (v2) {
+          const s2 = sanitizePlayerName(v2);
+          if (s2) return s2;
+        }
+      }
+    } catch (_) { }
+
     const saved = localStorage.getItem(PLAYER_NAME_STORAGE_KEY);
     if (saved) {
       const sanitized = sanitizePlayerName(saved);
@@ -184,6 +202,12 @@ function savePlayerNickname(name) {
   if (!sanitized) return false;
 
   try {
+    // ✅ 優先寫入 sessionStorage（每分頁），避免多開互蓋
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        sessionStorage.setItem(_getInstanceNicknameKey(), sanitized);
+      }
+    } catch (_) { }
     localStorage.setItem(PLAYER_NAME_STORAGE_KEY, sanitized);
     return true;
   } catch (_) {
@@ -493,6 +517,26 @@ const RemotePlayerManager = (() => {
       if (player && typeof player.update === "function") {
         // M4：使用完整的 Player.update，包括武器更新、回血等
         // 注意：死亡時 update() 會自動跳過移動和武器更新，只處理復活邏輯
+
+        // ✅ 修復：遠端玩家位置必須跟隨 server state（我們用 _netTargetX/_netTargetY 作為目標）
+        // 否則就會出現「看得到隊友攻擊，但人站著不動」。
+        try {
+          if (player._isRemotePlayer && typeof player._netTargetX === "number" && typeof player._netTargetY === "number") {
+            const dx = player._netTargetX - player.x;
+            const dy = player._netTargetY - player.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            // 大跳直接瞬移（避免拉扯）
+            if (dist > 600) {
+              player.x = player._netTargetX;
+              player.y = player._netTargetY;
+            } else if (dist > 0.5) {
+              // 依 dt 自適應 lerp
+              const t = Math.max(0.08, Math.min(0.35, (deltaTime / 16.67) * 0.18));
+              player.x += dx * t;
+              player.y += dy * t;
+            }
+          }
+        } catch (_) { }
 
         // ✅ 標準連線遊戲：使用速度外推預測位置（在收到新狀態之前）
         if (player._isRemotePlayer && player._velocityX !== undefined && player._velocityY !== undefined) {
@@ -2905,11 +2949,8 @@ async function leaveRoom() {
   _reconnectAttempts = 0;
 
   // ✅ 清理邏輯：離開房間時清理暱稱（避免跨房間污染）
-  try {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem) {
-      localStorage.removeItem(PLAYER_NAME_STORAGE_KEY);
-    }
-  } catch (_) { }
+  // ✅ 修復：不要清掉暱稱（會導致開局/重連時名字回退，甚至兩端看起來同名）
+  // 暱稱屬於玩家偏好，應保留；多開衝突已用 sessionStorage per-instance 解決。
 }
 
 async function setReady(ready) {
@@ -4130,8 +4171,29 @@ function updateRemotePlayerFromServer(playerState) {
     if (!remotePlayer) return;
 
     // 位置：用與 RemotePlayerManager.updateAll 同源的插值（只設 target）
-    if (typeof playerState.x === 'number') remotePlayer._netTargetX = playerState.x;
-    if (typeof playerState.y === 'number') remotePlayer._netTargetY = playerState.y;
+    if (typeof playerState.x === 'number') {
+      // 速度估計（供外推）：用兩次狀態差分
+      try {
+        const now = Date.now();
+        if (typeof remotePlayer._netTargetX === 'number' && typeof remotePlayer._lastStateTime === 'number') {
+          const dt = Math.max(1, now - remotePlayer._lastStateTime);
+          remotePlayer._velocityX = (playerState.x - remotePlayer._netTargetX) / (dt / 1000);
+        }
+        remotePlayer._lastStateTime = now;
+      } catch (_) { }
+      remotePlayer._netTargetX = playerState.x;
+    }
+    if (typeof playerState.y === 'number') {
+      try {
+        const now = Date.now();
+        if (typeof remotePlayer._netTargetY === 'number' && typeof remotePlayer._lastStateTime === 'number') {
+          const dt = Math.max(1, now - remotePlayer._lastStateTime);
+          remotePlayer._velocityY = (playerState.y - remotePlayer._netTargetY) / (dt / 1000);
+        }
+        remotePlayer._lastStateTime = now;
+      } catch (_) { }
+      remotePlayer._netTargetY = playerState.y;
+    }
     if (typeof remotePlayer.x !== 'number' && typeof remotePlayer._netTargetX === 'number') remotePlayer.x = remotePlayer._netTargetX;
     if (typeof remotePlayer.y !== 'number' && typeof remotePlayer._netTargetY === 'number') remotePlayer.y = remotePlayer._netTargetY;
 
