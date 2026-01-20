@@ -1331,15 +1331,19 @@ class Player extends Entity {
 
         // 大招結束後：移除玩家名下的所有「守護領域」常駐場域
         // 理由：守護領域為常駐效果，避免大招期間的臨時LV10場域在結束後殘留。
-        try {
-            if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
-                for (const p of Game.projectiles) {
-                    if (p && p.weaponType === 'AURA_FIELD' && p.player === this && !p.markedForDeletion) {
-                        if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
+        // ✅ 單機元素：只清理本地玩家的守護領域（不影響遠程玩家）
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        if (!isMultiplayer || !this._isRemotePlayer) {
+            try {
+                if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+                    for (const p of Game.projectiles) {
+                        if (p && p.weaponType === 'AURA_FIELD' && p.player === this && !p.markedForDeletion) {
+                            if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
+                        }
                     }
                 }
-            }
-        } catch (_) {}
+            } catch (_) {}
+        }
         
         // 能量歸零
         this.energy = 0;
