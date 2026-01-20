@@ -140,9 +140,16 @@ class BossProjectile extends Entity {
                         return;
                     }
                 } catch (_) {}
-                // 對玩家造成傷害：忽略一般無敵（受傷短暫無敵），但尊重技能無敵
-                // 抽象化技能會在 takeDamage 內部處理回避判定
-                p.takeDamage(this.damage, { ignoreInvulnerability: true, source: 'boss_projectile' });
+                // ✅ 元素分類：
+                // - **多人元素（伺服器權威）**：玩家扣血/死亡判定
+                // - **單機元素（本地）**：BossProjectile 直接呼叫 takeDamage
+                // 權威多人時，避免「本地扣血 + 伺服器扣血」造成莫名狂扣血。
+                const isServerAuthoritative = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                if (!isServerAuthoritative) {
+                    // 對玩家造成傷害：忽略一般無敵（受傷短暫無敵），但尊重技能無敵
+                    // 抽象化技能會在 takeDamage 內部處理回避判定
+                    p.takeDamage(this.damage, { ignoreInvulnerability: true, source: 'boss_projectile' });
+                }
                 // 新增：命中玩家時播放bo音效
                 if (typeof AudioManager !== 'undefined') {
                     AudioManager.playSound('bo');
