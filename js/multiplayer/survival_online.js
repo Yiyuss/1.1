@@ -371,7 +371,7 @@ const RemotePlayerManager = (() => {
                 existingPlayer.baseMaxHealth = charBaseMax;
                 existingPlayer.maxHealth = charBaseMax;
                 if (char.speedMultiplier) existingPlayer.speed = ((typeof CONFIG !== "undefined" && CONFIG.PLAYER && CONFIG.PLAYER.SPEED) ? CONFIG.PLAYER.SPEED : 200) * char.speedMultiplier;
-                if (char.dodgeChanceBonusPct) existingPlayer._characterBaseDodgeBonusPct = char.dodgeChanceBonusPct;
+                if (char.dodgeChanceBonusPct) existingPlayer._characterBaseDodgeRate = char.dodgeChanceBonusPct;
                 if (char.critChanceBonusPct) existingPlayer._characterBaseCritBonusPct = char.critChanceBonusPct;
                 if (char.canUseUltimate === false) existingPlayer.canUseUltimate = false;
                 existingPlayer.spriteImageKey = char.spriteImageKey || 'player';
@@ -416,7 +416,7 @@ const RemotePlayerManager = (() => {
               player.baseMaxHealth = charBaseMax;
               player.maxHealth = charBaseMax;
               if (char.speedMultiplier) player.speed = ((typeof CONFIG !== "undefined" && CONFIG.PLAYER && CONFIG.PLAYER.SPEED) ? CONFIG.PLAYER.SPEED : 200) * char.speedMultiplier;
-              if (char.dodgeChanceBonusPct) player._characterBaseDodgeBonusPct = char.dodgeChanceBonusPct;
+              if (char.dodgeChanceBonusPct) player._characterBaseDodgeRate = char.dodgeChanceBonusPct;
               if (char.critChanceBonusPct) player._characterBaseCritBonusPct = char.critChanceBonusPct;
               if (char.canUseUltimate === false) player.canUseUltimate = false;
               player.spriteImageKey = char.spriteImageKey || 'player';
@@ -2057,6 +2057,23 @@ const Runtime = (() => {
             // ✅ 修復：直接調用遊戲結束邏輯，不再次調用 Game.gameOver()（避免循環）
             // 因為 Game.gameOver() 會再次廣播事件，導致循環
             Game.isGameOver = true;
+            
+            // ✅ 清理邏輯：遊戲結束時清理狀態，避免污染下一局
+            try {
+              // 停用 Runtime（停止狀態同步）
+              if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
+                Runtime.setEnabled(false);
+              }
+              // 清理遠程玩家
+              if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.clear === "function") {
+                RemotePlayerManager.clear();
+              }
+              // 清理 Game.remotePlayers
+              if (typeof Game !== "undefined" && Array.isArray(Game.remotePlayers)) {
+                Game.remotePlayers.length = 0;
+              }
+            } catch (_) { }
+            
             // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
             if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
               window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => { });
@@ -2103,6 +2120,23 @@ const Runtime = (() => {
             // ✅ 修復：直接調用勝利邏輯，不再次調用 Game.victory()（避免循環）
             // 因為 Game.victory() 會再次廣播事件，導致循環
             Game.isGameOver = true;
+            
+            // ✅ 清理邏輯：遊戲結束時清理狀態，避免污染下一局
+            try {
+              // 停用 Runtime（停止狀態同步）
+              if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
+                Runtime.setEnabled(false);
+              }
+              // 清理遠程玩家
+              if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.clear === "function") {
+                RemotePlayerManager.clear();
+              }
+              // 清理 Game.remotePlayers
+              if (typeof Game !== "undefined" && Array.isArray(Game.remotePlayers)) {
+                Game.remotePlayers.length = 0;
+              }
+            } catch (_) { }
+            
             // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
             if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
               window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => { });
@@ -2441,6 +2475,18 @@ const Runtime = (() => {
           }
         } catch (_) { }
 
+        // ✅ 爆擊率同步（天賦 + 升級 + 角色基礎）
+        let critChanceBonusPct = 0;
+        try {
+          // 天賦爆擊率
+          const critTalentPct = p.critChanceBonusPct || 0;
+          // 升級爆擊率
+          const critUpgradePct = p.critChanceUpgradeBonusPct || 0;
+          // 角色基礎爆擊率
+          const charBaseCritPct = p._characterBaseCritBonusPct || 0;
+          critChanceBonusPct = critTalentPct + critUpgradePct + charBaseCritPct;
+        } catch (_) { }
+
         // ✅ B：天賦/角色加成同源（例：不獸控制吸血）
         // 伺服器權威命中後需要回復血量，不能留在客戶端（避免不同步/作弊）。
         let lifesteal = null;
@@ -2470,6 +2516,7 @@ const Runtime = (() => {
           damageReductionFlat: reduction,
           invulnerabilityDurationMs: invulnMs,
           skillInvulnerableUntil,
+          critChanceBonusPct: Math.max(0, critChanceBonusPct), // ✅ 新增：爆擊率同步
           lifesteal
         };
         const sig = JSON.stringify(meta);
@@ -3458,6 +3505,12 @@ async function connectWebSocket() {
       _updateNetStatusLine("opened");
 
       // 發送加入房間消息
+      // ✅ 計算本地玩家的 maxHealth（包含角色屬性和天賦效果）
+      // 注意：此時 Game.player 可能還未創建，所以先發送默認值，後續在 new-session 時會更新
+      let initialMaxHealth = 200; // 默認值
+      if (typeof Game !== 'undefined' && Game.player && typeof Game.player.maxHealth === 'number') {
+        initialMaxHealth = Game.player.maxHealth;
+      }
       wsRef.send(JSON.stringify({
         type: 'join',
         roomId: _activeRoomId,
@@ -3467,7 +3520,9 @@ async function connectWebSocket() {
         isHost: _isHost,
         // ✅ 讓伺服器知道角色/暱稱，否則隊友端可能看不到正確貼圖（或全部變同一隻）
         characterId: (typeof Game !== 'undefined' && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : 'pineapple',
-        nickname: (typeof getPlayerNickname === 'function') ? getPlayerNickname() : '玩家'
+        nickname: (typeof getPlayerNickname === 'function') ? getPlayerNickname() : '玩家',
+        // ✅ 發送初始 maxHealth（如果已計算）
+        maxHealth: initialMaxHealth
       }));
 
       // ✅ 权威服务器：发送CONFIG数据到服务器（用于敌人生成）
@@ -5979,19 +6034,52 @@ function tryStartSurvivalFromRoom() {
       }
     }
 
+    // ✅ 清理邏輯：重新開始遊戲前，確保清理上一局的狀態
+    try {
+      // 重置遊戲結束標記
+      if (typeof Game !== "undefined") {
+        Game._gameOverEventSent = false;
+        Game._victoryEventSent = false;
+        Game.isGameOver = false;
+      }
+      // 清理遠程玩家（避免上一局的殘留）
+      if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.clear === "function") {
+        RemotePlayerManager.clear();
+      }
+      // 清理 Game.remotePlayers
+      if (typeof Game !== "undefined" && Array.isArray(Game.remotePlayers)) {
+        Game.remotePlayers.length = 0;
+      }
+    } catch (_) { }
+
     // 確保 Runtime 啟用（遊戲開始時啟用狀態同步）
     if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
       Runtime.setEnabled(true);
     }
 
     // ✅ 新一局：通知伺服器重置本場狀態（避免上一局殘留造成開場怪血量異常）
+    // ✅ 同時發送本地玩家的 maxHealth（包含角色屬性和天賦效果）
     try {
       const sid = sessionId || null;
       if (sid && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-        window.SurvivalOnlineRuntime.sendToNet({ type: "new-session", sessionId: sid });
+        // 計算本地玩家的 maxHealth（包含角色屬性和天賦效果）
+        let playerMaxHealth = 200; // 默認值
+        if (typeof Game !== "undefined" && Game.player) {
+          // 在 Game.init 中已經計算了角色的 maxHealth 和天賦效果
+          playerMaxHealth = Game.player.maxHealth || 200;
+        }
+        window.SurvivalOnlineRuntime.sendToNet({ 
+          type: "new-session", 
+          sessionId: sid,
+          maxHealth: playerMaxHealth // ✅ 發送計算好的 maxHealth
+        });
       } else if (sid) {
         // fallback
-        try { _sendViaWebSocket({ type: "new-session", sessionId: sid }); } catch (_) { }
+        let playerMaxHealth = 200;
+        if (typeof Game !== "undefined" && Game.player) {
+          playerMaxHealth = Game.player.maxHealth || 200;
+        }
+        try { _sendViaWebSocket({ type: "new-session", sessionId: sid, maxHealth: playerMaxHealth }); } catch (_) { }
       }
     } catch (_) { }
 
