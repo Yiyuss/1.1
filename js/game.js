@@ -419,8 +419,11 @@ const Game = {
         }
 
         // 可選：更新彈幕系統（停用時不執行）
+        // ✅ 多人元素（伺服器權威）：彈幕（ASURA）由伺服器更新與扣血；客戶端只渲染（避免本地移動/碰撞造成雙重扣血）
         try {
-            if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.update === 'function') {
+            if (this.multiplayer && this.multiplayer.enabled) {
+                // 權威多人：不跑本地 BulletSystem.update
+            } else if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.update === 'function') {
                 BulletSystem.update(deltaTime);
             }
         } catch (e) {
