@@ -1,5 +1,13 @@
 // 武器類
-class Weapon {
+// ✅ 使用與 enemy.js 相同的模式，確保全局可訪問
+(function () {
+    'use strict';
+    // 防止重複聲明：如果已經定義，跳過
+    if (typeof Weapon !== 'undefined') {
+        return;
+    }
+    try {
+        class Weapon {
     constructor(player, type) {
         this.player = player;
         this.type = type;
@@ -1155,20 +1163,10 @@ class Weapon {
         }
         return null;
     }
-}
-
-// ✅ 立即導出到全局作用域（確保在類定義後立即可用）
-// 使用與 player.js / projectile.js 相同的簡單模式
-if (typeof window !== 'undefined') {
-    window.Weapon = Weapon;
-}
-if (typeof globalThis !== 'undefined') {
-    globalThis.Weapon = Weapon;
-}
-
-// 在類內新增：根據「基礎值 +（等級5%）+（天賦基礎%）+（特化+2/4/6）」計算最終基礎傷害
-Weapon.prototype._computeFinalDamage = function(levelMul){
-    // MMORPG標準：主機端的遠程玩家武器不造成傷害（由隊員端的enemy_damage處理，避免雙重傷害）
+        
+        // 在類內新增：根據「基礎值 +（等級5%）+（天賦基礎%）+（特化+2/4/6）」計算最終基礎傷害
+        Weapon.prototype._computeFinalDamage = function(levelMul){
+            // MMORPG標準：主機端的遠程玩家武器不造成傷害（由隊員端的enemy_damage處理，避免雙重傷害）
     // 但視覺效果仍然需要正常傷害值來顯示（例如AuraField的範圍）
     if (this.player && this.player._isRemotePlayer) {
         // 主機端的遠程玩家武器：返回0傷害（避免雙重傷害）
@@ -1264,8 +1262,23 @@ Weapon.prototype._computeFinalDamage = function(levelMul){
     const value = baseFlat * (1 + percentSum);
     return value;
 };
+        
+        // 將類暴露到全局作用域（與 enemy.js 相同的模式）
+        if (typeof window !== 'undefined') {
+            window.Weapon = Weapon;
+        } else if (typeof global !== 'undefined') {
+            global.Weapon = Weapon;
+        }
+        if (typeof globalThis !== 'undefined') {
+            globalThis.Weapon = Weapon;
+        }
+    } catch (e) {
+        console.error('[weapon.js] ❌ 定義 Weapon 類時出錯:', e);
+        console.error('[weapon.js] 錯誤堆棧:', e.stack);
+    }
+})();
 
-// ✅ ES Module 相容：確保導出（已在類定義後立即導出，這裡作為備份）
+// ✅ ES Module 相容：確保導出（已在 IIFE 內導出，這裡作為備份）
 // 不影響單機邏輯，只是額外暴露建構子供多人使用。
 if (typeof Weapon !== 'undefined') {
     if (typeof window !== 'undefined') {
