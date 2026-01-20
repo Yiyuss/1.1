@@ -231,11 +231,13 @@ function handleJoin(ws, msg) {
   // ✅ 权威服务器：添加玩家到游戏状态
   const characterId = (msg && typeof msg.characterId === 'string') ? msg.characterId : 'pineapple';
   const nickname = (msg && typeof msg.nickname === 'string') ? msg.nickname : '玩家';
+  // ✅ 使用客戶端發送的 maxHealth（如果有的話），否則使用默認值
+  const maxHealth = (msg && typeof msg.maxHealth === 'number' && msg.maxHealth > 0) ? msg.maxHealth : 200;
   gameState.addPlayer(uid, {
     x: 1920 / 2,
     y: 1080 / 2,
-    health: 200,
-    maxHealth: 200,
+    health: maxHealth,
+    maxHealth: maxHealth,
     energy: 100,
     maxEnergy: 100,
     level: 1,
@@ -326,7 +328,12 @@ function handleGameData(ws, roomId, uid, data) {
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
   if (gameState && data.type === 'new-session' && typeof data.sessionId === 'string') {
     try {
-      gameState.resetForNewSession(data.sessionId);
+      // ✅ 收集所有玩家的 maxHealth 更新（如果客戶端發送了）
+      const playerUpdates = new Map();
+      if (typeof data.maxHealth === 'number' && data.maxHealth > 0) {
+        playerUpdates.set(uid, { maxHealth: data.maxHealth });
+      }
+      gameState.resetForNewSession(data.sessionId, playerUpdates);
       staticSent.delete(actualRoomId); // 靜態資料下一次廣播重新帶一次
     } catch (_) { }
     return;
