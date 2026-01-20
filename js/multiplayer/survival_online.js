@@ -192,6 +192,41 @@ let _startSessionId = null;
 // WebSocket
 let _ws = null; // WebSocket 連接
 let _wsReconnectAttempts = 0; // 重連嘗試次數
+let _wsJoinedAck = false; // 收到 server 的 joined 後才允許送 game-data
+const _wsPendingQueue = []; // queued inner data objects (will be wrapped as game-data)
+
+function _enqueueWsData(obj) {
+  if (!obj || typeof obj !== "object") return;
+  const t = obj.type || obj.t || null;
+  const coalesceTypes = new Set(["config", "map", "world-size", "obstacles", "decorations"]);
+  if (t && coalesceTypes.has(t)) {
+    const idx = _wsPendingQueue.findIndex(x => x && (x.type || x.t) === t);
+    if (idx >= 0) {
+      _wsPendingQueue[idx] = obj;
+      return;
+    }
+  }
+  if (_wsPendingQueue.length > 200) _wsPendingQueue.shift();
+  _wsPendingQueue.push(obj);
+}
+
+function _flushWsQueue() {
+  if (!_ws || _ws.readyState !== WebSocket.OPEN) return;
+  if (!_wsJoinedAck) return;
+  while (_wsPendingQueue.length) {
+    const obj = _wsPendingQueue.shift();
+    try { _sendViaWebSocket(obj); } catch (_) { }
+  }
+}
+
+async function _waitForWsJoined(timeoutMs = 3000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (_ws && _ws.readyState === WebSocket.OPEN && _wsJoinedAck) return true;
+    await new Promise(r => setTimeout(r, 50));
+  }
+  return false;
+}
 // ✅ 權威伺服器 game-state 節流：避免 60Hz 大包造成卡頓/閃現感
 let _lastServerGameStateAt = 0;
 // ✅ 除錯開關（多人同步熱路徑避免大量 log 造成卡頓/延遲/「閃現感」）
@@ -3173,6 +3208,7 @@ async function connectWebSocket() {
       _ws = new WebSocket(url);
       const wsRef = _ws;
       _netStats.wsUrl = url;
+      _wsJoinedAck = false;
 
       // 連線超時計時器（CONNECTING 卡住時，onerror/onclose 可能不會觸發）
       let timeoutId = null;
@@ -3263,6 +3299,8 @@ async function connectWebSocket() {
 
         if (msg.type === 'joined') {
           console.log(`[SurvivalOnline] connectWebSocket: 已加入房間`);
+          _wsJoinedAck = true;
+          try { _flushWsQueue(); } catch (_) { }
           _updateNetStatusLine("joined");
         } else if (msg.type === 'game-state') {
           // ✅ 权威服务器：接收服务器游戏状态（節流處理，避免 60Hz 壓垮前端）
@@ -3408,6 +3446,11 @@ function _sendViaWebSocket(obj) {
           payloadObj = { ...payloadObj, sessionId: sid };
         }
       } catch (_) { }
+      // ✅ 啟動線可靠：join 前先排隊，避免 server 忽略 game-data
+      if (!_wsJoinedAck) {
+        _enqueueWsData(payloadObj);
+        return;
+      }
       _ws.send(JSON.stringify({
         type: 'game-data',
         roomId: _activeRoomId,
@@ -3423,6 +3466,8 @@ function _sendViaWebSocket(obj) {
       console.error(`[SurvivalOnline] _sendViaWebSocket: 發送失敗:`, e);
     }
   } else {
+    // ✅ ws 尚未 OPEN：排隊（例如 reset 早於 onopen 的 obstacles/decorations）
+    try { _enqueueWsData(obj); } catch (_) { }
     // ✅ 節流：ws 未連上時不要每 33ms 刷屏
     const now = Date.now();
     if (!_sendViaWebSocket._lastWarnAt || (now - _sendViaWebSocket._lastWarnAt > 1500)) {
@@ -5303,7 +5348,7 @@ function tryStartSurvivalFromRoom() {
   let countdownInterval = null;
   let hasStarted = false; // 防止重複啟動
 
-  const startGame = () => {
+  const startGame = async () => {
     if (hasStarted) return;
     hasStarted = true;
     if (countdownInterval) clearInterval(countdownInterval);
@@ -5343,12 +5388,21 @@ function tryStartSurvivalFromRoom() {
       }
     }
 
-    // 確保 WebSocket 已連接（遊戲開始前連接）
-    if (!_ws || _ws.readyState !== WebSocket.OPEN) {
-      console.log(`[SurvivalOnline] startGame: WebSocket 未連接，嘗試連接...`);
-      connectWebSocket().catch((e) => {
+    // ✅ 啟動線硬保證：進入 survival 之前，必須 WS OPEN + JOINED
+    if (!_ws || _ws.readyState !== WebSocket.OPEN || !_wsJoinedAck) {
+      console.log(`[SurvivalOnline] startGame: WebSocket 未連接/未 joined，嘗試連接...`);
+      try {
+        await connectWebSocket();
+        const ok = await _waitForWsJoined(3500);
+        if (!ok) {
+          _setText("survival-online-status", "連線建立但未加入房間（joined 超時）");
+          return;
+        }
+      } catch (e) {
         console.error(`[SurvivalOnline] startGame: WebSocket 連接失敗:`, e);
-      });
+        _setText("survival-online-status", "WebSocket 連線失敗，無法開始");
+        return;
+      }
     }
 
     // 確保 Runtime 啟用（遊戲開始時啟用狀態同步）
