@@ -5802,6 +5802,11 @@ window.SurvivalOnlineRuntime = {
   Runtime: Runtime,
   RemotePlayerManager: RemotePlayerManager,
   updateRemotePlayers: Runtime.updateRemotePlayers, // 直接暴露 updateRemotePlayers
+  // ✅ 關鍵：許多檔案（game.js/player.js/chest.js...）使用 window.SurvivalOnlineRuntime.sendToNet
+  // 但 sendToNet 實際在 Runtime 內；若不在這裡暴露，攻擊/大招/復活等封包會「完全送不出去」
+  // 導致 BootLine 永遠 pr=0（看不到任何攻擊）。
+  sendToNet: Runtime.sendToNet,
+  broadcastEvent: Runtime.broadcastEvent,
   getMembersState: getMembersState,
   getPlayerNickname: getPlayerNickname,
   sanitizePlayerName: sanitizePlayerName,
