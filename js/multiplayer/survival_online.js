@@ -352,9 +352,10 @@ const RemotePlayerManager = (() => {
     // 創建新的遠程玩家
     if (!existingPlayer) {
       try {
-        // 創建完整的 Player 對象
-        if (typeof Player !== "undefined") {
-          const player = new Player(startX || 0, startY || 0);
+        // 創建完整的 Player 對象（ES module 需從 globalThis/window 取 ctor）
+        const PlayerCtor = _getGlobalCtor("Player");
+        if (PlayerCtor) {
+          const player = new PlayerCtor(startX || 0, startY || 0);
           // 標記為遠程玩家（用於區分本地玩家）
           player._isRemotePlayer = true;
           player._remoteUid = uid;
@@ -5029,7 +5030,16 @@ function updateLobbyUI() {
   if (list) {
     list.innerHTML = "";
     const arr = Array.from(_membersState.values());
-    arr.sort((a, b) => (a.role === "host" ? -1 : 1) - (b.role === "host" ? -1 : 1));
+    // ✅ 修復：有些舊資料/規則下 members.role 可能缺失或錯誤，UI 必須以 room.hostUid 為準
+    const _isHostMember = (m) => {
+      try {
+        if (!m) return false;
+        if (m.role === "host") return true;
+        if (_hostUid && m.uid && m.uid === _hostUid) return true;
+      } catch (_) { }
+      return false;
+    };
+    arr.sort((a, b) => (_isHostMember(a) ? -1 : 1) - (_isHostMember(b) ? -1 : 1));
     for (const m of arr) {
       const stale = _isMemberStale(m);
       const div = document.createElement("div");
@@ -5043,8 +5053,8 @@ function updateLobbyUI() {
       div.style.background = stale ? "rgba(0,0,0,0.18)" : "rgba(0,0,0,0.25)";
       div.style.opacity = stale ? "0.6" : "1";
       const left = document.createElement("div");
-      const roleLabel = (m.role === "host") ? "室長" : "玩家";
-      const name = m.name || (m.uid || "").slice(0, 6);
+      const roleLabel = _isHostMember(m) ? "室長" : "玩家";
+      const name = (m && typeof m.name === "string" && m.name.trim()) ? m.name.trim() : ((m.uid || "").slice(0, 6));
       left.textContent = `${roleLabel}：${name}${stale ? "（離線）" : ""}`;
       const right = document.createElement("div");
       right.style.display = "flex";
