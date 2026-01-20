@@ -459,7 +459,19 @@ class GameState {
         invulnerabilityDurationMs: 1000,
         // ✅ 單機同源：不獸控制（吸血）等「命中後回復」類效果需在伺服器權威結算
         lifesteal: { pct: 0, cooldownMs: 100, minHeal: 1, lastAt: 0 }
-      }
+      },
+      // ✅ 多人元素：大招動畫狀態（讓所有客戶端能看到其他玩家的大招變身效果）
+      isUltimateActive: false,
+      ultimateImageKey: null,
+      ultimateEndTime: 0,
+      // ✅ 多人元素：體型變化（大招變身時的視覺效果）
+      width: playerData.width || 32,
+      height: playerData.height || 32,
+      collisionRadius: playerData.collisionRadius || 16,
+      // 保存原始體型（用於大招結束時恢復）
+      _originalWidth: playerData.width || 32,
+      _originalHeight: playerData.height || 32,
+      _originalCollisionRadius: playerData.collisionRadius || 16
     };
     this.players.set(uid, player);
     return player;
@@ -958,14 +970,14 @@ class GameState {
     const player = this.players.get(uid);
     if (!player || player.isDead) return;
 
+    // 能量門檻：需滿能量；成功施放後歸零
+    if (player.energy < (player.maxEnergy || 100)) return;
+    player.energy = 0;
+
     // ✅ 服务器权威：鳳梨不咬舌（pineapple）的大招改由伺服器生成掉落物（PINEAPPLE chest）
     // 目的：避免客戶端事件/本地生成與 state.chests 權威打架，並確保所有端看到一致的掉落物。
     try {
       if (player.characterId === 'pineapple') {
-        // 能量門檻：需滿能量；成功施放後歸零
-        if (player.energy < (player.maxEnergy || 100)) return;
-        player.energy = 0;
-
         const count = 5;
         const minD = 200;
         const maxD = 800;
@@ -997,9 +1009,63 @@ class GameState {
             flyDurationMs
           });
         }
+        // 鳳梨大招不變身，所以不設置 isUltimateActive
         return;
       }
     } catch (_) { }
+
+    // ✅ 多人元素：大招動畫（視覺效果）需要同步到所有客戶端
+    // 對於變身型大招（非鳳梨、非爆炸型、非森森鈴蘭），設置大招狀態以便其他客戶端能看到變身效果
+    // 注意：大招功能本身是單機元素（武器變化、屬性加成等），只在本地玩家執行
+    // 但大招動畫（isUltimateActive、ultimateImageKey、體型變化）是多人元素，需要同步
+    // ✅ 不會變身的角色：鳳梨（pineapple）、艾比（rabi/abby，爆炸型大招）、森森鈴蘭（sensen/lilylinglan，未來，目前未實作）
+    // 這些角色的大招不設置 isUltimateActive，因為它們不會變身
+    const isNonTransformUltimate = (
+      player.characterId === 'pineapple' || 
+      player.characterId === 'rabi' || // 艾比（爆炸型大招）
+      player.characterId === 'abby' || // 艾比（別名）
+      player.characterId === 'sensen' || // 森森鈴蘭（未來，目前未實作）
+      player.characterId === 'lilylinglan' // 森森鈴蘭（別名）
+    );
+    
+    if (!isNonTransformUltimate) {
+      // 只有變身型大招才設置動畫狀態
+      try {
+        // 從客戶端傳來的 input 中獲取大招配置（如果有的話）
+        // 如果沒有，使用預設值（客戶端會自己處理變身邏輯）
+        const now = Date.now();
+        const ultimateDurationMs = (input && typeof input.durationMs === 'number') ? input.durationMs : 10000; // 預設 10 秒
+        
+        // 保存原始體型（用於大招結束時恢復）
+        if (typeof player._originalWidth !== 'number') {
+          player._originalWidth = player.width || 32;
+          player._originalHeight = player.height || 32;
+          player._originalCollisionRadius = player.collisionRadius || 16;
+        }
+        
+        // 設置大招狀態（多人元素：動畫同步）
+        player.isUltimateActive = true;
+        player.ultimateEndTime = now + ultimateDurationMs;
+        
+        // 從 input 獲取 ultimateImageKey（客戶端會在 activateUltimate 時設置）
+        if (input && typeof input.ultimateImageKey === 'string') {
+          player.ultimateImageKey = input.ultimateImageKey;
+        } else {
+          // 預設使用 CONFIG.ULTIMATE.IMAGE_KEY（如果客戶端沒有傳）
+          // 注意：伺服器端無法直接訪問 CONFIG，所以這裡使用預設值
+          player.ultimateImageKey = 'player_ultimate'; // 預設值，客戶端會覆蓋
+        }
+        
+        // 體型變化（從 input 獲取，或使用預設倍率）
+        const sizeMultiplier = (input && typeof input.sizeMultiplier === 'number') ? input.sizeMultiplier : 1.5;
+        const baseWidth = player._originalWidth || player.width || 32;
+        const baseHeight = player._originalHeight || player.height || 32;
+        player.width = Math.floor(baseWidth * sizeMultiplier);
+        player.height = Math.floor(baseHeight * sizeMultiplier);
+        player.collisionRadius = Math.max(player.width, player.height) / 2;
+      } catch (_) { }
+    }
+    // 非變身型大招（鳳梨、艾比、森森鈴蘭）不設置 isUltimateActive，因為它們不會變身
   }
 
   // ✅ 共享經驗：用於鳳梨掉落物等特殊獎勵（由客戶端回報 amount，伺服器轉為權威 counter）
@@ -1146,10 +1212,30 @@ class GameState {
 
   // 更新玩家状态
   updatePlayers(deltaTime) {
+    const now = Date.now();
     for (const player of this.players.values()) {
       // 能量恢复
       if (player.energy < player.maxEnergy) {
         player.energy = Math.min(player.maxEnergy, player.energy + 1 * (deltaTime / 1000));
+      }
+      
+      // ✅ 多人元素：大招結束時清理狀態（讓所有客戶端看到大招結束）
+      if (player.isUltimateActive && typeof player.ultimateEndTime === 'number' && now >= player.ultimateEndTime) {
+        player.isUltimateActive = false;
+        player.ultimateImageKey = null;
+        player.ultimateEndTime = 0;
+        // 恢復原始體型（從客戶端同步，或使用預設值）
+        // 注意：實際的武器恢復、屬性恢復等是單機元素，由客戶端自己處理
+        // 這裡只處理多人元素（視覺狀態同步）
+        if (typeof player._originalWidth === 'number' && player._originalWidth > 0) {
+          player.width = player._originalWidth;
+        }
+        if (typeof player._originalHeight === 'number' && player._originalHeight > 0) {
+          player.height = player._originalHeight;
+        }
+        if (typeof player._originalCollisionRadius === 'number' && player._originalCollisionRadius > 0) {
+          player.collisionRadius = player._originalCollisionRadius;
+        }
       }
     }
   }
@@ -2024,7 +2110,15 @@ class GameState {
         resurrectionProgress: p.resurrectionProgress,
         resurrectionRescuerUid: p.resurrectionRescuerUid,
         characterId: p.characterId,
-        nickname: p.nickname
+        nickname: p.nickname,
+        // ✅ 多人元素：大招動畫狀態（讓所有客戶端能看到其他玩家的大招變身效果）
+        isUltimateActive: (typeof p.isUltimateActive === 'boolean') ? p.isUltimateActive : false,
+        ultimateImageKey: (typeof p.ultimateImageKey === 'string' && p.ultimateImageKey) ? p.ultimateImageKey : null,
+        ultimateEndTime: (typeof p.ultimateEndTime === 'number') ? p.ultimateEndTime : 0,
+        // ✅ 多人元素：體型變化（大招變身時的視覺效果）
+        width: (typeof p.width === 'number' && p.width > 0) ? p.width : null,
+        height: (typeof p.height === 'number' && p.height > 0) ? p.height : null,
+        collisionRadius: (typeof p.collisionRadius === 'number' && p.collisionRadius > 0) ? p.collisionRadius : null
       })),
       enemies: this.enemies,
       projectiles: this.projectiles,
