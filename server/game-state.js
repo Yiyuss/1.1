@@ -44,6 +44,11 @@ class GameState {
     // ✅ MMORPG 逻辑：Boss生成跟踪
     this.minibossSpawnedForWave = false;
     this.bossSpawned = false;
+    this.lastMiniBossSpawnAt = 0;
+
+    // ✅ 伺服器端難度/地圖（從 client 同步；用於 TUNING 與生成規則同源）
+    this.diffId = 'EASY';
+    this.mapId = null;
 
     // ✅ 用於避免重複發放（例如：鳳梨掉落物被多次回報 award_exp）
     this._awardedExpChestIds = new Set();
@@ -114,6 +119,90 @@ class GameState {
       // 注意：experience/sessionCoins 是「本場累積量」，新局要清 0
       p.experience = 0;
       p.sessionCoins = 0;
+    }
+  }
+
+  _getActiveMapId() {
+    return (this.mapId && typeof this.mapId === 'string')
+      ? this.mapId
+      : (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : 'city';
+  }
+
+  _getActiveDiffId() {
+    return (this.diffId && typeof this.diffId === 'string') ? this.diffId : 'EASY';
+  }
+
+  _getTotalWaves(config) {
+    return (config && config.WAVES && typeof config.WAVES.TOTAL_WAVES === 'number') ? config.WAVES.TOTAL_WAVES : 30;
+  }
+
+  _computeEnemyMaxHealth(type, enemyConfig, wave, config) {
+    const tuning = (config && config.TUNING) ? config.TUNING : null;
+    const mapId = this._getActiveMapId();
+    const diffId = this._getActiveDiffId();
+    const totalWaves = this._getTotalWaves(config);
+
+    const isMini = (type === 'MINI_BOSS' || type === 'ELF_MINI_BOSS' || type === 'HUMAN_MINI_BOSS');
+    const isBoss = (type === 'BOSS' || type === 'ELF_BOSS' || type === 'HUMAN_BOSS');
+
+    const baseHealthCfg = enemyConfig && typeof enemyConfig.HEALTH === 'number' ? enemyConfig.HEALTH : 100;
+
+    try {
+      if (tuning && !isMini && !isBoss) {
+        const enemyHealthConfig = (((tuning.ENEMY_HEALTH || {})[mapId] || {})[diffId]) || null;
+        if (enemyHealthConfig) {
+          const baseHealth = baseHealthCfg + (enemyHealthConfig.baseHealth || 0);
+          const maxHealthWave30 = enemyHealthConfig.maxHealthWave30 || baseHealth;
+          if (wave === 1) return Math.floor(baseHealth);
+          if (wave >= totalWaves) {
+            const wavesBeyond = wave - totalWaves;
+            return Math.floor(maxHealthWave30 * Math.pow(1.3, wavesBeyond));
+          }
+          const progress = (wave - 1) / Math.max(1, (totalWaves - 1));
+          return Math.floor(baseHealth + (maxHealthWave30 - baseHealth) * progress);
+        }
+      }
+      if (tuning && isMini) {
+        const miniBossConfig = (((tuning.MINI_BOSS || {})[mapId] || {})[diffId]) || null;
+        if (miniBossConfig && miniBossConfig.startWave1 && miniBossConfig.endWave30) {
+          const start = miniBossConfig.startWave1;
+          const end = miniBossConfig.endWave30;
+          if (wave === 1) return Math.floor(start);
+          if (wave >= totalWaves) {
+            const wavesBeyond = wave - totalWaves;
+            return Math.floor(end * Math.pow(1.3, wavesBeyond));
+          }
+          const perWave = Math.pow(end / start, 1 / Math.max(1, (totalWaves - 1)));
+          return Math.floor(start * Math.pow(perWave, Math.max(0, wave - 1)));
+        }
+      }
+      if (tuning && isBoss) {
+        const bossConfig = (((tuning.BOSS || {})[mapId] || {})[diffId]) || null;
+        const bossWave = (config && config.WAVES && typeof config.WAVES.BOSS_WAVE === 'number') ? config.WAVES.BOSS_WAVE : 20;
+        if (bossConfig && (bossConfig.wave20 || bossConfig.wave30) && wave === bossWave) {
+          return Math.floor(bossConfig.wave20 || bossConfig.wave30);
+        }
+      }
+    } catch (_) { }
+
+    // fallback：WAVES multiplier
+    try {
+      const hm = (config && config.WAVES) ? config.WAVES.HEALTH_MULTIPLIER_PER_WAVE : null;
+      const mul = (typeof hm === 'number') ? hm : 1.05;
+      return Math.floor(baseHealthCfg * Math.pow(mul, Math.max(0, wave - 1)));
+    } catch (_) { }
+    return Math.floor(baseHealthCfg);
+  }
+
+  _pickEdgeSpawn(margin = 50) {
+    const worldWidth = this.worldWidth || 3840;
+    const worldHeight = this.worldHeight || 2160;
+    const edge = Math.floor(Math.random() * 4);
+    switch (edge) {
+      case 0: return { x: Math.random() * worldWidth, y: -margin };
+      case 1: return { x: worldWidth + margin, y: Math.random() * worldHeight };
+      case 2: return { x: Math.random() * worldWidth, y: worldHeight + margin };
+      default: return { x: -margin, y: Math.random() * worldHeight };
     }
   }
 
@@ -305,7 +394,19 @@ class GameState {
       const dx = enemy.x - x;
       const dy = enemy.y - y;
       if ((dx * dx + dy * dy) <= r2) {
-        this.damageEnemy(enemy, damage);
+        // ✅ 與單機一致：AOE 也套用浮動/爆擊（並回傳命中事件供前端顯示）
+        const hit = this._computeHit(damage, input);
+        this.damageEnemy(enemy, hit.amount);
+        try {
+          this.hitEvents.push({
+            enemyId: enemy.id,
+            x: enemy.x,
+            y: enemy.y,
+            h: enemy.size || 32,
+            damage: hit.amount,
+            isCrit: hit.isCrit
+          });
+        } catch (_) { }
       }
     }
   }
@@ -484,11 +585,16 @@ class GameState {
       this.spawnCarHazards(now);
     }
 
-    // ✅ 服务器权威：生成小BOSS (每波一次)
-    if (!this.minibossSpawnedForWave && this.config) {
-      this.spawnMiniBoss(this.config);
-      this.minibossSpawnedForWave = true;
-    }
+    // ✅ 與單機一致：小BOSS 每 3 分鐘一次（CONFIG.WAVES.MINI_BOSS_INTERVAL）
+    try {
+      const interval = (this.config && this.config.WAVES && typeof this.config.WAVES.MINI_BOSS_INTERVAL === 'number')
+        ? this.config.WAVES.MINI_BOSS_INTERVAL
+        : 180000;
+      if (this.config && now - (this.lastMiniBossSpawnAt || 0) >= interval) {
+        this.spawnMiniBoss(this.config);
+        this.lastMiniBossSpawnAt = now;
+      }
+    } catch (_) { }
 
     // ✅ 服务器权威：生成大BOSS (第20波)
     if (this.wave === 20 && !this.bossSpawned && this.config) {
@@ -833,9 +939,10 @@ class GameState {
     if (availableTypes.length === 0) return;
 
     // 计算生成数量
-    const base = config.WAVES.SPAWN_COUNT.INITIAL || 3;
-    const inc = config.WAVES.SPAWN_COUNT.INCREASE_PER_WAVE || 0.9;
-    const max = config.WAVES.SPAWN_COUNT.MAXIMUM || 12;
+    const sc = (config.WAVES && config.WAVES.SPAWN_COUNT) ? config.WAVES.SPAWN_COUNT : {};
+    const base = sc.INITIAL || 3;
+    const inc = (this.wave >= 5 && typeof sc.INCREASE_PER_WAVE_LATE === 'number') ? sc.INCREASE_PER_WAVE_LATE : (sc.INCREASE_PER_WAVE || 0.9);
+    const max = (this.wave >= 5 && typeof sc.MAXIMUM_LATE === 'number') ? sc.MAXIMUM_LATE : (sc.MAXIMUM || 12);
     const countBase = Math.min(Math.floor(base + (this.wave - 1) * inc), max);
     const count = Math.max(1, countBase);
 
@@ -856,10 +963,8 @@ class GameState {
         case 3: x = -50; y = Math.random() * worldHeight; break;
       }
 
-      // 计算血量（根据波次）
-      const healthMultiplier = config.WAVES.HEALTH_MULTIPLIER_PER_WAVE || 1.05;
-      const baseHealth = enemyConfig.HEALTH || 100;
-      const health = Math.floor(baseHealth * Math.pow(healthMultiplier, this.wave - 1));
+      // ✅ 血量同源：優先用 TUNING（與單機一致），否則回退 WAVES multiplier
+      const health = this._computeEnemyMaxHealth(enemyType, enemyConfig, this.wave, config);
 
       this.enemies.push({
         id: `enemy_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
@@ -905,18 +1010,13 @@ class GameState {
     const enemyConfig = config.ENEMIES[type] || config.ENEMIES['MINI_BOSS'];
     if (!enemyConfig) return;
 
-    // 世界中心附近随机生成
-    const worldWidth = this.worldWidth || 3840;
-    const worldHeight = this.worldHeight || 2160;
-    const angle = Math.random() * Math.PI * 2;
-    const dist = 300 + Math.random() * 200;
-    const x = worldWidth / 2 + Math.cos(angle) * dist;
-    const y = worldHeight / 2 + Math.sin(angle) * dist;
+    // ✅ 與單機一致：從世界邊緣生成
+    const spawn = this._pickEdgeSpawn(80);
+    const x = spawn.x;
+    const y = spawn.y;
 
-    // 血量计算 (复制 Client 逻辑的服务器版)
-    const baseHealth = enemyConfig.HEALTH || 500;
-    // 简单模拟 Client 增长公式 (1.2^wave)
-    const health = Math.floor(baseHealth * Math.pow(1.2, wave - 1));
+    // ✅ 血量同源（TUNING.MINI_BOSS）
+    const health = this._computeEnemyMaxHealth(type, enemyConfig, wave, config);
 
     this.enemies.push({
       id: `boss_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -946,15 +1046,16 @@ class GameState {
     const enemyConfig = config.ENEMIES[type] || config.ENEMIES['BOSS'];
     if (!enemyConfig) return;
 
+    const spawn = this._pickEdgeSpawn(120);
     const worldWidth = this.worldWidth || 3840;
     const worldHeight = this.worldHeight || 2160;
 
-    const health = 50000; // 固定或从 config 读取 (Tunings)
+    const health = this._computeEnemyMaxHealth(type, enemyConfig, this.wave, config);
 
     this.enemies.push({
       id: `final_boss_${Date.now()}`,
-      x: worldWidth / 2,
-      y: worldHeight / 2,
+      x: spawn.x,
+      y: spawn.y,
       type: type,
       health: health,
       maxHealth: health,
@@ -969,8 +1070,34 @@ class GameState {
 
   // ✅ 服务器权威：更新经验球（检测玩家收集）
   updateExperienceOrbs(deltaTime) {
+    const deltaMul = (deltaTime || 16.67) / 16.67;
+    const attractRange = 220; // 與單機體感接近：靠近後會被吸過來
+    const attractSpeed = 7.5; // 像素/16.67ms
     for (let i = this.experienceOrbs.length - 1; i >= 0; i--) {
       const orb = this.experienceOrbs[i];
+
+      // ✅ 伺服器權威吸附：朝最近的活著玩家靠近（恢復「經驗可吸」）
+      try {
+        let nearest = null;
+        let nearestDist = Infinity;
+        for (const p of this.players.values()) {
+          if (!p || p.isDead || p.health <= 0) continue;
+          const dx = p.x - orb.x;
+          const dy = p.y - orb.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < nearestDist) {
+            nearestDist = d;
+            nearest = p;
+          }
+        }
+        if (nearest && nearestDist < attractRange && nearestDist > 0.0001) {
+          const dx = nearest.x - orb.x;
+          const dy = nearest.y - orb.y;
+          const inv = 1 / nearestDist;
+          orb.x += dx * inv * attractSpeed * deltaMul;
+          orb.y += dy * inv * attractSpeed * deltaMul;
+        }
+      } catch (_) { }
 
       // 检查是否被任何玩家收集
       for (const player of this.players.values()) {
@@ -1048,9 +1175,17 @@ class GameState {
     if (waveElapsed >= waveDuration) {
       this.wave++;
       this.waveStartTime = now;
-      this.enemySpawnRate = Math.max(500, 2000 - (this.wave - 1) * 100);
 
-      // 重置 Boss 生成标记
+      // ✅ 與單機一致：用 CONFIG.WAVES.ENEMY_SPAWN_RATE（初始/每波遞減/最小值）
+      try {
+        const rateCfg = (this.config && this.config.WAVES && this.config.WAVES.ENEMY_SPAWN_RATE) ? this.config.WAVES.ENEMY_SPAWN_RATE : null;
+        const initial = rateCfg && typeof rateCfg.INITIAL === 'number' ? rateCfg.INITIAL : 2000;
+        const dec = rateCfg && typeof rateCfg.DECREASE_PER_WAVE === 'number' ? rateCfg.DECREASE_PER_WAVE : 100;
+        const min = rateCfg && typeof rateCfg.MINIMUM === 'number' ? rateCfg.MINIMUM : 300;
+        this.enemySpawnRate = Math.max(min, initial - (this.wave - 1) * dec);
+      } catch (_) { }
+
+      // 重置 Boss 生成标记（兼容舊欄位）
       this.minibossSpawnedForWave = false;
     }
   }
