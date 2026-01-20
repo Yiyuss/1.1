@@ -1029,22 +1029,74 @@ const Runtime = (() => {
           console.warn("[SurvivalOnline] 生成寶箱失敗:", e);
         }
       } else if (eventType === "chest_collected") {
-        // ✅ MMORPG 架構：所有玩家都能處理寶箱被撿取事件，移除寶箱
+        // ✅ C：寶箱屬於競技（誰撿到誰拿）
+        // - 所有人：移除寶箱（避免重複撿取/殘留）
+        // - 只有撿到的人：NORMAL → 開升級選單；PINEAPPLE → 回報 award_exp（共享經驗，所以誰撿到都沒差）
         try {
-          if (typeof Game !== "undefined" && Array.isArray(Game.chests) && eventData.x !== undefined && eventData.y !== undefined) {
-            // 找到最接近的寶箱並移除（容差：50像素）
-            const tolerance = 50;
-            for (let i = Game.chests.length - 1; i >= 0; i--) {
-              const chest = Game.chests[i];
-              if (chest && !chest.markedForDeletion) {
-                const dist = Math.sqrt(Math.pow(chest.x - eventData.x, 2) + Math.pow(chest.y - eventData.y, 2));
-                if (dist <= tolerance) {
-                  chest.destroy();
-                  Game.chests.splice(i, 1);
+          if (typeof Game === "undefined") return;
+
+          const myUid = _getLocalNetUid ? _getLocalNetUid() : _uid;
+          const collectorUid = (eventData && typeof eventData.collectorUid === "string") ? eventData.collectorUid : null;
+          const chestId = (eventData && typeof eventData.chestId === "string") ? eventData.chestId : null;
+          const chestType = (eventData && typeof eventData.chestType === "string") ? eventData.chestType : "NORMAL";
+          const isPineapple = (chestType === "PINEAPPLE");
+
+          // 1) 所有人：移除寶箱（優先用 id；向後相容用座標容差）
+          const list = isPineapple ? Game.pineappleUltimatePickups : Game.chests;
+          if (Array.isArray(list)) {
+            let removed = false;
+            if (chestId) {
+              for (let i = list.length - 1; i >= 0; i--) {
+                const c = list[i];
+                if (c && c.id === chestId) {
+                  try { if (typeof c.destroy === "function") c.destroy(); } catch (_) { }
+                  list.splice(i, 1);
+                  removed = true;
                   break;
                 }
               }
             }
+            if (!removed && typeof eventData.x === "number" && typeof eventData.y === "number") {
+              const tolerance = 50;
+              for (let i = list.length - 1; i >= 0; i--) {
+                const c = list[i];
+                if (!c) continue;
+                const dx = (c.x || 0) - eventData.x;
+                const dy = (c.y || 0) - eventData.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist <= tolerance) {
+                  try { if (typeof c.destroy === "function") c.destroy(); } catch (_) { }
+                  list.splice(i, 1);
+                  break;
+                }
+              }
+            }
+          }
+
+          // 2) 只有撿到的人拿獎勵
+          if (collectorUid && collectorUid !== myUid) return;
+
+          if (isPineapple) {
+            // ✅ 鳳梨掉落：共享經驗（伺服器權威 counter）；回報 amount（與單機同源：50 + 30% 當下所需升級經驗）
+            try {
+              const p = Game.player;
+              if (p && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                const base = 50;
+                let needNow = 0;
+                try {
+                  if (typeof p.experienceToNextLevel === "number" && typeof p.experience === "number") {
+                    needNow = Math.max(0, Math.floor(p.experienceToNextLevel - p.experience));
+                  }
+                } catch (_) { }
+                const bonus = Math.max(0, Math.floor(needNow * 0.30));
+                const amount = base + bonus;
+                window.SurvivalOnlineRuntime.sendToNet({ type: "award_exp", amount, chestId });
+              }
+            } catch (_) { }
+          } else {
+            // ✅ NORMAL 寶箱：只讓撿到的人開升級選單（候選技能仍走單機 UI.getUpgradeOptions → 自動套用成就/解鎖）
+            try { if (typeof AudioManager !== "undefined" && AudioManager.playSound) AudioManager.playSound("level_up"); } catch (_) { }
+            try { if (typeof UI !== "undefined" && UI.showLevelUpMenu) UI.showLevelUpMenu(); } catch (_) { }
           }
         } catch (e) {
           console.warn("[SurvivalOnline] 處理寶箱被撿取事件失敗:", e);
@@ -2387,6 +2439,78 @@ const Runtime = (() => {
       vy,
       deltaTime: dt
     });
+
+    // ✅ B：戰鬥/防禦同源（一次補齊最致命的「迴避/防禦/受傷無敵」）
+    // 每 500ms 或數值變更時同步到伺服器，伺服器用於碰撞扣血判定。
+    try {
+      if (!tick._lastMetaAt) tick._lastMetaAt = 0;
+      const metaDue = (now - tick._lastMetaAt) >= 500;
+      if (metaDue && typeof Game !== "undefined" && Game.player) {
+        const p = Game.player;
+        // 依單機 takeDamage 的公式計算「最終迴避率」（含：技能 ABSTRACTION/SIXTH_SENSE + 天賦 + 角色基礎 + 模式上限）
+        let weaponDodgeRate = 0;
+        try {
+          if (p.weapons && Array.isArray(p.weapons)) {
+            const passiveDodgeTypes = ["ABSTRACTION", "SIXTH_SENSE"];
+            for (const t of passiveDodgeTypes) {
+              const wpn = p.weapons.find(w => w && w.type === t);
+              if (wpn && wpn.config && Array.isArray(wpn.config.DODGE_RATES)) {
+                const level = wpn.level || 1;
+                weaponDodgeRate += wpn.config.DODGE_RATES[level - 1] || 0;
+              }
+            }
+          }
+        } catch (_) { }
+        const talentDodgeRate = p.dodgeTalentRate || 0;
+        const characterDodgeRate = p._characterBaseDodgeRate || 0;
+        const totalDodgeRate = weaponDodgeRate + talentDodgeRate + characterDodgeRate;
+        let finalDodgeRate = totalDodgeRate;
+        try {
+          const isSurvival = (typeof Game !== "undefined" && Game.mode === "survival");
+          const isDada = !!(p.character && p.character.id === "dada");
+          if (isSurvival) {
+            finalDodgeRate = isDada ? Math.min(0.40, totalDodgeRate) : Math.min(0.15, talentDodgeRate + characterDodgeRate);
+          } else {
+            finalDodgeRate = Math.min(0.15, talentDodgeRate + characterDodgeRate);
+          }
+        } catch (_) {
+          finalDodgeRate = Math.min(0.15, talentDodgeRate + characterDodgeRate);
+        }
+
+        const baseDef = p.baseDefense || 0;
+        const talentDef = p.damageReductionFlat || 0;
+        const reduction = Math.max(0, Math.floor(baseDef + talentDef));
+        const invulnMs = (typeof p.invulnerabilityDuration === "number") ? Math.max(0, Math.floor(p.invulnerabilityDuration)) : 1000;
+        // ✅ 技能無敵（INVINCIBLE）：即使是重擊 ignoreInvulnerability=true 也必須尊重
+        // 送「絕對時間戳」給伺服器，伺服器用 skillInvulnerableUntil 最高優先擋傷害
+        let skillInvulnerableUntil = 0;
+        try {
+          if (p.isInvulnerable && p.invulnerabilitySource === "INVINCIBLE") {
+            const dur = (typeof p.invulnerabilityDuration === "number") ? p.invulnerabilityDuration : 0;
+            const t = (typeof p.invulnerabilityTime === "number") ? p.invulnerabilityTime : 0;
+            const remain = Math.max(0, Math.floor(dur - t));
+            skillInvulnerableUntil = Date.now() + remain;
+          }
+        } catch (_) { }
+
+        const meta = {
+          type: "player-meta",
+          dodgeRate: Math.max(0, Math.min(0.95, finalDodgeRate)),
+          damageReductionFlat: reduction,
+          invulnerabilityDurationMs: invulnMs,
+          skillInvulnerableUntil
+        };
+        const sig = JSON.stringify(meta);
+        if (sig !== tick._lastMetaSig) {
+          tick._lastMetaSig = sig;
+          _sendViaWebSocket(meta);
+        } else {
+          // 仍每隔一段時間送一次，避免伺服器重啟後吃不到
+          _sendViaWebSocket(meta);
+        }
+        tick._lastMetaAt = now;
+      }
+    } catch (_) { }
 
     tick._lastSentX = Game.player.x;
     tick._lastSentY = Game.player.y;
