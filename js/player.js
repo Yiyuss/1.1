@@ -218,6 +218,14 @@ class Player extends Entity {
         
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
         if (!isMultiplayer) return;
+
+        // ✅ 多人元素（伺服器權威）：救援進度/成功由伺服器統一判定
+        // 這裡只保留 UI 顯示（_resurrectionProgress 會由 survival_online.js 的 game-state 同步覆蓋）
+        try {
+            if (Game.multiplayer && Game.multiplayer.enabled) {
+                return;
+            }
+        } catch (_) {}
         
         // 檢查是否有其他玩家接觸（復活範圍：碰撞半徑的2倍）
         const resurrectionRadius = (this.collisionRadius || 26) * 2;
