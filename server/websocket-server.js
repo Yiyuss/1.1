@@ -194,7 +194,7 @@ function handleMessage(ws, msg) {
 
   switch (type) {
     case 'join':
-      handleJoin(ws, roomId, uid, isHost);
+      handleJoin(ws, msg);
       break;
     case 'game-data':
       handleGameData(ws, roomId, uid, data);
@@ -204,7 +204,8 @@ function handleMessage(ws, msg) {
   }
 }
 
-function handleJoin(ws, roomId, uid, isHost) {
+function handleJoin(ws, msg) {
+  const { roomId, uid, isHost } = msg || {};
   console.log(`[WebSocket] 用戶加入: roomId=${roomId}, uid=${uid}, isHost=${isHost}`);
 
   // 保存用戶信息
@@ -225,6 +226,8 @@ function handleJoin(ws, roomId, uid, isHost) {
   const gameState = gameStates.get(roomId);
 
   // ✅ 权威服务器：添加玩家到游戏状态
+  const characterId = (msg && typeof msg.characterId === 'string') ? msg.characterId : 'pineapple';
+  const nickname = (msg && typeof msg.nickname === 'string') ? msg.nickname : '玩家';
   gameState.addPlayer(uid, {
     x: 1920 / 2,
     y: 1080 / 2,
@@ -235,8 +238,8 @@ function handleJoin(ws, roomId, uid, isHost) {
     level: 1,
     experience: 0,
     gold: 0,
-    characterId: 'pineapple', // 从客户端获取
-    nickname: '玩家' // 从客户端获取
+    characterId: characterId,
+    nickname: nickname
   });
 
   // 發送確認
@@ -307,6 +310,15 @@ function handleGameData(ws, roomId, uid, data) {
   if (gameState && data.type === 'decorations' && Array.isArray(data.decorations)) {
     gameState.setDecorations(data.decorations);
     console.log(`[GameState] 收到装饰数据: roomId=${actualRoomId}, count=${data.decorations.length}, uid=${uid}`);
+    return;
+  }
+
+  // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
+  if (gameState && data.type === 'new-session' && typeof data.sessionId === 'string') {
+    try {
+      gameState.resetForNewSession(data.sessionId);
+      staticSent.delete(actualRoomId); // 靜態資料下一次廣播重新帶一次
+    } catch (_) { }
     return;
   }
 
