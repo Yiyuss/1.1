@@ -120,6 +120,15 @@ class GameState {
         // 服务器处理大招
         this.handleUltimate(uid, input);
         break;
+
+      case 'resurrect':
+        // ✅ 服务器权威：复活（与客户端救援/复活 UI 对齐）
+        // 注意：仅用于本场，且只影响组队系统。
+        player.isDead = false;
+        player.health = player.maxHealth || 200;
+        // 复活后给一点能量，避免卡死（保持保守）
+        player.energy = Math.min(player.maxEnergy || 100, Math.max(0, player.energy || 0));
+        break;
     }
   }
 
