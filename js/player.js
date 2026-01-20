@@ -687,8 +687,17 @@ class Player extends Entity {
             // ✅ 權威伺服器模式：死亡/全滅判定由伺服器 state.isDead/state.isGameOver 統一權威
             // 避免客戶端廣播 player_death/game_over 造成互打與循環。
             if (!isServerAuthoritative) {
-                // 舊模式（非 enabled）才保留事件廣播
-                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                // 舊模式（非 enabled）才保留事件廣播（隔離：只允許 survival）
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) { }
+                if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
                     window.SurvivalOnlineBroadcastEvent("player_death", {
                         playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
                     });
@@ -724,12 +733,23 @@ class Player extends Entity {
                  return;
              }
          } catch (_) { }
-         // 舊模式：廣播復活狀態
-         if (typeof Game !== 'undefined' && Game.multiplayer && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-             window.SurvivalOnlineBroadcastEvent("player_resurrect", {
-                 playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-             });
-         }
+        // 舊模式：廣播復活狀態（隔離：只允許 survival）
+        if (typeof Game !== 'undefined' && Game.multiplayer && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) { }
+            if (isSurvivalMode) {
+                window.SurvivalOnlineBroadcastEvent("player_resurrect", {
+                    playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
+                });
+            }
+        }
      }
      
     // ✅ MMORPG 架構：所有玩家都能檢查遊戲失敗，不依賴隊長端
@@ -823,11 +843,22 @@ class Player extends Entity {
                 if (Game._gameOverEventSent) return; // 已經有其他玩家觸發了
                 Game._gameOverEventSent = true; // 標記為已觸發
                 
-                // 廣播遊戲結束事件，讓所有玩家都能看到失敗影片
+                // 廣播遊戲結束事件（舊模式；隔離：只允許 survival）
                 if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("game_over", {
-                        reason: "all_players_dead"
-                    });
+                    let isSurvivalMode = false;
+                    try {
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) { }
+                    if (isSurvivalMode) {
+                        window.SurvivalOnlineBroadcastEvent("game_over", {
+                            reason: "all_players_dead"
+                        });
+                    }
                 }
                  Game.gameOver();
              }
@@ -1136,7 +1167,15 @@ class Player extends Entity {
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
-                    if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包（避免污染單機/其他模式）
+                    if (
+                        isSurvivalMode &&
+                        typeof Game !== 'undefined' &&
+                        Game.multiplayer &&
+                        Game.multiplayer.enabled === true &&
+                        typeof window !== "undefined" &&
+                        typeof window.SurvivalOnlineBroadcastEvent === "function"
+                    ) {
                         window.SurvivalOnlineBroadcastEvent("screen_effect", {
                             type: 'ultimate_activation',
                             x: this.x,
@@ -1368,7 +1407,15 @@ class Player extends Entity {
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
-                    if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                    // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包（避免污染單機/其他模式）
+                    if (
+                        isSurvivalMode &&
+                        typeof Game !== 'undefined' &&
+                        Game.multiplayer &&
+                        Game.multiplayer.enabled === true &&
+                        typeof window !== "undefined" &&
+                        typeof window.SurvivalOnlineBroadcastEvent === "function"
+                    ) {
                         window.SurvivalOnlineBroadcastEvent("screen_effect", {
                             type: 'explosion_ultimate',
                             x: this.x,
