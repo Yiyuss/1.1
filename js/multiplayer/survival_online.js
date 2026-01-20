@@ -147,6 +147,27 @@ let _wsReconnectAttempts = 0; // 重連嘗試次數
 let _lastServerGameStateAt = 0;
 // ✅ 除錯開關（多人同步熱路徑避免大量 log 造成卡頓/延遲/「閃現感」）
 const SURVIVAL_ONLINE_DEBUG = false;
+let _sanityLogged = false;
+
+function _multiplayerSanityOnce() {
+  try {
+    if (_sanityLogged) return;
+    if (typeof Game === "undefined" || !Game.multiplayer || !Game.multiplayer.enabled) return;
+    _sanityLogged = true;
+    const sid = Game.multiplayer.sessionId || null;
+    const role = Game.multiplayer.role || null;
+    const hasWs = !!(_ws && _ws.readyState === WebSocket.OPEN);
+    console.log("[SurvivalOnline][Sanity]", {
+      role,
+      sessionId: sid,
+      wsOpen: hasWs,
+      serverGameStateThrottledHz: 10,
+      clientEventSpawnsDisabled: true,
+      enemyClientAIAndDamageDisabled: true,
+      projectileClientDamageDisabled: true
+    });
+  } catch (_) { }
+}
 
 // 自動重連機制
 let _reconnectAttempts = 0;
@@ -677,6 +698,26 @@ const Runtime = (() => {
     const eventData = payload.data || {};
 
     try {
+      // ✅ 權威伺服器模式：多人進行中（multiplayer.enabled）時，禁止用 event 生成/更新「世界實體」
+      // 這些實體（敵人/經驗球/寶箱/投射物/BOSS投射物/波次）應由 server game-state 統一權威下發，
+      // 否則會與 updateEnemiesFromServer/updateProjectilesFromServer 等路徑互打，導致「越修越多 bug」。
+      try {
+        const isServerAuthoritative = (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled);
+        if (isServerAuthoritative) {
+          if (
+            eventType === "wave_start" ||
+            eventType === "enemy_spawn" ||
+            eventType === "boss_spawn" ||
+            eventType === "exp_orb_spawn" ||
+            eventType === "chest_spawn" ||
+            eventType === "boss_projectile_spawn" ||
+            eventType === "projectile_spawn"
+          ) {
+            return;
+          }
+        }
+      } catch (_) { }
+
       // 根據事件類型執行輕量模擬
       if (eventType === "wave_start") {
         // ✅ 真正的MMORPG：波次開始 - 同步波次開始時間，確保所有客戶端在同一時間生成相同的敵人
@@ -3385,6 +3426,7 @@ function handleServerGameState(state, timestamp) {
   if (typeof Game === 'undefined' || !Game.multiplayer) return;
 
   try {
+    _multiplayerSanityOnce();
     // 更新玩家状态
     if (Array.isArray(state.players)) {
       for (const playerState of state.players) {
