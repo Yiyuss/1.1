@@ -8,53 +8,53 @@
     }
     try {
         class Weapon {
-    constructor(player, type) {
-        this.player = player;
-        this.type = type;
-        this.config = CONFIG.WEAPONS[type];
-        this.level = 1;
-        this.lastFireTime = 0;
-        // 初始化為COOLDOWN值，確保新武器可以立即發射（升級時初次選新技能後立即生效）
-        this.cooldownAccumulator = this.config.COOLDOWN || 0;
-        this._updateFrame = 0; // 追蹤更新幀數，避免雙次更新導致冷卻時間累積兩次
-        this.projectileCount = this.config.LEVELS[0].COUNT;
-    }
-    
-    update(deltaTime) {
-        // 抽象化、第六感、不獸控制、心意相通、腎上腺素是被動技能，不需要發射
-        if (this.type === 'ABSTRACTION' || this.type === 'SIXTH_SENSE' || this.type === 'UNCONTROLLABLE_BEAST' || this.type === 'HEART_CONNECTION' || this.type === 'ADRENALINE') {
-            // 心意相通：被動提升回血速度（倍率由 BuffSystem 統一管理）
-            // 注意：心意相通的倍率應該在 BuffSystem.applyBuffsFromTalents 中統一管理
-            // 這裡不需要額外設置，避免與 BuffSystem 的邏輯衝突
-            return;
-        }
-        
-        // 檢查遊戲是否暫停，如果暫停則不更新冷卻時間（修復ESC暫停取消BUG）
-        if (typeof Game !== 'undefined' && Game.isPaused) {
-            return;
-        }
-        
-        // 追蹤更新幀數：由於武器更新被調用兩次（保留歷史節奏），只在第一次更新時累積冷卻時間
-        // 這樣可以避免冷卻時間被累積兩次導致攻擊速度變成2倍
-        this._updateFrame++;
-        const isFirstUpdate = (this._updateFrame % 2 === 1);
-        
-        // 只在第一次更新時累積冷卻時間
-        if (isFirstUpdate) {
-            // 使用累積時間而非絕對時間，確保暫停時冷卻時間不會繼續計時
-            this.cooldownAccumulator += deltaTime;
-        }
-        
-        // 檢查是否可以發射（兩次更新都檢查，但只在第一次累積時間）
-        if (this.cooldownAccumulator >= this.config.COOLDOWN) {
-            this.fire();
-            this.cooldownAccumulator = 0; // 重置累積時間
-        }
-    }
-    
-    // 發射投射物
-    fire() {
-        const levelMul = (typeof DamageSystem !== 'undefined')
+            constructor(player, type) {
+                this.player = player;
+                this.type = type;
+                this.config = CONFIG.WEAPONS[type];
+                this.level = 1;
+                this.lastFireTime = 0;
+                // 初始化為COOLDOWN值，確保新武器可以立即發射（升級時初次選新技能後立即生效）
+                this.cooldownAccumulator = this.config.COOLDOWN || 0;
+                this._updateFrame = 0; // 追蹤更新幀數，避免雙次更新導致冷卻時間累積兩次
+                this.projectileCount = this.config.LEVELS[0].COUNT;
+            }
+            
+            update(deltaTime) {
+                // 抽象化、第六感、不獸控制、心意相通、腎上腺素是被動技能，不需要發射
+                if (this.type === 'ABSTRACTION' || this.type === 'SIXTH_SENSE' || this.type === 'UNCONTROLLABLE_BEAST' || this.type === 'HEART_CONNECTION' || this.type === 'ADRENALINE') {
+                    // 心意相通：被動提升回血速度（倍率由 BuffSystem 統一管理）
+                    // 注意：心意相通的倍率應該在 BuffSystem.applyBuffsFromTalents 中統一管理
+                    // 這裡不需要額外設置，避免與 BuffSystem 的邏輯衝突
+                    return;
+                }
+                
+                // 檢查遊戲是否暫停，如果暫停則不更新冷卻時間（修復ESC暫停取消BUG）
+                if (typeof Game !== 'undefined' && Game.isPaused) {
+                    return;
+                }
+                
+                // 追蹤更新幀數：由於武器更新被調用兩次（保留歷史節奏），只在第一次更新時累積冷卻時間
+                // 這樣可以避免冷卻時間被累積兩次導致攻擊速度變成2倍
+                this._updateFrame++;
+                const isFirstUpdate = (this._updateFrame % 2 === 1);
+                
+                // 只在第一次更新時累積冷卻時間
+                if (isFirstUpdate) {
+                    // 使用累積時間而非絕對時間，確保暫停時冷卻時間不會繼續計時
+                    this.cooldownAccumulator += deltaTime;
+                }
+                
+                // 檢查是否可以發射（兩次更新都檢查，但只在第一次累積時間）
+                if (this.cooldownAccumulator >= this.config.COOLDOWN) {
+                    this.fire();
+                    this.cooldownAccumulator = 0; // 重置累積時間
+                }
+            }
+            
+            // 發射投射物
+            fire() {
+                const levelMul = (typeof DamageSystem !== 'undefined')
             ? DamageSystem.levelMultiplier(this.level)
             : (1 + 0.05 * Math.max(0, this.level - 1));
         // 特殊技能：無敵（不造成傷害，給予玩家短暫無敵並顯示護盾特效）
@@ -1116,53 +1116,53 @@
                         break;
                 }
             }
-        }
-    }
-    
-    // 尋找最近的敵人
-    findNearestEnemy() {
-        let nearestEnemy = null;
-        let minDistance = Infinity;
-        
-        for (const enemy of Game.enemies) {
-            const distance = Utils.distance(this.player.x, this.player.y, enemy.x, enemy.y);
-            if (distance < minDistance) {
-                minDistance = distance;
-                nearestEnemy = enemy;
+            }
+            
+            // 尋找最近的敵人
+            findNearestEnemy() {
+                let nearestEnemy = null;
+                let minDistance = Infinity;
+                
+                for (const enemy of Game.enemies) {
+                    const distance = Utils.distance(this.player.x, this.player.y, enemy.x, enemy.y);
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        nearestEnemy = enemy;
+                    }
+                }
+                
+                return nearestEnemy;
+            }
+            
+            // 升級武器
+            levelUp() {
+                if (this.level < this.config.LEVELS.length) {
+                    this.level++;
+                    this.projectileCount = this.config.LEVELS[this.level - 1].COUNT;
+                }
+            }
+            
+            // 獲取武器描述
+            getDescription() {
+                return {
+                    name: this.config.NAME,
+                    level: this.level,
+                    description: this.config.LEVELS[this.level - 1].DESCRIPTION
+                };
+            }
+            
+            // 獲取下一級描述（用於升級選單）
+            getNextLevelDescription() {
+                if (this.level < this.config.LEVELS.length) {
+                    return {
+                        name: this.config.NAME,
+                        level: this.level + 1,
+                        description: this.config.LEVELS[this.level].DESCRIPTION
+                    };
+                }
+                return null;
             }
         }
-        
-        return nearestEnemy;
-    }
-    
-    // 升級武器
-    levelUp() {
-        if (this.level < this.config.LEVELS.length) {
-            this.level++;
-            this.projectileCount = this.config.LEVELS[this.level - 1].COUNT;
-        }
-    }
-    
-    // 獲取武器描述
-    getDescription() {
-        return {
-            name: this.config.NAME,
-            level: this.level,
-            description: this.config.LEVELS[this.level - 1].DESCRIPTION
-        };
-    }
-    
-    // 獲取下一級描述（用於升級選單）
-    getNextLevelDescription() {
-        if (this.level < this.config.LEVELS.length) {
-            return {
-                name: this.config.NAME,
-                level: this.level + 1,
-                description: this.config.LEVELS[this.level].DESCRIPTION
-            };
-        }
-        return null;
-    }
         
         // 在類內新增：根據「基礎值 +（等級5%）+（天賦基礎%）+（特化+2/4/6）」計算最終基礎傷害
         Weapon.prototype._computeFinalDamage = function(levelMul){
