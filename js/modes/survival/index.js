@@ -64,7 +64,12 @@
         }
         // M1：儲存組隊模式資訊（包含 sessionId）
         if (params && params.multiplayer) {
-          Game.multiplayer = params.multiplayer;
+          // ✅ 組隊模式啟用旗標（避免各處檢查 multiplayer.enabled 永遠為 false）
+          // 僅在「生存模式組隊」進入遊戲時才設為 enabled=true，不影響單機/其他模式。
+          const mp = { ...params.multiplayer };
+          mp.enabled = true;
+          mp.isHost = (mp.role === 'host');
+          Game.multiplayer = mp;
         } else {
           Game.multiplayer = null;
         }
