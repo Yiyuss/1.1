@@ -33,6 +33,20 @@ import {
   limit,
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
+// ✅ ES Module 與傳統 script 的全域差異：
+// - 很多遊戲類別（class/let/const）在 script 中不會成為「可被 module 直接用識別字存取」的 global
+// - 但會（或應該）掛在 window/globalThis 上
+// 因此多人模組一律從 globalThis 取建構子，避免出現「只能移動圖片，世界物件全空」。
+function _getGlobalCtor(name) {
+  try {
+    if (typeof globalThis !== "undefined" && globalThis && globalThis[name]) return globalThis[name];
+  } catch (_) { }
+  try {
+    if (typeof window !== "undefined" && window && window[name]) return window[name];
+  } catch (_) { }
+  return undefined;
+}
+
 // 你的 Firebase Web 設定（由使用者提供）
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCjAVvO_zSTy6XYzPPibioDpvmBZTlW-s4",
@@ -760,12 +774,13 @@ const Runtime = (() => {
       } else if (eventType === "enemy_spawn") {
         // 客戶端生成敵人（與單機一致，客戶端也應該能看到和攻擊敵人）
         try {
-          if (typeof Game !== "undefined" && typeof Enemy !== "undefined" && eventData.type && eventData.x !== undefined && eventData.y !== undefined) {
+          const EnemyCtor = _getGlobalCtor("Enemy");
+          if (typeof Game !== "undefined" && EnemyCtor && eventData.type && eventData.x !== undefined && eventData.y !== undefined) {
             // 檢查是否已存在相同ID的敵人（避免重複生成）
             const enemyId = eventData.id || `enemy_${Date.now()}_${Math.random()}`;
             const existingEnemy = Game.enemies.find(e => e.id === enemyId);
             if (!existingEnemy) {
-              const enemy = new Enemy(eventData.x, eventData.y, eventData.type);
+              const enemy = new EnemyCtor(eventData.x, eventData.y, eventData.type);
               enemy.id = enemyId; // 使用室長端提供的ID，確保同步
               Game.enemies.push(enemy);
             }
@@ -776,8 +791,9 @@ const Runtime = (() => {
       } else if (eventType === "boss_spawn") {
         // 隊員生成BOSS（與單機一致，隊員也應該能看到和攻擊BOSS）
         try {
-          if (typeof Game !== "undefined" && typeof Enemy !== "undefined" && eventData.type && eventData.x !== undefined && eventData.y !== undefined) {
-            const boss = new Enemy(eventData.x, eventData.y, eventData.type);
+          const EnemyCtor = _getGlobalCtor("Enemy");
+          if (typeof Game !== "undefined" && EnemyCtor && eventData.type && eventData.x !== undefined && eventData.y !== undefined) {
+            const boss = new EnemyCtor(eventData.x, eventData.y, eventData.type);
             boss.id = eventData.id || `boss_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
             Game.enemies.push(boss);
             Game.boss = boss; // 設置BOSS引用
@@ -788,9 +804,10 @@ const Runtime = (() => {
       } else if (eventType === "exp_orb_spawn") {
         // 隊員生成經驗球（與單機一致，隊員也應該能看到和收集經驗球）
         try {
-          if (typeof Game !== "undefined" && typeof ExperienceOrb !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
+          const ExperienceOrbCtor = _getGlobalCtor("ExperienceOrb");
+          if (typeof Game !== "undefined" && ExperienceOrbCtor && eventData.x !== undefined && eventData.y !== undefined) {
             const value = (typeof eventData.value === "number") ? eventData.value : (typeof CONFIG !== "undefined" && CONFIG.EXPERIENCE && CONFIG.EXPERIENCE.VALUE) ? CONFIG.EXPERIENCE.VALUE : 10;
-            const orb = new ExperienceOrb(eventData.x, eventData.y, value);
+            const orb = new ExperienceOrbCtor(eventData.x, eventData.y, value);
             Game.experienceOrbs.push(orb);
           }
         } catch (e) {
@@ -799,8 +816,9 @@ const Runtime = (() => {
       } else if (eventType === "chest_spawn") {
         // ✅ MMORPG 架構：所有玩家都能生成寶箱，不依賴室長端
         try {
-          if (typeof Game !== "undefined" && typeof Chest !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
-            const chest = new Chest(eventData.x, eventData.y);
+          const ChestCtor = _getGlobalCtor("Chest");
+          if (typeof Game !== "undefined" && ChestCtor && eventData.x !== undefined && eventData.y !== undefined) {
+            const chest = new ChestCtor(eventData.x, eventData.y);
             Game.chests.push(chest);
           }
         } catch (e) {
@@ -898,14 +916,15 @@ const Runtime = (() => {
       } else if (eventType === "obstacles_spawn") {
         // ✅ MMORPG 架構：所有玩家都能看到相同的障礙物
         try {
-          if (typeof Game !== "undefined" && Array.isArray(eventData.obstacles) && typeof Obstacle !== "undefined") {
+          const ObstacleCtor = _getGlobalCtor("Obstacle");
+          if (typeof Game !== "undefined" && Array.isArray(eventData.obstacles) && ObstacleCtor) {
             // 清除現有障礙物（避免重複）
             Game.obstacles = [];
 
             // 生成障礙物
             for (const obsData of eventData.obstacles) {
               if (obsData.x !== undefined && obsData.y !== undefined && obsData.imageKey) {
-                const obstacle = new Obstacle(obsData.x, obsData.y, obsData.imageKey, obsData.size || 150);
+                const obstacle = new ObstacleCtor(obsData.x, obsData.y, obsData.imageKey, obsData.size || 150);
                 Game.obstacles.push(obstacle);
               }
             }
@@ -2971,6 +2990,11 @@ async function hostDisbandTeam() {
 }
 
 function listenSignals(roomId) {
+  // ✅ 權威伺服器模式：不再使用 Firebase signaling 通道
+  // 避免「舊組隊系統」被誤啟用後，與 WebSocket game-state 權威互打。
+  try {
+    if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return;
+  } catch (_) { }
   if (_signalsUnsub) { try { _signalsUnsub(); } catch (_) { } }
   // 注意：where + orderBy(createdAt) 會要求複合索引；為了「免建索引、少麻煩」
   // 這裡改成只用 where(toUid==me) + limit，然後逐筆消費刪除即可（順序在本設計不重要）。
@@ -3275,6 +3299,11 @@ async function sendMessageViaFirebase(toUid, message) {
 // 監聽 Firebase 消息（替代 WebRTC DataChannel）
 let _messagesUnsub = null;
 function listenMessages(roomId) {
+  // ✅ 權威伺服器模式：不再使用 Firebase messages 通道
+  // 避免舊 client-authoritative 同步復活造成互打/空世界/重複生成。
+  try {
+    if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return;
+  } catch (_) { }
   if (_messagesUnsub) { try { _messagesUnsub(); } catch (_) { } }
   const q = query(
     collection(_db, "rooms", roomId, "messages"),
@@ -3610,7 +3639,8 @@ function handleServerGameState(state, timestamp) {
 
     // ✅ 靜態世界：障礙物/裝飾（只在 server 有帶時套用；server 會在首次廣播帶一次，後續省流量）
     try {
-      if (Array.isArray(state.obstacles) && state.obstacles.length && typeof Obstacle !== 'undefined') {
+      const ObstacleCtor = _getGlobalCtor("Obstacle");
+      if (Array.isArray(state.obstacles) && state.obstacles.length && ObstacleCtor) {
         if (typeof Game !== "undefined") {
           Game.obstacles = [];
           for (const o of state.obstacles) {
@@ -3619,7 +3649,7 @@ function handleServerGameState(state, timestamp) {
             const oy = (typeof o.y === 'number') ? o.y : 0;
             const imageKey = o.imageKey || 'S1';
             const size = (typeof o.size === 'number') ? o.size : (typeof o.width === 'number' ? o.width : 150);
-            Game.obstacles.push(new Obstacle(ox, oy, imageKey, size));
+            Game.obstacles.push(new ObstacleCtor(ox, oy, imageKey, size));
           }
           Game._obstaclesAndDecorationsSpawned = true;
         }
@@ -3689,7 +3719,8 @@ function handleServerGameState(state, timestamp) {
 // ✅ 宝箱同步（服务器权威）
 function updateChestsFromServer(chests) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.chests) return;
-  if (typeof Chest === 'undefined') return;
+  const ChestCtor = _getGlobalCtor("Chest");
+  if (!ChestCtor) return;
 
   // ✅ 分流：NORMAL 寶箱走 Game.chests；PINEAPPLE 掉落物走 Game.pineappleUltimatePickups
   if (!Array.isArray(Game.pineappleUltimatePickups)) Game.pineappleUltimatePickups = [];
@@ -3730,7 +3761,7 @@ function updateChestsFromServer(chests) {
         };
         local = new PineappleUltimatePickup(chestState.x || 0, chestState.y || 0, opts);
       } else {
-        local = new Chest(chestState.x || 0, chestState.y || 0, chestState.id);
+        local = new ChestCtor(chestState.x || 0, chestState.y || 0, chestState.id);
       }
       list.push(local);
     } else {
@@ -3784,6 +3815,8 @@ function updateRemotePlayerFromServer(playerState) {
 function updateEnemiesFromServer(enemies) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.enemies) return;
 
+  const EnemyCtor = _getGlobalCtor("Enemy");
+
   // 创建敌人ID映射
   const serverEnemyIds = new Set(enemies.map(e => e.id));
   const localEnemyIds = new Set(Game.enemies.map(e => e.id));
@@ -3798,9 +3831,9 @@ function updateEnemiesFromServer(enemies) {
   // 更新或创建敌人
   for (const enemyState of enemies) {
     let enemy = Game.enemies.find(e => e.id === enemyState.id);
-    if (!enemy && typeof Enemy !== 'undefined') {
+    if (!enemy && EnemyCtor) {
       // 创建新敌人
-      enemy = new Enemy(enemyState.x, enemyState.y, enemyState.type);
+      enemy = new EnemyCtor(enemyState.x, enemyState.y, enemyState.type);
       enemy.id = enemyState.id;
       Game.enemies.push(enemy);
     }
@@ -3856,6 +3889,8 @@ function updateEnemiesFromServer(enemies) {
 function updateProjectilesFromServer(projectiles) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.projectiles) return;
 
+  const ProjectileCtor = _getGlobalCtor("Projectile");
+
   // 创建投射物ID映射
   const serverProjectileIds = new Set(projectiles.map(p => p.id));
   const localProjectileIds = new Set(Game.projectiles.map(p => p.id));
@@ -3870,9 +3905,9 @@ function updateProjectilesFromServer(projectiles) {
   // 更新或创建投射物
   for (const projState of projectiles) {
     let proj = Game.projectiles.find(p => p.id === projState.id);
-    if (!proj && typeof Projectile !== 'undefined') {
+    if (!proj && ProjectileCtor) {
       // 创建新投射物（仅视觉）
-      proj = new Projectile(projState.x, projState.y, projState.angle, projState.weaponType, 0, projState.speed, projState.size);
+      proj = new ProjectileCtor(projState.x, projState.y, projState.angle, projState.weaponType, 0, projState.speed, projState.size);
       proj.id = projState.id;
       proj._isVisualOnly = true; // 仅视觉，伤害由服务器计算
       Game.projectiles.push(proj);
@@ -3907,7 +3942,8 @@ function updateProjectilesFromServer(projectiles) {
 // ✅ 不影响单机：只在多人模式下执行
 function updateCarHazardsFromServer(carHazards) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.projectiles) return;
-  if (typeof CarHazard === 'undefined') return;
+  const CarHazardCtor = _getGlobalCtor("CarHazard");
+  if (!CarHazardCtor) return;
 
   // 创建车辆ID映射
   const serverCarIds = new Set(carHazards.map(c => c.id));
@@ -3927,7 +3963,7 @@ function updateCarHazardsFromServer(carHazards) {
     let car = Game.projectiles.find(p => p.id === carState.id && (p.weaponType === 'INTERSECTION_CAR' || (p.constructor && p.constructor.name === 'CarHazard')));
     if (!car) {
       // 创建新车辆（仅视觉，伤害由服务器计算）
-      car = new CarHazard({
+      car = new CarHazardCtor({
         x: carState.x || 0,
         y: carState.y || 0,
         vx: carState.vx || 0,
@@ -3957,6 +3993,8 @@ function updateCarHazardsFromServer(carHazards) {
 function updateExperienceOrbsFromServer(orbs) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.experienceOrbs) return;
 
+  const ExperienceOrbCtor = _getGlobalCtor("ExperienceOrb");
+
   // 创建经验球ID映射
   const serverOrbIds = new Set(orbs.map(o => o.id));
 
@@ -3970,8 +4008,8 @@ function updateExperienceOrbsFromServer(orbs) {
   // 更新或创建经验球
   for (const orbState of orbs) {
     let orb = Game.experienceOrbs.find(o => o.id === orbState.id);
-    if (!orb && typeof ExperienceOrb !== 'undefined') {
-      orb = new ExperienceOrb(orbState.x, orbState.y, orbState.value);
+    if (!orb && ExperienceOrbCtor) {
+      orb = new ExperienceOrbCtor(orbState.x, orbState.y, orbState.value);
       orb.id = orbState.id;
       Game.experienceOrbs.push(orb);
     }
@@ -4243,6 +4281,13 @@ function handleHostDataMessage(fromUid, msg) {
     console.warn("[SurvivalOnline] handleHostDataMessage: fromUid 無效", fromUid);
     return;
   }
+  // ✅ 權威伺服器模式：禁止舊 host 聚合/轉發通道（pos/state/snapshot...）
+  // 這條通道會把 client-side 狀態當成權威再廣播，是「舊權威系統衝突」的核心來源之一。
+  try {
+    if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+      return;
+    }
+  } catch (_) { }
   if (msg.t === "reconnect_request") {
     // M5：隊員請求全量快照（重連恢復）
     if (_isHost && typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
