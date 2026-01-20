@@ -1464,8 +1464,19 @@ const UI = {
         }
 
         // ✅ MMORPG 架構：所有玩家選擇武器升級時，都同步給其他玩家
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-        if (isMultiplayer) {
+        // ✅ 防污染：只在生存模式下發送武器升級消息
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        let isSurvivalMode = false;
+        try {
+            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                    ? ModeManager.getActiveModeId()
+                    : null);
+            isSurvivalMode = (activeId === 'survival' || activeId === null);
+        } catch (_) { }
+        
+        if (isSurvivalMode && isMultiplayer) {
             try {
                 // 發送武器升級消息給所有玩家（不依賴室長端）
                 if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
