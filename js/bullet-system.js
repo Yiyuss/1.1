@@ -174,11 +174,18 @@
                 }
               } catch (_) {}
 
-              // 以玩家管線扣血：套用防禦公式；忽略受傷短暫無敵，但尊重技能無敵
-              // 抽象化技能會在 takeDamage 內部處理回避判定
-              if (typeof player.takeDamage === 'function') {
-                const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(40);
-                player.takeDamage(hitDamage, { ignoreInvulnerability: true, source: 'bullet_system' });
+              // ✅ 元素分類：
+              // - **多人元素（伺服器權威）**：玩家扣血/死亡判定
+              // - **單機元素（本地）**：BulletSystem 直接呼叫 takeDamage
+              // 權威多人時，避免「本地扣血 + 伺服器扣血」造成莫名狂扣血。
+              const isServerAuthoritative = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+              if (!isServerAuthoritative) {
+                // 以玩家管線扣血：套用防禦公式；忽略受傷短暫無敵，但尊重技能無敵
+                // 抽象化技能會在 takeDamage 內部處理回避判定
+                if (typeof player.takeDamage === 'function') {
+                  const hitDamage = (typeof b.damage === 'number') ? b.damage : this._computeWaveDamage(40);
+                  player.takeDamage(hitDamage, { ignoreInvulnerability: true, source: 'bullet_system' });
+                }
               }
 
               // 命中感：鏡頭震動、螢幕閃光、粒子與音效
