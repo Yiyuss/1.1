@@ -1122,6 +1122,14 @@ const Game = {
     addProjectile: function (projectile) {
         this.projectiles.push(projectile);
 
+        // ✅ 權威伺服器模式：多人進行中時，投射物/技能特效由伺服器 game-state 統一下發
+        // 避免舊的「事件廣播 projectile_spawn」與伺服器投射物同步互打。
+        try {
+            if (this.multiplayer && this.multiplayer.enabled) {
+                return;
+            }
+        } catch (_) { }
+
         // 組隊模式：隊長端廣播投射物給隊員端（僅視覺，不影響傷害計算）
         try {
             // 確保只在生存模式下執行組隊邏輯
