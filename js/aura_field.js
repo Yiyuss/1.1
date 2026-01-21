@@ -42,7 +42,37 @@ class AuraField extends Entity {
     }
 
     update(deltaTime) {
-        // 僅視覺效果：不進行傷害計算
+        // 僅視覺效果：需要從遠程玩家位置更新
+        if (this._isVisualOnly && this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                const remotePlayer = rt.RemotePlayerManager.get(this._remotePlayerUid);
+                if (remotePlayer) {
+                    this.player.x = remotePlayer.x;
+                    this.player.y = remotePlayer.y;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                    }
+                } else {
+                    this.markedForDeletion = true;
+                    return;
+                }
+            } else {
+                this.markedForDeletion = true;
+                return;
+            }
+            // 僅視覺模式：只更新位置和動畫，不進行傷害計算
+            this.x = this.player.x;
+            this.y = this.player.y;
+            // 同步GIF位置與尺寸
+            this._updateDomPosition();
+            // 更新雪碧圖動畫
+            this._updateAnimation(deltaTime);
+            return;
+        }
+        
+        // 僅視覺效果（本地玩家）：不進行傷害計算
         if (this._isVisualOnly) {
             // 跟隨玩家中心（僅視覺更新）
             this.x = this.player.x;
