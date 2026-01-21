@@ -817,17 +817,9 @@ const Runtime = (() => {
             if (typeof p.facingRight === "boolean") remotePlayer.facingRight = p.facingRight;
             if (typeof p.facingAngle === "number") remotePlayer.facingAngle = p.facingAngle;
 
-            // ✅ MMORPG 架構：同步玩家受傷紅閃效果（確保所有玩家都能看到其他玩家受傷的視覺效果）
-            if (typeof p.hitFlashTime === "number" && p.hitFlashTime > 0) {
-              remotePlayer.hitFlashTime = p.hitFlashTime;
-              // 觸發簡單圖片閃：在遠程玩家 GIF 上套用紅色光暈與透明度
-              try {
-                if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
-                  const remotePlayerId = `remote-player-${uid}`;
-                  window.GifOverlay.flash(remotePlayerId, { color: '#ff0000', durationMs: remotePlayer.hitFlashDuration || 150, opacity: 0.8 });
-                }
-              } catch (_) { }
-            }
+            // ✅ 單機元素：玩家受傷紅閃不應同步到遠程玩家（只對本地玩家顯示）
+            // 根據 master plan，玩家受傷紅閃是單機元素，不應透過網路廣播
+            // 遠程玩家的受傷視覺效果應該由伺服器 hitEvents 或其他多人元素處理
 
             // ✅ MMORPG 架構：同步共享的金幣和經驗值到本地玩家
             // 金幣和經驗是共享的，所以當其他玩家獲得金幣/經驗時，本地玩家也應該同步
@@ -1021,7 +1013,9 @@ const Runtime = (() => {
           console.warn("[SurvivalOnline] 隊員生成經驗球失敗:", e);
         }
       } else if (eventType === "chest_spawn") {
-        // ✅ MMORPG 架構：所有玩家都能生成寶箱，不依賴室長端
+        // ✅ LEGACY：此邏輯應已被權威伺服器模式禁用（line 933 會 return）
+        // 權威伺服器模式下，寶箱由 server game-state 的 state.chests 同步，不應通過 event 生成
+        // 保留此邏輯僅為向後兼容（非權威模式），但實際上應該不會被執行
         try {
           const ChestCtor = _getGlobalCtor("Chest");
           if (typeof Game !== "undefined" && ChestCtor && eventData.x !== undefined && eventData.y !== undefined) {
@@ -1157,10 +1151,11 @@ const Runtime = (() => {
           console.warn("[SurvivalOnline] 處理敵人死亡事件失敗:", e);
         }
       } else if (eventType === "screen_effect") {
-        // ✅ MMORPG 架構：所有玩家都能看到屏幕效果（閃光和震動）
+        // ✅ LEGACY：此邏輯應已被權威伺服器模式禁用（line 946 會 return）
+        // 但為了安全起見，這裡也添加 playerUid 檢查，確保相機震動只對自己生效
         try {
           if (typeof Game !== "undefined" && eventData.type) {
-            // 處理屏幕閃光
+            // 處理屏幕閃光（多人元素：所有人都能看到）
             if (eventData.screenFlash && typeof eventData.screenFlash === 'object') {
               if (!Game.screenFlash) {
                 Game.screenFlash = { active: false, intensity: 0, duration: 0 };
@@ -1170,14 +1165,18 @@ const Runtime = (() => {
               Game.screenFlash.duration = eventData.screenFlash.duration || 150;
             }
 
-            // 處理鏡頭震動
+            // ✅ 單機元素：相機震動只對自己生效（根據 master plan）
             if (eventData.cameraShake && typeof eventData.cameraShake === 'object') {
-              if (!Game.cameraShake) {
-                Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+              const me = _getLocalNetUid ? _getLocalNetUid() : _uid;
+              // 只處理自己的相機震動（playerUid === me）
+              if (eventData.playerUid && eventData.playerUid === me) {
+                if (!Game.cameraShake) {
+                  Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+                }
+                Game.cameraShake.active = eventData.cameraShake.active || false;
+                Game.cameraShake.intensity = eventData.cameraShake.intensity || 8;
+                Game.cameraShake.duration = eventData.cameraShake.duration || 200;
               }
-              Game.cameraShake.active = eventData.cameraShake.active || false;
-              Game.cameraShake.intensity = eventData.cameraShake.intensity || 8;
-              Game.cameraShake.duration = eventData.cameraShake.duration || 200;
             }
           }
         } catch (e) {
@@ -1273,7 +1272,10 @@ const Runtime = (() => {
           console.warn("[SurvivalOnline] 生成BOSS投射物失敗:", e);
         }
       } else if (eventType === "chest_spawn") {
-        // ✅ MMORPG 架構：所有玩家都能生成寶箱（由主機通知，帶唯一ID）
+        // ✅ LEGACY：此邏輯應已被權威伺服器模式禁用（line 933 會 return）
+        // 權威伺服器模式下，寶箱由 server game-state 的 state.chests 同步，不應通過 event 生成
+        // 保留此邏輯僅為向後兼容（非權威模式），但實際上應該不會被執行
+        // 注意：此處理與 line 1015 的重複，但使用 eventData.id（更完整）
         try {
           if (typeof Game !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
             const chest = new Chest(eventData.x, eventData.y, eventData.id); // 使用傳入的ID
@@ -4437,18 +4439,28 @@ function handleServerGameState(state, timestamp) {
       }
     }
 
-    // 更新游戏状态
+    // ✅ 更新游戏状态（服务器权威）
     if (typeof Game !== 'undefined') {
       if (typeof state.gameTime === "number") Game.gameTime = state.gameTime;
       if (state.isGameOver) {
-        Game.isGameOver = true;
-        if (typeof Game.gameOver === 'function') {
-          Game.gameOver();
+        // ✅ 權威伺服器模式：遊戲結束由伺服器 state.isGameOver 觸發
+        // 使用防重複機制，避免多次觸發
+        if (!Game._gameOverEventSent) {
+          Game._gameOverEventSent = true;
+          Game.isGameOver = true;
+          if (typeof Game.gameOver === 'function') {
+            Game.gameOver();
+          }
         }
       }
       if (state.isVictory) {
-        if (typeof Game.victory === 'function') {
-          Game.victory();
+        // ✅ 權威伺服器模式：遊戲勝利由伺服器 state.isVictory 觸發
+        // 使用防重複機制，避免多次觸發
+        if (!Game._victoryEventSent) {
+          Game._victoryEventSent = true;
+          if (typeof Game.victory === 'function') {
+            Game.victory();
+          }
         }
       }
     }
