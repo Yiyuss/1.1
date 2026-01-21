@@ -160,6 +160,37 @@ class SlashEffect extends Entity {
     }
 
     update(deltaTime) {
+        // ✅ 單機同源：僅視覺斬擊需要從遠程玩家位置更新（與單機模式一致）
+        if (this._isVisualOnly && this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                const remotePlayerObj = rt.RemotePlayerManager.get(this._remotePlayerUid);
+                if (remotePlayerObj) {
+                    this.player.x = remotePlayerObj.x;
+                    this.player.y = remotePlayerObj.y;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                    }
+                }
+            } else if (rt && typeof rt.getRemotePlayers === 'function') {
+                const remotePlayers = rt.getRemotePlayers() || [];
+                const remotePlayer = remotePlayers.find(p => 
+                    (p.uid === this._remotePlayerUid) || 
+                    (p._remoteUid === this._remotePlayerUid) ||
+                    (p._isRemotePlayer && p._remoteUid === this._remotePlayerUid)
+                );
+                if (remotePlayer) {
+                    this.player.x = remotePlayer.x;
+                    this.player.y = remotePlayer.y;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                    }
+                }
+            }
+        }
+        
         const elapsed = Date.now() - this.startTime;
         this.phase += deltaTime || 16;
         if (!this.appliedDamage) this._applyDamageOnce();
