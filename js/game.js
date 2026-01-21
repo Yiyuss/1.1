@@ -1324,8 +1324,15 @@ const Game = {
                     };
                     try { 
                         window.SurvivalOnlineRuntime.sendToNet(attackInput);
+                        // ⚠️ 關鍵調試：確認攻擊已發送
+                        console.log('[Game.addProjectile] ✅ 已發送攻擊輸入到伺服器', {
+                            weaponType: attackInput.weaponType,
+                            x: attackInput.x,
+                            y: attackInput.y,
+                            damage: attackInput.damage
+                        });
                     } catch (e) { 
-                        console.error('[Game.addProjectile] 發送攻擊輸入失敗', e);
+                        console.error('[Game.addProjectile] ❌ 發送攻擊輸入失敗', e);
                     }
                     return; // 不本地生成標準投射物
                 }
