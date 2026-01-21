@@ -1610,19 +1610,21 @@ const Runtime = (() => {
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "JUDGMENT" && typeof JudgmentEffect !== "undefined") {
-                // 裁決：需要找到對應的玩家
+                // 裁決：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
@@ -1630,7 +1632,7 @@ const Runtime = (() => {
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的裁决也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new JudgmentEffect(
-                    targetPlayer,
+                    targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.damage || 0, // 使用实际伤害值，不是0
                     eventData.swordCount || 1,
                     eventData.detectRadius || 400,
@@ -1676,19 +1678,21 @@ const Runtime = (() => {
                   Game.projectiles.push(effect);
                 }
               } else if ((weaponType === "DEATHLINE_WARRIOR" || weaponType === "DEATHLINE_SUPERMAN") && typeof DeathlineWarriorEffect !== "undefined") {
-                // 死線戰士/死線超人：需要找到對應的玩家
+                // 死線戰士/死線超人：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
@@ -1696,7 +1700,7 @@ const Runtime = (() => {
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的死线战士/死线超人也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new DeathlineWarriorEffect(
-                    targetPlayer,
+                    targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.damage || 0, // 使用实际伤害值，不是0
                     eventData.detectRadius || 600,
                     eventData.totalHits || 3,
@@ -1712,26 +1716,28 @@ const Runtime = (() => {
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "DIVINE_JUDGMENT" && typeof DivineJudgmentEffect !== "undefined") {
-                // 神裁：需要找到對應的玩家
+                // 神裁：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
 
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的神界裁决也应该造成伤害（每个玩家的伤害独立计算并叠加）
-                  const effect = new DivineJudgmentEffect(targetPlayer, {
+                  const effect = new DivineJudgmentEffect(targetPlayer, { // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     damage: eventData.damage || 0, // 使用实际伤害值，不是0
                     detectRadius: eventData.detectRadius || 400,
                     aoeRadius: eventData.aoeRadius || 100,
@@ -1750,19 +1756,21 @@ const Runtime = (() => {
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "AURA_FIELD" && typeof AuraField !== "undefined") {
-                // 光環領域：需要找到對應的玩家
+                // 光環領域：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
@@ -1770,7 +1778,7 @@ const Runtime = (() => {
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的守护领域也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new AuraField(
-                    targetPlayer,
+                    targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.radius || 150,
                     eventData.damage || 0 // 使用实际伤害值，不是0
                   );
@@ -1813,19 +1821,21 @@ const Runtime = (() => {
                   Game.projectiles.push(effect);
                 }
               } else if ((weaponType === "BIG_ICE_BALL" || weaponType === "FRENZY_ICE_BALL") && typeof IceBallProjectile !== "undefined") {
-                // 大冰球：需要找到對應的玩家
+                // 大冰球：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
@@ -1838,7 +1848,7 @@ const Runtime = (() => {
                     eventData.targetY,
                     eventData.flightTimeMs || 1000,
                     eventData.weaponLevel || 1,
-                    targetPlayer,
+                    targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.isFrenzyIceBall || false
                   );
                   effect.id = projectileId;
@@ -1847,26 +1857,28 @@ const Runtime = (() => {
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "YOUNG_DADA_GLORY" && typeof YoungDadaGloryEffect !== "undefined") {
-                // 幼妲光輝：需要找到對應的玩家
+                // 幼妲光輝：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
 
                 if (targetPlayer) {
                   const effect = new YoungDadaGloryEffect(
-                    targetPlayer,
+                    targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.duration || 2000
                   );
                   effect.id = projectileId;
@@ -1875,26 +1887,28 @@ const Runtime = (() => {
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "FRENZY_YOUNG_DADA_GLORY" && typeof FrenzyYoungDadaGloryEffect !== "undefined") {
-                // 幼妲天使：需要找到對應的玩家
+                // 幼妲天使：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
 
                 if (targetPlayer) {
                   const effect = new FrenzyYoungDadaGloryEffect(
-                    targetPlayer,
+                    targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.duration || 3000
                   );
                   effect.id = projectileId;
@@ -1903,19 +1917,21 @@ const Runtime = (() => {
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "RADIANT_GLORY" && typeof RadiantGloryEffect !== "undefined") {
-                // 光芒萬丈：需要找到對應的玩家
+                // 光芒萬丈：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
@@ -1937,19 +1953,21 @@ const Runtime = (() => {
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "FRENZY_SLASH" && typeof SlashEffect !== "undefined") {
-                // 狂熱斬擊：使用SlashEffect（與SLASH相同）
+                // 狂熱斬擊：使用SlashEffect（與SLASH相同），需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
@@ -1957,7 +1975,7 @@ const Runtime = (() => {
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的狂热斩击也应该造成伤害（每个玩家的伤害独立计算并叠加）
                   const effect = new SlashEffect(
-                    targetPlayer,
+                    targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.angle || 0,
                     eventData.damage || 0, // 使用实际伤害值，不是0
                     eventData.radius || 60,
