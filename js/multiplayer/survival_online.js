@@ -2608,7 +2608,8 @@ const Runtime = (() => {
           invulnerabilityDurationMs: invulnMs,
           skillInvulnerableUntil,
           critChanceBonusPct: Math.max(0, critChanceBonusPct), // ✅ 新增：爆擊率同步
-          lifesteal
+          lifesteal,
+          maxHealth: (typeof p.maxHealth === 'number' && p.maxHealth > 0) ? Math.floor(p.maxHealth) : null // ✅ 新增：maxHealth 同步（多人元素，影響復活）
         };
         const sig = JSON.stringify(meta);
         if (sig !== tick._lastMetaSig) {
