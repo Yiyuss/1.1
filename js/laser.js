@@ -81,71 +81,62 @@ class LaserBeam extends Entity {
         // 僅視覺雷射：需要從遠程玩家位置更新
         if (this._isVisualOnly && this._remotePlayerUid) {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-            if (rt && typeof rt.getRemotePlayers === 'function') {
+            // ✅ 修復：優先使用 RemotePlayerManager
+            if (rt && rt.RemotePlayerManager && typeof rt.RemotePlayerManager.get === 'function') {
+                const remotePlayerObj = rt.RemotePlayerManager.get(this._remotePlayerUid);
+                if (remotePlayerObj) {
+                    this.player.x = remotePlayerObj.x;
+                    this.player.y = remotePlayerObj.y;
+                    foundPlayer = true;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                        foundPlayer = true;
+                    }
+                }
+            }
+            
+            // 如果 RemotePlayerManager 找不到，嘗試使用 getRemotePlayers
+            if (!foundPlayer && rt && typeof rt.getRemotePlayers === 'function') {
                 const remotePlayers = rt.getRemotePlayers() || [];
-                // ✅ 修復：getRemotePlayers 返回的對象有 uid 屬性，但 Player 對象使用 _remoteUid
-                // 需要同時檢查 uid 和 _remoteUid
                 const remotePlayer = remotePlayers.find(p => 
                     (p.uid === this._remotePlayerUid) || 
                     (p._remoteUid === this._remotePlayerUid) ||
                     (p._isRemotePlayer && p._remoteUid === this._remotePlayerUid)
                 );
                 if (remotePlayer) {
-                    // 更新玩家位置
                     this.player.x = remotePlayer.x;
                     this.player.y = remotePlayer.y;
+                    foundPlayer = true;
                 } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
-                    // 如果是本地玩家
                     if (typeof Game !== 'undefined' && Game.player) {
                         this.player = Game.player;
-                    }
-                } else {
-                    // ✅ 修復：如果找不到對應的玩家，不要立即刪除，先嘗試使用 RemotePlayerManager
-                    try {
-                        if (rt && rt.RemotePlayerManager && typeof rt.RemotePlayerManager.get === 'function') {
-                            const remotePlayerObj = rt.RemotePlayerManager.get(this._remotePlayerUid);
-                            if (remotePlayerObj) {
-                                this.player.x = remotePlayerObj.x;
-                                this.player.y = remotePlayerObj.y;
-                            } else {
-                                // 如果還是找不到，標記為刪除
-                                this.markedForDeletion = true;
-                                return;
-                            }
-                        } else {
-                            // 如果找不到對應的玩家，標記為刪除
-                            this.markedForDeletion = true;
-                            return;
-                        }
-                    } catch (_) {
-                        this.markedForDeletion = true;
-                        return;
+                        foundPlayer = true;
                     }
                 }
-            } else {
-                // ✅ 修復：如果 getRemotePlayers 不可用，嘗試使用 RemotePlayerManager
-                try {
-                    if (rt && rt.RemotePlayerManager && typeof rt.RemotePlayerManager.get === 'function') {
-                        const remotePlayerObj = rt.RemotePlayerManager.get(this._remotePlayerUid);
-                        if (remotePlayerObj) {
-                            this.player.x = remotePlayerObj.x;
-                            this.player.y = remotePlayerObj.y;
-                        } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
-                            if (typeof Game !== 'undefined' && Game.player) {
-                                this.player = Game.player;
-                            }
-                        } else {
-                            this.markedForDeletion = true;
-                            return;
-                        }
-                    } else {
-                        this.markedForDeletion = true;
-                        return;
-                    }
-                } catch (_) {
+            }
+            
+            // ⚠️ 修復：如果找不到玩家，不要立即刪除，給一個寬限期（避免瞬間消失）
+            if (!foundPlayer) {
+                // 初始化寬限期計數器
+                if (this._playerNotFoundCount == null) {
+                    this._playerNotFoundCount = 0;
+                }
+                this._playerNotFoundCount += deltaTime;
+                // 如果超過 500ms 還找不到玩家，才標記為刪除
+                if (this._playerNotFoundCount > 500) {
                     this.markedForDeletion = true;
                     return;
                 }
+                // 在寬限期內，繼續更新（使用最後已知位置）
+                const elapsed = Date.now() - this.startTime;
+                if (elapsed >= this.duration) {
+                    this.markedForDeletion = true;
+                }
+                return;
+            } else {
+                // 找到玩家，重置計數器
+                this._playerNotFoundCount = 0;
             }
         }
         
