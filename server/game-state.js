@@ -617,6 +617,39 @@ class GameState {
     return (config && config.WAVES && typeof config.WAVES.TOTAL_WAVES === 'number') ? config.WAVES.TOTAL_WAVES : 30;
   }
 
+  /**
+   * 計算「目前等級 level -> 下一級」所需經驗（與 js/player.js 的 Player.computeExperienceToNextLevel 完全同源）
+   * - 需求：Lv1~SOFTCAP_LEVEL 完全沿用舊公式，避免影響前期手感；
+   * - Lv20+ 後放緩增長避免後期成長曲線過於誇張。
+   */
+  _computeExperienceToNextLevel(level) {
+    try {
+      const cfg = (this.config && this.config.EXPERIENCE) ? this.config.EXPERIENCE : null;
+      const base = cfg ? (cfg.LEVEL_UP_BASE || 80) : 80;
+      const mult = cfg ? (cfg.LEVEL_UP_MULTIPLIER || 1.12) : 1.12;
+      const softcap = cfg ? (cfg.SOFTCAP_LEVEL || 20) : 20;
+      const lateMult = cfg ? (cfg.LEVEL_UP_MULTIPLIER_LATE || 1.07) : 1.07;
+      const lateLinear = cfg ? (cfg.LEVEL_UP_LINEAR_LATE || 30) : 30;
+
+      const lv = Math.max(1, Math.floor(level || 1));
+
+      // 1) 前期：完全沿用舊公式（確保 1~20 手感不變）
+      if (lv <= softcap) {
+        return Math.floor(base * Math.pow(mult, lv - 1));
+      }
+
+      // 2) 後期：以 softcap 當錨點，改用較緩的倍率 + 線性補償
+      const xpAtSoftcap = Math.floor(base * Math.pow(mult, softcap - 1));
+      const n = lv - softcap; // 從 softcap 後第 n 級開始
+      const value = xpAtSoftcap * Math.pow(lateMult, n) + lateLinear * n;
+      return Math.max(1, Math.floor(value));
+    } catch (_) {
+      // 出錯時回退到簡單線性成長，避免整個 getState 崩潰
+      const lv = Math.max(1, Math.floor(level || 1));
+      return 80 + (lv - 1) * 20;
+    }
+  }
+
   _computeEnemyMaxHealth(type, enemyConfig, wave, config) {
     const tuning = (config && config.TUNING) ? config.TUNING : null;
     const mapId = this._getActiveMapId();
