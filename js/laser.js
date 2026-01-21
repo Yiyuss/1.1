@@ -81,6 +81,7 @@ class LaserBeam extends Entity {
         // 僅視覺雷射：需要從遠程玩家位置更新
         if (this._isVisualOnly && this._remotePlayerUid) {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            let foundPlayer = false; // ⚠️ 修復：初始化 foundPlayer 變量
             // ✅ 修復：優先使用 RemotePlayerManager
             if (rt && rt.RemotePlayerManager && typeof rt.RemotePlayerManager.get === 'function') {
                 const remotePlayerObj = rt.RemotePlayerManager.get(this._remotePlayerUid);
