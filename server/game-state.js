@@ -561,6 +561,8 @@ class GameState {
     this.bulletEmitters = [];
     this.experienceOrbs = [];
     this.chests = [];
+    // ⚠️ 修復：重置小BOSS生成標記，確保新session第一波能生成小BOSS
+    this.minibossSpawnedForWave = false;
     this.carHazards = [];
     this.exit = null;
     this.wave = 1;
@@ -1244,12 +1246,16 @@ class GameState {
 
     // ✅ 與單機一致：第 1 波固定生成一隻小BOSS；之後每波開始都會生成一隻
     // 單機依據：js/wave.js init() 與 nextWave() 都會呼叫 spawnMiniBoss()
+    // ⚠️ 修復：確保第一波生成小BOSS（在 update 中檢查，確保每次更新都會檢查）
     try {
       if (this.config && this.wave === 1 && this.minibossSpawnedForWave === false) {
         this.spawnMiniBoss(this.config);
         this.minibossSpawnedForWave = true;
+        console.log('[GameState.update] ✅ 第一波生成小BOSS');
       }
-    } catch (_) { }
+    } catch (e) {
+      console.error('[GameState.update] ❌ 生成第一波小BOSS失敗:', e);
+    }
 
     // ✅ 服务器权威：生成大BOSS (第20波)
     if (this.wave === 20 && !this.bossSpawned && this.config) {
@@ -1581,13 +1587,22 @@ class GameState {
         const candY = enemy.y + Math.sin(angle) * speed * deltaMul;
         
         // ✅ 檢查障礙物碰撞（與單機模式一致）
+        // ⚠️ 修復：障礙物是中心坐標（obs.x, obs.y 是中心），需要轉換為矩形邊界
         const enemySize = enemy.size || 32;
         const enemyRadius = enemySize / 2;
         const blockedByObs = (nx, ny) => {
           for (const obs of this.obstacles || []) {
-            // 使用圓-矩形碰撞檢測
-            const dx = Math.max(obs.x, Math.min(nx, obs.x + obs.width)) - nx;
-            const dy = Math.max(obs.y, Math.min(ny, obs.y + obs.height)) - ny;
+            // ⚠️ 修復：障礙物是中心坐標，需要轉換為矩形邊界
+            // 單機模式：obstacle.js 中，obs.x, obs.y 是中心，width/height 是尺寸
+            const obsHalfW = (obs.width || 150) / 2;
+            const obsHalfH = (obs.height || 150) / 2;
+            const obsLeft = obs.x - obsHalfW;
+            const obsRight = obs.x + obsHalfW;
+            const obsTop = obs.y - obsHalfH;
+            const obsBottom = obs.y + obsHalfH;
+            // 使用圓-矩形碰撞檢測（與單機模式一致）
+            const dx = Math.max(obsLeft, Math.min(nx, obsRight)) - nx;
+            const dy = Math.max(obsTop, Math.min(ny, obsBottom)) - ny;
             if ((dx * dx + dy * dy) < (enemyRadius * enemyRadius)) {
               return true;
             }
