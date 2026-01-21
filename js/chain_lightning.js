@@ -87,6 +87,7 @@ class ChainLightningEffect extends Entity {
         // ✅ 單機同源：僅視覺連鎖閃電需要從遠程玩家位置更新（與單機模式一致）
         if (this._isVisualOnly && this._remotePlayerUid) {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            let foundPlayer = false;
             // ✅ 修復：優先使用 RemotePlayerManager 獲取完整的 Player 對象
             if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
                 const remotePlayerObj = rt.RemotePlayerManager.get(this._remotePlayerUid);
@@ -95,18 +96,19 @@ class ChainLightningEffect extends Entity {
                     this.player.y = remotePlayerObj.y;
                     this.x = remotePlayerObj.x;
                     this.y = remotePlayerObj.y;
+                    foundPlayer = true;
                 } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
                     if (typeof Game !== 'undefined' && Game.player) {
                         this.player = Game.player;
                         this.x = Game.player.x;
                         this.y = Game.player.y;
+                        foundPlayer = true;
                     }
-                } else {
-                    // 如果找不到對應的玩家，標記為刪除
-                    this.markedForDeletion = true;
-                    return;
                 }
-            } else if (rt && typeof rt.getRemotePlayers === 'function') {
+            }
+            
+            // 如果 RemotePlayerManager 找不到，嘗試使用 getRemotePlayers
+            if (!foundPlayer && rt && typeof rt.getRemotePlayers === 'function') {
                 const remotePlayers = rt.getRemotePlayers() || [];
                 const remotePlayer = remotePlayers.find(p => 
                     (p.uid === this._remotePlayerUid) || 
@@ -119,22 +121,42 @@ class ChainLightningEffect extends Entity {
                     this.player.y = remotePlayer.y;
                     this.x = remotePlayer.x;
                     this.y = remotePlayer.y;
+                    foundPlayer = true;
                 } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
                     // 如果是本地玩家
                     if (typeof Game !== 'undefined' && Game.player) {
                         this.player = Game.player;
                         this.x = Game.player.x;
                         this.y = Game.player.y;
+                        foundPlayer = true;
                     }
-                } else {
-                    // 如果找不到對應的玩家，標記為刪除
+                }
+            }
+            
+            // ⚠️ 修復：如果找不到玩家，不要立即刪除，給一個寬限期（避免瞬間消失）
+            if (!foundPlayer) {
+                // 初始化寬限期計數器
+                if (this._playerNotFoundCount == null) {
+                    this._playerNotFoundCount = 0;
+                }
+                this._playerNotFoundCount += deltaTime;
+                // 如果超過 500ms 還找不到玩家，才標記為刪除
+                if (this._playerNotFoundCount > 500) {
                     this.markedForDeletion = true;
                     return;
                 }
-            } else {
-                this.markedForDeletion = true;
+                // 在寬限期內，繼續更新粒子（使用最後已知位置）
+                this._updateParticles(deltaTime);
+                const elapsed = Date.now() - this.startTime;
+                if (elapsed >= this.durationMs) {
+                    this.markedForDeletion = true;
+                }
                 return;
+            } else {
+                // 找到玩家，重置計數器
+                this._playerNotFoundCount = 0;
             }
+            
             // 僅視覺模式：只更新粒子，不進行傷害計算
             this._updateParticles(deltaTime);
             const elapsed = Date.now() - this.startTime;
@@ -182,12 +204,22 @@ class ChainLightningEffect extends Entity {
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
-                    // 單機模式：直接造成傷害並顯示傷害數字
+                    // ⚠️ 修復：確保不會傷害玩家（只傷害敵人）
+                    // 檢查 target 是否是玩家（避免連鎖閃電傷害到玩家導致紅閃）
+                    const isPlayer = (target && typeof target === 'object' && (
+                        target.constructor && target.constructor.name === 'Player' ||
+                        (typeof Game !== 'undefined' && Game.player && target === Game.player) ||
+                        (typeof Player !== 'undefined' && target instanceof Player)
+                    ));
+                    
+                    // 單機模式：直接造成傷害並顯示傷害數字（但只對敵人）
                     if (!isSurvivalMode || !isMultiplayer) {
-                        target.takeDamage(finalDamage);
-                        if (typeof DamageNumbers !== 'undefined') {
-                            const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
-                            DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
+                        if (!isPlayer && target && !target.markedForDeletion && target.health > 0) {
+                            target.takeDamage(finalDamage);
+                            if (typeof DamageNumbers !== 'undefined') {
+                                const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
+                                DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
+                            }
                         }
                     }
                     // 多人模式：傷害由 game.js 自動發送 aoe_tick 到伺服器，伺服器透過 hitEvents 返回傷害數字
@@ -498,12 +530,22 @@ class FrenzyLightningEffect extends Entity {
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
-                    // 單機模式：直接造成傷害並顯示傷害數字
+                    // ⚠️ 修復：確保不會傷害玩家（只傷害敵人）
+                    // 檢查 target 是否是玩家（避免連鎖閃電傷害到玩家導致紅閃）
+                    const isPlayer = (target && typeof target === 'object' && (
+                        target.constructor && target.constructor.name === 'Player' ||
+                        (typeof Game !== 'undefined' && Game.player && target === Game.player) ||
+                        (typeof Player !== 'undefined' && target instanceof Player)
+                    ));
+                    
+                    // 單機模式：直接造成傷害並顯示傷害數字（但只對敵人）
                     if (!isSurvivalMode || !isMultiplayer) {
-                        target.takeDamage(finalDamage);
-                        if (typeof DamageNumbers !== 'undefined') {
-                            const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
-                            DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
+                        if (!isPlayer && target && !target.markedForDeletion && target.health > 0) {
+                            target.takeDamage(finalDamage);
+                            if (typeof DamageNumbers !== 'undefined') {
+                                const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
+                                DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
+                            }
                         }
                     }
                     // 多人模式：傷害由 game.js 自動發送 aoe_tick 到伺服器，伺服器透過 hitEvents 返回傷害數字
