@@ -1298,8 +1298,10 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
-            // MMO 架構：每個玩家都廣播自己的投射物，不依賴隊長端
-            if (isSurvivalMode && this.multiplayer) {
+            // ⚠️ 修復：第二處邏輯應該只在非 enabled 模式下執行（舊多人模式）
+            // 在 enabled 模式下，第一處邏輯已經處理完畢並 return，不會執行到這裡
+            // 這裡保留是為了向後兼容舊的多人模式（非 enabled）
+            if (isSurvivalMode && this.multiplayer && !this.multiplayer.enabled) {
                 // ✅ MMO 架構：每個玩家都廣播自己的投射物（攻擊、技能等）
                 // 判斷投射物來源：
                 // 1. 本地玩家的投射物：projectile.player === this.player
@@ -1323,17 +1325,15 @@ const Game = {
                 const isEnvironmentHazard = (projectile.weaponType === "INTERSECTION_CAR") ||
                     (projectile.constructor && projectile.constructor.name === 'CarHazard');
 
-                // ✅ 权威服务器：发送攻击输入到服务器，而不是创建投射物
-                // 在权威服务器模式下，客户端不创建投射物，只发送输入
-                // ⚠️ 注意：持续效果类（AuraField、OrbitBall等）不应该标记为_isVisualOnly
-                // 因为每个玩家的持续伤害应该独立计算并叠加（真正的MMORPG体验）
-                if (isLocalPlayerProjectile && typeof window !== 'undefined' && window.SurvivalOnlineRuntime) {
-                    // 检查是否是持续效果类（这些效果需要每个客户端独立计算伤害）
-                    // 持续伤害类技能列表（每个玩家的伤害独立计算并叠加）：
-                    // - 守护领域、引力波、环绕球类（绵羊护体、鸡腿庇佑、旋转松饼、心意相随、凤梨环绕）
-                    // - 激光、光芒万丈、大波球、狂热大波、心灵震波
+                // ✅ 舊多人模式：廣播投射物給其他玩家（僅視覺，不影響傷害計算）
+                // ⚠️ 注意：在 enabled 模式下，這個邏輯不應該執行（由第一處邏輯處理）
+                if (isLocalPlayerProjectile && typeof window !== 'undefined' && window.SurvivalOnlineBroadcastEvent) {
+                    // 檢查是否是持續效果類（這些效果需要每個客戶端獨立計算傷害）
+                    // 持續傷害類技能列表（每個玩家的傷害獨立計算並疊加）：
+                    // - 守護領域、引力波、環繞球類（綿羊護體、雞腿庇佑、旋轉鬆餅、心意相隨、鳳梨環繞）
+                    // - 激光、光芒萬丈、大波球、狂熱大波、心靈震波
                     const isPersistentEffect = (
-                        // 武器类型检查
+                        // 武器類型檢查
                         projectile.weaponType === 'AURA_FIELD' ||
                         projectile.weaponType === 'GRAVITY_WAVE' ||
                         projectile.weaponType === 'ORBIT' ||
@@ -1359,7 +1359,7 @@ const Game = {
                         projectile.weaponType === 'JUDGMENT' ||
                         projectile.weaponType === 'DIVINE_JUDGMENT' ||
                         projectile.weaponType === 'EXPLOSION' ||
-                        // 构造函数名称检查（更可靠）
+                        // 構造函數名稱檢查（更可靠）
                         (projectile.constructor && (
                             projectile.constructor.name === 'AuraField' ||
                             projectile.constructor.name === 'GravityWaveField' ||
@@ -1380,45 +1380,12 @@ const Game = {
                             projectile.constructor.name === 'DivineJudgmentEffect' ||
                             projectile.constructor.name === 'ExplosionEffect'
                         )) ||
-                        // 检查是否有持续伤害属性（tickDamage、tickIntervalMs）
+                        // 檢查是否有持續傷害屬性（tickDamage、tickIntervalMs）
                         (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
                     );
 
-                    // 只有标准投射物（Projectile）才发送到服务器
-                    // 持续效果类由每个客户端独立计算（本地表现），但权威伤害/敌人状态以伺服器为准
-                    if (!isPersistentEffect) {
-                        // 发送攻击输入到服务器
-                        const attackInput = {
-                            type: 'attack',
-                            weaponType: projectile.weaponType || 'UNKNOWN',
-                            x: projectile.x || this.player.x,
-                            y: projectile.y || this.player.y,
-                            angle: projectile.angle || 0,
-                            damage: projectile.damage || 10,
-                            speed: projectile.speed || 5,
-                            size: projectile.size || 20,
-                            // ✅ 权威服务器：传递追踪相关参数
-                            homing: projectile.homing || false,
-                            turnRatePerSec: projectile.turnRatePerSec || 0,
-                            assignedTargetId: projectile.assignedTargetId || null,
-                            maxDistance: projectile.maxDistance || 1000,
-                            timestamp: Date.now()
-                        };
-
-                        // ✅ 權威伺服器：組隊模式下必須把攻擊輸入送到伺服器，否則伺服器敵人永遠不會掉血
-                        try {
-                            if (this.multiplayer && this.multiplayer.enabled && typeof window !== 'undefined' &&
-                                window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                                window.SurvivalOnlineRuntime.sendToNet(attackInput);
-                            }
-                        } catch (_) { }
-
-                        // ✅ MMORPG 體驗優化：客戶端權威 + 預測
-                        // 不標記為 _isVisualOnly，讓攻擊在本地立即生效（造成傷害），提供「無延遲」的打擊感
-                        // 雖然這降低了防作弊安全性，但符合用戶對流暢Co-op體驗的要求
-                        // projectile._isVisualOnly = true; 
-                    }
-                    // 持续效果类不标记为_isVisualOnly，保持每个客户端独立计算伤害
+                    // 持續效果類和標準投射物都需要廣播（舊多人模式）
+                    // 但標準投射物在 enabled 模式下已經由第一處邏輯處理
                 }
 
                 if (isLocalPlayerProjectile || isRemotePlayerProjectile || isAICompanion || isEnvironmentHazard) {
@@ -1635,22 +1602,11 @@ const Game = {
                         projectileData.despawnPad = projectile.despawnPad || 400;
                     }
 
-                    // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
-                    if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled === true) {
-                        let isSurvivalMode = false;
-                        try {
-                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                ? GameModeManager.getCurrent()
-                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                    ? ModeManager.getActiveModeId()
-                                    : null);
-                            isSurvivalMode = (activeId === 'survival' || activeId === null);
-                        } catch (_) { }
-
-                        if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                            console.log(`[Game] 廣播投射物生成事件: weaponType=${projectileData.weaponType}, id=${projectileData.id}, playerUid=${playerUid}`);
-                            window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
-                        }
+                    // ✅ 舊多人模式：廣播投射物給其他玩家（僅視覺，不影響傷害計算）
+                    // ⚠️ 注意：這段代碼只在非 enabled 模式下執行（enabled 模式下由第一處邏輯處理）
+                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
+                        console.log(`[Game] 廣播投射物生成事件: weaponType=${projectileData.weaponType}, id=${projectileData.id}, playerUid=${playerUid}`);
+                        window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
                     }
                 }
             }
