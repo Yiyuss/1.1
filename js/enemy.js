@@ -1460,7 +1460,11 @@
                     else if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') coinGain = 500;
                     Game.addCoins(coinGain);
                 }
-                if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') {
+                // ✅ 權威伺服器模式：多人進行中時，BOSS 死亡後的出口生成和勝利判定由伺服器統一權威
+                // 避免客戶端廣播 game_victory 造成互打與循環
+                const isServerAuthoritative = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                if (!isServerAuthoritative && (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS')) {
+                    // 單機模式：客戶端處理 BOSS 死亡邏輯
                     // 第20波BOSS死亡時，生成出口而不是立即獲勝
                     const currentWave = (typeof WaveSystem !== 'undefined' && WaveSystem.currentWave) ? WaveSystem.currentWave : 0;
                     const bossWave = (typeof CONFIG !== 'undefined' && CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 20;
@@ -1469,27 +1473,6 @@
                         Game.spawnExit();
                     } else {
                         // 非第20波（向後兼容），立即獲勝
-                        // ✅ MMORPG 架構：所有玩家都能廣播勝利事件，不依賴室長端
-                        try {
-                            let isSurvivalMode = false;
-                            try {
-                                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                    ? GameModeManager.getCurrent()
-                                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                        ? ModeManager.getActiveModeId()
-                                        : null);
-                                isSurvivalMode = (activeId === 'survival' || activeId === null);
-                            } catch (_) { }
-
-                            // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
-                            if (isSurvivalMode && Game.multiplayer && Game.multiplayer.enabled === true) {
-                                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                                    window.SurvivalOnlineBroadcastEvent("game_victory", {
-                                        reason: "boss_killed"
-                                    });
-                                }
-                            }
-                        } catch (_) { }
                         Game.victory();
                     }
                 }
