@@ -4709,6 +4709,8 @@ function updateRemotePlayerFromServer(playerState) {
 // ✅ 不影响单机：只在多人模式下执行
 function updateEnemiesFromServer(enemies) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.enemies) return;
+  // ✅ 修復：防止 enemies 不是數組導致整個系統崩潰
+  if (!Array.isArray(enemies)) return;
 
   const EnemyCtor = _getGlobalCtor("Enemy");
   const isBossType = (t) => (
@@ -4718,19 +4720,24 @@ function updateEnemiesFromServer(enemies) {
   );
 
   // 创建敌人ID映射
-  const serverEnemyIds = new Set(enemies.map(e => e.id));
-  const localEnemyIds = new Set(Game.enemies.map(e => e.id));
+  // ✅ 修復：過濾掉 null/undefined 元素，防止 e.id 訪問錯誤
+  const serverEnemyIds = new Set(enemies.filter(e => e && e.id).map(e => e.id));
+  const localEnemyIds = new Set(Game.enemies.filter(e => e && e.id).map(e => e.id));
 
   // 移除服务器不存在的敌人
   for (let i = Game.enemies.length - 1; i >= 0; i--) {
-    if (!serverEnemyIds.has(Game.enemies[i].id)) {
+    const enemy = Game.enemies[i];
+    // ✅ 修復：防止 enemy 為 null/undefined 或沒有 id 導致崩潰
+    if (!enemy || !enemy.id || !serverEnemyIds.has(enemy.id)) {
       Game.enemies.splice(i, 1);
     }
   }
 
   // 更新或创建敌人
   for (const enemyState of enemies) {
-    let enemy = Game.enemies.find(e => e.id === enemyState.id);
+    // ✅ 修復：跳過無效的敵人狀態，防止整個系統崩潰
+    if (!enemyState || !enemyState.id) continue;
+    let enemy = Game.enemies.find(e => e && e.id === enemyState.id);
     if (!enemy && EnemyCtor) {
       // 创建新敌人
       enemy = new EnemyCtor(enemyState.x, enemyState.y, enemyState.type);
@@ -4806,23 +4813,30 @@ function updateEnemiesFromServer(enemies) {
 // ✅ 不影响单机：只在多人模式下执行
 function updateProjectilesFromServer(projectiles) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.projectiles) return;
+  // ✅ 修復：防止 projectiles 不是數組導致整個系統崩潰
+  if (!Array.isArray(projectiles)) return;
 
   const ProjectileCtor = _getGlobalCtor("Projectile");
 
   // 创建投射物ID映射
-  const serverProjectileIds = new Set(projectiles.map(p => p.id));
-  const localProjectileIds = new Set(Game.projectiles.map(p => p.id));
+  // ✅ 修復：過濾掉 null/undefined 元素，防止 p.id 訪問錯誤
+  const serverProjectileIds = new Set(projectiles.filter(p => p && p.id).map(p => p.id));
+  const localProjectileIds = new Set(Game.projectiles.filter(p => p && p.id).map(p => p.id));
 
   // 移除服务器不存在的投射物
   for (let i = Game.projectiles.length - 1; i >= 0; i--) {
-    if (!serverProjectileIds.has(Game.projectiles[i].id)) {
+    const proj = Game.projectiles[i];
+    // ✅ 修復：防止 proj 為 null/undefined 或沒有 id 導致崩潰
+    if (!proj || !proj.id || !serverProjectileIds.has(proj.id)) {
       Game.projectiles.splice(i, 1);
     }
   }
 
   // 更新或创建投射物
   for (const projState of projectiles) {
-    let proj = Game.projectiles.find(p => p.id === projState.id);
+    // ✅ 修復：跳過無效的投射物狀態，防止整個系統崩潰
+    if (!projState || !projState.id) continue;
+    let proj = Game.projectiles.find(p => p && p.id === projState.id);
     if (!proj && ProjectileCtor) {
       // 创建新投射物（仅视觉）
       proj = new ProjectileCtor(projState.x, projState.y, projState.angle, projState.weaponType, 0, projState.speed, projState.size);
