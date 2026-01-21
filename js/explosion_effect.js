@@ -43,6 +43,43 @@ class ExplosionEffect extends Entity {
     }
     
     update(deltaTime) {
+        // 僅視覺效果：需要從遠程玩家位置更新
+        if (this._isVisualOnly && this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                const remotePlayer = rt.RemotePlayerManager.get(this._remotePlayerUid);
+                if (remotePlayer) {
+                    this.player.x = remotePlayer.x;
+                    this.player.y = remotePlayer.y;
+                    // 爆炸位置保持不變（使用構造函數中的 x, y）
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                    }
+                } else {
+                    this.markedForDeletion = true;
+                    return;
+                }
+            } else {
+                this.markedForDeletion = true;
+                return;
+            }
+            // 僅視覺模式：只更新位置和動畫，不進行傷害計算
+            const elapsed = Date.now() - this.startTime;
+            if (this.spriteSheetLoaded) {
+                this.animAccumulator += deltaTime;
+                while (this.animAccumulator >= this.frameDuration && this.currentFrame < this.totalFrames - 1) {
+                    this.currentFrame++;
+                    this.animAccumulator -= this.frameDuration;
+                }
+            }
+            if (elapsed >= this.durationMs) {
+                this.markedForDeletion = true;
+                this._destroyHitOverlays();
+            }
+            return;
+        }
+        
         const elapsed = Date.now() - this.startTime;
         
         // 更新动画帧
