@@ -588,7 +588,8 @@ class GameState {
       }
       p.isDead = false;
       p.health = p.maxHealth || 200;
-      p.energy = Math.min(p.maxEnergy || 100, Math.max(0, p.energy || 0));
+      // ✅ 單機同源：新局開始時能量必須重置為 0，不是保留舊值
+      p.energy = 0;
       p.vx = 0; p.vy = 0;
       p.lastAttackAt = 0;
       p.lastAutoFireAt = 0;
@@ -2112,34 +2113,39 @@ class GameState {
       // ✅ 多人元素（省流量）：只下發客戶端渲染/同步真正需要的欄位
       // - 避免把 server internal/meta/weapons 等一起塞進 game-state，造成流量膨脹與前端負擔
       // - 不影響單機存檔/引繼碼（本檔案僅用於組隊 WS）
-      players: Array.from(this.players.entries()).map(([uid, p]) => ({
-        uid,
-        x: p.x,
-        y: p.y,
-        vx: p.vx,
-        vy: p.vy,
-        facing: p.facing,
-        health: p.health,
-        maxHealth: p.maxHealth,
-        energy: p.energy,
-        maxEnergy: p.maxEnergy,
-        level: p.level,
-        experience: p.experience,
-        sessionCoins: p.sessionCoins,
-        isDead: p.isDead,
-        resurrectionProgress: p.resurrectionProgress,
-        resurrectionRescuerUid: p.resurrectionRescuerUid,
-        characterId: p.characterId,
-        nickname: p.nickname,
-        // ✅ 多人元素：大招動畫狀態（讓所有客戶端能看到其他玩家的大招變身效果）
-        isUltimateActive: (typeof p.isUltimateActive === 'boolean') ? p.isUltimateActive : false,
-        ultimateImageKey: (typeof p.ultimateImageKey === 'string' && p.ultimateImageKey) ? p.ultimateImageKey : null,
-        ultimateEndTime: (typeof p.ultimateEndTime === 'number') ? p.ultimateEndTime : 0,
-        // ✅ 多人元素：體型變化（大招變身時的視覺效果）
-        width: (typeof p.width === 'number' && p.width > 0) ? p.width : null,
-        height: (typeof p.height === 'number' && p.height > 0) ? p.height : null,
-        collisionRadius: (typeof p.collisionRadius === 'number' && p.collisionRadius > 0) ? p.collisionRadius : null
-      })),
+      players: Array.from(this.players.entries()).map(([uid, p]) => {
+        // ✅ 單機同源：計算 experienceToNextLevel（使用與單機相同的算法）
+        const experienceToNextLevel = this._computeExperienceToNextLevel(p.level);
+        return {
+          uid,
+          x: p.x,
+          y: p.y,
+          vx: p.vx,
+          vy: p.vy,
+          facing: p.facing,
+          health: p.health,
+          maxHealth: p.maxHealth,
+          energy: p.energy,
+          maxEnergy: p.maxEnergy,
+          level: p.level,
+          experience: p.experience,
+          experienceToNextLevel: experienceToNextLevel, // ✅ 新增：同步經驗升級算法
+          sessionCoins: p.sessionCoins,
+          isDead: p.isDead,
+          resurrectionProgress: p.resurrectionProgress,
+          resurrectionRescuerUid: p.resurrectionRescuerUid,
+          characterId: p.characterId,
+          nickname: p.nickname,
+          // ✅ 多人元素：大招動畫狀態（讓所有客戶端能看到其他玩家的大招變身效果）
+          isUltimateActive: (typeof p.isUltimateActive === 'boolean') ? p.isUltimateActive : false,
+          ultimateImageKey: (typeof p.ultimateImageKey === 'string' && p.ultimateImageKey) ? p.ultimateImageKey : null,
+          ultimateEndTime: (typeof p.ultimateEndTime === 'number') ? p.ultimateEndTime : 0,
+          // ✅ 多人元素：體型變化（大招變身時的視覺效果）
+          width: (typeof p.width === 'number' && p.width > 0) ? p.width : null,
+          height: (typeof p.height === 'number' && p.height > 0) ? p.height : null,
+          collisionRadius: (typeof p.collisionRadius === 'number' && p.collisionRadius > 0) ? p.collisionRadius : null
+        };
+      }),
       enemies: this.enemies,
       projectiles: this.projectiles,
       bossProjectiles: this.bossProjectiles,
