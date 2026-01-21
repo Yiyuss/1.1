@@ -119,6 +119,10 @@ class ChainLightningEffect extends Entity {
                 return;
             }
             // 僅視覺模式：只更新粒子，不進行傷害計算
+            // ✅ 修復：如果 segments 為空（可能是因為創建時沒有敵人），嘗試重新構建連鎖
+            if (this.segments.length === 0 && Game.enemies && Game.enemies.length > 0) {
+                this._buildChain();
+            }
             this._updateParticles(deltaTime);
             const elapsed = Date.now() - this.startTime;
             if (elapsed >= this.durationMs) {
@@ -421,6 +425,10 @@ class FrenzyLightningEffect extends Entity {
                 return;
             }
             // 僅視覺模式：只更新粒子，不進行傷害計算
+            // ✅ 修復：如果 segments 為空（可能是因為創建時沒有敵人），嘗試重新構建連鎖
+            if (this.segments.length === 0 && Game.enemies && Game.enemies.length > 0) {
+                this._buildFrenzy();
+            }
             this._updateParticles(deltaTime);
             const elapsed = Date.now() - this.startTime;
             if (elapsed >= this.durationMs) {
