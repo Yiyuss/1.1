@@ -920,8 +920,9 @@ const Runtime = (() => {
 
     try {
       // ✅ 權威伺服器模式：多人進行中（multiplayer.enabled）時，禁止用 event 生成/更新「世界實體」
-      // 這些實體（敵人/經驗球/寶箱/投射物/BOSS投射物/波次）應由 server game-state 統一權威下發，
+      // 這些實體（敵人/經驗球/寶箱/標準投射物/BOSS投射物/波次）應由 server game-state 統一權威下發，
       // 否則會與 updateEnemiesFromServer/updateProjectilesFromServer 等路徑互打，導致「越修越多 bug」。
+      // ⚠️ 修復：projectile_spawn 事件應該被允許，因為它用於視覺效果（雷射、連鎖閃電、斬擊等），不是世界實體
       try {
         const isServerAuthoritative = (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled);
         if (isServerAuthoritative) {
@@ -932,7 +933,9 @@ const Runtime = (() => {
             eventType === "exp_orb_spawn" ||
             eventType === "chest_spawn" ||
             eventType === "boss_projectile_spawn" ||
-            eventType === "projectile_spawn" ||
+            // ⚠️ 修復：projectile_spawn 不應該被阻止，因為它用於視覺效果（雷射、連鎖閃電、斬擊等）
+            // 這些視覺效果不是世界實體，不需要伺服器權威，只需要同步給其他玩家看
+            // eventType === "projectile_spawn" || // ❌ 移除：允許 projectile_spawn 事件
             // ✅ 伺服器權威：粒子/鏡頭效果也不走 event（避免各端不同步/刷流量）
             eventType === "explosion_particles" ||
             eventType === "screen_effect" ||
@@ -1343,14 +1346,58 @@ const Runtime = (() => {
             
             let existingProjectile = null;
             if (isPersistentEffect && playerUid) {
-              // 對於持續效果，檢查是否已存在相同類型和玩家的效果
-              existingProjectile = Game.projectiles.find(p => 
-                p.weaponType === weaponType && 
-                (p._remotePlayerUid === playerUid || (p.player && p.player._remoteUid === playerUid))
-              );
+              // ⚠️ 修復：對於持續效果，檢查是否已存在相同類型和玩家的效果
+              // 需要檢查本地玩家（playerUid === Game.multiplayer.uid）和遠程玩家
+              const isLocalPlayer = (playerUid === (Game.multiplayer && Game.multiplayer.uid));
+              existingProjectile = Game.projectiles.find(p => {
+                if (p.weaponType !== weaponType) return false;
+                // 檢查是否是同一個玩家的效果
+                if (isLocalPlayer) {
+                  // 本地玩家：檢查是否是本地玩家創建的效果（沒有 _remotePlayerUid 或 player === Game.player）
+                  return (!p._remotePlayerUid && p.player === Game.player) || 
+                         (p._remotePlayerUid === playerUid) || 
+                         (p.player && p.player === Game.player);
+                } else {
+                  // 遠程玩家：檢查 _remotePlayerUid 或 player._remoteUid
+                  return (p._remotePlayerUid === playerUid) || 
+                         (p.player && p.player._remoteUid === playerUid);
+                }
+              });
             } else {
               // 對於非持續效果，只檢查ID
               existingProjectile = Game.projectiles.find(p => p.id === projectileId);
+            }
+            
+            // ⚠️ 修復：如果已存在持續效果，更新它而不是創建新的（避免重複疊加）
+            if (existingProjectile && isPersistentEffect) {
+              // 更新現有效果的屬性（位置、角度、半徑等）
+              try {
+                if (typeof eventData.x === "number") existingProjectile.x = eventData.x;
+                if (typeof eventData.y === "number") existingProjectile.y = eventData.y;
+                if (typeof eventData.angle === "number") existingProjectile.angle = eventData.angle;
+                if (typeof eventData.radius === "number") existingProjectile.radius = eventData.radius;
+                if (typeof eventData.duration === "number") existingProjectile.duration = eventData.duration;
+                if (typeof eventData.durationMs === "number") existingProjectile.durationMs = eventData.durationMs;
+                // 更新玩家引用（確保位置正確）
+                if (eventData.playerUid) {
+                  const isLocalPlayer = (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid));
+                  if (isLocalPlayer && Game.player) {
+                    existingProjectile.player = Game.player;
+                  } else {
+                    const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                    if (rt && rt.RemotePlayerManager && typeof rt.RemotePlayerManager.get === 'function') {
+                      const remotePlayer = rt.RemotePlayerManager.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        existingProjectile.player = remotePlayer;
+                      }
+                    }
+                  }
+                }
+              } catch (e) {
+                console.warn('[SurvivalOnline] 更新現有持續效果失敗:', e);
+              }
+              // 已更新現有效果，不需要創建新的
+              return;
             }
             
             if (!existingProjectile) {
@@ -1654,11 +1701,8 @@ const Runtime = (() => {
                   effect._isVisualOnly = true;
                   effect._remotePlayerUid = eventData.playerUid;
                   if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
-                  // ⚠️ 修復：再次檢查是否已存在（避免重複添加）
-                  const existingEffect = Game.projectiles.find(p => p.id === projectileId || (p.weaponType === weaponType && p._remotePlayerUid === eventData.playerUid));
-                  if (!existingEffect) {
-                    Game.projectiles.push(effect);
-                  }
+                  // ⚠️ 修復：已經在1356行之前檢查過了，這裡不需要再次檢查（避免重複添加）
+                  Game.projectiles.push(effect);
                 }
               } else if (weaponType === "JUDGMENT" && typeof JudgmentEffect !== "undefined") {
                 // 裁決：需要找到對應的玩家（使用完整的 Player 對象）
@@ -1837,11 +1881,8 @@ const Runtime = (() => {
                   // 不标记为_isVisualOnly，让每个玩家的守护领域都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
                   if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
-                  // ⚠️ 修復：再次檢查是否已存在（避免重複添加）
-                  const existingEffect = Game.projectiles.find(p => p.id === projectileId || (p.weaponType === weaponType && p._remotePlayerUid === eventData.playerUid));
-                  if (!existingEffect) {
-                    Game.projectiles.push(effect);
-                  }
+                  // ⚠️ 修復：已經在1356行之前檢查過了，這裡不需要再次檢查（避免重複添加）
+                  Game.projectiles.push(effect);
                 }
               } else if (weaponType === "GRAVITY_WAVE" && typeof GravityWaveField !== "undefined") {
                 // 重力波：需要找到對應的玩家
@@ -4350,17 +4391,21 @@ function handleServerGameState(state, timestamp) {
             // ⚠️ 修復：不可用 `||`，否則 0 會被當成 false 導致不同步（例如死亡/清零）
             // ✅ 單機同源：檢測血量變化，觸發受傷紅閃效果（單機元素）
             if (typeof playerState.health === "number") {
-              const prevHealth = Game.player.health || 0;
+              // ⚠️ 修復：確保 prevHealth 是數字類型，避免初始值問題
+              const prevHealth = (typeof Game.player.health === "number") ? Game.player.health : Game.player.maxHealth || 0;
               const newHealth = playerState.health;
-              Game.player.health = newHealth;
-              // 如果血量減少（受傷），觸發紅閃效果（單機元素，只對本地玩家顯示）
-              if (newHealth < prevHealth && newHealth > 0 && !Game.player._isDead) {
+              // ⚠️ 修復：只在血量真的減少時才更新（避免初始化時觸發紅閃）
+              if (newHealth < prevHealth && newHealth > 0 && prevHealth > 0 && !Game.player._isDead) {
+                Game.player.health = newHealth;
                 try {
                   Game.player.hitFlashTime = Game.player.hitFlashDuration || 150;
                   if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
                     window.GifOverlay.flash('player', { color: '#ff0000', durationMs: Game.player.hitFlashDuration || 150, opacity: 0.8 });
                   }
                 } catch (_) {}
+              } else {
+                // ⚠️ 修復：即使血量沒有減少，也要同步血量（避免不同步）
+                Game.player.health = newHealth;
               }
             }
             // ⚠️ 修復：同步 maxHealth 時，如果 maxHealth 增加，也要同步增加 health
@@ -4434,22 +4479,30 @@ function handleServerGameState(state, timestamp) {
                 const nowExp = Math.max(0, Math.floor(playerState.experience || 0));
                 const deltaExp = nowExp - (_lastSessionExp || 0);
                 if (deltaExp > 0 && typeof Game.player.gainExperience === "function") {
-                  // ⚠️ 修復：保存升級前的 experienceToNextLevel，避免被伺服器同步覆蓋
+                  // ⚠️ 修復：保存升級前的 experienceToNextLevel 和 level，避免被伺服器同步覆蓋
                   const prevExpToNext = Game.player.experienceToNextLevel || 80;
                   const prevLevel = Game.player.level || 1;
+                  const prevExp = Game.player.experience || 0;
                   Game.player.gainExperience(deltaExp);
+                  // ⚠️ 修復：gainExperience 內部會在升級時重置 experienceToNextLevel
                   // 如果升級了，使用本地計算的 experienceToNextLevel（避免被重置為80）
                   if (Game.player.level > prevLevel) {
-                    // 升級後，使用本地計算的值
-                    Game.player.experienceToNextLevel = Player.computeExperienceToNextLevel(Game.player.level);
-                  } else if (typeof playerState.experienceToNextLevel === "number") {
-                    // 沒有升級，使用伺服器的值
+                    // 升級後，使用本地計算的值（gainExperience 已經設置了正確的值）
+                    // 不需要再次設置，因為 gainExperience 已經設置了
+                  } else if (typeof playerState.experienceToNextLevel === "number" && playerState.experienceToNextLevel !== 80) {
+                    // ⚠️ 修復：如果伺服器的值不是80（可能是正確的值），使用伺服器的值
+                    // 但如果伺服器的值是80，可能是舊值，不應該覆蓋
                     Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
                   }
                 } else {
-                  // 沒有獲得經驗，直接同步伺服器的值
+                  // 沒有獲得經驗，直接同步伺服器的值（但如果是80，可能是舊值，不應該覆蓋）
                   if (typeof playerState.experienceToNextLevel === "number" && Game.player) {
-                    Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
+                    // ⚠️ 修復：如果當前值不是80，且伺服器的值是80，可能是舊值，不應該覆蓋
+                    if (playerState.experienceToNextLevel === 80 && Game.player.experienceToNextLevel !== 80) {
+                      // 不覆蓋，保持當前值
+                    } else {
+                      Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
+                    }
                   }
                 }
                 _lastSessionExp = nowExp;
