@@ -1327,12 +1327,33 @@ const Runtime = (() => {
         console.log(`[SurvivalOnline] onEventMessage: 收到投射物生成事件, weaponType=${eventData.weaponType}, x=${eventData.x}, y=${eventData.y}`);
         try {
           if (typeof Game !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
-            // 檢查是否已存在相同ID的投射物（避免重複生成）
+            // ⚠️ 修復：檢查是否已存在相同ID或相同類型的持續效果（避免重複生成導致圖層重疊）
             const projectileId = eventData.id || `projectile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-            const existingProjectile = Game.projectiles.find(p => p.id === projectileId);
+            const weaponType = eventData.weaponType || "UNKNOWN";
+            const playerUid = eventData.playerUid || null;
+            
+            // 對於持續效果（AURA_FIELD、SLASH、ORBIT等），檢查是否已存在相同類型和玩家的效果
+            const isPersistentEffect = (
+              weaponType === 'AURA_FIELD' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' ||
+              weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' || weaponType === 'HEART_COMPANION' ||
+              weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'LASER' || weaponType === 'RADIANT_GLORY' ||
+              weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' || weaponType === 'SLASH' ||
+              weaponType === 'FRENZY_SLASH' || weaponType === 'MIND_MAGIC'
+            );
+            
+            let existingProjectile = null;
+            if (isPersistentEffect && playerUid) {
+              // 對於持續效果，檢查是否已存在相同類型和玩家的效果
+              existingProjectile = Game.projectiles.find(p => 
+                p.weaponType === weaponType && 
+                (p._remotePlayerUid === playerUid || (p.player && p.player._remoteUid === playerUid))
+              );
+            } else {
+              // 對於非持續效果，只檢查ID
+              existingProjectile = Game.projectiles.find(p => p.id === projectileId);
+            }
+            
             if (!existingProjectile) {
-              const weaponType = eventData.weaponType || "UNKNOWN";
-
               // 根據武器類型創建對應的投射物
               if (weaponType === "ORBIT" || weaponType === "CHICKEN_BLESSING" || weaponType === "ROTATING_MUFFIN" || weaponType === "HEART_COMPANION" || weaponType === "PINEAPPLE_ORBIT") {
                 // 環繞投射物：需要找到對應的玩家（使用完整的 Player 對象）
@@ -1400,13 +1421,15 @@ const Runtime = (() => {
                   // ⚠️ 修復：檢查是否已經存在相同 ID 的雷射，避免重複添加導致圖層重疊
                   const existingBeam = Game.projectiles.find(p => p.id === projectileId && p.weaponType === 'LASER');
                   if (!existingBeam) {
+                    // ⚠️ 修復：使用與單機一致的默認值（CONFIG.LASER.DURATION = 2000）
+                    // 單機模式：使用 this.config.DURATION（預設 2000ms）
                     const beam = new LaserBeam(
                       targetPlayer,
                       eventData.angle || 0,
                       0, // 傷害設為0（僅視覺）
                       eventData.width || 8,
-                      eventData.duration || 1000,
-                      eventData.tickInterval || 120
+                      eventData.duration || 2000, // ✅ 與單機一致：使用 CONFIG.LASER.DURATION（2000ms）
+                      eventData.tickInterval || 120 // ✅ 與單機一致：使用 CONFIG.LASER.TICK_INTERVAL_MS（120ms）
                     );
                     beam.id = projectileId;
                     beam._isVisualOnly = true;
@@ -1541,12 +1564,14 @@ const Runtime = (() => {
                     const existingEffect = Game.projectiles.find(p => p.id === projectileId && (p.weaponType === 'CHAIN_LIGHTNING' || p.constructor && p.constructor.name === 'ChainLightningEffect'));
                     if (!existingEffect) {
                       // ✅ 單機同源：連鎖閃電是視覺效果，應該標記為 _isVisualOnly（傷害由伺服器權威處理）
+                      // ⚠️ 修復：使用與單機一致的默認值（CONFIG.CHAIN_LIGHTNING.DURATION = 1000, CHAIN_RADIUS = 220）
+                      // 單機模式：使用 this.config.DURATION || 1000 和 this.config.CHAIN_RADIUS || 220
                       const effect = new ChainLightningEffect(
                         targetPlayer,
                         0, // 傷害設為0（僅視覺，傷害由伺服器權威處理）
-                        eventData.duration || 1000,
+                        eventData.duration || 1000, // ✅ 與單機一致：使用 CONFIG.CHAIN_LIGHTNING.DURATION（1000ms）
                         eventData.maxChains || 0,
-                        eventData.chainRadius || 220,
+                        eventData.chainRadius || 220, // ✅ 與單機一致：使用 CONFIG.CHAIN_LIGHTNING.CHAIN_RADIUS（220）
                         eventData.palette || null
                       );
                       effect.id = projectileId;
@@ -1629,7 +1654,11 @@ const Runtime = (() => {
                   effect._isVisualOnly = true;
                   effect._remotePlayerUid = eventData.playerUid;
                   if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
-                  Game.projectiles.push(effect);
+                  // ⚠️ 修復：再次檢查是否已存在（避免重複添加）
+                  const existingEffect = Game.projectiles.find(p => p.id === projectileId || (p.weaponType === weaponType && p._remotePlayerUid === eventData.playerUid));
+                  if (!existingEffect) {
+                    Game.projectiles.push(effect);
+                  }
                 }
               } else if (weaponType === "JUDGMENT" && typeof JudgmentEffect !== "undefined") {
                 // 裁決：需要找到對應的玩家（使用完整的 Player 對象）
@@ -1808,7 +1837,11 @@ const Runtime = (() => {
                   // 不标记为_isVisualOnly，让每个玩家的守护领域都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
                   if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
-                  Game.projectiles.push(effect);
+                  // ⚠️ 修復：再次檢查是否已存在（避免重複添加）
+                  const existingEffect = Game.projectiles.find(p => p.id === projectileId || (p.weaponType === weaponType && p._remotePlayerUid === eventData.playerUid));
+                  if (!existingEffect) {
+                    Game.projectiles.push(effect);
+                  }
                 }
               } else if (weaponType === "GRAVITY_WAVE" && typeof GravityWaveField !== "undefined") {
                 // 重力波：需要找到對應的玩家
@@ -4401,13 +4434,25 @@ function handleServerGameState(state, timestamp) {
                 const nowExp = Math.max(0, Math.floor(playerState.experience || 0));
                 const deltaExp = nowExp - (_lastSessionExp || 0);
                 if (deltaExp > 0 && typeof Game.player.gainExperience === "function") {
+                  // ⚠️ 修復：保存升級前的 experienceToNextLevel，避免被伺服器同步覆蓋
+                  const prevExpToNext = Game.player.experienceToNextLevel || 80;
+                  const prevLevel = Game.player.level || 1;
                   Game.player.gainExperience(deltaExp);
+                  // 如果升級了，使用本地計算的 experienceToNextLevel（避免被重置為80）
+                  if (Game.player.level > prevLevel) {
+                    // 升級後，使用本地計算的值
+                    Game.player.experienceToNextLevel = Player.computeExperienceToNextLevel(Game.player.level);
+                  } else if (typeof playerState.experienceToNextLevel === "number") {
+                    // 沒有升級，使用伺服器的值
+                    Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
+                  }
+                } else {
+                  // 沒有獲得經驗，直接同步伺服器的值
+                  if (typeof playerState.experienceToNextLevel === "number" && Game.player) {
+                    Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
+                  }
                 }
                 _lastSessionExp = nowExp;
-                // ✅ 單機同源：同步 experienceToNextLevel（從伺服器計算的值）
-                if (typeof playerState.experienceToNextLevel === "number" && Game.player) {
-                  Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
-                }
               }
             }
 
