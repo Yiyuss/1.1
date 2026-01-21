@@ -753,6 +753,7 @@ class GameState {
 
       case 'attack':
         // 服务器创建投射物
+        console.log(`[GameState.handleInput] ✅ 收到攻擊輸入: uid=${uid}, weaponType=${input.weaponType || 'UNKNOWN'}, x=${input.x}, y=${input.y}`);
         try { player.lastAttackAt = Date.now(); } catch (_) { }
         this.createProjectile(uid, input);
         break;
@@ -936,7 +937,11 @@ class GameState {
   // 创建投射物（服务器权威）
   createProjectile(uid, input) {
     const player = this.players.get(uid);
-    if (!player) return;
+    if (!player) {
+      console.warn(`[GameState.createProjectile] ❌ 玩家不存在: uid=${uid}`);
+      return;
+    }
+    console.log(`[GameState.createProjectile] ✅ 創建投射物: uid=${uid}, weaponType=${input.weaponType || 'UNKNOWN'}, projectiles.length=${this.projectiles.length}`);
 
     // ✅ 参数验证和边界检查
     const worldWidth = this.worldWidth || 1920;
