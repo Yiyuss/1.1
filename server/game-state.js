@@ -782,6 +782,14 @@ class GameState {
           if (typeof input.skillInvulnerableUntil === 'number') player.skillInvulnerableUntil = Math.max(0, Math.floor(input.skillInvulnerableUntil));
           // ✅ 新增：爆擊率同步（天賦 + 升級 + 角色基礎）
           if (typeof input.critChanceBonusPct === 'number') player.meta.critChanceBonusPct = Math.max(0, input.critChanceBonusPct);
+          // ✅ 新增：maxHealth 同步（多人元素，影響復活時的血量）
+          if (typeof input.maxHealth === 'number' && input.maxHealth > 0) {
+            player.maxHealth = Math.max(100, Math.floor(input.maxHealth)); // 最小值 100，避免異常值
+            // 確保當前血量不超過新的最大血量
+            if (player.health > player.maxHealth) {
+              player.health = player.maxHealth;
+            }
+          }
           // ✅ 單機同源：不獸控制（吸血）— 只同步最終參數，伺服器權威結算回復
           if (input.lifesteal && typeof input.lifesteal === 'object') {
             if (!player.meta.lifesteal) player.meta.lifesteal = { pct: 0, cooldownMs: 100, minHeal: 1, lastAt: 0 };
