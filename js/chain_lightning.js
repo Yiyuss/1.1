@@ -67,12 +67,35 @@ class ChainLightningEffect extends Entity {
     }
 
     update(deltaTime) {
-        // 僅視覺連鎖閃電：需要從遠程玩家位置更新
+        // ✅ 單機同源：僅視覺連鎖閃電需要從遠程玩家位置更新（與單機模式一致）
         if (this._isVisualOnly && this._remotePlayerUid) {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-            if (rt && typeof rt.getRemotePlayers === 'function') {
+            // ✅ 修復：優先使用 RemotePlayerManager 獲取完整的 Player 對象
+            if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                const remotePlayerObj = rt.RemotePlayerManager.get(this._remotePlayerUid);
+                if (remotePlayerObj) {
+                    this.player.x = remotePlayerObj.x;
+                    this.player.y = remotePlayerObj.y;
+                    this.x = remotePlayerObj.x;
+                    this.y = remotePlayerObj.y;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                        this.x = Game.player.x;
+                        this.y = Game.player.y;
+                    }
+                } else {
+                    // 如果找不到對應的玩家，標記為刪除
+                    this.markedForDeletion = true;
+                    return;
+                }
+            } else if (rt && typeof rt.getRemotePlayers === 'function') {
                 const remotePlayers = rt.getRemotePlayers() || [];
-                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+                const remotePlayer = remotePlayers.find(p => 
+                    (p.uid === this._remotePlayerUid) || 
+                    (p._remoteUid === this._remotePlayerUid) ||
+                    (p._isRemotePlayer && p._remoteUid === this._remotePlayerUid)
+                );
                 if (remotePlayer) {
                     // 更新玩家位置
                     this.player.x = remotePlayer.x;
