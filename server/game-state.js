@@ -1574,8 +1574,35 @@ class GameState {
       if (nearestPlayer) {
         const angle = Math.atan2(nearestPlayer.y - enemy.y, nearestPlayer.x - enemy.x);
         const speed = enemy.speed || 2;
-        enemy.x += Math.cos(angle) * speed * (deltaTime / 16.67);
-        enemy.y += Math.sin(angle) * speed * (deltaTime / 16.67);
+        const deltaMul = deltaTime / 16.67;
+        
+        // ⚠️ 修復：計算候選位置（分軸移動，檢查障礙物碰撞）
+        const candX = enemy.x + Math.cos(angle) * speed * deltaMul;
+        const candY = enemy.y + Math.sin(angle) * speed * deltaMul;
+        
+        // ✅ 檢查障礙物碰撞（與單機模式一致）
+        const enemySize = enemy.size || 32;
+        const enemyRadius = enemySize / 2;
+        const blockedByObs = (nx, ny) => {
+          for (const obs of this.obstacles || []) {
+            // 使用圓-矩形碰撞檢測
+            const dx = Math.max(obs.x, Math.min(nx, obs.x + obs.width)) - nx;
+            const dy = Math.max(obs.y, Math.min(ny, obs.y + obs.height)) - ny;
+            if ((dx * dx + dy * dy) < (enemyRadius * enemyRadius)) {
+              return true;
+            }
+          }
+          return false;
+        };
+        
+        // 嘗試X軸位移（僅檢查障礙物）
+        if (!blockedByObs(candX, enemy.y)) {
+          enemy.x = candX;
+        }
+        // 嘗試Y軸位移（僅檢查障礙物）
+        if (!blockedByObs(enemy.x, candY)) {
+          enemy.y = candY;
+        }
 
         // ✅ 敌人边界检查（防止敌人移动到世界外）
         const worldWidth = this.worldWidth || 1920;
@@ -1585,9 +1612,9 @@ class GameState {
         enemy.y = Math.max(-margin, Math.min(worldHeight + margin, enemy.y));
 
         // ✅ 服务器权威：敌人攻击玩家（碰撞检测和伤害计算）
-        const enemySize = enemy.size || 32;
+        const enemySizeForCollision = enemy.size || 32;
         const playerSize = 32; // 默认玩家大小
-        const collisionRadius = (enemySize / 2) + (playerSize / 2);
+        const collisionRadius = (enemySizeForCollision / 2) + (playerSize / 2);
 
         if (nearestDist < collisionRadius) {
           // 检查攻击冷却
@@ -1951,6 +1978,8 @@ class GameState {
     if (waveElapsed >= waveDuration) {
       this.wave++;
       this.waveStartTime = now;
+      // ⚠️ 修復：重置小BOSS生成標記，讓新波次可以生成小BOSS
+      this.minibossSpawnedForWave = false;
 
       // ✅ 與單機一致：用 CONFIG.WAVES.ENEMY_SPAWN_RATE（初始/每波遞減/最小值）
       try {
