@@ -1397,18 +1397,26 @@ const Runtime = (() => {
                 }
 
                 if (targetPlayer) {
-                  const beam = new LaserBeam(
-                    targetPlayer,
-                    eventData.angle || 0,
-                    0, // 傷害設為0（僅視覺）
-                    eventData.width || 8,
-                    eventData.duration || 1000,
-                    eventData.tickInterval || 120
-                  );
-                  beam.id = projectileId;
-                  beam._isVisualOnly = true;
-                  beam._remotePlayerUid = eventData.playerUid;
-                  Game.projectiles.push(beam);
+                  // ⚠️ 修復：檢查是否已經存在相同 ID 的雷射，避免重複添加導致圖層重疊
+                  const existingBeam = Game.projectiles.find(p => p.id === projectileId && p.weaponType === 'LASER');
+                  if (!existingBeam) {
+                    const beam = new LaserBeam(
+                      targetPlayer,
+                      eventData.angle || 0,
+                      0, // 傷害設為0（僅視覺）
+                      eventData.width || 8,
+                      eventData.duration || 1000,
+                      eventData.tickInterval || 120
+                    );
+                    beam.id = projectileId;
+                    beam._isVisualOnly = true;
+                    beam._remotePlayerUid = eventData.playerUid;
+                    Game.projectiles.push(beam);
+                  } else {
+                    // 如果已存在，更新位置和角度（避免重複創建）
+                    existingBeam.player = targetPlayer;
+                    existingBeam.angle = eventData.angle || 0;
+                  }
                 }
               } else if (weaponType === "MIND_MAGIC" && typeof ShockwaveEffect !== "undefined") {
                 // 震波：需要找到對應的玩家（使用完整的 Player 對象）
@@ -1529,34 +1537,48 @@ const Runtime = (() => {
 
                 if (targetPlayer) {
                   if (weaponType === "CHAIN_LIGHTNING") {
-                    // ✅ 單機同源：連鎖閃電是視覺效果，應該標記為 _isVisualOnly（傷害由伺服器權威處理）
-                    const effect = new ChainLightningEffect(
-                      targetPlayer,
-                      0, // 傷害設為0（僅視覺，傷害由伺服器權威處理）
-                      eventData.duration || 1000,
-                      eventData.maxChains || 0,
-                      eventData.chainRadius || 220,
-                      eventData.palette || null
-                    );
-                    effect.id = projectileId;
-                    effect._isVisualOnly = true; // ✅ 修復：標記為僅視覺，避免客戶端計算傷害
-                    effect._remotePlayerUid = eventData.playerUid;
-                    Game.projectiles.push(effect);
+                    // ⚠️ 修復：檢查是否已經存在相同 ID 的連鎖閃電，避免重複添加導致圖層重疊
+                    const existingEffect = Game.projectiles.find(p => p.id === projectileId && (p.weaponType === 'CHAIN_LIGHTNING' || p.constructor && p.constructor.name === 'ChainLightningEffect'));
+                    if (!existingEffect) {
+                      // ✅ 單機同源：連鎖閃電是視覺效果，應該標記為 _isVisualOnly（傷害由伺服器權威處理）
+                      const effect = new ChainLightningEffect(
+                        targetPlayer,
+                        0, // 傷害設為0（僅視覺，傷害由伺服器權威處理）
+                        eventData.duration || 1000,
+                        eventData.maxChains || 0,
+                        eventData.chainRadius || 220,
+                        eventData.palette || null
+                      );
+                      effect.id = projectileId;
+                      effect._isVisualOnly = true; // ✅ 修復：標記為僅視覺，避免客戶端計算傷害
+                      effect._remotePlayerUid = eventData.playerUid;
+                      Game.projectiles.push(effect);
+                    } else {
+                      // 如果已存在，更新玩家引用（避免重複創建）
+                      existingEffect.player = targetPlayer;
+                    }
                   } else if (weaponType === "FRENZY_LIGHTNING" && typeof FrenzyLightningEffect !== "undefined") {
-                    // ✅ 單機同源：狂熱雷擊是視覺效果，應該標記為 _isVisualOnly（傷害由伺服器權威處理）
-                    const effect = new FrenzyLightningEffect(
-                      targetPlayer,
-                      0, // 傷害設為0（僅視覺，傷害由伺服器權威處理）
-                      eventData.duration || 1000,
-                      eventData.branchCount || 10,
-                      eventData.chainsPerBranch || 10,
-                      eventData.chainRadius || 220,
-                      eventData.palette || null
-                    );
-                    effect.id = projectileId;
-                    effect._isVisualOnly = true; // ✅ 修復：標記為僅視覺，避免客戶端計算傷害
-                    effect._remotePlayerUid = eventData.playerUid;
-                    Game.projectiles.push(effect);
+                    // ⚠️ 修復：檢查是否已經存在相同 ID 的狂熱雷擊，避免重複添加導致圖層重疊
+                    const existingEffect = Game.projectiles.find(p => p.id === projectileId && (p.weaponType === 'FRENZY_LIGHTNING' || p.constructor && p.constructor.name === 'FrenzyLightningEffect'));
+                    if (!existingEffect) {
+                      // ✅ 單機同源：狂熱雷擊是視覺效果，應該標記為 _isVisualOnly（傷害由伺服器權威處理）
+                      const effect = new FrenzyLightningEffect(
+                        targetPlayer,
+                        0, // 傷害設為0（僅視覺，傷害由伺服器權威處理）
+                        eventData.duration || 1000,
+                        eventData.branchCount || 10,
+                        eventData.chainsPerBranch || 10,
+                        eventData.chainRadius || 220,
+                        eventData.palette || null
+                      );
+                      effect.id = projectileId;
+                      effect._isVisualOnly = true; // ✅ 修復：標記為僅視覺，避免客戶端計算傷害
+                      effect._remotePlayerUid = eventData.playerUid;
+                      Game.projectiles.push(effect);
+                    } else {
+                      // 如果已存在，更新玩家引用（避免重複創建）
+                      existingEffect.player = targetPlayer;
+                    }
                   }
                 }
               } else if (weaponType === "SLASH" && typeof SlashEffect !== "undefined") {
