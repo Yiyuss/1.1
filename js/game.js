@@ -1337,8 +1337,112 @@ const Game = {
                     return; // 不本地生成標準投射物
                 }
 
-                // 持續效果/其他：保留本地視覺
+                // 持續效果/其他：保留本地視覺，並廣播給其他玩家（讓遠程玩家也能看到）
                 this.projectiles.push(projectile);
+                
+                // ⚠️ 修復：持續效果也需要廣播給其他玩家，確保視覺效果與單機一致
+                // 特別是 CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH 等需要讓遠程玩家看到
+                try {
+                    if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && 
+                        typeof window !== 'undefined' && window.SurvivalOnlineBroadcastEvent &&
+                        projectile.player === this.player) {
+                        // 構建投射物數據（與舊多人模式一致）
+                        const projectileId = projectile.id || `projectile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+                        if (!projectile.id) projectile.id = projectileId;
+                        
+                        const playerUid = (this.multiplayer && this.multiplayer.uid) ? this.multiplayer.uid : null;
+                        const projectileData = {
+                            id: projectileId,
+                            x: projectile.x || 0,
+                            y: projectile.y || 0,
+                            angle: projectile.angle || 0,
+                            weaponType: projectile.weaponType || "UNKNOWN",
+                            playerUid: playerUid,
+                            damage: projectile.damage || 0
+                        };
+                        
+                        // 根據武器類型添加額外屬性（與舊多人模式一致）
+                        if (projectile.radius !== undefined) {
+                            projectileData.radius = projectile.radius;
+                            projectileData.angularSpeed = projectile.angularSpeed || 0;
+                            projectileData.duration = projectile.duration || 3000;
+                            projectileData.size = projectile.size || 20;
+                        }
+                        
+                        if (projectile.width !== undefined && projectile.weaponType === "LASER") {
+                            projectileData.width = projectile.width;
+                            // ⚠️ 修復：使用實際的 duration（從 CONFIG.DURATION 傳遞），確保與單機一致
+                            // 單機模式：使用 this.config.DURATION（預設 2000ms）
+                            projectileData.duration = projectile.duration || 2000;
+                            // ⚠️ 修復：使用實際的 tickInterval（從 CONFIG.TICK_INTERVAL_MS 傳遞），確保與單機一致
+                            // 單機模式：使用 this.config.TICK_INTERVAL_MS || 120
+                            projectileData.tickInterval = projectile.tickIntervalMs || 120;
+                        }
+                        
+                        if (projectile.maxRadius !== undefined && projectile.weaponType === "MIND_MAGIC") {
+                            projectileData.maxRadius = projectile.maxRadius;
+                            projectileData.ringWidth = projectile.ringWidth || 18;
+                            projectileData.duration = projectile.durationMs || 1000;
+                            projectileData.palette = projectile.palette || null;
+                        }
+                        
+                        if (projectile.weaponType === "CHAIN_LIGHTNING" || projectile.weaponType === "FRENZY_LIGHTNING") {
+                            projectileData.damage = projectile.damage || 0;
+                            // ⚠️ 修復：使用實際的 duration（從 CONFIG.DURATION 傳遞），確保與單機一致
+                            // 單機模式：使用 this.config.DURATION || 1000
+                            projectileData.duration = projectile.durationMs || 1000;
+                            projectileData.maxChains = projectile.maxChains || 0;
+                            // ⚠️ 修復：使用實際的 chainRadius（從 CONFIG.CHAIN_RADIUS 傳遞），確保與單機一致
+                            // 單機模式：使用 this.config.CHAIN_RADIUS || 220
+                            projectileData.chainRadius = projectile.chainRadius || 220;
+                            projectileData.palette = projectile.palette || null;
+                            if (projectile.weaponType === "FRENZY_LIGHTNING") {
+                                projectileData.branchCount = projectile.branchCount || 10;
+                                projectileData.chainsPerBranch = projectile.chainsPerBranch || 10;
+                            }
+                        }
+                        
+                        if (projectile.weaponType === "SLASH" || projectile.weaponType === "FRENZY_SLASH") {
+                            projectileData.damage = projectile.damage || 0;
+                            projectileData.angle = projectile.angle || 0;
+                            projectileData.radius = projectile.radius || 60;
+                            projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : (projectile.arcDeg || 80));
+                            projectileData.duration = projectile.durationMs || (projectile.duration || 1000);
+                            projectileData.visualScale = projectile.visualScale || 1.0;
+                        }
+                        
+                        if (projectile.weaponType === "AURA_FIELD") {
+                            projectileData.damage = projectile.tickDamage || projectile.damage || 0;
+                            projectileData.radius = projectile.radius || 150;
+                            projectileData.visualScale = projectile.visualScale || 1.95;
+                            // ⚠️ 注意：AURA_FIELD 是常駐場域，沒有 duration（永久存在直到武器被移除）
+                            // 但為了與單機一致，我們只在首次創建時廣播，之後的更新不廣播（避免重複創建）
+                            // 這裡的廣播邏輯由去重機制處理（在 survival_online.js 中檢查是否已存在）
+                        }
+                        
+                        if (projectile.weaponType === "GRAVITY_WAVE") {
+                            projectileData.damage = projectile.tickDamage || projectile.damage || 0;
+                            projectileData.radius = projectile.radius || 150;
+                            projectileData.pushMultiplier = projectile.pushMultiplier || 0;
+                            projectileData.visualScale = projectile.visualScale || 1.95;
+                            // ⚠️ 注意：GRAVITY_WAVE 是常駐場域，沒有 duration（永久存在直到武器被移除）
+                            // 但為了與單機一致，我們只在首次創建時廣播，之後的更新不廣播（避免重複創建）
+                            // 這裡的廣播邏輯由去重機制處理（在 survival_online.js 中檢查是否已存在）
+                        }
+                        
+                        if (projectile.weaponType === "RADIANT_GLORY") {
+                            projectileData.damage = projectile.tickDamage || projectile.damage || 0;
+                            projectileData.beamCount = projectile.beamCount || 10;
+                            projectileData.rotationSpeed = projectile.rotationSpeed || 0.05;
+                        }
+                        
+                        // 廣播投射物生成事件（讓遠程玩家也能看到）
+                        window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
+                    }
+                } catch (e) {
+                    console.warn('[Game.addProjectile] 廣播持續效果失敗:', e);
+                }
+                
                 return;
             }
         } catch (_) { }
