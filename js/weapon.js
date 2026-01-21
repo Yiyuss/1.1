@@ -47,6 +47,15 @@
                 
                 // 檢查是否可以發射（兩次更新都檢查，但只在第一次累積時間）
                 if (this.cooldownAccumulator >= this.config.COOLDOWN) {
+                    // ⚠️ 調試：確認武器發射
+                    if (this.type === 'DAGGER') {
+                        console.log('[Weapon.fire] 準備發射', {
+                            type: this.type,
+                            level: this.level,
+                            cooldown: this.cooldownAccumulator,
+                            configCooldown: this.config.COOLDOWN
+                        });
+                    }
                     this.fire();
                     this.cooldownAccumulator = 0; // 重置累積時間
                 }
