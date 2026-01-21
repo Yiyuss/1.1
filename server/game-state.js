@@ -583,11 +583,31 @@ class GameState {
       if (playerUpdates && playerUpdates.has(p.uid)) {
         const update = playerUpdates.get(p.uid);
         if (typeof update.maxHealth === 'number' && update.maxHealth > 0) {
-          p.maxHealth = update.maxHealth;
+          const prevMaxHealth = p.maxHealth || 200;
+          const newMaxHealth = update.maxHealth;
+          p.maxHealth = newMaxHealth;
+          // ⚠️ 修復：如果 maxHealth 增加了，也要同步增加 health（避免開場就被扣血）
+          if (newMaxHealth > prevMaxHealth) {
+            // 如果當前血量等於舊的 maxHealth（滿血狀態），直接設為新的 maxHealth
+            if (p.health >= prevMaxHealth) {
+              p.health = newMaxHealth;
+            } else {
+              // 如果當前血量不是滿血，按比例調整
+              const healthPercent = p.health / prevMaxHealth;
+              p.health = Math.min(newMaxHealth, Math.floor(newMaxHealth * healthPercent));
+            }
+          } else if (p.health > newMaxHealth) {
+            // 如果 maxHealth 減少了，確保 health 不超過新的 maxHealth
+            p.health = newMaxHealth;
+          }
+          console.log(`[GameState.resetForNewSession] ✅ 更新玩家 ${p.uid} maxHealth: ${prevMaxHealth} -> ${newMaxHealth}, health: ${p.health}`);
         }
       }
       p.isDead = false;
-      p.health = p.maxHealth || 200;
+      // ⚠️ 修復：確保 health 不超過 maxHealth
+      if (p.health > (p.maxHealth || 200)) {
+        p.health = p.maxHealth || 200;
+      }
       // ✅ 單機同源：新局開始時能量必須重置為 0，不是保留舊值
       p.energy = 0;
       p.vx = 0; p.vy = 0;
