@@ -1,6 +1,13 @@
 // 連鎖閃電效果（非一般投射物，屬於持續型效果）
 class ChainLightningEffect extends Entity {
     constructor(player, damage, durationMs, maxChains, chainRadius, palette) {
+        // ✅ 修復：防止 player 為 null/undefined 導致整個系統崩潰
+        if (!player || typeof player.x !== 'number' || typeof player.y !== 'number') {
+            super(0, 0, 2, 2);
+            this.player = null;
+            this.markedForDeletion = true;
+            return;
+        }
         super(player.x, player.y, 2, 2);
         this.player = player;
         this.damage = damage;
@@ -38,6 +45,11 @@ class ChainLightningEffect extends Entity {
     }
 
     _buildChain() {
+        // ✅ 修復：防止 player 為 null 導致崩潰
+        if (!this.player) {
+            this.segments = [];
+            return;
+        }
         // 主目標：以玩家為起點，找最近敵人
         const exclude = new Set();
         const primary = this._findNearestEnemy(this.player.x, this.player.y, exclude, null);
@@ -67,6 +79,11 @@ class ChainLightningEffect extends Entity {
     }
 
     update(deltaTime) {
+        // ✅ 修復：如果 player 為 null，直接標記為刪除
+        if (!this.player || this.markedForDeletion) {
+            this.markedForDeletion = true;
+            return;
+        }
         // ✅ 單機同源：僅視覺連鎖閃電需要從遠程玩家位置更新（與單機模式一致）
         if (this._isVisualOnly && this._remotePlayerUid) {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
@@ -119,10 +136,6 @@ class ChainLightningEffect extends Entity {
                 return;
             }
             // 僅視覺模式：只更新粒子，不進行傷害計算
-            // ✅ 修復：如果 segments 為空（可能是因為創建時沒有敵人），嘗試重新構建連鎖
-            if (this.segments.length === 0 && Game.enemies && Game.enemies.length > 0) {
-                this._buildChain();
-            }
             this._updateParticles(deltaTime);
             const elapsed = Date.now() - this.startTime;
             if (elapsed >= this.durationMs) {
@@ -229,6 +242,8 @@ class ChainLightningEffect extends Entity {
 
     _segmentEndpoints(seg) {
         // 起點：玩家當前位置或上一段的敵人當前位置（跟隨移動）
+        // ✅ 修復：防止 player 為 null 導致崩潰
+        if (!this.player) return { fx: 0, fy: 0, tx: 0, ty: 0 };
         let fx, fy;
         if (seg.fromType === 'player') {
             fx = this.player.x; fy = this.player.y;
@@ -323,6 +338,13 @@ class ChainLightningEffect extends Entity {
 // 狂熱雷擊效果：同時間分散多支短連鎖電弧
 class FrenzyLightningEffect extends Entity {
     constructor(player, damage, durationMs, branchCount, chainsPerBranch, chainRadius, palette) {
+        // ✅ 修復：防止 player 為 null/undefined 導致整個系統崩潰
+        if (!player || typeof player.x !== 'number' || typeof player.y !== 'number') {
+            super(0, 0, 2, 2);
+            this.player = null;
+            this.markedForDeletion = true;
+            return;
+        }
         super(player.x, player.y, 2, 2);
         this.player = player;
         this.damage = damage;
@@ -341,8 +363,11 @@ class FrenzyLightningEffect extends Entity {
             core: '#ffffff',
             particle: '#66ccff'
         };
-        this._buildFrenzy();
-        try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('zaps'); } catch (_) {}
+        // ✅ 修復：只有在 player 有效時才構建連鎖
+        if (this.player && !this.markedForDeletion) {
+            this._buildFrenzy();
+            try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('zaps'); } catch (_) {}
+        }
     }
 
     _findNearestEnemy(x, y, excludeIds = new Set(), withinRadius = null) {
@@ -359,6 +384,11 @@ class FrenzyLightningEffect extends Entity {
     }
 
     _buildFrenzy() {
+        // ✅ 修復：防止 player 為 null 導致崩潰
+        if (!this.player) {
+            this.segments = [];
+            return;
+        }
         const globalExclude = new Set();
         const primaries = [];
         // 選出分支的主目標（盡量不重覆，且需在半徑內，從玩家位置最近開始）
@@ -425,10 +455,6 @@ class FrenzyLightningEffect extends Entity {
                 return;
             }
             // 僅視覺模式：只更新粒子，不進行傷害計算
-            // ✅ 修復：如果 segments 為空（可能是因為創建時沒有敵人），嘗試重新構建連鎖
-            if (this.segments.length === 0 && Game.enemies && Game.enemies.length > 0) {
-                this._buildFrenzy();
-            }
             this._updateParticles(deltaTime);
             const elapsed = Date.now() - this.startTime;
             if (elapsed >= this.durationMs) {
@@ -533,6 +559,8 @@ class FrenzyLightningEffect extends Entity {
     _segmentEndpoints(seg) {
         let fx, fy;
         if (seg.fromType === 'player') {
+            // ✅ 修復：防止 player 為 null 導致崩潰
+            if (!this.player) return { fx: 0, fy: 0, tx: 0, ty: 0 };
             fx = this.player.x; fy = this.player.y;
         } else {
             fx = seg.fromEnemy ? seg.fromEnemy.x : this.player.x;
