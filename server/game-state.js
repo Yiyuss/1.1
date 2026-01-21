@@ -1168,7 +1168,15 @@ class GameState {
 
     // 生成敌人（服务器权威）
     // ✅ 修復：沒有收到 CONFIG 前不要生成（避免血量/規則不同源，造成「一開始幾隻怪血超多/很怪」）
-    if (this.config) this.spawnEnemies(now, this.config);
+    if (this.config) {
+      this.spawnEnemies(now, this.config);
+    } else {
+      // ⚠️ 調試：確認為什麼沒有 CONFIG
+      if (!this._configWarningShown) {
+        this._configWarningShown = true;
+        console.warn(`[GameState.update] 沒有 CONFIG，無法生成敵人。players.size=${this.players.size}, wave=${this.wave}`);
+      }
+    }
 
     // ✅ 服务器权威：生成路口车辆（仅路口地图，仅多人模式）
     // 注意：服务器端只在多人模式下生成车辆，单机模式由客户端生成
@@ -1562,9 +1570,23 @@ class GameState {
   // 注意：服务器端需要CONFIG数据，但Node.js无法直接访问客户端CONFIG
   // 解决方案：将CONFIG数据作为参数传入，或从客户端同步
   spawnEnemies(now, config = null) {
-    if (now - this.lastEnemySpawnTime < this.enemySpawnRate) return;
+    // ⚠️ 調試：檢查敵人生成條件
+    if (!this.lastEnemySpawnTime) {
+      this.lastEnemySpawnTime = now; // 初始化
+      console.log(`[GameState.spawnEnemies] 初始化 lastEnemySpawnTime=${now}, enemySpawnRate=${this.enemySpawnRate}`);
+    }
+    
+    const timeSinceLastSpawn = now - this.lastEnemySpawnTime;
+    if (timeSinceLastSpawn < this.enemySpawnRate) {
+      // ⚠️ 調試：確認為什麼不生成敵人
+      if (this.enemies.length === 0 && timeSinceLastSpawn > 1000) {
+        console.log(`[GameState.spawnEnemies] 等待生成敵人: timeSinceLastSpawn=${timeSinceLastSpawn}ms, enemySpawnRate=${this.enemySpawnRate}ms, enemies.length=${this.enemies.length}`);
+      }
+      return;
+    }
 
     this.lastEnemySpawnTime = now;
+    console.log(`[GameState.spawnEnemies] 準備生成敵人: config=${!!config}, enemies.length=${this.enemies.length}`);
 
     // 如果没有CONFIG，使用简化逻辑
     if (!config || !config.WAVES || !config.ENEMIES) {
