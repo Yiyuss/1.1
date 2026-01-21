@@ -312,6 +312,11 @@ const Game = {
         // 更新敵人
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const enemy = this.enemies[i];
+            // ✅ 修復：防止 enemy 為 null/undefined 或沒有 update 方法導致整個系統崩潰
+            if (!enemy || typeof enemy.update !== 'function') {
+                this.enemies.splice(i, 1);
+                continue;
+            }
             enemy.update(deltaTime);
 
             // 移除標記為刪除的敵人
@@ -328,6 +333,11 @@ const Game = {
         // 更新投射物
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const projectile = this.projectiles[i];
+            // ✅ 修復：防止 projectile 為 null/undefined 或沒有 update 方法導致整個系統崩潰
+            if (!projectile || typeof projectile.update !== 'function') {
+                this.projectiles.splice(i, 1);
+                continue;
+            }
             projectile.update(deltaTime);
 
             // ✅ 權威伺服器模式：持續效果（tickDamage/tickIntervalMs）由伺服器結算傷害
@@ -1205,6 +1215,19 @@ const Game = {
                         projectile.weaponType === 'BIG_ICE_BALL' ||
                         projectile.weaponType === 'FRENZY_ICE_BALL' ||
                         projectile.weaponType === 'MIND_MAGIC' ||
+                        // ✅ 修復：CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH 是特殊視覺效果，不應發送到伺服器作為標準投射物
+                        projectile.weaponType === 'CHAIN_LIGHTNING' ||
+                        projectile.weaponType === 'FRENZY_LIGHTNING' ||
+                        projectile.weaponType === 'SLASH' ||
+                        projectile.weaponType === 'FRENZY_SLASH' ||
+                        // ✅ 修復：YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEATHLINE_WARRIOR、DEATHLINE_SUPERMAN、JUDGMENT、DIVINE_JUDGMENT、EXPLOSION 是特殊視覺效果
+                        projectile.weaponType === 'YOUNG_DADA_GLORY' ||
+                        projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
+                        projectile.weaponType === 'DEATHLINE_WARRIOR' ||
+                        projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
+                        projectile.weaponType === 'JUDGMENT' ||
+                        projectile.weaponType === 'DIVINE_JUDGMENT' ||
+                        projectile.weaponType === 'EXPLOSION' ||
                         (projectile.constructor && (
                             projectile.constructor.name === 'AuraField' ||
                             projectile.constructor.name === 'GravityWaveField' ||
@@ -1212,7 +1235,18 @@ const Game = {
                             projectile.constructor.name === 'LaserBeam' ||
                             projectile.constructor.name === 'RadiantGloryEffect' ||
                             projectile.constructor.name === 'IceFieldEffect' ||
-                            projectile.constructor.name === 'ShockwaveEffect'
+                            projectile.constructor.name === 'ShockwaveEffect' ||
+                            // ✅ 修復：ChainLightningEffect、FrenzyLightningEffect、SlashEffect 是特殊視覺效果
+                            projectile.constructor.name === 'ChainLightningEffect' ||
+                            projectile.constructor.name === 'FrenzyLightningEffect' ||
+                            projectile.constructor.name === 'SlashEffect' ||
+                            // ✅ 修復：YoungDadaGloryEffect、FrenzyYoungDadaGloryEffect、DeathlineWarriorEffect、JudgmentEffect、DivineJudgmentEffect、ExplosionEffect 是特殊視覺效果
+                            projectile.constructor.name === 'YoungDadaGloryEffect' ||
+                            projectile.constructor.name === 'FrenzyYoungDadaGloryEffect' ||
+                            projectile.constructor.name === 'DeathlineWarriorEffect' ||
+                            projectile.constructor.name === 'JudgmentEffect' ||
+                            projectile.constructor.name === 'DivineJudgmentEffect' ||
+                            projectile.constructor.name === 'ExplosionEffect'
                         )) ||
                         (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
                     );
@@ -1312,6 +1346,19 @@ const Game = {
                         projectile.weaponType === 'BIG_ICE_BALL' ||
                         projectile.weaponType === 'FRENZY_ICE_BALL' ||
                         projectile.weaponType === 'MIND_MAGIC' ||
+                        // ✅ 修復：CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH 是特殊視覺效果，不應發送到伺服器作為標準投射物
+                        projectile.weaponType === 'CHAIN_LIGHTNING' ||
+                        projectile.weaponType === 'FRENZY_LIGHTNING' ||
+                        projectile.weaponType === 'SLASH' ||
+                        projectile.weaponType === 'FRENZY_SLASH' ||
+                        // ✅ 修復：YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEATHLINE_WARRIOR、DEATHLINE_SUPERMAN、JUDGMENT、DIVINE_JUDGMENT、EXPLOSION 是特殊視覺效果
+                        projectile.weaponType === 'YOUNG_DADA_GLORY' ||
+                        projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
+                        projectile.weaponType === 'DEATHLINE_WARRIOR' ||
+                        projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
+                        projectile.weaponType === 'JUDGMENT' ||
+                        projectile.weaponType === 'DIVINE_JUDGMENT' ||
+                        projectile.weaponType === 'EXPLOSION' ||
                         // 构造函数名称检查（更可靠）
                         (projectile.constructor && (
                             projectile.constructor.name === 'AuraField' ||
@@ -1320,7 +1367,18 @@ const Game = {
                             projectile.constructor.name === 'LaserBeam' ||
                             projectile.constructor.name === 'RadiantGloryEffect' ||
                             projectile.constructor.name === 'IceFieldEffect' ||
-                            projectile.constructor.name === 'ShockwaveEffect'
+                            projectile.constructor.name === 'ShockwaveEffect' ||
+                            // ✅ 修復：ChainLightningEffect、FrenzyLightningEffect、SlashEffect 是特殊視覺效果
+                            projectile.constructor.name === 'ChainLightningEffect' ||
+                            projectile.constructor.name === 'FrenzyLightningEffect' ||
+                            projectile.constructor.name === 'SlashEffect' ||
+                            // ✅ 修復：YoungDadaGloryEffect、FrenzyYoungDadaGloryEffect、DeathlineWarriorEffect、JudgmentEffect、DivineJudgmentEffect、ExplosionEffect 是特殊視覺效果
+                            projectile.constructor.name === 'YoungDadaGloryEffect' ||
+                            projectile.constructor.name === 'FrenzyYoungDadaGloryEffect' ||
+                            projectile.constructor.name === 'DeathlineWarriorEffect' ||
+                            projectile.constructor.name === 'JudgmentEffect' ||
+                            projectile.constructor.name === 'DivineJudgmentEffect' ||
+                            projectile.constructor.name === 'ExplosionEffect'
                         )) ||
                         // 检查是否有持续伤害属性（tickDamage、tickIntervalMs）
                         (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
@@ -1830,7 +1888,8 @@ const Game = {
 
                 // MMO 架構：每個玩家都廣播自己的鳳梨大絕掉落
                 // 如果不是來自服務器，則廣播之
-                if (isSurvivalMode && this.multiplayer && !isFromServer) {
+                // ✅ 防污染：添加 enabled 檢查，確保只在組隊模式下發送
+                if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && !isFromServer) {
                     if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                         window.SurvivalOnlineRuntime.sendToNet({
                             type: 'chest_spawn', // 統一使用 chest_spawn 並指定 type
