@@ -1024,6 +1024,34 @@ const UI = {
             player.health = Math.min(player.maxHealth, (player.health || 0) + deltaMax);
             // 更新血量條
             try { UI.updateHealthBar(player.health, player.maxHealth); } catch (_) {}
+            
+            // ✅ 組隊模式：立即同步 maxHealth 到伺服器（影響復活時的血量，是多人元素）
+            // 通過強制觸發 player-meta 更新來同步 maxHealth
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) { }
+            
+            if (isSurvivalMode && isMultiplayer && typeof window !== 'undefined' && window.SurvivalOnlineRuntime) {
+                // ✅ 強制觸發 player-meta 更新（通過清除上次的簽名，讓 tick 函數立即發送）
+                const rt = window.SurvivalOnlineRuntime;
+                if (rt && rt.tick && typeof rt.tick === 'function') {
+                    // 清除上次的簽名，強制下次 tick 時發送 player-meta
+                    if (rt.tick._lastMetaSig) {
+                        rt.tick._lastMetaSig = null;
+                    }
+                    if (rt.tick._lastMetaAt) {
+                        rt.tick._lastMetaAt = 0; // 強制立即發送
+                    }
+                }
+            }
+            
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
             this.hideLevelUpMenu();
