@@ -693,8 +693,26 @@ const Game = {
             // 死亡時不更新本地玩家武器，但仍需更新遠程玩家武器（如果他們沒死）
             // 繼續執行遠程玩家武器更新邏輯
         } else if (this.player && this.player.weapons) {
+            // ⚠️ 調試：檢查武器數量
+            if (this.player.weapons.length === 0) {
+                console.warn('[Game._updateWeapons] 玩家沒有武器！', {
+                    hasPlayer: !!this.player,
+                    weaponsLength: this.player.weapons ? this.player.weapons.length : 0,
+                    isDead: this.player ? this.player._isDead : false
+                });
+            }
             for (const weapon of this.player.weapons) {
                 weapon.update(deltaTime);
+            }
+        } else {
+            // ⚠️ 調試：檢查為什麼沒有更新武器
+            if (!this.player) {
+                console.warn('[Game._updateWeapons] 玩家不存在！');
+            } else if (!this.player.weapons) {
+                console.warn('[Game._updateWeapons] 玩家武器數組不存在！', {
+                    hasPlayer: !!this.player,
+                    weaponsType: typeof this.player.weapons
+                });
             }
         }
         // M4：更新遠程玩家的武器（所有端都需要更新，不只是隊長）
@@ -1186,6 +1204,12 @@ const Game = {
         // - 標準投射物：不在客戶端生成（避免與伺服器下發重複），但要「送 attack input 給伺服器」
         // - 持續效果/光束等：保留本地視覺（但傷害仍以伺服器權威為準）
         try {
+            // ⚠️ 調試：確認 addProjectile 被調用
+            if (!projectile) {
+                console.warn('[Game.addProjectile] 投射物為 null 或 undefined');
+                return;
+            }
+            
             // ✅ 防污染：只在生存模式下發送攻擊輸入
             let isSurvivalMode = false;
             try {
@@ -1196,6 +1220,16 @@ const Game = {
                         : null);
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
+            
+            // ⚠️ 調試：檢查模式狀態
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled) {
+                console.log('[Game.addProjectile] 組隊模式，處理投射物', {
+                    weaponType: projectile.weaponType,
+                    hasPlayer: !!projectile.player,
+                    playerIsThisPlayer: projectile.player === this.player,
+                    constructorName: projectile.constructor?.name
+                });
+            }
             
             if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled) {
                 const isLocalPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
