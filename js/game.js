@@ -1199,81 +1199,101 @@ const Game = {
             
             if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled) {
                 const isLocalPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
-                if (isLocalPlayerProjectile && typeof window !== 'undefined' &&
-                    window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                
+                // ⚠️ 修復：在 enabled 模式下，只有本地玩家的投射物才需要處理
+                // 遠程玩家的投射物應該由伺服器同步，不應該在這裡處理
+                if (!isLocalPlayerProjectile) {
+                    // 遠程玩家的投射物由伺服器同步，這裡不處理
+                    return;
+                }
+                
+                // ⚠️ 修復：檢查 sendToNet 是否可用
+                if (typeof window === 'undefined' || !window.SurvivalOnlineRuntime || typeof window.SurvivalOnlineRuntime.sendToNet !== 'function') {
+                    console.warn('[Game.addProjectile] SurvivalOnlineRuntime.sendToNet 不可用，無法發送攻擊', {
+                        hasWindow: typeof window !== 'undefined',
+                        hasRuntime: typeof window !== 'undefined' && !!window.SurvivalOnlineRuntime,
+                        hasSendToNet: typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function'
+                    });
+                    // 如果 sendToNet 不可用，仍然將投射物添加到本地（降級處理）
+                    this.projectiles.push(projectile);
+                    return;
+                }
 
-                    const isPersistentEffect = (
-                        projectile.weaponType === 'AURA_FIELD' ||
-                        projectile.weaponType === 'GRAVITY_WAVE' ||
-                        projectile.weaponType === 'ORBIT' ||
-                        projectile.weaponType === 'CHICKEN_BLESSING' ||
-                        projectile.weaponType === 'ROTATING_MUFFIN' ||
-                        projectile.weaponType === 'HEART_COMPANION' ||
-                        projectile.weaponType === 'PINEAPPLE_ORBIT' ||
-                        projectile.weaponType === 'LASER' ||
-                        projectile.weaponType === 'RADIANT_GLORY' ||
-                        projectile.weaponType === 'BIG_ICE_BALL' ||
-                        projectile.weaponType === 'FRENZY_ICE_BALL' ||
-                        projectile.weaponType === 'MIND_MAGIC' ||
-                        // ✅ 修復：CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH 是特殊視覺效果，不應發送到伺服器作為標準投射物
-                        projectile.weaponType === 'CHAIN_LIGHTNING' ||
-                        projectile.weaponType === 'FRENZY_LIGHTNING' ||
-                        projectile.weaponType === 'SLASH' ||
-                        projectile.weaponType === 'FRENZY_SLASH' ||
-                        // ✅ 修復：YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEATHLINE_WARRIOR、DEATHLINE_SUPERMAN、JUDGMENT、DIVINE_JUDGMENT、EXPLOSION 是特殊視覺效果
-                        projectile.weaponType === 'YOUNG_DADA_GLORY' ||
-                        projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
-                        projectile.weaponType === 'DEATHLINE_WARRIOR' ||
-                        projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
-                        projectile.weaponType === 'JUDGMENT' ||
-                        projectile.weaponType === 'DIVINE_JUDGMENT' ||
-                        projectile.weaponType === 'EXPLOSION' ||
-                        (projectile.constructor && (
-                            projectile.constructor.name === 'AuraField' ||
-                            projectile.constructor.name === 'GravityWaveField' ||
-                            projectile.constructor.name === 'OrbitBall' ||
-                            projectile.constructor.name === 'LaserBeam' ||
-                            projectile.constructor.name === 'RadiantGloryEffect' ||
-                            projectile.constructor.name === 'IceFieldEffect' ||
-                            projectile.constructor.name === 'ShockwaveEffect' ||
-                            // ✅ 修復：ChainLightningEffect、FrenzyLightningEffect、SlashEffect 是特殊視覺效果
-                            projectile.constructor.name === 'ChainLightningEffect' ||
-                            projectile.constructor.name === 'FrenzyLightningEffect' ||
-                            projectile.constructor.name === 'SlashEffect' ||
-                            // ✅ 修復：YoungDadaGloryEffect、FrenzyYoungDadaGloryEffect、DeathlineWarriorEffect、JudgmentEffect、DivineJudgmentEffect、ExplosionEffect 是特殊視覺效果
-                            projectile.constructor.name === 'YoungDadaGloryEffect' ||
-                            projectile.constructor.name === 'FrenzyYoungDadaGloryEffect' ||
-                            projectile.constructor.name === 'DeathlineWarriorEffect' ||
-                            projectile.constructor.name === 'JudgmentEffect' ||
-                            projectile.constructor.name === 'DivineJudgmentEffect' ||
-                            projectile.constructor.name === 'ExplosionEffect'
-                        )) ||
-                        (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
-                    );
+                const isPersistentEffect = (
+                    projectile.weaponType === 'AURA_FIELD' ||
+                    projectile.weaponType === 'GRAVITY_WAVE' ||
+                    projectile.weaponType === 'ORBIT' ||
+                    projectile.weaponType === 'CHICKEN_BLESSING' ||
+                    projectile.weaponType === 'ROTATING_MUFFIN' ||
+                    projectile.weaponType === 'HEART_COMPANION' ||
+                    projectile.weaponType === 'PINEAPPLE_ORBIT' ||
+                    projectile.weaponType === 'LASER' ||
+                    projectile.weaponType === 'RADIANT_GLORY' ||
+                    projectile.weaponType === 'BIG_ICE_BALL' ||
+                    projectile.weaponType === 'FRENZY_ICE_BALL' ||
+                    projectile.weaponType === 'MIND_MAGIC' ||
+                    // ✅ 修復：CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH 是特殊視覺效果，不應發送到伺服器作為標準投射物
+                    projectile.weaponType === 'CHAIN_LIGHTNING' ||
+                    projectile.weaponType === 'FRENZY_LIGHTNING' ||
+                    projectile.weaponType === 'SLASH' ||
+                    projectile.weaponType === 'FRENZY_SLASH' ||
+                    // ✅ 修復：YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEATHLINE_WARRIOR、DEATHLINE_SUPERMAN、JUDGMENT、DIVINE_JUDGMENT、EXPLOSION 是特殊視覺效果
+                    projectile.weaponType === 'YOUNG_DADA_GLORY' ||
+                    projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
+                    projectile.weaponType === 'DEATHLINE_WARRIOR' ||
+                    projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
+                    projectile.weaponType === 'JUDGMENT' ||
+                    projectile.weaponType === 'DIVINE_JUDGMENT' ||
+                    projectile.weaponType === 'EXPLOSION' ||
+                    (projectile.constructor && (
+                        projectile.constructor.name === 'AuraField' ||
+                        projectile.constructor.name === 'GravityWaveField' ||
+                        projectile.constructor.name === 'OrbitBall' ||
+                        projectile.constructor.name === 'LaserBeam' ||
+                        projectile.constructor.name === 'RadiantGloryEffect' ||
+                        projectile.constructor.name === 'IceFieldEffect' ||
+                        projectile.constructor.name === 'ShockwaveEffect' ||
+                        // ✅ 修復：ChainLightningEffect、FrenzyLightningEffect、SlashEffect 是特殊視覺效果
+                        projectile.constructor.name === 'ChainLightningEffect' ||
+                        projectile.constructor.name === 'FrenzyLightningEffect' ||
+                        projectile.constructor.name === 'SlashEffect' ||
+                        // ✅ 修復：YoungDadaGloryEffect、FrenzyYoungDadaGloryEffect、DeathlineWarriorEffect、JudgmentEffect、DivineJudgmentEffect、ExplosionEffect 是特殊視覺效果
+                        projectile.constructor.name === 'YoungDadaGloryEffect' ||
+                        projectile.constructor.name === 'FrenzyYoungDadaGloryEffect' ||
+                        projectile.constructor.name === 'DeathlineWarriorEffect' ||
+                        projectile.constructor.name === 'JudgmentEffect' ||
+                        projectile.constructor.name === 'DivineJudgmentEffect' ||
+                        projectile.constructor.name === 'ExplosionEffect'
+                    )) ||
+                    (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
+                );
 
-                    // 標準投射物：送給伺服器生成/碰撞/扣血
-                    if (!isPersistentEffect) {
-                        const attackInput = {
-                            type: 'attack',
-                            weaponType: projectile.weaponType || 'UNKNOWN',
-                            x: projectile.x || this.player.x,
-                            y: projectile.y || this.player.y,
-                            angle: projectile.angle || 0,
-                            damage: projectile.damage || 10,
-                            speed: projectile.speed || 5,
-                            size: projectile.size || 20,
-                            homing: projectile.homing || false,
-                            turnRatePerSec: projectile.turnRatePerSec || 0,
-                            assignedTargetId: projectile.assignedTargetId || null,
-                            maxDistance: projectile.maxDistance || 1000,
-                            // ✅ 與單機同源：把玩家爆擊加成帶到伺服器，伺服器才能算出「真的有爆擊/傷害浮動」
-                            allowCrit: true,
-                            critChanceBonusPct: (this.player && typeof this.player.critChanceBonusPct === 'number') ? this.player.critChanceBonusPct : 0,
-                            timestamp: Date.now()
-                        };
-                        try { window.SurvivalOnlineRuntime.sendToNet(attackInput); } catch (_) { }
-                        return; // 不本地生成標準投射物
+                // 標準投射物：送給伺服器生成/碰撞/扣血
+                if (!isPersistentEffect) {
+                    const attackInput = {
+                        type: 'attack',
+                        weaponType: projectile.weaponType || 'UNKNOWN',
+                        x: projectile.x || this.player.x,
+                        y: projectile.y || this.player.y,
+                        angle: projectile.angle || 0,
+                        damage: projectile.damage || 10,
+                        speed: projectile.speed || 5,
+                        size: projectile.size || 20,
+                        homing: projectile.homing || false,
+                        turnRatePerSec: projectile.turnRatePerSec || 0,
+                        assignedTargetId: projectile.assignedTargetId || null,
+                        maxDistance: projectile.maxDistance || 1000,
+                        // ✅ 與單機同源：把玩家爆擊加成帶到伺服器，伺服器才能算出「真的有爆擊/傷害浮動」
+                        allowCrit: true,
+                        critChanceBonusPct: (this.player && typeof this.player.critChanceBonusPct === 'number') ? this.player.critChanceBonusPct : 0,
+                        timestamp: Date.now()
+                    };
+                    try { 
+                        window.SurvivalOnlineRuntime.sendToNet(attackInput);
+                    } catch (e) { 
+                        console.error('[Game.addProjectile] 發送攻擊輸入失敗', e);
                     }
+                    return; // 不本地生成標準投射物
                 }
 
                 // 持續效果/其他：保留本地視覺
