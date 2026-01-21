@@ -341,6 +341,10 @@ function handleGameData(ws, roomId, uid, data) {
 
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
   if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate' || data.type === 'aoe_tick' || data.type === 'player-meta')) {
+    // ⚠️ 調試：確認收到輸入
+    if (data.type === 'attack') {
+      console.log(`[WebSocket.handleGameData] ✅ 收到攻擊輸入: roomId=${actualRoomId}, uid=${uid}, weaponType=${data.weaponType || 'UNKNOWN'}`);
+    }
     // 服务器处理输入
     gameState.handleInput(uid, data);
     // 不需要转发，服务器会定期广播状态
