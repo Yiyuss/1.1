@@ -1496,13 +1496,28 @@ const Runtime = (() => {
                 // 連鎖閃電：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  // 使用 RemotePlayerManager 獲取完整的 Player 對象
+                  // ✅ 修復：優先使用 RemotePlayerManager 獲取完整的 Player 對象
                   if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
                     const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
                     if (typeof rm.get === "function") {
                       const remotePlayer = rm.get(eventData.playerUid);
                       if (remotePlayer) {
                         targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
+                    }
+                  }
+                  // 如果找不到遠程玩家，嘗試使用 getRemotePlayers
+                  if (!targetPlayer) {
+                    const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                    if (rt && typeof rt.getRemotePlayers === 'function') {
+                      const remotePlayers = rt.getRemotePlayers() || [];
+                      const remotePlayer = remotePlayers.find(p => 
+                        (p.uid === eventData.playerUid) || 
+                        (p._remoteUid === eventData.playerUid) ||
+                        (p._isRemotePlayer && p._remoteUid === eventData.playerUid)
+                      );
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer;
                       }
                     }
                   }
@@ -1514,24 +1529,24 @@ const Runtime = (() => {
 
                 if (targetPlayer) {
                   if (weaponType === "CHAIN_LIGHTNING") {
-                    // ✅ MMORPG架构：远程玩家的连锁闪电也应该造成伤害（每个玩家的伤害独立计算并叠加）
+                    // ✅ 單機同源：連鎖閃電是視覺效果，應該標記為 _isVisualOnly（傷害由伺服器權威處理）
                     const effect = new ChainLightningEffect(
                       targetPlayer,
-                      eventData.damage || 0, // 使用实际伤害值，不是0
+                      0, // 傷害設為0（僅視覺，傷害由伺服器權威處理）
                       eventData.duration || 1000,
                       eventData.maxChains || 0,
                       eventData.chainRadius || 220,
                       eventData.palette || null
                     );
                     effect.id = projectileId;
-                    // 不标记为_isVisualOnly，让每个玩家的连锁闪电都能独立计算伤害
+                    effect._isVisualOnly = true; // ✅ 修復：標記為僅視覺，避免客戶端計算傷害
                     effect._remotePlayerUid = eventData.playerUid;
                     Game.projectiles.push(effect);
                   } else if (weaponType === "FRENZY_LIGHTNING" && typeof FrenzyLightningEffect !== "undefined") {
-                    // ✅ MMORPG架构：远程玩家的狂热雷击也应该造成伤害（每个玩家的伤害独立计算并叠加）
+                    // ✅ 單機同源：狂熱雷擊是視覺效果，應該標記為 _isVisualOnly（傷害由伺服器權威處理）
                     const effect = new FrenzyLightningEffect(
                       targetPlayer,
-                      eventData.damage || 0, // 使用实际伤害值，不是0
+                      0, // 傷害設為0（僅視覺，傷害由伺服器權威處理）
                       eventData.duration || 1000,
                       eventData.branchCount || 10,
                       eventData.chainsPerBranch || 10,
@@ -1539,32 +1554,49 @@ const Runtime = (() => {
                       eventData.palette || null
                     );
                     effect.id = projectileId;
-                    // 不标记为_isVisualOnly，让每个玩家的狂热雷击都能独立计算伤害
+                    effect._isVisualOnly = true; // ✅ 修復：標記為僅視覺，避免客戶端計算傷害
                     effect._remotePlayerUid = eventData.playerUid;
                     Game.projectiles.push(effect);
                   }
                 }
               } else if (weaponType === "SLASH" && typeof SlashEffect !== "undefined") {
-                // 斬擊：需要找到對應的玩家
+                // 斬擊：需要找到對應的玩家（使用完整的 Player 對象，以便正確更新位置）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復：優先使用 RemotePlayerManager 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，嘗試使用 getRemotePlayers
+                  if (!targetPlayer) {
+                    const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                    if (rt && typeof rt.getRemotePlayers === 'function') {
+                      const remotePlayers = rt.getRemotePlayers() || [];
+                      const remotePlayer = remotePlayers.find(p => 
+                        (p.uid === eventData.playerUid) || 
+                        (p._remoteUid === eventData.playerUid) ||
+                        (p._isRemotePlayer && p._remoteUid === eventData.playerUid)
+                      );
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer;
+                      }
+                    }
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
 
                 if (targetPlayer) {
                   const effect = new SlashEffect(
-                    targetPlayer,
+                    targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.angle || 0,
                     0, // 傷害設為0（僅視覺）
                     eventData.radius || 60,
@@ -1618,11 +1650,11 @@ const Runtime = (() => {
                 let targetPlayer = null;
                 if (eventData.playerUid) {
                   const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                  if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                    // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象
+                    const remotePlayer = rt.RemotePlayerManager.get(eventData.playerUid);
                     if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                      targetPlayer = remotePlayer;
                     } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                       targetPlayer = Game.player;
                     }
@@ -1753,11 +1785,11 @@ const Runtime = (() => {
                 let targetPlayer = null;
                 if (eventData.playerUid) {
                   const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
+                  if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                    // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象
+                    const remotePlayer = rt.RemotePlayerManager.get(eventData.playerUid);
                     if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
+                      targetPlayer = remotePlayer;
                     } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                       targetPlayer = Game.player;
                     }
@@ -1970,26 +2002,60 @@ const Runtime = (() => {
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "INVINCIBLE" && typeof InvincibleEffect !== "undefined") {
-                // 無敵：需要找到對應的玩家
+                // 無敵：需要找到對應的玩家（使用完整的 Player 對象，以便正確更新位置）
+                // ✅ 修復：先清理同一個玩家的舊無敵效果，避免疊加
+                if (eventData.playerUid) {
+                  try {
+                    for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+                      const proj = Game.projectiles[i];
+                      if (proj && proj.weaponType === "INVINCIBLE" && proj._remotePlayerUid === eventData.playerUid) {
+                        // 清理舊的無敵效果 DOM 元素
+                        if (proj.el && proj.el.parentNode) {
+                          proj.el.parentNode.removeChild(proj.el);
+                        }
+                        proj.el = null;
+                        Game.projectiles.splice(i, 1);
+                      }
+                    }
+                  } catch (_) {}
+                }
+                
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復：優先使用 RemotePlayerManager 獲取完整的 Player 對象
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // 使用完整的 Player 對象
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，嘗試使用 getRemotePlayers
+                  if (!targetPlayer) {
+                    const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                    if (rt && typeof rt.getRemotePlayers === 'function') {
+                      const remotePlayers = rt.getRemotePlayers() || [];
+                      const remotePlayer = remotePlayers.find(p => 
+                        (p.uid === eventData.playerUid) || 
+                        (p._remoteUid === eventData.playerUid) ||
+                        (p._isRemotePlayer && p._remoteUid === eventData.playerUid)
+                      );
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer;
+                      }
+                    }
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
 
                 if (targetPlayer) {
                   const effect = new InvincibleEffect(
-                    targetPlayer,
+                    targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.duration || 2000
                   );
                   effect.id = projectileId;
@@ -2234,7 +2300,12 @@ const Runtime = (() => {
           if (typeof myState.maxEnergy === "number") player.maxEnergy = myState.maxEnergy;
           if (typeof myState.level === "number") player.level = myState.level;
           if (typeof myState.exp === "number") player.experience = myState.exp;
-          if (typeof myState.expToNext === "number") player.experienceToNextLevel = myState.expToNext;
+          // ✅ 單機同源：優先使用伺服器計算的 experienceToNextLevel（如果有的話）
+          if (typeof myState.experienceToNextLevel === "number") {
+            player.experienceToNextLevel = myState.experienceToNextLevel;
+          } else if (typeof myState.expToNext === "number") {
+            player.experienceToNextLevel = myState.expToNext;
+          }
 
           // 金幣同步（組隊模式共享金幣）
           if (typeof myState.coins === "number" && typeof Game !== "undefined") {
@@ -4245,6 +4316,10 @@ function handleServerGameState(state, timestamp) {
             if (typeof playerState.experience === "number") {
               if (!_sessionCountersPrimed) {
                 _lastSessionExp = Math.max(0, Math.floor(playerState.experience || 0));
+                // ✅ 單機同源：同步 experienceToNextLevel（從伺服器計算的值）
+                if (typeof playerState.experienceToNextLevel === "number" && Game.player) {
+                  Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
+                }
               } else {
                 const nowExp = Math.max(0, Math.floor(playerState.experience || 0));
                 const deltaExp = nowExp - (_lastSessionExp || 0);
@@ -4252,6 +4327,10 @@ function handleServerGameState(state, timestamp) {
                   Game.player.gainExperience(deltaExp);
                 }
                 _lastSessionExp = nowExp;
+                // ✅ 單機同源：同步 experienceToNextLevel（從伺服器計算的值）
+                if (typeof playerState.experienceToNextLevel === "number" && Game.player) {
+                  Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
+                }
               }
             }
 
