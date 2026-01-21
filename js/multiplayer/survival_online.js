@@ -4308,17 +4308,53 @@ function handleServerGameState(state, timestamp) {
                 } catch (_) {}
               }
             }
-            if (typeof playerState.maxHealth === "number") Game.player.maxHealth = playerState.maxHealth;
+            // ⚠️ 修復：同步 maxHealth 時，如果 maxHealth 增加，也要同步增加 health
+            // ⚠️ 修復：避免血条闪烁 - 只在 maxHealth 真的改变时才更新
+            if (typeof playerState.maxHealth === "number") {
+              const prevMaxHealth = Game.player.maxHealth || 200;
+              const newMaxHealth = playerState.maxHealth;
+              
+              // 只在 maxHealth 真的改变时才更新（避免每帧都更新导致闪烁）
+              if (Math.abs(newMaxHealth - prevMaxHealth) > 0.5) {
+                Game.player.maxHealth = newMaxHealth;
+                // 如果 maxHealth 增加了，按比例增加 health（避免開場就被扣血）
+                if (newMaxHealth > prevMaxHealth) {
+                  if (Game.player.health >= prevMaxHealth) {
+                    // 如果當前血量等於或超過舊的 maxHealth（滿血狀態），直接設為新的 maxHealth
+                    Game.player.health = newMaxHealth;
+                  } else {
+                    // 如果當前血量不是滿血，按比例調整
+                    const healthPercent = Game.player.health / prevMaxHealth;
+                    Game.player.health = Math.min(newMaxHealth, Math.floor(newMaxHealth * healthPercent));
+                  }
+                } else if (Game.player.health > newMaxHealth) {
+                  // 如果 maxHealth 減少了，確保 health 不超過新的 maxHealth
+                  Game.player.health = newMaxHealth;
+                }
+              }
+            }
             if (typeof playerState.energy === "number") Game.player.energy = playerState.energy;
             if (typeof playerState.maxEnergy === "number") Game.player.maxEnergy = playerState.maxEnergy;
             if (typeof playerState.level === "number") Game.player.level = playerState.level;
             
             // ✅ 單機元素：左上角 HUD（血量/經驗/能量/等級）只顯示本地玩家狀態
             // 在組隊模式下，使用伺服器同步的本地玩家狀態更新 HUD
+            // ⚠️ 修復：避免血条闪烁 - 只在血量真的改变时才更新 UI
             if (typeof UI !== "undefined") {
               try {
-                if (UI.updateHealthBar && typeof Game.player.health === "number" && typeof Game.player.maxHealth === "number") {
-                  UI.updateHealthBar(Game.player.health, Game.player.maxHealth);
+                // 記錄上一次的血量值，只在真的改變時才更新 UI
+                if (!handleServerGameState._lastHealth) handleServerGameState._lastHealth = Game.player.health || 0;
+                if (!handleServerGameState._lastMaxHealth) handleServerGameState._lastMaxHealth = Game.player.maxHealth || 200;
+                
+                const healthChanged = Math.abs((Game.player.health || 0) - handleServerGameState._lastHealth) > 0.5;
+                const maxHealthChanged = Math.abs((Game.player.maxHealth || 200) - handleServerGameState._lastMaxHealth) > 0.5;
+                
+                if (healthChanged || maxHealthChanged) {
+                  if (UI.updateHealthBar && typeof Game.player.health === "number" && typeof Game.player.maxHealth === "number") {
+                    UI.updateHealthBar(Game.player.health, Game.player.maxHealth);
+                  }
+                  handleServerGameState._lastHealth = Game.player.health || 0;
+                  handleServerGameState._lastMaxHealth = Game.player.maxHealth || 200;
                 }
                 if (UI.updateEnergyBar && typeof Game.player.energy === "number" && typeof Game.player.maxEnergy === "number") {
                   UI.updateEnergyBar(Game.player.energy, Game.player.maxEnergy);
@@ -6182,30 +6218,41 @@ function tryStartSurvivalFromRoom() {
     }
 
     // ✅ 新一局：通知伺服器重置本場狀態（避免上一局殘留造成開場怪血量異常）
-    // ✅ 同時發送本地玩家的 maxHealth（包含角色屬性和天賦效果）
-    try {
-      const sid = sessionId || null;
-      if (sid && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-        // 計算本地玩家的 maxHealth（包含角色屬性和天賦效果）
-        let playerMaxHealth = 200; // 默認值
-        if (typeof Game !== "undefined" && Game.player) {
-          // 在 Game.init 中已經計算了角色的 maxHealth 和天賦效果
-          playerMaxHealth = Game.player.maxHealth || 200;
+    // ⚠️ 修復：延遲發送 new-session，確保 Game.init 已經執行並套用了角色屬性
+    // 因為 startSurvivalNow 會調用 GameModeManager.start，而 Game.init 是在 GameModeManager.start 之後才執行
+    const sendNewSession = () => {
+      try {
+        const sid = sessionId || null;
+        if (sid && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+          // 計算本地玩家的 maxHealth（包含角色屬性和天賦效果）
+          let playerMaxHealth = 200; // 默認值
+          if (typeof Game !== "undefined" && Game.player) {
+            // 在 Game.init 中已經計算了角色的 maxHealth 和天賦效果
+            playerMaxHealth = Game.player.maxHealth || 200;
+            console.log(`[SurvivalOnline] 發送 new-session: maxHealth=${playerMaxHealth}, baseMaxHealth=${Game.player.baseMaxHealth || 'N/A'}`);
+          } else {
+            console.warn(`[SurvivalOnline] Game.player 不存在，使用默認 maxHealth=200`);
+          }
+          window.SurvivalOnlineRuntime.sendToNet({ 
+            type: "new-session", 
+            sessionId: sid,
+            maxHealth: playerMaxHealth // ✅ 發送計算好的 maxHealth
+          });
+        } else if (sid) {
+          // fallback
+          let playerMaxHealth = 200;
+          if (typeof Game !== "undefined" && Game.player) {
+            playerMaxHealth = Game.player.maxHealth || 200;
+          }
+          try { _sendViaWebSocket({ type: "new-session", sessionId: sid, maxHealth: playerMaxHealth }); } catch (_) { }
         }
-        window.SurvivalOnlineRuntime.sendToNet({ 
-          type: "new-session", 
-          sessionId: sid,
-          maxHealth: playerMaxHealth // ✅ 發送計算好的 maxHealth
-        });
-      } else if (sid) {
-        // fallback
-        let playerMaxHealth = 200;
-        if (typeof Game !== "undefined" && Game.player) {
-          playerMaxHealth = Game.player.maxHealth || 200;
-        }
-        try { _sendViaWebSocket({ type: "new-session", sessionId: sid, maxHealth: playerMaxHealth }); } catch (_) { }
+      } catch (e) {
+        console.error(`[SurvivalOnline] 發送 new-session 失敗:`, e);
       }
-    } catch (_) { }
+    };
+    
+    // 延遲發送，確保 Game.init 已經執行（GameModeManager.start 是異步的）
+    setTimeout(sendNewSession, 500); // 500ms 應該足夠 Game.init 執行完成
 
     // 確保角色不為 null（如果為 null，使用默認角色）
     if (!selectedCharacter) {
