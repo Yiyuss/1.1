@@ -586,43 +586,27 @@ const Game = {
                 }
             } catch (_) { }
 
-            // 檢查所有玩家是否觸碰到出口
-            for (const player of allPlayers) {
-                if (!player) continue;
-                const playerRadius = player.collisionRadius || 16;
-                const playerX = player.x;
-                const playerY = player.y;
+            // ✅ 權威伺服器模式：多人進行中時，出口觸碰判定由伺服器 state.isVictory 統一權威
+            // 避免客戶端廣播 game_victory 造成互打與循環
+            const isServerAuthoritative = (this.multiplayer && this.multiplayer.enabled);
+            if (!isServerAuthoritative) {
+                // 單機模式：客戶端檢查出口觸碰
+                for (const player of allPlayers) {
+                    if (!player) continue;
+                    const playerRadius = player.collisionRadius || 16;
+                    const playerX = player.x;
+                    const playerY = player.y;
 
-                // 計算玩家中心到出口矩形的最短距離
-                const closestX = Math.max(exitCenterX - exitHalfWidth, Math.min(playerX, exitCenterX + exitHalfWidth));
-                const closestY = Math.max(exitCenterY - exitHalfHeight, Math.min(playerY, exitCenterY + exitHalfHeight));
-                const distance = Utils.distance(playerX, playerY, closestX, closestY);
+                    // 計算玩家中心到出口矩形的最短距離
+                    const closestX = Math.max(exitCenterX - exitHalfWidth, Math.min(playerX, exitCenterX + exitHalfWidth));
+                    const closestY = Math.max(exitCenterY - exitHalfHeight, Math.min(playerY, exitCenterY + exitHalfHeight));
+                    const distance = Utils.distance(playerX, playerY, closestX, closestY);
 
-                if (distance < playerRadius) {
-                    // 任何一個玩家碰到出口，觸發勝利
-                    // 組隊模式：廣播勝利事件（僅隊長端，避免重複觸發）
-                    try {
-                        let isSurvivalMode = false;
-                        try {
-                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                ? GameModeManager.getCurrent()
-                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                    ? ModeManager.getActiveModeId()
-                                    : null);
-                            isSurvivalMode = (activeId === 'survival' || activeId === null);
-                        } catch (_) { }
-
-                        // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
-                        if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled === true) {
-                            if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                                window.SurvivalOnlineBroadcastEvent("game_victory", {
-                                    reason: "exit_reached"
-                                });
-                            }
-                        }
-                    } catch (_) { }
-                    this.victory();
-                    break; // 觸發勝利後跳出循環
+                    if (distance < playerRadius) {
+                        // 任何一個玩家碰到出口，觸發勝利
+                        this.victory();
+                        break; // 觸發勝利後跳出循環
+                    }
                 }
             }
             }
@@ -1624,27 +1608,15 @@ const Game = {
 
     // 生成經驗寶石
     spawnExperienceOrb: function (x, y, value) {
+        // ✅ 權威伺服器模式：多人進行中時，經驗球由伺服器 state.experienceOrbs 同步，避免本地生成/廣播互打
+        if (this.multiplayer && this.multiplayer.enabled) {
+            return;
+        }
+
         // 檢查是否達到最大經驗寶石數量
         if (this.experienceOrbs.length >= CONFIG.OPTIMIZATION.MAX_EXPERIENCE_ORBS) {
             return;
         }
-
-        // M2：廣播經驗球生成事件（僅生存模式組隊模式且為室長）
-        try {
-            // 確保只在生存模式下執行組隊邏輯
-            let isSurvivalMode = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
-            } catch (_) { }
-
-            // ✅ 權威伺服器模式：經驗球由伺服器權威生成與同步，不再需要客戶端廣播
-            // 經驗球由伺服器 game-state 同步，客戶端只負責視覺渲染
-        } catch (_) { }
 
         const orb = new ExperienceOrb(x, y, value);
         this.experienceOrbs.push(orb);
@@ -1792,16 +1764,6 @@ const Game = {
         // ✅ 權威伺服器模式：多人進行中時，寶箱由伺服器 state.chests 同步，避免本地生成/廣播互打
         if (this.multiplayer && this.multiplayer.enabled && !isFromServer) {
             return;
-        }
-
-        // ✅ MMORPG 架構：服務器權威寶箱生成
-        // 如果是多人在線且非來自服務器通知
-        if (this.multiplayer && this.multiplayer.enabled && !isFromServer) {
-            // 如果是 Guest (非 Host)，不主動生成（等待 Host 通知）
-            // 注意：這是為了處理 Enemy.die() 到處觸發的情況
-            if (!this.multiplayer.isHost) {
-                return;
-            }
         }
 
         const chest = new Chest(x, y, id);
