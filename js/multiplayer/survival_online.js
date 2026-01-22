@@ -1522,10 +1522,11 @@ const Runtime = (() => {
                 }
 
                 if (targetPlayer) {
+                  // ✅ 修復：使用與單機一致的默認值（CONFIG.MIND_MAGIC.DURATION = 2000）
                   const shockwave = new ShockwaveEffect(
                     targetPlayer,
                     0, // 傷害設為0（僅視覺）
-                    eventData.duration || 1000,
+                    eventData.duration || 2000, // ✅ 與單機一致：使用 CONFIG.MIND_MAGIC.DURATION（2000ms）
                     eventData.maxRadius || 220,
                     eventData.ringWidth || 18,
                     eventData.palette || null
@@ -1647,13 +1648,14 @@ const Runtime = (() => {
                     const existingEffect = Game.projectiles.find(p => p.id === projectileId && (p.weaponType === 'FRENZY_LIGHTNING' || p.constructor && p.constructor.name === 'FrenzyLightningEffect'));
                     if (!existingEffect) {
                       // ✅ 單機同源：狂熱雷擊是視覺效果，應該標記為 _isVisualOnly（傷害由伺服器權威處理）
+                      // ✅ 修復：使用與單機一致的默認值（CONFIG.FRENZY_LIGHTNING.CHAIN_RADIUS = 300）
                       const effect = new FrenzyLightningEffect(
                         targetPlayer,
                         0, // 傷害設為0（僅視覺，傷害由伺服器權威處理）
-                        eventData.duration || 1000,
+                        eventData.duration || 1000, // ✅ 與單機一致：使用 CONFIG.FRENZY_LIGHTNING.DURATION（1000ms）
                         eventData.branchCount || 10,
                         eventData.chainsPerBranch || 10,
-                        eventData.chainRadius || 220,
+                        eventData.chainRadius || 300, // ✅ 與單機一致：使用 CONFIG.FRENZY_LIGHTNING.CHAIN_RADIUS（300）
                         eventData.palette || null
                       );
                       effect.id = projectileId;
@@ -1702,18 +1704,20 @@ const Runtime = (() => {
                 }
 
                 if (targetPlayer) {
+                  // ✅ 修復：使用與單機一致的默認值（CONFIG.SLASH）
                   const effect = new SlashEffect(
                     targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.angle || 0,
                     0, // 傷害設為0（僅視覺）
-                    eventData.radius || 60,
-                    eventData.arcDeg || 80,
-                    eventData.duration || 1000
+                    eventData.radius || 252, // ✅ 與單機一致：使用 CONFIG.SLASH.RADIUS_BASE（252）
+                    eventData.arcDeg || 365, // ✅ 與單機一致：使用 CONFIG.SLASH.ARC_DEG_BASE（365）
+                    eventData.duration || 1200 // ✅ 與單機一致：使用 CONFIG.SLASH.DURATION（1200ms）
                   );
                   effect.id = projectileId;
                   effect._isVisualOnly = true;
                   effect._remotePlayerUid = eventData.playerUid;
-                  if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
+                  // ✅ 修復：使用與單機一致的默認值（CONFIG.SLASH.VISUAL_SCALE = 1.8）
+                  effect.visualScale = (typeof eventData.visualScale === "number") ? eventData.visualScale : 1.8;
                   // ⚠️ 修復：已經在1356行之前檢查過了，這裡不需要再次檢查（避免重複添加）
                   Game.projectiles.push(effect);
                 }
@@ -1739,16 +1743,18 @@ const Runtime = (() => {
 
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的裁决也应该造成伤害（每个玩家的伤害独立计算并叠加）
+                  // ✅ 修復：使用與單機一致的默認值（CONFIG.JUDGMENT）
+                  // ✅ 修復：使用與單機一致的默認值（CONFIG.JUDGMENT）
                   const effect = new JudgmentEffect(
                     targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.damage || 0, // 使用实际伤害值，不是0
-                    eventData.swordCount || 1,
-                    eventData.detectRadius || 400,
-                    eventData.aoeRadius || 100,
-                    eventData.swordImageWidth || 550,
-                    eventData.swordImageHeight || 1320,
-                    eventData.fallDurationMs || 500,
-                    eventData.fadeOutDurationMs || 300
+                    eventData.swordCount || 1, // ✅ 與單機一致：由 `Weapon.fire()` 計算，通常為 1（單次攻擊）
+                    eventData.detectRadius || 400, // ✅ 與單機一致：使用 CONFIG.JUDGMENT.DETECT_RADIUS（400）
+                    eventData.aoeRadius || 100, // ✅ 與單機一致：使用 CONFIG.JUDGMENT.BASE_AOE_RADIUS（100）
+                    eventData.swordImageWidth || 83, // ✅ 與單機一致：使用 CONFIG.JUDGMENT.SWORD_IMAGE_WIDTH（83）
+                    eventData.swordImageHeight || 200, // ✅ 與單機一致：使用 CONFIG.JUDGMENT.SWORD_IMAGE_HEIGHT（200）
+                    eventData.fallDurationMs || 250, // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FALL_DURATION_MS（250ms）
+                    eventData.fadeOutDurationMs || 300 // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FADE_OUT_DURATION_MS（300ms）
                   );
                   effect.id = projectileId;
                   // 不标记为_isVisualOnly，让每个玩家的裁决都能独立计算伤害
@@ -1807,16 +1813,18 @@ const Runtime = (() => {
 
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的死线战士/死线超人也应该造成伤害（每个玩家的伤害独立计算并叠加）
+                  // ✅ 修復：使用與單機一致的默認值（CONFIG.DEATHLINE_WARRIOR / DEATHLINE_SUPERMAN）
+                  const isSuperman = (weaponType === "DEATHLINE_SUPERMAN");
                   const effect = new DeathlineWarriorEffect(
                     targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.damage || 0, // 使用实际伤害值，不是0
                     eventData.detectRadius || 600,
-                    eventData.totalHits || 3,
+                    eventData.totalHits || (isSuperman ? 6 : 3), // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 6，DEATHLINE_WARRIOR 為 3
                     eventData.totalDurationMs || 1200,
                     eventData.minTeleportDistance || 300,
                     weaponType,
-                    eventData.aoeRadius || 0,
-                    eventData.displayScale || 0.5
+                    eventData.aoeRadius || (isSuperman ? 200 : 0), // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 200，DEATHLINE_WARRIOR 為 0
+                    eventData.displayScale || (isSuperman ? 1.0 : 0.5) // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 1.0，DEATHLINE_WARRIOR 為 0.5
                   );
                   effect.id = projectileId;
                   // 不标记为_isVisualOnly，让每个玩家的死线战士/死线超人都能独立计算伤害
@@ -1845,17 +1853,18 @@ const Runtime = (() => {
 
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的神界裁决也应该造成伤害（每个玩家的伤害独立计算并叠加）
+                  // ✅ 修復：使用與單機一致的默認值（CONFIG.DIVINE_JUDGMENT）
                   const effect = new DivineJudgmentEffect(targetPlayer, { // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     damage: eventData.damage || 0, // 使用实际伤害值，不是0
-                    detectRadius: eventData.detectRadius || 400,
-                    aoeRadius: eventData.aoeRadius || 100,
-                    fallDurationMs: eventData.fallDurationMs || 250,
-                    moveDurationMs: eventData.moveDurationMs || 2400,
-                    headWaitMs: eventData.headWaitMs || 100,
-                    holdOnEnemyMs: eventData.holdOnEnemyMs || 200,
-                    swordImageWidth: eventData.swordImageWidth || 83,
-                    swordImageHeight: eventData.swordImageHeight || 200,
-                    patrolSpeedFactor: eventData.patrolSpeedFactor || 0.35
+                    detectRadius: eventData.detectRadius || 400, // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.DETECT_RADIUS_BASE（400）
+                    aoeRadius: eventData.aoeRadius || 100, // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.AOE_RADIUS_BASE（100）
+                    fallDurationMs: eventData.fallDurationMs || 250, // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.FALL_DURATION_MS（250ms）
+                    moveDurationMs: eventData.moveDurationMs || 600, // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.MOVE_DURATION_MS（600ms）
+                    headWaitMs: eventData.headWaitMs || 100, // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.HEAD_WAIT_MS（100ms）
+                    holdOnEnemyMs: eventData.holdOnEnemyMs || 200, // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.HOLD_ON_ENEMY_MS（200ms）
+                    swordImageWidth: eventData.swordImageWidth || 83, // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.SWORD_IMAGE_WIDTH（83）
+                    swordImageHeight: eventData.swordImageHeight || 200, // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.SWORD_IMAGE_HEIGHT（200）
+                    patrolSpeedFactor: eventData.patrolSpeedFactor || 0.35 // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.PATROL_SPEED_FACTOR（0.35）
                   });
                   effect.id = projectileId;
                   // 不标记为_isVisualOnly，让每个玩家的神界裁决都能独立计算伤害
@@ -1885,9 +1894,10 @@ const Runtime = (() => {
 
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的守护领域也应该造成伤害（每个玩家的伤害独立计算并叠加）
+                  // ✅ 修復：使用與單機一致的默認值（CONFIG.AURA_FIELD.FIELD_RADIUS = 60）
                   const effect = new AuraField(
                     targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
-                    eventData.radius || 150,
+                    eventData.radius || 60, // ✅ 與單機一致：使用 CONFIG.AURA_FIELD.FIELD_RADIUS（60）
                     eventData.damage || 0 // 使用实际伤害值，不是0
                   );
                   effect.id = projectileId;
@@ -2047,14 +2057,15 @@ const Runtime = (() => {
 
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的光芒万丈也应该造成伤害（每个玩家的伤害独立计算并叠加）
+                  // ✅ 修復：使用與單機一致的默認值（CONFIG.RADIANT_GLORY）
                   const effect = new RadiantGloryEffect(
                     targetPlayer,
                     eventData.damage || 0, // 使用实际伤害值，不是0
                     eventData.width || 8,
-                    eventData.duration || 1000,
+                    eventData.duration || 2000, // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.DURATION（2000ms）
                     eventData.tickInterval || 120,
                     eventData.beamCount || 10,
-                    eventData.rotationSpeed || 1.0
+                    eventData.rotationSpeed || 1.0 // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.ROTATION_SPEED（1.0）
                   );
                   effect.id = projectileId;
                   // 不标记为_isVisualOnly，让每个玩家的光芒万丈都能独立计算伤害
@@ -2083,19 +2094,21 @@ const Runtime = (() => {
 
                 if (targetPlayer) {
                   // ✅ MMORPG架构：远程玩家的狂热斩击也应该造成伤害（每个玩家的伤害独立计算并叠加）
+                  // ✅ 修復：使用與單機一致的默認值（CONFIG.FRENZY_SLASH）
                   const effect = new SlashEffect(
                     targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.angle || 0,
                     eventData.damage || 0, // 使用实际伤害值，不是0
-                    eventData.radius || 60,
-                    eventData.arcDeg || 80,
-                    eventData.duration || 1000
+                    eventData.radius || 280, // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.RADIUS_BASE（280）
+                    eventData.arcDeg || 365, // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.ARC_DEG_BASE（365）
+                    eventData.duration || 1200 // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.DURATION（1200ms）
                   );
                   effect.id = projectileId;
                   effect.weaponType = 'FRENZY_SLASH'; // ✅ 设置正确的weaponType
                   // 不标记为_isVisualOnly，让每个玩家的狂热斩击都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
-                  if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
+                  // ✅ 修復：使用與單機一致的默認值（CONFIG.FRENZY_SLASH.VISUAL_SCALE = 2.0）
+                  effect.visualScale = (typeof eventData.visualScale === "number") ? eventData.visualScale : 2.0;
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "SING" && typeof SingEffect !== "undefined") {
@@ -2718,7 +2731,11 @@ const Runtime = (() => {
           skillInvulnerableUntil,
           critChanceBonusPct: Math.max(0, critChanceBonusPct), // ✅ 新增：爆擊率同步
           lifesteal,
-          maxHealth: (typeof p.maxHealth === 'number' && p.maxHealth > 0) ? Math.floor(p.maxHealth) : null // ✅ 新增：maxHealth 同步（多人元素，影響復活）
+          maxHealth: (typeof p.maxHealth === 'number' && p.maxHealth > 0) ? Math.floor(p.maxHealth) : null, // ✅ 新增：maxHealth 同步（多人元素，影響復活）
+          // ⚠️ 修復：同步回血速度倍率（基礎回血、天賦回血、武器技能回血等）
+          healthRegenSpeedMultiplier: (typeof p.healthRegenSpeedMultiplier === 'number' && p.healthRegenSpeedMultiplier > 0) ? p.healthRegenSpeedMultiplier : 1.0,
+          // ⚠️ 修復：同步回血間隔（與單機一致：5000ms）
+          healthRegenIntervalMs: (typeof p.healthRegenIntervalMs === 'number' && p.healthRegenIntervalMs > 0) ? Math.floor(p.healthRegenIntervalMs) : 5000
         };
         const sig = JSON.stringify(meta);
         if (sig !== tick._lastMetaSig) {
@@ -4492,8 +4509,9 @@ function handleServerGameState(state, timestamp) {
                 const nowExp = Math.max(0, Math.floor(playerState.experience || 0));
                 const deltaExp = nowExp - (_lastSessionExp || 0);
                 if (deltaExp > 0 && typeof Game.player.gainExperience === "function") {
-                  // ⚠️ 修復：保存升級前的 level 和 experienceToNextLevel，用於檢測是否升級
+                  // ⚠️ 修復：保存升級前的 level，用於檢測是否升級
                   const prevLevel = Game.player.level || 1;
+                  // ⚠️ 修復：在升級前保存當前的 experienceToNextLevel，確保升級後不會被覆蓋
                   const prevExpToNext = Game.player.experienceToNextLevel || 80;
                   Game.player.gainExperience(deltaExp);
                   // ⚠️ 修復：如果升級了，gainExperience 內部會調用 levelUp()，levelUp() 會重新計算 experienceToNextLevel
@@ -4501,6 +4519,15 @@ function handleServerGameState(state, timestamp) {
                   // 如果升級了，使用客戶端計算的值（通過 levelUp() 設置）
                   // 如果沒有升級，也不應該被伺服器覆蓋（保持客戶端的值）
                   // 只有在 session 初始化時才同步伺服器的值
+                  const newLevel = Game.player.level || 1;
+                  if (newLevel > prevLevel) {
+                    // 升級了，使用客戶端計算的值（levelUp() 已經設置了正確的值）
+                    // 不需要做任何事，因為 levelUp() 已經正確設置了 experienceToNextLevel
+                  } else {
+                    // 沒有升級，保持客戶端的值（不應該被伺服器覆蓋）
+                    // 但是，如果客戶端的值與伺服器的值不一致，可能是因為客戶端計算錯誤
+                    // 在這種情況下，我們應該使用伺服器的值（但這不應該發生）
+                  }
                 } else {
                   // ⚠️ 修復：沒有獲得經驗時，不應該同步伺服器的 experienceToNextLevel
                   // 與單機一致：experienceToNextLevel 只在升級時改變，不應該被伺服器每幀覆蓋
@@ -4515,6 +4542,11 @@ function handleServerGameState(state, timestamp) {
             // 與單機一致：experienceToNextLevel 只在升級時改變（通過 levelUp()）
             // 只有在 session 初始化時才同步伺服器的值，之後完全由客戶端管理
             // 不應該在每次收到伺服器狀態時都同步這個值
+            // ⚠️ 重要：只有在 session 初始化時才同步 experienceToNextLevel，之後完全由客戶端管理
+            if (_sessionCountersPrimed && typeof playerState.experienceToNextLevel === "number" && Game.player) {
+              // 不要同步伺服器的 experienceToNextLevel，因為它可能與客戶端的值不一致
+              // 客戶端的 experienceToNextLevel 由 levelUp() 管理，與單機一致
+            }
 
             // ✅ 金幣共享（伺服器權威）：sessionCoins 用 delta 寫回 Game.addCoins（不改存檔碼鍵名）
             if (typeof playerState.sessionCoins === "number") {
