@@ -2171,6 +2171,27 @@ const Game = {
         this._gameOverEventSent = true; // 標記為已處理
         this.isGameOver = true;
         
+        // ⚠️ 修复：游戏结束时完全清理所有游戏数据，确保重新进入游戏时是全新状态
+        // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
+        // 这样才不会污染到单机、其他模式，以及组队模式的下一局
+        try {
+            // 停止所有音效（包括路口地图的车子音效）
+            if (typeof AudioManager !== 'undefined') {
+                try {
+                    if (AudioManager.stopAllMusic) AudioManager.stopAllMusic();
+                    if (AudioManager.stopAllSounds) AudioManager.stopAllSounds();
+                } catch (_) { }
+            }
+            
+            // 完全重置游戏状态（与单机模式一致）
+            // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
+            if (typeof this.reset === 'function') {
+                this.reset();
+            }
+        } catch (e) {
+            console.warn('[Game] gameOver: 清理游戏状态失败:', e);
+        }
+        
         // ⚠️ 修复：先显示游戏结束画面，然后再处理组队模式的房间大厅逻辑
         // 确保游戏结束画面一定会显示，不会被房间大厅覆盖
         console.log('[Game] gameOver: 调用 UI.showGameOverScreen()');
@@ -2219,6 +2240,28 @@ const Game = {
         }
         this._victoryEventSent = true; // 標記為已處理
         this.isGameOver = true;
+        
+        // ⚠️ 修复：游戏结束时完全清理所有游戏数据，确保重新进入游戏时是全新状态
+        // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
+        // 这样才不会污染到单机、其他模式，以及组队模式的下一局
+        try {
+            // 停止所有音效（包括路口地图的车子音效）
+            if (typeof AudioManager !== 'undefined') {
+                try {
+                    if (AudioManager.stopAllMusic) AudioManager.stopAllMusic();
+                    if (AudioManager.stopAllSounds) AudioManager.stopAllSounds();
+                } catch (_) { }
+            }
+            
+            // 完全重置游戏状态（与单机模式一致）
+            // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
+            if (typeof this.reset === 'function') {
+                this.reset();
+            }
+        } catch (e) {
+            console.warn('[Game] victory: 清理游戏状态失败:', e);
+        }
+        
         // ✅ 正常結束：組隊模式下回到房間，單機模式下正常返回開始畫面
         try {
             // 確保只在生存模式下執行組隊邏輯
