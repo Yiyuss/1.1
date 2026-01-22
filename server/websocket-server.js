@@ -258,7 +258,10 @@ function handleJoin(ws, msg) {
   // ✅ 权威服务器：立即发送当前游戏状态
   ws.send(JSON.stringify({
     type: 'game-state',
-    state: gameState.getState()
+    state: (() => {
+      const result = gameState.getState();
+      return result.state || result; // 兼容旧代码
+    })()
   }));
 
   // 通知房間內其他用戶（可選，用於統計）
@@ -511,7 +514,8 @@ function gameLoop() {
 
       // 广播游戏状态给所有客户端（节流到 30Hz）
       if (now - lastBroadcastAt >= BROADCAST_INTERVAL) {
-        const state = gameState.getState();
+        const result = gameState.getState();
+        const state = result.state || result; // 兼容旧代码
         // ✅ 靜態資料只送一次，後續省流量（避免每幀帶大陣列）
         if (staticSent.get(roomId)) {
           try {
@@ -526,6 +530,16 @@ function gameLoop() {
           state: state,
           timestamp: now
         });
+        
+        // ✅ 修复：如果游戏结束，广播 game_over 事件（包括单人组队的情况）
+        if (result.shouldBroadcastGameOver || (state.isGameOver && !gameState._gameOverEventSent)) {
+          gameState._gameOverEventSent = true; // 防止重复广播
+          broadcastToRoom(roomId, null, {
+            type: 'event',
+            eventType: 'game_over',
+            timestamp: now
+          });
+        }
       }
     } catch (error) {
       // ✅ 错误处理：单个房间的错误不影响其他房间
