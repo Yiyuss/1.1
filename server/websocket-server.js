@@ -533,6 +533,7 @@ function gameLoop() {
         
         // ✅ 修复：如果游戏结束，广播 game_over 事件（包括单人组队的情况）
         if (result.shouldBroadcastGameOver || (state.isGameOver && !gameState._gameOverEventSent)) {
+          console.log(`[WebSocket] 广播 game_over 事件到房间 ${roomId}, shouldBroadcastGameOver=${result.shouldBroadcastGameOver}, isGameOver=${state.isGameOver}`);
           gameState._gameOverEventSent = true; // 防止重复广播
           broadcastToRoom(roomId, null, {
             type: 'event',
