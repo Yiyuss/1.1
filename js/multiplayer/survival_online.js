@@ -2311,19 +2311,13 @@ const Runtime = (() => {
             }
             
             // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
+            // ⚠️ 修复：不要在这里显示房间大厅，应该只调用 UI.showGameOverScreen()
+            // 房间大厅的显示逻辑应该在 _returnToStartFrom 中处理（视频播放完成后）
             if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
               window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => { });
             }
-            // 先顯示開始畫面（作為背景），然後顯示房間大廳覆蓋層
-            try {
-              const startScreen = document.getElementById('start-screen');
-              if (startScreen) startScreen.classList.remove('hidden');
-            } catch (_) { }
-            // 回到房間大廳（覆蓋層）
-            if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
-              window.SurvivalOnlineUI.openLobbyScreen();
-            }
-            // 顯示遊戲結束畫面
+            // ⚠️ 修复：只显示游戏结束画面，不要先显示房间大厅
+            // 游戏结束画面会在视频播放完成后自动调用 _returnToStartFrom，然后显示房间大厅
             if (typeof UI !== 'undefined' && typeof UI.showGameOverScreen === 'function') {
               console.log('[SurvivalOnline] onEventMessage: 调用 UI.showGameOverScreen()');
               UI.showGameOverScreen();
@@ -4425,20 +4419,23 @@ function handleServerGameState(state, timestamp) {
   // ⚠️ 修复：优先检查游戏结束状态，确保游戏结束画面一定会显示
   // 必须在所有其他逻辑之前检查，避免被其他逻辑提前返回而跳过
   if (typeof Game !== 'undefined' && state.isGameOver) {
+    // ⚠️ 修复：如果已经处理过游戏结束，直接返回，避免循环
+    // 服务器可能会持续发送 isGameOver = true，但客户端只需要处理一次
+    if (Game._gameOverEventSent) {
+      // 静默跳过，不需要日志，因为这是正常的（服务器持续发送状态）
+      return;
+    }
+    
     console.log('[SurvivalOnline] handleServerGameState: 检测到 state.isGameOver = true');
     // ✅ 權威伺服器模式：遊戲結束由伺服器 state.isGameOver 觸發
     // ⚠️ 修复：不要在这里设置 _gameOverEventSent，让 Game.gameOver() 自己设置
     // 否则会导致 Game.gameOver() 内部的检查失败，直接返回而不执行后续逻辑
-    if (!Game._gameOverEventSent) {
+    Game.isGameOver = true;
+    if (typeof Game.gameOver === 'function') {
       console.log('[SurvivalOnline] handleServerGameState: 调用 Game.gameOver()');
-      Game.isGameOver = true;
-      if (typeof Game.gameOver === 'function') {
-        Game.gameOver();
-      } else {
-        console.error('[SurvivalOnline] handleServerGameState: Game.gameOver 不是函数！');
-      }
+      Game.gameOver();
     } else {
-      console.warn('[SurvivalOnline] handleServerGameState: Game._gameOverEventSent 已为 true，跳过');
+      console.error('[SurvivalOnline] handleServerGameState: Game.gameOver 不是函数！');
     }
   }
 
