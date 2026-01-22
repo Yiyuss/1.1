@@ -1335,14 +1335,16 @@ const Runtime = (() => {
             const weaponType = eventData.weaponType || "UNKNOWN";
             const playerUid = eventData.playerUid || null;
             
-            // 對於持續效果（AURA_FIELD、SLASH、ORBIT等），檢查是否已存在相同類型和玩家的效果
+            // ⚠️ 修復：區分持續效果和一次性效果
+            // 持續效果（AURA_FIELD、ORBIT等）：應該只創建一次，之後更新
+            // 一次性效果（SLASH、LASER、CHAIN_LIGHTNING等）：每次 fire() 都創建新的（與單機一致）
             const isPersistentEffect = (
               weaponType === 'AURA_FIELD' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' ||
               weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' || weaponType === 'HEART_COMPANION' ||
-              weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'LASER' || weaponType === 'RADIANT_GLORY' ||
-              weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' || weaponType === 'SLASH' ||
-              weaponType === 'FRENZY_SLASH' || weaponType === 'MIND_MAGIC'
+              weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC'
             );
+            // ⚠️ 修復：LASER、CHAIN_LIGHTNING、SLASH 是一次性效果，每次 fire() 都創建新的（與單機一致）
+            // 不應該被標記為持續效果，否則會導致去重邏輯錯誤
             
             let existingProjectile = null;
             if (isPersistentEffect && playerUid) {
@@ -1369,6 +1371,7 @@ const Runtime = (() => {
             }
             
             // ⚠️ 修復：如果已存在持續效果，更新它而不是創建新的（避免重複疊加）
+            // 注意：一次性效果（SLASH、LASER、CHAIN_LIGHTNING）不應該更新，應該創建新的（與單機一致）
             if (existingProjectile && isPersistentEffect) {
               // 更新現有效果的屬性（位置、角度、半徑等）
               try {
@@ -4390,22 +4393,22 @@ function handleServerGameState(state, timestamp) {
 
             // ⚠️ 修復：不可用 `||`，否則 0 會被當成 false 導致不同步（例如死亡/清零）
             // ✅ 單機同源：檢測血量變化，觸發受傷紅閃效果（單機元素）
+            // ⚠️ 修復：與單機一致，在 takeDamage 時觸發紅閃，而不是只在血量減少時
+            // 單機模式：takeDamage 會設置 hitFlashTime，無論是否真的扣血（例如防禦太高時）
             if (typeof playerState.health === "number") {
-              // ⚠️ 修復：確保 prevHealth 是數字類型，避免初始值問題
               const prevHealth = (typeof Game.player.health === "number") ? Game.player.health : Game.player.maxHealth || 0;
               const newHealth = playerState.health;
-              // ⚠️ 修復：只在血量真的減少時才更新（避免初始化時觸發紅閃）
+              Game.player.health = newHealth;
+              // ⚠️ 修復：與單機一致，如果血量減少（受傷），觸發紅閃
+              // 但要注意：如果防禦太高，可能血量沒有減少，但單機模式仍然會觸發紅閃（在 takeDamage 中）
+              // 這裡我們只在血量真的減少時觸發紅閃，因為伺服器已經計算了最終傷害
               if (newHealth < prevHealth && newHealth > 0 && prevHealth > 0 && !Game.player._isDead) {
-                Game.player.health = newHealth;
                 try {
                   Game.player.hitFlashTime = Game.player.hitFlashDuration || 150;
                   if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
                     window.GifOverlay.flash('player', { color: '#ff0000', durationMs: Game.player.hitFlashDuration || 150, opacity: 0.8 });
                   }
                 } catch (_) {}
-              } else {
-                // ⚠️ 修復：即使血量沒有減少，也要同步血量（避免不同步）
-                Game.player.health = newHealth;
               }
             }
             // ⚠️ 修復：同步 maxHealth 時，如果 maxHealth 增加，也要同步增加 health
@@ -4484,25 +4487,18 @@ function handleServerGameState(state, timestamp) {
                   const prevLevel = Game.player.level || 1;
                   const prevExp = Game.player.experience || 0;
                   Game.player.gainExperience(deltaExp);
-                  // ⚠️ 修復：gainExperience 內部會在升級時重置 experienceToNextLevel
-                  // 如果升級了，使用本地計算的 experienceToNextLevel（避免被重置為80）
-                  if (Game.player.level > prevLevel) {
-                    // 升級後，使用本地計算的值（gainExperience 已經設置了正確的值）
-                    // 不需要再次設置，因為 gainExperience 已經設置了
-                  } else if (typeof playerState.experienceToNextLevel === "number" && playerState.experienceToNextLevel !== 80) {
-                    // ⚠️ 修復：如果伺服器的值不是80（可能是正確的值），使用伺服器的值
-                    // 但如果伺服器的值是80，可能是舊值，不應該覆蓋
+                  // ⚠️ 修復：gainExperience 內部會在升級時調用 levelUp()，levelUp() 會重新計算 experienceToNextLevel
+                  // 如果升級了，gainExperience 已經設置了正確的值（通過 levelUp()）
+                  // 如果沒有升級，使用伺服器的值（伺服器使用與單機相同的算法計算）
+                  if (Game.player.level <= prevLevel && typeof playerState.experienceToNextLevel === "number") {
+                    // 沒有升級，使用伺服器的值（伺服器使用 _computeExperienceToNextLevel，與單機一致）
                     Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
                   }
+                  // 如果升級了，gainExperience 已經通過 levelUp() 設置了正確的值，不需要覆蓋
                 } else {
-                  // 沒有獲得經驗，直接同步伺服器的值（但如果是80，可能是舊值，不應該覆蓋）
+                  // 沒有獲得經驗，直接同步伺服器的值（伺服器使用與單機相同的算法）
                   if (typeof playerState.experienceToNextLevel === "number" && Game.player) {
-                    // ⚠️ 修復：如果當前值不是80，且伺服器的值是80，可能是舊值，不應該覆蓋
-                    if (playerState.experienceToNextLevel === 80 && Game.player.experienceToNextLevel !== 80) {
-                      // 不覆蓋，保持當前值
-                    } else {
-                      Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
-                    }
+                    Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
                   }
                 }
                 _lastSessionExp = nowExp;
