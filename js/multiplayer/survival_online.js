@@ -4426,6 +4426,13 @@ function handleServerGameState(state, timestamp) {
       return;
     }
     
+    // ⚠️ 修复：如果游戏已经结束但新游戏还没开始，不应该再次触发游戏结束
+    // 检查 isGameOver 标志，如果为 false，说明新游戏已经开始，不应该触发失败画面
+    if (!Game.isGameOver) {
+      // 新游戏已经开始，忽略服务器的 isGameOver 状态（可能是上一局的残留状态）
+      return;
+    }
+    
     console.log('[SurvivalOnline] handleServerGameState: 检测到 state.isGameOver = true');
     // ✅ 權威伺服器模式：遊戲結束由伺服器 state.isGameOver 觸發
     // ⚠️ 修复：不要在这里设置 _gameOverEventSent，让 Game.gameOver() 自己设置
