@@ -4418,6 +4418,20 @@ function handleServerGameState(state, timestamp) {
 
   // ⚠️ 修复：优先检查游戏结束状态，确保游戏结束画面一定会显示
   // 必须在所有其他逻辑之前检查，避免被其他逻辑提前返回而跳过
+  
+  // ⚠️ 修复：如果新游戏已开始，检查服务器是否已重置 isGameOver
+  if (typeof Game !== 'undefined' && Game._newGameStarted) {
+    if (!state.isGameOver) {
+      // 服务器已重置 isGameOver = false，新游戏正式开始
+      console.log('[SurvivalOnline] handleServerGameState: 服务器已重置 isGameOver = false，新游戏正式开始');
+      Game._newGameStarted = false;
+    } else {
+      // 新游戏已开始，但服务器还在发送上一局的 isGameOver = true，忽略它
+      console.log('[SurvivalOnline] handleServerGameState: 新游戏已开始，忽略服务器残留的 isGameOver = true');
+      return; // 忽略上一局的残留状态
+    }
+  }
+  
   if (typeof Game !== 'undefined' && state.isGameOver) {
     // ⚠️ 修复：如果已经处理过游戏结束，直接返回，避免循环
     // 服务器可能会持续发送 isGameOver = true，但客户端只需要处理一次
@@ -6526,6 +6540,10 @@ function tryStartSurvivalFromRoom() {
     try {
       // 重置遊戲結束標記
       if (typeof Game !== "undefined") {
+        // ⚠️ 修复：不要立即重置 _gameOverEventSent，先标记新游戏已开始
+        // 这样可以防止服务器残留的 state.isGameOver = true 立即触发游戏结束
+        // _gameOverEventSent 会在收到服务器的 new-session 响应后重置
+        Game._newGameStarted = true; // 标记新游戏已开始
         Game._gameOverEventSent = false;
         Game._victoryEventSent = false;
         Game.isGameOver = false;
