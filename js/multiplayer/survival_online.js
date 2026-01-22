@@ -6566,17 +6566,33 @@ function tryStartSurvivalFromRoom() {
 
     // ✅ 清理邏輯：重新開始遊戲前，確保清理上一局的狀態
     try {
-      // 重置遊戲結束標記
+      // ⚠️ 修复：完全清理上一局的所有状态，确保新游戏是全新状态
       if (typeof Game !== "undefined") {
-        // ⚠️ 修复：不要立即重置 _gameOverEventSent，先标记新游戏已开始
-        // 这样可以防止服务器残留的 state.isGameOver = true 立即触发游戏结束
-        // _gameOverEventSent 会在收到服务器的 new-session 响应后重置
+        // ⚠️ 修复：先标记新游戏已开始，防止服务器残留的 state.isGameOver = true 立即触发游戏结束
         Game._newGameStarted = true; // 标记新游戏已开始
+        // ⚠️ 修复：重置所有游戏结束相关标志，确保新游戏可以正常触发游戏结束
         Game._gameOverEventSent = false;
         Game._victoryEventSent = false;
         Game.isGameOver = false;
+        Game.isPaused = false; // 确保游戏可以开始
+        
+        // ⚠️ 修复：确保玩家状态被完全清理（如果还有残留）
+        if (Game.player) {
+          try {
+            // 清理玩家武器
+            if (Game.player.weapons && Array.isArray(Game.player.weapons)) {
+              for (const weapon of Game.player.weapons) {
+                if (weapon && typeof weapon.destroy === 'function') {
+                  try { weapon.destroy(); } catch (_) { }
+                }
+              }
+              Game.player.weapons = [];
+            }
+          } catch (_) { }
+        }
       }
-      // 清理遠程玩家（避免上一局的殘留）
+      
+      // ⚠️ 修复：清理遠程玩家（避免上一局的殘留）
       if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.clear === "function") {
         RemotePlayerManager.clear();
       }
@@ -6584,7 +6600,17 @@ function tryStartSurvivalFromRoom() {
       if (typeof Game !== "undefined" && Array.isArray(Game.remotePlayers)) {
         Game.remotePlayers.length = 0;
       }
-    } catch (_) { }
+      
+      // ⚠️ 修复：停止所有音效，确保新游戏开始时没有残留音效
+      try {
+        if (typeof AudioManager !== 'undefined') {
+          if (AudioManager.stopAllMusic) AudioManager.stopAllMusic();
+          if (AudioManager.stopAllSounds) AudioManager.stopAllSounds();
+        }
+      } catch (_) { }
+    } catch (e) {
+      console.warn('[SurvivalOnline] startGame: 清理上一局状态失败:', e);
+    }
 
     // 確保 Runtime 啟用（遊戲開始時啟用狀態同步）
     if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
@@ -6592,32 +6618,32 @@ function tryStartSurvivalFromRoom() {
     }
 
     // ✅ 新一局：通知伺服器重置本場狀態（避免上一局殘留造成開場怪血量異常）
-    // ⚠️ 修復：延遲發送 new-session，確保 Game.init 已經執行並套用了角色屬性
+    // ⚠️ 修復：等待 Game.player 創建完成後再發送 new-session
     // 因為 startSurvivalNow 會調用 GameModeManager.start，而 Game.init 是在 GameModeManager.start 之後才執行
+    // 使用輪詢機制等待 Game.player 創建完成，最多等待 3 秒
     const sendNewSession = () => {
       try {
         const sid = sessionId || null;
-        if (sid && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-          // 計算本地玩家的 maxHealth（包含角色屬性和天賦效果）
-          let playerMaxHealth = 200; // 默認值
-          if (typeof Game !== "undefined" && Game.player) {
-            // 在 Game.init 中已經計算了角色的 maxHealth 和天賦效果
-            playerMaxHealth = Game.player.maxHealth || 200;
-            console.log(`[SurvivalOnline] 發送 new-session: maxHealth=${playerMaxHealth}, baseMaxHealth=${Game.player.baseMaxHealth || 'N/A'}`);
-          } else {
-            console.warn(`[SurvivalOnline] Game.player 不存在，使用默認 maxHealth=200`);
-          }
+        if (!sid) return;
+        
+        // 計算本地玩家的 maxHealth（包含角色屬性和天賦效果）
+        let playerMaxHealth = 200; // 默認值
+        if (typeof Game !== "undefined" && Game.player) {
+          // 在 Game.init 中已經計算了角色的 maxHealth 和天賦效果
+          playerMaxHealth = Game.player.maxHealth || 200;
+          console.log(`[SurvivalOnline] 發送 new-session: maxHealth=${playerMaxHealth}, baseMaxHealth=${Game.player.baseMaxHealth || 'N/A'}`);
+        } else {
+          console.warn(`[SurvivalOnline] Game.player 不存在，使用默認 maxHealth=200`);
+        }
+        
+        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
           window.SurvivalOnlineRuntime.sendToNet({ 
             type: "new-session", 
             sessionId: sid,
             maxHealth: playerMaxHealth // ✅ 發送計算好的 maxHealth
           });
-        } else if (sid) {
+        } else {
           // fallback
-          let playerMaxHealth = 200;
-          if (typeof Game !== "undefined" && Game.player) {
-            playerMaxHealth = Game.player.maxHealth || 200;
-          }
           try { _sendViaWebSocket({ type: "new-session", sessionId: sid, maxHealth: playerMaxHealth }); } catch (_) { }
         }
       } catch (e) {
@@ -6625,8 +6651,27 @@ function tryStartSurvivalFromRoom() {
       }
     };
     
-    // 延遲發送，確保 Game.init 已經執行（GameModeManager.start 是異步的）
-    setTimeout(sendNewSession, 500); // 500ms 應該足夠 Game.init 執行完成
+    // ⚠️ 修復：使用輪詢機制等待 Game.player 創建完成
+    // 最多等待 3 秒，每 100ms 檢查一次
+    let waitCount = 0;
+    const maxWaitCount = 30; // 3 秒 = 30 * 100ms
+    const waitForPlayer = () => {
+      if (typeof Game !== "undefined" && Game.player) {
+        // Game.player 已創建，發送 new-session
+        sendNewSession();
+      } else if (waitCount < maxWaitCount) {
+        // 繼續等待
+        waitCount++;
+        setTimeout(waitForPlayer, 100);
+      } else {
+        // 超時，使用默認值發送
+        console.warn(`[SurvivalOnline] 等待 Game.player 創建超時，使用默認 maxHealth=200`);
+        sendNewSession();
+      }
+    };
+    
+    // 開始等待（先延遲 200ms，給 GameModeManager.start 一些時間）
+    setTimeout(waitForPlayer, 200);
 
     // 確保角色不為 null（如果為 null，使用默認角色）
     if (!selectedCharacter) {
