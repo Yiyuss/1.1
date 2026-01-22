@@ -587,9 +587,10 @@ class GameState {
     for (const p of this.players.values()) {
       if (!p) continue;
       
-      // ⚠️ 修复：重置玩家位置到世界中心（与 addPlayer 一致）
-      p.x = this.worldWidth / 2;
-      p.y = this.worldHeight / 2;
+      // ⚠️ 重要：不要重置玩家位置！
+      // 位置应该由客户端的移动输入来更新，服务器端只负责验证和同步位置
+      // 重置位置会破坏客户端-服务器同步，导致敌人不追踪玩家
+      // 如果需要在游戏开始时重置位置，应该在客户端处理，而不是在服务器端
       
       // ✅ 更新 maxHealth（如果客戶端發送了計算好的值）
       if (playerUpdates && playerUpdates.has(p.uid)) {
@@ -1611,14 +1612,34 @@ class GameState {
       // 找到最近的玩家
       let nearestPlayer = null;
       let nearestDist = Infinity;
+      const playerCount = this.players.size;
+      let alivePlayerCount = 0;
       for (const player of this.players.values()) {
-        if (player.isDead || player.health <= 0) continue;
+        if (!player) continue;
+        if (player.isDead || player.health <= 0) {
+          continue;
+        }
+        alivePlayerCount++;
+        // ⚠️ 修复：确保玩家位置有效（不是 NaN 或 undefined）
+        if (typeof player.x !== 'number' || typeof player.y !== 'number' || isNaN(player.x) || isNaN(player.y)) {
+          console.warn(`[GameState.updateEnemies] ⚠️ 玩家 ${player.uid} 位置无效: x=${player.x}, y=${player.y}`);
+          continue;
+        }
         const dx = player.x - enemy.x;
         const dy = player.y - enemy.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < nearestDist) {
           nearestDist = dist;
           nearestPlayer = player;
+        }
+      }
+      
+      // ⚠️ 调试：如果找不到玩家，记录日志
+      if (!nearestPlayer && playerCount > 0) {
+        if (alivePlayerCount === 0) {
+          console.warn(`[GameState.updateEnemies] ⚠️ 敌人 ${enemy.id} 找不到活着的玩家（总玩家数: ${playerCount}，活着: ${alivePlayerCount}）`);
+        } else {
+          console.warn(`[GameState.updateEnemies] ⚠️ 敌人 ${enemy.id} 找不到玩家（总玩家数: ${playerCount}，活着: ${alivePlayerCount}，但位置可能无效）`);
         }
       }
 
