@@ -289,15 +289,48 @@ const UI = {
                 // ⚠️ 重要：不要在这里重置 _gameOverEventSent，否则会导致循环
                 // _gameOverEventSent 应该只在真正开始新游戏时才重置（在 startGame 中）
                 try {
+                    // ⚠️ 修复：先清理玩家和武器，确保游戏循环不会继续运行
+                    // 完全清理玩家和武器，防止武器继续发射
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        try {
+                            // 清理玩家武器
+                            if (Game.player.weapons && Array.isArray(Game.player.weapons)) {
+                                for (const weapon of Game.player.weapons) {
+                                    if (weapon && typeof weapon.destroy === 'function') {
+                                        try { weapon.destroy(); } catch (_) { }
+                                    }
+                                }
+                                Game.player.weapons = [];
+                            }
+                            // 清理玩家
+                            if (typeof Game.player.destroy === 'function') {
+                                try { Game.player.destroy(); } catch (_) { }
+                            }
+                            Game.player = null;
+                        } catch (e) {
+                            console.warn('[UI] _returnToStartFrom: 清理玩家失败:', e);
+                        }
+                    }
+                    
                     // 完全重置游戏状态（与单机模式一致）
                     // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
                     if (typeof Game !== 'undefined' && typeof Game.reset === 'function') {
                         // ⚠️ 修复：保存 _gameOverEventSent 的状态，避免被 reset() 重置
                         const wasGameOver = Game._gameOverEventSent;
+                        
                         Game.reset();
+                        
                         // ⚠️ 修复：恢复 _gameOverEventSent 的状态，防止循环
                         if (wasGameOver) {
                             Game._gameOverEventSent = true;
+                        }
+                        // ⚠️ 修复：确保游戏循环不会重新开始
+                        // 游戏结束后应该保持暂停状态，直到开始新游戏
+                        Game.isPaused = true;
+                        Game.isGameOver = true;
+                        // ⚠️ 修复：确保玩家被清理，防止武器继续发射
+                        if (Game.player) {
+                            Game.player = null;
                         }
                     }
                 } catch (e) {
