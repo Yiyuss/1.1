@@ -4399,10 +4399,10 @@ function handleServerGameState(state, timestamp) {
   if (typeof Game !== 'undefined' && state.isGameOver) {
     console.log('[SurvivalOnline] handleServerGameState: 检测到 state.isGameOver = true');
     // ✅ 權威伺服器模式：遊戲結束由伺服器 state.isGameOver 觸發
-    // 使用防重複機制，避免多次觸發
+    // ⚠️ 修复：不要在这里设置 _gameOverEventSent，让 Game.gameOver() 自己设置
+    // 否则会导致 Game.gameOver() 内部的检查失败，直接返回而不执行后续逻辑
     if (!Game._gameOverEventSent) {
       console.log('[SurvivalOnline] handleServerGameState: 调用 Game.gameOver()');
-      Game._gameOverEventSent = true;
       Game.isGameOver = true;
       if (typeof Game.gameOver === 'function') {
         Game.gameOver();
