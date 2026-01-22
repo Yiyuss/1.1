@@ -2280,8 +2280,23 @@ const Runtime = (() => {
             // 因為 Game.gameOver() 會再次廣播事件，導致循環
             Game.isGameOver = true;
             
-            // ✅ 清理邏輯：遊戲結束時清理狀態，避免污染下一局
+            // ⚠️ 修复：游戏结束时完全清理所有游戏数据，确保重新进入游戏时是全新状态
+            // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
             try {
+              // 停止所有音效（包括路口地图的车子音效）
+              if (typeof AudioManager !== 'undefined') {
+                try {
+                  if (AudioManager.stopAllMusic) AudioManager.stopAllMusic();
+                  if (AudioManager.stopAllSounds) AudioManager.stopAllSounds();
+                } catch (_) { }
+              }
+              
+              // 完全重置游戏状态（与单机模式一致）
+              // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
+              if (typeof Game !== "undefined" && typeof Game.reset === "function") {
+                Game.reset();
+              }
+              
               // 停用 Runtime（停止狀態同步）
               if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
                 Runtime.setEnabled(false);
@@ -2294,7 +2309,9 @@ const Runtime = (() => {
               if (typeof Game !== "undefined" && Array.isArray(Game.remotePlayers)) {
                 Game.remotePlayers.length = 0;
               }
-            } catch (_) { }
+            } catch (e) {
+              console.warn('[SurvivalOnline] onEventMessage: 清理游戏状态失败:', e);
+            }
             
             // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
             if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
@@ -2346,8 +2363,23 @@ const Runtime = (() => {
             // 因為 Game.victory() 會再次廣播事件，導致循環
             Game.isGameOver = true;
             
-            // ✅ 清理邏輯：遊戲結束時清理狀態，避免污染下一局
+            // ⚠️ 修复：游戏结束时完全清理所有游戏数据，确保重新进入游戏时是全新状态
+            // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
             try {
+              // 停止所有音效（包括路口地图的车子音效）
+              if (typeof AudioManager !== 'undefined') {
+                try {
+                  if (AudioManager.stopAllMusic) AudioManager.stopAllMusic();
+                  if (AudioManager.stopAllSounds) AudioManager.stopAllSounds();
+                } catch (_) { }
+              }
+              
+              // 完全重置游戏状态（与单机模式一致）
+              // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
+              if (typeof Game !== "undefined" && typeof Game.reset === "function") {
+                Game.reset();
+              }
+              
               // 停用 Runtime（停止狀態同步）
               if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
                 Runtime.setEnabled(false);
@@ -2360,7 +2392,9 @@ const Runtime = (() => {
               if (typeof Game !== "undefined" && Array.isArray(Game.remotePlayers)) {
                 Game.remotePlayers.length = 0;
               }
-            } catch (_) { }
+            } catch (e) {
+              console.warn('[SurvivalOnline] onEventMessage: 清理游戏状态失败:', e);
+            }
             
             // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
             if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
@@ -4839,13 +4873,19 @@ function handleServerGameState(state, timestamp) {
       // ⚠️ 修复：游戏结束状态检查已移到函数开头，确保优先处理
       // if (state.isGameOver) { ... } // 已移到函数开头
       if (state.isVictory) {
+        console.log('[SurvivalOnline] handleServerGameState: 检测到 state.isVictory = true');
         // ✅ 權威伺服器模式：遊戲勝利由伺服器 state.isVictory 觸發
-        // 使用防重複機制，避免多次觸發
+        // ⚠️ 修复：不要在这里设置 _victoryEventSent，让 Game.victory() 自己设置
+        // 否则会导致 Game.victory() 内部的检查失败，直接返回而不执行后续逻辑
         if (!Game._victoryEventSent) {
-          Game._victoryEventSent = true;
+          console.log('[SurvivalOnline] handleServerGameState: 调用 Game.victory()');
           if (typeof Game.victory === 'function') {
             Game.victory();
+          } else {
+            console.error('[SurvivalOnline] handleServerGameState: Game.victory 不是函数！');
           }
+        } else {
+          console.warn('[SurvivalOnline] handleServerGameState: Game._victoryEventSent 已为 true，跳过');
         }
       }
     }
