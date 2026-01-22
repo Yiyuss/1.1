@@ -846,6 +846,16 @@ class GameState {
               player.health = player.maxHealth;
             }
           }
+          // ⚠️ 修復：同步回血速度倍率（基礎回血、天賦回血、武器技能回血等）
+          if (typeof input.healthRegenSpeedMultiplier === 'number' && input.healthRegenSpeedMultiplier > 0) {
+            if (!player.meta) player.meta = {};
+            player.meta.healthRegenSpeedMultiplier = Math.max(1.0, input.healthRegenSpeedMultiplier);
+          }
+          // ⚠️ 修復：同步回血間隔（與單機一致：5000ms）
+          if (typeof input.healthRegenIntervalMs === 'number' && input.healthRegenIntervalMs > 0) {
+            if (!player.meta) player.meta = {};
+            player.meta.healthRegenIntervalMs = Math.max(1000, Math.floor(input.healthRegenIntervalMs));
+          }
           // ✅ 單機同源：不獸控制（吸血）— 只同步最終參數，伺服器權威結算回復
           if (input.lifesteal && typeof input.lifesteal === 'object') {
             if (!player.meta.lifesteal) player.meta.lifesteal = { pct: 0, cooldownMs: 100, minHeal: 1, lastAt: 0 };
@@ -1315,6 +1325,27 @@ class GameState {
       // 能量恢复
       if (player.energy < player.maxEnergy) {
         player.energy = Math.min(player.maxEnergy, player.energy + 1 * (deltaTime / 1000));
+      }
+      
+      // ⚠️ 修復：生命自然恢復（與單機一致：每5秒+1，受回血速度倍率影響）
+      if (player.health < player.maxHealth) {
+        if (!player._healthRegenAccumulator) player._healthRegenAccumulator = 0;
+        const regenMul = (player.meta && typeof player.meta.healthRegenSpeedMultiplier === 'number') 
+          ? player.meta.healthRegenSpeedMultiplier 
+          : 1.0;
+        const regenInterval = (player.meta && typeof player.meta.healthRegenIntervalMs === 'number')
+          ? player.meta.healthRegenIntervalMs
+          : 5000; // 默認 5 秒
+        const effectiveInterval = regenInterval / Math.max(1.0, regenMul);
+        player._healthRegenAccumulator += deltaTime;
+        if (player._healthRegenAccumulator >= effectiveInterval) {
+          const ticks = Math.floor(player._healthRegenAccumulator / effectiveInterval);
+          player._healthRegenAccumulator -= ticks * effectiveInterval;
+          player.health = Math.min(player.maxHealth, player.health + ticks);
+        }
+      } else {
+        // 滿血時重置計時器
+        player._healthRegenAccumulator = 0;
       }
       
       // ✅ 多人元素：大招結束時清理狀態（讓所有客戶端看到大招結束）
