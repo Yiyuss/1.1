@@ -2438,6 +2438,18 @@ const Game = {
         this._gameOverEventSent = false;
         this.boss = null;
         this.exit = null;
+        // ⚠️ 修复：清理统计数据，确保新游戏开始时是全新状态
+        this.enemiesKilled = 0;
+        this.coinsCollected = 0;
+        this.expCollected = 0;
+        // ⚠️ 修复：清理路口地图车辆计时器
+        this.intersectionCarTimer = 0;
+        // ⚠️ 修复：清理多人模式HUD更新计时器
+        this._multiplayerHUDUpdateTimer = 0;
+        // ⚠️ 修复：清理新游戏开始标志（如果存在）
+        if (typeof this._newGameStarted !== 'undefined') {
+            this._newGameStarted = false;
+        }
 
         // 重置花園視頻計時器
         this.gardenVideoTimer = 0;
