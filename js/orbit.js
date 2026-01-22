@@ -141,7 +141,22 @@ class OrbitBall extends Entity {
                                 DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemyId });
                             }
                         }
-                        // 多人模式：傷害由 game.js 自動發送 aoe_tick 到伺服器，伺服器透過 hitEvents 返回傷害數字
+                        // ✅ 修复：多人模式：PINEAPPLE_ORBIT 等单次碰撞伤害技能需要手动发送 aoe_tick 到服务器
+                        else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+                            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                                window.SurvivalOnlineRuntime.sendToNet({
+                                    type: 'aoe_tick',
+                                    weaponType: this.weaponType || 'PINEAPPLE_ORBIT',
+                                    x: enemy.x,
+                                    y: enemy.y,
+                                    radius: 1, // 很小的半径，只命中目标敌人
+                                    damage: finalDamage,
+                                    allowCrit: true,
+                                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                                });
+                            }
+                        }
+                        // 多人模式：傷害由伺服器 hitEvents 返回傷害數字
                         
                         // 記錄碰撞時間
                         this.collisionCooldown.set(enemyId, currentTime);
