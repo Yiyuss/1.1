@@ -29,6 +29,7 @@ class GameState {
     this.gameTime = 0;
     this.lastUpdateTime = Date.now();
     this.config = null; // CONFIG数据（从客户端同步）
+    this._shouldBroadcastGameOver = false; // ✅ 修复：标记是否需要广播 game_over 事件
 
     // ✅ session：用於「新一局」重置狀態，避免上一局波次/怪物殘留造成開場幾隻血超多
     this.currentSessionId = null;
@@ -576,6 +577,9 @@ class GameState {
     this.hitEvents = [];
     // ✅ 修復：避免新局一開始就刷小BOSS
     this.lastMiniBossSpawnAt = Date.now();
+    // ✅ 修复：重置游戏结束相关标记
+    this._shouldBroadcastGameOver = false;
+    this._gameOverEventSent = false;
 
     // 玩家：回到安全初始狀態（保守）
     // ✅ 如果提供了 playerUpdates（Map<uid, {maxHealth, ...}>），更新對應玩家的 maxHealth
@@ -2058,8 +2062,10 @@ class GameState {
       }
     }
 
-    if (allDead && this.players.size > 0) {
+    // ✅ 修复：当所有玩家死亡时，设置 isGameOver 并标记需要广播事件
+    if (allDead && this.players.size > 0 && !this.isGameOver) {
       this.isGameOver = true;
+      this._shouldBroadcastGameOver = true; // 标记需要广播 game_over 事件
     }
   }
 
@@ -2141,6 +2147,18 @@ class GameState {
             this._applyDamageToPlayer(player, (car.damage || 100), { ignoreInvulnerability: true, ignoreDodge: true });
             car.hitPlayer = true;
 
+            // ✅ 修复：广播车辆撞击事件（音效+特效是多人元素，需要同步）
+            // 音效是单机元素，但特效（爆炸粒子、屏幕白闪）需要同步
+            try {
+              this.vfxEvents.push({
+                type: 'car_hit',
+                playerUid: player.uid || null,
+                x: player.x || car.x,
+                y: player.y || car.y,
+                timestamp: Date.now()
+              });
+            } catch (_) {}
+
             // 检查玩家是否死亡
             if (player.health <= 0) {
               player.health = 0;
@@ -2170,6 +2188,15 @@ class GameState {
     if (now - this.lastCarSpawnTime < this.carSpawnInterval) return;
 
     this.lastCarSpawnTime = now;
+    
+    // ✅ 修复：广播车辆生成音效事件（音效是单机元素，但需要通知客户端播放）
+    // 注意：音效是单机元素，但服务器需要通知客户端在车辆生成时播放音效
+    try {
+      this.vfxEvents.push({
+        type: 'car_spawn',
+        timestamp: now
+      });
+    } catch (_) {}
 
     const worldWidth = this.worldWidth || 1920;
     const worldHeight = this.worldHeight || 1080;
@@ -2332,7 +2359,14 @@ class GameState {
     this.hitEvents = [];
     // ✅ 流量優化：移除 sfxEvents（音效是單機元素，不需要通過伺服器發送）
     this.vfxEvents = [];
-    return state;
+    
+    // ✅ 修复：检查是否需要广播 game_over 事件
+    const shouldBroadcastGameOver = this._shouldBroadcastGameOver;
+    if (this._shouldBroadcastGameOver) {
+      this._shouldBroadcastGameOver = false; // 只广播一次
+    }
+    
+    return { state, shouldBroadcastGameOver };
   }
 }
 
