@@ -286,11 +286,19 @@ const UI = {
                 // ✅ 組隊模式：回到房間大廳（覆蓋層，需要開始畫面作為背景）
                 // ⚠️ 修复：游戏结束时完全清理所有游戏数据，确保重新进入游戏时是全新状态
                 // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
+                // ⚠️ 重要：不要在这里重置 _gameOverEventSent，否则会导致循环
+                // _gameOverEventSent 应该只在真正开始新游戏时才重置（在 startGame 中）
                 try {
                     // 完全重置游戏状态（与单机模式一致）
                     // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
                     if (typeof Game !== 'undefined' && typeof Game.reset === 'function') {
+                        // ⚠️ 修复：保存 _gameOverEventSent 的状态，避免被 reset() 重置
+                        const wasGameOver = Game._gameOverEventSent;
                         Game.reset();
+                        // ⚠️ 修复：恢复 _gameOverEventSent 的状态，防止循环
+                        if (wasGameOver) {
+                            Game._gameOverEventSent = true;
+                        }
                     }
                 } catch (e) {
                     console.warn('[UI] _returnToStartFrom: 清理游戏状态失败:', e);
@@ -1580,10 +1588,18 @@ const UI = {
      * 不變式：流程與顯示文字不可更動；僅抽出重複邏輯至私有方法。
      */
     showGameOverScreen: function() {
+        // ⚠️ 修复：防止重复调用，避免视频无限循环播放
+        // 如果游戏结束画面已经显示，直接返回
+        const gameOverScreen = document.getElementById('game-over-screen');
+        if (gameOverScreen && !gameOverScreen.classList.contains('hidden')) {
+            console.warn("[UI] showGameOverScreen: 游戏结束画面已经显示，跳过重复调用");
+            return;
+        }
+        
         try { if (AudioManager.stopAllMusic) AudioManager.stopAllMusic(); } catch (e) {}
         Game.pause(true);
         document.getElementById('game-screen').classList.add('hidden');
-        document.getElementById('game-over-screen').classList.remove('hidden');
+        if (gameOverScreen) gameOverScreen.classList.remove('hidden');
         
         // 更新失敗結算視窗
         this.updateGameOverSummary();
@@ -1752,11 +1768,19 @@ const UI = {
      * 新增：結算視窗顯示遊戲數據
      */
     showVictoryScreen: function() {
+        // ⚠️ 修复：防止重复调用，避免视频无限循环播放
+        // 如果胜利画面已经显示，直接返回
+        const victoryScreen = document.getElementById('victory-screen');
+        if (victoryScreen && !victoryScreen.classList.contains('hidden')) {
+            console.warn("[UI] showVictoryScreen: 胜利画面已经显示，跳过重复调用");
+            return;
+        }
+        
         // 統一使用 stopAllMusic，避免生存/挑戰 BGM 殘留到開始介面
         try { if (AudioManager.stopAllMusic) AudioManager.stopAllMusic(); else if (AudioManager.stopMusic) AudioManager.stopMusic(); } catch (e) {}
         Game.pause(true);
         document.getElementById('game-screen').classList.add('hidden');
-        document.getElementById('victory-screen').classList.remove('hidden');
+        if (victoryScreen) victoryScreen.classList.remove('hidden');
     
         // 更新結算數據
         this.updateVictorySummary();
