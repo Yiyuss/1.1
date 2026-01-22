@@ -804,8 +804,11 @@ const Runtime = (() => {
             if (typeof p.maxEnergy === "number") remotePlayer.maxEnergy = p.maxEnergy;
             if (typeof p.level === "number") remotePlayer.level = p.level;
             if (typeof p.exp === "number") remotePlayer.experience = p.exp;
-            // ✅ 修復：遠程玩家的 experienceToNextLevel 可以從服務器同步（不影響本地玩家）
-            if (typeof p.expToNext === "number") remotePlayer.experienceToNextLevel = p.expToNext;
+            // ✅ 修复：遠程玩家的 experienceToNextLevel 可以從服務器同步（不影響本地玩家）
+            // 注意：本地玩家的 experienceToNextLevel 由客户端管理，不受服务器影响
+            if (typeof p.expToNext === "number" && remotePlayer !== Game.player) {
+              remotePlayer.experienceToNextLevel = p.expToNext;
+            }
             if (typeof p._isDead === "boolean") remotePlayer._isDead = p._isDead;
             if (typeof p._resurrectionProgress === "number") remotePlayer._resurrectionProgress = p._resurrectionProgress;
             if (typeof p.isUltimateActive === "boolean") remotePlayer.isUltimateActive = p.isUltimateActive;
@@ -4501,10 +4504,12 @@ function handleServerGameState(state, timestamp) {
             if (typeof playerState.experience === "number") {
               if (!_sessionCountersPrimed) {
                 _lastSessionExp = Math.max(0, Math.floor(playerState.experience || 0));
-                // ✅ 單機同源：同步 experienceToNextLevel（從伺服器計算的值）
+                // ✅ 修复：只在 session 初始化时同步一次 experienceToNextLevel，之后完全由客户端管理
+                // 注意：这里只在 _sessionCountersPrimed 为 false 时同步一次，之后不再同步
                 if (typeof playerState.experienceToNextLevel === "number" && Game.player) {
                   Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
                 }
+                _sessionCountersPrimed = true; // 标记为已初始化，防止后续覆盖
               } else {
                 const nowExp = Math.max(0, Math.floor(playerState.experience || 0));
                 const deltaExp = nowExp - (_lastSessionExp || 0);
@@ -4644,7 +4649,58 @@ function handleServerGameState(state, timestamp) {
       if (Array.isArray(state.vfxEvents)) {
         for (const v of state.vfxEvents) {
           if (!v || typeof v.type !== "string") continue;
-          _applyVfxEvent(v.type, v.data);
+          // ✅ 修复：处理车辆生成音效事件（音效是单机元素）
+          if (v.type === 'car_spawn') {
+            try {
+              // 音效是单机元素，所有客户端都播放
+              if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+                AudioManager.playSound('car');
+              }
+            } catch (_) {}
+          }
+          // ✅ 修复：处理车辆撞击事件（音效+特效）
+          else if (v.type === 'car_hit' && v.data) {
+            try {
+              // 音效是单机元素，只对本地玩家播放
+              if (v.data.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+                  AudioManager.playSound('bo');
+                }
+              }
+              // 特效是多人元素，需要同步（爆炸粒子、屏幕白闪）
+              if (typeof v.data.x === 'number' && typeof v.data.y === 'number') {
+                // 屏幕白闪：仅本地玩家触发
+                if (v.data.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  if (typeof Game !== 'undefined') {
+                    Game.screenFlash = { active: true, duration: 140, intensity: 0.28 };
+                  }
+                }
+                // 爆炸粒子：需要同步
+                if (typeof Game !== 'undefined') {
+                  if (!Game.explosionParticles) Game.explosionParticles = [];
+                  const count = 18;
+                  for (let i = 0; i < count; i++) {
+                    const ang = Math.random() * Math.PI * 2;
+                    const spd = 2.5 + Math.random() * 5.5;
+                    const particle = {
+                      x: v.data.x + (Math.random() - 0.5) * 8,
+                      y: v.data.y + (Math.random() - 0.5) * 8,
+                      vx: Math.cos(ang) * spd,
+                      vy: Math.sin(ang) * spd,
+                      life: 320 + Math.random() * 220,
+                      maxLife: 320 + Math.random() * 220,
+                      size: 5 + Math.random() * 4,
+                      color: (i % 3 === 0) ? '#ffffff' : '#ff6666',
+                      source: 'CAR_HIT'
+                    };
+                    Game.explosionParticles.push(particle);
+                  }
+                }
+              }
+            } catch (_) {}
+          } else {
+            _applyVfxEvent(v.type, v.data);
+          }
         }
       }
     } catch (_) { }
