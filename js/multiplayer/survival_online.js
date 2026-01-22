@@ -2265,10 +2265,15 @@ const Runtime = (() => {
         }
       } else if (eventType === "game_over") {
         // ✅ MMORPG 架構：所有玩家都能處理遊戲結束事件（所有玩家都死亡）
+        console.log('[SurvivalOnline] onEventMessage: 收到 game_over 事件');
         try {
           // 防止重複觸發
           if (typeof Game !== "undefined") {
-            if (Game._gameOverEventSent) return; // 已經處理過了
+            if (Game._gameOverEventSent) {
+              console.warn('[SurvivalOnline] onEventMessage: Game._gameOverEventSent 已为 true，跳过');
+              return; // 已經處理過了
+            }
+            console.log('[SurvivalOnline] onEventMessage: 处理 game_over 事件');
             Game._gameOverEventSent = true; // 標記為已處理
 
             // ✅ 修復：直接調用遊戲結束邏輯，不再次調用 Game.gameOver()（避免循環）
@@ -2306,7 +2311,10 @@ const Runtime = (() => {
             }
             // 顯示遊戲結束畫面
             if (typeof UI !== 'undefined' && typeof UI.showGameOverScreen === 'function') {
+              console.log('[SurvivalOnline] onEventMessage: 调用 UI.showGameOverScreen()');
               UI.showGameOverScreen();
+            } else {
+              console.error('[SurvivalOnline] onEventMessage: UI 或 UI.showGameOverScreen 不存在！', typeof UI, typeof UI?.showGameOverScreen);
             }
           }
         } catch (e) {
@@ -4389,14 +4397,20 @@ function handleServerGameState(state, timestamp) {
   // ⚠️ 修复：优先检查游戏结束状态，确保游戏结束画面一定会显示
   // 必须在所有其他逻辑之前检查，避免被其他逻辑提前返回而跳过
   if (typeof Game !== 'undefined' && state.isGameOver) {
+    console.log('[SurvivalOnline] handleServerGameState: 检测到 state.isGameOver = true');
     // ✅ 權威伺服器模式：遊戲結束由伺服器 state.isGameOver 觸發
     // 使用防重複機制，避免多次觸發
     if (!Game._gameOverEventSent) {
+      console.log('[SurvivalOnline] handleServerGameState: 调用 Game.gameOver()');
       Game._gameOverEventSent = true;
       Game.isGameOver = true;
       if (typeof Game.gameOver === 'function') {
         Game.gameOver();
+      } else {
+        console.error('[SurvivalOnline] handleServerGameState: Game.gameOver 不是函数！');
       }
+    } else {
+      console.warn('[SurvivalOnline] handleServerGameState: Game._gameOverEventSent 已为 true，跳过');
     }
   }
 
