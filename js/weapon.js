@@ -71,18 +71,22 @@
                     const seconds = 2.0 + 0.2 * Math.max(0, this.level - 1);
                     const durationMs = Math.round(seconds * 1000);
                     try {
+                        // ✅ 修復：先設置無敵狀態
                         if (this.player && typeof this.player.applyInvincibility === 'function') {
                             this.player.applyInvincibility(durationMs);
                         } else if (this.player) {
-                            // 後備：直接設定玩家無敵並產生視覺覆蓋
+                            // 後備：直接設定玩家無敵
                             this.player.isInvulnerable = true;
                             this.player.invulnerabilityTime = 0;
                             this.player.invulnerabilityDuration = durationMs;
                             this.player.invulnerabilitySource = 'INVINCIBLE';
-                            if (typeof InvincibleEffect !== 'undefined') {
-                                const effect = new InvincibleEffect(this.player, durationMs);
-                                Game.addProjectile(effect);
-                            }
+                        }
+                        // ✅ 修復：無論如何都要創建視覺效果（參考 SING 技能的處理方式）
+                        // 問題：之前只有在 applyInvincibility 不存在時才創建視覺效果，導致視覺效果消失
+                        // 解決：即使調用了 applyInvincibility，也要創建 InvincibleEffect 並調用 Game.addProjectile()
+                        if (this.player && typeof InvincibleEffect !== 'undefined') {
+                            const effect = new InvincibleEffect(this.player, durationMs);
+                            Game.addProjectile(effect);
                         }
                     } catch (_) {}
                     if (typeof AudioManager !== 'undefined') {
