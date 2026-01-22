@@ -2053,19 +2053,28 @@ class GameState {
 
   // 检查游戏结束
   checkGameOver() {
+    // ⚠️ 修复：如果没有玩家，直接返回（避免空房间触发游戏结束）
+    if (this.players.size === 0) return;
+
     // 检查所有玩家是否死亡
     let allDead = true;
     for (const player of this.players.values()) {
-      if (!player.isDead && player.health > 0) {
-        allDead = false;
-        break;
+      if (!player || !player.isDead || player.health > 0) {
+        // ⚠️ 修复：检查 player 是否存在，以及 isDead 是否为 true
+        // 如果玩家存在且未死亡（isDead 为 false 或 health > 0），则不是全灭
+        if (player && (!player.isDead || player.health > 0)) {
+          allDead = false;
+          break;
+        }
       }
     }
 
     // ✅ 修复：当所有玩家死亡时，设置 isGameOver 并标记需要广播事件
+    // ⚠️ 修复：确保至少有一个玩家，且所有玩家都死亡
     if (allDead && this.players.size > 0 && !this.isGameOver) {
       this.isGameOver = true;
       this._shouldBroadcastGameOver = true; // 标记需要广播 game_over 事件
+      console.log(`[GameState.checkGameOver] ✅ 游戏结束：所有玩家死亡 (players.size=${this.players.size})`);
     }
   }
 
