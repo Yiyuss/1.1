@@ -326,6 +326,25 @@ const UI = {
                     setTimeout(() => {
                         try {
                             if (typeof Game !== 'undefined' && typeof Game.reset === 'function') {
+                                // ⚠️ 修复：在 reset 之前，先清理多人模式相关状态
+                                // 确保完全清理，避免残留状态影响下一局
+                                try {
+                                    // 清理遠程玩家
+                                    if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.clear === "function") {
+                                        RemotePlayerManager.clear();
+                                    }
+                                    // 清理 Game.remotePlayers
+                                    if (Array.isArray(Game.remotePlayers)) {
+                                        Game.remotePlayers.length = 0;
+                                    }
+                                    // 停用 Runtime（停止狀態同步）
+                                    if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
+                                        Runtime.setEnabled(false);
+                                    }
+                                } catch (e) {
+                                    console.warn('[UI] _returnToStartFrom: 清理多人模式状态失败:', e);
+                                }
+                                
                                 // ⚠️ 修复：保存 _gameOverEventSent 的状态，防止 Game.reset() 重置后导致重复触发
                                 // 因为服务器可能还在持续发送 state.isGameOver = true
                                 const wasGameOver = Game._gameOverEventSent;
@@ -334,6 +353,7 @@ const UI = {
                                 
                                 // ⚠️ 修复：恢复 _gameOverEventSent 的状态，防止服务器持续发送 isGameOver 导致重复触发
                                 // 只有在真正开始新游戏时（startGame 中）才重置 _gameOverEventSent
+                                // 这样可以防止服务器残留的 state.isGameOver = true 立即触发游戏结束
                                 if (wasGameOver) {
                                     Game._gameOverEventSent = true;
                                 }
@@ -344,6 +364,10 @@ const UI = {
                                 // ⚠️ 修复：确保玩家被清理，防止武器继续发射
                                 if (Game.player) {
                                     Game.player = null;
+                                }
+                                // ⚠️ 修复：确保 _newGameStarted 标志被清理
+                                if (typeof Game._newGameStarted !== 'undefined') {
+                                    Game._newGameStarted = false;
                                 }
                             }
                         } catch (e) {
