@@ -1386,29 +1386,40 @@ const Game = {
                             projectileData.palette = projectile.palette || null;
                         }
                         
-                        if (projectile.weaponType === "CHAIN_LIGHTNING" || projectile.weaponType === "FRENZY_LIGHTNING") {
+                        if (projectile.weaponType === "CHAIN_LIGHTNING") {
+                            // ✅ 修復：使用與單機一致的默認值（CONFIG.CHAIN_LIGHTNING）
                             projectileData.damage = projectile.damage || 0;
-                            // ⚠️ 修復：使用實際的 duration（從 CONFIG.DURATION 傳遞），確保與單機一致
-                            // 單機模式：使用 this.config.DURATION || 1000
-                            projectileData.duration = projectile.durationMs || 1000;
+                            projectileData.duration = projectile.durationMs || 1000; // ✅ 與單機一致：使用 CONFIG.CHAIN_LIGHTNING.DURATION（1000ms）
                             projectileData.maxChains = projectile.maxChains || 0;
-                            // ⚠️ 修復：使用實際的 chainRadius（從 CONFIG.CHAIN_RADIUS 傳遞），確保與單機一致
-                            // 單機模式：使用 this.config.CHAIN_RADIUS || 220
-                            projectileData.chainRadius = projectile.chainRadius || 220;
+                            projectileData.chainRadius = projectile.chainRadius || 220; // ✅ 與單機一致：使用 CONFIG.CHAIN_LIGHTNING.CHAIN_RADIUS（220）
                             projectileData.palette = projectile.palette || null;
-                            if (projectile.weaponType === "FRENZY_LIGHTNING") {
-                                projectileData.branchCount = projectile.branchCount || 10;
-                                projectileData.chainsPerBranch = projectile.chainsPerBranch || 10;
-                            }
+                        } else if (projectile.weaponType === "FRENZY_LIGHTNING") {
+                            // ✅ 修復：使用與單機一致的默認值（CONFIG.FRENZY_LIGHTNING）
+                            projectileData.damage = projectile.damage || 0;
+                            projectileData.duration = projectile.durationMs || 1000; // ✅ 與單機一致：使用 CONFIG.FRENZY_LIGHTNING.DURATION（1000ms）
+                            projectileData.maxChains = projectile.maxChains || 0;
+                            projectileData.chainRadius = projectile.chainRadius || 300; // ✅ 與單機一致：使用 CONFIG.FRENZY_LIGHTNING.CHAIN_RADIUS（300）
+                            projectileData.palette = projectile.palette || null;
+                            projectileData.branchCount = projectile.branchCount || 10;
+                            projectileData.chainsPerBranch = projectile.chainsPerBranch || 10;
                         }
                         
-                        if (projectile.weaponType === "SLASH" || projectile.weaponType === "FRENZY_SLASH") {
+                        if (projectile.weaponType === "SLASH") {
+                            // ✅ 修復：使用與單機一致的默認值（CONFIG.SLASH）
                             projectileData.damage = projectile.damage || 0;
                             projectileData.angle = projectile.angle || 0;
-                            projectileData.radius = projectile.radius || 60;
-                            projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : (projectile.arcDeg || 80));
-                            projectileData.duration = projectile.durationMs || (projectile.duration || 1000);
-                            projectileData.visualScale = projectile.visualScale || 1.0;
+                            projectileData.radius = projectile.radius || 252; // ✅ 與單機一致：使用 CONFIG.SLASH.RADIUS_BASE（252）
+                            projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : (projectile.arcDeg || 365)); // ✅ 與單機一致：使用 CONFIG.SLASH.ARC_DEG_BASE（365）
+                            projectileData.duration = projectile.durationMs || (projectile.duration || 1200); // ✅ 與單機一致：使用 CONFIG.SLASH.DURATION（1200ms）
+                            projectileData.visualScale = projectile.visualScale || 1.8; // ✅ 與單機一致：使用 CONFIG.SLASH.VISUAL_SCALE（1.8）
+                        } else if (projectile.weaponType === "FRENZY_SLASH") {
+                            // ✅ 修復：使用與單機一致的默認值（CONFIG.FRENZY_SLASH）
+                            projectileData.damage = projectile.damage || 0;
+                            projectileData.angle = projectile.angle || 0;
+                            projectileData.radius = projectile.radius || 280; // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.RADIUS_BASE（280）
+                            projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : (projectile.arcDeg || 365)); // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.ARC_DEG_BASE（365）
+                            projectileData.duration = projectile.durationMs || (projectile.duration || 1200); // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.DURATION（1200ms）
+                            projectileData.visualScale = projectile.visualScale || 2.0; // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.VISUAL_SCALE（2.0）
                         }
                         
                         if (projectile.weaponType === "AURA_FIELD") {
@@ -1432,8 +1443,11 @@ const Game = {
                         
                         if (projectile.weaponType === "RADIANT_GLORY") {
                             projectileData.damage = projectile.tickDamage || projectile.damage || 0;
+                            projectileData.width = projectile.width || 8; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.BEAM_WIDTH_BASE（8）
+                            projectileData.duration = projectile.duration || 2000; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.DURATION（2000ms）
+                            projectileData.tickInterval = projectile.tickIntervalMs || 120; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.TICK_INTERVAL_MS（120ms）
                             projectileData.beamCount = projectile.beamCount || 10;
-                            projectileData.rotationSpeed = projectile.rotationSpeed || 0.05;
+                            projectileData.rotationSpeed = projectile.rotationSpeed || 1.0; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.ROTATION_SPEED（1.0）
                         }
                         
                         // 廣播投射物生成事件（讓遠程玩家也能看到）
@@ -1608,53 +1622,61 @@ const Game = {
 
                     // 如果是雷射（LaserBeam），添加額外屬性
                     if (projectile.width !== undefined && projectile.weaponType === "LASER") {
-                        projectileData.width = projectile.width;
-                        projectileData.duration = projectile.duration || 1000;
-                        projectileData.tickInterval = projectile.tickIntervalMs || 120;
+                        // ✅ 修復：使用與單機一致的默認值（CONFIG.LASER）
+                        projectileData.width = projectile.width || 8; // ✅ 與單機一致：使用 CONFIG.LASER.BEAM_WIDTH_BASE（8）
+                        projectileData.duration = projectile.duration || 2000; // ✅ 與單機一致：使用 CONFIG.LASER.DURATION（2000ms）
+                        projectileData.tickInterval = projectile.tickIntervalMs || 120; // ✅ 與單機一致：使用 CONFIG.LASER.TICK_INTERVAL_MS（120ms）
                     }
 
                     // 如果是震波（ShockwaveEffect），添加額外屬性
                     if (projectile.maxRadius !== undefined && projectile.weaponType === "MIND_MAGIC") {
-                        projectileData.maxRadius = projectile.maxRadius;
-                        projectileData.ringWidth = projectile.ringWidth || 18;
-                        projectileData.duration = projectile.durationMs || 1000;
+                        // ✅ 修復：使用與單機一致的默認值（CONFIG.MIND_MAGIC）
+                        projectileData.maxRadius = projectile.maxRadius || 220; // ✅ 與單機一致：使用 CONFIG.MIND_MAGIC.WAVE_MAX_RADIUS_BASE（220）
+                        projectileData.ringWidth = projectile.ringWidth || 18; // ✅ 與單機一致：使用 CONFIG.MIND_MAGIC.WAVE_THICKNESS（18）
+                        projectileData.duration = projectile.durationMs || 2000; // ✅ 與單機一致：使用 CONFIG.MIND_MAGIC.DURATION（2000ms）
                         projectileData.palette = projectile.palette || null;
                     }
 
                     // 如果是連鎖閃電（ChainLightningEffect），添加額外屬性
-                    if (projectile.weaponType === "CHAIN_LIGHTNING" || projectile.weaponType === "FRENZY_LIGHTNING") {
+                    if (projectile.weaponType === "CHAIN_LIGHTNING") {
+                        // ✅ 修復：使用與單機一致的默認值（CONFIG.CHAIN_LIGHTNING）
                         projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
-                        projectileData.duration = projectile.durationMs || 1000;
+                        projectileData.duration = projectile.durationMs || 1000; // ✅ 與單機一致：使用 CONFIG.CHAIN_LIGHTNING.DURATION（1000ms）
                         projectileData.maxChains = projectile.maxChains || 0;
-                        projectileData.chainRadius = projectile.chainRadius || 220;
+                        projectileData.chainRadius = projectile.chainRadius || 220; // ✅ 與單機一致：使用 CONFIG.CHAIN_LIGHTNING.CHAIN_RADIUS（220）
                         projectileData.palette = projectile.palette || null;
-                        // FrenzyLightningEffect 的特殊屬性
-                        if (projectile.weaponType === "FRENZY_LIGHTNING") {
-                            projectileData.branchCount = projectile.branchCount || 10;
-                            projectileData.chainsPerBranch = projectile.chainsPerBranch || 10;
-                        }
+                    } else if (projectile.weaponType === "FRENZY_LIGHTNING") {
+                        // ✅ 修復：使用與單機一致的默認值（CONFIG.FRENZY_LIGHTNING）
+                        projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
+                        projectileData.duration = projectile.durationMs || 1000; // ✅ 與單機一致：使用 CONFIG.FRENZY_LIGHTNING.DURATION（1000ms）
+                        projectileData.maxChains = projectile.maxChains || 0;
+                        projectileData.chainRadius = projectile.chainRadius || 300; // ✅ 與單機一致：使用 CONFIG.FRENZY_LIGHTNING.CHAIN_RADIUS（300）
+                        projectileData.palette = projectile.palette || null;
+                        projectileData.branchCount = projectile.branchCount || 10;
+                        projectileData.chainsPerBranch = projectile.chainsPerBranch || 10;
                     }
 
                     // 如果是斬擊（SlashEffect），添加額外屬性
                     if (projectile.weaponType === "SLASH") {
+                        // ✅ 修復：使用與單機一致的默認值（CONFIG.SLASH）
                         projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
                         projectileData.angle = projectile.angle || 0;
-                        projectileData.radius = projectile.radius || 60;
-                        projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : 80);
-                        projectileData.duration = projectile.durationMs || 1000;
-                        projectileData.visualScale = projectile.visualScale || 1.0;
+                        projectileData.radius = projectile.radius || 252; // ✅ 與單機一致：使用 CONFIG.SLASH.RADIUS_BASE（252）
+                        projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : 365); // ✅ 與單機一致：使用 CONFIG.SLASH.ARC_DEG_BASE（365）
+                        projectileData.duration = projectile.durationMs || 1200; // ✅ 與單機一致：使用 CONFIG.SLASH.DURATION（1200ms）
+                        projectileData.visualScale = projectile.visualScale || 1.8; // ✅ 與單機一致：使用 CONFIG.SLASH.VISUAL_SCALE（1.8）
                     }
 
                     // 如果是裁決（JudgmentEffect），添加額外屬性
                     if (projectile.weaponType === "JUDGMENT") {
                         projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
                         projectileData.swordCount = projectile.swordCount || 1;
-                        projectileData.detectRadius = projectile.detectRadius || 400;
-                        projectileData.aoeRadius = projectile.aoeRadius || 100;
-                        projectileData.swordImageWidth = projectile.swordImageWidth || 550;
-                        projectileData.swordImageHeight = projectile.swordImageHeight || 1320;
-                        projectileData.fallDurationMs = projectile.fallDurationMs || 500;
-                        projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300;
+                        projectileData.detectRadius = projectile.detectRadius || 400; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.DETECT_RADIUS（400）
+                        projectileData.aoeRadius = projectile.aoeRadius || 100; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.BASE_AOE_RADIUS（100）
+                        projectileData.swordImageWidth = projectile.swordImageWidth || 83; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.SWORD_IMAGE_WIDTH（83）
+                        projectileData.swordImageHeight = projectile.swordImageHeight || 200; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.SWORD_IMAGE_HEIGHT（200）
+                        projectileData.fallDurationMs = projectile.fallDurationMs || 250; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FALL_DURATION_MS（250ms）
+                        projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FADE_OUT_DURATION_MS（300ms）
                     }
 
                     // 如果是爆炸效果（ExplosionEffect），添加額外屬性
@@ -1664,35 +1686,39 @@ const Game = {
 
                     // 如果是死線戰士/死線超人（DeathlineWarriorEffect），添加額外屬性
                     if (projectile.weaponType === "DEATHLINE_WARRIOR" || projectile.weaponType === "DEATHLINE_SUPERMAN") {
+                        // ✅ 修復：使用與單機一致的默認值（CONFIG.DEATHLINE_WARRIOR / DEATHLINE_SUPERMAN）
+                        const isSuperman = (projectile.weaponType === "DEATHLINE_SUPERMAN");
                         projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
-                        projectileData.detectRadius = projectile.detectRadius || 600;
-                        projectileData.totalHits = projectile.totalHits || 3;
-                        projectileData.totalDurationMs = projectile.totalDurationMs || 1200;
-                        projectileData.minTeleportDistance = projectile.minTeleportDistance || 300;
-                        projectileData.aoeRadius = projectile.aoeRadius || 0;
-                        projectileData.displayScale = projectile.displayScale || 0.5;
+                        projectileData.detectRadius = projectile.detectRadius || 600; // ✅ 與單機一致：使用 CONFIG.DEATHLINE_WARRIOR.DETECT_RADIUS（600）
+                        projectileData.totalHits = projectile.totalHits || (isSuperman ? 6 : 3); // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 6，DEATHLINE_WARRIOR 為 3
+                        projectileData.totalDurationMs = projectile.totalDurationMs || 1200; // ✅ 與單機一致：使用 CONFIG.DEATHLINE_WARRIOR.TOTAL_DURATION_MS（1200ms）
+                        projectileData.minTeleportDistance = projectile.minTeleportDistance || 300; // ✅ 與單機一致：使用 CONFIG.DEATHLINE_WARRIOR.MIN_TELEPORT_DISTANCE（300）
+                        projectileData.aoeRadius = projectile.aoeRadius !== undefined ? projectile.aoeRadius : (isSuperman ? 200 : 0); // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 200，DEATHLINE_WARRIOR 為 0
+                        projectileData.displayScale = projectile.displayScale !== undefined ? projectile.displayScale : (isSuperman ? 1.0 : 0.5); // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 1.0，DEATHLINE_WARRIOR 為 0.5
                     }
 
                     // 如果是神裁（DivineJudgmentEffect），添加額外屬性
                     if (projectile.weaponType === "DIVINE_JUDGMENT") {
+                        // ✅ 修復：使用與單機一致的默認值（CONFIG.DIVINE_JUDGMENT）
                         projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
-                        projectileData.detectRadius = projectile.detectRadius || 400;
-                        projectileData.aoeRadius = projectile.aoeRadius || 100;
-                        projectileData.fallDurationMs = projectile.fallDurationMs || 250;
-                        projectileData.moveDurationMs = projectile.moveDurationMs || 2400;
-                        projectileData.headWaitMs = projectile.headWaitMs || 100;
-                        projectileData.holdOnEnemyMs = projectile.holdOnEnemyMs || 200;
-                        projectileData.swordImageWidth = projectile.swordImageWidth || 83;
-                        projectileData.swordImageHeight = projectile.swordImageHeight || 200;
+                        projectileData.detectRadius = projectile.detectRadius || 400; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.DETECT_RADIUS_BASE（400）
+                        projectileData.aoeRadius = projectile.aoeRadius || 100; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.AOE_RADIUS_BASE（100）
+                        projectileData.fallDurationMs = projectile.fallDurationMs || 250; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.FALL_DURATION_MS（250ms）
+                        projectileData.moveDurationMs = projectile.moveDurationMs || 600; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.MOVE_DURATION_MS（600ms）
+                        projectileData.headWaitMs = projectile.headWaitMs || 100; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.HEAD_WAIT_MS（100ms）
+                        projectileData.holdOnEnemyMs = projectile.holdOnEnemyMs || 200; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.HOLD_ON_ENEMY_MS（200ms）
+                        projectileData.swordImageWidth = projectile.swordImageWidth || 83; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.SWORD_IMAGE_WIDTH（83）
+                        projectileData.swordImageHeight = projectile.swordImageHeight || 200; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.SWORD_IMAGE_HEIGHT（200）
                         projectileData.visualScale = projectile.visualScale || 1.5;
-                        projectileData.patrolSpeedFactor = projectile.patrolSpeedFactor || 0.35;
+                        projectileData.patrolSpeedFactor = projectile.patrolSpeedFactor || 0.35; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.PATROL_SPEED_FACTOR（0.35）
                     }
 
                     // 如果是光環領域（AuraField），添加額外屬性
                     if (projectile.weaponType === "AURA_FIELD") {
+                        // ✅ 修復：使用與單機一致的默認值（CONFIG.AURA_FIELD）
                         projectileData.damage = projectile.tickDamage || projectile.damage || 0; // ✅ 传递持续伤害值
-                        projectileData.radius = projectile.radius || 150;
-                        projectileData.visualScale = projectile.visualScale || 1.95;
+                        projectileData.radius = projectile.radius || 60; // ✅ 與單機一致：使用 CONFIG.AURA_FIELD.FIELD_RADIUS（60）
+                        projectileData.visualScale = projectile.visualScale || 1.95; // ✅ 與單機一致：使用 CONFIG.AURA_FIELD.VISUAL_SCALE（1.95）
                     }
 
                     // 如果是重力波（GravityWaveField），添加額外屬性
@@ -1725,21 +1751,22 @@ const Game = {
                     // 如果是光芒萬丈（RadiantGloryEffect），添加額外屬性
                     if (projectile.weaponType === "RADIANT_GLORY") {
                         projectileData.damage = projectile.tickDamage || projectile.damage || 0; // ✅ 传递持续伤害值
-                        projectileData.width = projectile.width || 8;
-                        projectileData.duration = projectile.duration || 1000;
-                        projectileData.tickInterval = projectile.tickIntervalMs || 120;
+                        projectileData.width = projectile.width || 8; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.BEAM_WIDTH_BASE（8）
+                        projectileData.duration = projectile.duration || 2000; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.DURATION（2000ms）
+                        projectileData.tickInterval = projectile.tickIntervalMs || 120; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.TICK_INTERVAL_MS（120ms）
                         projectileData.beamCount = projectile.beamCount || 10;
-                        projectileData.rotationSpeed = projectile.rotationSpeed || 1.0;
+                        projectileData.rotationSpeed = projectile.rotationSpeed || 1.0; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.ROTATION_SPEED（1.0）
                     }
 
-                    // 如果是狂熱斬擊（FRENZY_SLASH），使用SLASH的處理（因為它使用SlashEffect）
+                    // 如果是狂熱斬擊（FRENZY_SLASH），使用FRENZY_SLASH的處理（因為它使用SlashEffect但參數不同）
                     if (projectile.weaponType === "FRENZY_SLASH") {
+                        // ✅ 修復：使用與單機一致的默認值（CONFIG.FRENZY_SLASH）
                         projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
                         projectileData.angle = projectile.angle || 0;
-                        projectileData.radius = projectile.radius || 60;
-                        projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : 80);
-                        projectileData.duration = projectile.durationMs || 1000;
-                        projectileData.visualScale = projectile.visualScale || 1.0;
+                        projectileData.radius = projectile.radius || 280; // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.RADIUS_BASE（280）
+                        projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : 365); // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.ARC_DEG_BASE（365）
+                        projectileData.duration = projectile.durationMs || 1200; // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.DURATION（1200ms）
+                        projectileData.visualScale = projectile.visualScale || 2.0; // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.VISUAL_SCALE（2.0）
                     }
 
                     // 如果是唱歌（SingEffect），添加額外屬性
