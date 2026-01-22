@@ -2291,11 +2291,8 @@ const Runtime = (() => {
                 } catch (_) { }
               }
               
-              // 完全重置游戏状态（与单机模式一致）
-              // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
-              if (typeof Game !== "undefined" && typeof Game.reset === "function") {
-                Game.reset();
-              }
+              // ⚠️ 修复：不要在显示游戏结束画面之前调用 reset()，因为 reset() 可能会影响视频播放
+              // 完全重置游戏状态会在 _returnToStartFrom 中调用（视频播放完成后）
               
               // 停用 Runtime（停止狀態同步）
               if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
@@ -2374,11 +2371,8 @@ const Runtime = (() => {
                 } catch (_) { }
               }
               
-              // 完全重置游戏状态（与单机模式一致）
-              // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
-              if (typeof Game !== "undefined" && typeof Game.reset === "function") {
-                Game.reset();
-              }
+              // ⚠️ 修复：不要在显示胜利画面之前调用 reset()，因为 reset() 可能会影响视频播放
+              // 完全重置游戏状态会在 _returnToStartFrom 中调用（视频播放完成后）
               
               // 停用 Runtime（停止狀態同步）
               if (typeof Runtime !== "undefined" && typeof Runtime.setEnabled === "function") {
