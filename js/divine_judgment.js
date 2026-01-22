@@ -33,7 +33,8 @@ class DivineJudgmentEffect extends Entity {
         this.detectRadius = Math.max(1, opts.detectRadius || this.detectRadius || 400);
         this.aoeRadius = Math.max(1, opts.aoeRadius || this.aoeRadius || 100);
         this.fallDurationMs = Math.max(1, opts.fallDurationMs || this.fallDurationMs || 250);
-        this.moveDurationMs = Math.max(1, opts.moveDurationMs || this.moveDurationMs || 2400);
+        // ✅ 修復：使用與單機一致的默認值（CONFIG.DIVINE_JUDGMENT.MOVE_DURATION_MS = 600ms）
+        this.moveDurationMs = Math.max(1, opts.moveDurationMs || this.moveDurationMs || 600);
         this.headWaitMs = Math.max(0, opts.headWaitMs || this.headWaitMs || 100);
         this.holdOnEnemyMs = Math.max(0, opts.holdOnEnemyMs || this.holdOnEnemyMs || 200);
         this.swordImageWidth = opts.swordImageWidth || this.swordImageWidth || 83;
