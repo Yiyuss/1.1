@@ -157,6 +157,43 @@ class ChainLightningEffect extends Entity {
                 this._playerNotFoundCount = 0;
             }
             
+            // ⚠️ 修復：如果 segments 為空（可能是因為創建時沒有敵人），嘗試重新構建連鎖
+            // ⚠️ 優化：避免每幀都檢查，只在第一次或每隔一段時間檢查一次（減少性能開銷）
+            if (this.segments.length === 0) {
+                // 初始化重構計數器
+                if (this._rebuildAttemptCount == null) {
+                    this._rebuildAttemptCount = 0;
+                    this._lastRebuildAttempt = Date.now();
+                }
+                const now = Date.now();
+                // 每隔 100ms 嘗試一次重構（避免每幀都調用 _buildChain，減少性能開銷）
+                if (now - this._lastRebuildAttempt >= 100) {
+                    this._lastRebuildAttempt = now;
+                    this._rebuildAttemptCount++;
+                    // 嘗試重新構建連鎖（敵人可能已經同步了）
+                    this._buildChain();
+                    // 如果還是沒有 segments，繼續等待（不立即刪除）
+                    if (this.segments.length === 0) {
+                        // 在寬限期內，繼續更新粒子（使用最後已知位置）
+                        this._updateParticles(deltaTime);
+                        const elapsed = Date.now() - this.startTime;
+                        // 如果超過持續時間的一半還沒構建成功，才標記為刪除
+                        if (elapsed >= this.durationMs * 0.5) {
+                            this.markedForDeletion = true;
+                        }
+                        return;
+                    }
+                } else {
+                    // 在等待重構期間，繼續更新粒子
+                    this._updateParticles(deltaTime);
+                    const elapsed = Date.now() - this.startTime;
+                    if (elapsed >= this.durationMs * 0.5) {
+                        this.markedForDeletion = true;
+                    }
+                    return;
+                }
+            }
+            
             // 僅視覺模式：只更新粒子，不進行傷害計算
             this._updateParticles(deltaTime);
             const elapsed = Date.now() - this.startTime;
@@ -461,31 +498,111 @@ class FrenzyLightningEffect extends Entity {
         // 僅視覺狂熱雷擊：需要從遠程玩家位置更新
         if (this._isVisualOnly && this._remotePlayerUid) {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-            if (rt && typeof rt.getRemotePlayers === 'function') {
-                const remotePlayers = rt.getRemotePlayers() || [];
-                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
-                if (remotePlayer) {
-                    // 更新玩家位置
-                    this.player.x = remotePlayer.x;
-                    this.player.y = remotePlayer.y;
-                    this.x = remotePlayer.x;
-                    this.y = remotePlayer.y;
+            let foundPlayer = false;
+            // ✅ 修復：優先使用 RemotePlayerManager 獲取完整的 Player 對象
+            if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                const remotePlayerObj = rt.RemotePlayerManager.get(this._remotePlayerUid);
+                if (remotePlayerObj) {
+                    this.player.x = remotePlayerObj.x;
+                    this.player.y = remotePlayerObj.y;
+                    this.x = remotePlayerObj.x;
+                    this.y = remotePlayerObj.y;
+                    foundPlayer = true;
                 } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
-                    // 如果是本地玩家
                     if (typeof Game !== 'undefined' && Game.player) {
                         this.player = Game.player;
                         this.x = Game.player.x;
                         this.y = Game.player.y;
+                        foundPlayer = true;
                     }
-                } else {
-                    // 如果找不到對應的玩家，標記為刪除
+                }
+            }
+            
+            // 如果 RemotePlayerManager 找不到，嘗試使用 getRemotePlayers
+            if (!foundPlayer && rt && typeof rt.getRemotePlayers === 'function') {
+                const remotePlayers = rt.getRemotePlayers() || [];
+                const remotePlayer = remotePlayers.find(p => 
+                    (p.uid === this._remotePlayerUid) || 
+                    (p._remoteUid === this._remotePlayerUid) ||
+                    (p._isRemotePlayer && p._remoteUid === this._remotePlayerUid)
+                );
+                if (remotePlayer) {
+                    this.player.x = remotePlayer.x;
+                    this.player.y = remotePlayer.y;
+                    this.x = remotePlayer.x;
+                    this.y = remotePlayer.y;
+                    foundPlayer = true;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                        this.x = Game.player.x;
+                        this.y = Game.player.y;
+                        foundPlayer = true;
+                    }
+                }
+            }
+            
+            // ⚠️ 修復：如果找不到玩家，不要立即刪除，給一個寬限期（避免瞬間消失）
+            if (!foundPlayer) {
+                // 初始化寬限期計數器
+                if (this._playerNotFoundCount == null) {
+                    this._playerNotFoundCount = 0;
+                }
+                this._playerNotFoundCount += deltaTime;
+                // 如果超過 500ms 還找不到玩家，才標記為刪除
+                if (this._playerNotFoundCount > 500) {
                     this.markedForDeletion = true;
                     return;
                 }
-            } else {
-                this.markedForDeletion = true;
+                // 在寬限期內，繼續更新粒子（使用最後已知位置）
+                this._updateParticles(deltaTime);
+                const elapsed = Date.now() - this.startTime;
+                if (elapsed >= this.durationMs) {
+                    this.markedForDeletion = true;
+                }
                 return;
+            } else {
+                // 找到玩家，重置計數器
+                this._playerNotFoundCount = 0;
             }
+            
+            // ⚠️ 修復：如果 segments 為空（可能是因為創建時沒有敵人），嘗試重新構建連鎖
+            // ⚠️ 優化：避免每幀都檢查，只在第一次或每隔一段時間檢查一次（減少性能開銷）
+            if (this.segments.length === 0) {
+                // 初始化重構計數器
+                if (this._rebuildAttemptCount == null) {
+                    this._rebuildAttemptCount = 0;
+                    this._lastRebuildAttempt = Date.now();
+                }
+                const now = Date.now();
+                // 每隔 100ms 嘗試一次重構（避免每幀都調用 _buildFrenzy，減少性能開銷）
+                if (now - this._lastRebuildAttempt >= 100) {
+                    this._lastRebuildAttempt = now;
+                    this._rebuildAttemptCount++;
+                    // 嘗試重新構建連鎖（敵人可能已經同步了）
+                    this._buildFrenzy();
+                    // 如果還是沒有 segments，繼續等待（不立即刪除）
+                    if (this.segments.length === 0) {
+                        // 在寬限期內，繼續更新粒子（使用最後已知位置）
+                        this._updateParticles(deltaTime);
+                        const elapsed = Date.now() - this.startTime;
+                        // 如果超過持續時間的一半還沒構建成功，才標記為刪除
+                        if (elapsed >= this.durationMs * 0.5) {
+                            this.markedForDeletion = true;
+                        }
+                        return;
+                    }
+                } else {
+                    // 在等待重構期間，繼續更新粒子
+                    this._updateParticles(deltaTime);
+                    const elapsed = Date.now() - this.startTime;
+                    if (elapsed >= this.durationMs * 0.5) {
+                        this.markedForDeletion = true;
+                    }
+                    return;
+                }
+            }
+            
             // 僅視覺模式：只更新粒子，不進行傷害計算
             this._updateParticles(deltaTime);
             const elapsed = Date.now() - this.startTime;
