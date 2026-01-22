@@ -866,30 +866,41 @@ const Game = {
 
         // 繪製AI生命體（使用GifOverlay，在玩家圖層）
         if (this.player && this.player.aiCompanion) {
-            this.player.aiCompanion.draw(this.ctx);
+            try {
+                this.player.aiCompanion.draw(this.ctx);
+            } catch (e) {
+                // ⚠️ 修复：如果 aiCompanion 已被清理，跳过绘制
+                console.warn('[Game] drawEntities: aiCompanion.draw 失败:', e);
+            }
         }
 
         // 繪製投射物（除連鎖閃電/狂熱雷擊/斬擊/裁決/神界裁決/路口車輛與幼妲光輝/幼妲天使聖光/死線戰士/死線超人，延後至敵人之上）
         for (const projectile of this.projectiles) {
+            // ⚠️ 修复：添加 null 检查，防止在清理过程中尝试绘制已被清理的投射物
+            if (!projectile || typeof projectile.draw !== 'function') {
+                continue;
+            }
             if (
-                projectile &&
-                (
-                    projectile.weaponType === 'CHAIN_LIGHTNING' ||
-                    projectile.weaponType === 'FRENZY_LIGHTNING' ||
-                    projectile.weaponType === 'SLASH' ||
-                    projectile.weaponType === 'YOUNG_DADA_GLORY' ||
-                    projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
-                    projectile.weaponType === 'DEATHLINE_WARRIOR' ||
-                    projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
-                    projectile.weaponType === 'JUDGMENT' ||
-                    projectile.weaponType === 'DIVINE_JUDGMENT' ||
-                    projectile.weaponType === 'INTERSECTION_CAR'
-                )
+                projectile.weaponType === 'CHAIN_LIGHTNING' ||
+                projectile.weaponType === 'FRENZY_LIGHTNING' ||
+                projectile.weaponType === 'SLASH' ||
+                projectile.weaponType === 'YOUNG_DADA_GLORY' ||
+                projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
+                projectile.weaponType === 'DEATHLINE_WARRIOR' ||
+                projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
+                projectile.weaponType === 'JUDGMENT' ||
+                projectile.weaponType === 'DIVINE_JUDGMENT' ||
+                projectile.weaponType === 'INTERSECTION_CAR'
             ) {
                 // 延後到前景層（敵人之上）再繪製
                 continue;
             }
-            projectile.draw(this.ctx);
+            try {
+                projectile.draw(this.ctx);
+            } catch (e) {
+                // ⚠️ 修复：如果投射物已被清理或 draw 方法失败，跳过绘制
+                console.warn('[Game] drawEntities: projectile.draw 失败:', e);
+            }
         }
 
         // （移至前景）BOSS 火彈投射物原本在敵人之前繪製，改為敵人之上
@@ -898,13 +909,29 @@ const Game = {
 
         // 繪製敵人
         for (const enemy of this.enemies) {
-            enemy.draw(this.ctx);
+            // ⚠️ 修复：添加 null 检查，防止在清理过程中尝试绘制已被清理的敌人
+            if (enemy && typeof enemy.draw === 'function') {
+                try {
+                    enemy.draw(this.ctx);
+                } catch (e) {
+                    // ⚠️ 修复：如果敌人已被清理或 draw 方法失败，跳过绘制
+                    console.warn('[Game] drawEntities: enemy.draw 失败:', e);
+                }
+            }
         }
 
         // 前景層：BOSS 火彈投射物（提高可見度，避免被怪物遮擋）
         if (this.bossProjectiles) {
             for (const bossProjectile of this.bossProjectiles) {
-                bossProjectile.draw(this.ctx);
+                // ⚠️ 修复：添加 null 检查，防止在清理过程中尝试绘制已被清理的 BOSS 投射物
+                if (bossProjectile && typeof bossProjectile.draw === 'function') {
+                    try {
+                        bossProjectile.draw(this.ctx);
+                    } catch (e) {
+                        // ⚠️ 修复：如果 BOSS 投射物已被清理或 draw 方法失败，跳过绘制
+                        console.warn('[Game] drawEntities: bossProjectile.draw 失败:', e);
+                    }
+                }
             }
         }
 
@@ -952,22 +979,28 @@ const Game = {
 
         // 前景層：連鎖閃電/狂熱雷擊/斬擊效果（電弧與火花/GIF）以及幼妲光輝/幼妲天使聖光特效/死線戰士特效/死線超人特效/裁決/神界裁決特效/路口車輛
         for (const projectile of this.projectiles) {
+            // ⚠️ 修复：添加 null 检查，防止在清理过程中尝试绘制已被清理的投射物
+            if (!projectile || typeof projectile.draw !== 'function') {
+                continue;
+            }
             if (
-                projectile &&
-                (
-                    projectile.weaponType === 'CHAIN_LIGHTNING' ||
-                    projectile.weaponType === 'FRENZY_LIGHTNING' ||
-                    projectile.weaponType === 'SLASH' ||
-                    projectile.weaponType === 'YOUNG_DADA_GLORY' ||
-                    projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
-                    projectile.weaponType === 'DEATHLINE_WARRIOR' ||
-                    projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
-                    projectile.weaponType === 'JUDGMENT' ||
-                    projectile.weaponType === 'DIVINE_JUDGMENT' ||
-                    projectile.weaponType === 'INTERSECTION_CAR'
-                )
+                projectile.weaponType === 'CHAIN_LIGHTNING' ||
+                projectile.weaponType === 'FRENZY_LIGHTNING' ||
+                projectile.weaponType === 'SLASH' ||
+                projectile.weaponType === 'YOUNG_DADA_GLORY' ||
+                projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
+                projectile.weaponType === 'DEATHLINE_WARRIOR' ||
+                projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
+                projectile.weaponType === 'JUDGMENT' ||
+                projectile.weaponType === 'DIVINE_JUDGMENT' ||
+                projectile.weaponType === 'INTERSECTION_CAR'
             ) {
-                projectile.draw(this.ctx);
+                try {
+                    projectile.draw(this.ctx);
+                } catch (e) {
+                    // ⚠️ 修复：如果投射物已被清理或 draw 方法失败，跳过绘制
+                    console.warn('[Game] drawEntities: foreground projectile.draw 失败:', e);
+                }
             }
         }
 
@@ -1075,7 +1108,15 @@ const Game = {
         } catch (_) { }
 
         // 繪製玩家
-        this.player.draw(this.ctx);
+        // ⚠️ 修复：添加 null 检查，防止在视频播放期间（玩家已被清理）尝试绘制
+        if (this.player && typeof this.player.draw === 'function') {
+            try {
+                this.player.draw(this.ctx);
+            } catch (e) {
+                // ⚠️ 修复：如果玩家已被清理或 draw 方法失败，跳过绘制
+                console.warn('[Game] drawEntities: player.draw 失败:', e);
+            }
+        }
 
         // ✅ 繪製本地玩家名稱（在角色上方，僅在組隊模式下顯示）
         try {
