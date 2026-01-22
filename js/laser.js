@@ -129,7 +129,14 @@ class LaserBeam extends Entity {
                     this.markedForDeletion = true;
                     return;
                 }
-                // 在寬限期內，繼續更新（使用最後已知位置）
+                // 在寬限期內，繼續更新（使用最後已知位置，重新計算端點）
+                const pts = this.computeEndpoints();
+                this.startX = pts.startX;
+                this.startY = pts.startY;
+                this.endX = pts.endX;
+                this.endY = pts.endY;
+                // 視覺脈動相位推進
+                this.pulsePhase += deltaTime;
                 const elapsed = Date.now() - this.startTime;
                 if (elapsed >= this.duration) {
                     this.markedForDeletion = true;
