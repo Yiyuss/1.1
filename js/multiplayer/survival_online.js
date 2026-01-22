@@ -4514,30 +4514,22 @@ function handleServerGameState(state, timestamp) {
                 const nowExp = Math.max(0, Math.floor(playerState.experience || 0));
                 const deltaExp = nowExp - (_lastSessionExp || 0);
                 if (deltaExp > 0 && typeof Game.player.gainExperience === "function") {
-                  // ⚠️ 修復：保存升級前的 level，用於檢測是否升級
+                  // ✅ 修复：保存升级前的 level 和 experienceToNextLevel，用于检测是否升级
                   const prevLevel = Game.player.level || 1;
-                  // ⚠️ 修復：在升級前保存當前的 experienceToNextLevel，確保升級後不會被覆蓋
                   const prevExpToNext = Game.player.experienceToNextLevel || 80;
+                  // ✅ 修复：在 gainExperience 之前，确保 experienceToNextLevel 不会被覆盖
+                  // 调用 gainExperience，它会检查是否升级并调用 levelUp()
                   Game.player.gainExperience(deltaExp);
-                  // ⚠️ 修復：如果升級了，gainExperience 內部會調用 levelUp()，levelUp() 會重新計算 experienceToNextLevel
-                  // 與單機一致：experienceToNextLevel 只在升級時改變，不應該被伺服器每幀覆蓋
-                  // 如果升級了，使用客戶端計算的值（通過 levelUp() 設置）
-                  // 如果沒有升級，也不應該被伺服器覆蓋（保持客戶端的值）
-                  // 只有在 session 初始化時才同步伺服器的值
+                  // ✅ 修复：如果升级了，levelUp() 会重新计算 experienceToNextLevel
+                  // 如果没有升级，保持客户端的值（不应该被服务器覆盖）
                   const newLevel = Game.player.level || 1;
-                  if (newLevel > prevLevel) {
-                    // 升級了，使用客戶端計算的值（levelUp() 已經設置了正確的值）
-                    // 不需要做任何事，因為 levelUp() 已經正確設置了 experienceToNextLevel
-                  } else {
-                    // 沒有升級，保持客戶端的值（不應該被伺服器覆蓋）
-                    // 但是，如果客戶端的值與伺服器的值不一致，可能是因為客戶端計算錯誤
-                    // 在這種情況下，我們應該使用伺服器的值（但這不應該發生）
+                  if (newLevel <= prevLevel) {
+                    // ✅ 修复：没有升级时，恢复原来的 experienceToNextLevel，防止被 gainExperience 内部逻辑覆盖
+                    // 这是因为 gainExperience 可能会在升级检查时修改 experienceToNextLevel
+                    Game.player.experienceToNextLevel = prevExpToNext;
                   }
-                } else {
-                  // ⚠️ 修復：沒有獲得經驗時，不應該同步伺服器的 experienceToNextLevel
-                  // 與單機一致：experienceToNextLevel 只在升級時改變，不應該被伺服器每幀覆蓋
-                  // 只有在 session 初始化時才同步伺服器的值
-                  // 之後完全由客戶端管理（通過 gainExperience 和 levelUp()）
+                  // ✅ 修复：无论是否升级，都不应该被服务器的 experienceToNextLevel 覆盖
+                  // 客户端的 experienceToNextLevel 由 levelUp() 管理，与单机一致
                 }
                 _lastSessionExp = nowExp;
               }
@@ -4659,18 +4651,20 @@ function handleServerGameState(state, timestamp) {
             } catch (_) {}
           }
           // ✅ 修复：处理车辆撞击事件（音效+特效）
-          else if (v.type === 'car_hit' && v.data) {
+          else if (v.type === 'car_hit') {
+            // ✅ 修复：兼容两种格式：v.data 或直接 v
+            const eventData = v.data || v;
             try {
               // 音效是单机元素，只对本地玩家播放
-              if (v.data.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+              if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                 if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
                   AudioManager.playSound('bo');
                 }
               }
               // 特效是多人元素，需要同步（爆炸粒子、屏幕白闪）
-              if (typeof v.data.x === 'number' && typeof v.data.y === 'number') {
+              if (typeof eventData.x === 'number' && typeof eventData.y === 'number') {
                 // 屏幕白闪：仅本地玩家触发
-                if (v.data.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                   if (typeof Game !== 'undefined') {
                     Game.screenFlash = { active: true, duration: 140, intensity: 0.28 };
                   }
@@ -4683,8 +4677,8 @@ function handleServerGameState(state, timestamp) {
                     const ang = Math.random() * Math.PI * 2;
                     const spd = 2.5 + Math.random() * 5.5;
                     const particle = {
-                      x: v.data.x + (Math.random() - 0.5) * 8,
-                      y: v.data.y + (Math.random() - 0.5) * 8,
+                      x: eventData.x + (Math.random() - 0.5) * 8,
+                      y: eventData.y + (Math.random() - 0.5) * 8,
                       vx: Math.cos(ang) * spd,
                       vy: Math.sin(ang) * spd,
                       life: 320 + Math.random() * 220,
@@ -5085,7 +5079,7 @@ function updateProjectilesFromServer(projectiles) {
     return (
       // 一次性視覺效果（每次 fire() 都創建新的）
       weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' ||
-      weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' ||
+      weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' || weaponType === 'INVINCIBLE' ||
       // 持續視覺效果（通過事件廣播的）
       weaponType === 'AURA_FIELD' || weaponType === 'GRAVITY_WAVE' ||
       weaponType === 'ORBIT' || weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' ||
