@@ -649,15 +649,9 @@ class Player extends Entity {
         this.invulnerabilityTime = 0;
         this.invulnerabilityDuration = d > 0 ? d : this.invulnerabilityDuration;
         this.invulnerabilitySource = 'INVINCIBLE';
-        // 視覺覆蓋（DOM 護盾），與武器中一致；此處作為冗餘保險。
-        try {
-            if (typeof InvincibleEffect !== 'undefined') {
-                const effect = new InvincibleEffect(this, this.invulnerabilityDuration);
-                if (typeof Game !== 'undefined' && Game.addProjectile) {
-                    Game.addProjectile(effect);
-                }
-            }
-        } catch (_) {}
+        // ✅ 修复：不在这里创建 InvincibleEffect，因为 weapon.js 的 fire() 方法已经创建了
+        // 如果这里也创建，会导致重复创建，造成重叠问题
+        // 这里只设置无敌状态，视觉效果由 weapon.js 的 fire() 方法处理
     }
     
     // 死亡
