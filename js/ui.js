@@ -258,9 +258,17 @@ const UI = {
             
             if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer) {
                 // ✅ 組隊模式：回到房間大廳（覆蓋層，需要開始畫面作為背景）
-                // 注意：不需要清理玩家數據（武器、等級、經驗等），因為下次開始新遊戲時
-                // Game.reset() 會創建新的 Player 對象，所有數據會自動重置
-                // 這與單機模式的行為一致，單機模式也沒有在遊戲結束時清理這些數據
+                // ⚠️ 修复：游戏结束时完全清理所有游戏数据，确保重新进入游戏时是全新状态
+                // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
+                try {
+                    // 完全重置游戏状态（与单机模式一致）
+                    // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
+                    if (typeof Game !== 'undefined' && typeof Game.reset === 'function') {
+                        Game.reset();
+                    }
+                } catch (e) {
+                    console.warn('[UI] _returnToStartFrom: 清理游戏状态失败:', e);
+                }
                 
                 // 先顯示開始畫面（作為背景）
                 const charSel = this._get('character-select-screen'); if (charSel) charSel.classList.add('hidden');
@@ -1611,10 +1619,18 @@ const UI = {
                 const playPromise = el.play(); 
                 if (playPromise !== undefined) {
                     playPromise.catch(error => {
-                        console.error("播放失敗影片時出錯:", error);
+                        // ⚠️ 修复：AbortError 是正常的（当 pause() 被调用时），不需要报错
+                        // 只有当错误不是 AbortError 时才报错
+                        if (error && error.name !== 'AbortError') {
+                            console.error("播放失敗影片時出錯:", error);
+                        }
                         // 如果自動播放失敗，嘗試添加用戶交互後再播放
                         document.addEventListener('click', function playOnClick() {
-                            el.play().catch(() => {
+                            el.play().catch((playError) => {
+                                // ⚠️ 修复：AbortError 是正常的，不需要报错
+                                if (playError && playError.name !== 'AbortError') {
+                                    console.warn("點擊播放失敗:", playError);
+                                }
                                 // 如果播放仍然失敗，直接返回
                                 clearTimeout(timeoutId);
                                 this._returnToStartFrom('game-over-screen');
@@ -1624,7 +1640,10 @@ const UI = {
                     });
                 }
             } catch (err) {
-                console.error("播放失敗影片時出錯:", err);
+                // ⚠️ 修复：AbortError 是正常的（当 pause() 被调用时），不需要报错
+                if (err && err.name !== 'AbortError') {
+                    console.error("播放失敗影片時出錯:", err);
+                }
                 clearTimeout(timeoutId);
                 this._returnToStartFrom('game-over-screen');
             }
