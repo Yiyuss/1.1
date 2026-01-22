@@ -2174,6 +2174,8 @@ const Game = {
         // ⚠️ 修复：游戏结束时完全清理所有游戏数据，确保重新进入游戏时是全新状态
         // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
         // 这样才不会污染到单机、其他模式，以及组队模式的下一局
+        // ⚠️ 注意：不要在显示游戏结束画面之前调用 reset()，因为 reset() 可能会影响视频播放
+        // 清理逻辑应该在游戏结束画面播放完成后，在 _returnToStartFrom 中调用
         try {
             // 停止所有音效（包括路口地图的车子音效）
             if (typeof AudioManager !== 'undefined') {
@@ -2183,11 +2185,9 @@ const Game = {
                 } catch (_) { }
             }
             
-            // 完全重置游戏状态（与单机模式一致）
-            // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
-            if (typeof this.reset === 'function') {
-                this.reset();
-            }
+            // ⚠️ 修复：延迟调用 reset()，等待游戏结束画面显示后再清理
+            // 这样可以避免 reset() 影响视频播放
+            // 完全重置游戏状态会在 _returnToStartFrom 中调用（通过 Game.init 或 startGame）
         } catch (e) {
             console.warn('[Game] gameOver: 清理游戏状态失败:', e);
         }
@@ -2244,6 +2244,8 @@ const Game = {
         // ⚠️ 修复：游戏结束时完全清理所有游戏数据，确保重新进入游戏时是全新状态
         // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
         // 这样才不会污染到单机、其他模式，以及组队模式的下一局
+        // ⚠️ 注意：不要在显示胜利画面之前调用 reset()，因为 reset() 可能会影响视频播放
+        // 清理逻辑应该在胜利画面播放完成后，在 _returnToStartFrom 中调用
         try {
             // 停止所有音效（包括路口地图的车子音效）
             if (typeof AudioManager !== 'undefined') {
@@ -2253,11 +2255,9 @@ const Game = {
                 } catch (_) { }
             }
             
-            // 完全重置游戏状态（与单机模式一致）
-            // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
-            if (typeof this.reset === 'function') {
-                this.reset();
-            }
+            // ⚠️ 修复：延迟调用 reset()，等待胜利画面显示后再清理
+            // 这样可以避免 reset() 影响视频播放
+            // 完全重置游戏状态会在 _returnToStartFrom 中调用（通过 Game.init 或 startGame）
         } catch (e) {
             console.warn('[Game] victory: 清理游戏状态失败:', e);
         }
