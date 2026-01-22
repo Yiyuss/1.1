@@ -4471,7 +4471,43 @@ function handleServerGameState(state, timestamp) {
             }
             if (typeof playerState.energy === "number") Game.player.energy = playerState.energy;
             if (typeof playerState.maxEnergy === "number") Game.player.maxEnergy = playerState.maxEnergy;
-            if (typeof playerState.level === "number") Game.player.level = playerState.level;
+            // ⚠️ 修復：不應該直接設置 Game.player.level，應該讓客戶端的 levelUp() 來管理 level
+            // 直接設置 level 會導致客戶端的 experience 和 experienceToNextLevel 不同步
+            // 如果服務器端的 level 比客戶端的 level 高，應該觸發客戶端的升級流程
+            // if (typeof playerState.level === "number") Game.player.level = playerState.level; // 已移除
+            
+            // ✅ 經驗共享（伺服器權威）：伺服器的 experience 是「本場累積獲得量」
+            // 客戶端用 delta 驅動 gainExperience，保持原本升級/UI/天賦流程不變。
+            if (typeof playerState.experience === "number") {
+              if (!_sessionCountersPrimed) {
+                _lastSessionExp = Math.max(0, Math.floor(playerState.experience || 0));
+                // ✅ 修复：只在 session 初始化时同步一次 experienceToNextLevel 和 level，之后完全由客户端管理
+                // 注意：这里只在 _sessionCountersPrimed 为 false 时同步一次，之后不再同步
+                if (typeof playerState.experienceToNextLevel === "number" && Game.player) {
+                  Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
+                }
+                if (typeof playerState.level === "number" && Game.player) {
+                  Game.player.level = playerState.level;
+                }
+                _sessionCountersPrimed = true; // 标记为已初始化，防止后续覆盖
+              } else {
+                const nowExp = Math.max(0, Math.floor(playerState.experience || 0));
+                const deltaExp = nowExp - (_lastSessionExp || 0);
+                if (deltaExp > 0 && typeof Game.player.gainExperience === "function") {
+                  // ✅ 修复：直接调用 gainExperience，它会自动处理升级和 experienceToNextLevel 的更新
+                  // gainExperience 会检查是否升级，如果升级则调用 levelUp()，levelUp() 会重新计算 experienceToNextLevel
+                  // 与单机模式完全一致：experienceToNextLevel 只在升级时改变（通过 levelUp()）
+                  Game.player.gainExperience(deltaExp);
+                  // ✅ 修复：无论是否升级，都不应该被服务器的 experienceToNextLevel 覆盖
+                  // 客户端的 experienceToNextLevel 由 levelUp() 管理，与单机一致
+                }
+                // ✅ 修复：如果服务器端的 level 比客户端的 level 高，说明服务器端已经升级了
+                // 但客户端的 level 应该由 levelUp() 管理，不应该直接覆盖
+                // 如果客户端的 level 与服务器端的 level 不一致，可能是升级流程没有正确触发
+                // 这种情况下，应该让客户端的 gainExperience 和 levelUp() 来处理，而不是直接覆盖
+                _lastSessionExp = nowExp;
+              }
+            }
             
             // ✅ 單機元素：左上角 HUD（血量/經驗/能量/等級）只顯示本地玩家狀態
             // 在組隊模式下，使用伺服器同步的本地玩家狀態更新 HUD
@@ -4500,32 +4536,6 @@ function handleServerGameState(state, timestamp) {
                 }
                 // 經驗條由 gainExperience() 中的 UI.updateExpBar 更新，這裡不需要重複更新
               } catch (_) {}
-            }
-
-            // ✅ 經驗共享（伺服器權威）：伺服器的 experience 是「本場累積獲得量」
-            // 客戶端用 delta 驅動 gainExperience，保持原本升級/UI/天賦流程不變。
-            if (typeof playerState.experience === "number") {
-              if (!_sessionCountersPrimed) {
-                _lastSessionExp = Math.max(0, Math.floor(playerState.experience || 0));
-                // ✅ 修复：只在 session 初始化时同步一次 experienceToNextLevel，之后完全由客户端管理
-                // 注意：这里只在 _sessionCountersPrimed 为 false 时同步一次，之后不再同步
-                if (typeof playerState.experienceToNextLevel === "number" && Game.player) {
-                  Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
-                }
-                _sessionCountersPrimed = true; // 标记为已初始化，防止后续覆盖
-              } else {
-                const nowExp = Math.max(0, Math.floor(playerState.experience || 0));
-                const deltaExp = nowExp - (_lastSessionExp || 0);
-                if (deltaExp > 0 && typeof Game.player.gainExperience === "function") {
-                  // ✅ 修复：直接调用 gainExperience，它会自动处理升级和 experienceToNextLevel 的更新
-                  // gainExperience 会检查是否升级，如果升级则调用 levelUp()，levelUp() 会重新计算 experienceToNextLevel
-                  // 与单机模式完全一致：experienceToNextLevel 只在升级时改变（通过 levelUp()）
-                  Game.player.gainExperience(deltaExp);
-                  // ✅ 修复：无论是否升级，都不应该被服务器的 experienceToNextLevel 覆盖
-                  // 客户端的 experienceToNextLevel 由 levelUp() 管理，与单机一致
-                }
-                _lastSessionExp = nowExp;
-              }
             }
             
             // ⚠️ 修復：確保 experienceToNextLevel 不會被伺服器每幀覆蓋
