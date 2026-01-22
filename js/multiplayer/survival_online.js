@@ -4420,6 +4420,7 @@ function handleServerGameState(state, timestamp) {
   // 必须在所有其他逻辑之前检查，避免被其他逻辑提前返回而跳过
    
   // ⚠️ 修复：如果新游戏已开始，检查服务器是否已重置 isGameOver
+  let shouldSkipGameOver = false; // 标记是否应该跳过游戏结束处理
   if (typeof Game !== 'undefined' && Game._newGameStarted) {
     if (!state.isGameOver) {
       // 服务器已重置 isGameOver = false，新游戏正式开始
@@ -4433,32 +4434,33 @@ function handleServerGameState(state, timestamp) {
       console.log('[SurvivalOnline] handleServerGameState: 新游戏已开始，忽略服务器残留的 isGameOver = true');
       // ⚠️ 修复：保持 _gameOverEventSent = true，防止服务器残留状态触发游戏结束
       // 不需要显式设置，因为 _gameOverEventSent 在 startGame 中应该保持为 true
-      return; // 忽略上一局的残留状态
+      shouldSkipGameOver = true; // 标记跳过游戏结束处理，但继续执行后续状态更新
     }
   }
   
-  if (typeof Game !== 'undefined' && state.isGameOver) {
-    // ⚠️ 修复：如果已经处理过游戏结束，直接返回，避免循环
+  if (typeof Game !== 'undefined' && state.isGameOver && !shouldSkipGameOver) {
+    // ⚠️ 修复：如果已经处理过游戏结束，直接跳过，避免循环
     // 服务器可能会持续发送 isGameOver = true，但客户端只需要处理一次
     if (Game._gameOverEventSent) {
       // 静默跳过，不需要日志，因为这是正常的（服务器持续发送状态）
-      return;
-    }
-    
-    // ⚠️ 修复：不要检查 Game.isGameOver，因为这是我们要设置的状态
-    // 如果 _gameOverEventSent = false 且 state.isGameOver = true，说明服务器检测到游戏结束
-    // 应该立即触发游戏结束，不管 Game.isGameOver 的当前值是什么
-    
-    console.log('[SurvivalOnline] handleServerGameState: 检测到 state.isGameOver = true');
-    // ✅ 權威伺服器模式：遊戲結束由伺服器 state.isGameOver 觸發
-    // ⚠️ 修复：不要在这里设置 _gameOverEventSent，让 Game.gameOver() 自己设置
-    // 否则会导致 Game.gameOver() 内部的检查失败，直接返回而不执行后续逻辑
-    Game.isGameOver = true;
-    if (typeof Game.gameOver === 'function') {
-      console.log('[SurvivalOnline] handleServerGameState: 调用 Game.gameOver()');
-      Game.gameOver();
+      // ⚠️ 重要：不要 return，继续执行后续状态更新
     } else {
-      console.error('[SurvivalOnline] handleServerGameState: Game.gameOver 不是函数！');
+    
+      // ⚠️ 修复：不要检查 Game.isGameOver，因为这是我们要设置的状态
+      // 如果 _gameOverEventSent = false 且 state.isGameOver = true，说明服务器检测到游戏结束
+      // 应该立即触发游戏结束，不管 Game.isGameOver 的当前值是什么
+      
+      console.log('[SurvivalOnline] handleServerGameState: 检测到 state.isGameOver = true');
+      // ✅ 權威伺服器模式：遊戲結束由伺服器 state.isGameOver 觸發
+      // ⚠️ 修复：不要在这里设置 _gameOverEventSent，让 Game.gameOver() 自己设置
+      // 否则会导致 Game.gameOver() 内部的检查失败，直接返回而不执行后续逻辑
+      Game.isGameOver = true;
+      if (typeof Game.gameOver === 'function') {
+        console.log('[SurvivalOnline] handleServerGameState: 调用 Game.gameOver()');
+        Game.gameOver();
+      } else {
+        console.error('[SurvivalOnline] handleServerGameState: Game.gameOver 不是函数！');
+      }
     }
   }
 
