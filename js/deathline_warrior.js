@@ -8,10 +8,12 @@ class DeathlineWarriorEffect extends Entity {
         this.detectRadius = detectRadius || 600;
         this.totalHits = totalHits || 3;
         this.totalDurationMs = totalDurationMs || 1200; // 1.2秒
-        this.minTeleportDistance = minTeleportDistance || 300; // 優先選擇300以上距離的敵人
+        // ✅ 修復：使用與單機一致的默認值（CONFIG.DEATHLINE_WARRIOR / DEATHLINE_SUPERMAN）
+        this.minTeleportDistance = minTeleportDistance || 300; // ✅ 與單機一致：使用 CONFIG.DEATHLINE_WARRIOR.MIN_TELEPORT_DISTANCE（300）
         this.weaponType = weaponType || 'DEATHLINE_WARRIOR'; // 武器類型（DEATHLINE_WARRIOR 或 DEATHLINE_SUPERMAN）
-        this.aoeRadius = aoeRadius || 0; // 範圍傷害半徑（0表示單體傷害）
-        this.displayScale = displayScale || 0.5; // 特效顯示大小（死線戰士50%，死線超人100%）
+        // ⚠️ 注意：aoeRadius 和 displayScale 的默認值取決於 weaponType，已在接收端正確處理
+        this.aoeRadius = aoeRadius !== undefined ? aoeRadius : (weaponType === 'DEATHLINE_SUPERMAN' ? 200 : 0); // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 200，DEATHLINE_WARRIOR 為 0
+        this.displayScale = displayScale !== undefined ? displayScale : (weaponType === 'DEATHLINE_SUPERMAN' ? 1.0 : 0.5); // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 1.0，DEATHLINE_WARRIOR 為 0.5
         
         this.startTime = Date.now();
         this.hitsCompleted = 0;
