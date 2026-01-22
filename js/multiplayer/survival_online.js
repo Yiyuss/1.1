@@ -804,6 +804,7 @@ const Runtime = (() => {
             if (typeof p.maxEnergy === "number") remotePlayer.maxEnergy = p.maxEnergy;
             if (typeof p.level === "number") remotePlayer.level = p.level;
             if (typeof p.exp === "number") remotePlayer.experience = p.exp;
+            // ✅ 修復：遠程玩家的 experienceToNextLevel 可以從服務器同步（不影響本地玩家）
             if (typeof p.expToNext === "number") remotePlayer.experienceToNextLevel = p.expToNext;
             if (typeof p._isDead === "boolean") remotePlayer._isDead = p._isDead;
             if (typeof p._resurrectionProgress === "number") remotePlayer._resurrectionProgress = p._resurrectionProgress;
@@ -834,7 +835,9 @@ const Runtime = (() => {
             // 經驗值也是共享的，同步到本地玩家
             if (typeof Game !== "undefined" && Game.player && typeof p.exp === "number") {
               Game.player.experience = p.exp;
-              if (typeof p.expToNext === "number") {
+              // ✅ 修復：只有在 session 初始化時才同步 experienceToNextLevel
+              // 之後完全由客戶端管理（通過 gainExperience 和 levelUp()），與單機一致
+              if (!_sessionCountersPrimed && typeof p.expToNext === "number") {
                 Game.player.experienceToNextLevel = p.expToNext;
               }
               if (typeof p.level === "number") {
@@ -1337,13 +1340,15 @@ const Runtime = (() => {
             
             // ⚠️ 修復：區分持續效果和一次性效果
             // 持續效果（AURA_FIELD、ORBIT等）：應該只創建一次，之後更新
-            // 一次性效果（SLASH、LASER、CHAIN_LIGHTNING等）：每次 fire() 都創建新的（與單機一致）
+            // 一次性效果（SLASH、LASER、CHAIN_LIGHTNING、INVINCIBLE等）：每次 fire() 都創建新的（與單機一致）
+            // ✅ 修復：INVINCIBLE 是一次性效果（持續幾秒後消失，然後又持續幾秒後消失，很像是變長的斬擊）
+            // 守護領域是永久常駐，無敵是持續幾秒後消失，所以無敵應該像斬擊一樣，每次施放都創建新的效果
             const isPersistentEffect = (
               weaponType === 'AURA_FIELD' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' ||
               weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' || weaponType === 'HEART_COMPANION' ||
               weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC'
             );
-            // ⚠️ 修復：LASER、CHAIN_LIGHTNING、SLASH 是一次性效果，每次 fire() 都創建新的（與單機一致）
+            // ⚠️ 修復：LASER、CHAIN_LIGHTNING、SLASH、INVINCIBLE 是一次性效果，每次 fire() 都創建新的（與單機一致）
             // 不應該被標記為持續效果，否則會導致去重邏輯錯誤
             
             let existingProjectile = null;
@@ -1366,12 +1371,14 @@ const Runtime = (() => {
                 }
               });
             } else {
-              // ⚠️ 修復：對於一次性效果（SLASH、LASER、CHAIN_LIGHTNING），不應該檢查ID
+              // ⚠️ 修復：對於一次性效果（SLASH、LASER、CHAIN_LIGHTNING、INVINCIBLE），不應該檢查ID
               // 因為每次 fire() 都會創建新的效果，即使 ID 相同也應該創建新的（與單機一致）
               // 只對持續效果檢查 ID（避免重複創建）
+              // ✅ 修復：INVINCIBLE 是一次性效果（持續幾秒後消失），應該像斬擊一樣，每次施放都創建新的
               const isOneTimeEffect = (
                 weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' ||
-                weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING'
+                weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' ||
+                weaponType === 'INVINCIBLE' // ✅ 修復：無敵技能是一次性效果，每次施放都創建新的（像斬擊一樣）
               );
               if (!isOneTimeEffect) {
                 // 對於非一次性效果，檢查ID
@@ -1381,7 +1388,8 @@ const Runtime = (() => {
             }
             
             // ⚠️ 修復：如果已存在持續效果，更新它而不是創建新的（避免重複疊加）
-            // 注意：一次性效果（SLASH、LASER、CHAIN_LIGHTNING）不應該更新，應該創建新的（與單機一致）
+            // 注意：一次性效果（SLASH、LASER、CHAIN_LIGHTNING、INVINCIBLE）不應該更新，應該創建新的（與單機一致）
+            // ✅ 修復：INVINCIBLE 是一次性效果，每次施放都創建新的（像斬擊一樣），不應該更新現有效果
             if (existingProjectile && isPersistentEffect) {
               // 更新現有效果的屬性（位置、角度、半徑等）
               try {
@@ -2143,26 +2151,12 @@ const Runtime = (() => {
                 }
               } else if (weaponType === "INVINCIBLE" && typeof InvincibleEffect !== "undefined") {
                 // 無敵：需要找到對應的玩家（使用完整的 Player 對象，以便正確更新位置）
-                // ✅ 修復：先清理同一個玩家的舊無敵效果，避免疊加
-                if (eventData.playerUid) {
-                  try {
-                    for (let i = Game.projectiles.length - 1; i >= 0; i--) {
-                      const proj = Game.projectiles[i];
-                      if (proj && proj.weaponType === "INVINCIBLE" && proj._remotePlayerUid === eventData.playerUid) {
-                        // 清理舊的無敵效果 DOM 元素
-                        if (proj.el && proj.el.parentNode) {
-                          proj.el.parentNode.removeChild(proj.el);
-                        }
-                        proj.el = null;
-                        Game.projectiles.splice(i, 1);
-                      }
-                    }
-                  } catch (_) {}
-                }
-                
+                // ✅ 修復：無敵技能是一次性效果（持續幾秒後消失，然後又持續幾秒後消失，很像是變長的斬擊）
+                // 參考斬擊的處理方式：每次施放都創建新的效果，即使舊的效果還在（與單機一致）
+                // 但需要先清理同一個玩家的舊無敵效果，避免疊加（參考守護領域的清理邏輯）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  // ✅ 修復：優先使用 RemotePlayerManager 獲取完整的 Player 對象
+                  // ✅ 修復：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象（參考守護領域和斬擊）
                   if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
                     const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
                     if (typeof rm.get === "function") {
@@ -2172,28 +2166,35 @@ const Runtime = (() => {
                       }
                     }
                   }
-                  // 如果找不到遠程玩家，嘗試使用 getRemotePlayers
-                  if (!targetPlayer) {
-                    const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                    if (rt && typeof rt.getRemotePlayers === 'function') {
-                      const remotePlayers = rt.getRemotePlayers() || [];
-                      const remotePlayer = remotePlayers.find(p => 
-                        (p.uid === eventData.playerUid) || 
-                        (p._remoteUid === eventData.playerUid) ||
-                        (p._isRemotePlayer && p._remoteUid === eventData.playerUid)
-                      );
-                      if (remotePlayer) {
-                        targetPlayer = remotePlayer;
-                      }
-                    }
-                  }
                   // 如果找不到遠程玩家，檢查是否是本地玩家
                   if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
-
+                
                 if (targetPlayer) {
+                  // ✅ 修復：無敵技能是一次性效果，每次施放都創建新的（像斬擊一樣）
+                  // 但在創建前，先清理同一個玩家的舊無敵效果，避免疊加（參考守護領域的清理邏輯）
+                  if (eventData.playerUid) {
+                    try {
+                      // ✅ 修復：使用與守護領域相同的清理邏輯，確保完全清理舊效果
+                      for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+                        const proj = Game.projectiles[i];
+                        if (proj && proj.weaponType === "INVINCIBLE" && proj._remotePlayerUid === eventData.playerUid) {
+                          // ✅ 修復：完全清理舊的無敵效果 DOM 元素（參考守護領域）
+                          if (proj.el && proj.el.parentNode) {
+                            proj.el.parentNode.removeChild(proj.el);
+                          }
+                          proj.el = null;
+                          // ✅ 修復：標記為刪除，確保不會被其他地方引用
+                          proj.markedForDeletion = true;
+                          Game.projectiles.splice(i, 1);
+                        }
+                      }
+                    } catch (_) {}
+                  }
+                  
+                  // ✅ 修復：每次施放都創建新的效果（像斬擊一樣），與單機一致
                   const effect = new InvincibleEffect(
                     targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
                     eventData.duration || 2000
@@ -2440,12 +2441,11 @@ const Runtime = (() => {
           if (typeof myState.maxEnergy === "number") player.maxEnergy = myState.maxEnergy;
           if (typeof myState.level === "number") player.level = myState.level;
           if (typeof myState.exp === "number") player.experience = myState.exp;
-          // ✅ 單機同源：優先使用伺服器計算的 experienceToNextLevel（如果有的話）
-          if (typeof myState.experienceToNextLevel === "number") {
-            player.experienceToNextLevel = myState.experienceToNextLevel;
-          } else if (typeof myState.expToNext === "number") {
-            player.experienceToNextLevel = myState.expToNext;
-          }
+          // ✅ 修復：只有在 session 初始化時才同步 experienceToNextLevel
+          // 之後完全由客戶端管理（通過 gainExperience 和 levelUp()），與單機一致
+          // ⚠️ 注意：這是 LEGACY 代碼（M3 架構），權威多人已由伺服器 game-state 取代
+          // 但為了兼容性，仍然保留這個邏輯，只在 session 初始化時同步
+          // 這裡不做任何事，因為 experienceToNextLevel 已經由 gainExperience 和 levelUp() 管理
 
           // 金幣同步（組隊模式共享金幣）
           if (typeof myState.coins === "number" && typeof Game !== "undefined") {
@@ -5041,7 +5041,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'JUDGMENT' || weaponType === 'DIVINE_JUDGMENT' || weaponType === 'EXPLOSION' ||
       // 通過構造函數名稱檢查
       constructorName === 'LaserBeam' || constructorName === 'ChainLightningEffect' || constructorName === 'FrenzyLightningEffect' ||
-      constructorName === 'SlashEffect' || constructorName === 'AuraField' || constructorName === 'GravityWaveField' ||
+      constructorName === 'SlashEffect' || constructorName === 'InvincibleEffect' || constructorName === 'AuraField' || constructorName === 'GravityWaveField' ||
       constructorName === 'OrbitBall' || constructorName === 'RadiantGloryEffect' || constructorName === 'ShockwaveEffect' ||
       constructorName === 'IceFieldEffect' || constructorName === 'YoungDadaGloryEffect' || constructorName === 'FrenzyYoungDadaGloryEffect' ||
       constructorName === 'DeathlineWarriorEffect' || constructorName === 'JudgmentEffect' || constructorName === 'DivineJudgmentEffect' ||
