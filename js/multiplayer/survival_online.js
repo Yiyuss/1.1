@@ -4475,6 +4475,9 @@ function handleServerGameState(state, timestamp) {
                 _sessionCountersPrimed = false;
                 _lastSessionCoins = 0;
                 _lastSessionExp = 0;
+                // ⚠️ 修复：新 session 开始时，重置位置同步标志，确保使用服务器的新位置
+                // 这很重要，因为客户端在 Game.reset() 中创建了新玩家在世界中心
+                // 第一次收到服务器状态时，需要同步到服务器的位置（可能是上一局的位置，需要客户端立即发送移动输入来更新）
                 _didServerPosSync = false;
                 // ⚠️ 修复：新 session 开始时，重置 _lastHealth，避免继承上一局的血量
                 handleServerGameState._lastHealth = undefined;
