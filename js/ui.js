@@ -326,22 +326,21 @@ const UI = {
                     setTimeout(() => {
                         try {
                             if (typeof Game !== 'undefined' && typeof Game.reset === 'function') {
-                                // ⚠️ 修复：保存 _gameOverEventSent 的状态，避免被 reset() 重置
-                                const wasGameOver = Game._gameOverEventSent;
-                                
+                                // ⚠️ 修复：不要保存和恢复 _gameOverEventSent，让 Game.reset() 正常重置它
+                                // 这样新游戏开始时，_gameOverEventSent 会被正确重置为 false
+                                // 但是，我们需要确保游戏循环不会重新开始，所以保持 isPaused 和 isGameOver
                                 Game.reset();
                                 
-                                // ⚠️ 修复：恢复 _gameOverEventSent 的状态，防止循环
-                                if (wasGameOver) {
-                                    Game._gameOverEventSent = true;
-                                }
                                 // ⚠️ 修复：确保游戏循环不会重新开始
+                                // 游戏结束后应该保持暂停状态，直到开始新游戏（在 startGame 中会重置）
                                 Game.isPaused = true;
                                 Game.isGameOver = true;
                                 // ⚠️ 修复：确保玩家被清理，防止武器继续发射
                                 if (Game.player) {
                                     Game.player = null;
                                 }
+                                // ⚠️ 修复：保持 _gameOverEventSent = false（由 reset() 设置），这样新游戏开始时不会立即触发失败画面
+                                // 但是，我们需要确保服务器状态也被重置，这会在 startGame 中处理
                             }
                         } catch (e) {
                             console.warn('[UI] _returnToStartFrom: 延迟清理游戏状态失败:', e);
