@@ -258,8 +258,25 @@ class ChainLightningEffect extends Entity {
                                 DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
                             }
                         }
+                    } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+                        // ⚠️ 修復：多人模式：本地玩家使用連鎖閃電時，需要發送傷害到伺服器
+                        // 連鎖閃電是單次傷害，使用 aoe_tick 但只針對單個敵人（radius 設為很小的值）
+                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                            if (!isPlayer && target && !target.markedForDeletion && target.health > 0) {
+                                window.SurvivalOnlineRuntime.sendToNet({
+                                    type: 'aoe_tick',
+                                    weaponType: this.weaponType || 'CHAIN_LIGHTNING',
+                                    x: target.x,
+                                    y: target.y,
+                                    radius: 1, // 很小的半徑，只命中目標敵人
+                                    damage: finalDamage,
+                                    allowCrit: true,
+                                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                                });
+                            }
+                        }
                     }
-                    // 多人模式：傷害由 game.js 自動發送 aoe_tick 到伺服器，伺服器透過 hitEvents 返回傷害數字
+                    // 多人模式：傷害由伺服器 hitEvents 返回傷害數字
                     this._spawnSegmentSparks(seg);
                 }
                 seg.applied = true;
@@ -664,8 +681,25 @@ class FrenzyLightningEffect extends Entity {
                                 DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
                             }
                         }
+                    } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+                        // ⚠️ 修復：多人模式：本地玩家使用連鎖閃電時，需要發送傷害到伺服器
+                        // 連鎖閃電是單次傷害，使用 aoe_tick 但只針對單個敵人（radius 設為很小的值）
+                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                            if (!isPlayer && target && !target.markedForDeletion && target.health > 0) {
+                                window.SurvivalOnlineRuntime.sendToNet({
+                                    type: 'aoe_tick',
+                                    weaponType: this.weaponType || 'CHAIN_LIGHTNING',
+                                    x: target.x,
+                                    y: target.y,
+                                    radius: 1, // 很小的半徑，只命中目標敵人
+                                    damage: finalDamage,
+                                    allowCrit: true,
+                                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                                });
+                            }
+                        }
                     }
-                    // 多人模式：傷害由 game.js 自動發送 aoe_tick 到伺服器，伺服器透過 hitEvents 返回傷害數字
+                    // 多人模式：傷害由伺服器 hitEvents 返回傷害數字
                     this._spawnSegmentSparks(seg);
                 }
                 seg.applied = true;
