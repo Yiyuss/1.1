@@ -55,14 +55,34 @@ class GravityWaveField extends Entity {
             if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
                 const remotePlayer = rt.RemotePlayerManager.get(this._remotePlayerUid);
                 if (remotePlayer) {
-                    this.player.x = remotePlayer.x;
-                    this.player.y = remotePlayer.y;
+                    // ⚠️ 修復：直接使用 remotePlayer 對象，而不是修改 this.player.x 和 this.player.y
+                    // 問題：this.player 可能是一個舊的對象引用，直接修改它的屬性可能不會正確更新
+                    // 解決：直接使用 remotePlayer 對象，確保位置正確
+                    this.player = remotePlayer; // 更新引用，確保指向正確的遠程玩家對象
+                    this.x = remotePlayer.x;
+                    this.y = remotePlayer.y;
                 } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
                     if (typeof Game !== 'undefined' && Game.player) {
                         this.player = Game.player;
+                        this.x = Game.player.x;
+                        this.y = Game.player.y;
                     }
                 } else {
-                    this.markedForDeletion = true;
+                    // ⚠️ 修復：不要立即刪除，給一個寬限期（避免瞬間消失）
+                    // 如果找不到玩家，可能是網路延遲，給 500ms 寬限期
+                    if (!this._playerNotFoundCount) {
+                        this._playerNotFoundCount = 0;
+                    }
+                    this._playerNotFoundCount += deltaTime;
+                    if (this._playerNotFoundCount > 500) {
+                        this.markedForDeletion = true;
+                        return;
+                    }
+                    // 在寬限期內，繼續更新（使用最後已知位置）
+                    this.x = this.player ? this.player.x : this.x;
+                    this.y = this.player ? this.player.y : this.y;
+                    this._updateDomPosition();
+                    this._updateAnimation(deltaTime);
                     return;
                 }
             } else {
@@ -70,6 +90,8 @@ class GravityWaveField extends Entity {
                 return;
             }
             // 僅視覺模式：只更新位置和動畫，不進行傷害計算
+            // ⚠️ 修復：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步
+            // 這樣即使玩家靠近邊界，效果也會正確跟隨玩家
             this.x = this.player.x;
             this.y = this.player.y;
             // 同步GIF位置與尺寸
