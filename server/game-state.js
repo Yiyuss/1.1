@@ -583,8 +583,14 @@ class GameState {
 
     // 玩家：回到安全初始狀態（保守）
     // ✅ 如果提供了 playerUpdates（Map<uid, {maxHealth, ...}>），更新對應玩家的 maxHealth
+    // ⚠️ 修复：新 session 开始时，重置玩家位置和血量，确保全新状态
     for (const p of this.players.values()) {
       if (!p) continue;
+      
+      // ⚠️ 修复：重置玩家位置到世界中心（与 addPlayer 一致）
+      p.x = this.worldWidth / 2;
+      p.y = this.worldHeight / 2;
+      
       // ✅ 更新 maxHealth（如果客戶端發送了計算好的值）
       if (playerUpdates && playerUpdates.has(p.uid)) {
         const update = playerUpdates.get(p.uid);
@@ -592,23 +598,18 @@ class GameState {
           const prevMaxHealth = p.maxHealth || 200;
           const newMaxHealth = update.maxHealth;
           p.maxHealth = newMaxHealth;
-          // ⚠️ 修復：如果 maxHealth 增加了，也要同步增加 health（避免開場就被扣血）
-          if (newMaxHealth > prevMaxHealth) {
-            // 如果當前血量等於舊的 maxHealth（滿血狀態），直接設為新的 maxHealth
-            if (p.health >= prevMaxHealth) {
-              p.health = newMaxHealth;
-            } else {
-              // 如果當前血量不是滿血，按比例調整
-              const healthPercent = p.health / prevMaxHealth;
-              p.health = Math.min(newMaxHealth, Math.floor(newMaxHealth * healthPercent));
-            }
-          } else if (p.health > newMaxHealth) {
-            // 如果 maxHealth 減少了，確保 health 不超過新的 maxHealth
-            p.health = newMaxHealth;
-          }
-          console.log(`[GameState.resetForNewSession] ✅ 更新玩家 ${p.uid} maxHealth: ${prevMaxHealth} -> ${newMaxHealth}, health: ${p.health}`);
+          // ⚠️ 修复：新 session 开始时，直接设置为满血（避免继承上一局的血量）
+          p.health = newMaxHealth;
+          console.log(`[GameState.resetForNewSession] ✅ 更新玩家 ${p.uid} maxHealth: ${prevMaxHealth} -> ${newMaxHealth}, health: ${p.health} (新 session 满血)`);
+        } else {
+          // ⚠️ 修复：如果没有提供 maxHealth 更新，也重置为满血
+          p.health = p.maxHealth || 200;
         }
+      } else {
+        // ⚠️ 修复：如果没有提供 playerUpdates，也重置为满血
+        p.health = p.maxHealth || 200;
       }
+      
       p.isDead = false;
       // ⚠️ 修復：確保 health 不超過 maxHealth
       if (p.health > (p.maxHealth || 200)) {
@@ -626,6 +627,16 @@ class GameState {
       // 注意：experience/sessionCoins 是「本場累積量」，新局要清 0
       p.experience = 0;
       p.sessionCoins = 0;
+      // ⚠️ 修复：重置玩家等级为 1（新游戏开始）
+      p.level = 1;
+      // ⚠️ 修复：重置玩家面向（新游戏开始）
+      p.facing = 0;
+      // ⚠️ 修复：如果没有提供 playerUpdates，确保 maxHealth 被重置为默认值
+      if (!playerUpdates || !playerUpdates.has(p.uid)) {
+        // 如果没有提供更新，保持当前的 maxHealth（可能是角色属性或天赋加成）
+        // 但确保 health 等于 maxHealth（满血状态）
+        p.health = p.maxHealth || 200;
+      }
     }
   }
 
