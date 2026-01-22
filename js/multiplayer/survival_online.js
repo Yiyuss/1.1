@@ -4426,26 +4426,9 @@ function handleServerGameState(state, timestamp) {
 
             // ⚠️ 修復：不可用 `||`，否則 0 會被當成 false 導致不同步（例如死亡/清零）
             // ✅ 單機同源：檢測血量變化，觸發受傷紅閃效果（單機元素）
-            // ⚠️ 修復：與單機一致，在 takeDamage 時觸發紅閃，而不是只在血量減少時
-            // 單機模式：takeDamage 會設置 hitFlashTime，無論是否真的扣血（例如防禦太高時）
-            if (typeof playerState.health === "number") {
-              const prevHealth = (typeof Game.player.health === "number") ? Game.player.health : Game.player.maxHealth || 0;
-              const newHealth = playerState.health;
-              Game.player.health = newHealth;
-              // ⚠️ 修復：與單機一致，如果血量減少（受傷），觸發紅閃
-              // 但要注意：如果防禦太高，可能血量沒有減少，但單機模式仍然會觸發紅閃（在 takeDamage 中）
-              // 這裡我們只在血量真的減少時觸發紅閃，因為伺服器已經計算了最終傷害
-              if (newHealth < prevHealth && newHealth > 0 && prevHealth > 0 && !Game.player._isDead) {
-                try {
-                  Game.player.hitFlashTime = Game.player.hitFlashDuration || 150;
-                  if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
-                    window.GifOverlay.flash('player', { color: '#ff0000', durationMs: Game.player.hitFlashDuration || 150, opacity: 0.8 });
-                  }
-                } catch (_) {}
-              }
-            }
             // ⚠️ 修復：同步 maxHealth 時，如果 maxHealth 增加，也要同步增加 health
             // ⚠️ 修復：避免血条闪烁 - 只在 maxHealth 真的改变时才更新
+            // ⚠️ 修復：先同步 maxHealth，再同步 health，避免 maxHealth 變化導致的 health 調整被誤判為受傷
             if (typeof playerState.maxHealth === "number") {
               const prevMaxHealth = Game.player.maxHealth || 200;
               const newMaxHealth = playerState.maxHealth;
@@ -4468,6 +4451,41 @@ function handleServerGameState(state, timestamp) {
                   Game.player.health = newMaxHealth;
                 }
               }
+            }
+            
+            // ✅ 單機同源：檢測血量變化，觸發受傷紅閃效果（單機元素）
+            // ⚠️ 修復：使用 _lastHealth 來跟踪上一次的血量，避免初始化時誤判為受傷
+            // ⚠️ 修復：排除 maxHealth 變化導致的 health 調整（因為已經在上面處理了）
+            if (typeof playerState.health === "number") {
+              // 初始化 _lastHealth（如果不存在）
+              if (typeof handleServerGameState._lastHealth !== "number") {
+                handleServerGameState._lastHealth = playerState.health;
+              }
+              
+              const prevHealth = handleServerGameState._lastHealth;
+              const newHealth = playerState.health;
+              
+              // ⚠️ 修復：只在血量真的減少時觸發紅閃（排除 maxHealth 變化導致的 health 調整）
+              // 並且要排除無敵狀態（無敵時不應該受傷，也不應該觸發紅閃）
+              // 還要排除初始化時的情況（prevHealth 可能是 0 或 maxHealth，導致誤判）
+              const isInitializing = (prevHealth === 0 || prevHealth === (Game.player.maxHealth || 200));
+              const isInvulnerable = (Game.player.isInvulnerable && Game.player.invulnerabilitySource === 'INVINCIBLE');
+              const isHealthDecreased = (newHealth < prevHealth && newHealth > 0 && prevHealth > 0);
+              
+              Game.player.health = newHealth;
+              
+              // 只在血量真的減少、不是初始化、不是無敵狀態時觸發紅閃
+              if (isHealthDecreased && !isInitializing && !isInvulnerable && !Game.player._isDead) {
+                try {
+                  Game.player.hitFlashTime = Game.player.hitFlashDuration || 150;
+                  if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
+                    window.GifOverlay.flash('player', { color: '#ff0000', durationMs: Game.player.hitFlashDuration || 150, opacity: 0.8 });
+                  }
+                } catch (_) {}
+              }
+              
+              // 更新 _lastHealth（無論是否觸發紅閃）
+              handleServerGameState._lastHealth = newHealth;
             }
             if (typeof playerState.energy === "number") Game.player.energy = playerState.energy;
             if (typeof playerState.maxEnergy === "number") Game.player.maxEnergy = playerState.maxEnergy;
