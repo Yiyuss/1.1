@@ -241,6 +241,32 @@ const UI = {
      * 不變式：DOM 隱藏/顯示順序與狀態更新不可更動。
      */
     _returnToStartFrom: function(screenId) {
+        // ⚠️ 修复：先停止并重置视频，防止视频继续播放
+        try {
+            if (screenId === 'game-over-screen') {
+                const videoEl = this._get('game-over-video');
+                if (videoEl) {
+                    videoEl.pause();
+                    videoEl.currentTime = 0;
+                    videoEl.loop = false;
+                    // 移除所有事件监听器
+                    if (videoEl._gameOverOnEnded) {
+                        videoEl.removeEventListener('ended', videoEl._gameOverOnEnded);
+                        videoEl._gameOverOnEnded = null;
+                    }
+                }
+            } else if (screenId === 'victory-screen') {
+                const videoEl = this._get('victory-video');
+                if (videoEl) {
+                    videoEl.pause();
+                    videoEl.currentTime = 0;
+                    videoEl.loop = false;
+                }
+            }
+        } catch (e) {
+            console.warn("[UI] _returnToStartFrom: 清理视频失败:", e);
+        }
+        
         const screen = this._get(screenId);
         if (screen) screen.classList.add('hidden');
         
@@ -1580,11 +1606,29 @@ const UI = {
             el.removeEventListener('ended', oldOnEnded);
         }
         
+        // ⚠️ 修复：使用一个标志来防止重复处理 ended 事件
+        let endedHandled = false;
+        
         const onEnded = () => {
+            // ⚠️ 修复：防止重复处理 ended 事件
+            if (endedHandled) {
+                console.warn("[UI] showGameOverScreen: ended 事件已处理，跳过");
+                return;
+            }
+            endedHandled = true;
+            
             try {
+                console.log("[UI] showGameOverScreen: 影片播放完成，返回大厅");
+                // 清除超时
+                clearTimeout(timeoutId);
                 // 確保影片停止
                 el.pause();
                 el.currentTime = 0;
+                // 移除所有事件监听器，防止重复触发
+                if (el._gameOverOnEnded) {
+                    el.removeEventListener('ended', el._gameOverOnEnded);
+                    el._gameOverOnEnded = null;
+                }
                 // 返回開始畫面
                 this._returnToStartFrom('game-over-screen');
             } catch (e) {
@@ -1598,20 +1642,26 @@ const UI = {
         
         // ✅ 修復：添加超時保護，如果影片卡住超過30秒，自動返回
         const timeoutId = setTimeout(() => {
+            // ⚠️ 修复：防止重复处理
+            if (endedHandled) {
+                return;
+            }
+            endedHandled = true;
+            
             try {
                 console.warn("[UI] showGameOverScreen: 影片播放超時，自動返回");
                 el.pause();
                 el.currentTime = 0;
+                // 移除所有事件监听器
+                if (el._gameOverOnEnded) {
+                    el.removeEventListener('ended', el._gameOverOnEnded);
+                    el._gameOverOnEnded = null;
+                }
                 this._returnToStartFrom('game-over-screen');
             } catch (e) {
                 console.warn("[UI] showGameOverScreen: 超時處理失敗:", e);
             }
         }, 30000); // 30秒超時
-        
-        // 當影片結束時清除超時
-        el.addEventListener('ended', () => {
-            clearTimeout(timeoutId);
-        }, { once: true });
     
         // 確保影片播放
         setTimeout(() => {
