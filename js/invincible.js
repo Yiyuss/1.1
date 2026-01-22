@@ -105,13 +105,13 @@ class InvincibleEffect extends Entity {
         // 僅視覺無敵：需要從遠程玩家位置更新
         if (this._isVisualOnly && this._remotePlayerUid) {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-            if (rt && typeof rt.getRemotePlayers === 'function') {
-                const remotePlayers = rt.getRemotePlayers() || [];
-                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+            if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                const remotePlayer = rt.RemotePlayerManager.get(this._remotePlayerUid);
                 if (remotePlayer) {
-                    // 更新玩家位置
-                    this.player.x = remotePlayer.x;
-                    this.player.y = remotePlayer.y;
+                    // ⚠️ 修復：直接使用 remotePlayer 對象，而不是修改 this.player.x 和 this.player.y
+                    // 問題：this.player 可能是一個舊的對象引用，直接修改它的屬性可能不會正確更新
+                    // 解決：直接使用 remotePlayer 對象，確保位置正確
+                    this.player = remotePlayer; // 更新引用，確保指向正確的遠程玩家對象
                     this.x = remotePlayer.x;
                     this.y = remotePlayer.y;
                 } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
@@ -122,8 +122,25 @@ class InvincibleEffect extends Entity {
                         this.y = Game.player.y;
                     }
                 } else {
-                    // 如果找不到對應的玩家，標記為刪除
-                    this.markedForDeletion = true;
+                    // ⚠️ 修復：不要立即刪除，給一個寬限期（避免瞬間消失）
+                    // 如果找不到玩家，可能是網路延遲，給 500ms 寬限期
+                    if (!this._playerNotFoundCount) {
+                        this._playerNotFoundCount = 0;
+                    }
+                    this._playerNotFoundCount += deltaTime;
+                    if (this._playerNotFoundCount > 500) {
+                        this.markedForDeletion = true;
+                        return;
+                    }
+                    // 在寬限期內，繼續更新（使用最後已知位置）
+                    this.x = this.player ? this.player.x : this.x;
+                    this.y = this.player ? this.player.y : this.y;
+                    if (this.el) this._updateDomPosition();
+                    if (Date.now() - this.startTime >= this.duration) {
+                        if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
+                        this.el = null;
+                        this.markedForDeletion = true;
+                    }
                     return;
                 }
             } else {
@@ -131,6 +148,10 @@ class InvincibleEffect extends Entity {
                 return;
             }
             // 僅視覺模式：只更新位置和DOM
+            // ⚠️ 修復：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步
+            // 這樣即使玩家靠近邊界，效果也會正確跟隨玩家
+            this.x = this.player.x;
+            this.y = this.player.y;
             if (this.el) this._updateDomPosition();
             if (Date.now() - this.startTime >= this.duration) {
                 if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
