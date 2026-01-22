@@ -288,9 +288,12 @@ const UI = {
                 // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
                 // ⚠️ 重要：不要在这里重置 _gameOverEventSent，否则会导致循环
                 // _gameOverEventSent 应该只在真正开始新游戏时才重置（在 startGame 中）
+                // ⚠️ 重要：清理逻辑应该在视频播放完成后才执行，不要在视频播放过程中执行
                 try {
                     // ⚠️ 修复：先清理玩家和武器，确保游戏循环不会继续运行
                     // 完全清理玩家和武器，防止武器继续发射
+                    // ⚠️ 注意：这里只清理玩家和武器，不调用 Game.reset()，因为 reset() 会重新创建玩家
+                    // 清理逻辑应该在视频播放完成后才执行，确保视频能正常播放完成
                     if (typeof Game !== 'undefined' && Game.player) {
                         try {
                             // 清理玩家武器
@@ -312,27 +315,38 @@ const UI = {
                         }
                     }
                     
-                    // 完全重置游戏状态（与单机模式一致）
-                    // 这会清理所有敌人、投射物、经验球、宝箱、障碍物、装饰等
-                    if (typeof Game !== 'undefined' && typeof Game.reset === 'function') {
-                        // ⚠️ 修复：保存 _gameOverEventSent 的状态，避免被 reset() 重置
-                        const wasGameOver = Game._gameOverEventSent;
-                        
-                        Game.reset();
-                        
-                        // ⚠️ 修复：恢复 _gameOverEventSent 的状态，防止循环
-                        if (wasGameOver) {
-                            Game._gameOverEventSent = true;
+                    // ⚠️ 修复：确保游戏循环不会重新开始
+                    // 游戏结束后应该保持暂停状态，直到开始新游戏
+                    Game.isPaused = true;
+                    Game.isGameOver = true;
+                    
+                    // ⚠️ 修复：延迟调用 Game.reset()，确保视频播放完成后再清理
+                    // 这样可以避免 reset() 影响视频播放
+                    // 完全重置游戏状态会在视频播放完成后执行（通过延迟调用）
+                    setTimeout(() => {
+                        try {
+                            if (typeof Game !== 'undefined' && typeof Game.reset === 'function') {
+                                // ⚠️ 修复：保存 _gameOverEventSent 的状态，避免被 reset() 重置
+                                const wasGameOver = Game._gameOverEventSent;
+                                
+                                Game.reset();
+                                
+                                // ⚠️ 修复：恢复 _gameOverEventSent 的状态，防止循环
+                                if (wasGameOver) {
+                                    Game._gameOverEventSent = true;
+                                }
+                                // ⚠️ 修复：确保游戏循环不会重新开始
+                                Game.isPaused = true;
+                                Game.isGameOver = true;
+                                // ⚠️ 修复：确保玩家被清理，防止武器继续发射
+                                if (Game.player) {
+                                    Game.player = null;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('[UI] _returnToStartFrom: 延迟清理游戏状态失败:', e);
                         }
-                        // ⚠️ 修复：确保游戏循环不会重新开始
-                        // 游戏结束后应该保持暂停状态，直到开始新游戏
-                        Game.isPaused = true;
-                        Game.isGameOver = true;
-                        // ⚠️ 修复：确保玩家被清理，防止武器继续发射
-                        if (Game.player) {
-                            Game.player = null;
-                        }
-                    }
+                    }, 100); // 延迟100ms，确保视频播放完成
                 } catch (e) {
                     console.warn('[UI] _returnToStartFrom: 清理游戏状态失败:', e);
                 }
