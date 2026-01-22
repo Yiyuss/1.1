@@ -950,9 +950,11 @@ const Runtime = (() => {
             eventType === "screen_effect" ||
             // ✅ 伺服器權威：勝利/失敗/出口/經驗球被撿取，改走 state.isVictory/state.isGameOver/state.exit/state.experienceOrbs
             // 避免舊 event 通道復活造成互打與循環。
+            // ⚠️ 修復：game_over 事件不應該被過濾，因為它需要觸發 UI.showGameOverScreen()
+            // 雖然 state.isGameOver 也會觸發 Game.gameOver()，但 event 通道是備用路徑，確保遊戲結束畫面一定會顯示
             eventType === "exit_spawn" ||
             eventType === "game_victory" ||
-            eventType === "game_over" ||
+            // eventType === "game_over" || // ❌ 移除：允許 game_over 事件通過，確保遊戲結束畫面一定會顯示
             eventType === "exp_orb_collected" ||
             eventType === "ultimate_pineapple_spawn" ||
             eventType === "obstacles_spawn" ||
