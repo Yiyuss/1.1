@@ -4418,7 +4418,7 @@ function handleServerGameState(state, timestamp) {
 
   // ⚠️ 修复：优先检查游戏结束状态，确保游戏结束画面一定会显示
   // 必须在所有其他逻辑之前检查，避免被其他逻辑提前返回而跳过
-  
+   
   // ⚠️ 修复：如果新游戏已开始，检查服务器是否已重置 isGameOver
   if (typeof Game !== 'undefined' && Game._newGameStarted) {
     if (!state.isGameOver) {
@@ -4476,6 +4476,8 @@ function handleServerGameState(state, timestamp) {
                 _lastSessionCoins = 0;
                 _lastSessionExp = 0;
                 _didServerPosSync = false;
+                // ⚠️ 修复：新 session 开始时，重置 _lastHealth，避免继承上一局的血量
+                handleServerGameState._lastHealth = undefined;
               }
             } catch (_) { }
 
@@ -4502,12 +4504,17 @@ function handleServerGameState(state, timestamp) {
             // ⚠️ 修復：同步 maxHealth 時，如果 maxHealth 增加，也要同步增加 health
             // ⚠️ 修復：避免血条闪烁 - 只在 maxHealth 真的改变时才更新
             // ⚠️ 修復：先同步 maxHealth，再同步 health，避免 maxHealth 變化導致的 health 調整被誤判為受傷
+            // ⚠️ 修复：新 session 开始时，强制同步 maxHealth 和 health，确保使用服务器的新状态
             if (typeof playerState.maxHealth === "number") {
+              const sid = (Game.multiplayer && Game.multiplayer.sessionId) ? Game.multiplayer.sessionId : null;
+              const isNewSession = (sid && _lastCounterSessionId !== sid);
+              
               const prevMaxHealth = Game.player.maxHealth || 200;
               const newMaxHealth = playerState.maxHealth;
               
-              // 只在 maxHealth 真的改变时才更新（避免每帧都更新导致闪烁）
-              if (Math.abs(newMaxHealth - prevMaxHealth) > 0.5) {
+              // 新 session 开始时，强制同步 maxHealth（避免继承上一局的状态）
+              // 或者 maxHealth 真的改变时才更新（避免每帧都更新导致闪烁）
+              if (isNewSession || Math.abs(newMaxHealth - prevMaxHealth) > 0.5) {
                 Game.player.maxHealth = newMaxHealth;
                 // 如果 maxHealth 增加了，按比例增加 health（避免開場就被扣血）
                 if (newMaxHealth > prevMaxHealth) {
@@ -4529,7 +4536,16 @@ function handleServerGameState(state, timestamp) {
             // ✅ 單機同源：檢測血量變化，觸發受傷紅閃效果（單機元素）
             // ⚠️ 修復：使用 _lastHealth 來跟踪上一次的血量，避免初始化時誤判為受傷
             // ⚠️ 修復：排除 maxHealth 變化導致的 health 調整（因為已經在上面處理了）
+            // ⚠️ 修复：新 session 开始时，强制同步 health，确保使用服务器的新状态
             if (typeof playerState.health === "number") {
+              const sid = (Game.multiplayer && Game.multiplayer.sessionId) ? Game.multiplayer.sessionId : null;
+              const isNewSession = (sid && _lastCounterSessionId !== sid);
+              
+              // 新 session 开始时，重置 _lastHealth，避免继承上一局的血量
+              if (isNewSession) {
+                handleServerGameState._lastHealth = playerState.health;
+              }
+              
               // 初始化 _lastHealth（如果不存在）
               if (typeof handleServerGameState._lastHealth !== "number") {
                 handleServerGameState._lastHealth = playerState.health;
@@ -4538,6 +4554,12 @@ function handleServerGameState(state, timestamp) {
               const prevHealth = handleServerGameState._lastHealth;
               const newHealth = playerState.health;
               
+              // ⚠️ 修复：新 session 开始时，强制同步 health（避免继承上一局的状态）
+              if (isNewSession) {
+                Game.player.health = newHealth;
+                handleServerGameState._lastHealth = newHealth;
+              }
+              
               // ⚠️ 修復：只在血量真的減少時觸發紅閃（排除 maxHealth 變化導致的 health 調整）
               // 並且要排除無敵狀態（無敵時不應該受傷，也不應該觸發紅閃）
               // 還要排除初始化時的情況（prevHealth 可能是 0 或 maxHealth，導致誤判）
@@ -4545,7 +4567,10 @@ function handleServerGameState(state, timestamp) {
               const isInvulnerable = (Game.player.isInvulnerable && Game.player.invulnerabilitySource === 'INVINCIBLE');
               const isHealthDecreased = (newHealth < prevHealth && newHealth > 0 && prevHealth > 0);
               
-              Game.player.health = newHealth;
+              // ⚠️ 修复：只有在非新 session 时才更新 health（新 session 已经在上面强制同步了）
+              if (!isNewSession) {
+                Game.player.health = newHealth;
+              }
               
               // 只在血量真的減少、不是初始化、不是無敵狀態時觸發紅閃
               if (isHealthDecreased && !isInitializing && !isInvulnerable && !Game.player._isDead) {
