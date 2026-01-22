@@ -826,7 +826,9 @@ const Runtime = (() => {
             // 遠程玩家的受傷視覺效果應該由伺服器 hitEvents 或其他多人元素處理
 
             // ✅ MMORPG 架構：同步共享的金幣和經驗值到本地玩家
-            // 金幣和經驗是共享的，所以當其他玩家獲得金幣/經驗時，本地玩家也應該同步
+            // ⚠️ 注意：這是 LEGACY 代碼（M3 架構），權威多人已由伺服器 game-state 取代
+            // 但為了兼容性，仍然保留這個邏輯，只在 session 初始化時同步
+            // 經驗值同步應該由 handleServerGameState 處理（使用 gainExperience），這裡不應該直接設置
             if (typeof p.coins === "number" && typeof Game !== "undefined") {
               // 使用其他玩家的金幣數量（因為金幣是共享的）
               Game.coins = Math.max(0, Math.floor(p.coins));
@@ -835,17 +837,18 @@ const Runtime = (() => {
                 UI.updateCoinsDisplay(Game.coins);
               }
             }
-            // 經驗值也是共享的，同步到本地玩家
+            // ⚠️ 修復：經驗值同步應該由 handleServerGameState 處理（使用 gainExperience），這裡不應該直接設置
+            // 直接設置 Game.player.experience 會繞過 gainExperience 的升級檢查和音效播放
+            // 只有在 session 初始化時才同步 experienceToNextLevel（如果還沒有被 handleServerGameState 處理）
             if (typeof Game !== "undefined" && Game.player && typeof p.exp === "number") {
-              Game.player.experience = p.exp;
               // ✅ 修復：只有在 session 初始化時才同步 experienceToNextLevel
               // 之後完全由客戶端管理（通過 gainExperience 和 levelUp()），與單機一致
+              // ⚠️ 注意：經驗值同步應該由 handleServerGameState 處理，這裡不應該直接設置 Game.player.experience
               if (!_sessionCountersPrimed && typeof p.expToNext === "number") {
                 Game.player.experienceToNextLevel = p.expToNext;
               }
-              if (typeof p.level === "number") {
-                Game.player.level = p.level;
-              }
+              // ⚠️ 不應該直接設置 Game.player.experience，應該由 handleServerGameState 處理
+              // Game.player.experience = p.exp; // 已移除，由 handleServerGameState 處理
             }
 
             // 確保角色圖片正確設置（如果角色ID存在但圖片未設置）
@@ -4514,20 +4517,10 @@ function handleServerGameState(state, timestamp) {
                 const nowExp = Math.max(0, Math.floor(playerState.experience || 0));
                 const deltaExp = nowExp - (_lastSessionExp || 0);
                 if (deltaExp > 0 && typeof Game.player.gainExperience === "function") {
-                  // ✅ 修复：保存升级前的 level 和 experienceToNextLevel，用于检测是否升级
-                  const prevLevel = Game.player.level || 1;
-                  const prevExpToNext = Game.player.experienceToNextLevel || 80;
-                  // ✅ 修复：在 gainExperience 之前，确保 experienceToNextLevel 不会被覆盖
-                  // 调用 gainExperience，它会检查是否升级并调用 levelUp()
+                  // ✅ 修复：直接调用 gainExperience，它会自动处理升级和 experienceToNextLevel 的更新
+                  // gainExperience 会检查是否升级，如果升级则调用 levelUp()，levelUp() 会重新计算 experienceToNextLevel
+                  // 与单机模式完全一致：experienceToNextLevel 只在升级时改变（通过 levelUp()）
                   Game.player.gainExperience(deltaExp);
-                  // ✅ 修复：如果升级了，levelUp() 会重新计算 experienceToNextLevel
-                  // 如果没有升级，保持客户端的值（不应该被服务器覆盖）
-                  const newLevel = Game.player.level || 1;
-                  if (newLevel <= prevLevel) {
-                    // ✅ 修复：没有升级时，恢复原来的 experienceToNextLevel，防止被 gainExperience 内部逻辑覆盖
-                    // 这是因为 gainExperience 可能会在升级检查时修改 experienceToNextLevel
-                    Game.player.experienceToNextLevel = prevExpToNext;
-                  }
                   // ✅ 修复：无论是否升级，都不应该被服务器的 experienceToNextLevel 覆盖
                   // 客户端的 experienceToNextLevel 由 levelUp() 管理，与单机一致
                 }
