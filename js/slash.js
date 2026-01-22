@@ -114,8 +114,23 @@ class SlashEffect extends Entity {
                     if (typeof DamageNumbers !== 'undefined') {
                         DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: dy, dirY: dx, enemyId: enemy.id });
                     }
+                } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+                    // ⚠️ 修復：多人模式：本地玩家使用斬擊時，需要發送傷害到伺服器
+                    // 斬擊是單次傷害，使用 aoe_tick 但只針對單個敵人（radius 設為很小的值）
+                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            type: 'aoe_tick',
+                            weaponType: this.weaponType || 'SLASH',
+                            x: enemy.x,
+                            y: enemy.y,
+                            radius: 1, // 很小的半徑，只命中目標敵人
+                            damage: finalDamage,
+                            allowCrit: true,
+                            critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                        });
+                    }
                 }
-                // 多人模式：傷害由伺服器權威處理，伺服器透過 hitEvents 返回傷害數字
+                // 多人模式：傷害由伺服器 hitEvents 返回傷害數字
                 this.hitEnemies.push(enemy);
             }
         }
