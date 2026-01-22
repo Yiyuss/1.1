@@ -7,10 +7,11 @@ class JudgmentEffect extends Entity {
         this.swordCount = Math.max(1, swordCount || 1);
         this.detectRadius = Math.max(1, detectRadius || 400);
         this.aoeRadius = Math.max(1, aoeRadius || 100);
-        this.swordImageWidth = swordImageWidth || 550;
-        this.swordImageHeight = swordImageHeight || 1320;
-        this.fallDurationMs = fallDurationMs || 500;
-        this.fadeOutDurationMs = fadeOutDurationMs || 300;
+        // ✅ 修復：使用與單機一致的默認值（CONFIG.JUDGMENT）
+        this.swordImageWidth = swordImageWidth || 83; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.SWORD_IMAGE_WIDTH（83）
+        this.swordImageHeight = swordImageHeight || 200; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.SWORD_IMAGE_HEIGHT（200）
+        this.fallDurationMs = fallDurationMs || 250; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FALL_DURATION_MS（250ms）
+        this.fadeOutDurationMs = fadeOutDurationMs || 300; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FADE_OUT_DURATION_MS（300ms）
         this.weaponType = 'JUDGMENT';
         this.startTime = Date.now();
         // 為這次攻擊生成唯一 ID，用於去重
