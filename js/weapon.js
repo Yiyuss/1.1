@@ -907,10 +907,11 @@
                 const baseAoeRadius = this.config.BASE_AOE_RADIUS || 100;
                 const aoeRadiusPerLevel = this.config.AOE_RADIUS_PER_LEVEL || 12;
                 const aoeRadius = baseAoeRadius + aoeRadiusPerLevel * (this.level - 1);
-                const swordImageWidth = this.config.SWORD_IMAGE_WIDTH || 550;
-                const swordImageHeight = this.config.SWORD_IMAGE_HEIGHT || 1320;
-                const fallDurationMs = this.config.FALL_DURATION_MS || 500;
-                const fadeOutDurationMs = this.config.FADE_OUT_DURATION_MS || 300;
+                // ✅ 修復：使用與單機一致的默認值（CONFIG.JUDGMENT）
+                const swordImageWidth = this.config.SWORD_IMAGE_WIDTH || 83; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.SWORD_IMAGE_WIDTH（83）
+                const swordImageHeight = this.config.SWORD_IMAGE_HEIGHT || 200; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.SWORD_IMAGE_HEIGHT（200）
+                const fallDurationMs = this.config.FALL_DURATION_MS || 250; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FALL_DURATION_MS（250ms）
+                const fadeOutDurationMs = this.config.FADE_OUT_DURATION_MS || 300; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FADE_OUT_DURATION_MS（300ms）
                 const dmg = this._computeFinalDamage(levelMul);
             
                 const effect = new JudgmentEffect(
@@ -941,10 +942,11 @@
 
                 const swordImageWidth = cfg.SWORD_IMAGE_WIDTH || 83;
                 const swordImageHeight = cfg.SWORD_IMAGE_HEIGHT || 200;
-                const fallDurationMs = cfg.FALL_DURATION_MS || 250;
-                const moveDurationMs = cfg.MOVE_DURATION_MS || cfg.COOLDOWN || 2400;
-                const holdOnEnemyMs = cfg.HOLD_ON_ENEMY_MS || 200;
-                const headWaitMs = cfg.HEAD_WAIT_MS || 100;
+                // ✅ 修復：使用與單機一致的默認值（CONFIG.DIVINE_JUDGMENT）
+                const fallDurationMs = cfg.FALL_DURATION_MS || 250; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.FALL_DURATION_MS（250ms）
+                const moveDurationMs = cfg.MOVE_DURATION_MS || 600; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.MOVE_DURATION_MS（600ms），不是 COOLDOWN（100ms）
+                const holdOnEnemyMs = cfg.HOLD_ON_ENEMY_MS || 200; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.HOLD_ON_ENEMY_MS（200ms）
+                const headWaitMs = cfg.HEAD_WAIT_MS || 100; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.HEAD_WAIT_MS（100ms）
                 const patrolSpeedFactor = (typeof cfg.PATROL_SPEED_FACTOR === 'number') ? cfg.PATROL_SPEED_FACTOR : 0.35;
                 const dmg = this._computeFinalDamage(levelMul);
 
