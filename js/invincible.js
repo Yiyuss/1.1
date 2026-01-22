@@ -88,13 +88,16 @@ class InvincibleEffect extends Entity {
             const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
             const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
 
+            // ✅ 修复：使用 this.x 和 this.y 而不是 this.player.x 和 this.player.y
+            // 问题：当玩家靠近边界时，this.player.x 和 this.player.y 可能没有及时更新，导致位置计算错误
+            // 解决：使用 this.x 和 this.y（在 update() 中已经同步），确保位置计算正确（参考 AuraField 的实现）
             let sx, sy;
             if (rotatedPortrait) {
-                sx = this.player.x - camX;
-                sy = this.player.y - camY + this.offsetY;
+                sx = this.x - camX;
+                sy = this.y - camY + this.offsetY;
             } else {
-                sx = (this.player.x - camX) * scaleX;
-                sy = (this.player.y - camY) * scaleY + this.offsetY;
+                sx = (this.x - camX) * scaleX;
+                sy = (this.y - camY) * scaleY + this.offsetY;
             }
             el.style.left = Math.round(sx) + 'px';
             el.style.top = Math.round(sy) + 'px';
