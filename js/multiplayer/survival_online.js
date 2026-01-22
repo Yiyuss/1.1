@@ -1366,8 +1366,18 @@ const Runtime = (() => {
                 }
               });
             } else {
-              // 對於非持續效果，只檢查ID
-              existingProjectile = Game.projectiles.find(p => p.id === projectileId);
+              // ⚠️ 修復：對於一次性效果（SLASH、LASER、CHAIN_LIGHTNING），不應該檢查ID
+              // 因為每次 fire() 都會創建新的效果，即使 ID 相同也應該創建新的（與單機一致）
+              // 只對持續效果檢查 ID（避免重複創建）
+              const isOneTimeEffect = (
+                weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' ||
+                weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING'
+              );
+              if (!isOneTimeEffect) {
+                // 對於非一次性效果，檢查ID
+                existingProjectile = Game.projectiles.find(p => p.id === projectileId);
+              }
+              // 對於一次性效果，不檢查 existingProjectile，允許創建新的
             }
             
             // ⚠️ 修復：如果已存在持續效果，更新它而不是創建新的（避免重複疊加）
@@ -4482,28 +4492,29 @@ function handleServerGameState(state, timestamp) {
                 const nowExp = Math.max(0, Math.floor(playerState.experience || 0));
                 const deltaExp = nowExp - (_lastSessionExp || 0);
                 if (deltaExp > 0 && typeof Game.player.gainExperience === "function") {
-                  // ⚠️ 修復：保存升級前的 experienceToNextLevel 和 level，避免被伺服器同步覆蓋
-                  const prevExpToNext = Game.player.experienceToNextLevel || 80;
+                  // ⚠️ 修復：保存升級前的 level 和 experienceToNextLevel，用於檢測是否升級
                   const prevLevel = Game.player.level || 1;
-                  const prevExp = Game.player.experience || 0;
+                  const prevExpToNext = Game.player.experienceToNextLevel || 80;
                   Game.player.gainExperience(deltaExp);
-                  // ⚠️ 修復：gainExperience 內部會在升級時調用 levelUp()，levelUp() 會重新計算 experienceToNextLevel
-                  // 如果升級了，gainExperience 已經設置了正確的值（通過 levelUp()）
-                  // 如果沒有升級，使用伺服器的值（伺服器使用與單機相同的算法計算）
-                  if (Game.player.level <= prevLevel && typeof playerState.experienceToNextLevel === "number") {
-                    // 沒有升級，使用伺服器的值（伺服器使用 _computeExperienceToNextLevel，與單機一致）
-                    Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
-                  }
-                  // 如果升級了，gainExperience 已經通過 levelUp() 設置了正確的值，不需要覆蓋
+                  // ⚠️ 修復：如果升級了，gainExperience 內部會調用 levelUp()，levelUp() 會重新計算 experienceToNextLevel
+                  // 與單機一致：experienceToNextLevel 只在升級時改變，不應該被伺服器每幀覆蓋
+                  // 如果升級了，使用客戶端計算的值（通過 levelUp() 設置）
+                  // 如果沒有升級，也不應該被伺服器覆蓋（保持客戶端的值）
+                  // 只有在 session 初始化時才同步伺服器的值
                 } else {
-                  // 沒有獲得經驗，直接同步伺服器的值（伺服器使用與單機相同的算法）
-                  if (typeof playerState.experienceToNextLevel === "number" && Game.player) {
-                    Game.player.experienceToNextLevel = playerState.experienceToNextLevel;
-                  }
+                  // ⚠️ 修復：沒有獲得經驗時，不應該同步伺服器的 experienceToNextLevel
+                  // 與單機一致：experienceToNextLevel 只在升級時改變，不應該被伺服器每幀覆蓋
+                  // 只有在 session 初始化時才同步伺服器的值
+                  // 之後完全由客戶端管理（通過 gainExperience 和 levelUp()）
                 }
                 _lastSessionExp = nowExp;
               }
             }
+            
+            // ⚠️ 修復：確保 experienceToNextLevel 不會被伺服器每幀覆蓋
+            // 與單機一致：experienceToNextLevel 只在升級時改變（通過 levelUp()）
+            // 只有在 session 初始化時才同步伺服器的值，之後完全由客戶端管理
+            // 不應該在每次收到伺服器狀態時都同步這個值
 
             // ✅ 金幣共享（伺服器權威）：sessionCoins 用 delta 寫回 Game.addCoins（不改存檔碼鍵名）
             if (typeof playerState.sessionCoins === "number") {
@@ -4975,12 +4986,54 @@ function updateProjectilesFromServer(projectiles) {
   const serverProjectileIds = new Set(projectiles.filter(p => p && p.id).map(p => p.id));
   const localProjectileIds = new Set(Game.projectiles.filter(p => p && p.id).map(p => p.id));
 
-  // 移除服务器不存在的投射物
+  // ⚠️ 修復：移除服务器不存在的投射物，但排除通過 projectile_spawn 事件創建的特殊視覺效果
+  // 這些特殊視覺效果（雷射、連鎖閃電、斬擊、鳳梨環繞等）不在服務器的 projectiles 中，
+  // 它們是通過事件廣播的，不應該被清理邏輯刪除
+  const isSpecialVisualEffect = (proj) => {
+    if (!proj) return false;
+    // 檢查是否是通過 projectile_spawn 事件創建的特殊視覺效果
+    const weaponType = proj.weaponType;
+    const constructorName = proj.constructor && proj.constructor.name;
+    return (
+      // 一次性視覺效果（每次 fire() 都創建新的）
+      weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' ||
+      weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' ||
+      // 持續視覺效果（通過事件廣播的）
+      weaponType === 'AURA_FIELD' || weaponType === 'GRAVITY_WAVE' ||
+      weaponType === 'ORBIT' || weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' ||
+      weaponType === 'HEART_COMPANION' || weaponType === 'PINEAPPLE_ORBIT' ||
+      weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC' ||
+      weaponType === 'BIG_ICE_BALL' || weaponType === 'FRENZY_ICE_BALL' ||
+      weaponType === 'YOUNG_DADA_GLORY' || weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
+      weaponType === 'DEATHLINE_WARRIOR' || weaponType === 'DEATHLINE_SUPERMAN' ||
+      weaponType === 'JUDGMENT' || weaponType === 'DIVINE_JUDGMENT' || weaponType === 'EXPLOSION' ||
+      // 通過構造函數名稱檢查
+      constructorName === 'LaserBeam' || constructorName === 'ChainLightningEffect' || constructorName === 'FrenzyLightningEffect' ||
+      constructorName === 'SlashEffect' || constructorName === 'AuraField' || constructorName === 'GravityWaveField' ||
+      constructorName === 'OrbitBall' || constructorName === 'RadiantGloryEffect' || constructorName === 'ShockwaveEffect' ||
+      constructorName === 'IceFieldEffect' || constructorName === 'YoungDadaGloryEffect' || constructorName === 'FrenzyYoungDadaGloryEffect' ||
+      constructorName === 'DeathlineWarriorEffect' || constructorName === 'JudgmentEffect' || constructorName === 'DivineJudgmentEffect' ||
+      constructorName === 'ExplosionEffect' ||
+      // 檢查是否有 _remotePlayerUid（通過事件創建的標記）
+      (proj._remotePlayerUid && proj._isVisualOnly)
+    );
+  };
+  
+  // 移除服务器不存在的投射物（但排除特殊視覺效果）
   for (let i = Game.projectiles.length - 1; i >= 0; i--) {
     const proj = Game.projectiles[i];
     // ✅ 修復：防止 proj 為 null/undefined 或沒有 id 導致崩潰
-    if (!proj || !proj.id || !serverProjectileIds.has(proj.id)) {
-      Game.projectiles.splice(i, 1);
+    // ⚠️ 修復：不要刪除特殊視覺效果（它們不在服務器的 projectiles 中）
+    if (!proj || !proj.id) {
+      // 沒有 ID 的投射物，如果不是特殊視覺效果，則刪除
+      if (!isSpecialVisualEffect(proj)) {
+        Game.projectiles.splice(i, 1);
+      }
+    } else if (!serverProjectileIds.has(proj.id)) {
+      // 不在服務器列表中的投射物，如果是特殊視覺效果，則保留（它們通過事件廣播）
+      if (!isSpecialVisualEffect(proj)) {
+        Game.projectiles.splice(i, 1);
+      }
     }
   }
 
