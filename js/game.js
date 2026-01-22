@@ -2161,13 +2161,28 @@ const Game = {
 
     // 遊戲結束
     gameOver: function () {
+        console.log('[Game] gameOver: 被调用');
         // ✅ 防重複觸發：如果已經處理過失敗事件，直接返回
         if (this._gameOverEventSent) {
+            console.warn('[Game] gameOver: _gameOverEventSent 已为 true，跳过');
             return; // 已經處理過了，避免無限循環
         }
+        console.log('[Game] gameOver: 设置 _gameOverEventSent = true');
         this._gameOverEventSent = true; // 標記為已處理
         this.isGameOver = true;
+        
+        // ⚠️ 修复：先显示游戏结束画面，然后再处理组队模式的房间大厅逻辑
+        // 确保游戏结束画面一定会显示，不会被房间大厅覆盖
+        console.log('[Game] gameOver: 调用 UI.showGameOverScreen()');
+        if (typeof UI !== 'undefined' && typeof UI.showGameOverScreen === 'function') {
+            UI.showGameOverScreen();
+        } else {
+            console.error('[Game] gameOver: UI 或 UI.showGameOverScreen 不存在！', typeof UI, typeof UI?.showGameOverScreen);
+        }
+        
         // ✅ 正常結束：組隊模式下回到房間，單機模式下正常返回開始畫面
+        // ⚠️ 注意：房间大厅逻辑应该在游戏结束画面显示之后处理，或者延迟处理
+        // 因为游戏结束画面需要先显示，然后用户看完后再回到房间大厅
         try {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
@@ -2181,23 +2196,19 @@ const Game = {
             } catch (_) { }
 
             // ✅ 組隊模式：正常結束時回到房間，不離開房間（異常結束才會清理）
+            // ⚠️ 修复：延迟处理房间大厅逻辑，确保游戏结束画面先显示
+            // 游戏结束画面会在用户看完后自动返回开始画面，然后我们再显示房间大厅
             if (isSurvivalMode && this.multiplayer) {
                 // 更新房間狀態為 lobby（回到大廳狀態）
                 if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
                     window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => { });
                 }
-                // 先顯示開始畫面（作為背景），然後顯示房間大廳覆蓋層
-                try {
-                    const startScreen = document.getElementById('start-screen');
-                    if (startScreen) startScreen.classList.remove('hidden');
-                } catch (_) { }
-                // 回到房間大廳（覆蓋層）
-                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
-                    window.SurvivalOnlineUI.openLobbyScreen();
-                }
+                // ⚠️ 修复：不在游戏结束时立即显示房间大厅，而是等待游戏结束画面播放完成
+                // 游戏结束画面会在播放完成后自动返回开始画面，然后我们再显示房间大厅
+                // 这样确保用户能看到完整的游戏结束画面
+                // 房间大厅的显示逻辑已经在 UI.showGameOverScreen() 中处理（通过 _returnToStartFrom）
             }
         } catch (_) { }
-        UI.showGameOverScreen();
     },
 
     // 遊戲勝利
