@@ -2152,10 +2152,12 @@ class GameState {
             try {
               this.vfxEvents.push({
                 type: 'car_hit',
-                playerUid: player.uid || null,
-                x: player.x || car.x,
-                y: player.y || car.y,
-                timestamp: Date.now()
+                data: {
+                  playerUid: player.uid || null,
+                  x: player.x || car.x,
+                  y: player.y || car.y,
+                  timestamp: Date.now()
+                }
               });
             } catch (_) {}
 
