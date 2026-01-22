@@ -4386,6 +4386,20 @@ function handleServerGameState(state, timestamp) {
   // ✅ 安全检查：只在多人模式下执行
   if (typeof Game === 'undefined' || !Game.multiplayer) return;
 
+  // ⚠️ 修复：优先检查游戏结束状态，确保游戏结束画面一定会显示
+  // 必须在所有其他逻辑之前检查，避免被其他逻辑提前返回而跳过
+  if (typeof Game !== 'undefined' && state.isGameOver) {
+    // ✅ 權威伺服器模式：遊戲結束由伺服器 state.isGameOver 觸發
+    // 使用防重複機制，避免多次觸發
+    if (!Game._gameOverEventSent) {
+      Game._gameOverEventSent = true;
+      Game.isGameOver = true;
+      if (typeof Game.gameOver === 'function') {
+        Game.gameOver();
+      }
+    }
+  }
+
   try {
     _multiplayerSanityOnce();
     // 更新玩家状态
@@ -4808,17 +4822,8 @@ function handleServerGameState(state, timestamp) {
     // ✅ 更新游戏状态（服务器权威）
     if (typeof Game !== 'undefined') {
       if (typeof state.gameTime === "number") Game.gameTime = state.gameTime;
-      if (state.isGameOver) {
-        // ✅ 權威伺服器模式：遊戲結束由伺服器 state.isGameOver 觸發
-        // 使用防重複機制，避免多次觸發
-        if (!Game._gameOverEventSent) {
-          Game._gameOverEventSent = true;
-          Game.isGameOver = true;
-          if (typeof Game.gameOver === 'function') {
-            Game.gameOver();
-          }
-        }
-      }
+      // ⚠️ 修复：游戏结束状态检查已移到函数开头，确保优先处理
+      // if (state.isGameOver) { ... } // 已移到函数开头
       if (state.isVictory) {
         // ✅ 權威伺服器模式：遊戲勝利由伺服器 state.isVictory 觸發
         // 使用防重複機制，避免多次觸發
