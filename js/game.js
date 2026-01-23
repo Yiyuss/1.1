@@ -2446,10 +2446,6 @@ const Game = {
             this.player.aiCompanion = null;
         }
         this.gameTime = 0;
-        // ⚠️ 关键修复：保存 isPaused 和 isGameOver 的状态，用于后续检查
-        // 这样可以防止在回到大厅后，Game.reset() 使用上一局的地图信息
-        const wasPaused = this.isPaused;
-        const wasGameOver = this.isGameOver;
         this.isPaused = false;
         this.isGameOver = false;
         // ✅ 重置事件标志，確保新遊戲可以正常觸發勝利和失敗事件
