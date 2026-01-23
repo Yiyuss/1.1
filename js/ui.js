@@ -345,30 +345,22 @@ const UI = {
                                     console.warn('[UI] _returnToStartFrom: 清理多人模式状态失败:', e);
                                 }
                                 
-                                // ⚠️ 关键修复：在 reset 之前，先设置 isPaused 和 isGameOver 为 true
-                                // 这样可以防止 Game.reset() 后，如果 Game.init() 被调用，会生成 obstacles 和 decorations
-                                // 因为 spawnObstacles() 和 spawnDecorations() 会检查这些状态
-                                Game.isPaused = true;
-                                Game.isGameOver = true;
-                                
                                 // ⚠️ 修复：保存 _gameOverEventSent 的状态，防止 Game.reset() 重置后导致重复触发
                                 // 因为服务器可能还在持续发送 state.isGameOver = true
                                 const wasGameOver = Game._gameOverEventSent;
                                 
                                 Game.reset();
                                 
-                                // ⚠️ 关键修复：reset() 后立即恢复 isPaused 和 isGameOver 为 true
-                                // 因为 Game.reset() 会设置 isPaused = false 和 isGameOver = false
-                                // 如果此时 Game.init() 被调用，spawnObstacles() 和 spawnDecorations() 会检查这些状态
-                                Game.isPaused = true;
-                                Game.isGameOver = true;
-                                
                                 // ⚠️ 修复：恢复 _gameOverEventSent 的状态，防止服务器持续发送 isGameOver 导致重复触发
                                 // 只有在真正开始新游戏时（startGame 中）才重置 _gameOverEventSent
-                                // 这样可以防止服务器残留的 state.isGameOver = true 立即触发游戏结束
                                 if (wasGameOver) {
                                     Game._gameOverEventSent = true;
                                 }
+                                
+                                // ⚠️ 修复：确保游戏保持在大厅状态（暂停和结束状态）
+                                // 因为 Game.reset() 会设置 isPaused = false 和 isGameOver = false
+                                Game.isPaused = true;
+                                Game.isGameOver = true;
                                 // ⚠️ 修复：不要在这里将 Game.player = null
                                 // Game.reset() 会重新创建 Game.player，如果在这里设置为 null，
                                 // 而 startGame 在 Game.reset() 执行之前执行，会导致 Game.player 为 null
