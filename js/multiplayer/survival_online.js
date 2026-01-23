@@ -284,6 +284,7 @@ let _sessionCountersPrimed = false;
 let _lastSessionCoins = 0;
 let _lastSessionExp = 0;
 let _didServerPosSync = false;
+let _lastSkipGameOverLogTime = 0; // ⚠️ 修复：节流"新游戏已开始"日志
 
 function _multiplayerSanityOnce() {
   try {
@@ -4450,7 +4451,15 @@ function handleServerGameState(state, timestamp) {
       Game._newGameStarted = false;
     } else {
       // 新游戏已开始，但服务器还在发送上一局的 isGameOver = true，忽略它
-      console.log('[SurvivalOnline] handleServerGameState: 新游戏已开始，忽略服务器残留的 isGameOver = true');
+      // ⚠️ 修复：添加节流，避免频繁输出日志
+      if (!_lastSkipGameOverLogTime) {
+        _lastSkipGameOverLogTime = 0;
+      }
+      const now = Date.now();
+      if (now - _lastSkipGameOverLogTime > 5000) { // 每5秒最多一次
+        _lastSkipGameOverLogTime = now;
+        // console.log('[SurvivalOnline] handleServerGameState: 新游戏已开始，忽略服务器残留的 isGameOver = true');
+      }
       // ⚠️ 修复：保持 _gameOverEventSent = true，防止服务器残留状态触发游戏结束
       // 不需要显式设置，因为 _gameOverEventSent 在 startGame 中应该保持为 true
       shouldSkipGameOver = true; // 标记跳过游戏结束处理，但继续执行后续状态更新
