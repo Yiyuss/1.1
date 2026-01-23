@@ -257,11 +257,7 @@ function handleJoin(ws, msg) {
 
   // ✅ 权威服务器：立即发送当前游戏状态
   // ⚠️ 100%重构：在 handleJoin() 时，即使 sessionId 为空，也返回实际数据（因为这是新游戏开始）
-  // 这与 getState() 中的逻辑不同：getState() 在广播时如果 sessionId 为空会返回空数组
-  // ⚠️ 100%重构：在调用 getState() 之前，先处理待处理的 new-session（如果存在）
-  if (gameState._pendingNewSession) {
-    gameState.processPendingNewSession();
-  }
+  // ✅ 已移除 _pendingNewSession 机制，改为在 handleGameData() 中立即同步处理
   ws.send(JSON.stringify({
     type: 'game-state',
     state: (() => {
@@ -350,6 +346,8 @@ function handleGameData(ws, roomId, uid, data) {
   }
 
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
+  // ⚠️ 关键修复：立即同步处理 new-session，避免时序竞争条件
+  // 在 handleGameData() 中立即处理，确保在游戏循环读取状态之前完成
   if (gameState && data.type === 'new-session' && typeof data.sessionId === 'string') {
     try {
       // ✅ 收集所有玩家的 maxHealth 更新（如果客戶端發送了）
@@ -357,19 +355,17 @@ function handleGameData(ws, roomId, uid, data) {
       if (typeof data.maxHealth === 'number' && data.maxHealth > 0) {
         playerUpdates.set(uid, { maxHealth: data.maxHealth });
       }
-      // ⚠️ 100%重构：不立即处理，而是设置标记，等待游戏循环处理（确保时序正确）
+      // ✅ 立即同步处理 new-session（关键修复：避免时序竞争条件）
       // 先清理障碍物和装饰，防止上一局数据残留
       gameState.obstacles = [];
       gameState.decorations = [];
-      // 设置待处理标记，游戏循环会在广播状态之前处理它
-      gameState._pendingNewSession = {
-        sessionId: data.sessionId,
-        playerUpdates: playerUpdates,
-        timestamp: Date.now()
-      };
+      // 立即调用 resetForNewSession()，同步处理
+      gameState.resetForNewSession(data.sessionId, playerUpdates);
       staticSent.delete(actualRoomId); // 靜態資料下一次廣播重新帶一次
-      console.log(`[GameState] new-session: 已设置待处理标记，sessionId=${data.sessionId}（将在游戏循环中处理）`);
-    } catch (_) { }
+      console.log(`[GameState] new-session: ✅ 已立即同步处理，sessionId=${data.sessionId}`);
+    } catch (error) {
+      console.error(`[GameState] new-session 处理失败:`, error);
+    }
     return;
   }
 
@@ -540,10 +536,7 @@ function gameLoop() {
   // 更新所有游戏状态
   for (const [roomId, gameState] of gameStates.entries()) {
     try {
-      // ⚠️ 100%重构：先处理待处理的 new-session，再更新和广播状态（确保时序正确）
-      // 这样确保 getState() 读取时，currentSessionId 已经是新的
-      gameState.processPendingNewSession();
-      
+      // ✅ 已移除 processPendingNewSession()，改为在 handleGameData() 中立即同步处理
       // 更新游戏状态
       gameState.update(deltaTime);
 
