@@ -2446,10 +2446,12 @@ const Game = {
         this.intersectionCarTimer = 0;
         // ⚠️ 修复：清理多人模式HUD更新计时器
         this._multiplayerHUDUpdateTimer = 0;
-        // ⚠️ 修复：清理新游戏开始标志（如果存在）
-        if (typeof this._newGameStarted !== 'undefined') {
-            this._newGameStarted = false;
-        }
+        // ⚠️ 修复：不要清理 _newGameStarted 标志
+        // _newGameStarted 应该在 startGame 中设置，在 handleServerGameState 中清理
+        // 如果在这里清理，可能会导致新游戏开始时无法正确识别服务器残留状态
+        // if (typeof this._newGameStarted !== 'undefined') {
+        //     this._newGameStarted = false;
+        // }
 
         // 重置花園視頻計時器
         this.gardenVideoTimer = 0;
