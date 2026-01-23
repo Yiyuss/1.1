@@ -997,38 +997,118 @@ class GameState {
   }
 
   // ✅ AOE tick：圆形范围伤害（给 Aura/Orbit/Gravity/IceField 等持续效果用）
+  // ✅ 修复：支持线 segment 范围伤害（给 LASER 用）
   applyAoeTick(uid, input) {
     const player = this.players.get(uid);
     if (!player || player.isDead) return;
 
-    const x = (typeof input.x === 'number') ? input.x : player.x;
-    const y = (typeof input.y === 'number') ? input.y : player.y;
-    const radius = Math.max(10, Math.min(800, Math.floor(input.radius || 120)));
     const damage = Math.max(0, Math.floor(input.damage || 0));
     if (!damage) return;
 
-    const r2 = radius * radius;
-    for (const enemy of this.enemies) {
-      if (!enemy || enemy.isDead || enemy.health <= 0) continue;
-      const dx = enemy.x - x;
-      const dy = enemy.y - y;
-      if ((dx * dx + dy * dy) <= r2) {
-        // ✅ 與單機一致：AOE 也套用浮動/爆擊（並回傳命中事件供前端顯示）
-        // ✅ 使用 player.meta.critChanceBonusPct（持續同步的爆擊率）
-        const hit = this._computeHit(damage, input, player);
-        this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
-        // ✅ 單機同源：命中後吸血（不獸控制）
-        this._applyLifesteal(uid, hit.amount);
-        try {
-          this.hitEvents.push({
-            enemyId: enemy.id,
-            x: enemy.x,
-            y: enemy.y,
-            h: enemy.size || 32,
-            damage: hit.amount,
-            isCrit: hit.isCrit
-          });
-        } catch (_) { }
+    // ✅ 修复：检查是否是线 segment 范围伤害（LASER）
+    const isLineSegment = (
+      typeof input.endX === 'number' && 
+      typeof input.endY === 'number' && 
+      typeof input.width === 'number' &&
+      input.weaponType === 'LASER'
+    );
+
+    if (isLineSegment) {
+      // ✅ 修复：处理线 segment 范围伤害（LASER）
+      const startX = (typeof input.x === 'number') ? input.x : player.x;
+      const startY = (typeof input.y === 'number') ? input.y : player.y;
+      const endX = input.endX;
+      const endY = input.endY;
+      const width = Math.max(1, Math.min(200, Math.floor(input.width || 8)));
+      const halfWidth = width / 2;
+
+      // ✅ 修复：如果提供了 enemyIds，只检查这些敌人（优化性能）
+      const targetEnemyIds = (Array.isArray(input.enemyIds) && input.enemyIds.length > 0) 
+        ? new Set(input.enemyIds) 
+        : null;
+
+      for (const enemy of this.enemies) {
+        if (!enemy || enemy.isDead || enemy.health <= 0) continue;
+        
+        // ✅ 修复：如果提供了 enemyIds，只处理列表中的敌人
+        if (targetEnemyIds && !targetEnemyIds.has(enemy.id)) continue;
+
+        // ✅ 修复：计算点到线段的距离（与 laser.js 的 pointSegmentDistance 一致）
+        const vx = endX - startX;
+        const vy = endY - startY;
+        const len2 = vx * vx + vy * vy;
+        if (len2 === 0) {
+          // 线段长度为0，使用点到点的距离
+          const dist = Math.sqrt((enemy.x - startX) ** 2 + (enemy.y - startY) ** 2);
+          if (dist <= halfWidth + (enemy.collisionRadius || 16)) {
+            const hit = this._computeHit(damage, input, player);
+            this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
+            this._applyLifesteal(uid, hit.amount);
+            try {
+              this.hitEvents.push({
+                enemyId: enemy.id,
+                x: enemy.x,
+                y: enemy.y,
+                h: enemy.size || 32,
+                damage: hit.amount,
+                isCrit: hit.isCrit
+              });
+            } catch (_) { }
+          }
+        } else {
+          // 计算点到线段的最近点
+          let t = ((enemy.x - startX) * vx + (enemy.y - startY) * vy) / len2;
+          t = Math.max(0, Math.min(1, t));
+          const projX = startX + t * vx;
+          const projY = startY + t * vy;
+          const dist = Math.sqrt((enemy.x - projX) ** 2 + (enemy.y - projY) ** 2);
+          
+          if (dist <= halfWidth + (enemy.collisionRadius || 16)) {
+            const hit = this._computeHit(damage, input, player);
+            this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
+            this._applyLifesteal(uid, hit.amount);
+            try {
+              this.hitEvents.push({
+                enemyId: enemy.id,
+                x: enemy.x,
+                y: enemy.y,
+                h: enemy.size || 32,
+                damage: hit.amount,
+                isCrit: hit.isCrit
+              });
+            } catch (_) { }
+          }
+        }
+      }
+    } else {
+      // ✅ 原有逻辑：圆形范围伤害（Aura/Orbit/Gravity/IceField 等）
+      const x = (typeof input.x === 'number') ? input.x : player.x;
+      const y = (typeof input.y === 'number') ? input.y : player.y;
+      const radius = Math.max(10, Math.min(800, Math.floor(input.radius || 120)));
+
+      const r2 = radius * radius;
+      for (const enemy of this.enemies) {
+        if (!enemy || enemy.isDead || enemy.health <= 0) continue;
+        const dx = enemy.x - x;
+        const dy = enemy.y - y;
+        if ((dx * dx + dy * dy) <= r2) {
+          // ✅ 與單機一致：AOE 也套用浮動/爆擊（並回傳命中事件供前端顯示）
+          // ✅ 使用 player.meta.critChanceBonusPct（持續同步的爆擊率）
+          const hit = this._computeHit(damage, input, player);
+          this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
+          // ✅ 單機同源：命中後吸血（不獸控制）
+          this._applyLifesteal(uid, hit.amount);
+          try {
+            this.hitEvents.push({
+              enemyId: enemy.id,
+              x: enemy.x,
+              y: enemy.y,
+              h: enemy.size || 32,
+              damage: hit.amount,
+              isCrit: hit.isCrit
+            });
+          } catch (_) { }
+        }
       }
     }
   }
