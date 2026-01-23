@@ -2453,6 +2453,7 @@ const Game = {
         this._gameOverEventSent = false;
         // ⚠️ 修复：清理 new-session 发送标记，确保新游戏开始时重置
         this._newSessionSent = false;
+        this._newSessionSentTime = null; // 重置时间
         this.boss = null;
         this.exit = null;
         // ⚠️ 修复：清理统计数据，确保新游戏开始时是全新状态
