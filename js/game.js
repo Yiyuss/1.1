@@ -2446,6 +2446,10 @@ const Game = {
             this.player.aiCompanion = null;
         }
         this.gameTime = 0;
+        // ⚠️ 关键修复：保存 isPaused 和 isGameOver 的状态，用于后续检查
+        // 这样可以防止在回到大厅后，Game.reset() 使用上一局的地图信息
+        const wasPaused = this.isPaused;
+        const wasGameOver = this.isGameOver;
         this.isPaused = false;
         this.isGameOver = false;
         // ✅ 重置事件标志，確保新遊戲可以正常觸發勝利和失敗事件
@@ -2535,34 +2539,22 @@ const Game = {
             } catch (_) { }
         }
 
-        // ⚠️ 关键修复：如果游戏已暂停或已结束（在大厅状态），不要根据 selectedMap 设置世界大小和随机种子
-        // 这样可以防止在回到大厅后，Game.reset() 使用上一局的地图信息设置世界大小和随机种子
-        // 世界大小和随机种子应该在 Game.init() 中设置（当真正开始新游戏时）
-        if (!this.isPaused && !this.isGameOver) {
-            // 只有在游戏运行时（不是在大厅状态），才根据地图类型设定世界大小
-            // 4K模式（花園、路口）：固定為 3840x2160
-            // 720P九宮格模式（廁所、草原、宇宙）：根據 CONFIG 計算 (1280*3, 720*3)
-            if (this.selectedMap && (this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection')) {
-                this.worldWidth = 3840;
-                this.worldHeight = 2160;
-                console.log(`[Game] 重置世界大小 (4K模式): ${this.worldWidth}x${this.worldHeight}`);
-            } else {
-                this.worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3);
-                this.worldHeight = CONFIG.CANVAS_HEIGHT * (CONFIG.WORLD?.GRID_Y || 3);
-                console.log(`[Game] 重置世界大小 (九宮格模式): ${this.worldWidth}x${this.worldHeight}`);
-            }
-        } else {
-            // 在大厅状态，保持当前世界大小不变，或者使用默认值
-            // 这样可以防止使用上一局的地图信息
-            if (this.worldWidth === 0 || this.worldHeight === 0) {
-                // 如果世界大小未设置，使用默认值
-                this.worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3);
-                this.worldHeight = CONFIG.CANVAS_HEIGHT * (CONFIG.WORLD?.GRID_Y || 3);
-            }
-            console.log(`[Game] 重置世界大小 (大厅状态，保持当前大小): ${this.worldWidth}x${this.worldHeight}`);
-        }
+        // ⚠️ 关键修复：Game.reset() 不应该设置世界大小和随机种子
+        // 这些设置应该在 Game.init() 中执行（当真正开始新游戏时）
+        // 这样可以防止在回到大厅后，Game.reset() 使用上一局的地图信息
+        // 世界大小和随机种子会在 Game.init() 中根据新的 selectedMap 设置
+        // 不在这里设置，避免使用旧的 selectedMap
 
-        // 重新置中玩家
+        // ⚠️ 关键修复：在创建玩家之前，确保世界大小已设置
+        // 如果世界大小未设置（回到大厅时），使用默认值
+        // 注意：这里不根据 selectedMap 设置世界大小，因为 selectedMap 可能还是上一局的地图
+        // 世界大小会在 Game.startNewGame() 中根据新的 selectedMap 设置
+        if (this.worldWidth === 0 || this.worldHeight === 0) {
+            this.worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3);
+            this.worldHeight = CONFIG.CANVAS_HEIGHT * (CONFIG.WORLD?.GRID_Y || 3);
+        }
+        
+        // 重新置中玩家（使用当前世界大小，可能是上一局的值，但会在 startNewGame() 中更新）
         this.player = new Player(this.worldWidth / 2, this.worldHeight / 2);
         // 應用選角屬性（若有）
         if (this.selectedCharacter) {
@@ -2641,49 +2633,11 @@ const Game = {
             console.warn('BulletSystem.reset 失敗：', e);
         }
 
-        // ⚠️ 关键修复：如果游戏已暂停或已结束（在大厅状态），不要设置随机种子
-        // 这样可以防止在回到大厅后，Game.reset() 使用上一局的 sessionId 设置随机种子
+        // ⚠️ 关键修复：Game.reset() 不应该设置随机种子
         // 随机种子应该在 Game.init() 中设置（当真正开始新游戏时）
-        if (!this.isPaused && !this.isGameOver) {
-            // 只有在游戏运行时（不是在大厅状态），才设置随机种子
-            // MMO 架構：多人模式設置確定性隨機數種子，確保所有客戶端生成相同的敵人
-            try {
-                let isSurvivalMode = false;
-                try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
-                    isSurvivalMode = (activeId === 'survival' || activeId === null);
-                } catch (_) { }
-
-                if (isSurvivalMode && this.multiplayer && this.multiplayer.sessionId) {
-                    // 多人模式：使用房間ID和sessionId作為種子，確保所有客戶端使用相同的種子
-                    const roomId = this.multiplayer.roomId || '';
-                    const sessionId = this.multiplayer.sessionId || '';
-                    const seed = `${roomId}_${sessionId}`;
-                    if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
-                        DeterministicRandom.init(seed);
-                        console.log(`[Game] 多人模式：設置確定性隨機數種子: ${seed}`);
-                    }
-                } else {
-                    // 單機模式：不使用種子
-                    if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
-                        DeterministicRandom.init(null);
-                    }
-                }
-            } catch (e) {
-                console.warn("[Game] 設置確定性隨機數種子失敗:", e);
-            }
-        } else {
-            // 在大厅状态，不设置随机种子，保持当前状态或重置为 null
-            // 这样可以防止使用上一局的 sessionId
-            if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
-                DeterministicRandom.init(null);
-            }
-            console.log(`[Game] 重置随机种子 (大厅状态，不设置种子)`);
-        }
+        // 这样可以防止在回到大厅后，Game.reset() 使用上一局的 sessionId
+        // 随机种子会在 Game.init() 中根据新的 sessionId 设置
+        // 不在这里设置，避免使用旧的 sessionId
 
         // 重置波次系統
         WaveSystem.init();
@@ -2772,6 +2726,62 @@ const Game = {
     startNewGame: function () {
         // 重置遊戲
         this.reset();
+        
+        // ⚠️ 关键修复：在 reset() 之后，根据新的 selectedMap 设置世界大小和随机种子
+        // 这样可以确保使用新的地图信息，而不是上一局的地图信息
+        // 根据地图类型设定世界大小
+        // 4K模式（花園、路口）：固定為 3840x2160
+        // 720P九宮格模式（廁所、草原、宇宙）：根據 CONFIG 計算 (1280*3, 720*3)
+        if (this.selectedMap && (this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection')) {
+            this.worldWidth = 3840;
+            this.worldHeight = 2160;
+            console.log(`[Game] 设置世界大小 (4K模式): ${this.worldWidth}x${this.worldHeight}`);
+        } else {
+            this.worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3);
+            this.worldHeight = CONFIG.CANVAS_HEIGHT * (CONFIG.WORLD?.GRID_Y || 3);
+            console.log(`[Game] 设置世界大小 (九宮格模式): ${this.worldWidth}x${this.worldHeight}`);
+        }
+        
+        // 更新玩家位置（因为世界大小可能改变了）
+        if (this.player) {
+            this.player.x = this.worldWidth / 2;
+            this.player.y = this.worldHeight / 2;
+        }
+        
+        // 重置鏡頭
+        this.camera.x = Utils.clamp(this.player.x - this.canvas.width / 2, 0, Math.max(0, this.worldWidth - this.canvas.width));
+        this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
+        
+        // MMO 架構：多人模式設置確定性隨機數種子，確保所有客戶端生成相同的敵人
+        try {
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) { }
+
+            if (isSurvivalMode && this.multiplayer && this.multiplayer.sessionId) {
+                // 多人模式：使用房間ID和sessionId作為種子，確保所有客戶端使用相同的種子
+                const roomId = this.multiplayer.roomId || '';
+                const sessionId = this.multiplayer.sessionId || '';
+                const seed = `${roomId}_${sessionId}`;
+                if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
+                    DeterministicRandom.init(seed);
+                    console.log(`[Game] 多人模式：設置確定性隨機數種子: ${seed}`);
+                }
+            } else {
+                // 單機模式：不使用種子
+                if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
+                    DeterministicRandom.init(null);
+                }
+            }
+        } catch (e) {
+            console.warn("[Game] 設置確定性隨機數種子失敗:", e);
+        }
 
         // 載入金幣並更新顯示
         this.loadCoins();
