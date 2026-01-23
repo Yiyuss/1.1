@@ -553,11 +553,9 @@ class GameState {
   resetForNewSession(sessionId, playerUpdates = null) {
     if (!sessionId || typeof sessionId !== 'string') return;
     if (this.currentSessionId === sessionId) return;
-    this.currentSessionId = sessionId;
-    // ⚠️ 修复：记录 new-session 的时间，用于时间窗口机制
-    // 在收到 new-session 后的 2 秒内，忽略旧的 obstacles 和 decorations 数据
-    this._newSessionTime = Date.now();
-
+    
+    // ⚠️ 100%重构：先清理所有数据，再设置sessionId（防止时序竞争）
+    // 这是关键修复：在设置sessionId之前，先清理所有数据，确保游戏循环读取时不会拿到旧数据
     this.enemies = [];
     this.projectiles = [];
     this.bossProjectiles = [];
@@ -565,11 +563,8 @@ class GameState {
     this.bulletEmitters = [];
     this.experienceOrbs = [];
     this.chests = [];
-    // ⚠️ 修復：重置小BOSS生成標記，確保新session第一波能生成小BOSS
     this.minibossSpawnedForWave = false;
     this.carHazards = [];
-    // ⚠️ 修复：清理地图特定的静态元素，确保切换地图时不会残留
-    // 障碍物和装饰是地图特定的，新游戏开始时必须清理，让新地图重新生成
     this.obstacles = [];
     this.decorations = [];
     this.exit = null;
@@ -582,11 +577,21 @@ class GameState {
     this.isVictory = false;
     this.gameTime = 0;
     this.hitEvents = [];
-    // ✅ 修復：避免新局一開始就刷小BOSS
     this.lastMiniBossSpawnAt = Date.now();
-    // ✅ 修复：重置游戏结束相关标记
     this._shouldBroadcastGameOver = false;
     this._gameOverEventSent = false;
+    
+    // ⚠️ 100%重构：在清理完所有数据后，再设置sessionId（防止时序竞争）
+    // 这样即使游戏循环在设置sessionId之前读取了getState()，也会因为数据已清空而返回空数组
+    const oldSessionId = this.currentSessionId;
+    this.currentSessionId = sessionId;
+    // ⚠️ 修复：记录 new-session 的时间，用于时间窗口机制
+    // 在收到 new-session 后的 2 秒内，忽略旧的 obstacles 和 decorations 数据
+    this._newSessionTime = Date.now();
+    
+    console.log(`[GameState.resetForNewSession] ✅ 已清理所有数据并设置新sessionId: ${oldSessionId} -> ${sessionId}`);
+
+    // ⚠️ 注意：数据清理已在上面完成，这里不再重复清理
 
     // 玩家：回到安全初始狀態（保守）
     // ✅ 如果提供了 playerUpdates（Map<uid, {maxHealth, ...}>），更新對應玩家的 maxHealth
