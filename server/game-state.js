@@ -1774,7 +1774,7 @@ class GameState {
         // ✅ 檢查障礙物碰撞（與單機模式一致）
         // ⚠️ 修復：障礙物是中心坐標（obs.x, obs.y 是中心），需要轉換為矩形邊界
         const enemySize = enemy.size || 32;
-        const enemyRadius = enemySize / 2;
+        const enemyRadiusForObs = enemySize / 2;
         const blockedByObs = (nx, ny) => {
           for (const obs of this.obstacles || []) {
             // ⚠️ 修復：障礙物是中心坐標，需要轉換為矩形邊界
@@ -1788,7 +1788,7 @@ class GameState {
             // 使用圓-矩形碰撞檢測（與單機模式一致）
             const dx = Math.max(obsLeft, Math.min(nx, obsRight)) - nx;
             const dy = Math.max(obsTop, Math.min(ny, obsBottom)) - ny;
-            if ((dx * dx + dy * dy) < (enemyRadius * enemyRadius)) {
+            if ((dx * dx + dy * dy) < (enemyRadiusForObs * enemyRadiusForObs)) {
               return true;
             }
           }
@@ -1802,6 +1802,86 @@ class GameState {
         // 嘗試Y軸位移（僅檢查障礙物）
         if (!blockedByObs(enemy.x, candY)) {
           enemy.y = candY;
+        }
+
+        // ✅ 修复：与单机一致 - 怪物之间的软排斥（参考 js/enemy.js Line 460-524）
+        const enemyRadius = enemy.collisionRadius || (enemy.size || 32) / 2;
+        const maxCheckDistanceSq = 200 * 200; // 只检查附近的敌人（性能优化）
+        
+        // 判断是否为花园大体积敌人
+        const isGardenLargeEnemyForRepulsion = (this.selectedMap && this.selectedMap.id === 'garden') &&
+          (enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'ELF_BOSS');
+        // 判断是否为大体积敌人
+        const isLargeEnemyForRepulsion = (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' ||
+          enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS');
+
+        // 互斥强度：大体积敌人需要更强的推力，避免被小敌人卡住
+        let repulsionStrength = 0.15; // 默认互斥强度
+        if (isGardenLargeEnemyForRepulsion) {
+          repulsionStrength = 0.35; // 花园大体积敌人：更强推力
+        } else if (isLargeEnemyForRepulsion) {
+          repulsionStrength = 0.25; // 其他大体积敌人：中等推力
+        }
+
+        // 累积互斥力（向量累加）
+        let repulsionX = 0;
+        let repulsionY = 0;
+        let repulsionCount = 0;
+
+        // 只检查附近的敌人（性能优化）
+        for (const otherEnemy of this.enemies || []) {
+          if (otherEnemy === enemy || otherEnemy.isDead || otherEnemy.isDying) continue;
+
+          const dx = enemy.x - otherEnemy.x;
+          const dy = enemy.y - otherEnemy.y;
+          const distSq = dx * dx + dy * dy;
+
+          // 距离阈值检查（性能优化）
+          if (distSq > maxCheckDistanceSq) continue;
+
+          const distance = Math.sqrt(distSq);
+          const otherRadius = otherEnemy.collisionRadius || (otherEnemy.size || 32) / 2;
+          const minDistance = enemyRadius + otherRadius;
+
+          // 如果距离小于最小距离，计算互斥力
+          if (distance < minDistance && distance > 0.0001) {
+            // 标准化方向向量（从其他敌人指向自己）
+            const dirX = dx / distance;
+            const dirY = dy / distance;
+
+            // 计算重叠深度
+            const overlap = minDistance - distance;
+
+            // 互斥力与重叠深度成正比，但使用平方根避免过强
+            const force = Math.sqrt(overlap) * repulsionStrength * deltaMul;
+
+            // 累积互斥力
+            repulsionX += dirX * force;
+            repulsionY += dirY * force;
+            repulsionCount++;
+          }
+        }
+
+        // 应用互斥力（平均化，避免单个敌人造成过大位移）
+        if (repulsionCount > 0) {
+          // 限制最大互斥力，避免瞬间位移过大
+          const maxRepulsion = (enemy.speed || 2) * deltaMul * 2.0; // 最大互斥速度不超过移动速度的2倍
+          const repulsionMag = Math.sqrt(repulsionX * repulsionX + repulsionY * repulsionY);
+          if (repulsionMag > maxRepulsion) {
+            const scale = maxRepulsion / repulsionMag;
+            repulsionX *= scale;
+            repulsionY *= scale;
+          }
+
+          // 应用互斥位移（检查障碍物）
+          const repulsionCandX = enemy.x + repulsionX;
+          const repulsionCandY = enemy.y + repulsionY;
+          if (!blockedByObs(repulsionCandX, enemy.y)) {
+            enemy.x = repulsionCandX;
+          }
+          if (!blockedByObs(enemy.x, repulsionCandY)) {
+            enemy.y = repulsionCandY;
+          }
         }
 
         // ✅ 敌人边界检查（防止敌人移动到世界外）
@@ -1924,7 +2004,36 @@ class GameState {
 
     for (let i = 0; i < count && this.enemies.length < maxEnemies; i++) {
       // 随机选择敌人类型
-      const enemyType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+      let enemyType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+      
+      // ✅ 修复：与单机一致 - 根据地图选择敌人类型（参考 js/wave.js Line 143-165）
+      if (this.selectedMap) {
+        // 第二张地图（forest）将普通敌人替换为 *_2 变体
+        if (this.selectedMap.id === 'forest') {
+          if (enemyType === 'ZOMBIE') enemyType = 'ZOMBIE2';
+          else if (enemyType === 'SKELETON') enemyType = 'SKELETON2';
+          else if (enemyType === 'GHOST') enemyType = 'GHOST2';
+        }
+        // 第三张地图（desert）将普通敌人替换为 *_3 变体
+        else if (this.selectedMap.id === 'desert') {
+          if (enemyType === 'ZOMBIE') enemyType = 'ZOMBIE3';
+          else if (enemyType === 'SKELETON') enemyType = 'SKELETON3';
+          else if (enemyType === 'GHOST') enemyType = 'GHOST3';
+        }
+        // 第四张地图（garden）将普通敌人替换为花精灵系列
+        else if (this.selectedMap.id === 'garden') {
+          if (enemyType === 'ZOMBIE') enemyType = 'ELF';
+          else if (enemyType === 'SKELETON') enemyType = 'ELF2';
+          else if (enemyType === 'GHOST') enemyType = 'ELF3';
+        }
+        // 第五张地图（intersection）将普通敌人替换为人类系列
+        else if (this.selectedMap.id === 'intersection') {
+          if (enemyType === 'ZOMBIE') enemyType = 'HUMAN1';
+          else if (enemyType === 'SKELETON') enemyType = 'HUMAN2';
+          else if (enemyType === 'GHOST') enemyType = 'HUMAN3';
+        }
+      }
+      
       const enemyConfig = config.ENEMIES[enemyType] || { SIZE: 32, HEALTH: 100, SPEED: 2 };
 
       // ✅ 在世界边缘生成（使用实例的世界大小）
@@ -1992,35 +2101,67 @@ class GameState {
     const enemyConfig = config.ENEMIES[type] || config.ENEMIES['MINI_BOSS'];
     if (!enemyConfig) return;
 
-    // ✅ 與單機一致：從世界邊緣生成
-    const spawn = this._pickEdgeSpawn(80);
-    const x = spawn.x;
-    const y = spawn.y;
+    // ✅ 修复：与单机一致 - 第二、第三、第四张地图（forest、desert、garden）：每波生成 2 只小BOSS；其余维持 1 只
+    // 参考：js/wave.js Line 245-246
+    const count = (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert' || this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection')) ? 2 : 1;
 
-    // ✅ 血量同源（TUNING.MINI_BOSS）
-    const health = this._computeEnemyMaxHealth(type, enemyConfig, wave, config);
+    for (let idx = 0; idx < count; idx++) {
+      // ✅ 與單機一致：從世界邊緣生成（每次生成時重新選擇位置，避免重疊）
+      const spawn = this._pickEdgeSpawn(80);
+      let x = spawn.x;
+      let y = spawn.y;
 
-    const rangedAttack = this._shouldEnableRanged(type, enemyConfig) ? (enemyConfig.RANGED_ATTACK || null) : null;
-    this.enemies.push({
-      id: `boss_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      x, y,
-      type: type,
-      health: health,
-      maxHealth: health,
-      speed: enemyConfig.SPEED || 3,
-      size: enemyConfig.SIZE || 64,
-      experienceValue: enemyConfig.EXPERIENCE || 5,
-      isDead: false,
-      damage: (typeof enemyConfig.DAMAGE === 'number') ? enemyConfig.DAMAGE : 20,
-      rangedAttack,
-      lastRangedAttackAt: 0
-    });
-    // ✅ 修羅彈幕：為每隻小BOSS掛載彈幕發射器（同源 wave.js）
-    try {
-      const last = this.enemies[this.enemies.length - 1];
-      this._ensureBulletEmitterForEnemy(last, 'MINI_BOSS');
-    } catch (_) { }
-    console.log(`[GameState] 生成小BOSS: ${type} (Wave ${wave})`);
+      // ✅ 修复：尝试避免与其他敌人重叠（参考单机模式的逻辑）
+      const rad = (enemyConfig.COLLISION_RADIUS || 80);
+      let attempts = 0;
+      const sep = 6;
+      while (attempts++ < 25) {
+        let overlap = false;
+        for (const e of this.enemies) {
+          if (!e || e.isDead) continue;
+          const eRad = (e.collisionRadius || e.size / 2 || 16);
+          const minDist = rad + eRad + sep;
+          const dx = e.x - x;
+          const dy = e.y - y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < minDist) {
+            overlap = true;
+            break;
+          }
+        }
+        if (!overlap) break;
+        // 重新选择边缘位置
+        const newSpawn = this._pickEdgeSpawn(80);
+        x = newSpawn.x;
+        y = newSpawn.y;
+      }
+
+      // ✅ 血量同源（TUNING.MINI_BOSS）
+      const health = this._computeEnemyMaxHealth(type, enemyConfig, wave, config);
+
+      const rangedAttack = this._shouldEnableRanged(type, enemyConfig) ? (enemyConfig.RANGED_ATTACK || null) : null;
+      this.enemies.push({
+        id: `boss_${Date.now()}_${idx}_${Math.floor(Math.random() * 1000)}`,
+        x, y,
+        type: type,
+        health: health,
+        maxHealth: health,
+        speed: enemyConfig.SPEED || 3,
+        size: enemyConfig.SIZE || 64,
+        experienceValue: enemyConfig.EXPERIENCE || 5,
+        isDead: false,
+        damage: (typeof enemyConfig.DAMAGE === 'number') ? enemyConfig.DAMAGE : 20,
+        rangedAttack,
+        lastRangedAttackAt: 0,
+        collisionRadius: rad
+      });
+      // ✅ 修羅彈幕：為每隻小BOSS掛載彈幕發射器（同源 wave.js）
+      try {
+        const last = this.enemies[this.enemies.length - 1];
+        this._ensureBulletEmitterForEnemy(last, 'MINI_BOSS');
+      } catch (_) { }
+      console.log(`[GameState] 生成小BOSS: ${type} (Wave ${wave}, ${idx + 1}/${count})`);
+    }
   }
 
   // ✅ 服务器权威：生成大Boss
