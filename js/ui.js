@@ -342,24 +342,7 @@ const UI = {
                     // ⚠️ 关键修复：保存清理定时器，以便在新游戏开始时取消
                     let cleanupTimer = setTimeout(() => {
                         try {
-                            // ⚠️ 组队模式专用：检查是否已经开始新游戏（状态为 'starting' 或 'running'）
-                            // 如果已经开始新游戏，不要清理状态，避免覆盖新游戏的状态
-                            // ⚠️ 关键修复：即使新游戏已开始，也要清理地图特定的元素，防止残留
-                            if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
-                                if (Game._multiplayerGameState === 'starting' || Game._multiplayerGameState === 'running') {
-                                    console.log('[UI] _returnToStartFrom: 组队模式，新游戏已开始，跳过延迟清理（状态=' + Game._multiplayerGameState + '），但清理地图元素');
-                                    // ⚠️ 关键修复：即使新游戏已开始，也要清理地图特定的元素
-                                    // 这样可以防止上一局的地图元素残留
-                                    if (Array.isArray(Game.obstacles)) {
-                                        Game.obstacles = [];
-                                    }
-                                    if (Array.isArray(Game.decorations)) {
-                                        Game.decorations = [];
-                                    }
-                                    Game._obstaclesAndDecorationsSpawned = false;
-                                    return; // 新游戏已开始，不执行其他清理
-                                }
-                            }
+                            // ✅ 已移除状态机检查（采用页面刷新方案，组队模式下不会执行到这里）
                             
                             if (typeof Game !== 'undefined' && typeof Game.reset === 'function') {
                                 // ⚠️ 修复：在 reset 之前，先清理多人模式相关状态
@@ -381,17 +364,7 @@ const UI = {
                                     console.warn('[UI] _returnToStartFrom: 清理多人模式状态失败:', e);
                                 }
                                 
-                                // ⚠️ 重构：组队模式专用 - 设置状态为 'ending'（单机模式不受影响）
-                                if (Game.multiplayer && Game.multiplayer.enabled) {
-                                    // ⚠️ 重构：使用状态转移函数，确保状态转移的合法性
-                                    if (typeof Game._setMultiplayerState === 'function') {
-                                        Game._setMultiplayerState('ending');
-                                    } else {
-                                        // 兼容旧代码
-                                        Game._multiplayerGameState = 'ending';
-                                        console.log('[UI] _returnToStartFrom: 组队模式，设置状态为 ending');
-                                    }
-                                }
+                                // ✅ 已移除状态机（采用页面刷新方案，组队模式下不会执行到这里）
                                 
                                 // ⚠️ 修复：保存 _gameOverEventSent 的状态，防止 Game.reset() 重置后导致重复触发
                                 // 因为服务器可能还在持续发送 state.isGameOver = true
@@ -410,28 +383,7 @@ const UI = {
                                 Game.isPaused = true;
                                 Game.isGameOver = true;
                                 
-                                // ⚠️ 重构：组队模式专用 - 清理地图特定的元素并设置状态为 'lobby'（单机模式不受影响）
-                                if (Game.multiplayer && Game.multiplayer.enabled) {
-                                    // 再次检查状态，防止在新游戏开始后才执行
-                                    if (Game._multiplayerGameState !== 'starting' && Game._multiplayerGameState !== 'running') {
-                                        // 清理地图特定的元素
-                                        Game.obstacles = [];
-                                        Game.decorations = [];
-                                        Game._obstaclesAndDecorationsSpawned = false;
-                                        // ⚠️ 重构：清理期望的地图ID
-                                        Game._expectedMapId = null;
-                                        // ⚠️ 重构：使用状态转移函数，确保状态转移的合法性
-                                        if (typeof Game._setMultiplayerState === 'function') {
-                                            Game._setMultiplayerState('lobby');
-                                        } else {
-                                            // 兼容旧代码
-                                            Game._multiplayerGameState = 'lobby';
-                                            console.log('[UI] _returnToStartFrom: 组队模式，清理地图元素，设置状态为 lobby');
-                                        }
-                                    } else {
-                                        console.log('[UI] _returnToStartFrom: 组队模式，新游戏已开始，不设置状态为 lobby（状态=' + Game._multiplayerGameState + '）');
-                                    }
-                                }
+                                // ✅ 已移除状态机和地图ID清理（采用页面刷新方案，组队模式下不会执行到这里）
                                 // ⚠️ 修复：不要在这里将 Game.player = null
                                 // Game.reset() 会重新创建 Game.player，如果在这里设置为 null，
                                 // 而 startGame 在 Game.reset() 执行之前执行，会导致 Game.player 为 null
