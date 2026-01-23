@@ -682,6 +682,10 @@ const Runtime = (() => {
       _startNetHeartbeat();
     }
   }
+  
+  function isEnabled() {
+    return enabled;
+  }
 
   function onStateMessage(payload) {
     if (!payload || typeof payload !== "object") return;
@@ -2985,7 +2989,7 @@ const Runtime = (() => {
     _sendViaWebSocket(obj);
   }
 
-  return { setEnabled, onStateMessage, onEventMessage, onSnapshotMessage, onFullSnapshotMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers, broadcastEvent: broadcastEventFromRuntime, sendToNet };
+  return { setEnabled, isEnabled, onStateMessage, onEventMessage, onSnapshotMessage, onFullSnapshotMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers, broadcastEvent: broadcastEventFromRuntime, sendToNet };
 })();
 
 // M2：全局事件廣播函數（供其他模組調用）
@@ -4421,6 +4425,15 @@ function handleServerGameState(state, timestamp) {
 
   // ✅ 安全检查：只在多人模式下执行
   if (typeof Game === 'undefined' || !Game.multiplayer) return;
+  
+  // ⚠️ 修复：如果 Runtime 已停用（回到大厅后），不再处理服务器状态，节省流量
+  // Runtime.setEnabled(false) 表示游戏已结束，回到大厅，不需要继续接收游戏状态
+  if (typeof Runtime !== 'undefined' && typeof Runtime.isEnabled === 'function') {
+    if (!Runtime.isEnabled()) {
+      // Runtime 已停用，说明已经回到大厅，不再处理服务器状态，节省流量
+      return;
+    }
+  }
 
   // ⚠️ 修复：优先检查游戏结束状态，确保游戏结束画面一定会显示
   // 必须在所有其他逻辑之前检查，避免被其他逻辑提前返回而跳过
