@@ -4439,6 +4439,73 @@ function handleServerGameState(state, timestamp) {
     }
   }
 
+  // ⚠️ 100%重构：三重保险机制 + 时间窗口机制
+  if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+    const currentSessionId = (Game.multiplayer && Game.multiplayer.sessionId) ? Game.multiplayer.sessionId : null;
+    const serverSessionId = (state.sessionId && typeof state.sessionId === 'string') ? state.sessionId : null;
+    
+    // 初始化：记录上次处理的sessionId
+    if (typeof handleServerGameState._lastProcessedSessionId === 'undefined') {
+      handleServerGameState._lastProcessedSessionId = null;
+    }
+    
+    // ⚠️ 100%重构：时间窗口机制（3秒内严格过滤）
+    const now = Date.now();
+    const newSessionSentTime = (Game._newSessionSentTime && typeof Game._newSessionSentTime === 'number') ? Game._newSessionSentTime : 0;
+    const timeSinceNewSession = now - newSessionSentTime;
+    const isInTimeWindow = (timeSinceNewSession > 0 && timeSinceNewSession < 3000); // 3秒时间窗口
+    
+    // ⚠️ 100%重构：标记是否应该跳过地图元素同步（但不影响其他功能）
+    let shouldSkipMapElements = false;
+    
+    // ⚠️ 100%重构：如果客户端sessionId为空，只跳过地图元素同步（不影响玩家状态等）
+    if (!currentSessionId && serverSessionId) {
+      console.warn(`[SurvivalOnline] handleServerGameState: 客户端sessionId为空，跳过地图元素同步（服务器sessionId=${serverSessionId}）`);
+      // 在时间窗口内，强制清理所有数据
+      if (isInTimeWindow) {
+        if (Array.isArray(Game.enemies)) Game.enemies = [];
+        if (Array.isArray(Game.obstacles)) Game.obstacles = [];
+        if (Array.isArray(Game.decorations)) Game.decorations = [];
+        Game._obstaclesAndDecorationsSpawned = false;
+      }
+      // 标记跳过地图元素同步，但不return（继续处理玩家状态等）
+      shouldSkipMapElements = true;
+    }
+    
+    // ⚠️ 100%重构：如果这是第一次收到新sessionId的状态，强制清理所有旧数据
+    if (serverSessionId && handleServerGameState._lastProcessedSessionId !== serverSessionId) {
+      console.log(`[SurvivalOnline] handleServerGameState: 检测到新sessionId，强制清理所有旧数据（新sessionId=${serverSessionId}, 上次=${handleServerGameState._lastProcessedSessionId}）`);
+      // 强制清理所有旧数据
+      if (Array.isArray(Game.enemies)) {
+        Game.enemies = [];
+      }
+      if (Array.isArray(Game.obstacles)) {
+        Game.obstacles = [];
+      }
+      if (Array.isArray(Game.decorations)) {
+        Game.decorations = [];
+      }
+      Game._obstaclesAndDecorationsSpawned = false;
+      // 更新记录
+      handleServerGameState._lastProcessedSessionId = serverSessionId;
+    }
+    
+    // ⚠️ 100%重构：在时间窗口内，如果sessionId不匹配，只跳过地图元素同步
+    if (isInTimeWindow && currentSessionId && serverSessionId && currentSessionId !== serverSessionId) {
+      console.warn(`[SurvivalOnline] handleServerGameState: 时间窗口内sessionId不匹配，跳过地图元素同步（当前=${currentSessionId}, 服务器=${serverSessionId}, 时间差=${timeSinceNewSession}ms）`);
+      // 清理旧数据
+      if (Array.isArray(Game.enemies)) Game.enemies = [];
+      if (Array.isArray(Game.obstacles)) Game.obstacles = [];
+      if (Array.isArray(Game.decorations)) Game.decorations = [];
+      Game._obstaclesAndDecorationsSpawned = false;
+      // 标记跳过地图元素同步，但不return（继续处理玩家状态等）
+      shouldSkipMapElements = true;
+    }
+    
+    // 保存标记，供后续使用
+    handleServerGameState._shouldSkipMapElements = shouldSkipMapElements;
+  }
+
   // ⚠️ 修复：优先检查游戏结束状态，确保游戏结束画面一定会显示
   // 必须在所有其他逻辑之前检查，避免被其他逻辑提前返回而跳过
    
@@ -4759,21 +4826,36 @@ function handleServerGameState(state, timestamp) {
     }
 
     // 更新敌人（服务器权威）
-    // ⚠️ 修复：在 starting 状态时，完全忽略服务器状态，防止旧敌人污染
+    // ⚠️ 100%重构：严格基于sessionId过滤，但使用全局标记（避免重复检查）
     if (Array.isArray(state.enemies)) {
-      // ⚠️ 组队模式专用：在 starting 状态时，完全忽略服务器状态
+      // ⚠️ 组队模式专用：检查是否应该跳过地图元素同步
+      let shouldSkipEnemies = false;
       if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-        if (Game._multiplayerGameState === 'starting') {
-          // starting 状态：完全忽略服务器状态，防止旧敌人污染
-          // 客户端已经在 Game.reset() 中清理了所有敌人，等待服务器确认 new-session 完成
-          // 只有在状态变为 'running' 后，才开始同步服务器状态
-          // 不执行任何操作，直接跳过
+        // 使用全局标记（如果已设置）
+        if (typeof handleServerGameState._shouldSkipMapElements !== 'undefined' && handleServerGameState._shouldSkipMapElements) {
+          shouldSkipEnemies = true;
         } else {
-          // running 状态：正常同步服务器状态
-          updateEnemiesFromServer(state.enemies);
+          // 如果没有全局标记，进行独立检查
+          const currentSessionId = (Game.multiplayer && Game.multiplayer.sessionId) ? Game.multiplayer.sessionId : null;
+          const serverSessionId = (state.sessionId && typeof state.sessionId === 'string') ? state.sessionId : null;
+          
+          // ⚠️ 100%重构：严格匹配逻辑
+          // 1. 如果两个sessionId都存在且不匹配，拒绝同步
+          // 2. 如果客户端sessionId为空，拒绝同步（已在上面处理）
+          // 3. 只有在匹配时才同步
+          if (currentSessionId && serverSessionId && currentSessionId !== serverSessionId) {
+            console.warn(`[SurvivalOnline] handleServerGameState: 服务器sessionId不匹配，跳过旧敌人（当前=${currentSessionId}, 服务器=${serverSessionId}）`);
+            shouldSkipEnemies = true;
+          } else if (currentSessionId && !serverSessionId) {
+            // 客户端有sessionId但服务器没有：可能是旧代码，但为了安全，拒绝同步
+            console.warn(`[SurvivalOnline] handleServerGameState: 服务器sessionId为空，跳过敌人同步（当前=${currentSessionId}）`);
+            shouldSkipEnemies = true;
+          }
         }
-      } else {
-        // 单机模式：正常同步
+      }
+      
+      // 只有在匹配时才同步敌人
+      if (!shouldSkipEnemies) {
         updateEnemiesFromServer(state.enemies);
       }
     }
@@ -4914,35 +4996,46 @@ function handleServerGameState(state, timestamp) {
     // ⚠️ 修复：无论服务器发送的是空数组还是有数据，都要清理客户端状态
     // 这样可以确保切换地图时，上一局的地图特定元素被完全清理
     try {
-      // ⚠️ 组队模式专用：只在正确的状态时应用服务器数据
+      // ⚠️ 100%重构：严格基于sessionId过滤，但使用全局标记（避免重复检查）
       if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-        // ⚠️ 修复：在 starting 状态时，完全忽略服务器数据，防止旧障碍物/装饰物污染
-        if (Game._multiplayerGameState === 'starting') {
-          // starting 状态：完全忽略服务器数据，防止旧障碍物/装饰物污染
-          // 客户端已经在 Game.reset() 中清理了所有障碍物和装饰物，等待服务器确认 new-session 完成
-          // 只有在状态变为 'running' 后，才开始同步服务器状态
-          // 不执行任何操作，直接跳过
-          return;
-        } else if (Game._multiplayerGameState !== 'running') {
-          // 其他状态（lobby/ending）：忽略服务器数据
-          console.log('[SurvivalOnline] handleServerGameState: 组队模式状态不正确，忽略服务器数据（状态=' + Game._multiplayerGameState + '）');
-          // 即使状态不正确，也要清理本地状态，防止残留
-          if (Array.isArray(state.obstacles)) {
-            Game.obstacles = [];
-            Game._obstaclesAndDecorationsSpawned = false;
+        // 使用全局标记（如果已设置）
+        if (typeof handleServerGameState._shouldSkipMapElements !== 'undefined' && handleServerGameState._shouldSkipMapElements) {
+          // 跳过障碍物/装饰物同步，但不return（继续处理其他逻辑）
+          console.warn(`[SurvivalOnline] handleServerGameState: 跳过障碍物/装饰物同步（已标记跳过）`);
+          // 不return，继续执行后续逻辑（虽然不会同步障碍物/装饰物，但其他逻辑继续）
+        } else {
+          // 如果没有全局标记，进行独立检查
+          const currentSessionId = (Game.multiplayer && Game.multiplayer.sessionId) ? Game.multiplayer.sessionId : null;
+          const serverSessionId = (state.sessionId && typeof state.sessionId === 'string') ? state.sessionId : null;
+          
+          // ⚠️ 100%重构：严格匹配逻辑
+          // 1. 如果两个sessionId都存在且不匹配，拒绝同步
+          // 2. 如果客户端sessionId为空，拒绝同步（已在上面处理）
+          // 3. 如果客户端有sessionId但服务器没有，拒绝同步
+          // 4. 只有在匹配时才同步
+          if (currentSessionId && serverSessionId && currentSessionId !== serverSessionId) {
+            console.warn(`[SurvivalOnline] handleServerGameState: 服务器sessionId不匹配，跳过旧障碍物/装饰物（当前=${currentSessionId}, 服务器=${serverSessionId}）`);
+            // 不return，继续执行后续逻辑
+          } else if (currentSessionId && !serverSessionId) {
+            // 客户端有sessionId但服务器没有：可能是旧代码，但为了安全，拒绝同步
+            console.warn(`[SurvivalOnline] handleServerGameState: 服务器sessionId为空，跳过障碍物/装饰物同步（当前=${currentSessionId}）`);
+            // 不return，继续执行后续逻辑
+          } else {
+            // 匹配时正常同步（继续执行后续逻辑）
           }
-          if (Array.isArray(state.decorations)) {
-            Game.decorations = [];
-            Game._obstaclesAndDecorationsSpawned = false;
-          }
-          return; // 不应用服务器数据
         }
-        // running 状态：继续执行后续逻辑，正常同步服务器数据
       }
       
       const ObstacleCtor = _getGlobalCtor("Obstacle");
       if (Array.isArray(state.obstacles)) {
-        if (typeof Game !== "undefined") {
+        // ⚠️ 100%重构：如果标记了跳过，不处理障碍物
+        if (typeof handleServerGameState._shouldSkipMapElements !== 'undefined' && handleServerGameState._shouldSkipMapElements) {
+          // 跳过障碍物同步，但清理本地状态（防止残留）
+          if (typeof Game !== "undefined") {
+            Game.obstacles = [];
+            Game._obstaclesAndDecorationsSpawned = false;
+          }
+        } else if (typeof Game !== "undefined") {
           // ⚠️ 关键修复：检查服务器数据的地图ID是否匹配当前地图
           // 如果服务器发送的数据来自旧地图，忽略它
           const currentMapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
@@ -4977,7 +5070,14 @@ function handleServerGameState(state, timestamp) {
         }
       }
       if (Array.isArray(state.decorations)) {
-        if (typeof Game !== "undefined") {
+        // ⚠️ 100%重构：如果标记了跳过，不处理装饰物
+        if (typeof handleServerGameState._shouldSkipMapElements !== 'undefined' && handleServerGameState._shouldSkipMapElements) {
+          // 跳过装饰物同步，但清理本地状态（防止残留）
+          if (typeof Game !== "undefined") {
+            Game.decorations = [];
+            Game._obstaclesAndDecorationsSpawned = false;
+          }
+        } else if (typeof Game !== "undefined") {
           // ⚠️ 关键修复：检查服务器数据的地图ID是否匹配当前地图
           // 如果服务器发送的数据来自旧地图，忽略它
           const currentMapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
@@ -6829,6 +6929,26 @@ function tryStartSurvivalFromRoom() {
         const sid = sessionId || null;
         if (!sid) return;
         
+        // ⚠️ 100%重构：在发送 new-session 之前，再次强制清理所有数据（三重保险）
+        if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+          console.log(`[SurvivalOnline] sendNewSession: 发送前强制清理所有数据（sessionId=${sid}）`);
+          // 强制清理所有旧数据
+          if (Array.isArray(Game.enemies)) {
+            Game.enemies = [];
+          }
+          if (Array.isArray(Game.obstacles)) {
+            Game.obstacles = [];
+          }
+          if (Array.isArray(Game.decorations)) {
+            Game.decorations = [];
+          }
+          Game._obstaclesAndDecorationsSpawned = false;
+          // 重置上次处理的sessionId，确保新sessionId能被检测到
+          if (typeof handleServerGameState !== 'undefined') {
+            handleServerGameState._lastProcessedSessionId = null;
+          }
+        }
+        
         // 計算本地玩家的 maxHealth（包含角色屬性和天賦效果）
         let playerMaxHealth = 200; // 默認值
         if (typeof Game !== "undefined" && Game.player) {
@@ -6850,10 +6970,14 @@ function tryStartSurvivalFromRoom() {
           try { _sendViaWebSocket({ type: "new-session", sessionId: sid, maxHealth: playerMaxHealth }); } catch (_) { }
         }
         
-        // ⚠️ 修复：标记 new-session 已发送，并记录时间
+        // ⚠️ 100%重构：标记 new-session 已发送，并记录时间（用于时间窗口机制）
         if (typeof Game !== "undefined") {
           Game._newSessionSent = true;
           Game._newSessionSentTime = Date.now(); // 记录发送时间，用于时间窗口检查
+          // 同时记录当前sessionId，用于后续验证
+          if (Game.multiplayer) {
+            Game.multiplayer.sessionId = sid;
+          }
         }
         
         // ⚠️ 重构：在 new-session 发送后，延迟发送 obstacles 和 decorations
@@ -6934,6 +7058,13 @@ function tryStartSurvivalFromRoom() {
     // 更新 Game.selectedCharacter 確保一致性
     if (selectedCharacter && typeof Game !== "undefined") {
       Game.selectedCharacter = selectedCharacter;
+    }
+
+    // ⚠️ 100%重构：在调用 startSurvivalNow 之前，确保 sessionId 已经设置到 Game.multiplayer
+    // 这样在 handleServerGameState 中，sessionId 就已经存在了
+    if (typeof Game !== "undefined" && Game.multiplayer && sessionId) {
+      Game.multiplayer.sessionId = sessionId;
+      console.log(`[SurvivalOnline] startGame: 设置 sessionId=${sessionId} 到 Game.multiplayer`);
     }
 
     startSurvivalNow({
