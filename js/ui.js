@@ -1128,10 +1128,10 @@ const UI = {
             if (typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
                 BuffSystem.applyAttributeUpgrades(player);
             }
-            // 更新技能列表與音效/關閉選單
+            // 更新技能列表與音效
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
         if (weaponType === 'ATTR_CRIT') {
@@ -1141,7 +1141,7 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
         if (weaponType === 'ATTR_ATTACK_POWER') {
@@ -1151,7 +1151,7 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
         if (weaponType === 'ATTR_HEALTH') {
@@ -1197,7 +1197,7 @@ const UI = {
             
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
         if (weaponType === 'ATTR_DEFENSE') {
@@ -1208,7 +1208,7 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
 
@@ -1241,7 +1241,7 @@ const UI = {
             try { if (typeof Achievements !== 'undefined' && Achievements.unlock) Achievements.unlock('FRENZY_FUSION'); } catch(_) {}
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
 
@@ -1272,7 +1272,7 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
 
@@ -1303,7 +1303,7 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
 
@@ -1359,7 +1359,7 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
 
@@ -1390,7 +1390,7 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
 
@@ -1421,7 +1421,7 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
 
@@ -1452,7 +1452,7 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
 
@@ -1483,7 +1483,7 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
 
@@ -1555,6 +1555,7 @@ const UI = {
                 // 不滿足合成條件，不允許升級（召喚AI LV2只能通過合成獲得）
                 try { this.updateSkillsList(); } catch (_) {}
                 this._playClick();
+                // ✅ 修复：阻止升级时立即关闭菜单（特殊情况）
                 this.hideLevelUpMenu();
                 return;
             }
@@ -1612,7 +1613,7 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            this.hideLevelUpMenu();
+            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
             return;
         }
 
@@ -2245,6 +2246,22 @@ const UI = {
         if (typeof Game !== 'undefined' && Game.resume) {
             Game.resume();
         }
+        
+        // ✅ 修复：与单机一致 - 连续升级时，在关闭菜单后检查是否还能再次升级（避免盖掉前一个升级的选项机会）
+        // 如果升级后经验仍然足够，再次显示升级菜单（不递归调用 levelUp，而是直接检查经验）
+        try {
+            if (typeof Game !== 'undefined' && Game.player && !Game.player._isRemotePlayer) {
+                const player = Game.player;
+                if (player.experience >= player.experienceToNextLevel) {
+                    // 延迟一帧，确保菜单完全关闭后再显示下一个
+                    setTimeout(() => {
+                        if (player.experience >= player.experienceToNextLevel) {
+                            player.levelUp();
+                        }
+                    }, 50);
+                }
+            }
+        } catch (_) {}
     },
 
     // 私有：標記升級卡片待確認高亮
