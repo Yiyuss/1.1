@@ -258,6 +258,10 @@ function handleJoin(ws, msg) {
   // ✅ 权威服务器：立即发送当前游戏状态
   // ⚠️ 100%重构：在 handleJoin() 时，即使 sessionId 为空，也返回实际数据（因为这是新游戏开始）
   // 这与 getState() 中的逻辑不同：getState() 在广播时如果 sessionId 为空会返回空数组
+  // ⚠️ 100%重构：在调用 getState() 之前，先处理待处理的 new-session（如果存在）
+  if (gameState._pendingNewSession) {
+    gameState.processPendingNewSession();
+  }
   ws.send(JSON.stringify({
     type: 'game-state',
     state: (() => {
@@ -353,13 +357,18 @@ function handleGameData(ws, roomId, uid, data) {
       if (typeof data.maxHealth === 'number' && data.maxHealth > 0) {
         playerUpdates.set(uid, { maxHealth: data.maxHealth });
       }
-      // ⚠️ 修复：先清理障碍物和装饰，防止上一局数据残留
-      // 必须在 resetForNewSession 之前清理，因为 resetForNewSession 会清理这些数据
+      // ⚠️ 100%重构：不立即处理，而是设置标记，等待游戏循环处理（确保时序正确）
+      // 先清理障碍物和装饰，防止上一局数据残留
       gameState.obstacles = [];
       gameState.decorations = [];
-      gameState.resetForNewSession(data.sessionId, playerUpdates);
+      // 设置待处理标记，游戏循环会在广播状态之前处理它
+      gameState._pendingNewSession = {
+        sessionId: data.sessionId,
+        playerUpdates: playerUpdates,
+        timestamp: Date.now()
+      };
       staticSent.delete(actualRoomId); // 靜態資料下一次廣播重新帶一次
-      console.log(`[GameState] new-session: 已清理障碍物和装饰，sessionId=${data.sessionId}`);
+      console.log(`[GameState] new-session: 已设置待处理标记，sessionId=${data.sessionId}（将在游戏循环中处理）`);
     } catch (_) { }
     return;
   }
@@ -531,6 +540,10 @@ function gameLoop() {
   // 更新所有游戏状态
   for (const [roomId, gameState] of gameStates.entries()) {
     try {
+      // ⚠️ 100%重构：先处理待处理的 new-session，再更新和广播状态（确保时序正确）
+      // 这样确保 getState() 读取时，currentSessionId 已经是新的
+      gameState.processPendingNewSession();
+      
       // 更新游戏状态
       gameState.update(deltaTime);
 
