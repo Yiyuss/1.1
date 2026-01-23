@@ -4883,85 +4883,48 @@ function handleServerGameState(state, timestamp) {
     }
 
     // ✅ 靜態世界：障礙物/裝飾（只在 server 有帶時套用；server 會在首次廣播帶一次，後續省流量）
-    // ⚠️ 修复：在 new-session 发送后的一段时间内，忽略服务器发送的 obstacles 和 decorations
-    // 这样可以防止服务器在 new-session 之后立即发送旧的 obstacles 和 decorations，覆盖本地清理
+    // ⚠️ 修复：无论服务器发送的是空数组还是有数据，都要清理客户端状态
+    // 这样可以确保切换地图时，上一局的地图特定元素被完全清理
     try {
-      // ⚠️ 关键修复：检查是否在 new-session 发送后的时间窗口内
-      // 如果是，忽略服务器发送的 obstacles 和 decorations，避免旧的覆盖新的
-      const shouldIgnoreObstacles = (() => {
-        try {
-          if (typeof Game !== "undefined" && Game._newSessionSent === true) {
-            // 检查是否在 new-session 发送后的 3 秒内
-            if (Game._newSessionSentTime && (Date.now() - Game._newSessionSentTime) < 3000) {
-              return true; // 在时间窗口内，忽略服务器发送的 obstacles
-            }
-          }
-          return false;
-        } catch (_) {
-          return false;
-        }
-      })();
-      
-      if (shouldIgnoreObstacles) {
-        // 在时间窗口内，忽略服务器发送的 obstacles 和 decorations
-        // 只清理本地状态，不应用服务器数据
+      const ObstacleCtor = _getGlobalCtor("Obstacle");
+      if (Array.isArray(state.obstacles)) {
         if (typeof Game !== "undefined") {
-          // 如果服务器发送了 obstacles 或 decorations，只清理本地状态，不应用
-          if (Array.isArray(state.obstacles)) {
-            // 只清理，不应用服务器数据
-            Game.obstacles = [];
-            Game._obstaclesAndDecorationsSpawned = false;
-          }
-          if (Array.isArray(state.decorations)) {
-            // 只清理，不应用服务器数据
-            Game.decorations = [];
+          Game.obstacles = [];
+          if (state.obstacles.length > 0 && ObstacleCtor) {
+            for (const o of state.obstacles) {
+              if (!o) continue;
+              const ox = (typeof o.x === 'number') ? o.x : 0;
+              const oy = (typeof o.y === 'number') ? o.y : 0;
+              const imageKey = o.imageKey || 'S1';
+              const size = (typeof o.size === 'number') ? o.size : (typeof o.width === 'number' ? o.width : 150);
+              Game.obstacles.push(new ObstacleCtor(ox, oy, imageKey, size));
+            }
+            Game._obstaclesAndDecorationsSpawned = true;
+          } else {
+            // 如果服务器发送空数组，重置生成标记，让新地图可以重新生成
             Game._obstaclesAndDecorationsSpawned = false;
           }
         }
-      } else {
-        // 不在时间窗口内，正常处理服务器发送的 obstacles 和 decorations
-        const ObstacleCtor = _getGlobalCtor("Obstacle");
-        if (Array.isArray(state.obstacles)) {
-          if (typeof Game !== "undefined") {
-            // ⚠️ 修复：无论服务器发送的是空数组还是有数据，都要清理客户端状态
-            Game.obstacles = [];
-            if (state.obstacles.length > 0 && ObstacleCtor) {
-              for (const o of state.obstacles) {
-                if (!o) continue;
-                const ox = (typeof o.x === 'number') ? o.x : 0;
-                const oy = (typeof o.y === 'number') ? o.y : 0;
-                const imageKey = o.imageKey || 'S1';
-                const size = (typeof o.size === 'number') ? o.size : (typeof o.width === 'number' ? o.width : 150);
-                Game.obstacles.push(new ObstacleCtor(ox, oy, imageKey, size));
-              }
-              Game._obstaclesAndDecorationsSpawned = true;
-            } else {
-              // ⚠️ 修复：如果服务器发送空数组，重置生成标记，让新地图可以重新生成
-              Game._obstaclesAndDecorationsSpawned = false;
+      }
+      if (Array.isArray(state.decorations)) {
+        if (typeof Game !== "undefined") {
+          Game.decorations = [];
+          if (state.decorations.length > 0) {
+            for (const d of state.decorations) {
+              if (!d) continue;
+              if (typeof d.x !== 'number' || typeof d.y !== 'number' || !d.imageKey) continue;
+              Game.decorations.push({
+                x: d.x,
+                y: d.y,
+                width: (typeof d.width === 'number') ? d.width : 100,
+                height: (typeof d.height === 'number') ? d.height : 100,
+                imageKey: d.imageKey
+              });
             }
-          }
-        }
-        if (Array.isArray(state.decorations)) {
-          if (typeof Game !== "undefined") {
-            // ⚠️ 修复：无论服务器发送的是空数组还是有数据，都要清理客户端状态
-            Game.decorations = [];
-            if (state.decorations.length > 0) {
-              for (const d of state.decorations) {
-                if (!d) continue;
-                if (typeof d.x !== 'number' || typeof d.y !== 'number' || !d.imageKey) continue;
-                Game.decorations.push({
-                  x: d.x,
-                  y: d.y,
-                  width: (typeof d.width === 'number') ? d.width : 100,
-                  height: (typeof d.height === 'number') ? d.height : 100,
-                  imageKey: d.imageKey
-                });
-              }
-              Game._obstaclesAndDecorationsSpawned = true;
-            } else {
-              // ⚠️ 修复：如果服务器发送空数组，重置生成标记，让新地图可以重新生成
-              Game._obstaclesAndDecorationsSpawned = false;
-            }
+            Game._obstaclesAndDecorationsSpawned = true;
+          } else {
+            // 如果服务器发送空数组，重置生成标记，让新地图可以重新生成
+            Game._obstaclesAndDecorationsSpawned = false;
           }
         }
       }
