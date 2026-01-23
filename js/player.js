@@ -930,11 +930,8 @@ class Player extends Entity {
             AudioManager.playSound('level_up');
         }
         
-        // ✅ 修复：与单机一致 - 连续升级时，检查是否还能再次升级（避免盖掉前一个升级的选项机会）
-        // 如果升级后经验仍然足够，继续升级（递归调用）
-        if (this.experience >= this.experienceToNextLevel) {
-            this.levelUp();
-        }
+        // ⚠️ 修复失败：不要递归调用 levelUp()，这会导致立即显示下一个升级菜单，覆盖前一个
+        // 正确的做法是：在 hideLevelUpMenu() 后检查是否还能升级（由 hideLevelUpMenu 处理）
     }
     
     // 添加武器
