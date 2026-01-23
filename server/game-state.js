@@ -2349,8 +2349,8 @@ class GameState {
             this._applyDamageToPlayer(player, (car.damage || 100), { ignoreInvulnerability: true, ignoreDodge: true });
             car.hitPlayer = true;
 
-            // ✅ 修复：广播车辆撞击事件（音效+特效是多人元素，需要同步）
-            // 音效是单机元素，但特效（爆炸粒子、屏幕白闪）需要同步
+            // ✅ 修复：广播车辆撞击事件（音效+特效+相机震动是多人元素，需要同步）
+            // 音效和相机震动是单机元素，但特效（爆炸粒子、屏幕白闪）需要同步
             try {
               this.vfxEvents.push({
                 type: 'car_hit',
@@ -2358,7 +2358,13 @@ class GameState {
                   playerUid: player.uid || null,
                   x: player.x || car.x,
                   y: player.y || car.y,
-                  timestamp: Date.now()
+                  timestamp: Date.now(),
+                  // ✅ 修复：添加相机震动（单机元素，只对被撞的玩家生效）
+                  cameraShake: {
+                    active: true,
+                    intensity: 8, // 与BOSS投射物一致
+                    duration: 200 // 200毫秒
+                  }
                 }
               });
             } catch (_) {}
