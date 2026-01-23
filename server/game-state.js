@@ -554,6 +554,9 @@ class GameState {
     if (!sessionId || typeof sessionId !== 'string') return;
     if (this.currentSessionId === sessionId) return;
     this.currentSessionId = sessionId;
+    // ⚠️ 修复：记录 new-session 的时间，用于时间窗口机制
+    // 在收到 new-session 后的 2 秒内，忽略旧的 obstacles 和 decorations 数据
+    this._newSessionTime = Date.now();
 
     this.enemies = [];
     this.projectiles = [];
@@ -2122,6 +2125,12 @@ class GameState {
       console.log(`[GameState.setObstacles] 忽略障碍物数据：当前 sessionId 为空，可能是新游戏开始前`);
       return;
     }
+    // ⚠️ 修复：时间窗口机制 - 在收到 new-session 后的 2 秒内，忽略旧的 obstacles 数据
+    // 这样可以防止上一局的地图数据在 new-session 之后才到达服务器，被误接受
+    if (this._newSessionTime && (Date.now() - this._newSessionTime) < 2000) {
+      console.log(`[GameState.setObstacles] 忽略障碍物数据：在 new-session 后的 2 秒时间窗口内，可能是上一局的数据`);
+      return;
+    }
     this.obstacles = obstacles.map(obs => ({
       x: obs.x,
       y: obs.y,
@@ -2138,6 +2147,12 @@ class GameState {
     // 这样可以防止上一局的地图数据污染新游戏
     if (!this.currentSessionId) {
       console.log(`[GameState.setDecorations] 忽略装饰数据：当前 sessionId 为空，可能是新游戏开始前`);
+      return;
+    }
+    // ⚠️ 修复：时间窗口机制 - 在收到 new-session 后的 2 秒内，忽略旧的 decorations 数据
+    // 这样可以防止上一局的地图数据在 new-session 之后才到达服务器，被误接受
+    if (this._newSessionTime && (Date.now() - this._newSessionTime) < 2000) {
+      console.log(`[GameState.setDecorations] 忽略装饰数据：在 new-session 后的 2 秒时间窗口内，可能是上一局的数据`);
       return;
     }
     this.decorations = decorations.map(deco => ({
