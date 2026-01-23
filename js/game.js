@@ -55,6 +55,8 @@ const Game = {
     remotePlayers: [], // Array<Player>，遠程玩家的完整 Player 對象
     // 組隊HUD更新定時器
     _multiplayerHUDUpdateTimer: 0,
+    // ⚠️ 组队模式专用：游戏状态标记（只在组队模式下使用，单机模式始终为 null）
+    _multiplayerGameState: null, // 'lobby' | 'starting' | 'running' | 'ending' | null
 
     init: function () {
         // 獲取畫布和上下文
@@ -113,6 +115,12 @@ const Game = {
             console.error('應用天賦效果失敗:', e);
         }
 
+        // ⚠️ 组队模式专用：在生成地图元素前，设置状态为 'running'（单机模式不受影响）
+        if (this.multiplayer && this.multiplayer.enabled) {
+            this._multiplayerGameState = 'running';
+            console.log('[Game] startNewGame: 组队模式，设置状态为 running');
+        }
+        
         // 初始化波次系統
         WaveSystem.init();
 
@@ -2720,6 +2728,12 @@ const Game = {
 
     // 開始新遊戲
     startNewGame: function () {
+        // ⚠️ 组队模式专用：设置状态为 'starting'（单机模式不受影响）
+        if (this.multiplayer && this.multiplayer.enabled) {
+            this._multiplayerGameState = 'starting';
+            console.log('[Game] startNewGame: 组队模式，设置状态为 starting');
+        }
+        
         // 重置遊戲
         this.reset();
         
@@ -2985,10 +2999,18 @@ const Game = {
      * 設計：避免與玩家過近、避免與既有障礙重疊。
      */
     spawnObstacles: function () {
-        // ⚠️ 关键修复：如果游戏已暂停或已结束（在大厅状态），不要生成 obstacles
-        // 这样可以防止在回到大厅后，Game.init() 被调用时重新生成上一局的地图元素
+        // ⚠️ 组队模式专用：检查游戏状态（单机模式不受影响）
+        if (this.multiplayer && this.multiplayer.enabled) {
+            // 组队模式：只在 'starting' 或 'running' 状态时生成
+            if (this._multiplayerGameState !== 'starting' && this._multiplayerGameState !== 'running') {
+                console.log('[Game] spawnObstacles: 组队模式状态不正确，跳过生成（状态=' + this._multiplayerGameState + '）');
+                return;
+            }
+        }
+        
+        // ✅ 单机和组队都适用：如果游戏已暂停或已结束，不要生成 obstacles
         if (this.isPaused || this.isGameOver) {
-            console.log('[Game] spawnObstacles: 游戏已暂停或已结束，跳过生成（防止在大厅状态生成地图元素）');
+            console.log('[Game] spawnObstacles: 游戏已暂停或已结束，跳过生成');
             return;
         }
         
@@ -3135,10 +3157,18 @@ const Game = {
      * 設計：避免與障礙與既有裝飾矩形重疊；允許靠近玩家。
      */
     spawnDecorations: function () {
-        // ⚠️ 关键修复：如果游戏已暂停或已结束（在大厅状态），不要生成 decorations
-        // 这样可以防止在回到大厅后，Game.init() 被调用时重新生成上一局的地图元素
+        // ⚠️ 组队模式专用：检查游戏状态（单机模式不受影响）
+        if (this.multiplayer && this.multiplayer.enabled) {
+            // 组队模式：只在 'starting' 或 'running' 状态时生成
+            if (this._multiplayerGameState !== 'starting' && this._multiplayerGameState !== 'running') {
+                console.log('[Game] spawnDecorations: 组队模式状态不正确，跳过生成（状态=' + this._multiplayerGameState + '）');
+                return;
+            }
+        }
+        
+        // ✅ 单机和组队都适用：如果游戏已暂停或已结束，不要生成 decorations
         if (this.isPaused || this.isGameOver) {
-            console.log('[Game] spawnDecorations: 游戏已暂停或已结束，跳过生成（防止在大厅状态生成地图元素）');
+            console.log('[Game] spawnDecorations: 游戏已暂停或已结束，跳过生成');
             return;
         }
         
