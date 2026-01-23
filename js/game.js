@@ -2395,6 +2395,21 @@ const Game = {
 
         // 重置遊戲狀態
         this.enemies = [];
+        // ⚠️ 修复：在清理 projectiles 之前，先清理所有车辆（INTERSECTION_CAR）
+        // 确保从路口地图切换到其他地图时，车辆不会残留
+        if (Array.isArray(this.projectiles)) {
+            for (let i = this.projectiles.length - 1; i >= 0; i--) {
+                const proj = this.projectiles[i];
+                if (proj && (proj.weaponType === 'INTERSECTION_CAR' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
+                    try {
+                        if (typeof proj.destroy === 'function') {
+                            proj.destroy();
+                        }
+                    } catch (_) { }
+                    this.projectiles.splice(i, 1);
+                }
+            }
+        }
         this.projectiles = [];
         this.bossProjectiles = [];
         this.explosionParticles = [];
