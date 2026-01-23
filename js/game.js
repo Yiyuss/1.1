@@ -2451,6 +2451,8 @@ const Game = {
         // ✅ 重置事件标志，確保新遊戲可以正常觸發勝利和失敗事件
         this._victoryEventSent = false;
         this._gameOverEventSent = false;
+        // ⚠️ 修复：清理 new-session 发送标记，确保新游戏开始时重置
+        this._newSessionSent = false;
         this.boss = null;
         this.exit = null;
         // ⚠️ 修复：清理统计数据，确保新游戏开始时是全新状态
@@ -3029,15 +3031,36 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
             if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && this.multiplayer.isHost) {
-                const obstaclesData = this.obstacles.map(obs => ({
+                // ⚠️ 修复：检查是否已经发送了 new-session
+                // 如果没有发送 new-session，不要发送 obstacles，避免上一局的数据污染新游戏
+                // new-session 会在 sendNewSession 中发送，然后延迟发送 obstacles
+                // 这里只检查，如果 new-session 已发送，才立即发送（向后兼容）
+                // 否则，等待 sendNewSession 中的延迟发送逻辑
+                const shouldSendNow = (() => {
+                  try {
+                    // 检查 Game._newSessionSent 标记
+                    if (typeof Game !== "undefined" && Game._newSessionSent === true) {
+                      return true; // new-session 已发送，可以发送 obstacles
+                    }
+                    // 如果没有标记，说明 new-session 还没发送，不要发送 obstacles
+                    return false;
+                  } catch (_) {
+                    return false;
+                  }
+                })();
+                
+                if (shouldSendNow) {
+                  const obstaclesData = this.obstacles.map(obs => ({
                     x: obs.x,
                     y: obs.y,
                     imageKey: obs.imageKey,
                     size: obs.size || size
-                }));
-                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                  }));
+                  if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                     window.SurvivalOnlineRuntime.sendToNet({ type: 'obstacles', obstacles: obstaclesData });
+                  }
                 }
+                // ⚠️ 修复：无论是否发送，都 return，避免重复发送
                 return;
             }
         } catch (_) { }
@@ -3205,16 +3228,37 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
             if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && this.multiplayer.isHost) {
-                const decorationsData = this.decorations.map(deco => ({
+                // ⚠️ 修复：检查是否已经发送了 new-session
+                // 如果没有发送 new-session，不要发送 decorations，避免上一局的数据污染新游戏
+                // new-session 会在 sendNewSession 中发送，然后延迟发送 decorations
+                // 这里只检查，如果 new-session 已发送，才立即发送（向后兼容）
+                // 否则，等待 sendNewSession 中的延迟发送逻辑
+                const shouldSendNow = (() => {
+                  try {
+                    // 检查 Game._newSessionSent 标记
+                    if (typeof Game !== "undefined" && Game._newSessionSent === true) {
+                      return true; // new-session 已发送，可以发送 decorations
+                    }
+                    // 如果没有标记，说明 new-session 还没发送，不要发送 decorations
+                    return false;
+                  } catch (_) {
+                    return false;
+                  }
+                })();
+                
+                if (shouldSendNow) {
+                  const decorationsData = this.decorations.map(deco => ({
                     x: deco.x,
                     y: deco.y,
                     width: deco.width,
                     height: deco.height,
                     imageKey: deco.imageKey
-                }));
-                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                  }));
+                  if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                     window.SurvivalOnlineRuntime.sendToNet({ type: 'decorations', decorations: decorationsData });
+                  }
                 }
+                // ⚠️ 修复：无论是否发送，都 return，避免重复发送
                 return;
             }
         } catch (_) { }
