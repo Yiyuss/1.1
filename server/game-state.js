@@ -2413,6 +2413,11 @@ class GameState {
 
   // 获取完整游戏状态（用于广播）
   getState() {
+    // ⚠️ 100%重构：如果sessionId为空，返回空数组（防止旧数据泄露）
+    // ⚠️ 注意：在 handleJoin() 时，如果 sessionId 为空，仍然返回实际数据（因为这是新游戏开始）
+    // 只在广播时，如果 sessionId 为空，返回空数组（防止旧数据泄露）
+    const hasValidSession = (this.currentSessionId && typeof this.currentSessionId === 'string');
+    
     const state = {
       // ✅ 多人元素（省流量）：只下發客戶端渲染/同步真正需要的欄位
       // - 避免把 server internal/meta/weapons 等一起塞進 game-state，造成流量膨脹與前端負擔
@@ -2450,18 +2455,20 @@ class GameState {
           collisionRadius: (typeof p.collisionRadius === 'number' && p.collisionRadius > 0) ? p.collisionRadius : null
         };
       }),
-      enemies: this.enemies,
-      projectiles: this.projectiles,
-      bossProjectiles: this.bossProjectiles,
-      bullets: this.bullets,
-      experienceOrbs: this.experienceOrbs,
-      chests: this.chests,
-      obstacles: this.obstacles,
-      decorations: this.decorations,
-      carHazards: this.carHazards,
+      // ⚠️ 100%重构：如果sessionId为空，返回空数组（防止旧数据泄露）
+      enemies: hasValidSession ? this.enemies : [],
+      projectiles: hasValidSession ? this.projectiles : [],
+      bossProjectiles: hasValidSession ? this.bossProjectiles : [],
+      bullets: hasValidSession ? this.bullets : [],
+      experienceOrbs: hasValidSession ? this.experienceOrbs : [],
+      chests: hasValidSession ? this.chests : [],
+      obstacles: hasValidSession ? this.obstacles : [],
+      decorations: hasValidSession ? this.decorations : [],
+      carHazards: hasValidSession ? this.carHazards : [],
       exit: this.exit,
       wave: this.wave,
       mapId: this._getActiveMapId(), // ⚠️ 关键修复：广播地图ID，让客户端验证
+      sessionId: this.currentSessionId || null, // ⚠️ 关键修复：广播sessionId，让客户端过滤旧数据
       waveStartTime: this.waveStartTime, // ✅ 單機同源：波次開始時間（用於同步 WaveSystem.waveStartTime）
       isGameOver: this.isGameOver,
       isVictory: this.isVictory,
