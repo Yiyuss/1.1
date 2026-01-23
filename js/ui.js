@@ -323,8 +323,18 @@ const UI = {
                     // ⚠️ 修复：延迟调用 Game.reset()，确保视频播放完成后再清理
                     // 这样可以避免 reset() 影响视频播放
                     // 完全重置游戏状态会在视频播放完成后执行（通过延迟调用）
-                    setTimeout(() => {
+                    // ⚠️ 关键修复：保存清理定时器，以便在新游戏开始时取消
+                    let cleanupTimer = setTimeout(() => {
                         try {
+                            // ⚠️ 组队模式专用：检查是否已经开始新游戏（状态为 'starting' 或 'running'）
+                            // 如果已经开始新游戏，不要清理状态，避免覆盖新游戏的状态
+                            if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                                if (Game._multiplayerGameState === 'starting' || Game._multiplayerGameState === 'running') {
+                                    console.log('[UI] _returnToStartFrom: 组队模式，新游戏已开始，跳过延迟清理（状态=' + Game._multiplayerGameState + '）');
+                                    return; // 新游戏已开始，不执行清理
+                                }
+                            }
+                            
                             if (typeof Game !== 'undefined' && typeof Game.reset === 'function') {
                                 // ⚠️ 修复：在 reset 之前，先清理多人模式相关状态
                                 // 确保完全清理，避免残留状态影响下一局
@@ -370,13 +380,18 @@ const UI = {
                                 
                                 // ⚠️ 组队模式专用：清理地图特定的元素并设置状态为 'lobby'（单机模式不受影响）
                                 if (Game.multiplayer && Game.multiplayer.enabled) {
-                                    // 清理地图特定的元素
-                                    Game.obstacles = [];
-                                    Game.decorations = [];
-                                    Game._obstaclesAndDecorationsSpawned = false;
-                                    // 设置状态为 'lobby'
-                                    Game._multiplayerGameState = 'lobby';
-                                    console.log('[UI] _returnToStartFrom: 组队模式，清理地图元素，设置状态为 lobby');
+                                    // 再次检查状态，防止在新游戏开始后才执行
+                                    if (Game._multiplayerGameState !== 'starting' && Game._multiplayerGameState !== 'running') {
+                                        // 清理地图特定的元素
+                                        Game.obstacles = [];
+                                        Game.decorations = [];
+                                        Game._obstaclesAndDecorationsSpawned = false;
+                                        // 设置状态为 'lobby'
+                                        Game._multiplayerGameState = 'lobby';
+                                        console.log('[UI] _returnToStartFrom: 组队模式，清理地图元素，设置状态为 lobby');
+                                    } else {
+                                        console.log('[UI] _returnToStartFrom: 组队模式，新游戏已开始，不设置状态为 lobby（状态=' + Game._multiplayerGameState + '）');
+                                    }
                                 }
                                 // ⚠️ 修复：不要在这里将 Game.player = null
                                 // Game.reset() 会重新创建 Game.player，如果在这里设置为 null，
@@ -390,6 +405,11 @@ const UI = {
                             console.warn('[UI] _returnToStartFrom: 延迟清理游戏状态失败:', e);
                         }
                     }, 100); // 延迟100ms，确保视频播放完成
+                    
+                    // ⚠️ 关键修复：保存清理定时器到 Game 对象，以便在新游戏开始时取消
+                    if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                        Game._returnToStartFromCleanupTimer = cleanupTimer;
+                    }
                 } catch (e) {
                     console.warn('[UI] _returnToStartFrom: 清理游戏状态失败:', e);
                 }
