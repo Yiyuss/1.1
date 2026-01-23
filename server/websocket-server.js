@@ -257,7 +257,6 @@ function handleJoin(ws, msg) {
 
   // ✅ 权威服务器：立即发送当前游戏状态
   // ⚠️ 100%重构：在 handleJoin() 时，即使 sessionId 为空，也返回实际数据（因为这是新游戏开始）
-  // ✅ 消息队列系统：getState() 会自动处理队列，这里不需要额外处理
   ws.send(JSON.stringify({
     type: 'game-state',
     state: (() => {
@@ -346,7 +345,6 @@ function handleGameData(ws, roomId, uid, data) {
   }
 
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
-  // ⚠️ 关键修复：使用消息队列系统，确保 new-session 在游戏循环读取状态之前被处理
   if (gameState && data.type === 'new-session' && typeof data.sessionId === 'string') {
     try {
       // ✅ 收集所有玩家的 maxHealth 更新（如果客戶端發送了）
@@ -354,22 +352,14 @@ function handleGameData(ws, roomId, uid, data) {
       if (typeof data.maxHealth === 'number' && data.maxHealth > 0) {
         playerUpdates.set(uid, { maxHealth: data.maxHealth });
       }
-      
-      // ✅ 消息队列系统：将 new-session 添加到队列，而不是立即处理
-      // 队列会在游戏循环的 getState() 中被处理，确保在读取状态之前完成
+      // ✅ 立即处理 new-session
       // 先清理障碍物和装饰，防止上一局数据残留
       gameState.obstacles = [];
       gameState.decorations = [];
-      
-      // 创建处理回调函数（绑定 resetForNewSession）
-      const processCallback = (sessionId, playerUpdates) => {
-        gameState.resetForNewSession(sessionId, playerUpdates);
-      };
-      
-      // 添加到队列
-      gameState.sessionQueue.enqueue(data.sessionId, playerUpdates, processCallback);
+      // 立即调用 resetForNewSession()
+      gameState.resetForNewSession(data.sessionId, playerUpdates);
       staticSent.delete(actualRoomId); // 靜態資料下一次廣播重新帶一次
-      console.log(`[GameState] new-session: ✅ 已添加到消息队列，sessionId=${data.sessionId}`);
+      console.log(`[GameState] new-session: ✅ 已处理，sessionId=${data.sessionId}`);
     } catch (error) {
       console.error(`[GameState] new-session 处理失败:`, error);
     }
@@ -543,7 +533,6 @@ function gameLoop() {
   // 更新所有游戏状态
   for (const [roomId, gameState] of gameStates.entries()) {
     try {
-      // ✅ 消息队列系统：getState() 会自动处理队列，这里不需要额外处理
       // 更新游戏状态
       gameState.update(deltaTime);
 
