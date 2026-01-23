@@ -1543,6 +1543,11 @@ class GameState {
 
   // 更新敌人
   updateEnemies(deltaTime) {
+    // ⚠️ 修复：游戏结束时跳过敌人更新，避免不必要的计算和日志
+    if (this.isGameOver || this.isVictory) {
+      return;
+    }
+    
     const now = Date.now();
 
     for (let i = this.enemies.length - 1; i >= 0; i--) {
@@ -1641,12 +1646,26 @@ class GameState {
         }
       }
       
-      // ⚠️ 调试：如果找不到玩家，记录日志
-      if (!nearestPlayer && playerCount > 0) {
-        if (alivePlayerCount === 0) {
-          console.warn(`[GameState.updateEnemies] ⚠️ 敌人 ${enemy.id} 找不到活着的玩家（总玩家数: ${playerCount}，活着: ${alivePlayerCount}）`);
-        } else {
-          console.warn(`[GameState.updateEnemies] ⚠️ 敌人 ${enemy.id} 找不到玩家（总玩家数: ${playerCount}，活着: ${alivePlayerCount}，但位置可能无效）`);
+      // ⚠️ 修复：游戏结束时（所有玩家死亡）不输出日志，这是正常情况
+      // 只在游戏进行中且找不到玩家时才记录（用于调试）
+      if (!nearestPlayer && playerCount > 0 && !this.isGameOver && !this.isVictory) {
+        // ⚠️ 修复：使用全局节流，所有敌人共享一个计时器，避免多个敌人同时触发日志
+        if (!this._lastEnemyWarningTime) {
+          this._lastEnemyWarningTime = {};
+        }
+        // 使用全局键而不是每个敌人单独计时
+        const globalWarningKey = 'no_living_players';
+        const lastWarningTime = this._lastEnemyWarningTime[globalWarningKey] || 0;
+        const now = Date.now();
+        if (now - lastWarningTime > 10000) { // 每10秒最多一次（全局）
+          this._lastEnemyWarningTime[globalWarningKey] = now;
+          if (alivePlayerCount === 0) {
+            // 只在调试模式下输出，或者完全移除（如果这是正常情况）
+            // console.warn(`[GameState.updateEnemies] ⚠️ 找不到活着的玩家（总玩家数: ${playerCount}，活着: ${alivePlayerCount}）`);
+          } else {
+            // 位置无效的情况更值得关注，保留但降低频率
+            console.warn(`[GameState.updateEnemies] ⚠️ 找不到有效位置的玩家（总玩家数: ${playerCount}，活着: ${alivePlayerCount}）`);
+          }
         }
       }
 
