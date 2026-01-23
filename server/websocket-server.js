@@ -311,20 +311,28 @@ function handleGameData(ws, roomId, uid, data) {
   if (gameState && data.type === 'world-size' && typeof data.worldWidth === 'number' && typeof data.worldHeight === 'number') {
     // 保存世界大小到游戏状态（确保与客户端一致）
     gameState.setWorldSize(data.worldWidth, data.worldHeight);
-    console.log(`[GameState] 收到世界大小: roomId=${actualRoomId}, ${data.worldWidth}x${data.worldHeight}, uid=${uid}`);
+    // ⚠️ 关键修复：同时更新地图ID（如果客户端发送了）
+    if (data.mapId && typeof data.mapId === 'string') {
+      gameState.mapId = data.mapId;
+      console.log(`[GameState] 收到世界大小并更新地图ID: roomId=${actualRoomId}, ${data.worldWidth}x${data.worldHeight}, mapId=${data.mapId}, uid=${uid}`);
+    } else {
+      console.log(`[GameState] 收到世界大小: roomId=${actualRoomId}, ${data.worldWidth}x${data.worldHeight}, uid=${uid}`);
+    }
     return;
   }
 
   // ✅ 权威服务器：处理障碍物和装饰数据（可选，用于状态同步）
   if (gameState && data.type === 'obstacles' && Array.isArray(data.obstacles)) {
-    gameState.setObstacles(data.obstacles);
-    console.log(`[GameState] 收到障碍物数据: roomId=${actualRoomId}, count=${data.obstacles.length}, uid=${uid}`);
+    const clientMapId = (data.mapId && typeof data.mapId === 'string') ? data.mapId : null;
+    gameState.setObstacles(data.obstacles, clientMapId);
+    console.log(`[GameState] 收到障碍物数据: roomId=${actualRoomId}, count=${data.obstacles.length}, uid=${uid}, mapId=${clientMapId || 'N/A'}`);
     return;
   }
 
   if (gameState && data.type === 'decorations' && Array.isArray(data.decorations)) {
-    gameState.setDecorations(data.decorations);
-    console.log(`[GameState] 收到装饰数据: roomId=${actualRoomId}, count=${data.decorations.length}, uid=${uid}`);
+    const clientMapId = (data.mapId && typeof data.mapId === 'string') ? data.mapId : null;
+    gameState.setDecorations(data.decorations, clientMapId);
+    console.log(`[GameState] 收到装饰数据: roomId=${actualRoomId}, count=${data.decorations.length}, uid=${uid}, mapId=${clientMapId || 'N/A'}`);
     return;
   }
 
