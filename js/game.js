@@ -338,6 +338,12 @@ const Game = {
             }
         } catch (_) { }
 
+        // ⚠️ 修复：检查玩家是否存在，避免在游戏重置或初始化时出错
+        if (!this.player) {
+            // 玩家不存在时，不更新镜头和武器，直接返回
+            return;
+        }
+
         // 更新鏡頭位置（跟隨玩家，並夾限在世界邊界）
         this.camera.x = Utils.clamp(this.player.x - this.canvas.width / 2, 0, Math.max(0, this.worldWidth - this.canvas.width));
         this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
@@ -747,14 +753,22 @@ const Game = {
                 weapon.update(deltaTime);
             }
         } else {
-            // ⚠️ 調試：檢查為什麼沒有更新武器
-            if (!this.player) {
-                console.warn('[Game._updateWeapons] 玩家不存在！');
-            } else if (!this.player.weapons) {
-                console.warn('[Game._updateWeapons] 玩家武器數組不存在！', {
-                    hasPlayer: !!this.player,
-                    weaponsType: typeof this.player.weapons
-                });
+            // ⚠️ 修复：添加节流，避免频繁输出日志
+            if (!this._lastWeaponWarningTime) {
+                this._lastWeaponWarningTime = 0;
+            }
+            const now = Date.now();
+            if (now - this._lastWeaponWarningTime > 5000) { // 每5秒最多一次
+                this._lastWeaponWarningTime = now;
+                if (!this.player) {
+                    // 玩家不存在是正常情况（游戏重置、初始化等），不输出警告
+                    // console.warn('[Game._updateWeapons] 玩家不存在！');
+                } else if (!this.player.weapons) {
+                    console.warn('[Game._updateWeapons] 玩家武器數組不存在！', {
+                        hasPlayer: !!this.player,
+                        weaponsType: typeof this.player.weapons
+                    });
+                }
             }
         }
         // M4：更新遠程玩家的武器（所有端都需要更新，不只是隊長）
