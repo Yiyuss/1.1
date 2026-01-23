@@ -2982,6 +2982,23 @@ const Game = {
                 return;
             }
         } catch (_) { }
+        
+        // ⚠️ 修复：强制清理旧的 obstacles，确保不会残留上一局的数据
+        // 这是关键修复：在生成新的 obstacles 之前，先清理所有旧的
+        // 因为 Game.reset() 和 Game.init() 之间可能有延迟，旧的 obstacles 可能还在
+        if (Array.isArray(this.obstacles)) {
+            // 清理所有旧的障碍物对象（如果有 destroy 方法）
+            for (let i = this.obstacles.length - 1; i >= 0; i--) {
+                const obs = this.obstacles[i];
+                if (obs && typeof obs.destroy === 'function') {
+                    try {
+                        obs.destroy();
+                    } catch (_) { }
+                }
+            }
+            this.obstacles = [];
+        }
+        
         const size = 150;
         const half = size / 2;
         const types = ['S1', 'S2'];
@@ -3108,6 +3125,15 @@ const Game = {
                 return;
             }
         } catch (_) { }
+        
+        // ⚠️ 修复：强制清理旧的 decorations，确保不会残留上一局的数据
+        // 这是关键修复：在生成新的 decorations 之前，先清理所有旧的
+        // 因为 Game.reset() 和 Game.init() 之间可能有延迟，旧的 decorations 可能还在
+        if (Array.isArray(this.decorations)) {
+            // decorations 通常是普通对象，不需要 destroy，直接清理数组即可
+            this.decorations = [];
+        }
+        
         // 第二、第三、第四、第五張地圖（forest、desert、garden、intersection）不生成裝飾物，僅保留 S1/S2 障礙物。
         // 注意：不更改任何顯示文字與其他地圖行為；維持第一張地圖邏輯。
         // 第四張地圖（garden）的 S10-S16 裝飾物邏輯保留在註釋中，供未來其他地圖使用。
