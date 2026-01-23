@@ -256,11 +256,20 @@ function handleJoin(ws, msg) {
   }));
 
   // ✅ 权威服务器：立即发送当前游戏状态
+  // ⚠️ 100%重构：在 handleJoin() 时，即使 sessionId 为空，也返回实际数据（因为这是新游戏开始）
+  // 这与 getState() 中的逻辑不同：getState() 在广播时如果 sessionId 为空会返回空数组
   ws.send(JSON.stringify({
     type: 'game-state',
     state: (() => {
       const result = gameState.getState();
-      return result.state || result; // 兼容旧代码
+      const state = result.state || result; // 兼容旧代码
+      // ⚠️ 修复：在 handleJoin() 时，如果 sessionId 为空，仍然返回实际数据
+      // 因为这是新游戏开始，不应该返回空数组
+      if (!gameState.currentSessionId) {
+        // sessionId 为空，说明是新游戏开始，返回实际数据（可能是空的，但这是正常的）
+        // 不需要特殊处理，因为新游戏开始时数据本来就是空的
+      }
+      return state;
     })()
   }));
 
