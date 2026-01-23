@@ -4908,6 +4908,17 @@ function handleServerGameState(state, timestamp) {
       const ObstacleCtor = _getGlobalCtor("Obstacle");
       if (Array.isArray(state.obstacles)) {
         if (typeof Game !== "undefined") {
+          // ⚠️ 重构：检查游戏状态（必须是 'starting' 或 'running'）
+          let shouldSkipObstacles = false;
+          if (Game.multiplayer && Game.multiplayer.enabled) {
+            if (Game._multiplayerGameState !== 'starting' && Game._multiplayerGameState !== 'running') {
+              console.log(`[SurvivalOnline] handleServerGameState: 组队模式状态不正确，跳过处理 obstacles（状态=${Game._multiplayerGameState}）`);
+              shouldSkipObstacles = true; // 标记跳过，不处理，防止在错误状态下应用服务器数据
+            }
+          }
+          
+          if (!shouldSkipObstacles) {
+          
           // ⚠️ 关键修复：检查服务器数据的地图ID是否匹配当前地图
           // 如果服务器发送的数据来自旧地图，忽略它
           const currentMapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
@@ -4939,10 +4950,22 @@ function handleServerGameState(state, timestamp) {
               Game._obstaclesAndDecorationsSpawned = false;
             }
           }
+          } // 结束 shouldSkipObstacles 检查
         }
       }
       if (Array.isArray(state.decorations)) {
         if (typeof Game !== "undefined") {
+          // ⚠️ 重构：检查游戏状态（必须是 'starting' 或 'running'）
+          let shouldSkipDecorations = false;
+          if (Game.multiplayer && Game.multiplayer.enabled) {
+            if (Game._multiplayerGameState !== 'starting' && Game._multiplayerGameState !== 'running') {
+              console.log(`[SurvivalOnline] handleServerGameState: 组队模式状态不正确，跳过处理 decorations（状态=${Game._multiplayerGameState}）`);
+              shouldSkipDecorations = true; // 标记跳过，不处理，防止在错误状态下应用服务器数据
+            }
+          }
+          
+          if (!shouldSkipDecorations) {
+          
           // ⚠️ 关键修复：检查服务器数据的地图ID是否匹配当前地图
           // 如果服务器发送的数据来自旧地图，忽略它
           const currentMapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
@@ -4977,6 +5000,7 @@ function handleServerGameState(state, timestamp) {
               Game._obstaclesAndDecorationsSpawned = false;
             }
           }
+          } // 结束 shouldSkipDecorations 检查
         }
       }
     } catch (_) { }
@@ -6620,16 +6644,22 @@ function tryStartSurvivalFromRoom() {
       if (hasStarted) return;
       hasStarted = true;
       
-      // ⚠️ 组队模式专用：设置状态为 'starting'（单机模式不受影响）
+      // ⚠️ 重构：组队模式专用 - 设置状态为 'starting'（单机模式不受影响）
       if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-        // ⚠️ 关键修复：取消 _returnToStartFrom 的延迟清理，防止覆盖新游戏状态
+        // ⚠️ 重构：取消 _returnToStartFrom 的延迟清理，防止覆盖新游戏状态
         if (Game._returnToStartFromCleanupTimer) {
           clearTimeout(Game._returnToStartFromCleanupTimer);
           Game._returnToStartFromCleanupTimer = null;
           console.log('[SurvivalOnline] startGame: 组队模式，取消延迟清理定时器');
         }
-        Game._multiplayerGameState = 'starting';
-        console.log('[SurvivalOnline] startGame: 组队模式，设置状态为 starting');
+        // ⚠️ 重构：使用状态转移函数，确保状态转移的合法性
+        if (typeof Game._setMultiplayerState === 'function') {
+          Game._setMultiplayerState('starting');
+        } else {
+          // 兼容旧代码
+          Game._multiplayerGameState = 'starting';
+          console.log('[SurvivalOnline] startGame: 组队模式，设置状态为 starting');
+        }
       }
     if (countdownInterval) clearInterval(countdownInterval);
     if (_startTimer) {
@@ -6815,10 +6845,20 @@ function tryStartSurvivalFromRoom() {
           Game._newSessionSentTime = Date.now(); // 记录发送时间，用于时间窗口检查
         }
         
-        // ⚠️ 修复：在 new-session 发送后，延迟发送 obstacles 和 decorations
+        // ⚠️ 重构：在 new-session 发送后，延迟发送 obstacles 和 decorations
         // 这样可以确保服务器先收到 new-session，再收到新的地图数据
         setTimeout(() => {
           if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled && Game.multiplayer.isHost) {
+            // ⚠️ 重构：检查当前地图ID，确保发送的数据属于当前地图
+            const currentMapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
+            const expectedMapId = (Game._expectedMapId && typeof Game._expectedMapId === 'string') ? Game._expectedMapId : null;
+            const mapIdToSend = expectedMapId || currentMapId; // 优先使用 expectedMapId
+            
+            if (!mapIdToSend) {
+              console.warn('[SurvivalOnline] 在 new-session 后发送 obstacles/decorations: 当前地图ID为空，跳过');
+              return;
+            }
+            
             // 重新发送 obstacles 和 decorations（如果已经生成）
             if (Array.isArray(Game.obstacles) && Game.obstacles.length > 0) {
               const obstaclesData = Game.obstacles.map(obs => ({
@@ -6828,8 +6868,12 @@ function tryStartSurvivalFromRoom() {
                 size: obs.size || 150
               }));
               if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                window.SurvivalOnlineRuntime.sendToNet({ type: 'obstacles', obstacles: obstaclesData });
-                console.log(`[SurvivalOnline] 在 new-session 后发送 obstacles: count=${obstaclesData.length}`);
+                window.SurvivalOnlineRuntime.sendToNet({ 
+                  type: 'obstacles', 
+                  obstacles: obstaclesData,
+                  mapId: mapIdToSend // ⚠️ 重构：发送地图ID，让服务器验证
+                });
+                console.log(`[SurvivalOnline] 在 new-session 后发送 obstacles: count=${obstaclesData.length}, mapId=${mapIdToSend}`);
               }
             }
             if (Array.isArray(Game.decorations) && Game.decorations.length > 0) {
@@ -6841,8 +6885,12 @@ function tryStartSurvivalFromRoom() {
                 imageKey: deco.imageKey
               }));
               if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                window.SurvivalOnlineRuntime.sendToNet({ type: 'decorations', decorations: decorationsData });
-                console.log(`[SurvivalOnline] 在 new-session 后发送 decorations: count=${decorationsData.length}`);
+                window.SurvivalOnlineRuntime.sendToNet({ 
+                  type: 'decorations', 
+                  decorations: decorationsData,
+                  mapId: mapIdToSend // ⚠️ 重构：发送地图ID，让服务器验证
+                });
+                console.log(`[SurvivalOnline] 在 new-session 后发送 decorations: count=${decorationsData.length}, mapId=${mapIdToSend}`);
               }
             }
           }
