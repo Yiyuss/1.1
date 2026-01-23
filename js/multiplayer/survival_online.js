@@ -4858,42 +4858,76 @@ function handleServerGameState(state, timestamp) {
     }
 
     // ✅ 更新路口车辆（服务器权威）
+    // ⚠️ 修复：无论服务器发送的是空数组还是有数据，都要处理
+    // 如果服务器发送空数组，说明新地图不是路口，需要清理所有车辆
     if (Array.isArray(state.carHazards)) {
-      updateCarHazardsFromServer(state.carHazards);
+      if (state.carHazards.length === 0) {
+        // ⚠️ 修复：如果服务器发送空数组，清理客户端所有车辆
+        // 这样可以确保从路口地图切换到其他地图时，车辆不会残留
+        if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+          for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+            const proj = Game.projectiles[i];
+            if (proj && (proj.weaponType === 'INTERSECTION_CAR' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
+              try {
+                if (typeof proj.destroy === 'function') {
+                  proj.destroy();
+                }
+              } catch (_) { }
+              Game.projectiles.splice(i, 1);
+            }
+          }
+        }
+      } else {
+        updateCarHazardsFromServer(state.carHazards);
+      }
     }
 
     // ✅ 靜態世界：障礙物/裝飾（只在 server 有帶時套用；server 會在首次廣播帶一次，後續省流量）
+    // ⚠️ 修复：如果服务器发送了 obstacles 或 decorations（即使是空数组），也要清理客户端的状态
+    // 这样可以确保切换地图时，上一局的地图特定元素被完全清理
     try {
       const ObstacleCtor = _getGlobalCtor("Obstacle");
-      if (Array.isArray(state.obstacles) && state.obstacles.length && ObstacleCtor) {
+      if (Array.isArray(state.obstacles)) {
         if (typeof Game !== "undefined") {
+          // ⚠️ 修复：无论服务器发送的是空数组还是有数据，都要清理客户端状态
           Game.obstacles = [];
-          for (const o of state.obstacles) {
-            if (!o) continue;
-            const ox = (typeof o.x === 'number') ? o.x : 0;
-            const oy = (typeof o.y === 'number') ? o.y : 0;
-            const imageKey = o.imageKey || 'S1';
-            const size = (typeof o.size === 'number') ? o.size : (typeof o.width === 'number' ? o.width : 150);
-            Game.obstacles.push(new ObstacleCtor(ox, oy, imageKey, size));
+          if (state.obstacles.length > 0 && ObstacleCtor) {
+            for (const o of state.obstacles) {
+              if (!o) continue;
+              const ox = (typeof o.x === 'number') ? o.x : 0;
+              const oy = (typeof o.y === 'number') ? o.y : 0;
+              const imageKey = o.imageKey || 'S1';
+              const size = (typeof o.size === 'number') ? o.size : (typeof o.width === 'number' ? o.width : 150);
+              Game.obstacles.push(new ObstacleCtor(ox, oy, imageKey, size));
+            }
+            Game._obstaclesAndDecorationsSpawned = true;
+          } else {
+            // ⚠️ 修复：如果服务器发送空数组，重置生成标记，让新地图可以重新生成
+            Game._obstaclesAndDecorationsSpawned = false;
           }
-          Game._obstaclesAndDecorationsSpawned = true;
         }
       }
-      if (Array.isArray(state.decorations) && state.decorations.length) {
+      if (Array.isArray(state.decorations)) {
         if (typeof Game !== "undefined") {
+          // ⚠️ 修复：无论服务器发送的是空数组还是有数据，都要清理客户端状态
           Game.decorations = [];
-          for (const d of state.decorations) {
-            if (!d) continue;
-            if (typeof d.x !== 'number' || typeof d.y !== 'number' || !d.imageKey) continue;
-            Game.decorations.push({
-              x: d.x,
-              y: d.y,
-              width: (typeof d.width === 'number') ? d.width : 100,
-              height: (typeof d.height === 'number') ? d.height : 100,
-              imageKey: d.imageKey
-            });
+          if (state.decorations.length > 0) {
+            for (const d of state.decorations) {
+              if (!d) continue;
+              if (typeof d.x !== 'number' || typeof d.y !== 'number' || !d.imageKey) continue;
+              Game.decorations.push({
+                x: d.x,
+                y: d.y,
+                width: (typeof d.width === 'number') ? d.width : 100,
+                height: (typeof d.height === 'number') ? d.height : 100,
+                imageKey: d.imageKey
+              });
+            }
+            Game._obstaclesAndDecorationsSpawned = true;
+          } else {
+            // ⚠️ 修复：如果服务器发送空数组，重置生成标记，让新地图可以重新生成
+            Game._obstaclesAndDecorationsSpawned = false;
           }
-          Game._obstaclesAndDecorationsSpawned = true;
         }
       }
     } catch (_) { }
@@ -6630,6 +6664,35 @@ function tryStartSurvivalFromRoom() {
       // 清理 Game.remotePlayers
       if (typeof Game !== "undefined" && Array.isArray(Game.remotePlayers)) {
         Game.remotePlayers.length = 0;
+      }
+      
+      // ⚠️ 修复：清理地图特定的元素，确保切换地图时不会残留
+      // 这些元素是地图特定的，新游戏开始时必须清理，让新地图重新生成
+      if (typeof Game !== "undefined") {
+        // 清理障碍物和装饰（地图特定）
+        if (Array.isArray(Game.obstacles)) {
+          Game.obstacles = [];
+        }
+        if (Array.isArray(Game.decorations)) {
+          Game.decorations = [];
+        }
+        // 重置生成标记，让新地图可以重新生成
+        Game._obstaclesAndDecorationsSpawned = false;
+        
+        // 清理车辆（路口地图特定）
+        if (Array.isArray(Game.projectiles)) {
+          for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+            const proj = Game.projectiles[i];
+            if (proj && (proj.weaponType === 'INTERSECTION_CAR' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
+              try {
+                if (typeof proj.destroy === 'function') {
+                  proj.destroy();
+                }
+              } catch (_) { }
+              Game.projectiles.splice(i, 1);
+            }
+          }
+        }
       }
       
       // ⚠️ 修复：停止所有音效，确保新游戏开始时没有残留音效
