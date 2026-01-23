@@ -34,8 +34,7 @@ class GameState {
     // ✅ session：用於「新一局」重置狀態，避免上一局波次/怪物殘留造成開場幾隻血超多
     this.currentSessionId = null;
     
-    // ⚠️ 100%重构：待处理的 new-session 标记（用于在游戏循环中处理，确保时序正确）
-    this._pendingNewSession = null; // { sessionId: string, playerUpdates: Map, timestamp: number } | null
+    // ✅ 已移除 _pendingNewSession 机制，改为立即同步处理（避免时序竞争条件）
 
     // ✅ transient：本幀命中事件（用於客戶端顯示傷害數字/爆擊標記）
     this.hitEvents = [];
@@ -552,27 +551,18 @@ class GameState {
     player.invulnerableUntil = now + (dur || 0);
   }
 
-  // ⚠️ 100%重构：处理待处理的 new-session（在游戏循环中调用，确保时序正确）
-  processPendingNewSession() {
-    if (this._pendingNewSession) {
-      const { sessionId, playerUpdates } = this._pendingNewSession;
-      this._pendingNewSession = null; // 清除标记
-      this.resetForNewSession(sessionId, playerUpdates);
-      return true; // 表示处理了 new-session
-    }
-    return false; // 没有待处理的 new-session
-  }
+  // ✅ 已移除 processPendingNewSession()，改为在 handleGameData() 中立即同步处理
 
   // ✅ 新一局：重置所有「本場」狀態（不影響房間/成員存在）
+  // ⚠️ 关键修复：立即设置新sessionId，再清理数据（防止时序竞争）
+  // 这样即使游戏循环在清理数据之前读取了getState()，sessionId也是新的，客户端会正确处理
   resetForNewSession(sessionId, playerUpdates = null) {
     if (!sessionId || typeof sessionId !== 'string') return;
     if (this.currentSessionId === sessionId) return;
     
-    // ⚠️ 100%重构：立即设置新sessionId，再清理数据（防止时序竞争）
-    // 这是关键修复：确保即使游戏循环在清理数据之前读取了getState()，sessionId也是新的，客户端会正确处理
     const oldSessionId = this.currentSessionId;
     
-    // 第一步：立即设置新sessionId（最关键！）
+    // ✅ 第一步：立即设置新sessionId（最关键！）
     // 这样即使游戏循环在清理数据之前读取了getState()，sessionId也是新的
     this.currentSessionId = sessionId;
     
