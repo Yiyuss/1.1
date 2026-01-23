@@ -282,13 +282,29 @@ const UI = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) {}
             
-            if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer) {
-                // ✅ 組隊模式：回到房間大廳（覆蓋層，需要開始畫面作為背景）
-                // ⚠️ 修复：游戏结束时完全清理所有游戏数据，确保重新进入游戏时是全新状态
-                // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
-                // ⚠️ 重要：不要在这里重置 _gameOverEventSent，否则会导致循环
-                // _gameOverEventSent 应该只在真正开始新游戏时才重置（在 startGame 中）
-                // ⚠️ 重要：清理逻辑应该在视频播放完成后才执行，不要在视频播放过程中执行
+            if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                // ✅ 最终方案：组队模式下，游戏结束后直接刷新页面（与F5相同效果）
+                // 放弃一切清理方案，直接刷新页面，完全清空所有状态
+                // 与单机模式一致：页面刷新会清空所有状态，不会有任何残留
+                // 只有重新建立组队大厅时，才是新的一轮
+                console.log('[UI] _returnToStartFrom: 组队模式，游戏结束后刷新页面（与F5相同效果）');
+                try {
+                    // 延迟一小段时间，确保视频播放完成
+                    setTimeout(() => {
+                        if (typeof window !== 'undefined' && window.location) {
+                            window.location.reload();
+                        }
+                    }, 100);
+                    return; // 直接返回，不执行后续清理逻辑
+                } catch (e) {
+                    console.error('[UI] _returnToStartFrom: 刷新页面失败:', e);
+                    // 如果刷新失败，fallback 到原来的逻辑
+                }
+            }
+            
+            // ✅ 单机模式：正常清理逻辑（不受影响）
+            if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && !Game.multiplayer.enabled) {
+                // ⚠️ 单机模式：正常清理逻辑
                 try {
                     // ⚠️ 修复：先清理玩家和武器，确保游戏循环不会继续运行
                     // 完全清理玩家和武器，防止武器继续发射
@@ -1778,11 +1794,26 @@ const UI = {
                     el.removeEventListener('ended', el._gameOverOnEnded);
                     el._gameOverOnEnded = null;
                 }
-                // 返回開始畫面
+                // ⚠️ 组队模式：直接刷新页面（与F5相同效果）
+                if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                    console.log('[UI] showGameOverScreen: 组队模式，游戏结束后刷新页面');
+                    if (typeof window !== 'undefined' && window.location) {
+                        window.location.reload();
+                    }
+                    return;
+                }
+                // 单机模式：返回開始畫面
                 this._returnToStartFrom('game-over-screen');
             } catch (e) {
                 console.warn("[UI] showGameOverScreen: 處理影片結束事件失敗:", e);
-                // 即使出錯也返回開始畫面
+                // ⚠️ 组队模式：即使出错也刷新页面
+                if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                    if (typeof window !== 'undefined' && window.location) {
+                        window.location.reload();
+                    }
+                    return;
+                }
+                // 单机模式：即使出錯也返回開始畫面
                 this._returnToStartFrom('game-over-screen');
             }
         };
@@ -1806,6 +1837,14 @@ const UI = {
                     el.removeEventListener('ended', el._gameOverOnEnded);
                     el._gameOverOnEnded = null;
                 }
+                // ⚠️ 组队模式：超时也刷新页面
+                if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                    if (typeof window !== 'undefined' && window.location) {
+                        window.location.reload();
+                    }
+                    return;
+                }
+                // 单机模式：超时也返回開始畫面
                 this._returnToStartFrom('game-over-screen');
             } catch (e) {
                 console.warn("[UI] showGameOverScreen: 超時處理失敗:", e);
