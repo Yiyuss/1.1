@@ -6715,6 +6715,12 @@ function tryStartSurvivalFromRoom() {
     // ⚠️ 修復：等待 Game.player 創建完成後再發送 new-session
     // 因為 startSurvivalNow 會調用 GameModeManager.start，而 Game.init 是在 GameModeManager.start 之後才執行
     // 使用輪詢機制等待 Game.player 創建完成，最多等待 3 秒
+    // ⚠️ 修复：标记 new-session 已发送，用于 spawnObstacles 和 spawnDecorations 检查
+    // 使用 Game 对象的属性，这样可以在 spawnObstacles 和 spawnDecorations 中访问
+    if (typeof Game !== "undefined") {
+      Game._newSessionSent = false;
+    }
+    
     const sendNewSession = () => {
       try {
         const sid = sessionId || null;
@@ -6740,6 +6746,44 @@ function tryStartSurvivalFromRoom() {
           // fallback
           try { _sendViaWebSocket({ type: "new-session", sessionId: sid, maxHealth: playerMaxHealth }); } catch (_) { }
         }
+        
+        // ⚠️ 修复：标记 new-session 已发送
+        if (typeof Game !== "undefined") {
+          Game._newSessionSent = true;
+        }
+        
+        // ⚠️ 修复：在 new-session 发送后，延迟发送 obstacles 和 decorations
+        // 这样可以确保服务器先收到 new-session，再收到新的地图数据
+        setTimeout(() => {
+          if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled && Game.multiplayer.isHost) {
+            // 重新发送 obstacles 和 decorations（如果已经生成）
+            if (Array.isArray(Game.obstacles) && Game.obstacles.length > 0) {
+              const obstaclesData = Game.obstacles.map(obs => ({
+                x: obs.x,
+                y: obs.y,
+                imageKey: obs.imageKey,
+                size: obs.size || 150
+              }));
+              if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                window.SurvivalOnlineRuntime.sendToNet({ type: 'obstacles', obstacles: obstaclesData });
+                console.log(`[SurvivalOnline] 在 new-session 后发送 obstacles: count=${obstaclesData.length}`);
+              }
+            }
+            if (Array.isArray(Game.decorations) && Game.decorations.length > 0) {
+              const decorationsData = Game.decorations.map(deco => ({
+                x: deco.x,
+                y: deco.y,
+                width: deco.width,
+                height: deco.height,
+                imageKey: deco.imageKey
+              }));
+              if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                window.SurvivalOnlineRuntime.sendToNet({ type: 'decorations', decorations: decorationsData });
+                console.log(`[SurvivalOnline] 在 new-session 后发送 decorations: count=${decorationsData.length}`);
+              }
+            }
+          }
+        }, 500); // 延迟 500ms，确保服务器先处理 new-session
       } catch (e) {
         console.error(`[SurvivalOnline] 發送 new-session 失敗:`, e);
       }
