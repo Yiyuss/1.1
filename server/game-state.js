@@ -2699,8 +2699,8 @@ class GameState {
       bullets: hasValidSession ? this.bullets : [],
       experienceOrbs: hasValidSession ? this.experienceOrbs : [],
       chests: hasValidSession ? this.chests : [],
-      obstacles: hasValidSession ? this.obstacles : [],
-      decorations: hasValidSession ? this.decorations : [],
+      obstacles: this.obstacles || [], // ✅ 修复：始终发送障碍物（即使 hasValidSession 为 false，也发送空数组）
+      decorations: this.decorations || [], // ✅ 修复：始终发送装饰物（即使 hasValidSession 为 false，也发送空数组）
       carHazards: hasValidSession ? this.carHazards : [],
       exit: this.exit,
       wave: this.wave,
