@@ -2730,8 +2730,17 @@ const Game = {
     startNewGame: function () {
         // ⚠️ 组队模式专用：设置状态为 'starting'（单机模式不受影响）
         if (this.multiplayer && this.multiplayer.enabled) {
+            // ⚠️ 关键修复：取消 _returnToStartFrom 的延迟清理，防止覆盖新游戏状态
+            if (this._returnToStartFromCleanupTimer) {
+                clearTimeout(this._returnToStartFromCleanupTimer);
+                this._returnToStartFromCleanupTimer = null;
+                console.log('[Game] startNewGame: 组队模式，取消延迟清理定时器');
+            }
+            // ⚠️ 验证：记录当前地图ID，用于后续验证
+            const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
+            this._expectedMapId = currentMapId; // 保存期望的地图ID
             this._multiplayerGameState = 'starting';
-            console.log('[Game] startNewGame: 组队模式，设置状态为 starting');
+            console.log(`[Game] startNewGame: 组队模式，设置状态为 starting, mapId=${currentMapId}`);
         }
         
         // 重置遊戲
@@ -3006,6 +3015,13 @@ const Game = {
                 console.log('[Game] spawnObstacles: 组队模式状态不正确，跳过生成（状态=' + this._multiplayerGameState + '）');
                 return;
             }
+            // ⚠️ 验证：检查地图ID是否匹配期望值
+            const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
+            const expectedMapId = this._expectedMapId || null;
+            if (expectedMapId && currentMapId && expectedMapId !== currentMapId) {
+                console.error(`[Game] spawnObstacles: 地图ID不匹配！expected=${expectedMapId}, current=${currentMapId}，跳过生成`);
+                return; // 不生成，防止污染
+            }
         }
         
         // ✅ 单机和组队都适用：如果游戏已暂停或已结束，不要生成 obstacles
@@ -3111,8 +3127,13 @@ const Game = {
                     imageKey: obs.imageKey,
                     size: obs.size || size
                   }));
+                  const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
                   if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                    window.SurvivalOnlineRuntime.sendToNet({ type: 'obstacles', obstacles: obstaclesData });
+                    window.SurvivalOnlineRuntime.sendToNet({ 
+                      type: 'obstacles', 
+                      obstacles: obstaclesData,
+                      mapId: currentMapId // ⚠️ 关键修复：发送地图ID，让服务器验证
+                    });
                   }
                 }
                 // ⚠️ 修复：无论是否发送，都 return，避免重复发送
@@ -3163,6 +3184,13 @@ const Game = {
             if (this._multiplayerGameState !== 'starting' && this._multiplayerGameState !== 'running') {
                 console.log('[Game] spawnDecorations: 组队模式状态不正确，跳过生成（状态=' + this._multiplayerGameState + '）');
                 return;
+            }
+            // ⚠️ 验证：检查地图ID是否匹配期望值
+            const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
+            const expectedMapId = this._expectedMapId || null;
+            if (expectedMapId && currentMapId && expectedMapId !== currentMapId) {
+                console.error(`[Game] spawnDecorations: 地图ID不匹配！expected=${expectedMapId}, current=${currentMapId}，跳过生成`);
+                return; // 不生成，防止污染
             }
         }
         
@@ -3333,8 +3361,13 @@ const Game = {
                     height: deco.height,
                     imageKey: deco.imageKey
                   }));
+                  const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
                   if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                    window.SurvivalOnlineRuntime.sendToNet({ type: 'decorations', decorations: decorationsData });
+                    window.SurvivalOnlineRuntime.sendToNet({ 
+                      type: 'decorations', 
+                      decorations: decorationsData,
+                      mapId: currentMapId // ⚠️ 关键修复：发送地图ID，让服务器验证
+                    });
                   }
                 }
                 // ⚠️ 修复：无论是否发送，都 return，避免重复发送
