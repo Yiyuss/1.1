@@ -43,12 +43,37 @@ class BottleProjectile extends Entity {
         // ✅ 權威多人：此類投射物由伺服器權威模擬與扣血；客戶端只做插值顯示
         try {
             if (this._isVisualOnly && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                // ✅ 修复：瓶子投射物使用抛物线运动，需要同步 vx, vy, g 并应用物理
+                // 服务器端会更新这些值，客户端应该使用它们来模拟抛物线运动
                 if (typeof this._netTargetX === 'number' && typeof this._netTargetY === 'number') {
                     const dx = this._netTargetX - this.x;
                     const dy = this._netTargetY - this.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist > 600) { this.x = this._netTargetX; this.y = this._netTargetY; }
-                    else { const lerp = 0.35; this.x += dx * lerp; this.y += dy * lerp; }
+                    // 如果距离太远，直接跳转到目标位置（网络延迟补偿）
+                    if (dist > 600) {
+                        this.x = this._netTargetX;
+                        this.y = this._netTargetY;
+                    } else {
+                        // ✅ 修复：使用抛物线运动（vx, vy, g）而不是简单的线性插值
+                        // 这样可以保持与服务器端一致的视觉效果
+                        const deltaMul = deltaTime / 16.67;
+                        if (typeof this.g === 'number' && typeof this.vx === 'number' && typeof this.vy === 'number') {
+                            // 应用重力
+                            this.vy += this.g * deltaMul;
+                            // 应用速度
+                            this.x += this.vx * deltaMul;
+                            this.y += this.vy * deltaMul;
+                            // 然后进行轻微的插值修正，确保与服务器位置同步
+                            const lerp = 0.1;
+                            this.x += (this._netTargetX - this.x) * lerp;
+                            this.y += (this._netTargetY - this.y) * lerp;
+                        } else {
+                            // 如果没有 vx/vy/g，回退到简单的线性插值
+                            const lerp = 0.35;
+                            this.x += dx * lerp;
+                            this.y += dy * lerp;
+                        }
+                    }
                 }
                 return;
             }
