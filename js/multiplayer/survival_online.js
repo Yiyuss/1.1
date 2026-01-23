@@ -4908,42 +4908,74 @@ function handleServerGameState(state, timestamp) {
       const ObstacleCtor = _getGlobalCtor("Obstacle");
       if (Array.isArray(state.obstacles)) {
         if (typeof Game !== "undefined") {
-          Game.obstacles = [];
-          if (state.obstacles.length > 0 && ObstacleCtor) {
-            for (const o of state.obstacles) {
-              if (!o) continue;
-              const ox = (typeof o.x === 'number') ? o.x : 0;
-              const oy = (typeof o.y === 'number') ? o.y : 0;
-              const imageKey = o.imageKey || 'S1';
-              const size = (typeof o.size === 'number') ? o.size : (typeof o.width === 'number' ? o.width : 150);
-              Game.obstacles.push(new ObstacleCtor(ox, oy, imageKey, size));
-            }
-            Game._obstaclesAndDecorationsSpawned = true;
-          } else {
-            // 如果服务器发送空数组，重置生成标记，让新地图可以重新生成
+          // ⚠️ 关键修复：检查服务器数据的地图ID是否匹配当前地图
+          // 如果服务器发送的数据来自旧地图，忽略它
+          const currentMapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
+          const expectedMapId = (Game._expectedMapId && typeof Game._expectedMapId === 'string') ? Game._expectedMapId : null;
+          const serverMapId = (state.mapId && typeof state.mapId === 'string') ? state.mapId : null;
+          
+          // ⚠️ 验证：优先使用 expectedMapId（从 startNewGame 中设置），如果没有则使用 currentMapId
+          const targetMapId = expectedMapId || currentMapId;
+          
+          if (targetMapId && serverMapId && targetMapId !== serverMapId) {
+            console.error(`[SurvivalOnline] handleServerGameState: 服务器数据地图ID不匹配，忽略（期望=${targetMapId}, 当前=${currentMapId}, 服务器=${serverMapId}）`);
+            // 即使地图ID不匹配，也要清理本地状态，防止残留
+            Game.obstacles = [];
             Game._obstaclesAndDecorationsSpawned = false;
+          } else {
+            Game.obstacles = [];
+            if (state.obstacles.length > 0 && ObstacleCtor) {
+              for (const o of state.obstacles) {
+                if (!o) continue;
+                const ox = (typeof o.x === 'number') ? o.x : 0;
+                const oy = (typeof o.y === 'number') ? o.y : 0;
+                const imageKey = o.imageKey || 'S1';
+                const size = (typeof o.size === 'number') ? o.size : (typeof o.width === 'number' ? o.width : 150);
+                Game.obstacles.push(new ObstacleCtor(ox, oy, imageKey, size));
+              }
+              Game._obstaclesAndDecorationsSpawned = true;
+            } else {
+              // 如果服务器发送空数组，重置生成标记，让新地图可以重新生成
+              Game._obstaclesAndDecorationsSpawned = false;
+            }
           }
         }
       }
       if (Array.isArray(state.decorations)) {
         if (typeof Game !== "undefined") {
-          Game.decorations = [];
-          if (state.decorations.length > 0) {
-            for (const d of state.decorations) {
-              if (!d) continue;
-              if (typeof d.x !== 'number' || typeof d.y !== 'number' || !d.imageKey) continue;
-              Game.decorations.push({
-                x: d.x,
-                y: d.y,
-                width: (typeof d.width === 'number') ? d.width : 100,
-                height: (typeof d.height === 'number') ? d.height : 100,
-                imageKey: d.imageKey
-              });
-            }
-            Game._obstaclesAndDecorationsSpawned = true;
-          } else {
-            // 如果服务器发送空数组，重置生成标记，让新地图可以重新生成
+          // ⚠️ 关键修复：检查服务器数据的地图ID是否匹配当前地图
+          // 如果服务器发送的数据来自旧地图，忽略它
+          const currentMapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
+          const expectedMapId = (Game._expectedMapId && typeof Game._expectedMapId === 'string') ? Game._expectedMapId : null;
+          const serverMapId = (state.mapId && typeof state.mapId === 'string') ? state.mapId : null;
+          
+          // ⚠️ 验证：优先使用 expectedMapId（从 startNewGame 中设置），如果没有则使用 currentMapId
+          const targetMapId = expectedMapId || currentMapId;
+          
+          if (targetMapId && serverMapId && targetMapId !== serverMapId) {
+            console.error(`[SurvivalOnline] handleServerGameState: 服务器数据地图ID不匹配，忽略（期望=${targetMapId}, 当前=${currentMapId}, 服务器=${serverMapId}）`);
+            // 即使地图ID不匹配，也要清理本地状态，防止残留
+            Game.decorations = [];
             Game._obstaclesAndDecorationsSpawned = false;
+          } else {
+            Game.decorations = [];
+            if (state.decorations.length > 0) {
+              for (const d of state.decorations) {
+                if (!d) continue;
+                if (typeof d.x !== 'number' || typeof d.y !== 'number' || !d.imageKey) continue;
+                Game.decorations.push({
+                  x: d.x,
+                  y: d.y,
+                  width: (typeof d.width === 'number') ? d.width : 100,
+                  height: (typeof d.height === 'number') ? d.height : 100,
+                  imageKey: d.imageKey
+                });
+              }
+              Game._obstaclesAndDecorationsSpawned = true;
+            } else {
+              // 如果服务器发送空数组，重置生成标记，让新地图可以重新生成
+              Game._obstaclesAndDecorationsSpawned = false;
+            }
           }
         }
       }
@@ -6590,6 +6622,12 @@ function tryStartSurvivalFromRoom() {
       
       // ⚠️ 组队模式专用：设置状态为 'starting'（单机模式不受影响）
       if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+        // ⚠️ 关键修复：取消 _returnToStartFrom 的延迟清理，防止覆盖新游戏状态
+        if (Game._returnToStartFromCleanupTimer) {
+          clearTimeout(Game._returnToStartFromCleanupTimer);
+          Game._returnToStartFromCleanupTimer = null;
+          console.log('[SurvivalOnline] startGame: 组队模式，取消延迟清理定时器');
+        }
         Game._multiplayerGameState = 'starting';
         console.log('[SurvivalOnline] startGame: 组队模式，设置状态为 starting');
       }
