@@ -361,14 +361,13 @@ const UI = {
                                 // 游戏结束后应该保持暂停状态，直到开始新游戏（在 startGame 中会重置）
                                 Game.isPaused = true;
                                 Game.isGameOver = true;
-                                // ⚠️ 修复：确保玩家被清理，防止武器继续发射
-                                if (Game.player) {
-                                    Game.player = null;
-                                }
-                                // ⚠️ 修复：确保 _newGameStarted 标志被清理
-                                if (typeof Game._newGameStarted !== 'undefined') {
-                                    Game._newGameStarted = false;
-                                }
+                                // ⚠️ 修复：不要在这里将 Game.player = null
+                                // Game.reset() 会重新创建 Game.player，如果在这里设置为 null，
+                                // 而 startGame 在 Game.reset() 执行之前执行，会导致 Game.player 为 null
+                                // 让 Game.reset() 自己处理玩家清理和创建
+                                // ⚠️ 修复：不要清理 _newGameStarted 标志
+                                // _newGameStarted 应该在 startGame 中设置，在 handleServerGameState 中清理
+                                // 如果在这里清理，可能会导致新游戏开始时无法正确识别
                             }
                         } catch (e) {
                             console.warn('[UI] _returnToStartFrom: 延迟清理游戏状态失败:', e);
