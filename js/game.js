@@ -461,7 +461,13 @@ const Game = {
         // ✅ 多人元素（伺服器權威）：彈幕（ASURA）由伺服器更新與扣血；客戶端只渲染（避免本地移動/碰撞造成雙重扣血）
         try {
             if (this.multiplayer && this.multiplayer.enabled) {
-                // 權威多人：不跑本地 BulletSystem.update
+                // ✅ 修复：与单机一致 - 在组队模式下，仍然需要更新弹幕位置（服务器只发送位置，客户端需要更新显示）
+                // 但不要运行碰撞检测（避免双重扣血）
+                if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.update === 'function') {
+                    // 在组队模式下，BulletSystem.update 已经检查了 isServerAuthoritative，不会处理碰撞
+                    // 但仍然需要更新弹幕位置（基于服务器同步的 vx 和 vy）
+                    BulletSystem.update(deltaTime);
+                }
             } else if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.update === 'function') {
                 BulletSystem.update(deltaTime);
             }
@@ -2668,6 +2674,26 @@ const Game = {
 
         // 重置波次系統
         WaveSystem.init();
+
+        // ✅ 修复：单机模式下生成障碍物和装饰物
+        // 注意：多人模式下，host 会生成并上传到服务器，其他客户端从服务器同步
+        try {
+            // ✅ 单机模式：直接生成障碍物和装饰物
+            // ✅ 多人模式：只有 host 才生成（其他客户端从服务器同步）
+            const isMultiplayer = (this.multiplayer && this.multiplayer.enabled);
+            const isHost = (isMultiplayer && this.multiplayer.isHost);
+            if (!isMultiplayer || isHost) {
+                // 单机模式或多人模式的 host：生成障碍物和装饰物
+                if (typeof this.spawnObstacles === 'function') {
+                    this.spawnObstacles();
+                }
+                if (typeof this.spawnDecorations === 'function') {
+                    this.spawnDecorations();
+                }
+            }
+        } catch (e) {
+            console.warn('[Game] startNewGame: 生成障碍物和装饰物失败:', e);
+        }
 
         // M2/M4：清理遠程玩家（僅在生存模式組隊模式且為室長時）
         try {
