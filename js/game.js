@@ -2535,17 +2535,31 @@ const Game = {
             } catch (_) { }
         }
 
-        // 根據地圖類型設定世界大小
-        // 4K模式（花園、路口）：固定為 3840x2160
-        // 720P九宮格模式（廁所、草原、宇宙）：根據 CONFIG 計算 (1280*3, 720*3)
-        if (this.selectedMap && (this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection')) {
-            this.worldWidth = 3840;
-            this.worldHeight = 2160;
-            console.log(`[Game] 重置世界大小 (4K模式): ${this.worldWidth}x${this.worldHeight}`);
+        // ⚠️ 关键修复：如果游戏已暂停或已结束（在大厅状态），不要根据 selectedMap 设置世界大小和随机种子
+        // 这样可以防止在回到大厅后，Game.reset() 使用上一局的地图信息设置世界大小和随机种子
+        // 世界大小和随机种子应该在 Game.init() 中设置（当真正开始新游戏时）
+        if (!this.isPaused && !this.isGameOver) {
+            // 只有在游戏运行时（不是在大厅状态），才根据地图类型设定世界大小
+            // 4K模式（花園、路口）：固定為 3840x2160
+            // 720P九宮格模式（廁所、草原、宇宙）：根據 CONFIG 計算 (1280*3, 720*3)
+            if (this.selectedMap && (this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection')) {
+                this.worldWidth = 3840;
+                this.worldHeight = 2160;
+                console.log(`[Game] 重置世界大小 (4K模式): ${this.worldWidth}x${this.worldHeight}`);
+            } else {
+                this.worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3);
+                this.worldHeight = CONFIG.CANVAS_HEIGHT * (CONFIG.WORLD?.GRID_Y || 3);
+                console.log(`[Game] 重置世界大小 (九宮格模式): ${this.worldWidth}x${this.worldHeight}`);
+            }
         } else {
-            this.worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3);
-            this.worldHeight = CONFIG.CANVAS_HEIGHT * (CONFIG.WORLD?.GRID_Y || 3);
-            console.log(`[Game] 重置世界大小 (九宮格模式): ${this.worldWidth}x${this.worldHeight}`);
+            // 在大厅状态，保持当前世界大小不变，或者使用默认值
+            // 这样可以防止使用上一局的地图信息
+            if (this.worldWidth === 0 || this.worldHeight === 0) {
+                // 如果世界大小未设置，使用默认值
+                this.worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3);
+                this.worldHeight = CONFIG.CANVAS_HEIGHT * (CONFIG.WORLD?.GRID_Y || 3);
+            }
+            console.log(`[Game] 重置世界大小 (大厅状态，保持当前大小): ${this.worldWidth}x${this.worldHeight}`);
         }
 
         // 重新置中玩家
@@ -2627,35 +2641,48 @@ const Game = {
             console.warn('BulletSystem.reset 失敗：', e);
         }
 
-        // MMO 架構：多人模式設置確定性隨機數種子，確保所有客戶端生成相同的敵人
-        try {
-            let isSurvivalMode = false;
+        // ⚠️ 关键修复：如果游戏已暂停或已结束（在大厅状态），不要设置随机种子
+        // 这样可以防止在回到大厅后，Game.reset() 使用上一局的 sessionId 设置随机种子
+        // 随机种子应该在 Game.init() 中设置（当真正开始新游戏时）
+        if (!this.isPaused && !this.isGameOver) {
+            // 只有在游戏运行时（不是在大厅状态），才设置随机种子
+            // MMO 架構：多人模式設置確定性隨機數種子，確保所有客戶端生成相同的敵人
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null);
-            } catch (_) { }
+                let isSurvivalMode = false;
+                try {
+                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                        ? GameModeManager.getCurrent()
+                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                            ? ModeManager.getActiveModeId()
+                            : null);
+                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                } catch (_) { }
 
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.sessionId) {
-                // 多人模式：使用房間ID和sessionId作為種子，確保所有客戶端使用相同的種子
-                const roomId = this.multiplayer.roomId || '';
-                const sessionId = this.multiplayer.sessionId || '';
-                const seed = `${roomId}_${sessionId}`;
-                if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
-                    DeterministicRandom.init(seed);
-                    console.log(`[Game] 多人模式：設置確定性隨機數種子: ${seed}`);
+                if (isSurvivalMode && this.multiplayer && this.multiplayer.sessionId) {
+                    // 多人模式：使用房間ID和sessionId作為種子，確保所有客戶端使用相同的種子
+                    const roomId = this.multiplayer.roomId || '';
+                    const sessionId = this.multiplayer.sessionId || '';
+                    const seed = `${roomId}_${sessionId}`;
+                    if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
+                        DeterministicRandom.init(seed);
+                        console.log(`[Game] 多人模式：設置確定性隨機數種子: ${seed}`);
+                    }
+                } else {
+                    // 單機模式：不使用種子
+                    if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
+                        DeterministicRandom.init(null);
+                    }
                 }
-            } else {
-                // 單機模式：不使用種子
-                if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
-                    DeterministicRandom.init(null);
-                }
+            } catch (e) {
+                console.warn("[Game] 設置確定性隨機數種子失敗:", e);
             }
-        } catch (e) {
-            console.warn("[Game] 設置確定性隨機數種子失敗:", e);
+        } else {
+            // 在大厅状态，不设置随机种子，保持当前状态或重置为 null
+            // 这样可以防止使用上一局的 sessionId
+            if (typeof DeterministicRandom !== "undefined" && typeof DeterministicRandom.init === "function") {
+                DeterministicRandom.init(null);
+            }
+            console.log(`[Game] 重置随机种子 (大厅状态，不设置种子)`);
         }
 
         // 重置波次系統
@@ -2728,39 +2755,14 @@ const Game = {
             avatarEl.alt = this.selectedCharacter?.name || '玩家';
         }
 
-        // ✅ MMORPG 架構：障礙物和地圖裝飾需要同步
-        // 在多人模式下，只有第一個玩家（或使用確定性隨機數）生成，然後廣播給其他玩家
-        // ✅ 隔離：只允許「組隊 survival（enabled）」走多人路徑（避免影響單機/其他模式）
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
-        let isSurvivalMode = false;
-        try {
-            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
-            isSurvivalMode = (activeId === 'survival' || activeId === null);
-        } catch (_) { }
-
-        if (isSurvivalMode && isMultiplayer) {
-            // 多人模式：使用確定性隨機數生成器，確保所有玩家生成相同的障礙物和裝飾
-            // 注意：如果 DeterministicRandom 未初始化，則由第一個玩家生成並廣播
-            const hasDeterministicRandom = (typeof DeterministicRandom !== 'undefined' && DeterministicRandom.getSeed() !== null);
-            if (hasDeterministicRandom) {
-                // 使用確定性隨機數生成器，所有玩家會生成相同的位置
-                this.spawnObstacles();
-                this.spawnDecorations();
-            } else {
-                // 如果沒有確定性隨機數，由第一個玩家生成並廣播
-                // 這裡先不生成，等待收到同步事件
-                // 注意：如果沒有收到同步事件，則本地生成（向後兼容）
-                this._obstaclesAndDecorationsSpawned = false;
-            }
-        } else {
-            // 單機模式：正常生成
-            this.spawnObstacles();
-            this.spawnDecorations();
-        }
+        // ⚠️ 关键修复：不要在 Game.reset() 中生成 obstacles 和 decorations
+        // 这些应该在 Game.init() 中生成（当真正开始新游戏时）
+        // 这样可以防止在回到大厅后，Game.reset() 被调用时重新生成上一局的地图元素
+        // 因为此时 Game.selectedMap 可能还是上一局的地图
+        // 
+        // 原来的代码会在这里生成 obstacles 和 decorations，导致回到大厅时也会生成
+        // 现在改为只重置标记，不生成，让 Game.init() 在真正开始新游戏时生成
+        this._obstaclesAndDecorationsSpawned = false;
 
         // 重置時間
         this.lastUpdateTime = Date.now();
