@@ -2116,6 +2116,12 @@ class GameState {
 
   // 设置障碍物（从客户端同步）
   setObstacles(obstacles) {
+    // ⚠️ 修复：如果当前 sessionId 为空，说明是新游戏开始前，忽略旧数据
+    // 这样可以防止上一局的地图数据污染新游戏
+    if (!this.currentSessionId) {
+      console.log(`[GameState.setObstacles] 忽略障碍物数据：当前 sessionId 为空，可能是新游戏开始前`);
+      return;
+    }
     this.obstacles = obstacles.map(obs => ({
       x: obs.x,
       y: obs.y,
@@ -2128,6 +2134,12 @@ class GameState {
 
   // 设置地图装饰（从客户端同步）
   setDecorations(decorations) {
+    // ⚠️ 修复：如果当前 sessionId 为空，说明是新游戏开始前，忽略旧数据
+    // 这样可以防止上一局的地图数据污染新游戏
+    if (!this.currentSessionId) {
+      console.log(`[GameState.setDecorations] 忽略装饰数据：当前 sessionId 为空，可能是新游戏开始前`);
+      return;
+    }
     this.decorations = decorations.map(deco => ({
       x: deco.x,
       y: deco.y,
