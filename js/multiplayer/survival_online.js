@@ -4759,8 +4759,23 @@ function handleServerGameState(state, timestamp) {
     }
 
     // 更新敌人（服务器权威）
+    // ⚠️ 修复：在 starting 状态时，完全忽略服务器状态，防止旧敌人污染
     if (Array.isArray(state.enemies)) {
-      updateEnemiesFromServer(state.enemies);
+      // ⚠️ 组队模式专用：在 starting 状态时，完全忽略服务器状态
+      if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+        if (Game._multiplayerGameState === 'starting') {
+          // starting 状态：完全忽略服务器状态，防止旧敌人污染
+          // 客户端已经在 Game.reset() 中清理了所有敌人，等待服务器确认 new-session 完成
+          // 只有在状态变为 'running' 后，才开始同步服务器状态
+          // 不执行任何操作，直接跳过
+        } else {
+          // running 状态：正常同步服务器状态
+          updateEnemiesFromServer(state.enemies);
+        }
+      } else {
+        // 单机模式：正常同步
+        updateEnemiesFromServer(state.enemies);
+      }
     }
 
     // 更新投射物（服务器权威）
@@ -4901,8 +4916,15 @@ function handleServerGameState(state, timestamp) {
     try {
       // ⚠️ 组队模式专用：只在正确的状态时应用服务器数据
       if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-        if (Game._multiplayerGameState !== 'starting' && Game._multiplayerGameState !== 'running') {
-          // 组队模式：状态不正确，忽略服务器数据
+        // ⚠️ 修复：在 starting 状态时，完全忽略服务器数据，防止旧障碍物/装饰物污染
+        if (Game._multiplayerGameState === 'starting') {
+          // starting 状态：完全忽略服务器数据，防止旧障碍物/装饰物污染
+          // 客户端已经在 Game.reset() 中清理了所有障碍物和装饰物，等待服务器确认 new-session 完成
+          // 只有在状态变为 'running' 后，才开始同步服务器状态
+          // 不执行任何操作，直接跳过
+          return;
+        } else if (Game._multiplayerGameState !== 'running') {
+          // 其他状态（lobby/ending）：忽略服务器数据
           console.log('[SurvivalOnline] handleServerGameState: 组队模式状态不正确，忽略服务器数据（状态=' + Game._multiplayerGameState + '）');
           // 即使状态不正确，也要清理本地状态，防止残留
           if (Array.isArray(state.obstacles)) {
@@ -4915,22 +4937,12 @@ function handleServerGameState(state, timestamp) {
           }
           return; // 不应用服务器数据
         }
+        // running 状态：继续执行后续逻辑，正常同步服务器数据
       }
       
       const ObstacleCtor = _getGlobalCtor("Obstacle");
       if (Array.isArray(state.obstacles)) {
         if (typeof Game !== "undefined") {
-          // ⚠️ 重构：检查游戏状态（必须是 'starting' 或 'running'）
-          let shouldSkipObstacles = false;
-          if (Game.multiplayer && Game.multiplayer.enabled) {
-            if (Game._multiplayerGameState !== 'starting' && Game._multiplayerGameState !== 'running') {
-              console.log(`[SurvivalOnline] handleServerGameState: 组队模式状态不正确，跳过处理 obstacles（状态=${Game._multiplayerGameState}）`);
-              shouldSkipObstacles = true; // 标记跳过，不处理，防止在错误状态下应用服务器数据
-            }
-          }
-          
-          if (!shouldSkipObstacles) {
-          
           // ⚠️ 关键修复：检查服务器数据的地图ID是否匹配当前地图
           // 如果服务器发送的数据来自旧地图，忽略它
           const currentMapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
@@ -4962,22 +4974,10 @@ function handleServerGameState(state, timestamp) {
               Game._obstaclesAndDecorationsSpawned = false;
             }
           }
-          } // 结束 shouldSkipObstacles 检查
         }
       }
       if (Array.isArray(state.decorations)) {
         if (typeof Game !== "undefined") {
-          // ⚠️ 重构：检查游戏状态（必须是 'starting' 或 'running'）
-          let shouldSkipDecorations = false;
-          if (Game.multiplayer && Game.multiplayer.enabled) {
-            if (Game._multiplayerGameState !== 'starting' && Game._multiplayerGameState !== 'running') {
-              console.log(`[SurvivalOnline] handleServerGameState: 组队模式状态不正确，跳过处理 decorations（状态=${Game._multiplayerGameState}）`);
-              shouldSkipDecorations = true; // 标记跳过，不处理，防止在错误状态下应用服务器数据
-            }
-          }
-          
-          if (!shouldSkipDecorations) {
-          
           // ⚠️ 关键修复：检查服务器数据的地图ID是否匹配当前地图
           // 如果服务器发送的数据来自旧地图，忽略它
           const currentMapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
@@ -5012,7 +5012,6 @@ function handleServerGameState(state, timestamp) {
               Game._obstaclesAndDecorationsSpawned = false;
             }
           }
-          } // 结束 shouldSkipDecorations 检查
         }
       }
     } catch (_) { }
