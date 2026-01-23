@@ -345,6 +345,12 @@ const UI = {
                                     console.warn('[UI] _returnToStartFrom: 清理多人模式状态失败:', e);
                                 }
                                 
+                                // ⚠️ 组队模式专用：设置状态为 'ending'（单机模式不受影响）
+                                if (Game.multiplayer && Game.multiplayer.enabled) {
+                                    Game._multiplayerGameState = 'ending';
+                                    console.log('[UI] _returnToStartFrom: 组队模式，设置状态为 ending');
+                                }
+                                
                                 // ⚠️ 修复：保存 _gameOverEventSent 的状态，防止 Game.reset() 重置后导致重复触发
                                 // 因为服务器可能还在持续发送 state.isGameOver = true
                                 const wasGameOver = Game._gameOverEventSent;
@@ -361,6 +367,17 @@ const UI = {
                                 // 因为 Game.reset() 会设置 isPaused = false 和 isGameOver = false
                                 Game.isPaused = true;
                                 Game.isGameOver = true;
+                                
+                                // ⚠️ 组队模式专用：清理地图特定的元素并设置状态为 'lobby'（单机模式不受影响）
+                                if (Game.multiplayer && Game.multiplayer.enabled) {
+                                    // 清理地图特定的元素
+                                    Game.obstacles = [];
+                                    Game.decorations = [];
+                                    Game._obstaclesAndDecorationsSpawned = false;
+                                    // 设置状态为 'lobby'
+                                    Game._multiplayerGameState = 'lobby';
+                                    console.log('[UI] _returnToStartFrom: 组队模式，清理地图元素，设置状态为 lobby');
+                                }
                                 // ⚠️ 修复：不要在这里将 Game.player = null
                                 // Game.reset() 会重新创建 Game.player，如果在这里设置为 null，
                                 // 而 startGame 在 Game.reset() 执行之前执行，会导致 Game.player 为 null
