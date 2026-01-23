@@ -4812,23 +4812,66 @@ function handleServerGameState(state, timestamp) {
               }
             } catch (_) {}
           }
-          // ✅ 修复：处理车辆撞击事件（音效+特效）
+          // ✅ 修复：处理车辆撞击事件（音效+特效+相机震动）
           else if (v.type === 'car_hit') {
             // ✅ 修复：兼容两种格式：v.data 或直接 v
             const eventData = v.data || v;
             try {
+              // ✅ 修复：获取本地玩家UID（使用多种方式确保正确）
+              // 注意：服务器端 player.uid 是 netUid（格式：`${authUid}:${instanceId}`）
+              // 客户端 Game.multiplayer.uid 也应该是 netUid
+              const localPlayerUid = (Game.multiplayer && Game.multiplayer.uid) 
+                ? Game.multiplayer.uid 
+                : (typeof _getLocalNetUid === 'function' ? _getLocalNetUid() : (_netUid || _uid || null));
+              
+              // ✅ 修复：更严格的比较逻辑（确保类型一致，支持字符串和数字）
+              const eventPlayerUid = (eventData && (typeof eventData.playerUid === 'string' || typeof eventData.playerUid === 'number')) 
+                ? String(eventData.playerUid) 
+                : null;
+              const localPlayerUidStr = localPlayerUid ? String(localPlayerUid) : null;
+              const isLocalPlayer = (eventPlayerUid && localPlayerUidStr && eventPlayerUid === localPlayerUidStr);
+              
+              // ⚠️ 调试：如果音效没有播放，记录日志
+              if (SURVIVAL_ONLINE_DEBUG && eventPlayerUid) {
+                console.log(`[SurvivalOnline] car_hit事件: eventPlayerUid=${eventPlayerUid}, localPlayerUid=${localPlayerUid}, isLocalPlayer=${isLocalPlayer}`);
+              }
+              
               // 音效是单机元素，只对本地玩家播放
-              if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+              if (isLocalPlayer) {
                 if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
                   AudioManager.playSound('bo');
+                  if (SURVIVAL_ONLINE_DEBUG) {
+                    console.log(`[SurvivalOnline] ✅ 播放车辆撞击音效: playerUid=${eventPlayerUid}`);
+                  }
+                } else if (SURVIVAL_ONLINE_DEBUG) {
+                  console.warn(`[SurvivalOnline] ⚠️ AudioManager不可用，无法播放音效`);
                 }
+              } else if (SURVIVAL_ONLINE_DEBUG && eventPlayerUid) {
+                console.log(`[SurvivalOnline] ⚠️ 跳过音效: 不是本地玩家 (eventPlayerUid=${eventPlayerUid}, localPlayerUid=${localPlayerUid})`);
               }
+              
               // 特效是多人元素，需要同步（爆炸粒子、屏幕白闪）
               if (typeof eventData.x === 'number' && typeof eventData.y === 'number') {
                 // 屏幕白闪：仅本地玩家触发
-                if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                if (isLocalPlayer) {
                   if (typeof Game !== 'undefined') {
                     Game.screenFlash = { active: true, duration: 140, intensity: 0.28 };
+                  }
+                }
+                // ✅ 修复：相机震动是单机元素，只对本地玩家触发
+                if (isLocalPlayer) {
+                  if (typeof Game !== 'undefined') {
+                    if (!Game.cameraShake) {
+                      Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+                    }
+                    // ✅ 修复：即使 eventData.cameraShake 不存在，也要触发相机震动（与单机模式一致）
+                    const cameraShake = eventData.cameraShake || { active: true, intensity: 8, duration: 200 };
+                    Game.cameraShake.active = cameraShake.active !== false; // 默认 true
+                    Game.cameraShake.intensity = cameraShake.intensity || 8;
+                    Game.cameraShake.duration = cameraShake.duration || 200;
+                    if (SURVIVAL_ONLINE_DEBUG) {
+                      console.log(`[SurvivalOnline] ✅ 触发相机震动: intensity=${Game.cameraShake.intensity}, duration=${Game.cameraShake.duration}`);
+                    }
                   }
                 }
                 // 爆炸粒子：需要同步
@@ -6518,7 +6561,7 @@ function startSurvivalNow(params) {
       multiplayer: _activeRoomId ? {
         roomId: _activeRoomId,
         role: _isHost ? "host" : "guest",
-        uid: _uid,
+        uid: _getLocalNetUid(), // ✅ 修复：使用 netUid（格式：`${authUid}:${instanceId}`），与服务器端 player.uid 一致
         sessionId: (params && params.sessionId) ? params.sessionId : (_roomState && _roomState.sessionId ? _roomState.sessionId : null)
       } : null,
     });
