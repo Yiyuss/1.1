@@ -2118,12 +2118,21 @@ class GameState {
   }
 
   // 设置障碍物（从客户端同步）
-  setObstacles(obstacles) {
+  setObstacles(obstacles, mapId = null) {
     // ⚠️ 修复：如果当前 sessionId 为空，说明是新游戏开始前，忽略旧数据
     // 这样可以防止上一局的地图数据污染新游戏
     if (!this.currentSessionId) {
       console.log(`[GameState.setObstacles] 忽略障碍物数据：当前 sessionId 为空，可能是新游戏开始前`);
       return;
+    }
+    // ⚠️ 关键修复：检查地图ID是否匹配当前session的地图
+    // 如果客户端发送的数据来自旧地图，忽略它
+    if (mapId && typeof mapId === 'string') {
+      const serverMapId = this._getActiveMapId();
+      if (serverMapId && serverMapId !== mapId) {
+        console.log(`[GameState.setObstacles] 忽略障碍物数据：地图ID不匹配（客户端=${mapId}, 服务器=${serverMapId}）`);
+        return;
+      }
     }
     // ⚠️ 修复：时间窗口机制 - 在收到 new-session 后的 2 秒内，忽略旧的 obstacles 数据
     // 这样可以防止上一局的地图数据在 new-session 之后才到达服务器，被误接受
@@ -2142,12 +2151,21 @@ class GameState {
   }
 
   // 设置地图装饰（从客户端同步）
-  setDecorations(decorations) {
+  setDecorations(decorations, mapId = null) {
     // ⚠️ 修复：如果当前 sessionId 为空，说明是新游戏开始前，忽略旧数据
     // 这样可以防止上一局的地图数据污染新游戏
     if (!this.currentSessionId) {
       console.log(`[GameState.setDecorations] 忽略装饰数据：当前 sessionId 为空，可能是新游戏开始前`);
       return;
+    }
+    // ⚠️ 关键修复：检查地图ID是否匹配当前session的地图
+    // 如果客户端发送的数据来自旧地图，忽略它
+    if (mapId && typeof mapId === 'string') {
+      const serverMapId = this._getActiveMapId();
+      if (serverMapId && serverMapId !== mapId) {
+        console.log(`[GameState.setDecorations] 忽略装饰数据：地图ID不匹配（客户端=${mapId}, 服务器=${serverMapId}）`);
+        return;
+      }
     }
     // ⚠️ 修复：时间窗口机制 - 在收到 new-session 后的 2 秒内，忽略旧的 decorations 数据
     // 这样可以防止上一局的地图数据在 new-session 之后才到达服务器，被误接受
@@ -2421,6 +2439,7 @@ class GameState {
       carHazards: this.carHazards,
       exit: this.exit,
       wave: this.wave,
+      mapId: this._getActiveMapId(), // ⚠️ 关键修复：广播地图ID，让客户端验证
       waveStartTime: this.waveStartTime, // ✅ 單機同源：波次開始時間（用於同步 WaveSystem.waveStartTime）
       isGameOver: this.isGameOver,
       isVictory: this.isVictory,
