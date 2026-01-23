@@ -5416,7 +5416,12 @@ function updateBossProjectilesFromServer(bossProjectiles) {
       if (st.kind === 'BOTTLE' && BottleProjectileCtor) {
         const w = (typeof st.width === 'number') ? st.width : 12;
         const h = (typeof st.height === 'number') ? st.height : 16;
+        // ✅ 修复：与单机一致 - 使用服务器端的位置和速度创建瓶子投射物
         p = new BottleProjectileCtor(st.x || 0, st.y || 0, st.x || 0, st.y || 0, 1, st.damage || 10, w, h);
+        // ✅ 修复：同步服务器端的 vx 和 vy（瓶子投射物使用抛物线运动）
+        if (typeof st.vx === 'number') p.vx = st.vx;
+        if (typeof st.vy === 'number') p.vy = st.vy;
+        if (typeof st.g === 'number') p.g = st.g;
       } else if (BossProjectileCtor) {
         const size = (typeof st.size === 'number') ? st.size : 18;
         p = new BossProjectileCtor(st.x || 0, st.y || 0, st.angle || 0, st.speed || 5, st.damage || 10, size, !!st.homing, st.turnRate || 0);
@@ -5441,6 +5446,12 @@ function updateBossProjectilesFromServer(bossProjectiles) {
       if (typeof st.turnRate === 'number') p.turnRate = st.turnRate;
       if (typeof st.width === 'number') p.width = st.width;
       if (typeof st.height === 'number') p.height = st.height;
+      // ✅ 修复：与单机一致 - 同步瓶子投射物的 vx、vy 和 g（抛物线运动）
+      if (st.kind === 'BOTTLE') {
+        if (typeof st.vx === 'number') p.vx = st.vx;
+        if (typeof st.vy === 'number') p.vy = st.vy;
+        if (typeof st.g === 'number') p.g = st.g;
+      }
       if (typeof p.x !== 'number' && typeof p._netTargetX === 'number') p.x = p._netTargetX;
       if (typeof p.y !== 'number' && typeof p._netTargetY === 'number') p.y = p._netTargetY;
       p._isVisualOnly = true;
@@ -5461,11 +5472,12 @@ function updateBulletsFromServer(bullets) {
 
     for (const b of bullets) {
       if (!b) continue;
+      // ✅ 修复：与单机一致 - 正确同步弹幕的速度（vx 和 vy），否则弹幕不会移动
       BulletSystem.bullets.push({
         x: (typeof b.x === 'number') ? b.x : 0,
         y: (typeof b.y === 'number') ? b.y : 0,
-        vx: 0,
-        vy: 0,
+        vx: (typeof b.vx === 'number') ? b.vx : 0, // ✅ 修复：同步 vx
+        vy: (typeof b.vy === 'number') ? b.vy : 0, // ✅ 修复：同步 vy
         life: (typeof b.life === 'number') ? b.life : 0,
         maxLife: (typeof b.maxLife === 'number') ? b.maxLife : ((typeof b.life === 'number') ? b.life : 0),
         size: (typeof b.size === 'number') ? b.size : 12,
