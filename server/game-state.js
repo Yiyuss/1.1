@@ -565,6 +565,10 @@ class GameState {
     // ⚠️ 修復：重置小BOSS生成標記，確保新session第一波能生成小BOSS
     this.minibossSpawnedForWave = false;
     this.carHazards = [];
+    // ⚠️ 修复：清理地图特定的静态元素，确保切换地图时不会残留
+    // 障碍物和装饰是地图特定的，新游戏开始时必须清理，让新地图重新生成
+    this.obstacles = [];
+    this.decorations = [];
     this.exit = null;
     this.wave = 1;
     this.waveStartTime = Date.now();
