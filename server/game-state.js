@@ -33,6 +33,9 @@ class GameState {
 
     // ✅ session：用於「新一局」重置狀態，避免上一局波次/怪物殘留造成開場幾隻血超多
     this.currentSessionId = null;
+    
+    // ⚠️ 100%重构：待处理的 new-session 标记（用于在游戏循环中处理，确保时序正确）
+    this._pendingNewSession = null; // { sessionId: string, playerUpdates: Map, timestamp: number } | null
 
     // ✅ transient：本幀命中事件（用於客戶端顯示傷害數字/爆擊標記）
     this.hitEvents = [];
@@ -547,6 +550,17 @@ class GameState {
       ? Math.max(0, Math.floor(player.meta.invulnerabilityDurationMs))
       : 1000;
     player.invulnerableUntil = now + (dur || 0);
+  }
+
+  // ⚠️ 100%重构：处理待处理的 new-session（在游戏循环中调用，确保时序正确）
+  processPendingNewSession() {
+    if (this._pendingNewSession) {
+      const { sessionId, playerUpdates } = this._pendingNewSession;
+      this._pendingNewSession = null; // 清除标记
+      this.resetForNewSession(sessionId, playerUpdates);
+      return true; // 表示处理了 new-session
+    }
+    return false; // 没有待处理的 new-session
   }
 
   // ✅ 新一局：重置所有「本場」狀態（不影響房間/成員存在）
