@@ -2430,12 +2430,21 @@ class GameState {
   getState() {
     // ✅ 消息队列系统：在读取状态之前，先处理队列中的所有 new-session 消息
     // 这确保了 new-session 在游戏循环读取状态之前被处理，避免时序竞争条件
-    this.sessionQueue.processAll();
+    const queueProcessed = this.sessionQueue.processAll();
+    
+    // ⚠️ 关键修复：如果队列处理了 new-session，记录日志以便调试
+    if (queueProcessed) {
+      console.log(`[GameState.getState] ✅ 队列处理完成，当前sessionId=${this.currentSessionId}`);
+    }
     
     // ⚠️ 100%重构：如果sessionId为空，返回空数组（防止旧数据泄露）
     // ⚠️ 注意：在 handleJoin() 时，如果 sessionId 为空，仍然返回实际数据（因为这是新游戏开始）
     // 只在广播时，如果 sessionId 为空，返回空数组（防止旧数据泄露）
     const hasValidSession = (this.currentSessionId && typeof this.currentSessionId === 'string');
+    
+    // ⚠️ 关键修复：在创建状态对象时，再次读取 currentSessionId（确保是最新值）
+    // 即使队列处理了 new-session，也要确保 sessionId 字段读取的是最新值
+    const currentSessionIdForState = this.currentSessionId || null;
     
     const state = {
       // ✅ 多人元素（省流量）：只下發客戶端渲染/同步真正需要的欄位
@@ -2487,7 +2496,7 @@ class GameState {
       exit: this.exit,
       wave: this.wave,
       mapId: this._getActiveMapId(), // ⚠️ 关键修复：广播地图ID，让客户端验证
-      sessionId: this.currentSessionId || null, // ⚠️ 关键修复：广播sessionId，让客户端过滤旧数据
+      sessionId: currentSessionIdForState, // ⚠️ 关键修复：使用局部变量确保读取最新值
       waveStartTime: this.waveStartTime, // ✅ 單機同源：波次開始時間（用於同步 WaveSystem.waveStartTime）
       isGameOver: this.isGameOver,
       isVictory: this.isVictory,
