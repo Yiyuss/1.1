@@ -113,13 +113,20 @@ class CarHazard extends Entity {
                         }
                     } catch (_) {}
 
-                    // 撞擊特效：螢幕白閃 + 爆炸粒子（沿用既有管線）
-                    // 注意：螢幕白閃僅本地玩家觸發，爆炸粒子需要同步
+                    // 撞擊特效：螢幕白閃 + 爆炸粒子 + 相機震動（沿用既有管線）
+                    // 注意：螢幕白閃和相機震動僅本地玩家觸發，爆炸粒子需要同步
                     try {
                         if (typeof Game !== 'undefined') {
                             // 螢幕白閃：僅本地玩家觸發
                             if (player === localPlayer) {
                                 Game.screenFlash = { active: true, duration: 140, intensity: 0.28 };
+                                // ✅ 修复：添加相机震动（与BOSS投射物一致）
+                                if (!Game.cameraShake) {
+                                    Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+                                }
+                                Game.cameraShake.active = true;
+                                Game.cameraShake.intensity = 8; // 与BOSS投射物一致
+                                Game.cameraShake.duration = 200; // 200毫秒
                             }
                             
                             // 爆炸粒子：需要同步
