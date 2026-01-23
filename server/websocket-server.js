@@ -33,8 +33,7 @@ const users = new Map();
 
 // ✅ 权威服务器：游戏状态管理 roomId -> GameState
 const gameStates = new Map();
-// 靜態資料（障礙物/裝飾）是否已送出：roomId -> boolean
-const staticSent = new Map();
+// ✅ 修复：移除 staticSent，确保障碍物和装饰物始终被发送
 
 // ✅ 权威服务器：游戏循环
 // - 模拟：60Hz（保持碰撞/AI 细腻）
@@ -358,7 +357,7 @@ function handleGameData(ws, roomId, uid, data) {
       gameState.decorations = [];
       // 立即调用 resetForNewSession()
       gameState.resetForNewSession(data.sessionId, playerUpdates);
-      staticSent.delete(actualRoomId); // 靜態資料下一次廣播重新帶一次
+      // ✅ 修复：移除 staticSent 逻辑，确保障碍物和装饰物始终被发送
       console.log(`[GameState] new-session: ✅ 已处理，sessionId=${data.sessionId}`);
     } catch (error) {
       console.error(`[GameState] new-session 处理失败:`, error);
@@ -493,7 +492,7 @@ function handleDisconnect(ws) {
       // 如果房间为空，清理游戏状态
       if (rooms.get(roomId) && rooms.get(roomId).size <= 1) {
         gameStates.delete(roomId);
-        staticSent.delete(roomId);
+        // ✅ 修复：移除 staticSent 逻辑
         console.log(`[GameState] 清理遊戲狀態: roomId=${roomId}`);
       }
     }
@@ -540,15 +539,8 @@ function gameLoop() {
       if (now - lastBroadcastAt >= BROADCAST_INTERVAL) {
         const result = gameState.getState();
         const state = result.state || result; // 兼容旧代码
-        // ✅ 靜態資料只送一次，後續省流量（避免每幀帶大陣列）
-        if (staticSent.get(roomId)) {
-          try {
-            delete state.obstacles;
-            delete state.decorations;
-          } catch (_) { }
-        } else {
-          staticSent.set(roomId, true);
-        }
+        // ✅ 修复：始终发送障碍物和装饰物，确保客户端始终能看到它们（即使地图切换或新玩家加入）
+        // 注意：虽然这会增加一些流量，但确保了数据一致性，避免了"看不到障碍物"的问题
         broadcastToRoom(roomId, null, {
           type: 'game-state',
           state: state,
