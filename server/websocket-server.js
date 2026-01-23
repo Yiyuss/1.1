@@ -336,8 +336,13 @@ function handleGameData(ws, roomId, uid, data) {
       if (typeof data.maxHealth === 'number' && data.maxHealth > 0) {
         playerUpdates.set(uid, { maxHealth: data.maxHealth });
       }
+      // ⚠️ 修复：先清理障碍物和装饰，防止上一局数据残留
+      // 必须在 resetForNewSession 之前清理，因为 resetForNewSession 会清理这些数据
+      gameState.obstacles = [];
+      gameState.decorations = [];
       gameState.resetForNewSession(data.sessionId, playerUpdates);
       staticSent.delete(actualRoomId); // 靜態資料下一次廣播重新帶一次
+      console.log(`[GameState] new-session: 已清理障碍物和装饰，sessionId=${data.sessionId}`);
     } catch (_) { }
     return;
   }
