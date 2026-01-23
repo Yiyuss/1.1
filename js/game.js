@@ -57,6 +57,34 @@ const Game = {
     _multiplayerHUDUpdateTimer: 0,
     // ⚠️ 组队模式专用：游戏状态标记（只在组队模式下使用，单机模式始终为 null）
     _multiplayerGameState: null, // 'lobby' | 'starting' | 'running' | 'ending' | null
+    // ⚠️ 重构：期望的地图ID（用于验证地图元素生成时使用的地图是否正确）
+    _expectedMapId: null, // 在 startNewGame 中设置，用于验证
+    // ⚠️ 重构：状态转移函数（确保状态转移的合法性）
+    _setMultiplayerState: function (newState) {
+        // 只在组队模式下使用
+        if (!this.multiplayer || !this.multiplayer.enabled) {
+            return;
+        }
+        
+        const oldState = this._multiplayerGameState;
+        if (oldState === newState) return;
+        
+        // 验证状态转移
+        const validTransitions = {
+            'lobby': ['starting'],
+            'starting': ['running', 'lobby'], // 允许回退（如果初始化失败）
+            'running': ['ending'],
+            'ending': ['lobby']
+        };
+        
+        if (oldState && validTransitions[oldState] && !validTransitions[oldState].includes(newState)) {
+            console.error(`[Game] 无效的状态转移: ${oldState} → ${newState}`);
+            return;
+        }
+        
+        this._multiplayerGameState = newState;
+        console.log(`[Game] 状态转移: ${oldState || 'null'} → ${newState}`);
+    },
 
     init: function () {
         // 獲取畫布和上下文
@@ -689,8 +717,14 @@ const Game = {
 
     /** 私有：更新玩家（保留雙次更新的歷史節奏；請勿更改） */
     _updatePlayer: function (deltaTime) {
-        if (this.player) {
-            this.player.update(deltaTime);
+        // ⚠️ 修复：检查玩家是否存在且有效
+        if (this.player && typeof this.player.update === 'function') {
+            try {
+                this.player.update(deltaTime);
+            } catch (e) {
+                console.error('[Game._updatePlayer] 更新玩家失败:', e);
+                // 如果更新失败，不设置 player 为 null，避免后续错误
+            }
         }
     },
 
@@ -2472,6 +2506,10 @@ const Game = {
         this.intersectionCarTimer = 0;
         // ⚠️ 修复：清理多人模式HUD更新计时器
         this._multiplayerHUDUpdateTimer = 0;
+        // ⚠️ 重构：清理期望的地图ID（组队模式专用）
+        if (this.multiplayer && this.multiplayer.enabled) {
+            this._expectedMapId = null;
+        }
         // ⚠️ 修复：不要清理 _newGameStarted 标志
         // _newGameStarted 应该在 startGame 中设置，在 handleServerGameState 中清理
         // 如果在这里清理，可能会导致新游戏开始时无法正确识别服务器残留状态
@@ -2728,22 +2766,22 @@ const Game = {
 
     // 開始新遊戲
     startNewGame: function () {
-        // ⚠️ 组队模式专用：设置状态为 'starting'（单机模式不受影响）
+        // ⚠️ 重构：组队模式专用 - 设置状态为 'starting'（单机模式不受影响）
         if (this.multiplayer && this.multiplayer.enabled) {
-            // ⚠️ 关键修复：取消 _returnToStartFrom 的延迟清理，防止覆盖新游戏状态
+            // ⚠️ 重构：取消 _returnToStartFrom 的延迟清理，防止覆盖新游戏状态
             if (this._returnToStartFromCleanupTimer) {
                 clearTimeout(this._returnToStartFromCleanupTimer);
                 this._returnToStartFromCleanupTimer = null;
                 console.log('[Game] startNewGame: 组队模式，取消延迟清理定时器');
             }
-            // ⚠️ 验证：记录当前地图ID，用于后续验证
+            // ⚠️ 重构：记录当前地图ID，用于后续验证
             const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
             this._expectedMapId = currentMapId; // 保存期望的地图ID
-            this._multiplayerGameState = 'starting';
-            console.log(`[Game] startNewGame: 组队模式，设置状态为 starting, mapId=${currentMapId}`);
+            // ⚠️ 重构：使用状态转移函数，确保状态转移的合法性
+            this._setMultiplayerState('starting');
         }
         
-        // 重置遊戲
+        // ⚠️ 重构：先清理（reset 只负责清理，不负责初始化）
         this.reset();
         
         // ⚠️ 关键修复：在 reset() 之后，根据新的 selectedMap 设置世界大小和随机种子
@@ -3127,12 +3165,16 @@ const Game = {
                     imageKey: obs.imageKey,
                     size: obs.size || size
                   }));
+                  // ⚠️ 关键修复：优先使用 _expectedMapId（从 startNewGame 中设置），如果没有则使用 currentMapId
                   const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
+                  const expectedMapId = this._expectedMapId || null;
+                  const mapIdToSend = expectedMapId || currentMapId; // 优先使用 expectedMapId
                   if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                    console.log(`[Game] spawnObstacles: 发送障碍物数据，mapId=${mapIdToSend} (expected=${expectedMapId}, current=${currentMapId})`);
                     window.SurvivalOnlineRuntime.sendToNet({ 
                       type: 'obstacles', 
                       obstacles: obstaclesData,
-                      mapId: currentMapId // ⚠️ 关键修复：发送地图ID，让服务器验证
+                      mapId: mapIdToSend // ⚠️ 关键修复：优先使用 _expectedMapId，让服务器验证
                     });
                   }
                 }
@@ -3361,12 +3403,16 @@ const Game = {
                     height: deco.height,
                     imageKey: deco.imageKey
                   }));
+                  // ⚠️ 关键修复：优先使用 _expectedMapId（从 startNewGame 中设置），如果没有则使用 currentMapId
                   const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
+                  const expectedMapId = this._expectedMapId || null;
+                  const mapIdToSend = expectedMapId || currentMapId; // 优先使用 expectedMapId
                   if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                    console.log(`[Game] spawnDecorations: 发送装饰数据，mapId=${mapIdToSend} (expected=${expectedMapId}, current=${currentMapId})`);
                     window.SurvivalOnlineRuntime.sendToNet({ 
                       type: 'decorations', 
                       decorations: decorationsData,
-                      mapId: currentMapId // ⚠️ 关键修复：发送地图ID，让服务器验证
+                      mapId: mapIdToSend // ⚠️ 关键修复：优先使用 _expectedMapId，让服务器验证
                     });
                   }
                 }
