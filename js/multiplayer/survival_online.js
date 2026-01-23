@@ -4883,9 +4883,28 @@ function handleServerGameState(state, timestamp) {
     }
 
     // ✅ 靜態世界：障礙物/裝飾（只在 server 有帶時套用；server 會在首次廣播帶一次，後續省流量）
+    // ⚠️ 组队模式专用：检查游戏状态（单机模式不受影响）
     // ⚠️ 修复：无论服务器发送的是空数组还是有数据，都要清理客户端状态
     // 这样可以确保切换地图时，上一局的地图特定元素被完全清理
     try {
+      // ⚠️ 组队模式专用：只在正确的状态时应用服务器数据
+      if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+        if (Game._multiplayerGameState !== 'starting' && Game._multiplayerGameState !== 'running') {
+          // 组队模式：状态不正确，忽略服务器数据
+          console.log('[SurvivalOnline] handleServerGameState: 组队模式状态不正确，忽略服务器数据（状态=' + Game._multiplayerGameState + '）');
+          // 即使状态不正确，也要清理本地状态，防止残留
+          if (Array.isArray(state.obstacles)) {
+            Game.obstacles = [];
+            Game._obstaclesAndDecorationsSpawned = false;
+          }
+          if (Array.isArray(state.decorations)) {
+            Game.decorations = [];
+            Game._obstaclesAndDecorationsSpawned = false;
+          }
+          return; // 不应用服务器数据
+        }
+      }
+      
       const ObstacleCtor = _getGlobalCtor("Obstacle");
       if (Array.isArray(state.obstacles)) {
         if (typeof Game !== "undefined") {
@@ -6565,9 +6584,15 @@ function tryStartSurvivalFromRoom() {
   let countdownInterval = null;
   let hasStarted = false; // 防止重複啟動
 
-  const startGame = async () => {
-    if (hasStarted) return;
-    hasStarted = true;
+    const startGame = async () => {
+      if (hasStarted) return;
+      hasStarted = true;
+      
+      // ⚠️ 组队模式专用：设置状态为 'starting'（单机模式不受影响）
+      if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
+        Game._multiplayerGameState = 'starting';
+        console.log('[SurvivalOnline] startGame: 组队模式，设置状态为 starting');
+      }
     if (countdownInterval) clearInterval(countdownInterval);
     if (_startTimer) {
       clearTimeout(_startTimer);
