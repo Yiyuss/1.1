@@ -2269,6 +2269,12 @@ const Runtime = (() => {
         try {
           // 防止重複觸發
           if (typeof Game !== "undefined") {
+            // ⚠️ 修复：如果新游戏已开始，忽略服务器残留的 game_over 事件
+            if (Game._newGameStarted) {
+              console.log('[SurvivalOnline] onEventMessage: 新游戏已开始，忽略服务器残留的 game_over 事件');
+              return; // 忽略上一局的残留事件
+            }
+            
             if (Game._gameOverEventSent) {
               console.warn('[SurvivalOnline] onEventMessage: Game._gameOverEventSent 已为 true，跳过');
               return; // 已經處理過了
