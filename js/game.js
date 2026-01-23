@@ -2977,6 +2977,13 @@ const Game = {
      * 設計：避免與玩家過近、避免與既有障礙重疊。
      */
     spawnObstacles: function () {
+        // ⚠️ 关键修复：如果游戏已暂停或已结束（在大厅状态），不要生成 obstacles
+        // 这样可以防止在回到大厅后，Game.init() 被调用时重新生成上一局的地图元素
+        if (this.isPaused || this.isGameOver) {
+            console.log('[Game] spawnObstacles: 游戏已暂停或已结束，跳过生成（防止在大厅状态生成地图元素）');
+            return;
+        }
+        
         // ✅ 權威伺服器模式：多人進行中時，由 host 上傳 obstacles 到 server，所有端由 state.obstacles 同步
         try {
             if (this.multiplayer && this.multiplayer.enabled && !this.multiplayer.isHost) {
@@ -3120,6 +3127,13 @@ const Game = {
      * 設計：避免與障礙與既有裝飾矩形重疊；允許靠近玩家。
      */
     spawnDecorations: function () {
+        // ⚠️ 关键修复：如果游戏已暂停或已结束（在大厅状态），不要生成 decorations
+        // 这样可以防止在回到大厅后，Game.init() 被调用时重新生成上一局的地图元素
+        if (this.isPaused || this.isGameOver) {
+            console.log('[Game] spawnDecorations: 游戏已暂停或已结束，跳过生成（防止在大厅状态生成地图元素）');
+            return;
+        }
+        
         // ✅ 權威伺服器模式：多人進行中時，由 host 上傳 decorations 到 server，所有端由 state.decorations 同步
         try {
             if (this.multiplayer && this.multiplayer.enabled && !this.multiplayer.isHost) {
