@@ -554,8 +554,15 @@ class GameState {
     if (!sessionId || typeof sessionId !== 'string') return;
     if (this.currentSessionId === sessionId) return;
     
-    // ⚠️ 100%重构：先清理所有数据，再设置sessionId（防止时序竞争）
-    // 这是关键修复：在设置sessionId之前，先清理所有数据，确保游戏循环读取时不会拿到旧数据
+    // ⚠️ 100%重构：立即设置新sessionId，再清理数据（防止时序竞争）
+    // 这是关键修复：确保即使游戏循环在清理数据之前读取了getState()，sessionId也是新的，客户端会正确处理
+    const oldSessionId = this.currentSessionId;
+    
+    // 第一步：立即设置新sessionId（最关键！）
+    // 这样即使游戏循环在清理数据之前读取了getState()，sessionId也是新的
+    this.currentSessionId = sessionId;
+    
+    // 第二步：清理所有数据
     this.enemies = [];
     this.projectiles = [];
     this.bossProjectiles = [];
@@ -581,10 +588,6 @@ class GameState {
     this._shouldBroadcastGameOver = false;
     this._gameOverEventSent = false;
     
-    // ⚠️ 100%重构：在清理完所有数据后，再设置sessionId（防止时序竞争）
-    // 这样即使游戏循环在设置sessionId之前读取了getState()，也会因为数据已清空而返回空数组
-    const oldSessionId = this.currentSessionId;
-    this.currentSessionId = sessionId;
     // ⚠️ 修复：记录 new-session 的时间，用于时间窗口机制
     // 在收到 new-session 后的 2 秒内，忽略旧的 obstacles 和 decorations 数据
     this._newSessionTime = Date.now();
