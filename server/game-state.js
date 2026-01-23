@@ -831,7 +831,8 @@ class GameState {
 
       case 'attack':
         // 服务器创建投射物
-        console.log(`[GameState.handleInput] ✅ 收到攻擊輸入: uid=${uid}, weaponType=${input.weaponType || 'UNKNOWN'}, x=${input.x}, y=${input.y}`);
+        // ⚠️ 修复：移除频繁的日志，避免洗掉其他重要报告
+        // console.log(`[GameState.handleInput] ✅ 收到攻擊輸入: uid=${uid}, weaponType=${input.weaponType || 'UNKNOWN'}, x=${input.x}, y=${input.y}`);
         try { player.lastAttackAt = Date.now(); } catch (_) { }
         this.createProjectile(uid, input);
         break;
@@ -1029,7 +1030,8 @@ class GameState {
       console.warn(`[GameState.createProjectile] ❌ 玩家不存在: uid=${uid}`);
       return;
     }
-    console.log(`[GameState.createProjectile] ✅ 創建投射物: uid=${uid}, weaponType=${input.weaponType || 'UNKNOWN'}, projectiles.length=${this.projectiles.length}`);
+    // ⚠️ 修复：移除频繁的日志，避免洗掉其他重要报告
+    // console.log(`[GameState.createProjectile] ✅ 創建投射物: uid=${uid}, weaponType=${input.weaponType || 'UNKNOWN'}, projectiles.length=${this.projectiles.length}`);
 
     // ✅ 参数验证和边界检查
     const worldWidth = this.worldWidth || 1920;
@@ -1763,23 +1765,24 @@ class GameState {
   // 注意：服务器端需要CONFIG数据，但Node.js无法直接访问客户端CONFIG
   // 解决方案：将CONFIG数据作为参数传入，或从客户端同步
   spawnEnemies(now, config = null) {
-    // ⚠️ 調試：檢查敵人生成條件
+    // ⚠️ 修复：移除频繁的日志，避免洗掉其他重要报告
     if (!this.lastEnemySpawnTime) {
       this.lastEnemySpawnTime = now; // 初始化
-      console.log(`[GameState.spawnEnemies] 初始化 lastEnemySpawnTime=${now}, enemySpawnRate=${this.enemySpawnRate}`);
+      // console.log(`[GameState.spawnEnemies] 初始化 lastEnemySpawnTime=${now}, enemySpawnRate=${this.enemySpawnRate}`);
     }
     
     const timeSinceLastSpawn = now - this.lastEnemySpawnTime;
     if (timeSinceLastSpawn < this.enemySpawnRate) {
-      // ⚠️ 調試：確認為什麼不生成敵人
-      if (this.enemies.length === 0 && timeSinceLastSpawn > 1000) {
-        console.log(`[GameState.spawnEnemies] 等待生成敵人: timeSinceLastSpawn=${timeSinceLastSpawn}ms, enemySpawnRate=${this.enemySpawnRate}ms, enemies.length=${this.enemies.length}`);
-      }
+      // ⚠️ 修复：移除频繁的日志
+      // if (this.enemies.length === 0 && timeSinceLastSpawn > 1000) {
+      //   console.log(`[GameState.spawnEnemies] 等待生成敵人: timeSinceLastSpawn=${timeSinceLastSpawn}ms, enemySpawnRate=${this.enemySpawnRate}ms, enemies.length=${this.enemies.length}`);
+      // }
       return;
     }
 
     this.lastEnemySpawnTime = now;
-    console.log(`[GameState.spawnEnemies] 準備生成敵人: config=${!!config}, enemies.length=${this.enemies.length}`);
+    // ⚠️ 修复：移除频繁的日志
+    // console.log(`[GameState.spawnEnemies] 準備生成敵人: config=${!!config}, enemies.length=${this.enemies.length}`);
 
     // 如果没有CONFIG，使用简化逻辑
     if (!config || !config.WAVES || !config.ENEMIES) {
