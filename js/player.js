@@ -929,6 +929,12 @@ class Player extends Entity {
         if (!this._isRemotePlayer && typeof AudioManager !== 'undefined') {
             AudioManager.playSound('level_up');
         }
+        
+        // ✅ 修复：与单机一致 - 连续升级时，检查是否还能再次升级（避免盖掉前一个升级的选项机会）
+        // 如果升级后经验仍然足够，继续升级（递归调用）
+        if (this.experience >= this.experienceToNextLevel) {
+            this.levelUp();
+        }
     }
     
     // 添加武器
