@@ -279,9 +279,15 @@ const Game = {
             }
         }
 
-        // 更新玩家與武器（第一次，保留歷史節奏）
-        this._updatePlayer(deltaTime);
-        this._updateWeapons(deltaTime);
+        // ⚠️ 修复：在更新武器之前检查玩家是否存在，避免频繁错误
+        if (!this.player) {
+            // 玩家不存在时，跳过更新，避免后续错误
+            // 但继续执行其他更新（UI、波次系统等）
+        } else {
+            // 更新玩家與武器（第一次，保留歷史節奏）
+            this._updatePlayer(deltaTime);
+            this._updateWeapons(deltaTime);
+        }
 
         // 更新UI計時器
         UI.updateTimer(this.gameTime);
@@ -290,7 +296,9 @@ const Game = {
         WaveSystem.update(deltaTime);
 
         // 更新玩家（第二次，保留歷史節奏）
-        this._updatePlayer(deltaTime);
+        if (this.player) {
+            this._updatePlayer(deltaTime);
+        }
 
         // 組隊模式：定期檢查是否所有玩家都死亡（僅隊長端）
         try {
@@ -1318,15 +1326,15 @@ const Game = {
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
             
-            // ⚠️ 調試：檢查模式狀態
-            if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled) {
-                console.log('[Game.addProjectile] 組隊模式，處理投射物', {
-                    weaponType: projectile.weaponType,
-                    hasPlayer: !!projectile.player,
-                    playerIsThisPlayer: projectile.player === this.player,
-                    constructorName: projectile.constructor?.name
-                });
-            }
+            // ⚠️ 修复：移除频繁的日志，避免洗掉其他重要报告
+            // if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled) {
+            //     console.log('[Game.addProjectile] 組隊模式，處理投射物', {
+            //         weaponType: projectile.weaponType,
+            //         hasPlayer: !!projectile.player,
+            //         playerIsThisPlayer: projectile.player === this.player,
+            //         constructorName: projectile.constructor?.name
+            //     });
+            // }
             
             if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled) {
                 const isLocalPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
@@ -1423,13 +1431,13 @@ const Game = {
                     };
                     try { 
                         window.SurvivalOnlineRuntime.sendToNet(attackInput);
-                        // ⚠️ 關鍵調試：確認攻擊已發送
-                        console.log('[Game.addProjectile] ✅ 已發送攻擊輸入到伺服器', {
-                            weaponType: attackInput.weaponType,
-                            x: attackInput.x,
-                            y: attackInput.y,
-                            damage: attackInput.damage
-                        });
+                        // ⚠️ 修复：移除频繁的日志，避免洗掉其他重要报告
+                        // console.log('[Game.addProjectile] ✅ 已發送攻擊輸入到伺服器', {
+                        //     weaponType: attackInput.weaponType,
+                        //     x: attackInput.x,
+                        //     y: attackInput.y,
+                        //     damage: attackInput.damage
+                        // });
                     } catch (e) { 
                         console.error('[Game.addProjectile] ❌ 發送攻擊輸入失敗', e);
                     }
