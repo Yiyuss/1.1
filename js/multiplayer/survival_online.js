@@ -3471,7 +3471,10 @@ function listenRoom(roomId) {
       const oldHostUid = _hostUid;
       if (_roomState && _roomState.hostUid) {
         _hostUid = _roomState.hostUid;
-        console.log(`[SurvivalOnline] listenRoom: 設置 hostUid=${_hostUid}, 舊值=${oldHostUid}`);
+        // ⚠️ 修复：只在 hostUid 真正改变时输出日志，避免频繁输出
+        if (_hostUid !== oldHostUid) {
+          console.log(`[SurvivalOnline] listenRoom: 設置 hostUid=${_hostUid}, 舊值=${oldHostUid}`);
+        }
         // ✅ 重要：不要在「大廳/未開局」就連 WebSocket
         // 原因：
         // - 連線失敗會觸發重連/清理流程，可能把玩家誤導到遊戲失敗或離開流程
@@ -6868,40 +6871,31 @@ function tryStartSurvivalFromRoom() {
               return;
             }
             
-            // 重新发送 obstacles 和 decorations（如果已经生成）
-            if (Array.isArray(Game.obstacles) && Game.obstacles.length > 0) {
-              const obstaclesData = Game.obstacles.map(obs => ({
-                x: obs.x,
-                y: obs.y,
-                imageKey: obs.imageKey,
-                size: obs.size || 150
-              }));
-              if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                window.SurvivalOnlineRuntime.sendToNet({ 
-                  type: 'obstacles', 
-                  obstacles: obstaclesData,
-                  mapId: mapIdToSend // ⚠️ 重构：发送地图ID，让服务器验证
-                });
-                console.log(`[SurvivalOnline] 在 new-session 后发送 obstacles: count=${obstaclesData.length}, mapId=${mapIdToSend}`);
+            // ⚠️ 关键修复：在延迟发送前，先检查并清理旧的 obstacles 和 decorations
+            // 确保不会发送上一局的地图数据
+            // 强制清理旧的 obstacles 和 decorations，确保不会残留上一局的数据
+            if (Array.isArray(Game.obstacles)) {
+              // 清理所有旧的障碍物对象（如果有 destroy 方法）
+              for (let i = Game.obstacles.length - 1; i >= 0; i--) {
+                const obs = Game.obstacles[i];
+                if (obs && typeof obs.destroy === 'function') {
+                  try {
+                    obs.destroy();
+                  } catch (_) { }
+                }
               }
+              Game.obstacles = [];
             }
-            if (Array.isArray(Game.decorations) && Game.decorations.length > 0) {
-              const decorationsData = Game.decorations.map(deco => ({
-                x: deco.x,
-                y: deco.y,
-                width: deco.width,
-                height: deco.height,
-                imageKey: deco.imageKey
-              }));
-              if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                window.SurvivalOnlineRuntime.sendToNet({ 
-                  type: 'decorations', 
-                  decorations: decorationsData,
-                  mapId: mapIdToSend // ⚠️ 重构：发送地图ID，让服务器验证
-                });
-                console.log(`[SurvivalOnline] 在 new-session 后发送 decorations: count=${decorationsData.length}, mapId=${mapIdToSend}`);
-              }
+            if (Array.isArray(Game.decorations)) {
+              Game.decorations = [];
             }
+            Game._obstaclesAndDecorationsSpawned = false;
+            
+            // ⚠️ 关键修复：等待新的地图元素生成后再发送
+            // 而不是发送旧的（可能已经被清理的）数据
+            // 新的地图元素会在 Game.init() 或后续的 update() 中生成
+            // 这里不发送，让新的地图元素生成后通过正常流程发送
+            // console.log(`[SurvivalOnline] 在 new-session 后清理旧的 obstacles 和 decorations，等待新地图元素生成`);
           }
         }, 500); // 延迟 500ms，确保服务器先处理 new-session
       } catch (e) {
