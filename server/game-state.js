@@ -2,6 +2,8 @@
 // 这是游戏状态的唯一真实来源
 // 所有游戏逻辑都在这里处理
 
+const { SessionQueue } = require('./session-queue');
+
 class GameState {
   constructor(roomId) {
     this.roomId = roomId;
@@ -34,7 +36,8 @@ class GameState {
     // ✅ session：用於「新一局」重置狀態，避免上一局波次/怪物殘留造成開場幾隻血超多
     this.currentSessionId = null;
     
-    // ✅ 已移除 _pendingNewSession 机制，改为立即同步处理（避免时序竞争条件）
+    // ✅ 消息队列系统：确保 new-session 在游戏循环读取状态之前被处理
+    this.sessionQueue = new SessionQueue();
 
     // ✅ transient：本幀命中事件（用於客戶端顯示傷害數字/爆擊標記）
     this.hitEvents = [];
@@ -2425,6 +2428,10 @@ class GameState {
 
   // 获取完整游戏状态（用于广播）
   getState() {
+    // ✅ 消息队列系统：在读取状态之前，先处理队列中的所有 new-session 消息
+    // 这确保了 new-session 在游戏循环读取状态之前被处理，避免时序竞争条件
+    this.sessionQueue.processAll();
+    
     // ⚠️ 100%重构：如果sessionId为空，返回空数组（防止旧数据泄露）
     // ⚠️ 注意：在 handleJoin() 时，如果 sessionId 为空，仍然返回实际数据（因为这是新游戏开始）
     // 只在广播时，如果 sessionId 为空，返回空数组（防止旧数据泄露）
