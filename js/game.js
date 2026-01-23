@@ -56,35 +56,7 @@ const Game = {
     // 組隊HUD更新定時器
     _multiplayerHUDUpdateTimer: 0,
     // ⚠️ 组队模式专用：游戏状态标记（只在组队模式下使用，单机模式始终为 null）
-    _multiplayerGameState: null, // 'lobby' | 'starting' | 'running' | 'ending' | null
-    // ⚠️ 重构：期望的地图ID（用于验证地图元素生成时使用的地图是否正确）
-    _expectedMapId: null, // 在 startNewGame 中设置，用于验证
-    // ⚠️ 重构：状态转移函数（确保状态转移的合法性）
-    _setMultiplayerState: function (newState) {
-        // 只在组队模式下使用
-        if (!this.multiplayer || !this.multiplayer.enabled) {
-            return;
-        }
-        
-        const oldState = this._multiplayerGameState;
-        if (oldState === newState) return;
-        
-        // 验证状态转移
-        const validTransitions = {
-            'lobby': ['starting'],
-            'starting': ['running', 'lobby'], // 允许回退（如果初始化失败）
-            'running': ['ending'],
-            'ending': ['lobby']
-        };
-        
-        if (oldState && validTransitions[oldState] && !validTransitions[oldState].includes(newState)) {
-            console.error(`[Game] 无效的状态转移: ${oldState} → ${newState}`);
-            return;
-        }
-        
-        this._multiplayerGameState = newState;
-        console.log(`[Game] 状态转移: ${oldState || 'null'} → ${newState}`);
-    },
+    // ✅ 已移除状态机和地图ID验证（采用页面刷新方案，不再需要）
 
     init: function () {
         // 獲取畫布和上下文
@@ -143,11 +115,7 @@ const Game = {
             console.error('應用天賦效果失敗:', e);
         }
 
-        // ⚠️ 组队模式专用：在生成地图元素前，设置状态为 'running'（单机模式不受影响）
-        if (this.multiplayer && this.multiplayer.enabled) {
-            this._multiplayerGameState = 'running';
-            console.log('[Game] startNewGame: 组队模式，设置状态为 running');
-        }
+        // ✅ 已移除状态机（采用页面刷新方案，不再需要）
         
         // 初始化波次系統
         WaveSystem.init();
@@ -2515,9 +2483,7 @@ const Game = {
         // ✅ 重置事件标志，確保新遊戲可以正常觸發勝利和失敗事件
         this._victoryEventSent = false;
         this._gameOverEventSent = false;
-        // ⚠️ 修复：清理 new-session 发送标记，确保新游戏开始时重置
-        this._newSessionSent = false;
-        this._newSessionSentTime = null; // 重置时间
+        // ✅ 已移除 _newSessionSent 相关逻辑（采用页面刷新方案，不再需要）
         this.boss = null;
         this.exit = null;
         // ⚠️ 修复：清理统计数据，确保新游戏开始时是全新状态
@@ -2528,10 +2494,7 @@ const Game = {
         this.intersectionCarTimer = 0;
         // ⚠️ 修复：清理多人模式HUD更新计时器
         this._multiplayerHUDUpdateTimer = 0;
-        // ⚠️ 重构：清理期望的地图ID（组队模式专用）
-        if (this.multiplayer && this.multiplayer.enabled) {
-            this._expectedMapId = null;
-        }
+        // ✅ 已移除地图ID验证（采用页面刷新方案，不再需要）
         // ⚠️ 修复：不要清理 _newGameStarted 标志
         // _newGameStarted 应该在 startGame 中设置，在 handleServerGameState 中清理
         // 如果在这里清理，可能会导致新游戏开始时无法正确识别服务器残留状态
@@ -2796,11 +2759,7 @@ const Game = {
                 this._returnToStartFromCleanupTimer = null;
                 console.log('[Game] startNewGame: 组队模式，取消延迟清理定时器');
             }
-            // ⚠️ 重构：记录当前地图ID，用于后续验证
-            const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
-            this._expectedMapId = currentMapId; // 保存期望的地图ID
-            // ⚠️ 重构：使用状态转移函数，确保状态转移的合法性
-            this._setMultiplayerState('starting');
+            // ✅ 已移除状态机和地图ID验证（采用页面刷新方案，不再需要）
         }
         
         // ⚠️ 重构：先清理（reset 只负责清理，不负责初始化）
@@ -3068,21 +3027,7 @@ const Game = {
      * 設計：避免與玩家過近、避免與既有障礙重疊。
      */
     spawnObstacles: function () {
-        // ⚠️ 组队模式专用：检查游戏状态（单机模式不受影响）
-        if (this.multiplayer && this.multiplayer.enabled) {
-            // 组队模式：只在 'starting' 或 'running' 状态时生成
-            if (this._multiplayerGameState !== 'starting' && this._multiplayerGameState !== 'running') {
-                console.log('[Game] spawnObstacles: 组队模式状态不正确，跳过生成（状态=' + this._multiplayerGameState + '）');
-                return;
-            }
-            // ⚠️ 验证：检查地图ID是否匹配期望值
-            const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
-            const expectedMapId = this._expectedMapId || null;
-            if (expectedMapId && currentMapId && expectedMapId !== currentMapId) {
-                console.error(`[Game] spawnObstacles: 地图ID不匹配！expected=${expectedMapId}, current=${currentMapId}，跳过生成`);
-                return; // 不生成，防止污染
-            }
-        }
+        // ✅ 已移除状态机和地图ID验证（采用页面刷新方案，不再需要）
         
         // ✅ 单机和组队都适用：如果游戏已暂停或已结束，不要生成 obstacles
         if (this.isPaused || this.isGameOver) {
@@ -3167,18 +3112,8 @@ const Game = {
                 // new-session 会在 sendNewSession 中发送，然后延迟发送 obstacles
                 // 这里只检查，如果 new-session 已发送，才立即发送（向后兼容）
                 // 否则，等待 sendNewSession 中的延迟发送逻辑
-                const shouldSendNow = (() => {
-                  try {
-                    // 检查 Game._newSessionSent 标记
-                    if (typeof Game !== "undefined" && Game._newSessionSent === true) {
-                      return true; // new-session 已发送，可以发送 obstacles
-                    }
-                    // 如果没有标记，说明 new-session 还没发送，不要发送 obstacles
-                    return false;
-                  } catch (_) {
-                    return false;
-                  }
-                })();
+                // ✅ 已移除 _newSessionSent 检查（采用页面刷新方案，不再需要）
+                const shouldSendNow = true;
                 
                 if (shouldSendNow) {
                   const obstaclesData = this.obstacles.map(obs => ({
@@ -3187,16 +3122,13 @@ const Game = {
                     imageKey: obs.imageKey,
                     size: obs.size || size
                   }));
-                  // ⚠️ 关键修复：优先使用 _expectedMapId（从 startNewGame 中设置），如果没有则使用 currentMapId
+                  // ✅ 发送障碍物数据到服务器
                   const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
-                  const expectedMapId = this._expectedMapId || null;
-                  const mapIdToSend = expectedMapId || currentMapId; // 优先使用 expectedMapId
-                  if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                    console.log(`[Game] spawnObstacles: 发送障碍物数据，mapId=${mapIdToSend} (expected=${expectedMapId}, current=${currentMapId})`);
+                  if (currentMapId && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                     window.SurvivalOnlineRuntime.sendToNet({ 
                       type: 'obstacles', 
                       obstacles: obstaclesData,
-                      mapId: mapIdToSend // ⚠️ 关键修复：优先使用 _expectedMapId，让服务器验证
+                      mapId: currentMapId
                     });
                   }
                 }
@@ -3242,21 +3174,7 @@ const Game = {
      * 設計：避免與障礙與既有裝飾矩形重疊；允許靠近玩家。
      */
     spawnDecorations: function () {
-        // ⚠️ 组队模式专用：检查游戏状态（单机模式不受影响）
-        if (this.multiplayer && this.multiplayer.enabled) {
-            // 组队模式：只在 'starting' 或 'running' 状态时生成
-            if (this._multiplayerGameState !== 'starting' && this._multiplayerGameState !== 'running') {
-                console.log('[Game] spawnDecorations: 组队模式状态不正确，跳过生成（状态=' + this._multiplayerGameState + '）');
-                return;
-            }
-            // ⚠️ 验证：检查地图ID是否匹配期望值
-            const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
-            const expectedMapId = this._expectedMapId || null;
-            if (expectedMapId && currentMapId && expectedMapId !== currentMapId) {
-                console.error(`[Game] spawnDecorations: 地图ID不匹配！expected=${expectedMapId}, current=${currentMapId}，跳过生成`);
-                return; // 不生成，防止污染
-            }
-        }
+        // ✅ 已移除状态机和地图ID验证（采用页面刷新方案，不再需要）
         
         // ✅ 单机和组队都适用：如果游戏已暂停或已结束，不要生成 decorations
         if (this.isPaused || this.isGameOver) {
@@ -3404,18 +3322,8 @@ const Game = {
                 // new-session 会在 sendNewSession 中发送，然后延迟发送 decorations
                 // 这里只检查，如果 new-session 已发送，才立即发送（向后兼容）
                 // 否则，等待 sendNewSession 中的延迟发送逻辑
-                const shouldSendNow = (() => {
-                  try {
-                    // 检查 Game._newSessionSent 标记
-                    if (typeof Game !== "undefined" && Game._newSessionSent === true) {
-                      return true; // new-session 已发送，可以发送 decorations
-                    }
-                    // 如果没有标记，说明 new-session 还没发送，不要发送 decorations
-                    return false;
-                  } catch (_) {
-                    return false;
-                  }
-                })();
+                // ✅ 已移除 _newSessionSent 检查（采用页面刷新方案，不再需要）
+                const shouldSendNow = true;
                 
                 if (shouldSendNow) {
                   const decorationsData = this.decorations.map(deco => ({
@@ -3425,16 +3333,13 @@ const Game = {
                     height: deco.height,
                     imageKey: deco.imageKey
                   }));
-                  // ⚠️ 关键修复：优先使用 _expectedMapId（从 startNewGame 中设置），如果没有则使用 currentMapId
+                  // ✅ 发送装饰数据到服务器
                   const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
-                  const expectedMapId = this._expectedMapId || null;
-                  const mapIdToSend = expectedMapId || currentMapId; // 优先使用 expectedMapId
-                  if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                    console.log(`[Game] spawnDecorations: 发送装饰数据，mapId=${mapIdToSend} (expected=${expectedMapId}, current=${currentMapId})`);
+                  if (currentMapId && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                     window.SurvivalOnlineRuntime.sendToNet({ 
                       type: 'decorations', 
                       decorations: decorationsData,
-                      mapId: mapIdToSend // ⚠️ 关键修复：优先使用 _expectedMapId，让服务器验证
+                      mapId: currentMapId
                     });
                   }
                 }
