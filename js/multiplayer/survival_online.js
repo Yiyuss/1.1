@@ -2164,19 +2164,27 @@ const Runtime = (() => {
 
                 if (targetPlayer) {
                   // ✅ 修復2：先清理同一個玩家的舊唱歌效果，避免疊加（參考無敵的清理邏輯）
+                  // ⚠️ 重要：確保完全清理所有同玩家的SING效果，包括本地玩家創建的效果
                   if (eventData.playerUid && Array.isArray(Game.projectiles)) {
                     try {
                       // ✅ 修復：使用與無敵相同的清理邏輯，確保完全清理舊效果
+                      // 清理遠程玩家創建的視覺效果（_isVisualOnly）和本地玩家創建的效果
+                      const isLocalPlayer = (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid));
                       for (let i = Game.projectiles.length - 1; i >= 0; i--) {
                         const proj = Game.projectiles[i];
-                        if (proj && proj.weaponType === "SING" && proj._remotePlayerUid === eventData.playerUid) {
-                          // ✅ 修復：完全清理舊的唱歌效果 DOM 元素（參考無敵）
-                          if (proj.el && proj.el.parentNode) {
-                            proj.el.parentNode.removeChild(proj.el);
+                        if (proj && proj.weaponType === "SING") {
+                          // ✅ 修復：清理所有同玩家的SING效果
+                          const isRemotePlayerEffect = (proj._isVisualOnly && proj._remotePlayerUid === eventData.playerUid);
+                          const isLocalPlayerEffect = (isLocalPlayer && proj.player === Game.player && !proj._isVisualOnly);
+                          if (isRemotePlayerEffect || isLocalPlayerEffect) {
+                            // ✅ 修復：完全清理舊的唱歌效果 DOM 元素（參考無敵）
+                            if (proj.el && proj.el.parentNode) {
+                              proj.el.parentNode.removeChild(proj.el);
+                            }
+                            proj.el = null;
+                            proj.markedForDeletion = true;
+                            Game.projectiles.splice(i, 1);
                           }
-                          proj.el = null;
-                          proj.markedForDeletion = true;
-                          Game.projectiles.splice(i, 1);
                         }
                       }
                     } catch (_) {}
