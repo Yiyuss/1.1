@@ -1322,9 +1322,18 @@ const Game = {
                     // AI的player属性应该指向创建它的玩家
                     // 如果是本地玩家的AI，player应该等于this.player
                     // 如果是远程玩家的AI，应该已经在survival_online.js中直接添加到projectiles，不会进入这里
+                    // ✅ 修复：确保AI的player引用正确指向Game.player（组队模式下本地玩家的AI）
                     if (projectile.player && projectile.player === this.player) {
                         // 本地玩家的AI：继续处理（会添加到projectiles并广播）
                         // 不进行isLocalPlayerProjectile检查，直接允许通过
+                        // ✅ 修复：确保AI的player引用始终指向Game.player（防止引用失效）
+                        if (this.player && projectile.player !== this.player) {
+                            projectile.player = this.player;
+                        }
+                    } else if (!projectile.player && this.player) {
+                        // ✅ 修复：如果AI的player引用为null，但Game.player存在，设置为Game.player
+                        // 这可能是由于某些时序问题导致的
+                        projectile.player = this.player;
                     } else {
                         // ✅ 修复：如果AI的player不是this.player，可能是远程玩家的AI
                         // 但远程玩家的AI应该已经在survival_online.js中直接添加到projectiles
