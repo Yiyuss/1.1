@@ -4602,9 +4602,14 @@ function handleServerGameState(state, timestamp) {
               const prevMaxHealth = Game.player.maxHealth || 200;
               const newMaxHealth = playerState.maxHealth;
               
-              // 新 session 开始时，强制同步 maxHealth（避免继承上一局的状态）
-              // 或者 maxHealth 真的改变时才更新（避免每帧都更新导致闪烁）
-              if (isNewSession || Math.abs(newMaxHealth - prevMaxHealth) > 0.5) {
+              // ✅ 修復：組隊模式下生命值加乘卡住的BUG
+              // 在組隊模式下，如果客戶端剛升級了生命值（healthUpgradeLevel 增加），
+              // 客戶端已經計算了正確的 maxHealth，不應該被伺服器同步的舊值覆蓋
+              // 只有在伺服器的 maxHealth 真的比客戶端大時才更新（表示伺服器有新的升級）
+              const isHealthUpgradeActive = (Game.player && typeof Game.player.healthUpgradeLevel === 'number' && Game.player.healthUpgradeLevel > 0);
+              const shouldUpdateMaxHealth = isNewSession || (Math.abs(newMaxHealth - prevMaxHealth) > 0.5 && (!isHealthUpgradeActive || newMaxHealth >= prevMaxHealth));
+              
+              if (shouldUpdateMaxHealth) {
                 Game.player.maxHealth = newMaxHealth;
                 // 如果 maxHealth 增加了，按比例增加 health（避免開場就被扣血）
                 if (newMaxHealth > prevMaxHealth) {
@@ -4619,6 +4624,12 @@ function handleServerGameState(state, timestamp) {
                 } else if (Game.player.health > newMaxHealth) {
                   // 如果 maxHealth 減少了，確保 health 不超過新的 maxHealth
                   Game.player.health = newMaxHealth;
+                }
+              } else {
+                // ✅ 修復：如果客戶端剛升級了生命值，重新應用屬性升級以確保 maxHealth 正確
+                // 這可以防止伺服器同步的舊值覆蓋客戶端剛計算的新值
+                if (isHealthUpgradeActive && typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
+                  BuffSystem.applyAttributeUpgrades(Game.player);
                 }
               }
             }
