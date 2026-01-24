@@ -157,6 +157,7 @@ class SingEffect extends Entity {
             if (this.el) {
                 this._updateDomPosition();
             }
+            // ✅ 修復：檢查是否超過持續時間，超過後立即清理DOM元素（參考無敵）
             if (Date.now() - this.startTime >= this.duration) {
                 if (this.el && this.el.parentNode) {
                     this.el.parentNode.removeChild(this.el);
@@ -167,6 +168,7 @@ class SingEffect extends Entity {
             return;
         }
         
+        // 單機模式：跟隨玩家位置
         this.x = this.player.x;
         this.y = this.player.y;
         // 播放期間跟隨玩家位置（只在一次播放時間內）
