@@ -88,6 +88,15 @@ class AICompanion extends Entity {
             deltaTime = 16.67; // 默认60FPS
         }
         
+        // ✅ 架构修复：本地玩家的AI需要确保player引用正确
+        // 如果是本地玩家的AI（没有_remotePlayerUid），确保player引用指向Game.player
+        if (!this._remotePlayerUid) {
+            // 本地玩家的AI：确保player引用指向Game.player
+            if (typeof Game !== 'undefined' && Game.player && this.player !== Game.player) {
+                this.player = Game.player;
+            }
+        }
+        
         // ✅ 組隊模式：遠程玩家的AI需要更新位置並使用最新的遠程玩家對象（包含天賦加成）
         // ✅ 單機模式：不會進入此分支（this._remotePlayerUid 在單機模式下不會被設置）
         if (this._remotePlayerUid) {
