@@ -4815,6 +4815,76 @@ function handleServerGameState(state, timestamp) {
               }
             } catch (_) {}
           }
+          // ✅ 修复：处理BOSS投射物爆炸事件（音效+特效+相机震动）
+          else if (v.type === 'screen_effect' && v.data && v.data.type === 'boss_projectile_explosion') {
+            const eventData = v.data;
+            try {
+              // ✅ 修复：获取本地玩家UID（使用多种方式确保正确）
+              const localPlayerUid = (Game.multiplayer && Game.multiplayer.uid) 
+                ? Game.multiplayer.uid 
+                : (typeof _getLocalNetUid === 'function' ? _getLocalNetUid() : (_netUid || _uid || null));
+              
+              // ✅ 修复：更严格的比较逻辑（确保类型一致，支持字符串和数字）
+              const eventPlayerUid = (eventData && (typeof eventData.playerUid === 'string' || typeof eventData.playerUid === 'number')) 
+                ? String(eventData.playerUid) 
+                : null;
+              const localPlayerUidStr = localPlayerUid ? String(localPlayerUid) : null;
+              const isLocalPlayer = (eventPlayerUid && localPlayerUidStr && eventPlayerUid === localPlayerUidStr);
+              
+              // 音效是单机元素，只对本地玩家播放
+              if (isLocalPlayer) {
+                if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+                  AudioManager.playSound('bo');
+                }
+              }
+              
+              // 屏幕闪光和相机震动是单机元素，只对本地玩家触发
+              if (isLocalPlayer) {
+                if (typeof Game !== 'undefined') {
+                  // ✅ 修复：屏幕闪光参数与单机一致（intensity: 0.3, duration: 150）
+                  if (eventData.screenFlash && typeof eventData.screenFlash === 'object') {
+                    Game.screenFlash = {
+                      active: eventData.screenFlash.active || false,
+                      intensity: eventData.screenFlash.intensity || 0.3,
+                      duration: eventData.screenFlash.duration || 150
+                    };
+                  }
+                  
+                  // ✅ 修复：相机震动参数与单机一致（intensity: 8, duration: 200）
+                  if (eventData.cameraShake && typeof eventData.cameraShake === 'object') {
+                    if (!Game.cameraShake) {
+                      Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+                    }
+                    Game.cameraShake.active = eventData.cameraShake.active || false;
+                    Game.cameraShake.intensity = eventData.cameraShake.intensity || 8;
+                    Game.cameraShake.duration = eventData.cameraShake.duration || 200;
+                  }
+                }
+              }
+              
+              // 爆炸粒子是多人元素，需要同步（如果服务器发送了）
+              if (typeof eventData.x === 'number' && typeof eventData.y === 'number') {
+                if (!Game.explosionParticles) Game.explosionParticles = [];
+                // 创建爆炸粒子（与单机一致：25个粒子）
+                for (let i = 0; i < 25; i++) {
+                  const angle = (Math.PI * 2 * i) / 25 + (Math.random() - 0.5) * 0.5;
+                  const speed = 2 + Math.random() * 6;
+                  Game.explosionParticles.push({
+                    x: eventData.x + (Math.random() - 0.5) * 10,
+                    y: eventData.y + (Math.random() - 0.5) * 10,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 500 + Math.random() * 500,
+                    maxLife: 1000,
+                    size: 3 + Math.random() * 4,
+                    color: ['#ff0000', '#ff3300', '#ff6600', '#ff9900', '#ffcc00', '#ff4400'][Math.floor(Math.random() * 6)]
+                  });
+                }
+              }
+            } catch (e) {
+              console.warn('[SurvivalOnline] 处理BOSS投射物爆炸事件失败:', e);
+            }
+          }
           // ✅ 修复：处理车辆撞击事件（音效+特效+相机震动）
           else if (v.type === 'car_hit') {
             // ✅ 修复：兼容两种格式：v.data 或直接 v
