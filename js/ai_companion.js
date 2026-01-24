@@ -80,7 +80,7 @@ class AICompanion extends Entity {
     }
     
     update(deltaTime) {
-        if (!this.player || !Game || Game.isGameOver) return;
+        if (!Game || Game.isGameOver) return;
         
         // ✅ 組隊模式：遠程玩家的AI需要更新位置並使用最新的遠程玩家對象（包含天賦加成）
         // ✅ 單機模式：不會進入此分支（this._remotePlayerUid 在單機模式下不會被設置）
@@ -99,14 +99,19 @@ class AICompanion extends Entity {
                         this.player = Game.player;
                     }
                 } else {
-                    // 如果找不到對應的玩家，標記為刪除
-                    this.markedForDeletion = true;
-                    return;
+                    // ✅ 修復：如果找不到對應的玩家，暫時保留 this.player，不立即刪除
+                    // 因為玩家可能暫時離線或還在連接中
+                    if (!this.player) {
+                        // 只有在 this.player 為 null 時才標記為刪除
+                        this.markedForDeletion = true;
+                        return;
+                    }
+                    // 如果 this.player 存在，繼續使用它（可能是緩存的引用）
                 }
             } else if (rt && typeof rt.getRemotePlayers === 'function') {
                 // 後備方案：使用 getRemotePlayers（較舊的方法）
                 const remotePlayers = rt.getRemotePlayers() || [];
-                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+                const remotePlayer = remotePlayers.find(p => p && p.uid === this._remotePlayerUid);
                 if (remotePlayer) {
                     // ✅ 修復：確保 this.player 引用的是遠程玩家對象（包含天賦加成）
                     this.player = remotePlayer;
@@ -116,14 +121,25 @@ class AICompanion extends Entity {
                         this.player = Game.player;
                     }
                 } else {
-                    // 如果找不到對應的玩家，標記為刪除
+                    // ✅ 修復：如果找不到對應的玩家，暫時保留 this.player，不立即刪除
+                    if (!this.player) {
+                        this.markedForDeletion = true;
+                        return;
+                    }
+                }
+            } else {
+                // ✅ 修復：如果 Runtime 不存在，但 this.player 存在，繼續使用它
+                if (!this.player) {
                     this.markedForDeletion = true;
                     return;
                 }
-            } else {
-                this.markedForDeletion = true;
-                return;
             }
+        }
+        
+        // ✅ 修復：在更新 player 引用後，再次檢查 this.player 是否存在
+        if (!this.player) {
+            // 如果 this.player 仍然為 null，跳過本次更新（但不刪除，等待下次更新）
+            return;
         }
         
         // ✅ MMORPG架构：所有AI（本地和远程）都应该造成伤害
