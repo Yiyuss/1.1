@@ -216,8 +216,17 @@ const BuffSystem = {
             const baseMax = (player && typeof player.baseMaxHealth === 'number')
                 ? player.baseMaxHealth
                 : ((CONFIG && CONFIG.PLAYER ? CONFIG.PLAYER.MAX_HEALTH : (player.maxHealth || 100)));
+            const oldMaxHealth = player.maxHealth || baseMax;
             player.maxHealth = baseMax + hpTalentFlat + hpUpgradeFlat;
-            player.health = Math.min(player.health, player.maxHealth);
+            // ✅ 修復：當 maxHealth 增加時，按比例調整當前血量，避免生命值加乘被取消
+            if (player.maxHealth > oldMaxHealth) {
+                // 最大血量增加：按比例增加当前血量
+                const healthRatio = oldMaxHealth > 0 ? (player.health / oldMaxHealth) : 1.0;
+                player.health = Math.min(player.maxHealth, Math.floor(player.health + (player.maxHealth - oldMaxHealth) * healthRatio));
+            } else {
+                // 最大血量减少或不变：保持当前血量但不超过新上限
+                player.health = Math.min(player.health, player.maxHealth);
+            }
             if (typeof UI !== 'undefined' && UI.updateHealthBar) {
                 UI.updateHealthBar(player.health, player.maxHealth);
             }
@@ -326,6 +335,49 @@ const BuffSystem = {
                 player.damageSpecializationFlat = this._getTierEffect('damage_specialization', specLv, 'flat', 0) || 0;
             } else {
                 player.damageSpecializationFlat = 0;
+            }
+            
+            // ✅ 修復：心意相通升級時生命值加乘被取消的BUG
+            // 在應用天賦buff後，必須重新應用屬性升級（局內等級加成），確保生命值加乘不會丟失
+            // 因為 hp_boost.apply 只考慮天賦加成，不考慮局內升級，所以需要 applyAttributeUpgrades 來恢復局內升級
+            this.applyAttributeUpgrades(player);
+            
+            // 處理心意相通/腎上腺素技能的回血速度提升
+            // 先清除技能倍率（確保沒有殘留值）
+            player._heartConnectionRegenMultiplier = 1.0;
+            if (player.weapons && Array.isArray(player.weapons)) {
+                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE'));
+                if (regenSkillWeapon) {
+                    // 確保 config 存在（如果沒有，從 CONFIG.WEAPONS 獲取）
+                    const config = regenSkillWeapon.config || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[regenSkillWeapon.type]) ? CONFIG.WEAPONS[regenSkillWeapon.type] : null;
+                    if (config) {
+                        const boostPerLevel = config.REGEN_SPEED_BOOST_PER_LEVEL || 0.30;
+                        const level = regenSkillWeapon.level || 1;
+                        // 計算技能倍率（例如 LV3: 1.0 + 0.30 * 3 = 1.90）
+                        const totalBoost = 1.0 + (boostPerLevel * level);
+                        player._heartConnectionRegenMultiplier = totalBoost;
+                    }
+                }
+            }
+            // 觸發回血強化buff更新（會自動與天賦和心意相通加算）
+            const oldMultiplier = player.healthRegenSpeedMultiplier || 1.0;
+            if (regenLv > 0) {
+                // 回血強化已經在上面應用過了，這裡只需要確保心意相通疊加
+                const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 1.0) 
+                    ? player._heartConnectionRegenMultiplier 
+                    : 1.0;
+                // 與天賦疊加（加算）
+                player.healthRegenSpeedMultiplier = (player.healthRegenSpeedMultiplier || 1.0) + (heartConnectionMul - 1.0);
+            } else {
+                // 如果沒有天賦，檢查是否有心意相通
+                const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 1.0) 
+                    ? player._heartConnectionRegenMultiplier 
+                    : 1.0;
+                player.healthRegenSpeedMultiplier = heartConnectionMul;
+            }
+            // 當回血速度倍率改變時，重置回血累積器，避免瞬間回滿血
+            if (oldMultiplier !== player.healthRegenSpeedMultiplier && player.healthRegenAccumulator != null) {
+                player.healthRegenAccumulator = 0;
             }
         } catch (e) {
             console.error('應用天賦buff失敗:', e);
