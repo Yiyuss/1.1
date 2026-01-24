@@ -1333,7 +1333,13 @@ const Game = {
                     }
                 } else {
                     // ✅ 修复：对于非AI的投射物，检查是否为本地玩家的投射物
-                    const isLocalPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
+                    // 架构修复：需要识别"本地玩家的AI创建的投射物"
+                    // 如果 projectile.player 是 AICompanion，且 AICompanion.player === this.player，那么这是"本地玩家的AI创建的投射物"
+                    const isDirectPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
+                    const isAICreatedProjectile = (projectile && projectile.player && 
+                        projectile.player.constructor && projectile.player.constructor.name === 'AICompanion' &&
+                        projectile.player.player === this.player);
+                    const isLocalPlayerProjectile = isDirectPlayerProjectile || isAICreatedProjectile;
                     
                     // ⚠️ 修復：在 enabled 模式下，只有本地玩家的投射物才需要處理
                     // 遠程玩家的投射物應該由伺服器同步，不應該在這裡處理
@@ -1481,9 +1487,17 @@ const Game = {
                 // ⚠️ 修復：持續效果也需要廣播給其他玩家，確保視覺效果與單機一致
                 // 特別是 CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH 等需要讓遠程玩家看到
                 try {
+                    // ✅ 架构修复：识别"本地玩家的AI创建的投射物"，也需要广播
+                    // 如果 projectile.player 是 AICompanion，且 AICompanion.player === this.player，那么这是"本地玩家的AI创建的投射物"
+                    const isDirectPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
+                    const isAICreatedProjectile = (projectile && projectile.player && 
+                        projectile.player.constructor && projectile.player.constructor.name === 'AICompanion' &&
+                        projectile.player.player === this.player);
+                    const shouldBroadcast = isDirectPlayerProjectile || isAICreatedProjectile;
+                    
                     if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && 
                         typeof window !== 'undefined' && window.SurvivalOnlineBroadcastEvent &&
-                        projectile.player === this.player) {
+                        shouldBroadcast) {
                         // 構建投射物數據（與舊多人模式一致）
                         const projectileId = projectile.id || `projectile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
                         if (!projectile.id) projectile.id = projectileId;
