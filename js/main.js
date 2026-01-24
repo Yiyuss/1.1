@@ -361,7 +361,7 @@ function setupCharacterSelection() {
     let picked = null;
     let lastTapTime = 0;
 
-    // 角色解鎖狀態管理（不透過 SaveCode，僅使用獨立 localStorage 鍵，避免影響引繼碼結構）
+    // 角色解鎖狀態管理（使用獨立 localStorage 鍵 'unlocked_characters'，會包含在引繼碼中）
     const CHAR_UNLOCK_KEY = 'unlocked_characters';
     const loadUnlockedCharacters = () => {
         try {
@@ -569,7 +569,7 @@ function setupCharacterSelection() {
                 const charId = activeCard.getAttribute('data-char-id');
                 const ch = (CONFIG.CHARACTERS || []).find(c => c.id === charId);
                 if (ch) {
-                    // 執行解鎖
+                    // 執行解鎖（使用閉包中的函數，確保 unlockedSet 被正確更新）
                     const price = ch.unlockCost || 0;
                     if (price > 0) {
                         const currentCoins = Game.coins || 0;
@@ -577,32 +577,9 @@ function setupCharacterSelection() {
                             Game.coins = Math.max(0, Math.floor(currentCoins - price));
                             try { Game.saveCoins(); } catch (_) {}
                             try { if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) UI.updateCoinsDisplay(Game.coins); } catch (_) {}
-                            // 解鎖角色
-                            const CHAR_UNLOCK_KEY = 'unlocked_characters';
-                            const loadUnlockedCharacters = () => {
-                                try {
-                                    const raw = localStorage.getItem(CHAR_UNLOCK_KEY);
-                                    const arr = raw ? JSON.parse(raw) : [];
-                                    if (!Array.isArray(arr)) return ['margaret'];
-                                    if (!arr.includes('margaret')) arr.push('margaret');
-                                    return arr;
-                                } catch (_) {
-                                    return ['margaret'];
-                                }
-                            };
-                            const saveUnlockedCharacters = (list) => {
-                                try {
-                                    const arr = Array.isArray(list) ? list.slice() : [];
-                                    if (!arr.includes('margaret')) arr.push('margaret');
-                                    localStorage.setItem(CHAR_UNLOCK_KEY, JSON.stringify(arr));
-                                } catch (_) {}
-                            };
-                            const unlockedSet = new Set(loadUnlockedCharacters());
-                            if (!unlockedSet.has(charId)) {
-                                unlockedSet.add(charId);
-                                saveUnlockedCharacters(Array.from(unlockedSet));
-                            }
-                            // 更新卡片狀態
+                            // 使用閉包中的 unlockCharacter 函數，確保 unlockedSet 被更新
+                            unlockCharacter(charId);
+                            // 更新卡片狀態（使用閉包中的 refreshCardLockState 邏輯）
                             activeCard.classList.remove('locked');
                             const img = activeCard.querySelector('img');
                             if (img) img.classList.remove('grayscale');
@@ -1240,6 +1217,39 @@ function setupMapAndDifficultySelection() {
         mapCancel.addEventListener('click', () => {
             // 返回選角：覆蓋視窗僅需隱藏自身；不切換底層畫面
             hide(mapScreen);
+            // 輕量刷新：僅檢查並更新角色卡片狀態（避免返回後重複要求購買）
+            // 只讀取一次 localStorage，只更新必要的 DOM 類，不重新創建元素
+            const charScreen = document.getElementById('character-select-screen');
+            if (charScreen) {
+                const cards = charScreen.querySelectorAll('.char-card.selectable');
+                // 只讀取一次 localStorage（不寫入）
+                const CHAR_UNLOCK_KEY = 'unlocked_characters';
+                let unlockedSet;
+                try {
+                    const raw = localStorage.getItem(CHAR_UNLOCK_KEY);
+                    const arr = raw ? JSON.parse(raw) : [];
+                    unlockedSet = new Set(Array.isArray(arr) ? arr : ['margaret']);
+                    if (!unlockedSet.has('margaret')) unlockedSet.add('margaret');
+                } catch (_) {
+                    unlockedSet = new Set(['margaret']);
+                }
+                // 只更新角色卡片的 DOM 類（不重新創建元素）
+                cards.forEach(card => {
+                    const charId = card.getAttribute('data-char-id');
+                    const ch = (CONFIG.CHARACTERS || []).find(c => c.id === charId);
+                    if (!ch) return;
+                    const isUnlocked = (ch && (!ch.unlockCost || ch.unlockCost <= 0)) || unlockedSet.has(charId);
+                    if (isUnlocked) {
+                        card.classList.remove('locked');
+                        const img = card.querySelector('img');
+                        if (img) img.classList.remove('grayscale');
+                    } else {
+                        card.classList.add('locked');
+                        const img = card.querySelector('img');
+                        if (img) img.classList.add('grayscale');
+                    }
+                });
+            }
         });
     }
 
