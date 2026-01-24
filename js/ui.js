@@ -68,6 +68,8 @@ const UI = {
         this._heldOptionIndex = null;
         this._pendingOptionIndex = null;
         this._actionsBound = false;
+        // ✅ 组队模式：升级队列（用于处理连续升级时不覆盖前一个升级菜单）
+        this._pendingLevelUps = [];
         // 依天賦等級擴充升級選單的操作次數（不改文字與版面）
         try { this.applyLevelUpActionChargesFromTalents(); } catch (_) {}
         // 啟用：手機螢幕旋轉適應（僅行動裝置；不影響PC）
@@ -2144,7 +2146,14 @@ const UI = {
      */
     showLevelUpMenu: function() {
         // 組隊模式下，不暫停遊戲（避免所有玩家等待）
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        
+        // ✅ 组队模式：如果当前有升级菜单显示，将此次升级加入队列
+        if (isMultiplayer && this.levelUpMenu && !this.levelUpMenu.classList.contains('hidden')) {
+            this._pendingLevelUps.push(true); // 标记有待处理的升级
+            return; // 不显示新菜单，等待当前菜单关闭后再显示
+        }
+        
         // 暫停遊戲，但不靜音，避免升級音效與BGM被切斷（僅單人模式）
         if (!isMultiplayer && typeof Game !== 'undefined' && Game.pause) {
             Game.pause(false);
@@ -2242,26 +2251,53 @@ const UI = {
             this._heldOptionIndex = null;
         } catch (_) {}
         if (this.levelUpMenu) this.levelUpMenu.classList.add('hidden');
-        // 恢復遊戲
-        if (typeof Game !== 'undefined' && Game.resume) {
+        
+        // ✅ 组队模式：检查队列，如果有待处理的升级，自动显示下一个
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        if (isMultiplayer && this._pendingLevelUps && this._pendingLevelUps.length > 0) {
+            // 移除队列中的一个升级标记
+            this._pendingLevelUps.shift();
+            // 延迟一帧，确保菜单完全关闭后再显示下一个
+            setTimeout(() => {
+                // 检查是否还能继续升级
+                // 注意：经验已经在之前的 levelUp() 中扣除了，所以这里只需要检查经验是否仍然足够
+                if (typeof Game !== 'undefined' && Game.player && !Game.player._isRemotePlayer) {
+                    const player = Game.player;
+                    if (player.experience >= player.experienceToNextLevel) {
+                        // 经验仍然足够，说明还有升级需要处理
+                        // 需要再次调用 levelUp() 来处理升级逻辑（扣除经验、更新等级等）
+                        // 但 showLevelUpMenu 会检查队列，如果当前有菜单显示，会将升级加入队列
+                        // 由于菜单已经关闭，所以这次会直接显示菜单
+                        player.levelUp();
+                    }
+                    // 如果经验不够，说明之前的 levelUp 已经处理了所有升级，不需要做任何事
+                }
+            }, 50);
+            return; // 组队模式下不恢复游戏（因为游戏没有暂停）
+        }
+        
+        // 恢復遊戲（僅單機模式）
+        if (!isMultiplayer && typeof Game !== 'undefined' && Game.resume) {
             Game.resume();
         }
         
-        // ✅ 修复：与单机一致 - 连续升级时，在关闭菜单后检查是否还能再次升级（避免盖掉前一个升级的选项机会）
+        // ✅ 单机模式：连续升级时，在关闭菜单后检查是否还能再次升级（避免盖掉前一个升级的选项机会）
         // 如果升级后经验仍然足够，再次显示升级菜单（不递归调用 levelUp，而是直接检查经验）
-        try {
-            if (typeof Game !== 'undefined' && Game.player && !Game.player._isRemotePlayer) {
-                const player = Game.player;
-                if (player.experience >= player.experienceToNextLevel) {
-                    // 延迟一帧，确保菜单完全关闭后再显示下一个
-                    setTimeout(() => {
-                        if (player.experience >= player.experienceToNextLevel) {
-                            player.levelUp();
-                        }
-                    }, 50);
+        if (!isMultiplayer) {
+            try {
+                if (typeof Game !== 'undefined' && Game.player && !Game.player._isRemotePlayer) {
+                    const player = Game.player;
+                    if (player.experience >= player.experienceToNextLevel) {
+                        // 延迟一帧，确保菜单完全关闭后再显示下一个
+                        setTimeout(() => {
+                            if (player.experience >= player.experienceToNextLevel) {
+                                player.levelUp();
+                            }
+                        }, 50);
+                    }
                 }
-            }
-        } catch (_) {}
+            } catch (_) {}
+        }
     },
 
     // 私有：標記升級卡片待確認高亮
