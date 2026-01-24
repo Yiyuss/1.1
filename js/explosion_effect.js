@@ -161,10 +161,12 @@ class ExplosionEffect extends Entity {
                 }
             }
             // 多人模式：傷害由伺服器權威處理，伺服器透過 hitEvents 返回傷害數字
+            // ✅ 修復：在多人模式下也需要記錄命中的敵人，以便創建 knife2.gif 覆蓋層
             this.hitEnemies.push({
                 enemy: enemy,
                 x: enemy.x,
-                y: enemy.y
+                y: enemy.y,
+                enemyId: enemy.id || null
             });
         }
         
