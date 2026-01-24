@@ -1248,7 +1248,8 @@ const UI = {
             try { if (typeof Achievements !== 'undefined' && Achievements.unlock) Achievements.unlock('FRENZY_FUSION'); } catch(_) {}
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
+            this.hideLevelUpMenu();
             return;
         }
 
@@ -1279,7 +1280,8 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
+            this.hideLevelUpMenu();
             return;
         }
 
@@ -1366,7 +1368,8 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
+            this.hideLevelUpMenu();
             return;
         }
 
@@ -1397,7 +1400,8 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
+            this.hideLevelUpMenu();
             return;
         }
 
@@ -1428,7 +1432,8 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
+            this.hideLevelUpMenu();
             return;
         }
 
@@ -1459,7 +1464,8 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
+            this.hideLevelUpMenu();
             return;
         }
 
@@ -1620,7 +1626,8 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
+            this.hideLevelUpMenu();
             return;
         }
 
