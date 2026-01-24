@@ -25,12 +25,27 @@ class BossProjectile extends Entity {
         // ✅ 權威多人：此類投射物由伺服器權威模擬與扣血；客戶端只做插值顯示
         try {
             if (this._isVisualOnly && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                // ✅ 修复：与单机一致 - 在多人模式下，也需要应用速度来更新位置
+                // 原因：服务器只发送位置，但客户端需要根据速度来预测和插值，否则投射物会看起来卡顿
+                const deltaMul = deltaTime / 16.67;
+                if (typeof this.speed === 'number' && typeof this.angle === 'number') {
+                    // 应用速度更新位置（与单机一致）
+                    this.x += Math.cos(this.angle) * this.speed * deltaMul;
+                    this.y += Math.sin(this.angle) * this.speed * deltaMul;
+                }
+                // 然后进行插值修正，确保与服务器位置同步
                 if (typeof this._netTargetX === 'number' && typeof this._netTargetY === 'number') {
                     const dx = this._netTargetX - this.x;
                     const dy = this._netTargetY - this.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist > 600) { this.x = this._netTargetX; this.y = this._netTargetY; }
-                    else { const lerp = 0.35; this.x += dx * lerp; this.y += dy * lerp; }
+                    if (dist > 600) { 
+                        this.x = this._netTargetX; 
+                        this.y = this._netTargetY; 
+                    } else { 
+                        const lerp = 0.15; // 降低插值强度，因为已经应用了速度
+                        this.x += dx * lerp; 
+                        this.y += dy * lerp; 
+                    }
                 }
                 if (typeof this._netAngle === 'number') this.angle = this._netAngle;
                 return;
