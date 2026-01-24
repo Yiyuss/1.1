@@ -118,6 +118,7 @@ const RedeemCodeSystem = {
         if (typeof console !== 'undefined' && console.log) {
             console.log('[RedeemCodeSystem] 輸入序號:', trimmedCode, '轉換後:', upperCode);
             console.log('[RedeemCodeSystem] 可用序號列表:', Object.keys(this.REDEEM_CODES).map(k => k.toUpperCase()));
+            console.log('[RedeemCodeSystem] 已使用序號列表:', this.getUsedCodes());
         }
         
         // 檢查序號是否存在（將配置中的鍵名也轉為大寫進行比較，確保大小寫不敏感）
@@ -126,7 +127,19 @@ const RedeemCodeSystem = {
         const codeIndex = upperCodeKeys.indexOf(upperCode);
         
         if (codeIndex === -1) {
-            return { success: false, message: '序號不存在' };
+            // 提供更詳細的錯誤信息，幫助調試
+            const similarCodes = upperCodeKeys.filter(k => k.includes(upperCode) || upperCode.includes(k));
+            let errorMsg = '序號不存在';
+            if (similarCodes.length > 0) {
+                errorMsg += `。相似的序號：${similarCodes.join(', ')}`;
+            }
+            console.warn('[RedeemCodeSystem] 序號不存在:', {
+                input: trimmedCode,
+                upper: upperCode,
+                available: upperCodeKeys,
+                similar: similarCodes
+            });
+            return { success: false, message: errorMsg };
         }
         
         // 使用原始鍵名獲取配置（因為配置中的鍵名可能不是大寫）
@@ -157,6 +170,7 @@ const RedeemCodeSystem = {
         
         // 檢查序號是否已被使用
         if (this.isCodeUsed(upperCode)) {
+            console.warn('[RedeemCodeSystem] 序號已被使用:', upperCode);
             return { success: false, message: '此序號已使用過，每個序號只能使用一次' };
         }
         
@@ -167,12 +181,17 @@ const RedeemCodeSystem = {
         try {
             if (typeof Game !== 'undefined' && typeof Game.addCoins === 'function') {
                 Game.addCoins(coins);
+                console.log('[RedeemCodeSystem] 成功發放金幣:', coins);
             } else {
-                return { success: false, message: '遊戲系統未初始化，無法發放金幣' };
+                console.error('[RedeemCodeSystem] 遊戲系統未初始化:', {
+                    Game: typeof Game,
+                    addCoins: typeof Game !== 'undefined' ? typeof Game.addCoins : 'undefined'
+                });
+                return { success: false, message: '遊戲系統未初始化，無法發放金幣。請先進入遊戲主界面。' };
             }
         } catch (e) {
             console.error('[RedeemCodeSystem] 發放金幣失敗:', e);
-            return { success: false, message: '發放金幣時發生錯誤' };
+            return { success: false, message: '發放金幣時發生錯誤: ' + e.message };
         }
         
         return { 
@@ -186,5 +205,41 @@ const RedeemCodeSystem = {
 // 導出到全局（如果需要在其他地方使用）
 if (typeof window !== 'undefined') {
     window.RedeemCodeSystem = RedeemCodeSystem;
+    
+    // 添加診斷函數（開發用）
+    RedeemCodeSystem.diagnose = function(code) {
+        if (!code) {
+            console.log('[RedeemCodeSystem] 診斷：請提供序號');
+            return;
+        }
+        const trimmed = code.trim();
+        const upper = trimmed.toUpperCase();
+        const used = this.getUsedCodes();
+        const available = Object.keys(this.REDEEM_CODES).map(k => k.toUpperCase());
+        const exists = available.includes(upper);
+        const isUsed = used.includes(upper);
+        
+        console.log('[RedeemCodeSystem] 診斷結果:', {
+            輸入序號: trimmed,
+            轉換後: upper,
+            序號長度: trimmed.length,
+            是否存在: exists,
+            是否已使用: isUsed,
+            可用序號列表: available,
+            已使用序號列表: used,
+            遊戲系統狀態: {
+                Game: typeof Game,
+                addCoins: typeof Game !== 'undefined' ? typeof Game.addCoins : 'undefined'
+            }
+        });
+        
+        if (!exists) {
+            console.warn('序號不存在於配置中');
+        } else if (isUsed) {
+            console.warn('序號已被使用過');
+        } else {
+            console.log('序號可以正常兌換');
+        }
+    };
 }
 
