@@ -1321,9 +1321,12 @@ const Game = {
                 // 如果是本地玩家的AI（player === this.player），直接添加到projectiles并广播
                 // 如果是远程玩家的AI，应该已经在survival_online.js中直接添加到projectiles，不会进入这里
                 if (isAICompanion) {
-                    // 本地玩家的AI：直接添加到projectiles（与单机模式一致）
-                    if (projectile.player && projectile.player === this.player) {
-                        // 直接添加到projectiles，然后广播
+                    // ✅ 架构修复：单机模式如何工作，组队模式就应该如何工作
+                    // 对于AI，直接添加到projectiles（不需要检查player，因为AI的player在创建时已经设置好了）
+                    // 如果是本地玩家的AI（没有_remotePlayerUid），直接添加并广播
+                    // 如果是远程玩家的AI（有_remotePlayerUid），应该已经在survival_online.js中处理，这里不处理
+                    if (!projectile._remotePlayerUid) {
+                        // 本地玩家的AI：直接添加到projectiles（与单机模式一致）
                         this.projectiles.push(projectile);
                         
                         // 广播给其他玩家
