@@ -1419,6 +1419,24 @@ const Game = {
                 }
 
                 // 持續效果/其他：保留本地視覺，並廣播給其他玩家（讓遠程玩家也能看到）
+                // ✅ 修復：組隊模式下，SING是一次性效果，需要先清理本地玩家之前創建的效果，避免疊加
+                if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && 
+                    projectile.weaponType === "SING" && projectile.player === this.player) {
+                    // 清理本地玩家之前創建的SING效果
+                    for (let i = this.projectiles.length - 1; i >= 0; i--) {
+                        const proj = this.projectiles[i];
+                        if (proj && proj.weaponType === "SING" && proj.player === this.player && !proj._isVisualOnly) {
+                            // 完全清理舊的唱歌效果 DOM 元素
+                            if (proj.el && proj.el.parentNode) {
+                                proj.el.parentNode.removeChild(proj.el);
+                            }
+                            proj.el = null;
+                            proj.markedForDeletion = true;
+                            this.projectiles.splice(i, 1);
+                        }
+                    }
+                }
+                
                 this.projectiles.push(projectile);
                 
                 // ⚠️ 修復：持續效果也需要廣播給其他玩家，確保視覺效果與單機一致
