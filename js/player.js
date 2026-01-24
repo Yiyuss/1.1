@@ -169,19 +169,29 @@ class Player extends Entity {
         UI.updateEnergyBar(this.energy, this.maxEnergy);
 
         // 生命自然恢復：每5秒+1（上限100）
-        if (this.health < this.maxHealth) {
-            this.healthRegenAccumulator += deltaTime;
-            const regenMul = this.healthRegenSpeedMultiplier || 1.0;
-            const effectiveInterval = this.healthRegenIntervalMs / Math.max(1.0, regenMul);
-            if (this.healthRegenAccumulator >= effectiveInterval) {
-                const ticks = Math.floor(this.healthRegenAccumulator / effectiveInterval);
-                this.healthRegenAccumulator -= ticks * effectiveInterval;
-                this.health = Math.min(this.maxHealth, this.health + ticks);
-                UI.updateHealthBar(this.health, this.maxHealth);
+        // ✅ 權威伺服器模式：組隊模式下，回血由伺服器權威處理，客戶端只顯示（避免雙重計算導致跳動）
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        if (!isMultiplayer) {
+            // 單機模式：客戶端處理回血（完全正確，0 BUG）
+            if (this.health < this.maxHealth) {
+                this.healthRegenAccumulator += deltaTime;
+                const regenMul = this.healthRegenSpeedMultiplier || 1.0;
+                const effectiveInterval = this.healthRegenIntervalMs / Math.max(1.0, regenMul);
+                if (this.healthRegenAccumulator >= effectiveInterval) {
+                    const ticks = Math.floor(this.healthRegenAccumulator / effectiveInterval);
+                    this.healthRegenAccumulator -= ticks * effectiveInterval;
+                    this.health = Math.min(this.maxHealth, this.health + ticks);
+                    UI.updateHealthBar(this.health, this.maxHealth);
+                }
+            } else {
+                // 滿血時維持計時器但不回復；避免溢出
+                this.healthRegenAccumulator = 0;
             }
-        } else {
-            // 滿血時維持計時器但不回復；避免溢出
-            this.healthRegenAccumulator = 0;
+        }
+        // 組隊模式：回血由伺服器權威處理（server/game-state.js updatePlayers），客戶端只更新UI顯示
+        // 伺服器同步的 health 會在 handleServerGameState 中更新，這裡只更新UI
+        if (isMultiplayer) {
+            UI.updateHealthBar(this.health, this.maxHealth);
         }
 
         // 監聽大招觸發（Q鍵）— 僅當角色允許使用大絕時才處理
