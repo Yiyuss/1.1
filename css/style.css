@@ -2779,11 +2779,12 @@ body {
 
 /* 主線模式對話框樣式 */
 /* 人物立繪（畫布左側，對話框後面） */
+/* 圖層順序：overlay（最下）→ 人物立繪（中間）→ 對話框內容（最上） */
 .dialogue-portrait {
   position: fixed;
   left: 50px;
   bottom: 0px;
-  z-index: 100001;
+  z-index: 100001; /* 中間層：人物立繪，在 overlay 上面，但在對話框內容下面 */
   pointer-events: none;
   display: none;
   will-change: transform;
@@ -2814,7 +2815,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 100000;
+  z-index: 100002; /* 高於人物立繪（100001），確保對話框內容在人物立繪上面 */
   display: flex;
   justify-content: center;
   align-items: flex-end;
@@ -2822,16 +2823,18 @@ body {
   pointer-events: auto;
 }
 .dialogue-overlay {
-  position: absolute;
+  position: fixed; /* 改為 fixed，讓它成為獨立元素，不在對話框的 stacking context 中 */
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
   background: rgba(0, 0, 0, 0.5);
+  z-index: 99999; /* 最下層：灰色遮罩，獨立 z-index，低於人物立繪（100001）和對話框（100002） */
+  pointer-events: auto;
 }
 .dialogue-container {
   position: relative;
-  z-index: 1;
+  z-index: 1; /* 最上層：對話框內容，在對話框的 stacking context 中，由於對話框 z-index 是 100002，所以會在人物立繪上面 */
   display: flex;
   width: 90%;
   max-width: 1000px;
@@ -2896,14 +2899,14 @@ body {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
-/* YouTube 窗口樣式 */
+/* YouTube 窗口樣式（包括 Twitter 窗口，使用相同類） */
 .main-youtube-window {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 100001; /* 高於對話框（100000）和雪碧圖（99999） */
+  z-index: 100003; /* 高於對話框（100002），確保在對話框上面 */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -3050,117 +3053,6 @@ body {
   display: inline-block;
   margin: 0 auto;
 }
-.youtube-auth-hint-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  line-height: 1;
-  padding: 0;
-}
-.youtube-auth-hint-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.1);
-}
-/* 授權說明窗口樣式 */
-.youtube-auth-hint-window {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 100002;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  pointer-events: auto;
-}
-.auth-hint-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(4px);
-}
-.auth-hint-content {
-  position: relative;
-  z-index: 1;
-  width: 90%;
-  max-width: 600px;
-  background: linear-gradient(180deg, rgba(20, 30, 40, 0.98) 0%, rgba(15, 25, 35, 0.98) 100%);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 16px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
-  animation: dialogueSlideIn 0.3s ease-out;
-}
-.auth-hint-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-.auth-hint-header h3 {
-  color: #fff;
-  font-size: 20px;
-  font-family: "Microsoft JhengHei", sans-serif;
-  margin: 0;
-}
-.auth-hint-close-btn {
-  width: 32px;
-  height: 32px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  color: #fff;
-  font-size: 24px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-.auth-hint-close-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.1);
-}
-.auth-hint-body {
-  padding: 24px;
-  color: #fff;
-  font-family: "Microsoft JhengHei", sans-serif;
-}
-.auth-hint-body p {
-  margin: 12px 0;
-  line-height: 1.6;
-  font-size: 14px;
-}
-.auth-hint-body strong {
-  color: #4CAF50;
-}
-.auth-hint-body ul {
-  margin: 12px 0;
-  padding-left: 24px;
-}
-.auth-hint-body li {
-  margin: 8px 0;
-  line-height: 1.6;
-  font-size: 14px;
-}
-.auth-hint-body .dialogue-btn {
-  margin-top: 20px;
-  width: 100%;
-}
 
 /* 序號窗口樣式 */
 .main-code-window {
@@ -3169,7 +3061,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 100001; /* 高於對話框（100000）和雪碧圖（99999） */
+  z-index: 100005; /* 最高層：高於所有其他窗口，確保在最上層 */
   display: flex;
   justify-content: center;
   align-items: center;
