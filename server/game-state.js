@@ -1054,7 +1054,8 @@ class GameState {
                 y: enemy.y,
                 h: enemy.size || 32,
                 damage: hit.amount,
-                isCrit: hit.isCrit
+                isCrit: hit.isCrit,
+                weaponType: input.weaponType || null // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
               });
             } catch (_) { }
           }
@@ -1077,7 +1078,8 @@ class GameState {
                 y: enemy.y,
                 h: enemy.size || 32,
                 damage: hit.amount,
-                isCrit: hit.isCrit
+                isCrit: hit.isCrit,
+                weaponType: input.weaponType || null // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
               });
             } catch (_) { }
           }
@@ -1108,7 +1110,8 @@ class GameState {
               y: enemy.y,
               h: enemy.size || 32,
               damage: hit.amount,
-              isCrit: hit.isCrit
+              isCrit: hit.isCrit,
+              weaponType: input.weaponType || null // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
             });
           } catch (_) { }
         }
@@ -1623,7 +1626,8 @@ class GameState {
               y: enemy.y,
               h: enemy.size || 32,
               damage: hit.amount,
-              isCrit: hit.isCrit
+              isCrit: hit.isCrit,
+              weaponType: proj.weaponType || null // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
             });
           } catch (_) { }
 
