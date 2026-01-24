@@ -919,8 +919,9 @@ class Player extends Entity {
             // 将待处理的升级加入队列（避免重复添加）
             if (pendingUpgrades > 0 && UI._pendingLevelUps) {
                 // 只添加一次，因为 hideLevelUpMenu 会处理所有待升级的等级
+                // ⚠️ 修复：使用字符串标记，便于区分经验升级和宝箱升级
                 if (UI._pendingLevelUps.length === 0) {
-                    UI._pendingLevelUps.push(true);
+                    UI._pendingLevelUps.push('exp'); // 标记为经验升级
                 }
             }
             // 更新UI
