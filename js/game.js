@@ -1345,12 +1345,13 @@ const Game = {
                     projectile.weaponType === 'BIG_ICE_BALL' ||
                     projectile.weaponType === 'FRENZY_ICE_BALL' ||
                     projectile.weaponType === 'MIND_MAGIC' ||
-                    // ✅ 修復：CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH、INVINCIBLE 是特殊視覺效果，不應發送到伺服器作為標準投射物
+                    // ✅ 修復：CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH、INVINCIBLE、SING 是特殊視覺效果，不應發送到伺服器作為標準投射物
                     projectile.weaponType === 'CHAIN_LIGHTNING' ||
                     projectile.weaponType === 'FRENZY_LIGHTNING' ||
                     projectile.weaponType === 'SLASH' ||
                     projectile.weaponType === 'FRENZY_SLASH' ||
                     projectile.weaponType === 'INVINCIBLE' ||
+                    projectile.weaponType === 'SING' ||
                     // ✅ 修復：YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEATHLINE_WARRIOR、DEATHLINE_SUPERMAN、JUDGMENT、DIVINE_JUDGMENT、EXPLOSION 是特殊視覺效果
                     projectile.weaponType === 'YOUNG_DADA_GLORY' ||
                     projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
@@ -1367,11 +1368,12 @@ const Game = {
                         projectile.constructor.name === 'RadiantGloryEffect' ||
                         projectile.constructor.name === 'IceFieldEffect' ||
                         projectile.constructor.name === 'ShockwaveEffect' ||
-                        // ✅ 修復：ChainLightningEffect、FrenzyLightningEffect、SlashEffect、InvincibleEffect 是特殊視覺效果
+                        // ✅ 修復：ChainLightningEffect、FrenzyLightningEffect、SlashEffect、InvincibleEffect、SingEffect 是特殊視覺效果
                         projectile.constructor.name === 'ChainLightningEffect' ||
                         projectile.constructor.name === 'FrenzyLightningEffect' ||
                         projectile.constructor.name === 'SlashEffect' ||
                         projectile.constructor.name === 'InvincibleEffect' ||
+                        projectile.constructor.name === 'SingEffect' ||
                         // ✅ 修復：YoungDadaGloryEffect、FrenzyYoungDadaGloryEffect、DeathlineWarriorEffect、JudgmentEffect、DivineJudgmentEffect、ExplosionEffect 是特殊視覺效果
                         projectile.constructor.name === 'YoungDadaGloryEffect' ||
                         projectile.constructor.name === 'FrenzyYoungDadaGloryEffect' ||
@@ -1631,11 +1633,13 @@ const Game = {
                         projectile.weaponType === 'BIG_ICE_BALL' ||
                         projectile.weaponType === 'FRENZY_ICE_BALL' ||
                         projectile.weaponType === 'MIND_MAGIC' ||
-                        // ✅ 修復：CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH 是特殊視覺效果，不應發送到伺服器作為標準投射物
+                        // ✅ 修復：CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH、INVINCIBLE、SING 是特殊視覺效果，不應發送到伺服器作為標準投射物
                         projectile.weaponType === 'CHAIN_LIGHTNING' ||
                         projectile.weaponType === 'FRENZY_LIGHTNING' ||
                         projectile.weaponType === 'SLASH' ||
                         projectile.weaponType === 'FRENZY_SLASH' ||
+                        projectile.weaponType === 'INVINCIBLE' ||
+                        projectile.weaponType === 'SING' ||
                         // ✅ 修復：YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEATHLINE_WARRIOR、DEATHLINE_SUPERMAN、JUDGMENT、DIVINE_JUDGMENT、EXPLOSION 是特殊視覺效果
                         projectile.weaponType === 'YOUNG_DADA_GLORY' ||
                         projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
@@ -1653,10 +1657,12 @@ const Game = {
                             projectile.constructor.name === 'RadiantGloryEffect' ||
                             projectile.constructor.name === 'IceFieldEffect' ||
                             projectile.constructor.name === 'ShockwaveEffect' ||
-                            // ✅ 修復：ChainLightningEffect、FrenzyLightningEffect、SlashEffect 是特殊視覺效果
+                            // ✅ 修復：ChainLightningEffect、FrenzyLightningEffect、SlashEffect、InvincibleEffect、SingEffect 是特殊視覺效果
                             projectile.constructor.name === 'ChainLightningEffect' ||
                             projectile.constructor.name === 'FrenzyLightningEffect' ||
                             projectile.constructor.name === 'SlashEffect' ||
+                            projectile.constructor.name === 'InvincibleEffect' ||
+                            projectile.constructor.name === 'SingEffect' ||
                             // ✅ 修復：YoungDadaGloryEffect、FrenzyYoungDadaGloryEffect、DeathlineWarriorEffect、JudgmentEffect、DivineJudgmentEffect、ExplosionEffect 是特殊視覺效果
                             projectile.constructor.name === 'YoungDadaGloryEffect' ||
                             projectile.constructor.name === 'FrenzyYoungDadaGloryEffect' ||
