@@ -106,12 +106,17 @@ class AICompanion extends Entity {
         }
         
         // ✅ 架构修复：本地玩家的AI（没有_remotePlayerUid），确保player引用正确
-        if (!this._remotePlayerUid && typeof Game !== 'undefined' && Game.player) {
-            this.player = Game.player;
+        if (!this._remotePlayerUid) {
+            if (typeof Game !== 'undefined' && Game.player) {
+                this.player = Game.player;
+            }
         }
         
-        // 基础检查：player和坐标
-        if (!this.player || typeof this.player.x !== 'number' || typeof this.player.y !== 'number') {
+        // 基础检查：player和坐标（如果player无效，跳过本次更新，但不删除AI）
+        if (!this.player) {
+            return;
+        }
+        if (typeof this.player.x !== 'number' || typeof this.player.y !== 'number') {
             return;
         }
         
