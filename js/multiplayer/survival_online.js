@@ -2134,6 +2134,8 @@ const Runtime = (() => {
                 }
               } else if (weaponType === "SING" && typeof SingEffect !== "undefined") {
                 // 唱歌：需要找到對應的玩家
+                // ✅ 修復：唱歌是一次性效果（COOLDOWN: 5000），每次施放都創建新的效果（與單機一致）
+                // 但需要先清理同一個玩家的舊唱歌效果，避免疊加（參考無敵的清理邏輯）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
                   const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
@@ -2151,6 +2153,22 @@ const Runtime = (() => {
                 }
 
                 if (targetPlayer) {
+                  // ✅ 修復：先清理同一個玩家的舊唱歌效果，避免疊加
+                  if (eventData.playerUid && Array.isArray(Game.projectiles)) {
+                    for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+                      const proj = Game.projectiles[i];
+                      if (proj && proj.weaponType === "SING" && proj._remotePlayerUid === eventData.playerUid) {
+                        // ✅ 修復：完全清理舊的唱歌效果 DOM 元素（參考無敵）
+                        if (proj.el && proj.el.parentNode) {
+                          proj.el.parentNode.removeChild(proj.el);
+                        }
+                        proj.el = null;
+                        proj.markedForDeletion = true;
+                        Game.projectiles.splice(i, 1);
+                      }
+                    }
+                  }
+                  
                   const effect = new SingEffect(
                     targetPlayer,
                     eventData.duration || 2000
