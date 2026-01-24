@@ -82,16 +82,34 @@ class AICompanion extends Entity {
     update(deltaTime) {
         if (!this.player || !Game || Game.isGameOver) return;
         
-        // ✅ MMORPG架构：远程玩家的AI也需要更新位置，但也要造成伤害
+        // ✅ 組隊模式：遠程玩家的AI需要更新位置並使用最新的遠程玩家對象（包含天賦加成）
+        // ✅ 單機模式：不會進入此分支（this._remotePlayerUid 在單機模式下不會被設置）
         if (this._remotePlayerUid) {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-            if (rt && typeof rt.getRemotePlayers === 'function') {
+            // 優先使用 RemotePlayerManager.get（獲取完整的 Player 對象，包含天賦加成）
+            if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                const remotePlayer = rt.RemotePlayerManager.get(this._remotePlayerUid);
+                if (remotePlayer) {
+                    // ✅ 修復：確保 this.player 引用的是最新的遠程玩家對象（包含天賦加成）
+                    // 這樣AI才能正確使用遠程玩家的天賦屬性（damageTalentBaseBonusPct、critChanceBonusPct等）
+                    this.player = remotePlayer;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    // 如果是本地玩家
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                    }
+                } else {
+                    // 如果找不到對應的玩家，標記為刪除
+                    this.markedForDeletion = true;
+                    return;
+                }
+            } else if (rt && typeof rt.getRemotePlayers === 'function') {
+                // 後備方案：使用 getRemotePlayers（較舊的方法）
                 const remotePlayers = rt.getRemotePlayers() || [];
                 const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
                 if (remotePlayer) {
-                    // 更新玩家位置（远程玩家的AI跟随远程玩家）
-                    this.player.x = remotePlayer.x;
-                    this.player.y = remotePlayer.y;
+                    // ✅ 修復：確保 this.player 引用的是遠程玩家對象（包含天賦加成）
+                    this.player = remotePlayer;
                 } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
                     // 如果是本地玩家
                     if (typeof Game !== 'undefined' && Game.player) {
@@ -202,9 +220,21 @@ class AICompanion extends Entity {
             
             // 應用AI強化天賦（只影響AI傷害，不影響玩家）
             // 改為加算：將倍率轉換為加成百分比，以便未來多個來源可以相加
-            if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
-                const aiBoostLevel = TalentSystem.getTalentLevel('ai_boost') || 0;
-                if (aiBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.ai_boost) {
+            if (typeof TalentSystem !== 'undefined' && TalentSystem.tieredTalents && TalentSystem.tieredTalents.ai_boost) {
+                let aiBoostLevel = 0;
+                // ✅ 組隊模式：遠程玩家的AI使用遠程玩家的 ai_boost 天賦等級
+                // ✅ 單機模式：使用本地玩家的 ai_boost 天賦等級
+                if (this._remotePlayerUid && this.player && this.player._talentLevels) {
+                    // 組隊模式：從遠程玩家對象獲取 ai_boost 天賦等級
+                    aiBoostLevel = (typeof this.player._talentLevels.ai_boost === 'number') ? this.player._talentLevels.ai_boost : 0;
+                } else {
+                    // 單機模式或本地玩家的AI：使用本地玩家的 ai_boost 天賦等級
+                    if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+                        aiBoostLevel = TalentSystem.getTalentLevel('ai_boost') || 0;
+                    }
+                }
+                
+                if (aiBoostLevel > 0) {
                     const effect = TalentSystem.tieredTalents.ai_boost.levels[aiBoostLevel - 1];
                     if (effect && typeof effect.multiplier === 'number') {
                         // 將倍率轉換為加成百分比（例如 2.0 → +100%）
@@ -286,9 +316,21 @@ class AICompanion extends Entity {
             
             // 應用AI強化天賦（只影響AI傷害，不影響玩家）
             // 改為加算：將倍率轉換為加成百分比，以便未來多個來源可以相加
-            if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
-                const aiBoostLevel = TalentSystem.getTalentLevel('ai_boost') || 0;
-                if (aiBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.ai_boost) {
+            if (typeof TalentSystem !== 'undefined' && TalentSystem.tieredTalents && TalentSystem.tieredTalents.ai_boost) {
+                let aiBoostLevel = 0;
+                // ✅ 組隊模式：遠程玩家的AI使用遠程玩家的 ai_boost 天賦等級
+                // ✅ 單機模式：使用本地玩家的 ai_boost 天賦等級
+                if (this._remotePlayerUid && this.player && this.player._talentLevels) {
+                    // 組隊模式：從遠程玩家對象獲取 ai_boost 天賦等級
+                    aiBoostLevel = (typeof this.player._talentLevels.ai_boost === 'number') ? this.player._talentLevels.ai_boost : 0;
+                } else {
+                    // 單機模式或本地玩家的AI：使用本地玩家的 ai_boost 天賦等級
+                    if (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+                        aiBoostLevel = TalentSystem.getTalentLevel('ai_boost') || 0;
+                    }
+                }
+                
+                if (aiBoostLevel > 0) {
                     const effect = TalentSystem.tieredTalents.ai_boost.levels[aiBoostLevel - 1];
                     if (effect && typeof effect.multiplier === 'number') {
                         // 將倍率轉換為加成百分比（例如 2.0 → +100%）
