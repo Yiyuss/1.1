@@ -2696,6 +2696,15 @@ const Runtime = (() => {
   function tick(game, deltaTime) {
     if (!enabled) return;
 
+    // ✅ 修復：組隊模式下離開分頁時，停止發送輸入到服務器，避免狀態不一致
+    // 組隊模式不能暫停遊戲（Game.pause），因為其他人還在繼續遊戲
+    // 但離開分頁時應該停止發送輸入，只接收服務器狀態，切回來時會自動同步
+    if (typeof document !== "undefined" && document.hidden) {
+      // 頁面隱藏時，不發送輸入，但保持連接（WebSocket 保持開啟）
+      // 遊戲循環繼續運行，只接收服務器狀態，避免切回來時狀態不一致
+      return;
+    }
+
     // 限制發送頻率 (~30Hz / 33ms)
     const now = Date.now();
     if (now - lastSendAt < 33) return;
