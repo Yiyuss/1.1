@@ -112,6 +112,40 @@ class ExplosionEffect extends Entity {
         
         const fixedDamage = 15000; // 固定伤害，不被任何加成影响
         
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        let isSurvivalMode = false;
+        try {
+            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                    ? ModeManager.getActiveModeId()
+                    : null);
+            isSurvivalMode = (activeId === 'survival' || activeId === null);
+        } catch (_) {}
+        
+        // ✅ 組隊模式：發送 aoe_tick 到伺服器（全地圖爆炸，使用很大的半徑覆蓋整個地圖）
+        // 注意：EXPLOSION 是固定傷害，不經過 DamageSystem，所以沒有吸血和爆擊
+        if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                // 使用很大的半徑覆蓋整個地圖（確保所有敵人都受到傷害）
+                const worldWidth = (typeof Game !== 'undefined' && Game.worldWidth) ? Game.worldWidth : 3840;
+                const worldHeight = (typeof Game !== 'undefined' && Game.worldHeight) ? Game.worldHeight : 2160;
+                const maxRadius = Math.max(worldWidth, worldHeight) * 2; // 使用地圖尺寸的2倍作為半徑，確保覆蓋整個地圖
+                
+                window.SurvivalOnlineRuntime.sendToNet({
+                    type: 'aoe_tick',
+                    weaponType: 'EXPLOSION',
+                    x: this.x,
+                    y: this.y,
+                    radius: maxRadius,
+                    damage: fixedDamage,
+                    allowCrit: false, // 固定傷害，不允許爆擊
+                    critChanceBonusPct: 0,
+                    timestamp: Date.now()
+                });
+            }
+        }
+        
         for (const enemy of Game.enemies) {
             if (!enemy || enemy.markedForDeletion || enemy.health <= 0) continue;
             
@@ -119,17 +153,6 @@ class ExplosionEffect extends Entity {
             // 單機模式：直接造成傷害並顯示傷害數字
             // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器處理
             // 注意：EXPLOSION 是固定傷害，不經過 DamageSystem，所以沒有吸血
-            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-            let isSurvivalMode = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null);
-            } catch (_) {}
-            
             // 單機模式：直接造成傷害並顯示傷害數字
             if (!isSurvivalMode || !isMultiplayer) {
                 enemy.takeDamage(fixedDamage);
