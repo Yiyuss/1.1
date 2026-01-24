@@ -1420,19 +1420,26 @@ const Game = {
 
                 // 持續效果/其他：保留本地視覺，並廣播給其他玩家（讓遠程玩家也能看到）
                 // ✅ 修復：組隊模式下，SING是一次性效果，需要先清理本地玩家之前創建的效果，避免疊加
+                // ⚠️ 重要：參考無敵技能的修復方式，清理所有同玩家的SING效果（包括_isVisualOnly），確保完全清理
                 if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && 
                     projectile.weaponType === "SING" && projectile.player === this.player) {
-                    // 清理本地玩家之前創建的SING效果
+                    // ✅ 修復：清理本地玩家之前創建的所有SING效果（包括_isVisualOnly），避免疊加和白色巨大球體
+                    const playerUid = (this.multiplayer && this.multiplayer.uid) ? this.multiplayer.uid : null;
                     for (let i = this.projectiles.length - 1; i >= 0; i--) {
                         const proj = this.projectiles[i];
-                        if (proj && proj.weaponType === "SING" && proj.player === this.player && !proj._isVisualOnly) {
-                            // 完全清理舊的唱歌效果 DOM 元素
-                            if (proj.el && proj.el.parentNode) {
-                                proj.el.parentNode.removeChild(proj.el);
+                        if (proj && proj.weaponType === "SING") {
+                            // ✅ 修復：清理所有同玩家的SING效果（本地玩家創建的效果或遠程玩家創建的視覺效果）
+                            const isLocalPlayerEffect = (proj.player === this.player && !proj._isVisualOnly);
+                            const isRemotePlayerEffect = (proj._isVisualOnly && proj._remotePlayerUid === playerUid);
+                            if (isLocalPlayerEffect || isRemotePlayerEffect) {
+                                // ✅ 修復：完全清理舊的唱歌效果 DOM 元素（參考無敵技能）
+                                if (proj.el && proj.el.parentNode) {
+                                    proj.el.parentNode.removeChild(proj.el);
+                                }
+                                proj.el = null;
+                                proj.markedForDeletion = true;
+                                this.projectiles.splice(i, 1);
                             }
-                            proj.el = null;
-                            proj.markedForDeletion = true;
-                            this.projectiles.splice(i, 1);
                         }
                     }
                 }
