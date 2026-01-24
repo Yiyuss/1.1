@@ -40,12 +40,23 @@ class SingEffect extends Entity {
     _createOrUpdateDom() {
         const layer = this._ensureLayer();
         if (!layer) return;
+        // ✅ 修復：確保不會重複創建DOM元素（參考無敵技能）
+        // 如果DOM元素已經存在且已連接到DOM，只更新位置，不創建新的
+        if (this.el && this.el.parentNode) {
+            this._updateDomPosition();
+            return;
+        }
+        // ✅ 修復：如果DOM元素存在但沒有連接到DOM，先清理（避免白色巨大球體）
+        if (this.el && !this.el.parentNode) {
+            this.el = null;
+        }
         if (!this.el) {
             const img = document.createElement('img');
             img.alt = 'LA';
             img.src = 'assets/images/LA.gif'; // 優先使用 GIF
             img.style.position = 'absolute';
-            img.style.width = this.size + 'px';
+            // ✅ 修復：確保size參數正確（與單機一致：500）
+            img.style.width = (this.size || 500) + 'px';
             img.style.height = 'auto';
             img.style.imageRendering = 'pixelated';
             img.style.transform = 'translate(-50%, -100%)';
@@ -75,15 +86,18 @@ class SingEffect extends Entity {
             const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
             const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
 
+            // ✅ 修復：參考無敵技能的處理方式，使用 this.x 和 this.y 而不是 this.player.x 和 this.player.y
+            // 問題：當玩家靠近邊界時，this.player.x 和 this.player.y 可能沒有及時更新，導致位置計算錯誤
+            // 解決：使用 this.x 和 this.y（在 update() 中已經同步），確保位置計算正確（參考無敵技能的實現）
             let sx, sy;
             if (rotatedPortrait) {
                 // 直立旋轉：使用畫布原座標（交由 viewport 的 transform 處理縮放/旋轉）
-                sx = this.player.x - camX;
-                sy = this.player.y - camY - this.offsetY;
+                sx = this.x - camX;
+                sy = this.y - camY - (this.offsetY || -250);
             } else {
                 // 未旋轉：標準座標換算並加入偏移量
-                sx = (this.player.x - camX) * scaleX;
-                sy = (this.player.y - camY) * scaleY - this.offsetY;
+                sx = (this.x - camX) * scaleX;
+                sy = (this.y - camY) * scaleY - (this.offsetY || -250);
             }
 
             el.style.left = Math.round(sx) + 'px';
