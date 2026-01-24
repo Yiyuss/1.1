@@ -1332,6 +1332,10 @@ const Game = {
                     return;
                 }
 
+                // ✅ 修復：檢查是否為 AICompanion（召喚AI）
+                const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
+                    (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
+                
                 const isPersistentEffect = (
                     projectile.weaponType === 'AURA_FIELD' ||
                     projectile.weaponType === 'GRAVITY_WAVE' ||
@@ -1360,6 +1364,9 @@ const Game = {
                     projectile.weaponType === 'JUDGMENT' ||
                     projectile.weaponType === 'DIVINE_JUDGMENT' ||
                     projectile.weaponType === 'EXPLOSION' ||
+                    // ✅ 修復：SUMMON_AI（召喚AI）是持續效果，需要廣播給其他玩家
+                    projectile.weaponType === 'SUMMON_AI' ||
+                    isAICompanion ||
                     (projectile.constructor && (
                         projectile.constructor.name === 'AuraField' ||
                         projectile.constructor.name === 'GravityWaveField' ||
@@ -1380,7 +1387,9 @@ const Game = {
                         projectile.constructor.name === 'DeathlineWarriorEffect' ||
                         projectile.constructor.name === 'JudgmentEffect' ||
                         projectile.constructor.name === 'DivineJudgmentEffect' ||
-                        projectile.constructor.name === 'ExplosionEffect'
+                        projectile.constructor.name === 'ExplosionEffect' ||
+                        // ✅ 修復：AICompanion（召喚AI）是持續效果，需要廣播給其他玩家
+                        projectile.constructor.name === 'AICompanion'
                     )) ||
                     (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
                 );
@@ -1619,6 +1628,10 @@ const Game = {
                     // 持續傷害類技能列表（每個玩家的傷害獨立計算並疊加）：
                     // - 守護領域、引力波、環繞球類（綿羊護體、雞腿庇佑、旋轉鬆餅、心意相隨、鳳梨環繞）
                     // - 激光、光芒萬丈、大波球、狂熱大波、心靈震波
+                    // ✅ 修復：檢查是否為 AICompanion（召喚AI）
+                    const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
+                        (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
+                    
                     const isPersistentEffect = (
                         // 武器類型檢查
                         projectile.weaponType === 'AURA_FIELD' ||
@@ -1648,6 +1661,9 @@ const Game = {
                         projectile.weaponType === 'JUDGMENT' ||
                         projectile.weaponType === 'DIVINE_JUDGMENT' ||
                         projectile.weaponType === 'EXPLOSION' ||
+                        // ✅ 修復：SUMMON_AI（召喚AI）是持續效果，需要廣播給其他玩家
+                        projectile.weaponType === 'SUMMON_AI' ||
+                        isAICompanion ||
                         // 構造函數名稱檢查（更可靠）
                         (projectile.constructor && (
                             projectile.constructor.name === 'AuraField' ||
@@ -1669,7 +1685,9 @@ const Game = {
                             projectile.constructor.name === 'DeathlineWarriorEffect' ||
                             projectile.constructor.name === 'JudgmentEffect' ||
                             projectile.constructor.name === 'DivineJudgmentEffect' ||
-                            projectile.constructor.name === 'ExplosionEffect'
+                            projectile.constructor.name === 'ExplosionEffect' ||
+                            // ✅ 修復：AICompanion（召喚AI）是持續效果，需要廣播給其他玩家
+                            projectile.constructor.name === 'AICompanion'
                         )) ||
                         // 檢查是否有持續傷害屬性（tickDamage、tickIntervalMs）
                         (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
