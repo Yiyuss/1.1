@@ -2165,13 +2165,24 @@ const UI = {
             return; // 不显示新菜单，等待当前菜单关闭后再显示
         }
         
-        // ✅ 修复：如果队列中有待处理的升级，且菜单已关闭，将此次升级加入队列并处理
-        // 这样可以避免宝箱升级覆盖经验升级（或反之）
+        // ✅ 修复：如果队列中有待处理的升级，且菜单已关闭，应该先处理队列
+        // ⚠️ 关键：如果队列中有标记但菜单已关闭，说明队列可能卡住了，需要处理队列
         if (isMultiplayer && this._pendingLevelUps && this._pendingLevelUps.length > 0) {
-            // 队列中有待处理的升级，将此次升级也加入队列
-            this._pendingLevelUps.push('pending'); // 使用字符串标记
-            // 不立即处理，等待 hideLevelUpMenu 处理队列（避免重复处理）
-            return; // 不显示新菜单，等待队列处理完成
+            // 队列中有待处理的升级，但菜单已关闭，说明队列可能卡住了
+            // ⚠️ 关键修复：先触发队列处理，而不是直接显示菜单
+            // 如果队列处理失败，清空队列，然后显示菜单
+            setTimeout(() => {
+                // 检查队列是否还有标记（如果处理成功，标记应该被移除）
+                if (this._pendingLevelUps && this._pendingLevelUps.length > 0) {
+                    // 队列处理可能失败，清空队列，避免卡住
+                    console.warn('[UI] 队列处理可能失败，清空队列，避免卡住');
+                    this._pendingLevelUps = [];
+                    // 清空队列后，重新调用 showLevelUpMenu 显示菜单
+                    this.showLevelUpMenu();
+                }
+            }, 100);
+            // 不继续执行，等待队列处理完成
+            return;
         }
         
         // 暫停遊戲，但不靜音，避免升級音效與BGM被切斷（僅單人模式）
@@ -2280,6 +2291,10 @@ const UI = {
             setTimeout(() => {
                 // ✅ 修复：处理队列中的升级（包括经验升级和宝箱升级）
                 // ⚠️ 关键：需要智能判断是经验升级还是宝箱升级
+                // ⚠️ 关键修复：检查队列是否还有标记，如果没有标记，说明已经被处理了，直接返回
+                if (!this._pendingLevelUps || this._pendingLevelUps.length === 0) {
+                    return; // 队列已空，不需要处理
+                }
                 if (typeof Game !== 'undefined' && Game.player && !Game.player._isRemotePlayer) {
                     const player = Game.player;
                     // ✅ 修复：优先处理经验升级（如果经验足够）
@@ -2303,7 +2318,18 @@ const UI = {
                             this._pendingLevelUps.shift(); // 移除一个标记（宝箱升级）
                             // 显示升级菜单（宝箱升级）
                             this.showLevelUpMenu();
+                        } else {
+                            // ⚠️ 修复：如果队列为空，但进入了这个分支，说明队列处理可能有问题
+                            // 清空队列，避免卡住
+                            if (this._pendingLevelUps) {
+                                this._pendingLevelUps = [];
+                            }
                         }
+                    }
+                } else {
+                    // ⚠️ 修复：如果玩家不存在，清空队列，避免卡住
+                    if (this._pendingLevelUps) {
+                        this._pendingLevelUps = [];
                     }
                 }
             }, 50);
