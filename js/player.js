@@ -1233,38 +1233,8 @@ class Player extends Entity {
             Game.cameraShake.intensity = 8; // 與 BOSS 爆炸一致的強度
             Game.cameraShake.duration = 200; // 毫秒
             
-            // ✅ MMORPG 架構：廣播鏡頭震動效果，讓所有玩家都能看到
-            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-            if (isMultiplayer) {
-                try {
-                    let isSurvivalMode = false;
-                    try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
-                        isSurvivalMode = (activeId === 'survival' || activeId === null);
-                    } catch (_) {}
-                    
-                    // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包（避免污染單機/其他模式）
-                    if (
-                        isSurvivalMode &&
-                        typeof Game !== 'undefined' &&
-                        Game.multiplayer &&
-                        Game.multiplayer.enabled === true &&
-                        typeof window !== "undefined" &&
-                        typeof window.SurvivalOnlineBroadcastEvent === "function"
-                    ) {
-                        window.SurvivalOnlineBroadcastEvent("screen_effect", {
-                            type: 'ultimate_activation',
-                            x: this.x,
-                            y: this.y,
-                            cameraShake: { active: true, intensity: 8, duration: 200 }
-                        });
-                    }
-                } catch (_) {}
-            }
+            // ✅ 單機元素：鏡頭震動是單人元素，只在本地處理，不廣播給其他玩家
+            // 注意：震動不應該通過 screen_effect 事件廣播，每個玩家應該獨立處理自己的震動
         } catch (_) {}
     }
 
@@ -1483,38 +1453,8 @@ class Player extends Entity {
             Game.cameraShake.intensity = 10; // 比普通大绝更强的震动
             Game.cameraShake.duration = 300; // 300毫秒
             
-            // ✅ MMORPG 架構：廣播鏡頭震動效果，讓所有玩家都能看到
-            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-            if (isMultiplayer) {
-                try {
-                    let isSurvivalMode = false;
-                    try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
-                        isSurvivalMode = (activeId === 'survival' || activeId === null);
-                    } catch (_) {}
-                    
-                    // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包（避免污染單機/其他模式）
-                    if (
-                        isSurvivalMode &&
-                        typeof Game !== 'undefined' &&
-                        Game.multiplayer &&
-                        Game.multiplayer.enabled === true &&
-                        typeof window !== "undefined" &&
-                        typeof window.SurvivalOnlineBroadcastEvent === "function"
-                    ) {
-                        window.SurvivalOnlineBroadcastEvent("screen_effect", {
-                            type: 'explosion_ultimate',
-                            x: this.x,
-                            y: this.y,
-                            cameraShake: { active: true, intensity: 10, duration: 300 }
-                        });
-                    }
-                } catch (_) {}
-            }
+            // ✅ 單機元素：鏡頭震動是單人元素，只在本地處理，不廣播給其他玩家
+            // 注意：震動不應該通過 screen_effect 事件廣播，每個玩家應該獨立處理自己的震動
         } catch (_) {}
     }
 }
