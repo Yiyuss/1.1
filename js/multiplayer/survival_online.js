@@ -1608,7 +1608,16 @@ const Runtime = (() => {
                     // ✅ MMORPG架构：远程玩家的AI也应该造成伤害（每个玩家的AI独立计算伤害）
                     // 不标记为_isVisualOnly，让每个玩家的AI都能独立计算伤害并叠加
                     ai._remotePlayerUid = eventData.playerUid;
+                    // ✅ 修复：确保AI的player引用正确设置
+                    ai.player = targetPlayer;
                     Game.projectiles.push(ai);
+                    console.log('[SurvivalOnline] AI创建成功:', {
+                      playerUid: eventData.playerUid,
+                      aiId: ai.id,
+                      x: ai.x,
+                      y: ai.y,
+                      summonAILevel: ai.summonAILevel
+                    });
                   } else {
                     // 更新現有 AI 的位置和等級
                     existingAI.x = eventData.x || existingAI.x;
@@ -1616,7 +1625,14 @@ const Runtime = (() => {
                     if (typeof eventData.summonAILevel === "number") {
                       existingAI.summonAILevel = eventData.summonAILevel;
                     }
+                    // ✅ 修复：确保AI的player引用始终是最新的
+                    existingAI.player = targetPlayer;
                   }
+                } else {
+                  console.warn('[SurvivalOnline] AI创建失败: targetPlayer为null', {
+                    playerUid: eventData.playerUid,
+                    eventData: eventData
+                  });
                 }
               } else if ((weaponType === "CHAIN_LIGHTNING" || weaponType === "FRENZY_LIGHTNING") && typeof ChainLightningEffect !== "undefined") {
                 // 連鎖閃電：需要找到對應的玩家（使用完整的 Player 對象）
