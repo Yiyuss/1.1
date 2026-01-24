@@ -2577,6 +2577,7 @@ const Runtime = (() => {
           if (typeof myState.isUltimateActive === "boolean") {
             const wasUltimateActive = player.isUltimateActive;
             player.isUltimateActive = myState.isUltimateActive;
+            
             // ✅ 單機元素：如果伺服器通知大招結束，本地執行 deactivateUltimate（恢復武器、屬性等）
             // 但只執行功能恢復，不執行視覺恢復（視覺由伺服器同步）
             if (wasUltimateActive && !myState.isUltimateActive && typeof player.deactivateUltimate === 'function') {
