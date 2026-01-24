@@ -1823,6 +1823,8 @@ const Runtime = (() => {
                   effect.id = projectileId;
                   // 不标记为_isVisualOnly，让每个玩家的爆炸都能独立计算伤害
                   effect._remotePlayerUid = eventData.playerUid;
+                  // ✅ 修復：初始化 hitEnemies 數組，以便在 hitEvents 中收集命中敵人
+                  if (!effect.hitEnemies) effect.hitEnemies = [];
                   Game.projectiles.push(effect);
                 }
               } else if ((weaponType === "DEATHLINE_WARRIOR" || weaponType === "DEATHLINE_SUPERMAN") && typeof DeathlineWarriorEffect !== "undefined") {
@@ -2696,11 +2698,20 @@ const Runtime = (() => {
   function tick(game, deltaTime) {
     if (!enabled) return;
 
-    // ✅ 修復：組隊模式下離開分頁時，停止發送輸入到服務器，避免狀態不一致
+    // ✅ 修復：組隊模式下離開分頁或失去焦點時，停止發送輸入到服務器，避免狀態不一致
     // 組隊模式不能暫停遊戲（Game.pause），因為其他人還在繼續遊戲
-    // 但離開分頁時應該停止發送輸入，只接收服務器狀態，切回來時會自動同步
+    // 但離開分頁或失去焦點時應該停止發送輸入，只接收服務器狀態，切回來時會自動同步
     if (typeof document !== "undefined" && document.hidden) {
       // 頁面隱藏時，不發送輸入，但保持連接（WebSocket 保持開啟）
+      // 遊戲循環繼續運行，只接收服務器狀態，避免切回來時狀態不一致
+      return;
+    }
+    
+    // ✅ 修復：檢查窗口是否失去焦點（blur 事件）
+    // 組隊模式下，即使窗口失去焦點，也不應該暫停遊戲，但應該停止發送輸入
+    // 使用 document.hasFocus() 檢查窗口焦點狀態
+    if (typeof document !== "undefined" && typeof document.hasFocus === "function" && !document.hasFocus()) {
+      // 窗口失去焦點時，不發送輸入，但保持連接（WebSocket 保持開啟）
       // 遊戲循環繼續運行，只接收服務器狀態，避免切回來時狀態不一致
       return;
     }
@@ -4915,6 +4926,117 @@ function handleServerGameState(state, timestamp) {
               life: effectDuration,
               maxLife: effectDuration
             });
+          } else if (weaponType === 'EXPLOSION') {
+            // ✅ 修復：艾比大絕的特殊傷害數字顯示（放大2倍，紅色特效）
+            // 使用 ExplosionEffect 的 _showSpecialDamageNumber 方法顯示特殊傷害數字
+            if (typeof ExplosionEffect !== 'undefined' && typeof ExplosionEffect.prototype._showSpecialDamageNumber === 'function') {
+              // 創建臨時 ExplosionEffect 實例來調用 _showSpecialDamageNumber
+              const tempExplosion = Object.create(ExplosionEffect.prototype);
+              tempExplosion._showSpecialDamageNumber(dmg, x, y - h / 2);
+            }
+            
+            // ✅ 修復：艾比大絕的 knife2.gif 覆蓋層特效（多人元素）
+            // 需要在所有命中的敵人位置顯示 knife2.gif 覆蓋層
+            // 查找對應的 ExplosionEffect 實例，如果存在則添加命中敵人
+            if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+              const explosionEffect = Game.projectiles.find(p => 
+                p && p.constructor && p.constructor.name === 'ExplosionEffect' && 
+                p.weaponType === 'EXPLOSION' && 
+                !p.damageApplied && 
+                !p.markedForDeletion
+              );
+              if (explosionEffect && Array.isArray(explosionEffect.hitEnemies)) {
+                // 檢查是否已存在該敵人（避免重複）
+                const enemyId = ev.enemyId || null;
+                const existingHit = explosionEffect.hitEnemies.find(h => h.enemyId === enemyId);
+                if (!existingHit) {
+                  explosionEffect.hitEnemies.push({
+                    enemy: null, // 敵人可能已經死亡，只保存位置
+                    x: x,
+                    y: y,
+                    enemyId: enemyId
+                  });
+                }
+                // 如果還沒有創建覆蓋層，現在創建
+                if (!explosionEffect._hitOverlaysCreated && typeof explosionEffect._createHitOverlays === 'function') {
+                  explosionEffect._createHitOverlays();
+                  explosionEffect._hitOverlaysCreated = true;
+                }
+              }
+            }
+            
+            // 後備方案：如果找不到 ExplosionEffect 實例，直接創建 knife2.gif 覆蓋層
+            if (typeof ExplosionEffect === 'undefined' || typeof ExplosionEffect.prototype._showSpecialDamageNumber !== 'function') {
+              // 後備方案：直接創建特殊傷害數字（與 ExplosionEffect._showSpecialDamageNumber 相同邏輯）
+              let layer = null;
+              try {
+                if (typeof DamageNumbers !== 'undefined' && DamageNumbers.ensureLayer) {
+                  layer = DamageNumbers.ensureLayer();
+                } else if (typeof DamageNumbers !== 'undefined' && DamageNumbers._layer) {
+                  layer = DamageNumbers._layer;
+                }
+              } catch (_) {}
+              if (layer) {
+                const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+                if (canvas) {
+                  const rect = canvas.getBoundingClientRect();
+                  const scaleX = rect.width / canvas.width;
+                  const scaleY = rect.height / canvas.height;
+                  const camX = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0;
+                  const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
+                  const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+                  
+                  let sx = x - camX;
+                  let sy = y - camY;
+                  if (!rotatedPortrait) {
+                    sx *= scaleX;
+                    sy *= scaleY;
+                  }
+                  
+                  const el = document.createElement('div');
+                  el.textContent = String(Math.round(dmg));
+                  el.style.position = 'absolute';
+                  el.style.left = Math.round(sx) + 'px';
+                  el.style.top = Math.round(sy) + 'px';
+                  el.style.transform = 'translate(-50%, -50%)';
+                  el.style.fontFamily = 'GenSenRounded-H, sans-serif';
+                  el.style.fontWeight = '800';
+                  
+                  try {
+                    const isMobile = (typeof window !== 'undefined') && (
+                      (window.matchMedia && (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches))
+                    );
+                    const baseSize = 56; // 28 * 2
+                    const size = isMobile ? Math.round(baseSize * 0.75) : baseSize;
+                    el.style.fontSize = size + 'px';
+                  } catch (_) {
+                    el.style.fontSize = '56px';
+                  }
+                  
+                  el.style.color = '#ff0000';
+                  el.style.webkitTextStroke = '2px #ffffff';
+                  el.style.textShadow = '0 0 20px rgba(255, 0, 0, 1), 0 0 10px rgba(255, 255, 255, 0.8), 0 0 4px #000, 3px 0 0 #000, -3px 0 0 #000, 0 3px 0 #000, 0 -3px 0 #000';
+                  el.style.willChange = 'transform, opacity';
+                  
+                  layer.appendChild(el);
+                  
+                  const duration = 3400; // 1700 * 2
+                  const easing = 'cubic-bezier(0.22, 1, 0.36, 1)';
+                  const mag = 72; // 36 * 2
+                  const dx = 0;
+                  const dy = -mag;
+                  
+                  const anim = el.animate([
+                    { transform: 'translate(-50%, -50%)', opacity: 1 },
+                    { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`, opacity: 0 }
+                  ], { duration, easing, fill: 'forwards' });
+                  
+                  anim.onfinish = () => {
+                    if (el && el.parentNode) el.parentNode.removeChild(el);
+                  };
+                }
+              }
+            }
           }
         }
       }
