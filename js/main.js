@@ -275,6 +275,16 @@ function setupAutoPause() {
     });
 
     window.addEventListener('focus', () => {
+        // ✅ 修復：組隊模式下不應該恢復遊戲（因為組隊模式從未暫停過）
+        // 組隊模式不能暫停遊戲（Game.pause），所以也不應該恢復遊戲（Game.resume）
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.sessionId);
+        if (isMultiplayer) {
+            // 組隊模式下，只恢復音效，不調用 Game.resume()
+            // 遊戲循環繼續運行，只接收服務器狀態，tick 函數會自動恢復發送輸入（通過 document.hasFocus() 檢查）
+            AudioManager.setMuted && AudioManager.setMuted(false);
+            return;
+        }
+        
         try {
             const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
                 ? GameModeManager.getCurrent()
