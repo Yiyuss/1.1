@@ -2154,10 +2154,13 @@ const UI = {
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         
         // ✅ 组队模式：如果当前有升级菜单显示，将此次升级加入队列
+        // ⚠️ 关键：需要区分经验升级和宝箱升级，使用不同的标记
         if (isMultiplayer && this.levelUpMenu && !this.levelUpMenu.classList.contains('hidden')) {
             // 菜单正在显示，将此次升级加入队列
+            // ⚠️ 修复：无法区分是经验升级还是宝箱升级，所以使用通用标记
+            // 但需要在 hideLevelUpMenu 中智能处理
             if (this._pendingLevelUps) {
-                this._pendingLevelUps.push(true);
+                this._pendingLevelUps.push('pending'); // 使用字符串标记，便于区分
             }
             return; // 不显示新菜单，等待当前菜单关闭后再显示
         }
@@ -2166,7 +2169,7 @@ const UI = {
         // 这样可以避免宝箱升级覆盖经验升级（或反之）
         if (isMultiplayer && this._pendingLevelUps && this._pendingLevelUps.length > 0) {
             // 队列中有待处理的升级，将此次升级也加入队列
-            this._pendingLevelUps.push(true);
+            this._pendingLevelUps.push('pending'); // 使用字符串标记
             // 不立即处理，等待 hideLevelUpMenu 处理队列（避免重复处理）
             return; // 不显示新菜单，等待队列处理完成
         }
@@ -2272,27 +2275,32 @@ const UI = {
         // ✅ 组队模式：检查队列，如果有待处理的升级，自动显示下一个
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         if (isMultiplayer && this._pendingLevelUps && this._pendingLevelUps.length > 0) {
-            // 移除队列中的一个升级标记
-            this._pendingLevelUps.shift();
+            // ⚠️ 关键修复：不在这里移除标记，而是在处理完后再移除
             // 延迟一帧，确保菜单完全关闭后再显示下一个
             setTimeout(() => {
                 // ✅ 修复：处理队列中的升级（包括经验升级和宝箱升级）
-                // 检查是否还能继续升级（经验升级）或是否有宝箱升级
+                // ⚠️ 关键：需要智能判断是经验升级还是宝箱升级
                 if (typeof Game !== 'undefined' && Game.player && !Game.player._isRemotePlayer) {
                     const player = Game.player;
                     // ✅ 修复：优先处理经验升级（如果经验足够）
+                    // 这样可以确保经验升级优先于宝箱升级
                     if (player.experience >= player.experienceToNextLevel) {
+                        // 经验升级：调用 levelUp()，这会调用 showLevelUpMenu()
+                        // ⚠️ 关键：先移除一个标记，然后处理经验升级
+                        if (this._pendingLevelUps && this._pendingLevelUps.length > 0) {
+                            this._pendingLevelUps.shift(); // 移除一个标记（经验升级）
+                        }
                         player.levelUp(); // 这会调用 showLevelUpMenu，但此时队列中还有标记，会继续处理
                         // 如果升级后经验仍然足够，将下一个升级加入队列（等待下一次 hideLevelUpMenu 处理）
                         if (player.experience >= player.experienceToNextLevel && this._pendingLevelUps) {
-                            this._pendingLevelUps.push(true);
+                            this._pendingLevelUps.push('exp');
                         }
                     } else {
                         // ✅ 修复：如果没有经验升级，但队列中还有标记，说明是宝箱升级
                         // 直接显示升级菜单（宝箱升级不需要扣除经验）
+                        // ⚠️ 关键：先移除一个标记，然后处理宝箱升级
                         if (this._pendingLevelUps && this._pendingLevelUps.length > 0) {
-                            // 移除队列中的一个升级标记（宝箱升级）
-                            this._pendingLevelUps.shift();
+                            this._pendingLevelUps.shift(); // 移除一个标记（宝箱升级）
                             // 显示升级菜单（宝箱升级）
                             this.showLevelUpMenu();
                         }
