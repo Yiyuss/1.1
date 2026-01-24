@@ -80,7 +80,13 @@ class AICompanion extends Entity {
     }
     
     update(deltaTime) {
+        // ✅ 修复：先检查Game，再检查player（避免AI因为player暂时为null而无法更新）
         if (!Game || Game.isGameOver) return;
+        
+        // ✅ 修复：如果deltaTime无效，使用默认值
+        if (!deltaTime || deltaTime <= 0) {
+            deltaTime = 16.67; // 默认60FPS
+        }
         
         // ✅ 組隊模式：遠程玩家的AI需要更新位置並使用最新的遠程玩家對象（包含天賦加成）
         // ✅ 單機模式：不會進入此分支（this._remotePlayerUid 在單機模式下不會被設置）
@@ -139,6 +145,12 @@ class AICompanion extends Entity {
         // ✅ 修復：在更新 player 引用後，再次檢查 this.player 是否存在
         if (!this.player) {
             // 如果 this.player 仍然為 null，跳過本次更新（但不刪除，等待下次更新）
+            return;
+        }
+        
+        // ✅ 修复：检查player是否有有效的坐标
+        if (typeof this.player.x !== 'number' || typeof this.player.y !== 'number') {
+            // player坐标无效，跳过本次更新
             return;
         }
         
