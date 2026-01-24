@@ -2695,8 +2695,8 @@ class GameState {
       // ⚠️ 100%重构：如果sessionId为空，返回空数组（防止旧数据泄露）
       enemies: hasValidSession ? this.enemies : [],
       projectiles: hasValidSession ? this.projectiles : [],
-      bossProjectiles: hasValidSession ? this.bossProjectiles : [],
-      bullets: hasValidSession ? this.bullets : [],
+      bossProjectiles: this.bossProjectiles || [], // ✅ 修复：始终发送BOSS投射物（即使 hasValidSession 为 false，也发送空数组）
+      bullets: this.bullets || [], // ✅ 修复：始终发送弹幕（即使 hasValidSession 为 false，也发送空数组）
       experienceOrbs: hasValidSession ? this.experienceOrbs : [],
       chests: hasValidSession ? this.chests : [],
       obstacles: this.obstacles || [], // ✅ 修复：始终发送障碍物（即使 hasValidSession 为 false，也发送空数组）
