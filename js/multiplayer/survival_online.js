@@ -2140,46 +2140,36 @@ const Runtime = (() => {
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "SING" && typeof SingEffect !== "undefined") {
-                // 唱歌：需要找到對應的玩家
+                // 唱歌：需要找到對應的玩家（使用完整的 Player 對象，以便正確更新位置）
                 // ✅ 修復：唱歌是一次性效果（COOLDOWN: 5000），每次施放都創建新的效果（與單機一致）
+                // 參考無敵技能的處理方式：每次施放都創建新的效果，即使舊的效果還在（與單機一致）
                 // 但需要先清理同一個玩家的舊唱歌效果，避免疊加（參考無敵的清理邏輯）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
-                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                  if (rt && typeof rt.getRemotePlayers === 'function') {
-                    const remotePlayers = rt.getRemotePlayers() || [];
-                    const remotePlayer = remotePlayers.find(p => p.uid === eventData.playerUid);
-                    if (remotePlayer) {
-                      targetPlayer = { x: remotePlayer.x, y: remotePlayer.y };
-                    } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
-                      targetPlayer = Game.player;
+                  // ✅ 修復1：優先使用 RemotePlayerManager.get 獲取完整的 Player 對象（參考無敵技能）
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) {
+                        targetPlayer = remotePlayer; // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
+                      }
                     }
-                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  }
+                  // 如果找不到遠程玩家，檢查是否是本地玩家
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                     targetPlayer = Game.player;
                   }
                 }
 
                 if (targetPlayer) {
-                  // ✅ 修復：先清理同一個玩家的舊唱歌效果，避免疊加
-                  // 需要檢查遠程玩家和本地玩家兩種情況
+                  // ✅ 修復2：先清理同一個玩家的舊唱歌效果，避免疊加（參考無敵的清理邏輯）
                   if (eventData.playerUid && Array.isArray(Game.projectiles)) {
-                    const isLocalPlayer = (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid));
-                    for (let i = Game.projectiles.length - 1; i >= 0; i--) {
-                      const proj = Game.projectiles[i];
-                      if (proj && proj.weaponType === "SING") {
-                        // 檢查是否是同一個玩家的效果
-                        let shouldRemove = false;
-                        if (isLocalPlayer) {
-                          // 本地玩家：檢查是否是本地玩家創建的效果（沒有 _remotePlayerUid 或 player === Game.player）
-                          shouldRemove = (!proj._remotePlayerUid && proj.player === Game.player) || 
-                                         (proj._remotePlayerUid === eventData.playerUid) || 
-                                         (proj.player && proj.player === Game.player);
-                        } else {
-                          // 遠程玩家：檢查 _remotePlayerUid 或 player._remoteUid
-                          shouldRemove = (proj._remotePlayerUid === eventData.playerUid) || 
-                                         (proj.player && proj.player._remoteUid === eventData.playerUid);
-                        }
-                        if (shouldRemove) {
+                    try {
+                      // ✅ 修復：使用與無敵相同的清理邏輯，確保完全清理舊效果
+                      for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+                        const proj = Game.projectiles[i];
+                        if (proj && proj.weaponType === "SING" && proj._remotePlayerUid === eventData.playerUid) {
                           // ✅ 修復：完全清理舊的唱歌效果 DOM 元素（參考無敵）
                           if (proj.el && proj.el.parentNode) {
                             proj.el.parentNode.removeChild(proj.el);
@@ -2189,18 +2179,21 @@ const Runtime = (() => {
                           Game.projectiles.splice(i, 1);
                         }
                       }
-                    }
+                    } catch (_) {}
                   }
                   
+                  // ✅ 修復3：每次施放都創建新的效果（像無敵一樣），與單機一致
+                  // ✅ 修復4：確保參數與單機一致（size: 500, offsetY: -250, duration: 2000）
                   const effect = new SingEffect(
-                    targetPlayer,
-                    eventData.duration || 2000
+                    targetPlayer, // ✅ 修復：使用完整的 Player 對象，而不是只有 x, y
+                    eventData.duration || 2000 // ✅ 修復：與單機一致（CONFIG.SING.DURATION: 2000）
                   );
                   effect.id = projectileId;
                   effect._isVisualOnly = true;
                   effect._remotePlayerUid = eventData.playerUid;
-                  if (typeof eventData.size === "number") effect.size = eventData.size;
-                  if (typeof eventData.offsetY === "number") effect.offsetY = eventData.offsetY;
+                  // ✅ 修復5：確保參數與單機一致（參考 sing.js Line 10-11）
+                  effect.size = (typeof eventData.size === "number") ? eventData.size : 500; // 與單機一致
+                  effect.offsetY = (typeof eventData.offsetY === "number") ? eventData.offsetY : -250; // 與單機一致
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "INVINCIBLE" && typeof InvincibleEffect !== "undefined") {
@@ -5425,7 +5418,7 @@ function updateProjectilesFromServer(projectiles) {
     return (
       // 一次性視覺效果（每次 fire() 都創建新的）
       weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' ||
-      weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' || weaponType === 'INVINCIBLE' ||
+      weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' || weaponType === 'INVINCIBLE' || weaponType === 'SING' ||
       // 持續視覺效果（通過事件廣播的）
       weaponType === 'AURA_FIELD' || weaponType === 'GRAVITY_WAVE' ||
       weaponType === 'ORBIT' || weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' ||
@@ -5437,7 +5430,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'JUDGMENT' || weaponType === 'DIVINE_JUDGMENT' || weaponType === 'EXPLOSION' ||
       // 通過構造函數名稱檢查
       constructorName === 'LaserBeam' || constructorName === 'ChainLightningEffect' || constructorName === 'FrenzyLightningEffect' ||
-      constructorName === 'SlashEffect' || constructorName === 'InvincibleEffect' || constructorName === 'AuraField' || constructorName === 'GravityWaveField' ||
+      constructorName === 'SlashEffect' || constructorName === 'InvincibleEffect' || constructorName === 'SingEffect' || constructorName === 'AuraField' || constructorName === 'GravityWaveField' ||
       constructorName === 'OrbitBall' || constructorName === 'RadiantGloryEffect' || constructorName === 'ShockwaveEffect' ||
       constructorName === 'IceFieldEffect' || constructorName === 'YoungDadaGloryEffect' || constructorName === 'FrenzyYoungDadaGloryEffect' ||
       constructorName === 'DeathlineWarriorEffect' || constructorName === 'JudgmentEffect' || constructorName === 'DivineJudgmentEffect' ||
