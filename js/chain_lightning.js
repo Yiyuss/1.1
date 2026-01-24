@@ -258,11 +258,18 @@ class ChainLightningEffect extends Entity {
                                 DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
                             }
                         }
-                    } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
-                        // ⚠️ 修復：多人模式：本地玩家使用連鎖閃電時，需要發送傷害到伺服器
+                    } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player) {
+                        // ✅ 修復：多人模式：本地玩家或本地玩家的AI使用連鎖閃電時，需要發送傷害到伺服器
                         // 連鎖閃電是單次傷害，使用 aoe_tick 但只針對單個敵人（radius 設為很小的值）
-                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                        // 檢查是否是本地玩家或本地玩家的AI（AICompanion）
+                        const isLocalPlayer = (this.player === Game.player);
+                        const isLocalPlayerAI = (this.player && this.player.constructor && this.player.constructor.name === 'AICompanion' && this.player.player === Game.player);
+                        if ((isLocalPlayer || isLocalPlayerAI) && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                             if (!isPlayer && target && !target.markedForDeletion && target.health > 0) {
+                                // 使用AI的爆擊率（如果player是AICompanion）
+                                const critChance = (isLocalPlayerAI && this.player.critChanceBonusPct != null) 
+                                    ? this.player.critChanceBonusPct 
+                                    : ((this.player && this.player.critChanceBonusPct) || 0);
                                 window.SurvivalOnlineRuntime.sendToNet({
                                     type: 'aoe_tick',
                                     weaponType: this.weaponType || 'CHAIN_LIGHTNING',
@@ -271,7 +278,7 @@ class ChainLightningEffect extends Entity {
                                     radius: 1, // 很小的半徑，只命中目標敵人
                                     damage: finalDamage,
                                     allowCrit: true,
-                                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                                    critChanceBonusPct: critChance
                                 });
                             }
                         }
@@ -681,11 +688,18 @@ class FrenzyLightningEffect extends Entity {
                                 DamageNumbers.show(finalDamage, target.x, target.y - (target.height||0)/2, isCrit, { dirX: (tx - fx), dirY: (ty - fy), enemyId: target.id });
                             }
                         }
-                    } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
-                        // ⚠️ 修復：多人模式：本地玩家使用連鎖閃電時，需要發送傷害到伺服器
+                    } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player) {
+                        // ✅ 修復：多人模式：本地玩家或本地玩家的AI使用連鎖閃電時，需要發送傷害到伺服器
                         // 連鎖閃電是單次傷害，使用 aoe_tick 但只針對單個敵人（radius 設為很小的值）
-                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                        // 檢查是否是本地玩家或本地玩家的AI（AICompanion）
+                        const isLocalPlayer = (this.player === Game.player);
+                        const isLocalPlayerAI = (this.player && this.player.constructor && this.player.constructor.name === 'AICompanion' && this.player.player === Game.player);
+                        if ((isLocalPlayer || isLocalPlayerAI) && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                             if (!isPlayer && target && !target.markedForDeletion && target.health > 0) {
+                                // 使用AI的爆擊率（如果player是AICompanion）
+                                const critChance = (isLocalPlayerAI && this.player.critChanceBonusPct != null) 
+                                    ? this.player.critChanceBonusPct 
+                                    : ((this.player && this.player.critChanceBonusPct) || 0);
                                 window.SurvivalOnlineRuntime.sendToNet({
                                     type: 'aoe_tick',
                                     weaponType: this.weaponType || 'CHAIN_LIGHTNING',
@@ -694,7 +708,7 @@ class FrenzyLightningEffect extends Entity {
                                     radius: 1, // 很小的半徑，只命中目標敵人
                                     damage: finalDamage,
                                     allowCrit: true,
-                                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                                    critChanceBonusPct: critChance
                                 });
                             }
                         }
