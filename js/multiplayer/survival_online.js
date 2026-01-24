@@ -2615,13 +2615,17 @@ const Runtime = (() => {
             player.ultimateEndTime = myState.ultimateEndTime;
           }
           // ✅ 多人元素：體型同步（大招變身時的視覺效果）
-          if (typeof myState.width === "number" && myState.width > 0) {
+          // ✅ 修复：大招结束时，服务器会恢复体积，需要同步（即使值为原始值，也要同步）
+          if (typeof myState.width === "number") {
+            // 允许同步原始体积（可能小于或等于当前值）
             player.width = myState.width;
           }
-          if (typeof myState.height === "number" && myState.height > 0) {
+          if (typeof myState.height === "number") {
+            // 允许同步原始体积（可能小于或等于当前值）
             player.height = myState.height;
           }
-          if (typeof myState.collisionRadius === "number" && myState.collisionRadius > 0) {
+          if (typeof myState.collisionRadius === "number") {
+            // 允许同步原始碰撞半径（可能小于或等于当前值）
             player.collisionRadius = myState.collisionRadius;
           }
 
@@ -5504,13 +5508,17 @@ function updateRemotePlayerFromServer(playerState) {
       remotePlayer.ultimateEndTime = playerState.ultimateEndTime;
     }
     // 體型同步（大招變身）
-    if (typeof playerState.width === 'number' && playerState.width > 0) {
+    // ✅ 修复：大招结束时，服务器会恢复体积，需要同步（即使值为原始值，也要同步）
+    if (typeof playerState.width === 'number') {
+      // 允许同步原始体积（可能小于或等于当前值）
       remotePlayer.width = playerState.width;
     }
-    if (typeof playerState.height === 'number' && playerState.height > 0) {
+    if (typeof playerState.height === 'number') {
+      // 允许同步原始体积（可能小于或等于当前值）
       remotePlayer.height = playerState.height;
     }
-    if (typeof playerState.collisionRadius === 'number' && playerState.collisionRadius > 0) {
+    if (typeof playerState.collisionRadius === 'number') {
+      // 允许同步原始碰撞半径（可能小于或等于当前值）
       remotePlayer.collisionRadius = playerState.collisionRadius;
     }
   } catch (_) { }
