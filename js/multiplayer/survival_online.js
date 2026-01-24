@@ -1128,6 +1128,8 @@ const Runtime = (() => {
               if (typeof UI !== "undefined" && UI.showLevelUpMenu) {
                 // ✅ 修復：showLevelUpMenu 會檢查隊列，如果菜單正在顯示，會加入隊列
                 // 這樣可以確保寶箱升級和經驗升級都不會重疊
+                // ⚠️ 關鍵：寶箱升級直接調用 showLevelUpMenu，會自動加入隊列（如果菜單正在顯示）
+                // 如果菜單未顯示，會直接顯示菜單
                 UI.showLevelUpMenu();
               }
             } catch (_) { }
