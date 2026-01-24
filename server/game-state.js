@@ -2689,9 +2689,10 @@ class GameState {
           ultimateImageKey: (typeof p.ultimateImageKey === 'string' && p.ultimateImageKey) ? p.ultimateImageKey : null,
           ultimateEndTime: (typeof p.ultimateEndTime === 'number') ? p.ultimateEndTime : 0,
           // ✅ 多人元素：體型變化（大招變身時的視覺效果）
-          width: (typeof p.width === 'number' && p.width > 0) ? p.width : null,
-          height: (typeof p.height === 'number' && p.height > 0) ? p.height : null,
-          collisionRadius: (typeof p.collisionRadius === 'number' && p.collisionRadius > 0) ? p.collisionRadius : null
+          // ✅ 修复：允许发送原始体积（即使值较小），确保大招结束时体积能正确恢复
+          width: (typeof p.width === 'number') ? p.width : null,
+          height: (typeof p.height === 'number') ? p.height : null,
+          collisionRadius: (typeof p.collisionRadius === 'number') ? p.collisionRadius : null
         };
       }),
       // ⚠️ 100%重构：如果sessionId为空，返回空数组（防止旧数据泄露）
