@@ -304,8 +304,10 @@ const BuffSystem = {
                 ? TalentSystem.getTalentLevel('regen_speed_boost') : 0;
             const expLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                 ? TalentSystem.getTalentLevel('experience_boost') : 0;
-            // 依序套用存在的階梯效果
-            if (hpLv > 0) this.applyBuff(player, 'hp_boost');
+            // ✅ 修復：心意相通升級時生命值加乘被取消的BUG
+            // 不要在 applyBuffsFromTalents 中調用 hp_boost.apply，因為它只考慮天賦加成，不考慮局內升級
+            // 統一由 applyAttributeUpgrades 處理生命值（包括天賦和局內升級），避免生命值被重置兩次
+            // 依序套用存在的階梯效果（跳過 hp_boost，由 applyAttributeUpgrades 統一處理）
             if (defLv > 0) this.applyBuff(player, 'defense_boost');
             if (spdLv > 0) this.applyBuff(player, 'speed_boost');
             if (prLv > 0) this.applyBuff(player, 'pickup_range_boost');
@@ -337,9 +339,8 @@ const BuffSystem = {
                 player.damageSpecializationFlat = 0;
             }
             
-            // ✅ 修復：心意相通升級時生命值加乘被取消的BUG
-            // 在應用天賦buff後，必須重新應用屬性升級（局內等級加成），確保生命值加乘不會丟失
-            // 因為 hp_boost.apply 只考慮天賦加成，不考慮局內升級，所以需要 applyAttributeUpgrades 來恢復局內升級
+            // ✅ 修復：統一由 applyAttributeUpgrades 處理生命值（包括天賦和局內升級）
+            // 這樣可以確保生命值只被計算一次，不會被重置
             this.applyAttributeUpgrades(player);
             
             // 處理心意相通/腎上腺素技能的回血速度提升
