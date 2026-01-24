@@ -95,7 +95,7 @@ class ShockwaveEffect extends Entity {
                     lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                 }
                 
-                // ✅ 權威伺服器模式：持續效果傷害由 game.js 自動發送 aoe_tick 到伺服器
+                // ✅ 權威伺服器模式：傷害應該由伺服器權威處理
                 // 單機模式：直接造成傷害並顯示傷害數字
                 // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器 hitEvents 處理
                 const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
@@ -123,8 +123,24 @@ class ShockwaveEffect extends Entity {
                         const dirY = enemy.y - this.cy;
                         DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, { dirX, dirY, enemyId: enemy.id });
                     }
+                } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+                    // ✅ 組隊模式：發送 aoe_tick 到伺服器（震波是範圍傷害，每個敵人只受一次傷害）
+                    // 注意：ShockwaveEffect 沒有 tickDamage，不是持續傷害，需要手動發送 aoe_tick
+                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            type: 'aoe_tick',
+                            weaponType: this.weaponType || 'MIND_MAGIC',
+                            x: enemy.x,
+                            y: enemy.y,
+                            radius: 1, // 很小的半徑，只命中目標敵人（因為每個敵人只受一次傷害）
+                            damage: finalDamage,
+                            allowCrit: true,
+                            critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
+                            timestamp: Date.now()
+                        });
+                    }
                 }
-                // 多人模式：傷害由 game.js 自動發送 aoe_tick 到伺服器，伺服器透過 hitEvents 返回傷害數字
+                // 多人模式：傷害由伺服器權威處理，伺服器透過 hitEvents 返回傷害數字
                 // 減速效果由伺服器權威處理，客戶端只顯示視覺效果
                 this.hitEnemies.add(enemy.id);
             }
