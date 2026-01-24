@@ -4942,52 +4942,47 @@ function handleServerGameState(state, timestamp) {
     // ✅ 修复：始终从服务器状态更新障碍物和装饰物（服务器权威）
     // ⚠️ 重要：只在多人模式下更新，确保不影响单机模式
     // 注意：服务器现在始终发送 obstacles 和 decorations（即使为空数组），确保客户端始终能看到它们
-    // ✅ 三重检查：确保只在多人模式下执行（防止影响单机）
-    // 1. 函数开始处已检查 Game.multiplayer
-    // 2. 这里再次检查 Game.multiplayer.enabled
-    // 3. 确保不会在单机模式下执行
+    // ✅ 修复：移除 return 语句，确保后续代码（如出口、波次等）能够继续执行
     try {
       // ✅ 双重检查：确保只在多人模式下执行（防止影响单机）
-      if (typeof Game === 'undefined' || !Game.multiplayer || !Game.multiplayer.enabled) {
-        // 单机模式，不处理障碍物和装饰物（它们由 Game.spawnObstacles 和 Game.spawnDecorations 生成）
-        // 直接返回，不执行后续代码
-        return;
-      }
-      
-      const ObstacleCtor = _getGlobalCtor("Obstacle");
-      // ✅ 修复：始终处理障碍物（服务器现在始终发送，即使为空数组）
-      // ⚠️ 注意：只在多人模式下执行，单机模式不会执行到这里
-      if (Array.isArray(state.obstacles)) {
-        Game.obstacles = [];
-        if (state.obstacles.length > 0 && ObstacleCtor) {
-          for (const o of state.obstacles) {
-            if (!o) continue;
-            const ox = (typeof o.x === 'number') ? o.x : 0;
-            const oy = (typeof o.y === 'number') ? o.y : 0;
-            const imageKey = o.imageKey || 'S1';
-            const size = (typeof o.size === 'number') ? o.size : (typeof o.width === 'number' ? o.width : 150);
-            Game.obstacles.push(new ObstacleCtor(ox, oy, imageKey, size));
+      if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+        const ObstacleCtor = _getGlobalCtor("Obstacle");
+        // ✅ 修复：始终处理障碍物（服务器现在始终发送，即使为空数组）
+        // ⚠️ 注意：只在多人模式下执行，单机模式不会执行到这里
+        if (Array.isArray(state.obstacles)) {
+          Game.obstacles = [];
+          if (state.obstacles.length > 0 && ObstacleCtor) {
+            for (const o of state.obstacles) {
+              if (!o) continue;
+              const ox = (typeof o.x === 'number') ? o.x : 0;
+              const oy = (typeof o.y === 'number') ? o.y : 0;
+              const imageKey = o.imageKey || 'S1';
+              const size = (typeof o.size === 'number') ? o.size : (typeof o.width === 'number' ? o.width : 150);
+              Game.obstacles.push(new ObstacleCtor(ox, oy, imageKey, size));
+            }
+          }
+        }
+        // ✅ 修复：始终处理装饰物（服务器现在始终发送，即使为空数组）
+        // ⚠️ 注意：只在多人模式下执行，单机模式不会执行到这里
+        if (Array.isArray(state.decorations)) {
+          Game.decorations = [];
+          if (state.decorations.length > 0) {
+            for (const d of state.decorations) {
+              if (!d) continue;
+              if (typeof d.x !== 'number' || typeof d.y !== 'number' || !d.imageKey) continue;
+              Game.decorations.push({
+                x: d.x,
+                y: d.y,
+                width: (typeof d.width === 'number') ? d.width : 100,
+                height: (typeof d.height === 'number') ? d.height : 100,
+                imageKey: d.imageKey
+              });
+            }
           }
         }
       }
-      // ✅ 修复：始终处理装饰物（服务器现在始终发送，即使为空数组）
-      // ⚠️ 注意：只在多人模式下执行，单机模式不会执行到这里
-      if (Array.isArray(state.decorations)) {
-        Game.decorations = [];
-        if (state.decorations.length > 0) {
-          for (const d of state.decorations) {
-            if (!d) continue;
-            if (typeof d.x !== 'number' || typeof d.y !== 'number' || !d.imageKey) continue;
-            Game.decorations.push({
-              x: d.x,
-              y: d.y,
-              width: (typeof d.width === 'number') ? d.width : 100,
-              height: (typeof d.height === 'number') ? d.height : 100,
-              imageKey: d.imageKey
-            });
-          }
-        }
-      }
+      // ⚠️ 注意：单机模式下，障碍物和装饰物由 Game.spawnObstacles 和 Game.spawnDecorations 生成
+      // 这里不处理，让后续代码继续执行（如出口、波次等）
     } catch (_) { }
 
     // ✅ 更新出口（服务器权威）
