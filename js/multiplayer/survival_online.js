@@ -3798,11 +3798,14 @@ async function connectWebSocket() {
       // ✅ 权威服务器：发送CONFIG数据到服务器（用于敌人生成）
       if (typeof CONFIG !== 'undefined') {
         // 只发送必要的CONFIG数据（减少流量）
+        // ✅ 修复：添加 DIFFICULTY 和 BULLET_SYSTEM，服务器需要这些配置来检查难度设置
         const configData = {
           WAVES: CONFIG.WAVES || null,
           ENEMIES: CONFIG.ENEMIES || null,
           OPTIMIZATION: CONFIG.OPTIMIZATION || null,
-          TUNING: CONFIG.TUNING || null
+          TUNING: CONFIG.TUNING || null,
+          DIFFICULTY: CONFIG.DIFFICULTY || null,
+          BULLET_SYSTEM: CONFIG.BULLET_SYSTEM || null
         };
 
         setTimeout(() => {
