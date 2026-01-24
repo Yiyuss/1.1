@@ -552,6 +552,7 @@
       
       // ========== 統一對話系統（支持未來擴展）==========
       let currentDialogueNPC = null; // 當前對話的NPC
+      let isCodeWindowOpen = false; // 追蹤序號窗口是否已打開，防止重複點擊
       
       function showDialogue(npc) {
         if (player.inDialogue) return;
@@ -584,6 +585,11 @@
         if (dialogueEl && dialogueEl.parentNode) {
           dialogueEl.parentNode.removeChild(dialogueEl);
         }
+        // 如果已有 overlay，先移除
+        let overlayEl = document.getElementById('main-dialogue-overlay');
+        if (overlayEl && overlayEl.parentNode) {
+          overlayEl.parentNode.removeChild(overlayEl);
+        }
         
         // 創建人物立繪（在畫布左側，對話框後面）
         let portraitEl = document.getElementById('main-dialogue-portrait');
@@ -602,12 +608,17 @@
         portraitEl.innerHTML = `<img src="${config.portraitImage}" alt="${config.portraitAlt}" class="dialogue-portrait-img">`;
         portraitEl.style.display = 'block';
         
-        // 創建對話框
+        // 創建灰色遮罩（獨立元素，最下層）
+        overlayEl = document.createElement('div');
+        overlayEl.id = 'main-dialogue-overlay';
+        overlayEl.className = 'dialogue-overlay';
+        viewport.appendChild(overlayEl);
+        
+        // 創建對話框（不包含 overlay）
         dialogueEl = document.createElement('div');
         dialogueEl.id = 'main-dialogue-box';
         dialogueEl.className = 'main-dialogue-box';
         dialogueEl.innerHTML = `
-          <div class="dialogue-overlay"></div>
           <div class="dialogue-container">
             <div class="dialogue-content">
               <div class="dialogue-text" id="main-dialogue-text">${config.dialogue.messages[0]}</div>
@@ -624,6 +635,11 @@
         
         // 使用事件委托處理按鈕點擊
         dialogueEl.addEventListener('click', function(e) {
+          // 如果點擊的是序號窗口內的元素，不處理（讓序號窗口自己處理）
+          if (e.target.closest('#main-code-window') || e.target.closest('.main-code-window')) {
+            return;
+          }
+          
           const id = e.target.id;
           if (id === 'main-dialogue-continue') {
             playButtonSound();
@@ -643,13 +659,24 @@
             } catch(_) {}
             showYouTubeWindow(currentDialogueNPC);
           } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco' || id === 'main-dialogue-code-abby') {
+            // 防止重複點擊：如果序號窗口已經打開，直接返回
+            if (isCodeWindowOpen) {
+              return; // 已經有窗口打開，不重複創建
+            }
+            
+            // 立即設置標記，防止快速重複點擊
+            isCodeWindowOpen = true;
+            
             playButtonSound();
             // YouTube 相關序號：僅需「解鎖可查看」，可重複打開以免忘記
             try {
               const npcType = currentDialogueNPC && currentDialogueNPC.npcType;
               if (isYouTubeNpcType(npcType)) {
                 // 未解鎖則直接忽略（正常情況按鈕會被 disabled）
-                if (!isYouTubeCodeUnlocked(npcType)) return;
+                if (!isYouTubeCodeUnlocked(npcType)) {
+                  isCodeWindowOpen = false; // 如果未解鎖，重置標記
+                  return;
+                }
               }
             } catch(_) {}
             showCode(config.dialogue.code);
@@ -667,10 +694,9 @@
           });
         }
         
-        // 對話框外滑鼠移動
-        const dialogueOverlay = dialogueEl.querySelector('.dialogue-overlay');
-        if (dialogueOverlay) {
-          dialogueOverlay.addEventListener('mousemove', function(e) {
+        // 對話框外滑鼠移動（overlay 現在是獨立元素）
+        if (overlayEl) {
+          overlayEl.addEventListener('mousemove', function(e) {
             canvas.style.cursor = 'not-allowed';
           });
         }
@@ -882,6 +908,12 @@
       
       // ========== 統一序號顯示系統（支持未來擴展）==========
       function showCode(code) {
+        // 如果已經存在序號窗口，先移除舊的，避免疊加
+        const existingCodeWindow = document.getElementById('main-code-window');
+        if (existingCodeWindow && existingCodeWindow.parentNode) {
+          existingCodeWindow.parentNode.removeChild(existingCodeWindow);
+        }
+        
         // 顯示序號彈窗
         const codeWindow = document.createElement('div');
         codeWindow.id = 'main-code-window';
@@ -902,25 +934,55 @@
         if (viewport) {
           viewport.appendChild(codeWindow);
           
-          const closeBtn = document.getElementById('main-code-close');
-          const overlay = codeWindow.querySelector('.code-window-overlay');
+          // 關閉窗口的函數
+          const closeCodeWindow = function() {
+            if (codeWindow.parentNode) {
+              codeWindow.parentNode.removeChild(codeWindow);
+            }
+            isCodeWindowOpen = false; // 重置標記，允許再次打開
+          };
           
-          if (closeBtn) {
-            closeBtn.addEventListener('click', function() {
+          // 使用事件委托處理序號窗口的點擊事件（避免被對話框事件攔截）
+          codeWindow.addEventListener('click', function(e) {
+            e.stopPropagation(); // 防止事件冒泡到對話框
+            
+            const id = e.target.id;
+            const className = e.target.className;
+            
+            // 檢查是否點擊了關閉按鈕（包括按鈕內的子元素）
+            const closeBtn = e.target.closest('#main-code-close') || e.target.closest('.code-close-btn');
+            if (closeBtn || id === 'main-code-close' || className.includes('code-close-btn')) {
               playButtonSound();
-              if (codeWindow.parentNode) {
-                codeWindow.parentNode.removeChild(codeWindow);
-              }
-            });
-          }
+              closeCodeWindow();
+              return;
+            }
+            
+            // 點擊遮罩層關閉
+            if (className.includes('code-window-overlay')) {
+              closeCodeWindow();
+              return;
+            }
+            
+            // 點擊窗口內容區域，不關閉（防止誤關閉）
+            if (className.includes('code-window-content')) {
+              return;
+            }
+          });
           
-          if (overlay) {
-            overlay.addEventListener('click', function() {
-              if (codeWindow.parentNode) {
-                codeWindow.parentNode.removeChild(codeWindow);
+          // 監聽 ESC 鍵關閉
+          const escHandler = function(e) {
+            if (e.key === 'Escape' || e.keyCode === 27) {
+              const existingCodeWindow = document.getElementById('main-code-window');
+              if (existingCodeWindow) {
+                closeCodeWindow();
+                document.removeEventListener('keydown', escHandler);
               }
-            });
-          }
+            }
+          };
+          document.addEventListener('keydown', escHandler);
+        } else {
+          // 如果 viewport 不存在，重置標記
+          isCodeWindowOpen = false;
         }
       }
       
@@ -929,6 +991,19 @@
           dialogueEl.parentNode.removeChild(dialogueEl);
           dialogueEl = null;
         }
+        
+        // 移除灰色遮罩
+        const overlayEl = document.getElementById('main-dialogue-overlay');
+        if (overlayEl && overlayEl.parentNode) {
+          overlayEl.parentNode.removeChild(overlayEl);
+        }
+        
+        // 移除序號窗口（如果存在）
+        const codeWindow = document.getElementById('main-code-window');
+        if (codeWindow && codeWindow.parentNode) {
+          codeWindow.parentNode.removeChild(codeWindow);
+        }
+        isCodeWindowOpen = false; // 重置標記
         
         // 隱藏人物立繪
         const portraitEl = document.getElementById('main-dialogue-portrait');
@@ -2625,3 +2700,4 @@
     console.warn('[MainMode] 找不到可用的模式管理器，無法註冊主線模式');
   }
 })();
+
