@@ -1468,15 +1468,27 @@ const Game = {
                         if (!projectile.id) projectile.id = projectileId;
                         
                         const playerUid = (this.multiplayer && this.multiplayer.uid) ? this.multiplayer.uid : null;
+                        
+                        // ✅ 修复：检查是否为AICompanion，确保weaponType正确设置
+                        const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
+                            (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
+                        
                         const projectileData = {
                             id: projectileId,
                             x: projectile.x || 0,
                             y: projectile.y || 0,
                             angle: projectile.angle || 0,
-                            weaponType: projectile.weaponType || "UNKNOWN",
+                            weaponType: isAICompanion ? "SUMMON_AI" : (projectile.weaponType || "UNKNOWN"),
                             playerUid: playerUid,
                             damage: projectile.damage || 0
                         };
+                        
+                        // ✅ 修复：如果是AICompanion，添加额外属性
+                        if (isAICompanion) {
+                            projectileData.summonAILevel = (typeof projectile.summonAILevel === "number") ? projectile.summonAILevel : 1;
+                            projectileData.width = projectile.width || CONFIG.PLAYER.SIZE;
+                            projectileData.height = projectile.height || CONFIG.PLAYER.SIZE;
+                        }
                         
                         // 根據武器類型添加額外屬性（與舊多人模式一致）
                         if (projectile.radius !== undefined) {
