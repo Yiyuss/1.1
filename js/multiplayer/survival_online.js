@@ -4888,6 +4888,25 @@ function handleServerGameState(state, timestamp) {
           const y = (typeof ev.y === "number") ? ev.y : 0;
           const h = (typeof ev.h === "number") ? ev.h : 0;
           DamageNumbers.show(Math.round(dmg), x, y - h / 2, ev.isCrit === true, { enemyId: ev.enemyId || null });
+          
+          // ✅ 修復：根據武器類型創建對應的特殊視覺效果（多人元素）
+          const weaponType = ev.weaponType || null;
+          if (weaponType === 'HEART_TRANSMISSION') {
+            // 心意傳遞命中時顯示效果圖片（A36.png，310x290比例）
+            const cfg = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.HEART_TRANSMISSION) || {};
+            const effectWidth = cfg.EFFECT_IMAGE_WIDTH || 310;
+            const effectHeight = cfg.EFFECT_IMAGE_HEIGHT || 290;
+            const effectDuration = 300; // 效果持續300毫秒
+            if (!Game.heartTransmissionEffects) Game.heartTransmissionEffects = [];
+            Game.heartTransmissionEffects.push({
+              x: x,
+              y: y,
+              width: effectWidth,
+              height: effectHeight,
+              life: effectDuration,
+              maxLife: effectDuration
+            });
+          }
         }
       }
     } catch (_) { }
