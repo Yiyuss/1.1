@@ -92,8 +92,15 @@ class AICompanion extends Entity {
         // 如果是本地玩家的AI（没有_remotePlayerUid），确保player引用指向Game.player
         if (!this._remotePlayerUid) {
             // 本地玩家的AI：确保player引用指向Game.player
-            if (typeof Game !== 'undefined' && Game.player && this.player !== Game.player) {
-                this.player = Game.player;
+            if (typeof Game !== 'undefined' && Game.player) {
+                // ✅ 修复：始终确保player引用指向Game.player（防止引用失效）
+                if (this.player !== Game.player) {
+                    this.player = Game.player;
+                }
+                // ✅ 修复：如果player引用为null，设置为Game.player
+                if (!this.player) {
+                    this.player = Game.player;
+                }
             }
         }
         
@@ -153,14 +160,27 @@ class AICompanion extends Entity {
         
         // ✅ 修復：在更新 player 引用後，再次檢查 this.player 是否存在
         if (!this.player) {
+            // ✅ 修复：如果是本地玩家的AI，尝试从Game.player获取引用
+            if (!this._remotePlayerUid && typeof Game !== 'undefined' && Game.player) {
+                this.player = Game.player;
+            }
             // 如果 this.player 仍然為 null，跳過本次更新（但不刪除，等待下次更新）
-            return;
+            if (!this.player) {
+                return;
+            }
         }
         
         // ✅ 修复：检查player是否有有效的坐标
         if (typeof this.player.x !== 'number' || typeof this.player.y !== 'number') {
-            // player坐标无效，跳过本次更新
-            return;
+            // ✅ 修复：如果是本地玩家的AI，尝试从Game.player获取坐标
+            if (!this._remotePlayerUid && typeof Game !== 'undefined' && Game.player && 
+                typeof Game.player.x === 'number' && typeof Game.player.y === 'number') {
+                // 使用Game.player的坐标，但保留this.player引用（用于获取天赋等属性）
+                // 注意：这里不更新this.player，因为this.player可能包含天赋等额外属性
+            } else {
+                // player坐标无效，跳过本次更新
+                return;
+            }
         }
         
         // ✅ MMORPG架构：所有AI（本地和远程）都应该造成伤害
