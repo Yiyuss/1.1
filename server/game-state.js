@@ -574,8 +574,11 @@ class GameState {
     this.chests = [];
     this.minibossSpawnedForWave = false;
     this.carHazards = [];
-    this.obstacles = [];
-    this.decorations = [];
+    // ⚠️ 修复：不要清空障碍物和装饰物，因为 host 会在 new-session 之后发送新的数据
+    // 如果在这里清空，会导致 host 发送的数据被忽略（因为时间窗口机制）
+    // 现在采用页面刷新方案，不需要清空（页面刷新会清空所有状态）
+    // this.obstacles = []; // ❌ 移除：不清空，让 host 发送的数据能够被接受
+    // this.decorations = []; // ❌ 移除：不清空，让 host 发送的数据能够被接受
     this.exit = null;
     this.wave = 1;
     this.waveStartTime = Date.now();
@@ -2372,25 +2375,11 @@ class GameState {
 
   // 设置障碍物（从客户端同步）
   setObstacles(obstacles, mapId = null) {
-    // ⚠️ 修复：如果当前 sessionId 为空，说明是新游戏开始前，忽略旧数据
-    // 这样可以防止上一局的地图数据污染新游戏
-    if (!this.currentSessionId) {
-      console.log(`[GameState.setObstacles] 忽略障碍物数据：当前 sessionId 为空，可能是新游戏开始前`);
-      return;
-    }
-    // ⚠️ 关键修复：检查地图ID是否匹配当前session的地图
-    // 如果客户端发送的数据来自旧地图，忽略它
-    if (mapId && typeof mapId === 'string') {
-      const serverMapId = this._getActiveMapId();
-      if (serverMapId && serverMapId !== mapId) {
-        console.log(`[GameState.setObstacles] 忽略障碍物数据：地图ID不匹配（客户端=${mapId}, 服务器=${serverMapId}）`);
-        return;
-      }
-    }
-    // ⚠️ 修复：时间窗口机制 - 在收到 new-session 后的 2 秒内，忽略旧的 obstacles 数据
-    // 这样可以防止上一局的地图数据在 new-session 之后才到达服务器，被误接受
-    if (this._newSessionTime && (Date.now() - this._newSessionTime) < 2000) {
-      console.log(`[GameState.setObstacles] 忽略障碍物数据：在 new-session 后的 2 秒时间窗口内，可能是上一局的数据`);
+    // ✅ 修复：无条件接受障碍物数据（移除所有限制条件）
+    // 原因：之前的限制条件（sessionId检查、地图ID检查、时间窗口）导致障碍物数据被忽略
+    // 现在采用页面刷新方案，不需要这些限制条件
+    if (!Array.isArray(obstacles)) {
+      console.warn(`[GameState.setObstacles] 无效的障碍物数据：不是数组`);
       return;
     }
     this.obstacles = obstacles.map(obs => ({
@@ -2401,29 +2390,16 @@ class GameState {
       width: obs.size || 150,
       height: obs.size || 150
     }));
+    console.log(`[GameState.setObstacles] ✅ 已设置障碍物，数量=${this.obstacles.length}, mapId=${mapId || 'N/A'}`);
   }
 
   // 设置地图装饰（从客户端同步）
   setDecorations(decorations, mapId = null) {
-    // ⚠️ 修复：如果当前 sessionId 为空，说明是新游戏开始前，忽略旧数据
-    // 这样可以防止上一局的地图数据污染新游戏
-    if (!this.currentSessionId) {
-      console.log(`[GameState.setDecorations] 忽略装饰数据：当前 sessionId 为空，可能是新游戏开始前`);
-      return;
-    }
-    // ⚠️ 关键修复：检查地图ID是否匹配当前session的地图
-    // 如果客户端发送的数据来自旧地图，忽略它
-    if (mapId && typeof mapId === 'string') {
-      const serverMapId = this._getActiveMapId();
-      if (serverMapId && serverMapId !== mapId) {
-        console.log(`[GameState.setDecorations] 忽略装饰数据：地图ID不匹配（客户端=${mapId}, 服务器=${serverMapId}）`);
-        return;
-      }
-    }
-    // ⚠️ 修复：时间窗口机制 - 在收到 new-session 后的 2 秒内，忽略旧的 decorations 数据
-    // 这样可以防止上一局的地图数据在 new-session 之后才到达服务器，被误接受
-    if (this._newSessionTime && (Date.now() - this._newSessionTime) < 2000) {
-      console.log(`[GameState.setDecorations] 忽略装饰数据：在 new-session 后的 2 秒时间窗口内，可能是上一局的数据`);
+    // ✅ 修复：无条件接受装饰物数据（移除所有限制条件）
+    // 原因：之前的限制条件（sessionId检查、地图ID检查、时间窗口）导致装饰物数据被忽略
+    // 现在采用页面刷新方案，不需要这些限制条件
+    if (!Array.isArray(decorations)) {
+      console.warn(`[GameState.setDecorations] 无效的装饰物数据：不是数组`);
       return;
     }
     this.decorations = decorations.map(deco => ({
@@ -2433,6 +2409,7 @@ class GameState {
       height: deco.height || 100,
       imageKey: deco.imageKey
     }));
+    console.log(`[GameState.setDecorations] ✅ 已设置装饰物，数量=${this.decorations.length}, mapId=${mapId || 'N/A'}`);
   }
 
   // 设置地图信息
