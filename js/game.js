@@ -1311,52 +1311,24 @@ const Game = {
             // }
             
             if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled) {
-                // ✅ 架构修复：检查是否为AICompanion
-                // 单机模式如何工作，组队模式就应该如何工作
-                // 对于AI，直接添加到projectiles，不需要复杂的检查
+                // ✅ 修复：检查是否为AICompanion（需要特殊处理）
                 const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
                     (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
                 
-                // ✅ 架构修复：AI是持续效果，需要本地更新
-                // 如果是本地玩家的AI（player === this.player），直接添加到projectiles并广播
-                // 如果是远程玩家的AI，应该已经在survival_online.js中直接添加到projectiles，不会进入这里
+                // ✅ 修复：AI是持续效果，需要本地更新，所以应该总是被添加到projectiles
+                // 架构问题：组队模式强制要求"识别检查"，但AI作为持续效果，应该总是被添加
+                // 解决方案：对于AI，如果player指向本地玩家，直接允许通过，不进行严格的"识别检查"
                 if (isAICompanion) {
-                    // ✅ 架构修复：单机模式如何工作，组队模式就应该如何工作
-                    // 对于AI，直接添加到projectiles（不需要检查player，因为AI的player在创建时已经设置好了）
-                    // 如果是本地玩家的AI（没有_remotePlayerUid），直接添加并广播
-                    // 如果是远程玩家的AI（有_remotePlayerUid），应该已经在survival_online.js中处理，这里不处理
-                    if (!projectile._remotePlayerUid) {
-                        // 本地玩家的AI：直接添加到projectiles（与单机模式一致）
-                        this.projectiles.push(projectile);
-                        
-                        // 广播给其他玩家
-                        try {
-                            if (typeof window !== 'undefined' && window.SurvivalOnlineBroadcastEvent) {
-                                const projectileId = projectile.id || `projectile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-                                if (!projectile.id) projectile.id = projectileId;
-                                
-                                const playerUid = (this.multiplayer && this.multiplayer.uid) ? this.multiplayer.uid : null;
-                                const projectileData = {
-                                    id: projectileId,
-                                    x: projectile.x || 0,
-                                    y: projectile.y || 0,
-                                    angle: projectile.angle || 0,
-                                    weaponType: "SUMMON_AI",
-                                    playerUid: playerUid,
-                                    damage: projectile.damage || 0,
-                                    summonAILevel: (typeof projectile.summonAILevel === "number") ? projectile.summonAILevel : 1,
-                                    width: projectile.width || CONFIG.PLAYER.SIZE,
-                                    height: projectile.height || CONFIG.PLAYER.SIZE
-                                };
-                                
-                                window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
-                            }
-                        } catch (e) {
-                            console.error('[Game.addProjectile] AI广播失败', e);
-                        }
-                        return; // AI处理完成，直接返回
+                    // AI的player属性应该指向创建它的玩家
+                    // 如果是本地玩家的AI，player应该等于this.player
+                    // 如果是远程玩家的AI，应该已经在survival_online.js中直接添加到projectiles，不会进入这里
+                    if (projectile.player && projectile.player === this.player) {
+                        // 本地玩家的AI：继续处理（会添加到projectiles并广播）
+                        // 不进行isLocalPlayerProjectile检查，直接允许通过
                     } else {
-                        // 远程玩家的AI：应该已经在survival_online.js中处理，这里不处理
+                        // ✅ 修复：如果AI的player不是this.player，可能是远程玩家的AI
+                        // 但远程玩家的AI应该已经在survival_online.js中直接添加到projectiles
+                        // 这里不应该处理，直接返回
                         return;
                     }
                 } else {
