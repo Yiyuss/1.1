@@ -18,6 +18,8 @@
                 this.cooldownAccumulator = this.config.COOLDOWN || 0;
                 this._updateFrame = 0; // 追蹤更新幀數，避免雙次更新導致冷卻時間累積兩次
                 this.projectileCount = this.config.LEVELS[0].COUNT;
+                // ⚠️ 污染修复：追踪所有定时器，确保清理
+                this._activeTimers = []; // 存储所有 setTimeout/setInterval 的 ID
             }
             
             update(deltaTime) {
@@ -636,19 +638,26 @@
                 const dynamicRadius2 = radius1 * 2;
                 const arcDeg2 = arc1;
                 const vis2 = vis1 * 2;
-            setTimeout(() => {
-                try {
-                    const effect2 = new SlashEffect(this.player, baseAngle, dmg, dynamicRadius2, arcDeg2, durationMs);
-                    effect2.weaponType = 'FRENZY_SLASH'; // ✅ 设置正确的weaponType
-                    effect2.visualScale = vis2;
-                    effect2.overlayImageKey = 'knife';
-                    effect2.hitOverlayImageKey = 'knife2';
-                    Game.addProjectile(effect2);
-                    if (typeof AudioManager !== 'undefined') {
-                        AudioManager.playSound('knife');
-                    }
-                } catch (_) {}
-            }, 500);
+                // ⚠️ 污染修复：保存定时器 ID，以便清理
+                const timerId = setTimeout(() => {
+                    try {
+                        // ⚠️ 污染修复：检查武器是否已被销毁或玩家是否还存在
+                        if (!this.player || !Game || !Game.addProjectile) {
+                            return; // 武器已被销毁，不执行
+                        }
+                        const effect2 = new SlashEffect(this.player, baseAngle, dmg, dynamicRadius2, arcDeg2, durationMs);
+                        effect2.weaponType = 'FRENZY_SLASH'; // ✅ 设置正确的weaponType
+                        effect2.visualScale = vis2;
+                        effect2.overlayImageKey = 'knife';
+                        effect2.hitOverlayImageKey = 'knife2';
+                        Game.addProjectile(effect2);
+                        if (typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('knife');
+                        }
+                    } catch (_) {}
+                }, 500);
+                // ⚠️ 污染修复：记录定时器 ID
+                this._activeTimers.push(timerId);
                 return;
         }
 
@@ -1180,6 +1189,34 @@
                     };
                 }
                 return null;
+            }
+            
+            // ⚠️ 污染修复：清理所有定时器和资源
+            destroy() {
+                // 清理所有定时器
+                if (this._activeTimers && Array.isArray(this._activeTimers)) {
+                    for (const timerId of this._activeTimers) {
+                        try {
+                            clearTimeout(timerId);
+                            clearInterval(timerId); // 同时尝试清理 interval（虽然这里只用 setTimeout）
+                        } catch (_) {}
+                    }
+                    this._activeTimers = [];
+                }
+                
+                // 清理其他资源引用
+                this.player = null;
+                this.config = null;
+                
+                // 清理 DIVINE_JUDGMENT 的特殊实体引用
+                if (this._divineJudgmentEntity) {
+                    try {
+                        if (this._divineJudgmentEntity.markedForDeletion !== undefined) {
+                            this._divineJudgmentEntity.markedForDeletion = true;
+                        }
+                    } catch (_) {}
+                    this._divineJudgmentEntity = null;
+                }
             }
         }
         
