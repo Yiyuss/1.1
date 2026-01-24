@@ -2153,10 +2153,31 @@ const UI = {
         // 組隊模式下，不暫停遊戲（避免所有玩家等待）
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         
-        // ✅ 组队模式：如果当前有升级菜单显示，或者队列中有待处理的升级，将此次升级加入队列
-        if (isMultiplayer && this.levelUpMenu && (!this.levelUpMenu.classList.contains('hidden') || (this._pendingLevelUps && this._pendingLevelUps.length > 0))) {
-            this._pendingLevelUps.push(true); // 标记有待处理的升级
+        // ✅ 组队模式：如果当前有升级菜单显示，将此次升级加入队列
+        if (isMultiplayer && this.levelUpMenu && !this.levelUpMenu.classList.contains('hidden')) {
+            // 菜单正在显示，将此次升级加入队列
+            if (this._pendingLevelUps) {
+                this._pendingLevelUps.push(true);
+            }
             return; // 不显示新菜单，等待当前菜单关闭后再显示
+        }
+        
+        // ✅ 修复：如果队列中有待处理的升级，且菜单已关闭，先处理队列中的升级
+        // 这样可以避免宝箱升级覆盖经验升级（或反之）
+        if (isMultiplayer && this._pendingLevelUps && this._pendingLevelUps.length > 0) {
+            // 队列中有待处理的升级，将此次升级也加入队列，然后处理队列
+            this._pendingLevelUps.push(true);
+            // 立即处理队列中的第一个升级（模拟 hideLevelUpMenu 的逻辑）
+            this._pendingLevelUps.shift();
+            setTimeout(() => {
+                if (typeof Game !== 'undefined' && Game.player && !Game.player._isRemotePlayer) {
+                    const player = Game.player;
+                    if (player.experience >= player.experienceToNextLevel) {
+                        player.levelUp(); // 这会再次调用 showLevelUpMenu，但此时队列中还有标记，会继续处理
+                    }
+                }
+            }, 50);
+            return; // 不显示新菜单，等待队列处理完成
         }
         
         // 暫停遊戲，但不靜音，避免升級音效與BGM被切斷（僅單人模式）
