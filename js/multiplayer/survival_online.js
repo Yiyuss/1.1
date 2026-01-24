@@ -1122,8 +1122,15 @@ const Runtime = (() => {
             } catch (_) { }
           } else {
             // ✅ NORMAL 寶箱：只讓撿到的人開升級選單（候選技能仍走單機 UI.getUpgradeOptions → 自動套用成就/解鎖）
+            // ✅ 修復：寶箱升級也需要經過隊列系統，避免與經驗升級重疊
             try { if (typeof AudioManager !== "undefined" && AudioManager.playSound) AudioManager.playSound("level_up"); } catch (_) { }
-            try { if (typeof UI !== "undefined" && UI.showLevelUpMenu) UI.showLevelUpMenu(); } catch (_) { }
+            try { 
+              if (typeof UI !== "undefined" && UI.showLevelUpMenu) {
+                // ✅ 修復：showLevelUpMenu 會檢查隊列，如果菜單正在顯示，會加入隊列
+                // 這樣可以確保寶箱升級和經驗升級都不會重疊
+                UI.showLevelUpMenu();
+              }
+            } catch (_) { }
           }
         } catch (e) {
           console.warn("[SurvivalOnline] 處理寶箱被撿取事件失敗:", e);
@@ -2154,17 +2161,33 @@ const Runtime = (() => {
 
                 if (targetPlayer) {
                   // ✅ 修復：先清理同一個玩家的舊唱歌效果，避免疊加
+                  // 需要檢查遠程玩家和本地玩家兩種情況
                   if (eventData.playerUid && Array.isArray(Game.projectiles)) {
+                    const isLocalPlayer = (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid));
                     for (let i = Game.projectiles.length - 1; i >= 0; i--) {
                       const proj = Game.projectiles[i];
-                      if (proj && proj.weaponType === "SING" && proj._remotePlayerUid === eventData.playerUid) {
-                        // ✅ 修復：完全清理舊的唱歌效果 DOM 元素（參考無敵）
-                        if (proj.el && proj.el.parentNode) {
-                          proj.el.parentNode.removeChild(proj.el);
+                      if (proj && proj.weaponType === "SING") {
+                        // 檢查是否是同一個玩家的效果
+                        let shouldRemove = false;
+                        if (isLocalPlayer) {
+                          // 本地玩家：檢查是否是本地玩家創建的效果（沒有 _remotePlayerUid 或 player === Game.player）
+                          shouldRemove = (!proj._remotePlayerUid && proj.player === Game.player) || 
+                                         (proj._remotePlayerUid === eventData.playerUid) || 
+                                         (proj.player && proj.player === Game.player);
+                        } else {
+                          // 遠程玩家：檢查 _remotePlayerUid 或 player._remoteUid
+                          shouldRemove = (proj._remotePlayerUid === eventData.playerUid) || 
+                                         (proj.player && proj.player._remoteUid === eventData.playerUid);
                         }
-                        proj.el = null;
-                        proj.markedForDeletion = true;
-                        Game.projectiles.splice(i, 1);
+                        if (shouldRemove) {
+                          // ✅ 修復：完全清理舊的唱歌效果 DOM 元素（參考無敵）
+                          if (proj.el && proj.el.parentNode) {
+                            proj.el.parentNode.removeChild(proj.el);
+                          }
+                          proj.el = null;
+                          proj.markedForDeletion = true;
+                          Game.projectiles.splice(i, 1);
+                        }
                       }
                     }
                   }
