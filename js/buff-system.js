@@ -410,21 +410,9 @@ const BuffSystem = {
                 }.bind(TalentSystem);
             }
             
-            // 依序套用存在的階梯效果（使用臨時替換的 getTalentLevel）
-            if (hpLv > 0) {
-                const healthBoost = this._getTierEffect('hp_boost', hpLv, 'hp', 0) || 0;
-                const baseMax = (player && typeof player.baseMaxHealth === 'number')
-                    ? player.baseMaxHealth
-                    : CONFIG.PLAYER.MAX_HEALTH;
-                const oldMaxHealth = player.maxHealth || baseMax;
-                player.maxHealth = baseMax + healthBoost;
-                if (player.maxHealth > oldMaxHealth) {
-                    const healthRatio = player.health / oldMaxHealth;
-                    player.health = Math.min(player.maxHealth, Math.floor(player.health + (player.maxHealth - oldMaxHealth) * healthRatio));
-                } else {
-                    player.health = Math.min(player.health, player.maxHealth);
-                }
-            }
+            // ✅ 修復：移除單獨的生命值處理，統一由 applyAttributeUpgrades 處理（包括天賦和局內升級）
+            // 這樣可以確保心意相通升級時生命值加乘不會丟失
+            // 生命值處理將在 applyAttributeUpgrades 中統一處理（Line 514）
             if (defLv > 0) {
                 const reduction = this._getTierEffect('defense_boost', defLv, 'reduction', 0) || 0;
                 player.damageReductionFlat = reduction;
