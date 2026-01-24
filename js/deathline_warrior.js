@@ -144,9 +144,49 @@ class DeathlineWarriorEffect extends Entity {
             this.hitTargets.push(target.id);
         }
         
+        // ✅ 組隊模式：先計算傷害並發送 aoe_tick（一次性傷害，不是持續效果）
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        let isSurvivalMode = false;
+        try {
+            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                    ? ModeManager.getActiveModeId()
+                    : null);
+            isSurvivalMode = (activeId === 'survival' || activeId === null);
+        } catch (_) {}
+        
+        // 計算基礎傷害（用於組隊模式發送 aoe_tick）
+        let baseDamage = this.damage;
+        if (typeof DamageSystem !== 'undefined' && target) {
+            const result = DamageSystem.computeHit(this.damage, target, {
+                weaponType: this.weaponType,
+                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+            });
+            baseDamage = result.amount;
+        }
+        
+        // ✅ 組隊模式：發送 aoe_tick 到伺服器（一次性傷害，不是持續效果）
+        // 注意：DEATHLINE_WARRIOR 和 DEATHLINE_SUPERMAN 不是持續效果（沒有 tickDamage），不會通過 game.js 自動發送
+        if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                window.SurvivalOnlineRuntime.sendToNet({
+                    type: 'aoe_tick',
+                    weaponType: this.weaponType || 'DEATHLINE_WARRIOR',
+                    x: target.x,
+                    y: target.y,
+                    radius: this.aoeRadius > 0 ? this.aoeRadius : 5, // 範圍傷害使用 aoeRadius，單體傷害使用很小的值（5）
+                    damage: baseDamage,
+                    allowCrit: true,
+                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
+                    timestamp: Date.now()
+                });
+            }
+        }
+        
         // 造成傷害（死線超人：範圍傷害；死線戰士：單體傷害）
         if (this.aoeRadius > 0) {
-            // 範圍傷害：對目標周圍150範圍內的所有敵人造成傷害
+            // 範圍傷害：對目標周圍範圍內的所有敵人造成傷害
             const enemies = (Game && Game.enemies) ? Game.enemies : [];
             const hitEnemies = enemies.filter(e => {
                 if (!e || e.markedForDeletion || e.health <= 0) return false;
@@ -168,20 +208,9 @@ class DeathlineWarriorEffect extends Entity {
                     lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
                 }
                 
-                // ✅ 權威伺服器模式：持續效果傷害由 game.js 自動發送 aoe_tick 到伺服器
+                // ✅ 權威伺服器模式：傷害應該由伺服器權威處理
                 // 單機模式：直接造成傷害並顯示傷害數字
                 // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器 hitEvents 處理
-                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                let isSurvivalMode = false;
-                try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
-                    isSurvivalMode = (activeId === 'survival' || activeId === null);
-                } catch (_) {}
-                
                 // 單機模式：直接造成傷害並顯示傷害數字
                 if (!isSurvivalMode || !isMultiplayer) {
                     enemy.takeDamage(finalDamage);
@@ -193,7 +222,7 @@ class DeathlineWarriorEffect extends Entity {
                         });
                     }
                 }
-                // 多人模式：傷害由 game.js 自動發送 aoe_tick 到伺服器，伺服器透過 hitEvents 返回傷害數字
+                // 多人模式：傷害由伺服器權威處理，伺服器透過 hitEvents 返回傷害數字
             }
         } else {
             // 單體傷害（死線戰士）
@@ -213,17 +242,6 @@ class DeathlineWarriorEffect extends Entity {
             // ✅ 權威伺服器模式：傷害應該由伺服器權威處理
             // 單機模式：直接造成傷害並顯示傷害數字
             // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器 hitEvents 處理
-            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-            let isSurvivalMode = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null);
-            } catch (_) {}
-            
             // 單機模式：直接造成傷害並顯示傷害數字
             if (!isSurvivalMode || !isMultiplayer) {
                 target.takeDamage(finalDamage);
