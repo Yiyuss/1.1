@@ -922,6 +922,7 @@ class Player extends Entity {
             UI.updateExpBar(this.experience, this.experienceToNextLevel);
             
             // 顯示升級選單（僅本地玩家顯示）
+            // ✅ 组队模式：如果当前有菜单显示，showLevelUpMenu 会将升级加入队列
             UI.showLevelUpMenu();
         }
 
@@ -929,9 +930,6 @@ class Player extends Entity {
         if (!this._isRemotePlayer && typeof AudioManager !== 'undefined') {
             AudioManager.playSound('level_up');
         }
-        
-        // ⚠️ 修复失败：不要递归调用 levelUp()，这会导致立即显示下一个升级菜单，覆盖前一个
-        // 正确的做法是：在 hideLevelUpMenu() 后检查是否还能升级（由 hideLevelUpMenu 处理）
     }
     
     // 添加武器
