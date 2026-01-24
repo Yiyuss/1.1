@@ -5392,7 +5392,7 @@ function updateProjectilesFromServer(projectiles) {
 
 // ✅ 不影响单机：只在多人模式下执行（伺服器權威的 BOSS/HUMAN2 遠程投射物）
 function updateBossProjectilesFromServer(bossProjectiles) {
-  if (typeof Game === 'undefined' || !Game.multiplayer) return;
+  if (typeof Game === 'undefined' || !Game.multiplayer || !Game.multiplayer.enabled) return;
   if (!Array.isArray(Game.bossProjectiles)) Game.bossProjectiles = [];
 
   const BossProjectileCtor = _getGlobalCtor("BossProjectile");
