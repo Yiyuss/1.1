@@ -1311,13 +1311,36 @@ const Game = {
             // }
             
             if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled) {
-                const isLocalPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
+                // ✅ 修复：检查是否为AICompanion（需要特殊处理）
+                const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
+                    (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
                 
-                // ⚠️ 修復：在 enabled 模式下，只有本地玩家的投射物才需要處理
-                // 遠程玩家的投射物應該由伺服器同步，不應該在這裡處理
-                if (!isLocalPlayerProjectile) {
-                    // 遠程玩家的投射物由伺服器同步，這裡不處理
-                    return;
+                // ✅ 修复：AI是持续效果，需要本地更新，所以应该总是被添加到projectiles
+                // 架构问题：组队模式强制要求"识别检查"，但AI作为持续效果，应该总是被添加
+                // 解决方案：对于AI，如果player指向本地玩家，直接允许通过，不进行严格的"识别检查"
+                if (isAICompanion) {
+                    // AI的player属性应该指向创建它的玩家
+                    // 如果是本地玩家的AI，player应该等于this.player
+                    // 如果是远程玩家的AI，应该已经在survival_online.js中直接添加到projectiles，不会进入这里
+                    if (projectile.player && projectile.player === this.player) {
+                        // 本地玩家的AI：继续处理（会添加到projectiles并广播）
+                        // 不进行isLocalPlayerProjectile检查，直接允许通过
+                    } else {
+                        // ✅ 修复：如果AI的player不是this.player，可能是远程玩家的AI
+                        // 但远程玩家的AI应该已经在survival_online.js中直接添加到projectiles
+                        // 这里不应该处理，直接返回
+                        return;
+                    }
+                } else {
+                    // ✅ 修复：对于非AI的投射物，检查是否为本地玩家的投射物
+                    const isLocalPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
+                    
+                    // ⚠️ 修復：在 enabled 模式下，只有本地玩家的投射物才需要處理
+                    // 遠程玩家的投射物應該由伺服器同步，不應該在這裡處理
+                    if (!isLocalPlayerProjectile) {
+                        // 遠程玩家的投射物由伺服器同步，這裡不處理
+                        return;
+                    }
                 }
                 
                 // ⚠️ 修復：檢查 sendToNet 是否可用
@@ -1332,9 +1355,7 @@ const Game = {
                     return;
                 }
 
-                // ✅ 修復：檢查是否為 AICompanion（召喚AI）
-                const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
-                    (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
+                // ✅ 修复：isAICompanion 已经在上面定义了，这里不需要重复定义
                 
                 const isPersistentEffect = (
                     projectile.weaponType === 'AURA_FIELD' ||
