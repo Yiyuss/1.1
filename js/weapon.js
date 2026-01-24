@@ -140,6 +140,8 @@
                     if (typeof AICompanion !== 'undefined') {
                         const summonAILevel = this.level || 1; // 獲取召喚AI的等級
                         const ai = new AICompanion(this.player, aiX, aiY, summonAILevel);
+                        // ✅ 修复：设置weaponType，确保AI能被正确识别和广播
+                        ai.weaponType = 'SUMMON_AI';
                         this.player.aiCompanion = ai;
                         // 將AI添加到遊戲實體列表（使用projectiles列表，因為它需要更新和繪製）
                         if (typeof Game !== 'undefined' && Game.addProjectile) {
