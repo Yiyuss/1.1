@@ -352,9 +352,11 @@ function handleGameData(ws, roomId, uid, data) {
         playerUpdates.set(uid, { maxHealth: data.maxHealth });
       }
       // ✅ 立即处理 new-session
-      // 先清理障碍物和装饰，防止上一局数据残留
-      gameState.obstacles = [];
-      gameState.decorations = [];
+      // ⚠️ 修复：不要清空障碍物和装饰物，因为 host 会在 new-session 之后发送新的数据
+      // 如果在这里清空，会导致 host 发送的数据被忽略（因为时间窗口机制）
+      // 现在采用页面刷新方案，不需要清空（页面刷新会清空所有状态）
+      // gameState.obstacles = []; // ❌ 移除：不清空，让 host 发送的数据能够被接受
+      // gameState.decorations = []; // ❌ 移除：不清空，让 host 发送的数据能够被接受
       // 立即调用 resetForNewSession()
       gameState.resetForNewSession(data.sessionId, playerUpdates);
       // ✅ 修复：移除 staticSent 逻辑，确保障碍物和装饰物始终被发送
