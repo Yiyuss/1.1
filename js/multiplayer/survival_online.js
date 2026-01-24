@@ -4738,13 +4738,19 @@ function handleServerGameState(state, timestamp) {
               const isHealthDecreased = (newHealth < prevHealth && newHealth > 0 && prevHealth > 0);
               
               // ⚠️ 修复：只有在非新 session 时才更新 health（新 session 已经在上面强制同步了）
-              // ✅ 修复：补血是单机元素，如果客户端血量高于服务器同步的血量（表示客户端刚补血），保留客户端血量
-              // 这样可以防止服务器状态覆盖客户端的补血（YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、MIND_MAGIC）
+              // ✅ 修复：补血/回血是单机元素，如果客户端血量高于服务器同步的血量（表示客户端刚补血/回血），保留客户端血量
+              // 这样可以防止服务器状态覆盖客户端的补血（YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、MIND_MAGIC）和被动技能回血
+              // ⚠️ 修复：但如果服务器在扣血（newHealth < prevHealth），必须同步服务器血量（服务器权威）
               if (!isNewSession) {
-                // ✅ 修复：如果客户端血量高于服务器同步的血量，保留客户端血量（防止补血被覆盖）
-                // 补血是单机元素，只在本地处理，服务器不会处理补血，所以服务器同步的血量可能比客户端低
-                if (Game.player.health > newHealth) {
-                  // 客户端刚补血，保留客户端血量（不覆盖）
+                // 判断服务器是否在扣血（服务器权威）
+                const isServerDamaging = (newHealth < prevHealth && newHealth > 0 && prevHealth > 0);
+                
+                if (isServerDamaging) {
+                  // 服务器在扣血，必须同步服务器血量（服务器权威，不能保留客户端血量）
+                  Game.player.health = newHealth;
+                } else if (Game.player.health > newHealth) {
+                  // 服务器血量低于客户端，但不是因为服务器扣血（可能是客户端补血/回血）
+                  // 保留客户端血量（防止补血/回血被覆盖，不影响被动技能）
                   // 但需要确保不超过 maxHealth
                   Game.player.health = Math.min(Game.player.maxHealth, Game.player.health);
                 } else {
