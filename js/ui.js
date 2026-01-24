@@ -2153,8 +2153,8 @@ const UI = {
         // 組隊模式下，不暫停遊戲（避免所有玩家等待）
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         
-        // ✅ 组队模式：如果当前有升级菜单显示，将此次升级加入队列
-        if (isMultiplayer && this.levelUpMenu && !this.levelUpMenu.classList.contains('hidden')) {
+        // ✅ 组队模式：如果当前有升级菜单显示，或者队列中有待处理的升级，将此次升级加入队列
+        if (isMultiplayer && this.levelUpMenu && (!this.levelUpMenu.classList.contains('hidden') || (this._pendingLevelUps && this._pendingLevelUps.length > 0))) {
             this._pendingLevelUps.push(true); // 标记有待处理的升级
             return; // 不显示新菜单，等待当前菜单关闭后再显示
         }
