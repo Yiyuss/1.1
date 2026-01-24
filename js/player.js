@@ -901,7 +901,36 @@ class Player extends Entity {
         
         this.experience += finalAmount;
         
-        // 檢查是否升級
+        // ✅ 组队模式：如果升级菜单正在显示，延迟处理升级（避免覆盖菜单）
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        if (isMultiplayer && typeof UI !== 'undefined' && UI.levelUpMenu && !UI.levelUpMenu.classList.contains('hidden')) {
+            // 菜单正在显示，检查是否需要将升级加入队列
+            // 计算可以升级的次数
+            let pendingUpgrades = 0;
+            let tempExp = this.experience;
+            let tempExpToNext = this.experienceToNextLevel;
+            let tempLevel = this.level;
+            while (tempExp >= tempExpToNext) {
+                pendingUpgrades++;
+                tempExp -= tempExpToNext;
+                tempLevel++;
+                tempExpToNext = Player.computeExperienceToNextLevel(tempLevel);
+            }
+            // 将待处理的升级加入队列（避免重复添加）
+            if (pendingUpgrades > 0 && UI._pendingLevelUps) {
+                // 只添加一次，因为 hideLevelUpMenu 会处理所有待升级的等级
+                if (UI._pendingLevelUps.length === 0) {
+                    UI._pendingLevelUps.push(true);
+                }
+            }
+            // 更新UI
+            UI.updateExpBar(this.experience, this.experienceToNextLevel);
+            return;
+        }
+        
+        // 檢查是否升級（单机模式或菜单未显示时）
+        // ✅ 单机模式：只调用一次 levelUp()，后续升级由 hideLevelUpMenu() 处理（因为游戏会暂停）
+        // ✅ 组队模式：也只调用一次 levelUp()，后续升级由 hideLevelUpMenu() 的队列系统处理（因为游戏不会暂停）
         if (this.experience >= this.experienceToNextLevel) {
             this.levelUp();
         }
