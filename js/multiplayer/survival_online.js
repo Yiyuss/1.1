@@ -4890,6 +4890,68 @@ function handleServerGameState(state, timestamp) {
                 Game.player._resurrectionProgress = Math.max(0, Math.min(100, playerState.resurrectionProgress));
               }
             } catch (_) { }
+            
+            // ✅ 多人元素：大招動畫狀態同步（讓所有客戶端能看到其他玩家的大招變身效果）
+            // 注意：大招功能本身是單機元素（武器變化、屬性加成等），只在本地執行
+            // 但大招動畫（isUltimateActive、ultimateImageKey、體型變化）是多人元素，需要同步
+            try {
+              if (typeof playerState.isUltimateActive === "boolean") {
+                const wasUltimateActive = Game.player.isUltimateActive;
+                Game.player.isUltimateActive = playerState.isUltimateActive;
+                
+                // ✅ 單機元素：如果伺服器通知大招結束，本地執行 deactivateUltimate（恢復武器、屬性等）
+                // 但只執行功能恢復，不執行視覺恢復（視覺由伺服器同步）
+                if (wasUltimateActive && !playerState.isUltimateActive && typeof Game.player.deactivateUltimate === 'function') {
+                  // 只恢復功能（武器、屬性），不恢復體型（體型由伺服器同步）
+                  try {
+                    const backup = Game.player._ultimateBackup;
+                    if (backup && backup.weapons) {
+                      // 恢復武器
+                      const WeaponCtor = _getGlobalCtor("Weapon");
+                      if (WeaponCtor) {
+                        Game.player.weapons = backup.weapons.map(info => {
+                          const w = new WeaponCtor(Game.player, info.type);
+                          w.level = info.level;
+                          w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
+                          return w;
+                        });
+                      }
+                    }
+                    // 恢復額外防禦
+                    if (Game.player._ultimateExtraDefense > 0) {
+                      const currentDefense = Game.player.baseDefense || 1;
+                      Game.player.baseDefense = Math.max(1, currentDefense - Game.player._ultimateExtraDefense);
+                    }
+                    Game.player._ultimateExtraDefense = 0;
+                    // 清理備份
+                    Game.player._ultimateBackup = null;
+                  } catch (_) {}
+                }
+              }
+              if (typeof playerState.ultimateImageKey === "string" && playerState.ultimateImageKey) {
+                Game.player._ultimateImageKey = playerState.ultimateImageKey;
+              } else if (playerState.isUltimateActive === false) {
+                Game.player._ultimateImageKey = null;
+              }
+              if (typeof playerState.ultimateEndTime === "number") {
+                Game.player.ultimateEndTime = playerState.ultimateEndTime;
+              }
+              
+              // ✅ 多人元素：體型同步（大招變身時的視覺效果）
+              // ✅ 修复：大招结束时，服务器会恢复体积，需要同步（即使值为原始值，也要同步）
+              if (typeof playerState.width === "number") {
+                // 允许同步原始体积（可能小于或等于当前值）
+                Game.player.width = playerState.width;
+              }
+              if (typeof playerState.height === "number") {
+                // 允许同步原始体积（可能小于或等于当前值）
+                Game.player.height = playerState.height;
+              }
+              if (typeof playerState.collisionRadius === "number") {
+                // 允许同步原始碰撞半径（可能小于或等于当前值）
+                Game.player.collisionRadius = playerState.collisionRadius;
+              }
+            } catch (_) { }
           }
         } else {
           // 远程玩家：更新位置和状态
