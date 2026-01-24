@@ -501,34 +501,64 @@ class GameState {
   }
 
   _applyDamageToPlayer(player, amount, opts = {}) {
-    if (!player || player.isDead || player.health <= 0) return;
+    // ⚠️ 调试：检查参数
+    if (!player) {
+      console.warn('[GameState._applyDamageToPlayer] ⚠️ player 为 null/undefined');
+      return;
+    }
+    if (player.isDead || player.health <= 0) {
+      // 这是正常情况，不需要警告
+      return;
+    }
+    
     const now = Date.now();
     const ignoreInvulnerability = !!opts.ignoreInvulnerability;
     const ignoreDodge = !!opts.ignoreDodge;
 
+    // ⚠️ 调试：检查 amount
+    if (!amount || amount <= 0) {
+      console.warn('[GameState._applyDamageToPlayer] ⚠️ amount 无效:', { amount, playerUid: player.uid });
+      return;
+    }
+
     // ✅ 技能無敵（單機 invulnerabilitySource === 'INVINCIBLE'）：永遠優先
     try {
       const untilSkill = player.skillInvulnerableUntil || 0;
-      if (untilSkill && now < untilSkill) return;
+      if (untilSkill && now < untilSkill) {
+        // 这是正常情况（技能无敌），不需要警告
+        return;
+      }
     } catch (_) { }
 
     // 無敵判定
     if (!ignoreInvulnerability) {
       const until = player.invulnerableUntil || 0;
-      if (until && now < until) return;
+      if (until && now < until) {
+        // 这是正常情况（受伤短暂无敌），不需要警告
+        return;
+      }
     }
 
     // 迴避判定（由 client 計算最終 dodgeRate 並送到 meta）
     if (!ignoreDodge) {
       const r = player.meta && typeof player.meta.dodgeRate === 'number' ? player.meta.dodgeRate : 0;
       const rate = Math.max(0, Math.min(0.95, r));
-      if (rate > 0 && Math.random() < rate) return;
+      if (rate > 0 && Math.random() < rate) {
+        // 这是正常情况（回避），不需要警告
+        return;
+      }
     }
 
     // 防禦平減（與單機：baseDefense + damageReductionFlat）
     const red = player.meta && typeof player.meta.damageReductionFlat === 'number' ? player.meta.damageReductionFlat : 0;
     const effective = Math.max(0, Math.floor(amount || 0) - Math.max(0, Math.floor(red)));
-    if (effective <= 0) return;
+    if (effective <= 0) {
+      // ⚠️ 调试：如果防御平减导致伤害为0，记录警告
+      if (red > 0 && red >= amount) {
+        console.warn('[GameState._applyDamageToPlayer] ⚠️ 防御平减导致伤害为0:', { amount, red, effective, playerUid: player.uid });
+      }
+      return;
+    }
 
     player.health = Math.max(0, (player.health || 0) - effective);
     if (player.health <= 0) {
@@ -1928,7 +1958,9 @@ class GameState {
           // 检查攻击冷却
           if (now - enemy.lastAttackTime >= enemy.attackCooldown) {
             // ✅ 單機同源：受傷無敵/迴避/防禦（由 player-meta 提供最終值）
-            this._applyDamageToPlayer(nearestPlayer, enemy.damage, { ignoreDodge: false, ignoreInvulnerability: false });
+            // ⚠️ 修复：确保 enemy.damage 有效
+            const damage = (typeof enemy.damage === 'number' && enemy.damage > 0) ? enemy.damage : 10;
+            this._applyDamageToPlayer(nearestPlayer, damage, { ignoreDodge: false, ignoreInvulnerability: false });
             enemy.lastAttackTime = now;
 
             // 检查玩家是否死亡
@@ -2005,7 +2037,8 @@ class GameState {
           maxHealth: 100,
           speed: 2,
           size: 32,
-          isDead: false
+          isDead: false,
+          damage: 10 // ✅ 修复：确保敌人有伤害值
         });
       }
       return;
