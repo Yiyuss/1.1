@@ -80,43 +80,86 @@ class AICompanion extends Entity {
     }
     
     update(deltaTime) {
-        // ✅ 架构修复：单机模式如何工作，组队模式就应该如何工作
-        // 基础检查：Game和deltaTime
+        // ✅ 修复：先检查Game，再检查player（避免AI因为player暂时为null而无法更新）
         if (!Game || Game.isGameOver) return;
+        
+        // ✅ 修复：如果deltaTime无效，使用默认值
         if (!deltaTime || deltaTime <= 0) {
             deltaTime = 16.67; // 默认60FPS
         }
         
-        // ✅ 架构修复：组队模式下，远程玩家的AI需要更新player引用
-        // 单机模式：不会进入此分支（this._remotePlayerUid 在单机模式下不会被设置）
-        if (this._remotePlayerUid) {
-            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-            if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
-                const remotePlayer = rt.RemotePlayerManager.get(this._remotePlayerUid);
-                if (remotePlayer) {
-                    this.player = remotePlayer;
-                } else if (!this.player) {
-                    this.markedForDeletion = true;
-                    return;
-                }
-            } else if (!this.player) {
-                this.markedForDeletion = true;
-                return;
-            }
-        }
-        
-        // ✅ 架构修复：本地玩家的AI（没有_remotePlayerUid），确保player引用正确
+        // ✅ 架构修复：本地玩家的AI需要确保player引用正确
+        // 如果是本地玩家的AI（没有_remotePlayerUid），确保player引用指向Game.player
         if (!this._remotePlayerUid) {
-            if (typeof Game !== 'undefined' && Game.player) {
+            // 本地玩家的AI：确保player引用指向Game.player
+            if (typeof Game !== 'undefined' && Game.player && this.player !== Game.player) {
                 this.player = Game.player;
             }
         }
         
-        // 基础检查：player和坐标（如果player无效，跳过本次更新，但不删除AI）
+        // ✅ 組隊模式：遠程玩家的AI需要更新位置並使用最新的遠程玩家對象（包含天賦加成）
+        // ✅ 單機模式：不會進入此分支（this._remotePlayerUid 在單機模式下不會被設置）
+        if (this._remotePlayerUid) {
+            const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+            // 優先使用 RemotePlayerManager.get（獲取完整的 Player 對象，包含天賦加成）
+            if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                const remotePlayer = rt.RemotePlayerManager.get(this._remotePlayerUid);
+                if (remotePlayer) {
+                    // ✅ 修復：確保 this.player 引用的是最新的遠程玩家對象（包含天賦加成）
+                    // 這樣AI才能正確使用遠程玩家的天賦屬性（damageTalentBaseBonusPct、critChanceBonusPct等）
+                    this.player = remotePlayer;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    // 如果是本地玩家
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                    }
+                } else {
+                    // ✅ 修復：如果找不到對應的玩家，暫時保留 this.player，不立即刪除
+                    // 因為玩家可能暫時離線或還在連接中
+                    if (!this.player) {
+                        // 只有在 this.player 為 null 時才標記為刪除
+                        this.markedForDeletion = true;
+                        return;
+                    }
+                    // 如果 this.player 存在，繼續使用它（可能是緩存的引用）
+                }
+            } else if (rt && typeof rt.getRemotePlayers === 'function') {
+                // 後備方案：使用 getRemotePlayers（較舊的方法）
+                const remotePlayers = rt.getRemotePlayers() || [];
+                const remotePlayer = remotePlayers.find(p => p && p.uid === this._remotePlayerUid);
+                if (remotePlayer) {
+                    // ✅ 修復：確保 this.player 引用的是遠程玩家對象（包含天賦加成）
+                    this.player = remotePlayer;
+                } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
+                    // 如果是本地玩家
+                    if (typeof Game !== 'undefined' && Game.player) {
+                        this.player = Game.player;
+                    }
+                } else {
+                    // ✅ 修復：如果找不到對應的玩家，暫時保留 this.player，不立即刪除
+                    if (!this.player) {
+                        this.markedForDeletion = true;
+                        return;
+                    }
+                }
+            } else {
+                // ✅ 修復：如果 Runtime 不存在，但 this.player 存在，繼續使用它
+                if (!this.player) {
+                    this.markedForDeletion = true;
+                    return;
+                }
+            }
+        }
+        
+        // ✅ 修復：在更新 player 引用後，再次檢查 this.player 是否存在
         if (!this.player) {
+            // 如果 this.player 仍然為 null，跳過本次更新（但不刪除，等待下次更新）
             return;
         }
+        
+        // ✅ 修复：检查player是否有有效的坐标
         if (typeof this.player.x !== 'number' || typeof this.player.y !== 'number') {
+            // player坐标无效，跳过本次更新
             return;
         }
         
