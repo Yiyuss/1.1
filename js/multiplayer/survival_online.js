@@ -380,6 +380,8 @@ const RemotePlayerManager = (() => {
 
                 // 重新應用天賦效果
                 if (talentLevels && typeof talentLevels === "object") {
+                  // ✅ 保存天賦等級到遠程玩家對象（用於AI強化天賦等）
+                  existingPlayer._talentLevels = talentLevels;
                   if (typeof BuffSystem !== "undefined" && BuffSystem.applyBuffsFromTalentLevels) {
                     BuffSystem.applyBuffsFromTalentLevels(existingPlayer, talentLevels);
                   }
@@ -427,6 +429,8 @@ const RemotePlayerManager = (() => {
               // 應用天賦效果（使用該玩家自己的天賦等級，而不是本地天賦數據）
               try {
                 if (talentLevels && typeof talentLevels === "object") {
+                  // ✅ 保存天賦等級到遠程玩家對象（用於AI強化天賦等）
+                  player._talentLevels = talentLevels;
                   // 使用遠程玩家的天賦等級
                   if (typeof BuffSystem !== "undefined" && BuffSystem.applyBuffsFromTalentLevels) {
                     BuffSystem.applyBuffsFromTalentLevels(player, talentLevels);
