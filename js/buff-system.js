@@ -213,9 +213,12 @@ const BuffSystem = {
                 ? TalentSystem.getTalentLevel('hp_boost') : 0;
             const hpTalentFlat = BuffSystem._getTierEffect('hp_boost', hpTalentLv, 'hp', 0) || 0;
             const hpUpgradeFlat = 20 * hpLv; // 每級+20
+            // ✅ 修復：組隊模式下生命值加乘卡住的BUG
+            // 必須使用 player.baseMaxHealth 或 CONFIG.PLAYER.MAX_HEALTH 作為 baseMax
+            // 不能使用 player.maxHealth 作為後備值，因為在組隊模式下它可能被伺服器同步的舊值覆蓋
             const baseMax = (player && typeof player.baseMaxHealth === 'number')
                 ? player.baseMaxHealth
-                : ((CONFIG && CONFIG.PLAYER ? CONFIG.PLAYER.MAX_HEALTH : (player.maxHealth || 100)));
+                : ((CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.MAX_HEALTH) ? CONFIG.PLAYER.MAX_HEALTH : 200);
             const oldMaxHealth = player.maxHealth || baseMax;
             player.maxHealth = baseMax + hpTalentFlat + hpUpgradeFlat;
             // ✅ 修復：當 maxHealth 增加時，按比例調整當前血量，避免生命值加乘被取消
