@@ -4602,7 +4602,7 @@ function handleServerGameState(state, timestamp) {
               const prevMaxHealth = Game.player.maxHealth || 200;
               const newMaxHealth = playerState.maxHealth;
               
-              // ✅ 修復：組隊模式下生命值加乘卡住的BUG
+              // ✅ 修復：組隊模式下生命值加乘卡住的BUG + 忽略人物基礎屬性加成的BUG
               // 在組隊模式下，如果客戶端剛升級了生命值（healthUpgradeLevel 增加），
               // 客戶端已經計算了正確的 maxHealth，不應該被伺服器同步的舊值覆蓋
               // 只有在伺服器的 maxHealth 真的比客戶端大時才更新（表示伺服器有新的升級）
@@ -4610,6 +4610,19 @@ function handleServerGameState(state, timestamp) {
               const shouldUpdateMaxHealth = isNewSession || (Math.abs(newMaxHealth - prevMaxHealth) > 0.5 && (!isHealthUpgradeActive || newMaxHealth >= prevMaxHealth));
               
               if (shouldUpdateMaxHealth) {
+                // ✅ 修復：確保 baseMaxHealth 被正確設置（包含角色基礎屬性加成）
+                // 如果 baseMaxHealth 沒有被正確設置，重新應用角色屬性
+                if (!Game.player.baseMaxHealth || Game.player.baseMaxHealth === CONFIG.PLAYER.MAX_HEALTH) {
+                  if (Game.selectedCharacter) {
+                    const sc = Game.selectedCharacter;
+                    const baseMax = CONFIG.PLAYER.MAX_HEALTH;
+                    const hpMul = sc.hpMultiplier != null ? sc.hpMultiplier : 1.0;
+                    const hpBonus = sc.hpBonus != null ? sc.hpBonus : 0;
+                    const charBaseMax = Math.max(1, Math.floor(baseMax * hpMul + hpBonus));
+                    Game.player.baseMaxHealth = charBaseMax;
+                  }
+                }
+                
                 Game.player.maxHealth = newMaxHealth;
                 // 如果 maxHealth 增加了，按比例增加 health（避免開場就被扣血）
                 if (newMaxHealth > prevMaxHealth) {
@@ -4628,6 +4641,17 @@ function handleServerGameState(state, timestamp) {
               } else {
                 // ✅ 修復：如果客戶端剛升級了生命值，重新應用屬性升級以確保 maxHealth 正確
                 // 這可以防止伺服器同步的舊值覆蓋客戶端剛計算的新值
+                // ✅ 修復：同時確保 baseMaxHealth 被正確設置（包含角色基礎屬性加成）
+                if (!Game.player.baseMaxHealth || Game.player.baseMaxHealth === CONFIG.PLAYER.MAX_HEALTH) {
+                  if (Game.selectedCharacter) {
+                    const sc = Game.selectedCharacter;
+                    const baseMax = CONFIG.PLAYER.MAX_HEALTH;
+                    const hpMul = sc.hpMultiplier != null ? sc.hpMultiplier : 1.0;
+                    const hpBonus = sc.hpBonus != null ? sc.hpBonus : 0;
+                    const charBaseMax = Math.max(1, Math.floor(baseMax * hpMul + hpBonus));
+                    Game.player.baseMaxHealth = charBaseMax;
+                  }
+                }
                 if (isHealthUpgradeActive && typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
                   BuffSystem.applyAttributeUpgrades(Game.player);
                 }
