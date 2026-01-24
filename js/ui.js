@@ -2263,14 +2263,18 @@ const UI = {
                 // 注意：经验已经在之前的 levelUp() 中扣除了，所以这里只需要检查经验是否仍然足够
                 if (typeof Game !== 'undefined' && Game.player && !Game.player._isRemotePlayer) {
                     const player = Game.player;
+                    // ✅ 修复：只处理一次升级，避免覆盖菜单
+                    // 如果经验仍然足够，说明还有升级需要处理
+                    // 需要再次调用 levelUp() 来处理升级逻辑（扣除经验、更新等级等）
+                    // 但 showLevelUpMenu 会检查队列，如果当前有菜单显示，会将升级加入队列
+                    // 由于菜单已经关闭，所以这次会直接显示菜单
                     if (player.experience >= player.experienceToNextLevel) {
-                        // 经验仍然足够，说明还有升级需要处理
-                        // 需要再次调用 levelUp() 来处理升级逻辑（扣除经验、更新等级等）
-                        // 但 showLevelUpMenu 会检查队列，如果当前有菜单显示，会将升级加入队列
-                        // 由于菜单已经关闭，所以这次会直接显示菜单
                         player.levelUp();
+                        // 如果升级后经验仍然足够，将下一个升级加入队列（等待下一次 hideLevelUpMenu 处理）
+                        if (player.experience >= player.experienceToNextLevel && this._pendingLevelUps) {
+                            this._pendingLevelUps.push(true);
+                        }
                     }
-                    // 如果经验不够，说明之前的 levelUp 已经处理了所有升级，不需要做任何事
                 }
             }, 50);
             return; // 组队模式下不恢复游戏（因为游戏没有暂停）
