@@ -4693,8 +4693,19 @@ function handleServerGameState(state, timestamp) {
               const isHealthDecreased = (newHealth < prevHealth && newHealth > 0 && prevHealth > 0);
               
               // ⚠️ 修复：只有在非新 session 时才更新 health（新 session 已经在上面强制同步了）
+              // ✅ 修复：补血是单机元素，如果客户端血量高于服务器同步的血量（表示客户端刚补血），保留客户端血量
+              // 这样可以防止服务器状态覆盖客户端的补血（YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、MIND_MAGIC）
               if (!isNewSession) {
-                Game.player.health = newHealth;
+                // ✅ 修复：如果客户端血量高于服务器同步的血量，保留客户端血量（防止补血被覆盖）
+                // 补血是单机元素，只在本地处理，服务器不会处理补血，所以服务器同步的血量可能比客户端低
+                if (Game.player.health > newHealth) {
+                  // 客户端刚补血，保留客户端血量（不覆盖）
+                  // 但需要确保不超过 maxHealth
+                  Game.player.health = Math.min(Game.player.maxHealth, Game.player.health);
+                } else {
+                  // 服务器血量更高或相等，使用服务器血量（正常同步）
+                  Game.player.health = newHealth;
+                }
               }
               
               // 只在血量真的減少、不是初始化、不是無敵狀態時觸發紅閃
