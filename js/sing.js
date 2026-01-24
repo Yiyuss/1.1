@@ -31,6 +31,8 @@ class SingEffect extends Entity {
             layer.style.height = '100%';
             layer.style.pointerEvents = 'none';
             layer.style.zIndex = '7'; // 提高一層，確保光暈不被其他層蓋住
+            // ✅ 修復：參考無敵和守護領域，讓圖層可以超出邊界顯示（強制突破邊界）
+            layer.style.overflow = 'visible'; // 允許內容超出邊界顯示
             viewport.appendChild(layer);
         }
         this._layer = layer;
@@ -117,15 +119,17 @@ class SingEffect extends Entity {
                     // 問題：this.player 可能是一個舊的對象引用，直接修改它的屬性可能不會正確更新（這是斬擊的BUG）
                     // 解決：直接使用 remotePlayer 對象，確保位置正確（參考守護領域的正確方式）
                     this.player = remotePlayer; // ✅ 修復：更新引用，確保指向正確的遠程玩家對象
-                    // ✅ 修復3：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步
+                    // ✅ 修復3：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步（邊界問題修復）
                     // 這樣即使玩家靠近邊界，效果也會正確跟隨玩家（參考守護領域和無敵）
+                    // ⚠️ 關鍵：必須在每次update()中都同步，確保邊界時也能正確跟隨
                     this.x = this.player.x;
                     this.y = this.player.y;
                 } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
                     // 如果是本地玩家
                     if (typeof Game !== 'undefined' && Game.player) {
                         this.player = Game.player;
-                        // ✅ 修復：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步
+                        // ✅ 修復：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步（邊界問題修復）
+                        // ⚠️ 關鍵：必須在每次update()中都同步，確保邊界時也能正確跟隨
                         this.x = Game.player.x;
                         this.y = Game.player.y;
                     }
@@ -164,8 +168,11 @@ class SingEffect extends Entity {
                 return;
             }
             // 僅視覺模式：只更新位置和DOM
-            // ✅ 修復：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步
+            // ✅ 修復：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步（邊界問題修復）
             // 這樣即使玩家靠近邊界，效果也會正確跟隨玩家（參考守護領域和無敵）
+            // ⚠️ 關鍵：必須在每次update()中都同步，確保邊界時也能正確跟隨
+            // ⚠️ 注意：不要直接修改 this.player.x 和 this.player.y（這是斬擊的BUG）
+            // 應該更新 this.player 引用，然後同步 this.x 和 this.y
             this.x = this.player.x;
             this.y = this.player.y;
             if (this.el) {
@@ -182,7 +189,9 @@ class SingEffect extends Entity {
             return;
         }
         
-        // 單機模式：跟隨玩家位置
+        // 單機模式：跟隨玩家位置（邊界問題修復）
+        // ✅ 修復：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步
+        // ⚠️ 關鍵：必須在每次update()中都同步，確保邊界時也能正確跟隨
         this.x = this.player.x;
         this.y = this.player.y;
         // 播放期間跟隨玩家位置（只在一次播放時間內）
