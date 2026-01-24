@@ -1443,6 +1443,27 @@ class GameState {
   updatePlayers(deltaTime) {
     const now = Date.now();
     for (const player of this.players.values()) {
+      // ✅ 修復：檢查經驗是否足夠升級，與單機模式一致
+      // 服務器端需要處理升級邏輯，確保 level 和 experienceToNextLevel 與客戶端一致
+      if (typeof player.experience === 'number' && player.experience > 0 && typeof player.level === 'number') {
+        let currentExp = player.experience;
+        let currentLevel = player.level;
+        let expToNext = this._computeExperienceToNextLevel(currentLevel);
+        
+        // 循環檢查是否有多級升級（與單機模式一致）
+        while (currentExp >= expToNext && expToNext > 0) {
+          currentExp -= expToNext;
+          currentLevel++;
+          expToNext = this._computeExperienceToNextLevel(currentLevel);
+        }
+        
+        // 更新服務器端的 level 和 experience
+        if (currentLevel !== player.level) {
+          player.level = currentLevel;
+        }
+        player.experience = currentExp;
+      }
+      
       // 能量恢复
       if (player.energy < player.maxEnergy) {
         player.energy = Math.min(player.maxEnergy, player.energy + 1 * (deltaTime / 1000));
