@@ -5428,12 +5428,28 @@ function updateBossProjectilesFromServer(bossProjectiles) {
       }
       if (p) {
         p.id = st.id;
+        // ✅ 修复：立即设置初始位置，确保投射物在正确的位置创建
+        // 原因：Entity 构造函数会设置 x 和 y，但我们需要确保它们与服务器状态一致
+        if (typeof st.x === 'number') {
+          p.x = st.x;
+          p._netTargetX = st.x;
+        }
+        if (typeof st.y === 'number') {
+          p.y = st.y;
+          p._netTargetY = st.y;
+        }
+        // ✅ 修复：立即设置角度，确保投射物朝向正确
+        if (typeof st.angle === 'number') {
+          p.angle = st.angle;
+          p._netAngle = st.angle;
+        }
         p._isVisualOnly = true;
         Game.bossProjectiles.push(p);
       }
     }
 
     if (p) {
+      // ✅ 修复：持续更新网络目标位置和角度，确保投射物正确移动
       if (typeof st.x === 'number') p._netTargetX = st.x;
       if (typeof st.y === 'number') p._netTargetY = st.y;
       if (typeof st.angle === 'number') p._netAngle = st.angle;
@@ -5452,8 +5468,6 @@ function updateBossProjectilesFromServer(bossProjectiles) {
         if (typeof st.vy === 'number') p.vy = st.vy;
         if (typeof st.g === 'number') p.g = st.g;
       }
-      if (typeof p.x !== 'number' && typeof p._netTargetX === 'number') p.x = p._netTargetX;
-      if (typeof p.y !== 'number' && typeof p._netTargetY === 'number') p.y = p._netTargetY;
       p._isVisualOnly = true;
     }
   }
@@ -5464,6 +5478,13 @@ function updateBulletsFromServer(bullets) {
   try {
     if (typeof Game === 'undefined' || !Game.multiplayer || !Game.multiplayer.enabled) return;
     if (typeof BulletSystem === 'undefined') return;
+
+    // ✅ 修复：确保 BulletSystem 已初始化，特别是图片加载
+    // 原因：BulletSystem.init() 只在 Game.init() 时调用一次，但在多人模式下可能图片还没加载完成
+    // 如果图片未加载，弹幕会使用备用的圆形绘制，但用户期望看到雪碧图
+    if (!BulletSystem.bulletImageReady && typeof BulletSystem.init === 'function') {
+      BulletSystem.init();
+    }
 
     // 客戶端只渲染：覆蓋 bullets，清空 emitters，避免本地生成
     BulletSystem.enabled = true;
