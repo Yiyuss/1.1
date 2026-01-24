@@ -2641,8 +2641,12 @@ const Game = {
         this.maxEnemiesBonus = (maxB > 0) ? Utils.randomInt(minB, maxB) : 0;
 
         // 根據難度控制彈幕系統開關：僅在修羅（ASURA）開啟
+        // ⚠️ 修复：在多人模式下，不要根据难度设置 BulletSystem.enabled
+        // 因为服务器会控制弹幕的生成，客户端只需要渲染
+        // updateBulletsFromServer 会设置 BulletSystem.enabled = true
         try {
-            if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.setEnabled === 'function') {
+            const isMultiplayer = (this.multiplayer && this.multiplayer.enabled);
+            if (!isMultiplayer && typeof BulletSystem !== 'undefined' && typeof BulletSystem.setEnabled === 'function') {
                 BulletSystem.setEnabled(diffId === 'ASURA');
             }
         } catch (e) {
@@ -2658,8 +2662,11 @@ const Game = {
         this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
 
         // 先重置彈幕系統緩存，避免之後初始化波次時掛載的發射器被清空
+        // ⚠️ 修复：在多人模式下，不要重置 BulletSystem，因为服务器会发送弹幕数据
+        // 如果在这里重置，会导致服务器发送的数据被清空
         try {
-            if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.reset === 'function') {
+            const isMultiplayer = (this.multiplayer && this.multiplayer.enabled);
+            if (!isMultiplayer && typeof BulletSystem !== 'undefined' && typeof BulletSystem.reset === 'function') {
                 BulletSystem.reset();
             }
         } catch (e) {
