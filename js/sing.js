@@ -92,28 +92,57 @@ class SingEffect extends Entity {
     }
 
     update(deltaTime) {
-        // 僅視覺唱歌：需要從遠程玩家位置更新
+        // 僅視覺唱歌：需要從遠程玩家位置更新（參考無敵和守護領域的處理方式）
         if (this._isVisualOnly && this._remotePlayerUid) {
             const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-            if (rt && typeof rt.getRemotePlayers === 'function') {
-                const remotePlayers = rt.getRemotePlayers() || [];
-                const remotePlayer = remotePlayers.find(p => p.uid === this._remotePlayerUid);
+            if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                // ✅ 修復1：使用 RemotePlayerManager.get() 而不是 getRemotePlayers()（參考無敵和守護領域）
+                const remotePlayer = rt.RemotePlayerManager.get(this._remotePlayerUid);
                 if (remotePlayer) {
-                    // 更新玩家位置
-                    this.player.x = remotePlayer.x;
-                    this.player.y = remotePlayer.y;
-                    this.x = remotePlayer.x;
-                    this.y = remotePlayer.y;
+                    // ✅ 修復2：參考守護領域和無敵的處理方式，確保 this.player 引用始終是最新的
+                    // 問題：this.player 可能是一個舊的對象引用，直接修改它的屬性可能不會正確更新（這是斬擊的BUG）
+                    // 解決：直接使用 remotePlayer 對象，確保位置正確（參考守護領域的正確方式）
+                    this.player = remotePlayer; // ✅ 修復：更新引用，確保指向正確的遠程玩家對象
+                    // ✅ 修復3：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步
+                    // 這樣即使玩家靠近邊界，效果也會正確跟隨玩家（參考守護領域和無敵）
+                    this.x = this.player.x;
+                    this.y = this.player.y;
                 } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid)) {
                     // 如果是本地玩家
                     if (typeof Game !== 'undefined' && Game.player) {
                         this.player = Game.player;
+                        // ✅ 修復：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步
                         this.x = Game.player.x;
                         this.y = Game.player.y;
                     }
                 } else {
-                    // 如果找不到對應的玩家，標記為刪除
-                    this.markedForDeletion = true;
+                    // ✅ 修復4：參考守護領域和無敵的處理方式，給一個寬限期（避免瞬間消失）
+                    // 如果找不到玩家，可能是網路延遲，給 500ms 寬限期
+                    if (!this._playerNotFoundCount) {
+                        this._playerNotFoundCount = 0;
+                    }
+                    this._playerNotFoundCount += deltaTime;
+                    if (this._playerNotFoundCount > 500) {
+                        this.markedForDeletion = true;
+                        return;
+                    }
+                    // 在寬限期內，繼續更新（使用最後已知位置）
+                    // ✅ 修復：確保即使找不到玩家，也繼續更新位置（參考守護領域和無敵）
+                    // ⚠️ 注意：不要直接修改 this.player.x 和 this.player.y（這是斬擊的BUG）
+                    // 應該使用 this.x 和 this.y，並在寬限期內繼續更新 DOM 位置
+                    this.x = this.player ? this.player.x : this.x;
+                    this.y = this.player ? this.player.y : this.y;
+                    if (this.el) {
+                        this._updateDomPosition();
+                    }
+                    // 檢查是否超過持續時間
+                    if (Date.now() - this.startTime >= this.duration) {
+                        if (this.el && this.el.parentNode) {
+                            this.el.parentNode.removeChild(this.el);
+                        }
+                        this.el = null;
+                        this.markedForDeletion = true;
+                    }
                     return;
                 }
             } else {
@@ -121,6 +150,10 @@ class SingEffect extends Entity {
                 return;
             }
             // 僅視覺模式：只更新位置和DOM
+            // ✅ 修復：確保 this.x 和 this.y 與 this.player.x 和 this.player.y 同步
+            // 這樣即使玩家靠近邊界，效果也會正確跟隨玩家（參考守護領域和無敵）
+            this.x = this.player.x;
+            this.y = this.player.y;
             if (this.el) {
                 this._updateDomPosition();
             }
