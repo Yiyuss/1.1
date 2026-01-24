@@ -1133,7 +1133,8 @@ const UI = {
             // 更新技能列表與音效
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：属性升级后立即关闭菜单（与武器升级一致）
+            this.hideLevelUpMenu();
             return;
         }
         if (weaponType === 'ATTR_CRIT') {
@@ -1143,7 +1144,8 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：属性升级后立即关闭菜单（与武器升级一致）
+            this.hideLevelUpMenu();
             return;
         }
         if (weaponType === 'ATTR_ATTACK_POWER') {
@@ -1153,7 +1155,8 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：属性升级后立即关闭菜单（与武器升级一致）
+            this.hideLevelUpMenu();
             return;
         }
         if (weaponType === 'ATTR_HEALTH') {
@@ -1199,7 +1202,8 @@ const UI = {
             
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：属性升级后立即关闭菜单（与武器升级一致）
+            this.hideLevelUpMenu();
             return;
         }
         if (weaponType === 'ATTR_DEFENSE') {
@@ -1210,7 +1214,8 @@ const UI = {
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：不在这里关闭菜单，统一在函数末尾关闭（避免连续升级时盖掉前一个升级的选项机会）
+            // ✅ 修复：属性升级后立即关闭菜单（与武器升级一致）
+            this.hideLevelUpMenu();
             return;
         }
 
