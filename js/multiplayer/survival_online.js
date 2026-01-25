@@ -4666,7 +4666,7 @@ function handleServerGameState(state, timestamp) {
                 // 第一次收到服务器状态时，需要同步到服务器的位置（可能是上一局的位置，需要客户端立即发送移动输入来更新）
                 _didServerPosSync = false;
                 // ⚠️ 修复：新 session 开始时，重置 _lastHealth，避免继承上一局的血量
-                handleServerGameState._lastHealth = undefined;
+                handleServerGameState._lastServerHealth = undefined;
               }
             } catch (_) { }
 
@@ -4773,21 +4773,21 @@ function handleServerGameState(state, timestamp) {
               
               // 新 session 开始时，重置 _lastHealth，避免继承上一局的血量
               if (isNewSession) {
-                handleServerGameState._lastHealth = playerState.health;
+                handleServerGameState._lastServerHealth = playerState.health;
               }
               
               // 初始化 _lastHealth（如果不存在）
-              if (typeof handleServerGameState._lastHealth !== "number") {
-                handleServerGameState._lastHealth = playerState.health;
+              if (typeof handleServerGameState._lastServerHealth !== "number") {
+                handleServerGameState._lastServerHealth = playerState.health;
               }
               
-              const prevHealth = handleServerGameState._lastHealth;
+              const prevHealth = handleServerGameState._lastServerHealth;
               const newHealth = playerState.health;
               
               // ⚠️ 修复：新 session 开始时，强制同步 health（避免继承上一局的状态）
               if (isNewSession) {
                 Game.player.health = newHealth;
-                handleServerGameState._lastHealth = newHealth;
+                handleServerGameState._lastServerHealth = newHealth;
               }
               
               // ⚠️ 修復：只在血量真的減少時觸發紅閃（排除 maxHealth 變化導致的 health 調整）
@@ -4795,57 +4795,37 @@ function handleServerGameState(state, timestamp) {
               // 還要排除初始化時的情況（prevHealth 可能是 0 或 maxHealth，導致誤判）
               const isInitializing = (prevHealth === 0 || prevHealth === (Game.player.maxHealth || 200));
               const isInvulnerable = (Game.player.isInvulnerable && Game.player.invulnerabilitySource === 'INVINCIBLE');
+              const isHealthDecreased = (newHealth < prevHealth && newHealth > 0 && prevHealth > 0);
               
               // ⚠️ 修复：只有在非新 session 时才更新 health（新 session 已经在上面强制同步了）
               // ✅ 修复：补血/回血是单机元素，如果客户端血量高于服务器同步的血量（表示客户端刚补血/回血），保留客户端血量
               // 这样可以防止服务器状态覆盖客户端的补血（YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、MIND_MAGIC）和被动技能回血
               // ⚠️ 修复：但如果服务器在扣血（newHealth < prevHealth），必须同步服务器血量（服务器权威）
-              
-              // 记录同步前的客户端血量，用于判断是否触发红闪
-              const clientHealthBeforeSync = Game.player.health;
-              
               if (!isNewSession) {
-                // ✅ 修复：判断服务器是否在扣血，必须基于服务器状态的变化，而不是客户端状态
-                // 关键逻辑：
-                // 1. 如果服务器在扣血（newHealth < prevHealth），无论客户端血量如何，都必须同步服务器血量（服务器权威）
-                // 2. 如果服务器在补血（newHealth > prevHealth），使用服务器血量
-                // 3. 如果服务器状态没变（newHealth === prevHealth），且客户端血量高于服务器血量，保留客户端血量（客户端补血）
-                // 4. 如果服务器状态没变（newHealth === prevHealth），且客户端血量不高于服务器血量，使用服务器血量
-                
-                // 判断服务器是否在扣血（服务器血量相对于上一次同步的服务器血量减少了）
+                // 判断服务器是否在扣血（服务器权威）
                 const isServerDamaging = (newHealth < prevHealth && newHealth > 0 && prevHealth > 0);
-                // 判断服务器是否在补血（服务器血量相对于上一次同步的服务器血量增加了）
-                const isServerHealing = (newHealth > prevHealth && newHealth > 0 && prevHealth > 0);
-                // 判断服务器状态是否没变（服务器血量等于上一次同步的服务器血量）
-                const isServerUnchanged = (newHealth === prevHealth);
-                // 判断客户端血量是否高于服务器血量（可能是客户端补血）
-                const isClientHealthHigher = (Game.player.health > newHealth);
                 
                 if (isServerDamaging) {
-                  // 服务器在扣血，无论客户端血量如何，都必须同步服务器血量（服务器权威）
+                  // 服务器在扣血，必须同步服务器血量（服务器权威，不能保留客户端血量）
                   Game.player.health = newHealth;
-                } else if (isServerHealing) {
-                  // 服务器在补血，使用服务器血量
-                  Game.player.health = newHealth;
-                } else if (isServerUnchanged && isClientHealthHigher) {
-                  // 服务器状态没变，且客户端血量高于服务器血量（客户端补血了）
+                } else if (Game.player.health > newHealth) {
+                  // 服务器血量低于客户端，但不是因为服务器扣血（可能是客户端补血/回血）
                   // 保留客户端血量（防止补血/回血被覆盖，不影响被动技能）
                   // 但需要确保不超过 maxHealth
                   Game.player.health = Math.min(Game.player.maxHealth, Game.player.health);
-                } else {
-                  // 服务器状态没变，且客户端血量不高于服务器血量，使用服务器血量（正常同步）
+                } else if (newHealth > prevHealth) {
+                  // 服务器血量高于上一次同步的血量（服务器补血/回血），使用服务器血量
                   Game.player.health = newHealth;
+                } else {
+                  // 服务器血量等于上一次同步的血量（服务器没动），保留客户端血量
+                  // 这样可以防止客户端补血被覆盖（差值校正/reconciliation 问题）
+                  // 如果客户端补血后，服务器状态没变，不应该覆盖客户端补血
+                  Game.player.health = Math.min(Game.player.maxHealth, Game.player.health);
                 }
               }
               
-              // ✅ 修复：红闪触发应该基于客户端血量的实际变化，而不是服务器状态
-              // 问题：如果客户端补血后，服务器状态没变，不应该触发红闪
-              // 修复：使用同步前的客户端血量和同步后的客户端血量来判断是否受伤
-              const clientHealthAfterSync = Game.player.health;
-              const isClientHealthDecreased = (clientHealthAfterSync < clientHealthBeforeSync && clientHealthAfterSync > 0 && clientHealthBeforeSync > 0);
-              
-              // 只在客户端血量真的減少、不是初始化、不是無敵狀態時觸發紅閃
-              if (isClientHealthDecreased && !isInitializing && !isInvulnerable && !Game.player._isDead) {
+              // 只在血量真的減少、不是初始化、不是無敵狀態時觸發紅閃
+              if (isHealthDecreased && !isInitializing && !isInvulnerable && !Game.player._isDead) {
                 try {
                   Game.player.hitFlashTime = Game.player.hitFlashDuration || 150;
                   if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
@@ -4854,15 +4834,12 @@ function handleServerGameState(state, timestamp) {
                 } catch (_) {}
               }
               
-              // ✅ 修复：_lastHealth 应该代表服务器已确认的血量，而不是客户端血量
-              // 问题：如果客户端补血后，服务器状态没变，_lastHealth 应该保持为服务器状态
-              // 这样可以确保下一次同步时，prevHealth 代表上一次的服务器状态，而不是客户端状态
+              // ✅ 修复：_lastHealth 应该只在服务器血量真的变化时更新
+              // 问题：如果服务器没动（newHealth === prevHealth），不应该更新 _lastHealth
+              // 这样可以确保 _lastHealth 代表服务器已确认的血量，避免在服务器没动时更新
               // 根据 GPT 建议：_lastHealth 只能代表 server 已确认的血量，不能在「server 没动」的 tick 更新
-              // 修复：只有当服务器状态真的变化了（newHealth !== prevHealth）时，才更新 _lastHealth
-              // 如果服务器状态没变（newHealth === prevHealth），不更新 _lastHealth，保持上一次的服务器状态
               if (newHealth !== prevHealth) {
-                // 服务器血量真的变化了，更新 _lastHealth 为服务器状态
-                handleServerGameState._lastHealth = newHealth;
+              handleServerGameState._lastServerHealth = newHealth;
               }
               // 如果服务器没动（newHealth === prevHealth），不更新 _lastHealth
             }
@@ -4912,18 +4889,18 @@ function handleServerGameState(state, timestamp) {
             if (typeof UI !== "undefined") {
               try {
                 // 記錄上一次的血量值，只在真的改變時才更新 UI
-                if (!handleServerGameState._lastHealth) handleServerGameState._lastHealth = Game.player.health || 0;
-                if (!handleServerGameState._lastMaxHealth) handleServerGameState._lastMaxHealth = Game.player.maxHealth || 200;
+                if (typeof handleServerGameState._lastUiHealth !== 'number') handleServerGameState._lastUiHealth = Game.player.health || 0;
+                if (typeof handleServerGameState._lastUiMaxHealth !== 'number') handleServerGameState._lastUiMaxHealth = Game.player.maxHealth || 200;
                 
-                const healthChanged = Math.abs((Game.player.health || 0) - handleServerGameState._lastHealth) > 0.5;
-                const maxHealthChanged = Math.abs((Game.player.maxHealth || 200) - handleServerGameState._lastMaxHealth) > 0.5;
+                const healthChanged = Math.abs((Game.player.health || 0) - handleServerGameState._lastUiHealth) > 0.5;
+                const maxHealthChanged = Math.abs((Game.player.maxHealth || 200) - handleServerGameState._lastUiMaxHealth) > 0.5;
                 
                 if (healthChanged || maxHealthChanged) {
                   if (UI.updateHealthBar && typeof Game.player.health === "number" && typeof Game.player.maxHealth === "number") {
                     UI.updateHealthBar(Game.player.health, Game.player.maxHealth);
                   }
-                  handleServerGameState._lastHealth = Game.player.health || 0;
-                  handleServerGameState._lastMaxHealth = Game.player.maxHealth || 200;
+                  handleServerGameState._lastUiHealth = Game.player.health || 0;
+                  handleServerGameState._lastUiMaxHealth = Game.player.maxHealth || 200;
                 }
                 if (UI.updateEnergyBar && typeof Game.player.energy === "number" && typeof Game.player.maxEnergy === "number") {
                   UI.updateEnergyBar(Game.player.energy, Game.player.maxEnergy);
