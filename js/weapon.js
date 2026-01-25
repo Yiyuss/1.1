@@ -91,9 +91,15 @@
                             Game.addProjectile(effect);
                         }
                     } catch (_) {}
-                    if (typeof AudioManager !== 'undefined') {
-                        AudioManager.playSound('invincible_activate');
-                    }
+                    // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                    // 組隊模式下，如果是遠程玩家的武器，不播放音效
+                    try {
+                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                        const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                        if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('invincible_activate');
+                        }
+                    } catch (_) {}
                     return;
                 }
                 // 特殊技能：唱歌（不造成傷害，恢復HP並產生音符特效）
@@ -105,9 +111,15 @@
                     }
                     const effect = new SingEffect(this.player, this.config.DURATION || 1000);
                     Game.addProjectile(effect);
-                    if (typeof AudioManager !== 'undefined') {
-                        AudioManager.playSound('sing_cast');
-                    }
+                    // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                    // 組隊模式下，如果是遠程玩家的武器，不播放音效
+                    try {
+                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                        const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                        if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('sing_cast');
+                        }
+                    } catch (_) {}
                     return;
                 }
                 // 特殊技能：幼妲光輝（不造成傷害，恢復HP並產生聖光特效）
@@ -119,9 +131,15 @@
                     }
                     const effect = new YoungDadaGloryEffect(this.player, this.config.DURATION || 2000);
                     Game.addProjectile(effect);
-                    if (typeof AudioManager !== 'undefined') {
-                        AudioManager.playSound('sing_cast'); // 使用與唱歌相同的音效
-                    }
+                    // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                    // 組隊模式下，如果是遠程玩家的武器，不播放音效
+                    try {
+                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                        const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                        if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('sing_cast'); // 使用與唱歌相同的音效
+                        }
+                    } catch (_) {}
                     return;
                 }
                 // 特殊技能：召喚AI（一次性召喚，持續到遊戲結束）
@@ -166,9 +184,15 @@
                     const effect = new FrenzyYoungDadaGloryEffect(this.player, this.config.DURATION || 3000);
                     Game.addProjectile(effect);
                     
-                    if (typeof AudioManager !== 'undefined') {
-                        AudioManager.playSound('sing_cast'); // 使用與唱歌相同的音效
-                    }
+                    // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                    // 組隊模式下，如果是遠程玩家的武器，不播放音效
+                    try {
+                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                        const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                        if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('sing_cast'); // 使用與唱歌相同的音效
+                        }
+                    } catch (_) {}
                     return;
                 }
                 // 特殊技能：旋球
@@ -538,10 +562,15 @@
                 );
                 Game.addProjectile(beam);
             }
-            // ✅ 流量優化：音效是單機元素，只在本地播放（與單機一致）
-            if (typeof AudioManager !== 'undefined') {
-                AudioManager.playSound('laser_shoot');
-            }
+            // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+            // 組隊模式下，如果是遠程玩家的武器，不播放音效
+            try {
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                    AudioManager.playSound('laser_shoot');
+                }
+            } catch (_) {}
             return;
         }
 
@@ -573,10 +602,15 @@
                     }
                 }
             }
-            // ✅ 流量優化：音效是單機元素，只在本地播放（與單機一致）
-            if (typeof AudioManager !== 'undefined') {
-                AudioManager.playSound('laser_shoot');
-            }
+            // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+            // 組隊模式下，如果是遠程玩家的武器，不播放音效
+            try {
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                    AudioManager.playSound('laser_shoot');
+                }
+            } catch (_) {}
             return;
         }
 
@@ -600,9 +634,15 @@
                 // 普通斬擊不顯示濺血（僅狂熱斬擊使用濺血疊層）
                 effect.hitOverlayImageKey = null;
                 Game.addProjectile(effect);
-                if (typeof AudioManager !== 'undefined') {
-                    AudioManager.playSound('knife');
-                }
+                // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                // 組隊模式下，如果是遠程玩家的武器，不播放音效
+                try {
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                    const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                    if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                        AudioManager.playSound('knife');
+                    }
+                } catch (_) {}
                 return;
         }
 
@@ -680,9 +720,15 @@
                 effect1.overlayImageKey = 'knife';
                 effect1.hitOverlayImageKey = 'knife2';
                 Game.addProjectile(effect1);
-                if (typeof AudioManager !== 'undefined') {
-                    AudioManager.playSound('knife');
-                }
+                // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                // 組隊模式下，如果是遠程玩家的武器，不播放音效
+                try {
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                    const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                    if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                        AudioManager.playSound('knife');
+                    }
+                } catch (_) {}
 
                 // 第二段：0.5秒後，使用狂熱斬擊的範圍（升級不增範圍）
                 // 調整為第一刀的兩倍範圍（半徑與視覺尺寸加倍，角度保持）
@@ -702,9 +748,15 @@
                         effect2.overlayImageKey = 'knife';
                         effect2.hitOverlayImageKey = 'knife2';
                         Game.addProjectile(effect2);
-                        if (typeof AudioManager !== 'undefined') {
-                            AudioManager.playSound('knife');
-                        }
+                        // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                        // 組隊模式下，如果是遠程玩家的武器，不播放音效
+                        try {
+                            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                            const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                            if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                                AudioManager.playSound('knife');
+                            }
+                        } catch (_) {}
                     } catch (_) {}
                 }, 500);
                 // ⚠️ 污染修复：记录定时器 ID
@@ -738,10 +790,15 @@
                 const wave = new ShockwaveEffect(this.player, dmg, durationMs, dynamicRadius, ringWidth);
                 Game.addProjectile(wave);
 
-                // 4) 音效：沿用唱歌音效（避免重複，震波不再自行播放）
-                if (typeof AudioManager !== 'undefined') {
-                    AudioManager.playSound('sing_cast');
-                }
+                // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                // 組隊模式下，如果是遠程玩家的武器，不播放音效
+                try {
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                    const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                    if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                        AudioManager.playSound('sing_cast');
+                    }
+                } catch (_) {}
                 return;
         }
 
@@ -837,10 +894,17 @@
                 if (target) {
                     projectile.assignedTargetId = target.id;
                 }
-                // ✅ 單機元素：音效是單機元素，只在本地播放
+                // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                // 組隊模式下，如果是遠程玩家的武器，不播放音效
                 // 音效播放必須在 Game.addProjectile 之前，確保組隊模式下也能播放
-                if (i === 0 && typeof AudioManager !== 'undefined') {
-                    AudioManager.playSound('lightning_shoot');
+                if (i === 0) {
+                    try {
+                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                        const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                        if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('lightning_shoot');
+                        }
+                    } catch (_) {}
                 }
                 
                 Game.addProjectile(projectile);
@@ -895,10 +959,17 @@
                 if (target) {
                     projectile.assignedTargetId = target.id;
                 }
-                // ✅ 單機元素：音效是單機元素，只在本地播放
+                // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                // 組隊模式下，如果是遠程玩家的武器，不播放音效
                 // 音效播放必須在 Game.addProjectile 之前，確保組隊模式下也能播放
-                if (i === 0 && typeof AudioManager !== 'undefined') {
-                    AudioManager.playSound('lightning_shoot');
+                if (i === 0) {
+                    try {
+                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                        const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                        if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('lightning_shoot');
+                        }
+                    } catch (_) {}
                 }
                 
                 Game.addProjectile(projectile);
@@ -953,10 +1024,17 @@
                 if (target) {
                     projectile.assignedTargetId = target.id;
                 }
-                // ✅ 單機元素：音效是單機元素，只在本地播放
+                // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                // 組隊模式下，如果是遠程玩家的武器，不播放音效
                 // 音效播放必須在 Game.addProjectile 之前，確保組隊模式下也能播放
-                if (i === 0 && typeof AudioManager !== 'undefined') {
-                    AudioManager.playSound('lightning_shoot');
+                if (i === 0) {
+                    try {
+                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                        const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                        if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('lightning_shoot');
+                        }
+                    } catch (_) {}
                 }
                 
                 Game.addProjectile(projectile);
@@ -1100,10 +1178,17 @@
                 if (target) {
                     projectile.assignedTargetId = target.id;
                 }
-                // ✅ 單機元素：音效是單機元素，只在本地播放
+                // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                // 組隊模式下，如果是遠程玩家的武器，不播放音效
                 // 音效播放必須在 Game.addProjectile 之前，確保組隊模式下也能播放
-                if (i === 0 && typeof AudioManager !== 'undefined') {
-                    AudioManager.playSound('lightning_shoot');
+                if (i === 0) {
+                    try {
+                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                        const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                        if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('lightning_shoot');
+                        }
+                    } catch (_) {}
                 }
                 
                 Game.addProjectile(projectile);
@@ -1164,33 +1249,40 @@
                     // 新增：把玩家的爆擊加成帶到投射物，避免在計算時拿不到玩家
                     projectile.critChanceBonusPct = ((this.player && this.player.critChanceBonusPct) || 0);
                     
-                    // ✅ 單機元素：音效是單機元素，只在本地播放（與單機一致）
+                    // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+                    // 組隊模式下，如果是遠程玩家的武器，不播放音效
                     // 觸發音效（每次發射只播放一次即可）
                     // 注意：音效播放必須在 Game.addProjectile 之前，確保組隊模式下也能播放
-                    if (i === 0 && typeof AudioManager !== 'undefined') {
-                        switch (this.type) {
-                            case 'DAGGER':
-                                AudioManager.playSound('dagger_shoot');
-                                break;
-                            case 'FIREBALL':
-                                AudioManager.playSound('fireball_shoot');
-                                break;
-                            case 'LIGHTNING':
-                                // 閃電在專用邏輯中已播放
-                                break;
-                            case 'MUFFIN_THROW':
-                                // 鬆餅投擲在專用邏輯中已播放
-                                break;
-                            case 'ORBIT':
-                                // 可選：為旋球加入音效
-                                break;
-                            case 'CHICKEN_BLESSING':
-                                // 可選：為雞腿庇佑加入音效
-                                break;
-                            case 'ROTATING_MUFFIN':
-                                // 可選：為旋轉鬆餅加入音效
-                                break;
-                        }
+                    if (i === 0) {
+                        try {
+                            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                            const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                            if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                                switch (this.type) {
+                                    case 'DAGGER':
+                                        AudioManager.playSound('dagger_shoot');
+                                        break;
+                                    case 'FIREBALL':
+                                        AudioManager.playSound('fireball_shoot');
+                                        break;
+                                    case 'LIGHTNING':
+                                        // 閃電在專用邏輯中已播放
+                                        break;
+                                    case 'MUFFIN_THROW':
+                                        // 鬆餅投擲在專用邏輯中已播放
+                                        break;
+                                    case 'ORBIT':
+                                        // 可選：為旋球加入音效
+                                        break;
+                                    case 'CHICKEN_BLESSING':
+                                        // 可選：為雞腿庇佑加入音效
+                                        break;
+                                    case 'ROTATING_MUFFIN':
+                                        // 可選：為旋轉鬆餅加入音效
+                                        break;
+                                }
+                            }
+                        } catch (_) {}
                     }
                     
                     Game.addProjectile(projectile);
