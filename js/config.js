@@ -1714,7 +1714,7 @@ const CONFIG = {
     
     // 優化設置
     OPTIMIZATION: {
-        MAX_ENEMIES: 700, // 最大敵人數量，提高密度
+        MAX_ENEMIES: 550, // 最大敵人數量，提高密度
         MAX_PROJECTILES: 1200, // 最大投射物數量
         MAX_EXPERIENCE_ORBS: 600, // 最大經驗球數量
         ORB_PULSE_DISABLE_THRESHOLD: 100, // 經驗球超過此數量關閉呼吸閃爍
