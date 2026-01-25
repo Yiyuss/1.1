@@ -4829,8 +4829,15 @@ function handleServerGameState(state, timestamp) {
                 } catch (_) {}
               }
               
-              // 更新 _lastHealth（無論是否觸發紅閃）
-              handleServerGameState._lastHealth = newHealth;
+              // ✅ 修复：_lastHealth 应该只在服务器血量真的变化时更新
+              // 问题：如果服务器没动（newHealth === prevHealth），不应该更新 _lastHealth
+              // 这样可以确保 _lastHealth 代表服务器已确认的血量，避免在服务器没动时更新
+              // 根据 GPT 建议：_lastHealth 只能代表 server 已确认的血量，不能在「server 没动」的 tick 更新
+              if (newHealth !== prevHealth) {
+                // 服务器血量真的变化了，更新 _lastHealth
+                handleServerGameState._lastHealth = newHealth;
+              }
+              // 如果服务器没动（newHealth === prevHealth），不更新 _lastHealth
             }
             if (typeof playerState.energy === "number") Game.player.energy = playerState.energy;
             if (typeof playerState.maxEnergy === "number") Game.player.maxEnergy = playerState.maxEnergy;
