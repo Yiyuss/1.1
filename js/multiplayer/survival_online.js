@@ -5112,8 +5112,14 @@ function handleServerGameState(state, timestamp) {
           const weaponType = ev.weaponType || null;
           
           // ✅ 修復：投射物命中敵人時的 bo 音效（單機元素）
-          // 音效是單機元素，應該像其他音效一樣在客戶端直接播放，不需要服務器
-          // 已在 projectile.js 中處理，這裡不需要重複播放
+          // 音效是單機元素，只對本地玩家播放
+          // 使用 hitEvents 中的 playerUid 判斷是否是本地玩家的投射物
+          const isLocalPlayer = (ev.playerUid && Game.multiplayer && Game.multiplayer.uid && ev.playerUid === Game.multiplayer.uid);
+          if (isLocalPlayer && (weaponType === 'LIGHTNING' || weaponType === 'MUFFIN_THROW' || 
+              weaponType === 'HEART_TRANSMISSION' || weaponType === 'BAGUETTE_THROW') &&
+              typeof AudioManager !== 'undefined') {
+            AudioManager.playSound('bo');
+          }
           
           // ✅ 修復：所有需要粒子特效的技能（追蹤綿羊、鬆餅投擲、法棍投擲、心意傳遞）
           // 這些技能在命中時都會產生白色粒子特效
