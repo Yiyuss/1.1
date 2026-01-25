@@ -5112,24 +5112,8 @@ function handleServerGameState(state, timestamp) {
           const weaponType = ev.weaponType || null;
           
           // ✅ 修復：投射物命中敵人時的 bo 音效（單機元素）
-          // 音效是單機元素，只在本地播放
-          // 與單機模式一致：只有 LIGHTNING、MUFFIN_THROW、HEART_TRANSMISSION、BAGUETTE_THROW 命中敵人才會播放 bo 音效
-          // 但只對本地玩家的投射物播放（ev.playerUid === Game.multiplayer.uid）
-          try {
-            const isLocalPlayer = (ev.playerUid && Game.multiplayer && Game.multiplayer.uid && ev.playerUid === Game.multiplayer.uid);
-            const shouldPlayBoSound = isLocalPlayer && weaponType && (
-              weaponType === 'LIGHTNING' || 
-              weaponType === 'MUFFIN_THROW' || 
-              weaponType === 'HEART_TRANSMISSION' || 
-              weaponType === 'BAGUETTE_THROW'
-            );
-            
-            if (shouldPlayBoSound && typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
-              AudioManager.playSound('bo');
-            }
-          } catch (e) {
-            console.warn('[SurvivalOnline] 音效播放失敗:', e);
-          }
+          // 音效是單機元素，應該像其他音效一樣在客戶端直接播放，不需要服務器
+          // 已在 projectile.js 中處理，這裡不需要重複播放
           
           // ✅ 修復：所有需要粒子特效的技能（追蹤綿羊、鬆餅投擲、法棍投擲、心意傳遞）
           // 這些技能在命中時都會產生白色粒子特效
@@ -5841,9 +5825,17 @@ function updateEnemiesFromServer(enemies) {
       if (typeof enemyState.isDying === 'boolean') {
         const wasDying = enemy.isDying;
         enemy.isDying = enemyState.isDying;
-        // 當敵人從非死亡狀態變為死亡狀態時，播放死亡音效
-        if (!wasDying && enemyState.isDying && typeof AudioManager !== 'undefined') {
-          AudioManager.playSound('enemy_death');
+        // ✅ 修復：當敵人從非死亡狀態變為死亡狀態時，只在本地玩家是擊殺者時播放死亡音效
+        // 音效是單機元素，應該像其他音效一樣在客戶端直接播放，但只對本地玩家播放
+        if (!wasDying && enemyState.isDying) {
+          try {
+            const isLocalPlayerKill = (enemyState.killerUid && Game.multiplayer && Game.multiplayer.uid && enemyState.killerUid === Game.multiplayer.uid);
+            if (isLocalPlayerKill && typeof AudioManager !== 'undefined') {
+              AudioManager.playSound('enemy_death');
+            }
+          } catch (e) {
+            console.warn('[SurvivalOnline] 怪物死亡音效播放失敗:', e);
+          }
         }
       }
       if (typeof enemyState.deathElapsed === 'number') {
