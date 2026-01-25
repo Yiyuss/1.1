@@ -265,11 +265,30 @@ class ChainLightningEffect extends Entity {
                         // 連鎖閃電是單次傷害，使用 aoe_tick 但只針對單個敵人（radius 設為很小的值）
                         // 檢查是否是本地玩家或本地玩家的AI（AICompanion）
                         const isLocalPlayer = (this.player === Game.player);
-                        const isLocalPlayerAI = (this.player && this.player.constructor && this.player.constructor.name === 'AICompanion' && this.player.player === Game.player);
+                        // ✅ 修復：更可靠的AI檢測邏輯，支持多種情況（包括頁面恢復後的引用失效）
+                        let isLocalPlayerAI = false;
+                        if (this.player && this.player.constructor && this.player.constructor.name === 'AICompanion') {
+                            // 情況1：this.player 是 AICompanion，this.player.player 是 Game.player
+                            if (this.player.player === Game.player) {
+                                isLocalPlayerAI = true;
+                            }
+                            // 情況2：this.player 是 AICompanion，但引用可能失效，檢查 _aiCompanion
+                            else if (this._aiCompanion && this._aiCompanion.player === Game.player) {
+                                isLocalPlayerAI = true;
+                            }
+                            // 情況3：通過 _remotePlayerUid 檢查（如果是本地玩家的AI，_remotePlayerUid 應該是本地玩家的uid）
+                            else if (!this._remotePlayerUid || this._remotePlayerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                                // 如果沒有 _remotePlayerUid 或者是本地玩家的uid，可能是本地玩家的AI
+                                // 嘗試從 Game.player.aiCompanion 檢查
+                                if (Game.player && Game.player.aiCompanion === this.player) {
+                                    isLocalPlayerAI = true;
+                                }
+                            }
+                        }
                         if ((isLocalPlayer || isLocalPlayerAI) && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                             if (!isPlayer && target && !target.markedForDeletion && target.health > 0) {
                                 // 使用AI的爆擊率（如果player是AICompanion）
-                                const critChance = (isLocalPlayerAI && this.player.critChanceBonusPct != null) 
+                                const critChance = (isLocalPlayerAI && this.player && this.player.critChanceBonusPct != null) 
                                     ? this.player.critChanceBonusPct 
                                     : ((this.player && this.player.critChanceBonusPct) || 0);
                                 window.SurvivalOnlineRuntime.sendToNet({
@@ -699,11 +718,30 @@ class FrenzyLightningEffect extends Entity {
                         // 連鎖閃電是單次傷害，使用 aoe_tick 但只針對單個敵人（radius 設為很小的值）
                         // 檢查是否是本地玩家或本地玩家的AI（AICompanion）
                         const isLocalPlayer = (this.player === Game.player);
-                        const isLocalPlayerAI = (this.player && this.player.constructor && this.player.constructor.name === 'AICompanion' && this.player.player === Game.player);
+                        // ✅ 修復：更可靠的AI檢測邏輯，支持多種情況（包括頁面恢復後的引用失效）
+                        let isLocalPlayerAI = false;
+                        if (this.player && this.player.constructor && this.player.constructor.name === 'AICompanion') {
+                            // 情況1：this.player 是 AICompanion，this.player.player 是 Game.player
+                            if (this.player.player === Game.player) {
+                                isLocalPlayerAI = true;
+                            }
+                            // 情況2：this.player 是 AICompanion，但引用可能失效，檢查 _aiCompanion
+                            else if (this._aiCompanion && this._aiCompanion.player === Game.player) {
+                                isLocalPlayerAI = true;
+                            }
+                            // 情況3：通過 _remotePlayerUid 檢查（如果是本地玩家的AI，_remotePlayerUid 應該是本地玩家的uid）
+                            else if (!this._remotePlayerUid || this._remotePlayerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                                // 如果沒有 _remotePlayerUid 或者是本地玩家的uid，可能是本地玩家的AI
+                                // 嘗試從 Game.player.aiCompanion 檢查
+                                if (Game.player && Game.player.aiCompanion === this.player) {
+                                    isLocalPlayerAI = true;
+                                }
+                            }
+                        }
                         if ((isLocalPlayer || isLocalPlayerAI) && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                             if (!isPlayer && target && !target.markedForDeletion && target.health > 0) {
                                 // 使用AI的爆擊率（如果player是AICompanion）
-                                const critChance = (isLocalPlayerAI && this.player.critChanceBonusPct != null) 
+                                const critChance = (isLocalPlayerAI && this.player && this.player.critChanceBonusPct != null) 
                                     ? this.player.critChanceBonusPct 
                                     : ((this.player && this.player.critChanceBonusPct) || 0);
                                 window.SurvivalOnlineRuntime.sendToNet({
