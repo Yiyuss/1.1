@@ -2581,8 +2581,14 @@ const Runtime = (() => {
             // ✅ 單機元素：如果伺服器通知大招結束，本地執行 deactivateUltimate（恢復武器、屬性等）
             // 但只執行功能恢復，不執行視覺恢復（視覺由伺服器同步）
             if (wasUltimateActive && !myState.isUltimateActive && typeof player.deactivateUltimate === 'function') {
-              // 只恢復功能（武器、屬性），不恢復體型（體型由伺服器同步）
+              // ✅ 修復：調用完整的 deactivateUltimate，但跳過體型恢復（體型由伺服器同步）
               try {
+                // 臨時標記，讓 deactivateUltimate 知道不要恢復體型
+                const wasRemotePlayer = player._isRemotePlayer;
+                const skipSizeRestore = true;
+                
+                // 調用完整的 deactivateUltimate（會清理守護領域、能量等）
+                // 但需要確保體型恢復被跳過（因為由伺服器同步）
                 const backup = player._ultimateBackup;
                 if (backup && backup.weapons) {
                   // 恢復武器
@@ -2596,15 +2602,47 @@ const Runtime = (() => {
                     });
                   }
                 }
+                
                 // 恢復額外防禦
                 if (player._ultimateExtraDefense > 0) {
                   const currentDefense = player.baseDefense || 1;
                   player.baseDefense = Math.max(1, currentDefense - player._ultimateExtraDefense);
                 }
                 player._ultimateExtraDefense = 0;
-                // 清理備份
+                
+                // ✅ 修復：清理守護領域等持續效果（與單機模式一致）
+                if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+                  for (const p of Game.projectiles) {
+                    if (p && p.weaponType === 'AURA_FIELD' && p.player === player && !p.markedForDeletion) {
+                      if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
+                    }
+                  }
+                }
+                
+                // ✅ 修復：清理能量（與單機模式一致）
+                player.energy = 0;
+                if (typeof UI !== 'undefined' && typeof UI.updateEnergyBar === 'function') {
+                  UI.updateEnergyBar(player.energy, player.maxEnergy);
+                }
+                
+                // ✅ 修復：清理第二位角色大絕結束時的GIF z-index（與單機模式一致）
+                const wasDadaUltimate = (player._ultimateImageKey === 'playerN2');
+                if (wasDadaUltimate) {
+                  try {
+                    const playerGifEl = document.getElementById('gif-overlay-player');
+                    if (playerGifEl) {
+                      playerGifEl.style.zIndex = '3'; // 恢復預設值
+                    }
+                  } catch (_) {}
+                }
+                
+                // 清理備份和狀態
                 player._ultimateBackup = null;
-              } catch (_) {}
+                player.ultimateEndTime = 0;
+                player._ultimateImageKey = null;
+              } catch (e) {
+                console.warn('[SurvivalOnline] 大招結束清理失敗:', e);
+              }
             }
           }
           if (typeof myState.ultimateImageKey === "string" && myState.ultimateImageKey) {
@@ -4908,7 +4946,7 @@ function handleServerGameState(state, timestamp) {
                 // ✅ 單機元素：如果伺服器通知大招結束，本地執行 deactivateUltimate（恢復武器、屬性等）
                 // 但只執行功能恢復，不執行視覺恢復（視覺由伺服器同步）
                 if (wasUltimateActive && !playerState.isUltimateActive && typeof Game.player.deactivateUltimate === 'function') {
-                  // 只恢復功能（武器、屬性），不恢復體型（體型由伺服器同步）
+                  // ✅ 修復：調用完整的清理邏輯，確保與單機模式一致
                   try {
                     const backup = Game.player._ultimateBackup;
                     if (backup && backup.weapons) {
@@ -4923,15 +4961,47 @@ function handleServerGameState(state, timestamp) {
                         });
                       }
                     }
+                    
                     // 恢復額外防禦
                     if (Game.player._ultimateExtraDefense > 0) {
                       const currentDefense = Game.player.baseDefense || 1;
                       Game.player.baseDefense = Math.max(1, currentDefense - Game.player._ultimateExtraDefense);
                     }
                     Game.player._ultimateExtraDefense = 0;
-                    // 清理備份
+                    
+                    // ✅ 修復：清理守護領域等持續效果（與單機模式一致）
+                    if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+                      for (const p of Game.projectiles) {
+                        if (p && p.weaponType === 'AURA_FIELD' && p.player === Game.player && !p.markedForDeletion) {
+                          if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
+                        }
+                      }
+                    }
+                    
+                    // ✅ 修復：清理能量（與單機模式一致）
+                    Game.player.energy = 0;
+                    if (typeof UI !== 'undefined' && typeof UI.updateEnergyBar === 'function') {
+                      UI.updateEnergyBar(Game.player.energy, Game.player.maxEnergy);
+                    }
+                    
+                    // ✅ 修復：清理第二位角色大絕結束時的GIF z-index（與單機模式一致）
+                    const wasDadaUltimate = (Game.player._ultimateImageKey === 'playerN2');
+                    if (wasDadaUltimate) {
+                      try {
+                        const playerGifEl = document.getElementById('gif-overlay-player');
+                        if (playerGifEl) {
+                          playerGifEl.style.zIndex = '3'; // 恢復預設值
+                        }
+                      } catch (_) {}
+                    }
+                    
+                    // 清理備份和狀態
                     Game.player._ultimateBackup = null;
-                  } catch (_) {}
+                    Game.player.ultimateEndTime = 0;
+                    Game.player._ultimateImageKey = null;
+                  } catch (e) {
+                    console.warn('[SurvivalOnline] 大招結束清理失敗:', e);
+                  }
                 }
               }
               if (typeof playerState.ultimateImageKey === "string" && playerState.ultimateImageKey) {
