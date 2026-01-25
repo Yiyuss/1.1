@@ -5099,6 +5099,35 @@ function handleServerGameState(state, timestamp) {
           
           // ✅ 修復：根據武器類型創建對應的特殊視覺效果（多人元素）
           const weaponType = ev.weaponType || null;
+          
+          // ✅ 修復：所有需要粒子特效的技能（追蹤綿羊、鬆餅投擲、法棍投擲、心意傳遞）
+          // 這些技能在命中時都會產生白色粒子特效
+          if (weaponType === 'LIGHTNING' || weaponType === 'MUFFIN_THROW' || 
+              weaponType === 'BAGUETTE_THROW' || weaponType === 'HEART_TRANSMISSION') {
+            try {
+              const particleCount = 18; // 與單機模式一致
+              if (!Game.explosionParticles) Game.explosionParticles = [];
+              for (let i = 0; i < particleCount; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                const speed = 2 + Math.random() * 4;
+                const p = {
+                  x: x + (Math.random() - 0.5) * 10,
+                  y: y + (Math.random() - 0.5) * 10,
+                  vx: Math.cos(ang) * speed,
+                  vy: Math.sin(ang) * speed,
+                  life: 520 + Math.random() * 280,
+                  maxLife: 520 + Math.random() * 280,
+                  size: 5 + Math.random() * 3,
+                  color: '#ffffff', // 白色粒子，與單機模式一致
+                  source: weaponType // 標記來源，用於繪製時的特殊處理
+                };
+                Game.explosionParticles.push(p);
+              }
+            } catch (e) {
+              console.warn('[SurvivalOnline] 粒子特效創建失敗:', e);
+            }
+          }
+          
           if (weaponType === 'HEART_TRANSMISSION') {
             // 心意傳遞命中時顯示效果圖片（A36.png，310x290比例）
             const cfg = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.HEART_TRANSMISSION) || {};
@@ -5114,6 +5143,21 @@ function handleServerGameState(state, timestamp) {
               life: effectDuration,
               maxLife: effectDuration
             });
+          } else if (weaponType === 'FIREBALL') {
+            // ✅ 修復：紳士綿羊（FIREBALL）命中時的緩速特效（多人元素）
+            // 緩速效果由伺服器權威處理，客戶端只顯示視覺效果（藍色覆蓋）
+            const enemyId = ev.enemyId || null;
+            if (enemyId && typeof Game !== 'undefined' && Array.isArray(Game.enemies)) {
+              const enemy = Game.enemies.find(e => e && e.id === enemyId);
+              if (enemy && typeof enemy.applySlow === 'function') {
+                const cfg = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.FIREBALL) || {};
+                const slowMs = (typeof cfg.SLOW_DURATION_MS === 'number') ? cfg.SLOW_DURATION_MS : 1000;
+                const slowFactor = (typeof cfg.SLOW_FACTOR === 'number') ? cfg.SLOW_FACTOR : 0.5;
+                // ✅ 修復：在組隊模式下，緩速效果由伺服器權威處理，客戶端只顯示視覺效果
+                // 但為了確保視覺效果正確，我們仍然調用 applySlow（只影響視覺，不影響實際速度）
+                enemy.applySlow(slowMs, slowFactor);
+              }
+            }
           } else if (weaponType === 'EXPLOSION') {
             // ✅ 修復：艾比大絕的特殊傷害數字顯示（放大2倍，紅色特效）
             // 使用 ExplosionEffect 的 _showSpecialDamageNumber 方法顯示特殊傷害數字
