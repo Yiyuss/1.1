@@ -173,14 +173,9 @@ class JudgmentEffect extends Entity {
         }
         
         // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
-        // 組隊模式下，如果是通過 projectile_spawn 事件創建的遠程玩家效果，不播放音效
-        try {
-            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-            const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
-            if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
-                AudioManager.playSound('knife');
-            }
-        } catch (_) {}
+        if (this.player && !this.player._isRemotePlayer && typeof AudioManager !== 'undefined') {
+            AudioManager.playSound('knife');
+        }
         
         // 注意：不再在此處創建特效，敵人自己負責創建（在 takeDamage 中）
     }
