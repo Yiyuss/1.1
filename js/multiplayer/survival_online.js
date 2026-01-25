@@ -4672,8 +4672,14 @@ function handleServerGameState(state, timestamp) {
 
             // ✅ 致命啟動線修復：第一次收到 server 的本地玩家座標，強制對齊一次
             // 否則會出現：怪在追伺服器座標，你的鏡頭跟著本地座標 → 看起來「沒有怪/沒有追蹤/只是移動圖片」
+            // ✅ 修復：頁面恢復時也需要強制對齊，避免位置偏離（離開分頁太久後回來時）
             try {
-              if (!_didServerPosSync && typeof playerState.x === "number" && typeof playerState.y === "number") {
+              const shouldForceSync = !_didServerPosSync || 
+                (typeof playerState.x === "number" && typeof playerState.y === "number" && 
+                 typeof Game.player.x === "number" && typeof Game.player.y === "number" &&
+                 (Math.abs(playerState.x - Game.player.x) > 300 || Math.abs(playerState.y - Game.player.y) > 300));
+              
+              if (shouldForceSync && typeof playerState.x === "number" && typeof playerState.y === "number") {
                 Game.player.x = playerState.x;
                 Game.player.y = playerState.y;
                 // 重置 move 差分基準，避免下一幀送出巨量 vx/vy
