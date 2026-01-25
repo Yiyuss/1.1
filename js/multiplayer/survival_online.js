@@ -4941,11 +4941,35 @@ function handleServerGameState(state, timestamp) {
             try {
               if (typeof playerState.isUltimateActive === "boolean") {
                 const wasUltimateActive = Game.player.isUltimateActive;
-                Game.player.isUltimateActive = playerState.isUltimateActive;
+                const isNowUltimateActive = playerState.isUltimateActive;
+                
+                // ✅ 修復：如果本地玩家正在大招狀態，確保武器被正確設置為LV10
+                // 這可以防止組隊模式下武器只放一次就沒了的問題
+                if (isNowUltimateActive) {
+                  // 檢查武器是否正確設置為LV10
+                  const needsReactivate = !Game.player._ultimateBackup || 
+                    !Game.player.weapons || 
+                    Game.player.weapons.length === 0 ||
+                    Game.player.weapons.some(w => !w || w.level !== CONFIG.ULTIMATE.ULTIMATE_LEVEL);
+                  
+                  if (needsReactivate) {
+                    // 武器沒有被正確設置，重新執行 activateUltimate
+                    console.warn('[SurvivalOnline] 檢測到武器等級不正確，重新執行 activateUltimate', {
+                      hasBackup: !!Game.player._ultimateBackup,
+                      weaponsLength: Game.player.weapons ? Game.player.weapons.length : 0,
+                      weaponsLevels: Game.player.weapons ? Game.player.weapons.map(w => w ? w.level : 'null') : []
+                    });
+                    if (typeof Game.player.activateUltimate === 'function') {
+                      Game.player.activateUltimate();
+                    }
+                  }
+                }
+                
+                Game.player.isUltimateActive = isNowUltimateActive;
                 
                 // ✅ 單機元素：如果伺服器通知大招結束，本地執行 deactivateUltimate（恢復武器、屬性等）
                 // 但只執行功能恢復，不執行視覺恢復（視覺由伺服器同步）
-                if (wasUltimateActive && !playerState.isUltimateActive && typeof Game.player.deactivateUltimate === 'function') {
+                if (wasUltimateActive && !isNowUltimateActive && typeof Game.player.deactivateUltimate === 'function') {
                   // ✅ 修復：調用完整的清理邏輯，確保與單機模式一致
                   try {
                     const backup = Game.player._ultimateBackup;
