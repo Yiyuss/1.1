@@ -2309,6 +2309,13 @@ const Runtime = (() => {
               } else if (typeof Projectile !== "undefined") {
                 // 普通投射物
                 try {
+                  // ✅ 修復：確保 size 有合理的默認值（如果為 0 或未定義，使用武器配置的默認值）
+                  let projectileSize = eventData.size;
+                  if (!projectileSize || projectileSize <= 0) {
+                    // 如果 size 為 0 或未定義，嘗試從武器配置獲取默認值
+                    const weaponConfig = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[weaponType]) || {};
+                    projectileSize = weaponConfig.PROJECTILE_SIZE || 20; // 默認 20
+                  }
                   const projectile = new Projectile(
                     eventData.x || 0,
                     eventData.y || 0,
@@ -2316,12 +2323,16 @@ const Runtime = (() => {
                     weaponType,
                     0, // 傷害設為0（僅視覺，傷害已在隊長端計算）
                     eventData.speed || 0,
-                    eventData.size || 0
+                    projectileSize // ✅ 修復：使用正確計算的 size
                   );
                   projectile.id = projectileId;
                   projectile.homing = eventData.homing || false;
                   projectile.turnRatePerSec = eventData.turnRatePerSec || 0;
                   projectile.assignedTargetId = eventData.assignedTargetId || null;
+                  // ✅ 修復：同步 maxDistance 屬性（用於投射物最大飛行距離）
+                  if (typeof eventData.maxDistance === 'number' && eventData.maxDistance > 0) {
+                    projectile.maxDistance = eventData.maxDistance;
+                  }
                   projectile._isVisualOnly = true; // 標記為僅視覺投射物
                   projectile.player = null; // 不關聯玩家（避免碰撞檢測）
                   Game.projectiles.push(projectile);
@@ -5097,6 +5108,17 @@ function handleServerGameState(state, timestamp) {
           const h = (typeof ev.h === "number") ? ev.h : 0;
           DamageNumbers.show(Math.round(dmg), x, y - h / 2, ev.isCrit === true, { enemyId: ev.enemyId || null });
           
+          // ✅ 修復：投射物命中敵人時的 bo 音效（多人元素）
+          // 在組隊模式下，投射物是伺服器權威的，音效應該在 hitEvents 處理時播放
+          // 這樣所有玩家都能聽到命中音效（與單機模式一致）
+          try {
+            if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+              AudioManager.playSound('bo');
+            }
+          } catch (e) {
+            console.warn('[SurvivalOnline] 音效播放失敗:', e);
+          }
+          
           // ✅ 修復：根據武器類型創建對應的特殊視覺效果（多人元素）
           const weaponType = ev.weaponType || null;
           
@@ -5926,15 +5948,23 @@ function updateProjectilesFromServer(projectiles) {
       if (typeof projState.speed === 'number') proj.speed = projState.speed;
       if (typeof projState.size === 'number') {
         proj.size = projState.size;
-        // 兼容：有些投射物用 width/height 表示尺寸
+        // ✅ 修復：同步 width/height 和 collisionRadius，確保投射物體積正確顯示
         try {
           if (typeof proj.width === 'number') proj.width = projState.size;
           if (typeof proj.height === 'number') proj.height = projState.size;
+          // ✅ 修復：同步碰撞半徑（用於碰撞檢測和擴散傷害計算）
+          if (typeof proj.collisionRadius === 'number') {
+            proj.collisionRadius = projState.size / 2;
+          }
         } catch (_) { }
       }
       if (typeof projState.homing === 'boolean') proj.homing = projState.homing;
       if (typeof projState.turnRatePerSec === 'number') proj.turnRatePerSec = projState.turnRatePerSec;
       if (typeof projState.assignedTargetId === 'string' || projState.assignedTargetId === null) proj.assignedTargetId = projState.assignedTargetId;
+      // ✅ 修復：同步 maxDistance 屬性（用於投射物最大飛行距離）
+      if (typeof projState.maxDistance === 'number' && projState.maxDistance > 0) {
+        proj.maxDistance = projState.maxDistance;
+      }
       // 保險：多人權威投射物一定是視覺投射物
       proj._isVisualOnly = true;
       if (typeof proj.x !== 'number' && typeof proj._netTargetX === 'number') proj.x = proj._netTargetX;
