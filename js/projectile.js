@@ -161,12 +161,13 @@ class Projectile extends Entity {
                 // 多人模式下，伤害由服务器计算，客户端只显示视觉效果
                 // 投射物会被服务器移除，这里只标记为视觉投射物
                 // ✅ 修復：在標記為 _isVisualOnly 之前，先播放BO音效（如果是本地玩家的投射物）
-                // 參考雷射在組隊模式下的音效實現方式（weapon.js Line 546）：使用 this.player && !this.player._isRemotePlayer
+                // 完全照搬單機模式的實現方式（Line 354）：使用 this.player === Game.player 檢查
                 if (isSurvivalMode && isMultiplayer) {
                     // 與單機模式一致：只有 LIGHTNING、MUFFIN_THROW、HEART_TRANSMISSION、BAGUETTE_THROW 命中敵人才會播放 bo 音效
+                    // 完全照搬單機模式的檢查方式（Line 354）：使用 this.player === Game.player
                     if ((this.weaponType === 'LIGHTNING' || this.weaponType === 'MUFFIN_THROW' || 
                          this.weaponType === 'HEART_TRANSMISSION' || this.weaponType === 'BAGUETTE_THROW') &&
-                        this.player && !this.player._isRemotePlayer && typeof AudioManager !== 'undefined') {
+                        typeof Game !== 'undefined' && Game.player && this.player === Game.player && typeof AudioManager !== 'undefined') {
                         AudioManager.playSound('bo');
                     }
                     this._isVisualOnly = true;
