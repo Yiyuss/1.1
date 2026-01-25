@@ -174,6 +174,17 @@
                 // 特殊技能：旋球
                 if (this.type === 'ORBIT') {
                     const count = this.projectileCount;
+                    // 單機模式：速度隨等級線性增長，LV1為基礎速度，LV10為2倍速度
+                    // 重要：整個系統（所有球）的旋轉速度是固定的，就像摩天輪一樣，不管裝了多少個箱子，整個系統轉1圈的時間是固定的
+                    // 每顆球都使用相同的 angularSpeed，這樣整個系統就會以固定速度旋轉
+                    let angularSpeed = this.config.ANGULAR_SPEED;
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                    if (!isMultiplayer) {
+                        // 單機模式：LV1到LV10，速度從基礎速度線性增長到2倍基礎速度
+                        // 整個系統轉1圈的時間：LV1時1秒，LV10時0.5秒（2倍速）
+                        const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
+                    }
                     for (let i = 0; i < count; i++) {
                         const angle = (i / count) * Math.PI * 2;
                         const baseRadius = this.config.ORBIT_RADIUS;
@@ -189,7 +200,7 @@
                             this._computeFinalDamage(levelMul),
                             dynamicSize,
                             this.config.DURATION,
-                            this.config.ANGULAR_SPEED
+                            angularSpeed
                         );
                         Game.addProjectile(orb);
                     }
@@ -199,6 +210,17 @@
                 // 特殊技能：鳳梨環繞（與綿羊護體邏輯相同，但使用不同圖片）
                 if (this.type === 'PINEAPPLE_ORBIT') {
                     const count = this.projectileCount;
+                    // 單機模式：速度隨等級線性增長，LV1為基礎速度，LV10為2倍速度
+                    // 重要：整個系統（所有球）的旋轉速度是固定的，就像摩天輪一樣，不管裝了多少個箱子，整個系統轉1圈的時間是固定的
+                    // 每顆球都使用相同的 angularSpeed，這樣整個系統就會以固定速度旋轉
+                    let angularSpeed = this.config.ANGULAR_SPEED;
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                    if (!isMultiplayer) {
+                        // 單機模式：LV1到LV10，速度從基礎速度線性增長到2倍基礎速度
+                        // 整個系統轉1圈的時間：LV1時1秒，LV10時0.5秒（2倍速）
+                        const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
+                    }
                     for (let i = 0; i < count; i++) {
                         const angle = (i / count) * Math.PI * 2;
                         const baseRadius = this.config.ORBIT_RADIUS;
@@ -214,7 +236,7 @@
                             this._computeFinalDamage(levelMul),
                             dynamicSize,
                             this.config.DURATION,
-                            this.config.ANGULAR_SPEED,
+                            angularSpeed,
                             'pineapple' // 使用 A45.png 作為外觀
                         );
                         Game.addProjectile(orb);
@@ -224,6 +246,17 @@
                 // 特殊技能：雞腿庇佑（與綿羊護體邏輯相同，但使用不同圖片）
                 if (this.type === 'CHICKEN_BLESSING') {
                     const count = this.projectileCount;
+                    // 單機模式：速度隨等級線性增長，LV1為基礎速度，LV10為2倍速度
+                    // 重要：整個系統（所有球）的旋轉速度是固定的，就像摩天輪一樣，不管裝了多少個箱子，整個系統轉1圈的時間是固定的
+                    // 每顆球都使用相同的 angularSpeed，這樣整個系統就會以固定速度旋轉
+                    let angularSpeed = this.config.ANGULAR_SPEED;
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                    if (!isMultiplayer) {
+                        // 單機模式：LV1到LV10，速度從基礎速度線性增長到2倍基礎速度
+                        // 整個系統轉1圈的時間：LV1時1秒，LV10時0.5秒（2倍速）
+                        const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
+                    }
                     for (let i = 0; i < count; i++) {
                         const angle = (i / count) * Math.PI * 2;
                         const baseRadius = this.config.ORBIT_RADIUS;
@@ -239,7 +272,7 @@
                             this._computeFinalDamage(levelMul),
                             dynamicSize,
                             this.config.DURATION,
-                            this.config.ANGULAR_SPEED,
+                            angularSpeed,
                             'chicken' // 使用 chicken.png 作為外觀
                         );
                         Game.addProjectile(orb);
@@ -251,6 +284,14 @@
                 // 特殊技能：旋轉鬆餅（與綿羊護體邏輯相同，但使用不同圖片）
                 if (this.type === 'ROTATING_MUFFIN') {
                 const count = this.projectileCount;
+                // 單機模式：速度隨等級線性增長，LV1為基礎速度，LV10為2倍速度
+                let angularSpeed = this.config.ANGULAR_SPEED;
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                if (!isMultiplayer) {
+                    // 單機模式：LV1到LV10，速度從基礎速度線性增長到2倍基礎速度
+                    const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                    angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
+                }
                 for (let i = 0; i < count; i++) {
                 const angle = (i / count) * Math.PI * 2;
                 const baseRadius = this.config.ORBIT_RADIUS;
@@ -266,7 +307,7 @@
                     this._computeFinalDamage(levelMul),
                     dynamicSize,
                     this.config.DURATION,
-                    this.config.ANGULAR_SPEED,
+                    angularSpeed,
                     'muffin' // 使用 muffin.png 作為外觀
                 );
                 Game.addProjectile(orb);
@@ -277,6 +318,14 @@
                 // 特殊技能：心意相隨（與綿羊護體邏輯相同，但使用不同圖片）
                 if (this.type === 'HEART_COMPANION') {
                 const count = this.projectileCount;
+                // 單機模式：速度隨等級線性增長，LV1為基礎速度，LV10為2倍速度
+                let angularSpeed = this.config.ANGULAR_SPEED;
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                if (!isMultiplayer) {
+                    // 單機模式：LV1到LV10，速度從基礎速度線性增長到2倍基礎速度
+                    const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                    angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
+                }
                 for (let i = 0; i < count; i++) {
                 const angle = (i / count) * Math.PI * 2;
                 const baseRadius = this.config.ORBIT_RADIUS;
@@ -292,7 +341,7 @@
                     this._computeFinalDamage(levelMul),
                     dynamicSize,
                     this.config.DURATION,
-                    this.config.ANGULAR_SPEED,
+                    angularSpeed,
                     'heart' // 使用 A34.png 作為外觀
                 );
                 Game.addProjectile(orb);
