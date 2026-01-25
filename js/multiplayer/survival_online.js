@@ -4813,9 +4813,14 @@ function handleServerGameState(state, timestamp) {
                   // 保留客户端血量（防止补血/回血被覆盖，不影响被动技能）
                   // 但需要确保不超过 maxHealth
                   Game.player.health = Math.min(Game.player.maxHealth, Game.player.health);
-                } else {
-                  // 服务器血量更高或相等，使用服务器血量（正常同步）
+                } else if (newHealth > prevHealth) {
+                  // 服务器血量高于上一次同步的血量（服务器补血/回血），使用服务器血量
                   Game.player.health = newHealth;
+                } else {
+                  // 服务器血量等于上一次同步的血量（服务器没动），保留客户端血量
+                  // 这样可以防止客户端补血被覆盖（差值校正/reconciliation 问题）
+                  // 如果客户端补血后，服务器状态没变，不应该覆盖客户端补血
+                  Game.player.health = Math.min(Game.player.maxHealth, Game.player.health);
                 }
               }
               
