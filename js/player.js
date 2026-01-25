@@ -899,7 +899,8 @@ class Player extends Entity {
             const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
             // 組隊模式下：經驗由伺服器同步，在這裡播放音效
             // 單機模式下：經驗球收集時會在 experience.js 中播放音效，這裡不播放（避免重複）
-            if (isMultiplayer) {
+            // ✅ 修復：音效是單機元素，只在本地玩家播放
+            if (isMultiplayer && !this._isRemotePlayer) {
                 // 尊重 EXP 音效開關
                 if (AudioManager.expSoundEnabled !== false) {
                     AudioManager.playSound('collect_exp');
@@ -1244,9 +1245,10 @@ class Player extends Entity {
         this.energy = 0;
         try { if (typeof UI !== 'undefined' && UI.updateEnergyBar) UI.updateEnergyBar(this.energy, this.maxEnergy); } catch (_) {}
 
+        // ✅ 修復：音效是單機元素，只在本地玩家播放
         // 音效：大招噴出瞬間（使用 fireball_shoot.mp3）
         try {
-            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+            if (!this._isRemotePlayer && typeof AudioManager !== 'undefined' && AudioManager.playSound) {
                 AudioManager.playSound('fireball_shoot');
             }
         } catch (_) {}
@@ -1428,9 +1430,10 @@ class Player extends Entity {
         this.energy = 0;
         UI.updateEnergyBar(this.energy, this.maxEnergy);
         
+        // ✅ 修復：音效是單機元素，只在本地玩家播放
         // 播放爆炸音效
         const audioKey = (charUltimate && charUltimate.AUDIO_KEY) ? charUltimate.AUDIO_KEY : 'Explosion';
-        if (typeof AudioManager !== 'undefined' && AudioManager.sounds && AudioManager.sounds[audioKey]) {
+        if (!this._isRemotePlayer && typeof AudioManager !== 'undefined' && AudioManager.sounds && AudioManager.sounds[audioKey]) {
             try {
                 AudioManager.playSound(audioKey);
             } catch (e) {
