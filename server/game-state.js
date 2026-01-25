@@ -1093,7 +1093,8 @@ class GameState {
                 h: enemy.size || 32,
                 damage: hit.amount,
                 isCrit: hit.isCrit,
-                weaponType: input.weaponType || null // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
+                weaponType: input.weaponType || null, // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
+                playerUid: uid || null // ✅ 修復：添加 playerUid，用於客戶端判斷是否是本地玩家的投射物（BO音效）
               });
             } catch (_) { }
           }
@@ -1117,7 +1118,8 @@ class GameState {
                 h: enemy.size || 32,
                 damage: hit.amount,
                 isCrit: hit.isCrit,
-                weaponType: input.weaponType || null // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
+                weaponType: input.weaponType || null, // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
+                playerUid: uid || null // ✅ 修復：添加 playerUid，用於客戶端判斷是否是本地玩家的投射物（BO音效）
               });
             } catch (_) { }
           }
@@ -1686,7 +1688,8 @@ class GameState {
               h: enemy.size || 32,
               damage: hit.amount,
               isCrit: hit.isCrit,
-              weaponType: proj.weaponType || null // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
+              weaponType: proj.weaponType || null, // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
+              playerUid: proj.playerUid || null // ✅ 修復：添加 playerUid，用於客戶端判斷是否是本地玩家的投射物（BO音效）
             });
           } catch (_) { }
 
