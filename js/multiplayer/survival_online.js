@@ -4806,39 +4806,35 @@ function handleServerGameState(state, timestamp) {
               
               if (!isNewSession) {
                 // ✅ 修复：判断服务器是否在扣血，必须基于服务器状态的变化，而不是客户端状态
-                // 问题：如果客户端补血后，_lastHealth 被更新为客户端血量（110），下一次同步时
-                // newHealth = 100 < prevHealth = 110 会被误判为服务器扣血，导致客户端补血被覆盖
-                // 修复：只有当服务器状态真的变化了（newHealth < 上一次服务器状态）时，才判定为服务器扣血
-                // 但是，我们无法直接知道"上一次服务器状态"，只能通过比较 newHealth 和 prevHealth
-                // 关键：如果客户端血量高于服务器血量，且服务器状态没变（newHealth === prevHealth），
-                // 说明客户端补血了，服务器不知道，应该保留客户端血量
-                // 如果服务器状态变了（newHealth < prevHealth），且客户端血量也低于服务器血量，
-                // 说明服务器在扣血，应该同步服务器血量
+                // 关键逻辑：
+                // 1. 如果服务器在扣血（newHealth < prevHealth），无论客户端血量如何，都必须同步服务器血量（服务器权威）
+                // 2. 如果服务器在补血（newHealth > prevHealth），使用服务器血量
+                // 3. 如果服务器状态没变（newHealth === prevHealth），且客户端血量高于服务器血量，保留客户端血量（客户端补血）
+                // 4. 如果服务器状态没变（newHealth === prevHealth），且客户端血量不高于服务器血量，使用服务器血量
                 
-                // 判断服务器状态是否变化（服务器血量相对于上一次同步的服务器血量）
-                const serverHealthChanged = (newHealth !== prevHealth);
                 // 判断服务器是否在扣血（服务器血量相对于上一次同步的服务器血量减少了）
                 const isServerDamaging = (newHealth < prevHealth && newHealth > 0 && prevHealth > 0);
+                // 判断服务器是否在补血（服务器血量相对于上一次同步的服务器血量增加了）
+                const isServerHealing = (newHealth > prevHealth && newHealth > 0 && prevHealth > 0);
+                // 判断服务器状态是否没变（服务器血量等于上一次同步的服务器血量）
+                const isServerUnchanged = (newHealth === prevHealth);
                 // 判断客户端血量是否高于服务器血量（可能是客户端补血）
                 const isClientHealthHigher = (Game.player.health > newHealth);
                 
-                if (isServerDamaging && !isClientHealthHigher) {
-                  // 服务器在扣血，且客户端血量不高于服务器血量（客户端没有补血）
-                  // 必须同步服务器血量（服务器权威，不能保留客户端血量）
+                if (isServerDamaging) {
+                  // 服务器在扣血，无论客户端血量如何，都必须同步服务器血量（服务器权威）
                   Game.player.health = newHealth;
-                } else if (isClientHealthHigher) {
-                  // 客户端血量高于服务器血量（可能是客户端补血/回血）
+                } else if (isServerHealing) {
+                  // 服务器在补血，使用服务器血量
+                  Game.player.health = newHealth;
+                } else if (isServerUnchanged && isClientHealthHigher) {
+                  // 服务器状态没变，且客户端血量高于服务器血量（客户端补血了）
                   // 保留客户端血量（防止补血/回血被覆盖，不影响被动技能）
                   // 但需要确保不超过 maxHealth
                   Game.player.health = Math.min(Game.player.maxHealth, Game.player.health);
-                } else if (newHealth > prevHealth) {
-                  // 服务器血量高于上一次同步的血量（服务器补血/回血），使用服务器血量
-                  Game.player.health = newHealth;
                 } else {
-                  // 服务器血量等于上一次同步的血量（服务器没动），保留客户端血量
-                  // 这样可以防止客户端补血被覆盖（差值校正/reconciliation 问题）
-                  // 如果客户端补血后，服务器状态没变，不应该覆盖客户端补血
-                  Game.player.health = Math.min(Game.player.maxHealth, Game.player.health);
+                  // 服务器状态没变，且客户端血量不高于服务器血量，使用服务器血量（正常同步）
+                  Game.player.health = newHealth;
                 }
               }
               
