@@ -1473,17 +1473,22 @@ const Runtime = (() => {
                   const imageKey = (weaponType === "CHICKEN_BLESSING") ? "chicken" :
                     (weaponType === "ROTATING_MUFFIN") ? "muffin" :
                       (weaponType === "HEART_COMPANION") ? "heart" :
-                        (weaponType === "PINEAPPLE_ORBIT") ? "A45" : "lightning";
+                        (weaponType === "PINEAPPLE_ORBIT") ? "pineapple" : "lightning";
                   const initialAngle = eventData.angle || 0;
+                  // ✅ 修復：使用從單機模式廣播的 radius、angularSpeed、size、duration，確保與單機模式一致
+                  // 單機模式中，這些值會根據等級動態計算（radius、size 隨等級增長，angularSpeed 隨等級線性增長）
                   const radius = eventData.radius || 60;
+                  const angularSpeed = eventData.angularSpeed || 6.283;
+                  const size = eventData.size || 20;
+                  const duration = eventData.duration || 3000;
                   const orb = new OrbitBall(
                     targetPlayer,
                     initialAngle,
                     radius,
                     0, // 傷害設為0（僅視覺）
-                    eventData.size || 20,
-                    eventData.duration || 3000,
-                    eventData.angularSpeed || 6.283,
+                    size,
+                    duration,
+                    angularSpeed,
                     imageKey
                   );
                   orb.id = projectileId;
