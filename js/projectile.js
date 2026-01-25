@@ -163,13 +163,8 @@ class Projectile extends Entity {
                 // ✅ 修復：在標記為 _isVisualOnly 之前，先播放BO音效（如果是本地玩家的投射物）
                 // 參考雷射在組隊模式下的音效實現方式（weapon.js Line 546）：使用 this.player && !this.player._isRemotePlayer
                 if (isSurvivalMode && isMultiplayer) {
-                    // 與單機模式一致：只有 LIGHTNING、MUFFIN_THROW、HEART_TRANSMISSION、BAGUETTE_THROW 命中敵人才會播放 bo 音效
-                    // 參考雷射在組隊模式下的音效實現方式：使用 this.player && !this.player._isRemotePlayer（與 weapon.js Line 546 一致）
-                    if ((this.weaponType === 'LIGHTNING' || this.weaponType === 'MUFFIN_THROW' || 
-                         this.weaponType === 'HEART_TRANSMISSION' || this.weaponType === 'BAGUETTE_THROW') &&
-                        this.player && !this.player._isRemotePlayer && typeof AudioManager !== 'undefined') {
-                        AudioManager.playSound('bo');
-                    }
+                    // ✅ 修復：組隊模式下，BO音效已在 survival_online.js 的 hitEvents 中處理
+                    // 這裡不需要重複播放，避免音效重複或失效
                     this._isVisualOnly = true;
                     continue;
                 }
