@@ -160,7 +160,18 @@ class Projectile extends Entity {
                 
                 // 多人模式下，伤害由服务器计算，客户端只显示视觉效果
                 // 投射物会被服务器移除，这里只标记为视觉投射物
+                // ✅ 修復：在標記為 _isVisualOnly 之前，先播放BO音效（如果是本地玩家的投射物）
+                // 音效是單機元素，應該像其他音效一樣在客戶端直接播放，不需要服務器
                 if (isSurvivalMode && isMultiplayer) {
+                    // ✅ 修復：在標記為 _isVisualOnly 之前，先播放BO音效（如果是本地玩家的投射物）
+                    // 與單機模式一致：只有 LIGHTNING、MUFFIN_THROW、HEART_TRANSMISSION、BAGUETTE_THROW 命中敵人才會播放 bo 音效
+                    if (this.weaponType === 'LIGHTNING' || this.weaponType === 'MUFFIN_THROW' || 
+                        this.weaponType === 'HEART_TRANSMISSION' || this.weaponType === 'BAGUETTE_THROW') {
+                        // ✅ 流量優化：音效是單機元素，只對本地玩家播放（因為是本地玩家的投射物）
+                        if (typeof Game !== 'undefined' && Game.player && this.player === Game.player && typeof AudioManager !== 'undefined') {
+                            AudioManager.playSound('bo');
+                        }
+                    }
                     this._isVisualOnly = true;
                     continue;
                 }
