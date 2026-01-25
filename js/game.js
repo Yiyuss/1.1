@@ -137,13 +137,29 @@ const Game = {
             // 這樣恢復時deltaTime會很小，不會導致技能冷卻時間異常
             deltaTime = 0; // 暫停時deltaTime設為0
         } else {
-            // 限制deltaTime的最大值，避免暫停後恢復時時間跳躍過大（修復ESC暫停BUG）
-            // 最大允許100ms（約6幀），超過則視為異常時間跳躍，重置為正常值
+            // ✅ 修復：組隊模式下頁面恢復時 deltaTime 過大導致當機
+            // 問題：組隊模式下頁面隱藏時不暫停遊戲，但 requestAnimationFrame 會停止
+            // 當頁面恢復時，deltaTime 會非常大（可能是幾秒甚至幾分鐘），導致遊戲狀態不同步和當機
+            // 解決方案：檢測到 deltaTime 過大時，重置 lastUpdateTime，避免狀態跳躍
             const MAX_DELTA_TIME = 100;
+            const isMultiplayer = (this.multiplayer && this.multiplayer.enabled);
+            
             if (deltaTime > MAX_DELTA_TIME) {
-                deltaTime = MAX_DELTA_TIME;
+                // ✅ 硬需求：只處理組隊模式，不影響單機模式
+                if (isMultiplayer) {
+                    // 組隊模式下：頁面恢復時 deltaTime 過大，重置 lastUpdateTime
+                    // 這樣可以避免狀態跳躍，讓服務器狀態同步來恢復正確的遊戲狀態
+                    console.warn(`[Game] 檢測到 deltaTime 過大 (${deltaTime}ms)，重置 lastUpdateTime（組隊模式頁面恢復）`);
+                    this.lastUpdateTime = currentTime;
+                    deltaTime = 0; // 跳過這一幀，等待服務器狀態同步
+                } else {
+                    // 單機模式：限制 deltaTime，保持原有邏輯
+                    deltaTime = MAX_DELTA_TIME;
+                    this.lastUpdateTime = currentTime;
+                }
+            } else {
+                this.lastUpdateTime = currentTime;
             }
-            this.lastUpdateTime = currentTime;
         }
 
         // 管理員測試快捷鍵已統一收斂到 Input（js/input.js），避免在 gameLoop 內重複輪詢造成污染/重入
