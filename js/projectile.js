@@ -6,8 +6,11 @@ class Projectile extends Entity {
         this.weaponType = weaponType;
         this.damage = damage;
         this.speed = speed;
+        this.size = size; // ✅ 修復：明確設置 size 屬性，確保組隊模式下能正確同步體積
         this.distance = 0;
         this.maxDistance = 1000; // 最大飛行距離
+        // ✅ 修復：設置碰撞半徑（用於碰撞檢測和擴散傷害計算）
+        this.collisionRadius = size / 2; // 碰撞半徑等於尺寸的一半
         // 追蹤屬性（僅閃電使用）
         this.homing = false;
         this.turnRatePerSec = 0; // 每秒最大轉向弧度（rad/s）
