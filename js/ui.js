@@ -1556,6 +1556,32 @@ const UI = {
                         // 如果AI已經被召喚，更新AI的技能
                         if (player.aiCompanion && typeof player.aiCompanion.setSkillLevel === 'function') {
                             player.aiCompanion.setSkillLevel(2);
+                            // ✅ 組隊模式：AI升級時重新廣播給其他玩家，讓遠程玩家的AI也更新等級
+                            if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                                try {
+                                    const ai = player.aiCompanion;
+                                    if (ai && typeof window !== 'undefined' && window.SurvivalOnlineBroadcastEvent) {
+                                        const playerUid = (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null;
+                                        if (playerUid && ai.id) {
+                                            const projectileData = {
+                                                id: ai.id,
+                                                x: ai.x || player.x,
+                                                y: ai.y || player.y,
+                                                angle: ai.angle || 0,
+                                                weaponType: "SUMMON_AI",
+                                                playerUid: playerUid,
+                                                damage: 0,
+                                                summonAILevel: 2, // ✅ 廣播升級後的等級
+                                                width: ai.width || CONFIG.PLAYER.SIZE,
+                                                height: ai.height || CONFIG.PLAYER.SIZE
+                                            };
+                                            window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.warn('[UI] AI升級廣播失敗:', e);
+                                }
+                            }
                         }
                     }
                 }
