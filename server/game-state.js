@@ -977,9 +977,17 @@ class GameState {
     if (!enemy || enemy.isDead || enemy.health <= 0 || dmg <= 0) return;
     enemy.health -= dmg;
     enemy.hitFlashTime = 150;
+    // ✅ 修復：記錄最後一次造成傷害的玩家（用於音效等「只播自己」的本地化規則）
+    if (opts.sourceUid) {
+      enemy.lastDamageSourceUid = opts.sourceUid;
+    }
     if (enemy.health <= 0) {
       enemy.health = 0;
       enemy.isDead = true;
+      // ✅ 修復：記錄擊殺者（最後一次造成傷害的玩家）
+      if (opts.sourceUid) {
+        enemy.killerUid = opts.sourceUid;
+      }
       // ✅ 流量優化：音效是單機元素，不需要通過伺服器發送（節省流量）
       // 客戶端會在本地播放音效（enemy.js 中已有 AudioManager.playSound('enemy_death')）
       this.grantEnemyRewards(enemy);
