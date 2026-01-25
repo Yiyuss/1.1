@@ -27,8 +27,15 @@ class ChainLightningEffect extends Entity {
         };
         this.revealedCount = 0;
         this._buildChain();
-        // 音效
-        try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('zaps'); } catch (_) {}
+        // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+        // 組隊模式下，如果是通過 projectile_spawn 事件創建的遠程玩家效果，不播放音效
+        try {
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+            const isLocalPlayerEffect = !isMultiplayer || (player && !player._isRemotePlayer && player === (typeof Game !== 'undefined' ? Game.player : null));
+            if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('zaps');
+            }
+        } catch (_) {}
     }
 
     _findNearestEnemy(x, y, excludeIds = new Set(), withinRadius = null) {
@@ -459,7 +466,15 @@ class FrenzyLightningEffect extends Entity {
         // ✅ 修復：只有在 player 有效時才構建連鎖
         if (this.player && !this.markedForDeletion) {
             this._buildFrenzy();
-            try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('zaps'); } catch (_) {}
+            // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
+            // 組隊模式下，如果是通過 projectile_spawn 事件創建的遠程玩家效果，不播放音效
+            try {
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                const isLocalPlayerEffect = !isMultiplayer || (this.player && !this.player._isRemotePlayer && this.player === (typeof Game !== 'undefined' ? Game.player : null));
+                if (isLocalPlayerEffect && typeof AudioManager !== 'undefined') {
+                    AudioManager.playSound('zaps');
+                }
+            } catch (_) {}
         }
     }
 
