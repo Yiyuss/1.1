@@ -1027,12 +1027,8 @@ class GameState {
         (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS') &&
         this.wave === bossWave
       ) {
-        this.exit = {
-          x: (this.worldWidth || 3840) / 2,
-          y: (this.worldHeight || 2160) / 2,
-          width: 300,
-          height: 242
-        };
+        this.isVictory = true;
+        this.exit = null;
       }
     } catch (_) { }
   }
@@ -2777,4 +2773,3 @@ class GameState {
 }
 
 module.exports = { GameState };
-
