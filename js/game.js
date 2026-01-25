@@ -1494,6 +1494,17 @@ const Game = {
 
                 // 標準投射物：送給伺服器生成/碰撞/扣血
                 if (!isPersistentEffect) {
+                    // ✅ 修復：確保 size 正確獲取（投射物使用 width/height 表示大小，但也要檢查 size 屬性）
+                    // 優先使用 size 屬性，其次使用 width/height，最後使用武器配置的默認值
+                    let projectileSize = projectile.size;
+                    if (!projectileSize || projectileSize <= 0) {
+                      projectileSize = projectile.width || projectile.height;
+                    }
+                    if (!projectileSize || projectileSize <= 0) {
+                      // 如果還是沒有，嘗試從武器配置獲取默認值
+                      const weaponConfig = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[projectile.weaponType]) || {};
+                      projectileSize = weaponConfig.PROJECTILE_SIZE || 20;
+                    }
                     const attackInput = {
                         type: 'attack',
                         weaponType: projectile.weaponType || 'UNKNOWN',
@@ -1502,7 +1513,7 @@ const Game = {
                         angle: projectile.angle || 0,
                         damage: projectile.damage || 10,
                         speed: projectile.speed || 5,
-                        size: projectile.size || 20,
+                        size: projectileSize, // ✅ 修復：使用正確計算的 size（包含等級加成）
                         homing: projectile.homing || false,
                         turnRatePerSec: projectile.turnRatePerSec || 0,
                         assignedTargetId: projectile.assignedTargetId || null,
@@ -1843,6 +1854,16 @@ const Game = {
                     }
 
                     // 構建投射物數據
+                    // ✅ 修復：確保 size 正確獲取（投射物使用 width/height 表示大小，但也要檢查 size 屬性）
+                    let projectileSize = projectile.size;
+                    if (!projectileSize || projectileSize <= 0) {
+                      projectileSize = projectile.width || projectile.height;
+                    }
+                    if (!projectileSize || projectileSize <= 0) {
+                      // 如果還是沒有，嘗試從武器配置獲取默認值
+                      const weaponConfig = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[projectile.weaponType]) || {};
+                      projectileSize = weaponConfig.PROJECTILE_SIZE || 20;
+                    }
                     const projectileData = {
                         id: projectile.id,
                         x: projectile.x || 0,
@@ -1850,11 +1871,12 @@ const Game = {
                         angle: projectile.angle || 0,
                         weaponType: isAICompanion ? "SUMMON_AI" : (projectile.weaponType || "UNKNOWN"),
                         speed: projectile.speed || 0,
-                        size: projectile.size || 0,
+                        size: projectileSize, // ✅ 修復：使用正確計算的 size（包含等級加成）
                         homing: projectile.homing || false,
                         turnRatePerSec: projectile.turnRatePerSec || 0,
                         playerUid: playerUid,
                         assignedTargetId: projectile.assignedTargetId || null,
+                        maxDistance: projectile.maxDistance || 1000, // ✅ 修復：同步 maxDistance 屬性
                         // ✅ MMORPG架构：传递伤害值，让远程玩家也能计算伤害
                         damage: projectile.damage || 0
                     };
