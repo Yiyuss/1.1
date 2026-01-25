@@ -5108,19 +5108,28 @@ function handleServerGameState(state, timestamp) {
           const h = (typeof ev.h === "number") ? ev.h : 0;
           DamageNumbers.show(Math.round(dmg), x, y - h / 2, ev.isCrit === true, { enemyId: ev.enemyId || null });
           
-          // ✅ 修復：投射物命中敵人時的 bo 音效（多人元素）
-          // 在組隊模式下，投射物是伺服器權威的，音效應該在 hitEvents 處理時播放
-          // 這樣所有玩家都能聽到命中音效（與單機模式一致）
+          // ✅ 修復：根據武器類型創建對應的特殊視覺效果（多人元素）
+          const weaponType = ev.weaponType || null;
+          
+          // ✅ 修復：投射物命中敵人時的 bo 音效（單機元素）
+          // 音效是單機元素，只在本地播放
+          // 與單機模式一致：只有 LIGHTNING、MUFFIN_THROW、HEART_TRANSMISSION、BAGUETTE_THROW 命中敵人才會播放 bo 音效
+          // 但只對本地玩家的投射物播放（ev.playerUid === Game.multiplayer.uid）
           try {
-            if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+            const isLocalPlayer = (ev.playerUid && Game.multiplayer && Game.multiplayer.uid && ev.playerUid === Game.multiplayer.uid);
+            const shouldPlayBoSound = isLocalPlayer && weaponType && (
+              weaponType === 'LIGHTNING' || 
+              weaponType === 'MUFFIN_THROW' || 
+              weaponType === 'HEART_TRANSMISSION' || 
+              weaponType === 'BAGUETTE_THROW'
+            );
+            
+            if (shouldPlayBoSound && typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
               AudioManager.playSound('bo');
             }
           } catch (e) {
             console.warn('[SurvivalOnline] 音效播放失敗:', e);
           }
-          
-          // ✅ 修復：根據武器類型創建對應的特殊視覺效果（多人元素）
-          const weaponType = ev.weaponType || null;
           
           // ✅ 修復：所有需要粒子特效的技能（追蹤綿羊、鬆餅投擲、法棍投擲、心意傳遞）
           // 這些技能在命中時都會產生白色粒子特效
