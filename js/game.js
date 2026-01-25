@@ -1596,11 +1596,16 @@ const Game = {
                         }
                         
                         // 根據武器類型添加額外屬性（與舊多人模式一致）
-                        if (projectile.radius !== undefined) {
-                            projectileData.radius = projectile.radius;
-                            projectileData.angularSpeed = projectile.angularSpeed || 0;
+                        // ✅ 修復：旋球類技能（ORBIT、PINEAPPLE_ORBIT、CHICKEN_BLESSING、ROTATING_MUFFIN、HEART_COMPANION）
+                        // 需要廣播 radius、angularSpeed、duration、size，確保與單機模式一致
+                        if (projectile.radius !== undefined || 
+                            (projectile.constructor && projectile.constructor.name === 'OrbitBall')) {
+                            // ✅ 修復：確保 size 從 width 或 height 獲取（OrbitBall 使用 width/height 表示大小）
+                            const orbitSize = projectile.size || projectile.width || projectile.height || 20;
+                            projectileData.radius = projectile.radius || 60;
+                            projectileData.angularSpeed = projectile.angularSpeed || 6.283;
                             projectileData.duration = projectile.duration || 3000;
-                            projectileData.size = projectile.size || 20;
+                            projectileData.size = orbitSize;
                         }
                         
                         if (projectile.width !== undefined && projectile.weaponType === "LASER") {
