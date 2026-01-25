@@ -348,12 +348,52 @@ const Game = {
             }
         }
 
+        // ✅ 替代方案：直接更新所有AI，绕过addProjectile的复杂逻辑
+        // 这样可以确保AI总是被更新，不管它们是否在projectiles数组中
+        // 组队模式下，AI可能因为addProjectile的检查逻辑没有被正确添加，所以需要单独处理
+        try {
+            // 更新本地玩家的AI
+            if (this.player && this.player.aiCompanion && typeof this.player.aiCompanion.update === 'function') {
+                // ✅ 确保AI的player引用正确（组队模式下可能失效）
+                if (this.multiplayer && this.multiplayer.enabled) {
+                    if (this.player.aiCompanion.player !== this.player) {
+                        this.player.aiCompanion.player = this.player;
+                    }
+                }
+                // 确保AI在projectiles数组中（如果不在，添加进去）
+                if (this.projectiles.indexOf(this.player.aiCompanion) === -1) {
+                    this.projectiles.push(this.player.aiCompanion);
+                }
+                // 更新AI
+                this.player.aiCompanion.update(deltaTime);
+            }
+            
+            // 更新远程玩家的AI（组队模式）
+            if (this.multiplayer && this.multiplayer.enabled) {
+                // 从projectiles数组中找出所有AI
+                for (const proj of this.projectiles) {
+                    if (proj && proj.constructor && proj.constructor.name === 'AICompanion' && 
+                        typeof proj.update === 'function' && 
+                        proj !== this.player.aiCompanion) {
+                        // 这是远程玩家的AI，直接更新
+                        proj.update(deltaTime);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[Game.update] AI更新失敗:', e);
+        }
+
         // 更新投射物
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const projectile = this.projectiles[i];
             // ✅ 修復：防止 projectile 為 null/undefined 或沒有 update 方法導致整個系統崩潰
             if (!projectile || typeof projectile.update !== 'function') {
                 this.projectiles.splice(i, 1);
+                continue;
+            }
+            // ✅ 跳过AI，因为已经在上面单独更新了（避免重复更新）
+            if (projectile.constructor && projectile.constructor.name === 'AICompanion') {
                 continue;
             }
             projectile.update(deltaTime);
@@ -903,13 +943,34 @@ const Game = {
         }
 
         // 繪製AI生命體（使用GifOverlay，在玩家圖層）
-        if (this.player && this.player.aiCompanion) {
-            try {
-                this.player.aiCompanion.draw(this.ctx);
-            } catch (e) {
-                // ⚠️ 修复：如果 aiCompanion 已被清理，跳过绘制
-                console.warn('[Game] drawEntities: aiCompanion.draw 失败:', e);
+        // ✅ 替代方案：绘制所有AI（包括本地和远程玩家的AI）
+        try {
+            // 绘制本地玩家的AI
+            if (this.player && this.player.aiCompanion && typeof this.player.aiCompanion.draw === 'function') {
+                try {
+                    this.player.aiCompanion.draw(this.ctx);
+                } catch (e) {
+                    console.warn('[Game] drawEntities: 本地玩家AI绘制失败:', e);
+                }
             }
+            
+            // 绘制远程玩家的AI（组队模式）
+            if (this.multiplayer && this.multiplayer.enabled) {
+                for (const proj of this.projectiles) {
+                    if (proj && proj.constructor && proj.constructor.name === 'AICompanion' && 
+                        typeof proj.draw === 'function' && 
+                        proj !== this.player.aiCompanion) {
+                        // 这是远程玩家的AI，绘制它
+                        try {
+                            proj.draw(this.ctx);
+                        } catch (e) {
+                            console.warn('[Game] drawEntities: 远程玩家AI绘制失败:', e);
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[Game] drawEntities: AI绘制逻辑失败:', e);
         }
 
         // 繪製投射物（除連鎖閃電/狂熱雷擊/斬擊/裁決/神界裁決/路口車輛與幼妲光輝/幼妲天使聖光/死線戰士/死線超人，延後至敵人之上）
