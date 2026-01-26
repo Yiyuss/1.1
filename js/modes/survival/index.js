@@ -209,6 +209,31 @@
           // Game.multiplayer = null; // 不重置，因為可能只是暫時離開
         }
       } catch (_) {}
+      try {
+        const ids = ['gravity-wave-effects-layer','aura-effects-layer','skill-effects-layer'];
+        for (const id of ids) {
+          const layer = document.getElementById(id);
+          if (layer && layer.parentNode) {
+            while (layer.firstChild) { layer.removeChild(layer.firstChild); }
+            layer.parentNode.removeChild(layer);
+          }
+        }
+        const styleTag = document.getElementById('invincible-style');
+        if (styleTag && styleTag.parentNode) styleTag.parentNode.removeChild(styleTag);
+      } catch(_){}
+      try {
+        if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+          for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+            const p = Game.projectiles[i];
+            if (!p) continue;
+            const wt = p.weaponType;
+            if (wt === 'GRAVITY_WAVE' || wt === 'AURA_FIELD' || wt === 'ORBIT' || wt === 'CHICKEN_BLESSING' || wt === 'ROTATING_MUFFIN' || wt === 'HEART_COMPANION' || wt === 'PINEAPPLE_ORBIT' || wt === 'LASER' || wt === 'RADIANT_GLORY') {
+              try { if (typeof p.destroy === 'function') p.destroy(); } catch(_){}
+              Game.projectiles.splice(i, 1);
+            }
+          }
+        }
+      } catch(_){}
     },
     update(){ /* 交由 Game.update */ },
     draw(){ /* 交由 Game.draw */ }
