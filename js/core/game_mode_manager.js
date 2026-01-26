@@ -433,6 +433,18 @@
       const { mode, ctx } = _current;
       try { if (typeof mode.exit === 'function') mode.exit(ctx); } catch(e){ console.warn('[GameModeManager] exit warn:', e); }
       try { ctx.dispose(); } catch(e){ console.warn('[GameModeManager] dispose warn:', e); }
+      try {
+        const ids = ['gravity-wave-effects-layer','aura-effects-layer','skill-effects-layer'];
+        for (const id of ids) {
+          const layer = document.getElementById(id);
+          if (layer && layer.parentNode) {
+            while (layer.firstChild) { layer.removeChild(layer.firstChild); }
+            layer.parentNode.removeChild(layer);
+          }
+        }
+        const styleTag = document.getElementById('invincible-style');
+        if (styleTag && styleTag.parentNode) styleTag.parentNode.removeChild(styleTag);
+      } catch(_) {}
       _current = null;
     }
   };
