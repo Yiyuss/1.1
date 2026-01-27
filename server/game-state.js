@@ -2341,14 +2341,27 @@ class GameState {
     // 检查是否已存在
     if (this.chests.some(c => c.id === chestData.id)) return;
 
-    this.chests.push({
+    const type = chestData.type || 'NORMAL';
+    const entry = {
       id: chestData.id,
-      x: chestData.x,
-      y: chestData.y,
-      type: chestData.type || 'NORMAL', // NORMAL, PINEAPPLE
+      x: (typeof chestData.x === 'number') ? chestData.x : 0,
+      y: (typeof chestData.y === 'number') ? chestData.y : 0,
+      type: type,
       createdAt: Date.now(),
-      ttl: 60000 // 1分钟后过期
-    });
+      ttl: (typeof chestData.expireMs === 'number' && chestData.expireMs > 0) ? Math.floor(chestData.expireMs) : 60000
+    };
+    if (type === 'PINEAPPLE_SUPPLEMENT') {
+      entry.spawnX = (typeof chestData.spawnX === 'number') ? chestData.spawnX : entry.x;
+      entry.spawnY = (typeof chestData.spawnY === 'number') ? chestData.spawnY : entry.y;
+      entry.flyDurationMs = (typeof chestData.flyDurationMs === 'number' && chestData.flyDurationMs >= 0) ? Math.floor(chestData.flyDurationMs) : 600;
+      entry.expireMs = entry.ttl;
+      entry.healAmount = (typeof chestData.healAmount === 'number' && chestData.healAmount >= 0) ? Math.floor(chestData.healAmount) : 0;
+    } else if (type === 'PINEAPPLE') {
+      entry.spawnX = (typeof chestData.spawnX === 'number') ? chestData.spawnX : entry.x;
+      entry.spawnY = (typeof chestData.spawnY === 'number') ? chestData.spawnY : entry.y;
+      entry.flyDurationMs = (typeof chestData.flyDurationMs === 'number' && chestData.flyDurationMs >= 0) ? Math.floor(chestData.flyDurationMs) : 600;
+    }
+    this.chests.push(entry);
     console.log(`[GameState] 添加宝箱: ${chestData.id}`);
   }
 
@@ -2356,14 +2369,12 @@ class GameState {
   collectChest(uid, chestId) {
     const chestIndex = this.chests.findIndex(c => c.id === chestId);
     if (chestIndex === -1) {
-      // 宝箱不存在或已被收集
-      return false;
+      return null;
     }
-
-    // 移除宝箱
+    const chest = this.chests[chestIndex];
     this.chests.splice(chestIndex, 1);
     console.log(`[GameState] 宝箱被收集: ${chestId} by ${uid}`);
-    return true;
+    return chest;
   }
 
   // ✅ 服务器权威：更新宝箱（超时清除）
