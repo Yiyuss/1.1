@@ -62,6 +62,7 @@ const CONFIG = {
             BAGUETTE_THROW: 'assets/images/A42.png',
             PINEAPPLE_ORBIT: 'assets/images/A44.png',
             ADRENALINE: 'assets/images/A46.png',
+            PINEAPPLE_SUPPLEMENT: 'assets/images/A47.png',
             SUMMON_AI: 'assets/images/AI.png',
             MIND_MAGIC: 'assets/images/A16.png',
             ATTR_ATTACK: 'assets/images/A8.png',
@@ -879,6 +880,23 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "每5秒補血+55" },
                 { COUNT: 1, DESCRIPTION: "每5秒補血+60" },
                 { COUNT: 1, DESCRIPTION: "每5秒補血+65" }
+            ]
+        },
+        PINEAPPLE_SUPPLEMENT: {
+            NAME: "鳳梨補品",
+            DAMAGE: 0,
+            COOLDOWN: 10000,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每10秒噴出5顆鳳梨補品，撿取恢復HP+3（存在60秒）" },
+                { COUNT: 1, DESCRIPTION: "每10秒噴出5顆鳳梨補品，撿取恢復HP+4（存在60秒）" },
+                { COUNT: 1, DESCRIPTION: "每10秒噴出5顆鳳梨補品，撿取恢復HP+5（存在60秒）" },
+                { COUNT: 1, DESCRIPTION: "每10秒噴出5顆鳳梨補品，撿取恢復HP+6（存在60秒）" },
+                { COUNT: 1, DESCRIPTION: "每10秒噴出5顆鳳梨補品，撿取恢復HP+7（存在60秒）" },
+                { COUNT: 1, DESCRIPTION: "每10秒噴出5顆鳳梨補品，撿取恢復HP+8（存在60秒）" },
+                { COUNT: 1, DESCRIPTION: "每10秒噴出5顆鳳梨補品，撿取恢復HP+9（存在60秒）" },
+                { COUNT: 1, DESCRIPTION: "每10秒噴出5顆鳳梨補品，撿取恢復HP+10（存在60秒）" },
+                { COUNT: 1, DESCRIPTION: "每10秒噴出5顆鳳梨補品，撿取恢復HP+11（存在60秒）" },
+                { COUNT: 1, DESCRIPTION: "每10秒噴出5顆鳳梨補品，撿取恢復HP+12（存在60秒）" }
             ]
         }
     },
