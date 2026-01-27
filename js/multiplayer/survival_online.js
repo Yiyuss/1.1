@@ -1041,9 +1041,33 @@ const Runtime = (() => {
         // 保留此邏輯僅為向後兼容（非權威模式），但實際上應該不會被執行
         try {
           const ChestCtor = _getGlobalCtor("Chest");
-          if (typeof Game !== "undefined" && ChestCtor && eventData.x !== undefined && eventData.y !== undefined) {
-            const chest = new ChestCtor(eventData.x, eventData.y);
-            Game.chests.push(chest);
+          const chestType = eventData && eventData.chestType;
+          if (typeof Game !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
+            if (chestType === "PINEAPPLE" && typeof Game.spawnPineappleUltimatePickup === "function") {
+              const opts = {
+                id: eventData.id,
+                spawnX: (typeof eventData.spawnX === "number") ? eventData.spawnX : eventData.x,
+                spawnY: (typeof eventData.spawnY === "number") ? eventData.spawnY : eventData.y,
+                flyDurationMs: (typeof eventData.flyDurationMs === "number") ? eventData.flyDurationMs : 600,
+                expValue: 0,
+                fromServer: true
+              };
+              Game.spawnPineappleUltimatePickup(eventData.x, eventData.y, opts);
+            } else if (chestType === "PINEAPPLE_SUPPLEMENT" && typeof Game.spawnPineappleSupplementPickup === "function") {
+              const opts = {
+                id: eventData.id,
+                spawnX: (typeof eventData.spawnX === "number") ? eventData.spawnX : eventData.x,
+                spawnY: (typeof eventData.spawnY === "number") ? eventData.spawnY : eventData.y,
+                flyDurationMs: (typeof eventData.flyDurationMs === "number") ? eventData.flyDurationMs : 600,
+                expireMs: (typeof eventData.expireMs === "number") ? eventData.expireMs : 60000,
+                healAmount: (typeof eventData.healAmount === "number") ? Math.max(0, Math.floor(eventData.healAmount)) : 0,
+                fromServer: true
+              };
+              Game.spawnPineappleSupplementPickup(eventData.x, eventData.y, opts);
+            } else if (ChestCtor) {
+              const chest = new ChestCtor(eventData.x, eventData.y);
+              Game.chests.push(chest);
+            }
           }
         } catch (e) {
           console.warn("[SurvivalOnline] 生成寶箱失敗:", e);
@@ -1051,7 +1075,7 @@ const Runtime = (() => {
       } else if (eventType === "chest_collected") {
         // ✅ C：寶箱屬於競技（誰撿到誰拿）
         // - 所有人：移除寶箱（避免重複撿取/殘留）
-        // - 只有撿到的人：NORMAL → 開升級選單；PINEAPPLE → 回報 award_exp（共享經驗，所以誰撿到都沒差）
+        // - 只有撿到的人：NORMAL → 開升級選單；PINEAPPLE → 回報 award_exp（共享經驗）；PINEAPPLE_SUPPLEMENT → 本地補血
         try {
           if (typeof Game === "undefined") return;
 
@@ -1060,15 +1084,18 @@ const Runtime = (() => {
           const chestId = (eventData && typeof eventData.chestId === "string") ? eventData.chestId : null;
           const chestType = (eventData && typeof eventData.chestType === "string") ? eventData.chestType : "NORMAL";
           const isPineapple = (chestType === "PINEAPPLE");
+          const isPineappleSupp = (chestType === "PINEAPPLE_SUPPLEMENT");
 
           // 1) 所有人：移除寶箱（優先用 id；向後相容用座標容差）
-          const list = isPineapple ? Game.pineappleUltimatePickups : Game.chests;
+          const list = isPineapple ? Game.pineappleUltimatePickups : (isPineappleSupp ? Game.pineappleSupplementPickups : Game.chests);
+          let matched = null;
           if (Array.isArray(list)) {
             let removed = false;
             if (chestId) {
               for (let i = list.length - 1; i >= 0; i--) {
                 const c = list[i];
                 if (c && c.id === chestId) {
+                  matched = c;
                   try { if (typeof c.destroy === "function") c.destroy(); } catch (_) { }
                   list.splice(i, 1);
                   removed = true;
@@ -1085,6 +1112,7 @@ const Runtime = (() => {
                 const dy = (c.y || 0) - eventData.y;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist <= tolerance) {
+                  matched = c;
                   try { if (typeof c.destroy === "function") c.destroy(); } catch (_) { }
                   list.splice(i, 1);
                   break;
@@ -1122,6 +1150,27 @@ const Runtime = (() => {
                 const bonus = Math.max(0, Math.floor(needNow * 0.30));
                 const amount = base + bonus;
                 window.SurvivalOnlineRuntime.sendToNet({ type: "award_exp", amount, chestId });
+              }
+            } catch (_) { }
+          } else if (isPineappleSupp) {
+            // ✅ 鳳梨補品：本地補血（單機元素），只對撿到的人生效
+            try {
+              const p = Game.player;
+              if (p) {
+                const healFromEvent = (eventData && typeof eventData.healAmount === "number") ? Math.max(0, Math.floor(eventData.healAmount)) : null;
+                const healFromLocal = (matched && typeof matched._healAmount === "number") ? Math.max(0, Math.floor(matched._healAmount)) : null;
+                const heal = (healFromEvent != null) ? healFromEvent : (healFromLocal != null ? healFromLocal : 0);
+                p.health = Math.min(p.maxHealth || 200, (p.health || 0) + heal);
+                if (typeof UI !== "undefined" && UI.updateHealthBar && typeof p.health === "number" && typeof p.maxHealth === "number") {
+                  UI.updateHealthBar(p.health, p.maxHealth);
+                }
+                try {
+                  if (typeof AudioManager !== "undefined") {
+                    if (AudioManager.expSoundEnabled !== false) {
+                      AudioManager.playSound("collect_exp");
+                    }
+                  }
+                } catch (_) { }
               }
             } catch (_) { }
           } else {
@@ -1310,9 +1359,36 @@ const Runtime = (() => {
         // 注意：此處理與 line 1015 的重複，但使用 eventData.id（更完整）
         try {
           if (typeof Game !== "undefined" && eventData.x !== undefined && eventData.y !== undefined) {
-            const chest = new Chest(eventData.x, eventData.y, eventData.id); // 使用傳入的ID
-            if (!Game.chests) Game.chests = [];
-            Game.chests.push(chest);
+            const chestType = eventData && eventData.chestType;
+            if (chestType === "PINEAPPLE" && typeof Game.spawnPineappleUltimatePickup === "function") {
+              const opts = {
+                id: eventData.id,
+                spawnX: (typeof eventData.spawnX === "number") ? eventData.spawnX : eventData.x,
+                spawnY: (typeof eventData.spawnY === "number") ? eventData.spawnY : eventData.y,
+                flyDurationMs: (typeof eventData.flyDurationMs === "number") ? eventData.flyDurationMs : 600,
+                expValue: 0,
+                fromServer: true
+              };
+              Game.spawnPineappleUltimatePickup(eventData.x, eventData.y, opts);
+            } else if (chestType === "PINEAPPLE_SUPPLEMENT" && typeof Game.spawnPineappleSupplementPickup === "function") {
+              const opts = {
+                id: eventData.id,
+                spawnX: (typeof eventData.spawnX === "number") ? eventData.spawnX : eventData.x,
+                spawnY: (typeof eventData.spawnY === "number") ? eventData.spawnY : eventData.y,
+                flyDurationMs: (typeof eventData.flyDurationMs === "number") ? eventData.flyDurationMs : 600,
+                expireMs: (typeof eventData.expireMs === "number") ? eventData.expireMs : 60000,
+                healAmount: (typeof eventData.healAmount === "number") ? Math.max(0, Math.floor(eventData.healAmount)) : 0,
+                fromServer: true
+              };
+              Game.spawnPineappleSupplementPickup(eventData.x, eventData.y, opts);
+            } else {
+              const ChestCtor = _getGlobalCtor("Chest");
+              if (ChestCtor) {
+                const chest = new ChestCtor(eventData.x, eventData.y, eventData.id); // 使用傳入的ID
+                if (!Game.chests) Game.chests = [];
+                Game.chests.push(chest);
+              }
+            }
           }
         } catch (e) {
           console.warn("[SurvivalOnline] 生成寶箱失敗:", e);
@@ -5637,8 +5713,9 @@ function updateChestsFromServer(chests) {
   const ChestCtor = _getGlobalCtor("Chest");
   if (!ChestCtor) return;
 
-  // ✅ 分流：NORMAL 寶箱走 Game.chests；PINEAPPLE 掉落物走 Game.pineappleUltimatePickups
+  // ✅ 分流：NORMAL 走 Game.chests；PINEAPPLE 走 Game.pineappleUltimatePickups；PINEAPPLE_SUPPLEMENT 走 Game.pineappleSupplementPickups
   if (!Array.isArray(Game.pineappleUltimatePickups)) Game.pineappleUltimatePickups = [];
+  if (!Array.isArray(Game.pineappleSupplementPickups)) Game.pineappleSupplementPickups = [];
 
   const serverMap = new Map(); // id -> chestState
   for (const c of chests) {
@@ -5657,28 +5734,46 @@ function updateChestsFromServer(chests) {
   };
   pruneList(Game.chests);
   pruneList(Game.pineappleUltimatePickups);
+  pruneList(Game.pineappleSupplementPickups);
 
   // 创建/更新
   for (const chestState of chests) {
     if (!chestState || !chestState.id) continue;
     const isPine = (chestState.type === 'PINEAPPLE');
-    const list = isPine ? Game.pineappleUltimatePickups : Game.chests;
+    const isPineSupp = (chestState.type === 'PINEAPPLE_SUPPLEMENT');
+    const list = isPine ? Game.pineappleUltimatePickups : (isPineSupp ? Game.pineappleSupplementPickups : Game.chests);
 
     let local = list.find(x => x && x.id === chestState.id);
     if (!local) {
-      if (isPine && typeof PineappleUltimatePickup !== 'undefined') {
-        const opts = {
-          id: chestState.id,
-          spawnX: (typeof chestState.spawnX === 'number') ? chestState.spawnX : (chestState.x || 0),
-          spawnY: (typeof chestState.spawnY === 'number') ? chestState.spawnY : (chestState.y || 0),
-          flyDurationMs: (typeof chestState.flyDurationMs === 'number') ? chestState.flyDurationMs : 600,
-          expValue: 0
-        };
-        local = new PineappleUltimatePickup(chestState.x || 0, chestState.y || 0, opts);
+      if (isPine) {
+        const UltimateCtor = _getGlobalCtor("PineappleUltimatePickup");
+        if (UltimateCtor) {
+          const opts = {
+            id: chestState.id,
+            spawnX: (typeof chestState.spawnX === 'number') ? chestState.spawnX : (chestState.x || 0),
+            spawnY: (typeof chestState.spawnY === 'number') ? chestState.spawnY : (chestState.y || 0),
+            flyDurationMs: (typeof chestState.flyDurationMs === 'number') ? chestState.flyDurationMs : 600,
+            expValue: 0
+          };
+          local = new UltimateCtor(chestState.x || 0, chestState.y || 0, opts);
+        }
+      } else if (isPineSupp) {
+        const SuppCtor = _getGlobalCtor("PineappleSupplementPickup");
+        if (SuppCtor) {
+          const opts = {
+            id: chestState.id,
+            spawnX: (typeof chestState.spawnX === 'number') ? chestState.spawnX : (chestState.x || 0),
+            spawnY: (typeof chestState.spawnY === 'number') ? chestState.spawnY : (chestState.y || 0),
+            flyDurationMs: (typeof chestState.flyDurationMs === 'number') ? chestState.flyDurationMs : 600,
+            expireMs: (typeof chestState.expireMs === 'number') ? chestState.expireMs : 60000,
+            healAmount: (typeof chestState.healAmount === 'number') ? Math.max(0, Math.floor(chestState.healAmount)) : 0
+          };
+          local = new SuppCtor(chestState.x || 0, chestState.y || 0, opts);
+        }
       } else {
         local = new ChestCtor(chestState.x || 0, chestState.y || 0, chestState.id);
       }
-      list.push(local);
+      if (local) list.push(local);
     } else {
       // 平滑：靜態為主，直接同步
       if (typeof chestState.x === 'number') local.x = chestState.x;
@@ -8135,4 +8230,3 @@ try {
 //     }
 //   }
 // }
-
