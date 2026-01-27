@@ -31,6 +31,8 @@
           { key: 'npc5_portrait', src: 'assets/images/NPC5-2.png' },
           { key: 'npc6', src: 'assets/images/NPC6.png' },
           { key: 'npc6_portrait', src: 'assets/images/NPC6-2.png' },
+          { key: 'npc7_gif', src: 'assets/images/NPC7.gif' },
+          { key: 'npc7_portrait', src: 'assets/images/NPC7-2.png' },
           // 主屋室內家具（JSON 中使用的所有家具）
           { key: 'f_bed_front', src: 'js/modes/main/bed-front-273x289.png' },
           { key: 'f_big_bookcase', src: 'js/modes/main/big bookcase-245x289.png' },
@@ -486,6 +488,34 @@
             channelLink: 'https://www.youtube.com/@%E8%89%BE%E6%AF%94Rabi',
             onFinalState: () => syncYouTubeCodeButtonState('abby')
           }
+        },
+        'pineapple': {
+          type: 'npc',
+          imageKey: 'npc7_gif',
+          portraitImage: 'assets/images/NPC7-2.png',
+          portraitAlt: '鳳梨不咬舌',
+          spriteSheetKey: 'npc_sprite',
+          triggerDistance: 55,
+          targetDistance: 45,
+          dialogue: {
+            messages: [
+              '你好，我是鳳梨，最近來到這個村莊。',
+              '不知道這裡有沒有教堂？',
+              '觀看我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
+            ],
+            finalButtons: [
+              { id: 'main-dialogue-youtube-pineapple', text: '進入頻道', action: 'youtube' },
+              { id: 'main-dialogue-code-pineapple', text: '領取序號', action: 'code', disabled: true },
+              { id: 'main-dialogue-exit', text: '離開', action: 'exit' }
+            ],
+            code: 'PINEAPPLE2026',
+            youtubeUrl: 'https://youtu.be/8zK4UYkvfbE?si=vQLpR08bD7f2YVDd',
+            channelId: 'UCOuJKc5wDEZmPEx3z6xfvbg',
+            channelName: '鳳梨不咬舌 YouTube 頻道',
+            channelLink: 'https://www.youtube.com/channel/UCOuJKc5wDEZmPEx3z6xfvbg',
+            onFinalState: () => syncYouTubeCodeButtonState('pineapple')
+          }
         }
       };
       
@@ -494,7 +524,7 @@
       const YT_CODE_UNLOCK_KEY_PREFIX = 'main_youtube_code_unlocked_';
 
       function isYouTubeNpcType(npcType) {
-        return npcType === 'lilylinglan' || npcType === 'margaret' || npcType === 'dada' || npcType === 'loco' || npcType === 'abby';
+        return npcType === 'lilylinglan' || npcType === 'margaret' || npcType === 'dada' || npcType === 'loco' || npcType === 'abby' || npcType === 'pineapple';
       }
 
       function getYouTubeUnlockKey(npcType) {
@@ -516,6 +546,7 @@
           case 'dada': return 'main-dialogue-code-dada';
           case 'loco': return 'main-dialogue-code-loco';
           case 'abby': return 'main-dialogue-code-abby';
+          case 'pineapple': return 'main-dialogue-code-pineapple';
           default: return null;
         }
       }
@@ -647,7 +678,7 @@
           } else if (id === 'main-dialogue-exit') {
             playButtonSound();
             closeDialogue();
-          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco' || id === 'main-dialogue-youtube-abby') {
+          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco' || id === 'main-dialogue-youtube-abby' || id === 'main-dialogue-youtube-pineapple') {
             playButtonSound();
             // 點選進入頻道時，順便解鎖一次性的「領取序號」
             try {
@@ -658,7 +689,7 @@
               }
             } catch(_) {}
             showYouTubeWindow(currentDialogueNPC);
-          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco' || id === 'main-dialogue-code-abby') {
+          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco' || id === 'main-dialogue-code-abby' || id === 'main-dialogue-code-pineapple') {
             // 防止重複點擊：如果序號窗口已經打開，直接返回
             if (isCodeWindowOpen) {
               return; // 已經有窗口打開，不重複創建
@@ -1247,7 +1278,27 @@
           const h2Img = getImage('main_house2');
           const h3Img = getImage('main_house3');
           const h4Img = getImage('main_house4');
-          if (h1Img) this.addImageHouse(CENTER_X - 750, CENTER_Y - 350, h1Img, 268, 300, 'indoor_A', 'house-A');
+          if (h1Img) {
+            const house1X = CENTER_X - 750;
+            const house1Y = CENTER_Y - 350;
+            const house1W = 268;
+            const house1H = 300;
+            this.addImageHouse(house1X, house1Y, h1Img, house1W, house1H, 'indoor_A', 'house-A');
+            const SRC_W_PINEAPPLE = 242;
+            const SRC_H_PINEAPPLE = 320;
+            const NPC_H_PINEAPPLE = 60;
+            const NPC_W_PINEAPPLE = Math.round(SRC_W_PINEAPPLE * (NPC_H_PINEAPPLE / SRC_H_PINEAPPLE));
+            const npcX_pineapple = house1X + house1W + 10;
+            const npcY_pineapple = house1Y + (house1H / 2) - NPC_H_PINEAPPLE / 2 + 115;
+            let npcPineapple = new Entity('npc', npcX_pineapple, npcY_pineapple, NPC_W_PINEAPPLE, NPC_H_PINEAPPLE);
+            npcPineapple.solid = false;
+            npcPineapple.domId = 'main-npc-pineapple';
+            npcPineapple.layerId = 'npc';
+            npcPineapple.spriteSheet = null;
+            npcPineapple.spriteFrame = 0;
+            npcPineapple.npcType = 'pineapple';
+            this.entities.push(npcPineapple);
+          }
           if (h2Img) this.addImageHouse(CENTER_X + 1000, CENTER_Y - 500, h2Img, 266, 300, 'indoor_B', 'house-B');
           if (h3Img) this.addImageHouse(CENTER_X - 600, CENTER_Y + 500, h3Img, 300, 190, 'indoor_C', 'house-C');
           if (h4Img) {
@@ -2700,4 +2751,3 @@
     console.warn('[MainMode] 找不到可用的模式管理器，無法註冊主線模式');
   }
 })();
-
