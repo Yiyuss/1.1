@@ -22,6 +22,7 @@ const Game = {
     experienceOrbs: [],
     chests: [],
     pineappleUltimatePickups: [],
+    pineappleSupplementPickups: [],
     obstacles: [],
     decorations: [],
     lastUpdateTime: 0,
@@ -154,11 +155,11 @@ const Game = {
                     deltaTime = 0; // 跳過這一幀，等待服務器狀態同步
                 } else {
                     // 單機模式：限制 deltaTime，保持原有邏輯
-                    deltaTime = MAX_DELTA_TIME;
+                deltaTime = MAX_DELTA_TIME;
                     this.lastUpdateTime = currentTime;
-                }
+            }
             } else {
-                this.lastUpdateTime = currentTime;
+            this.lastUpdateTime = currentTime;
             }
         }
 
@@ -627,6 +628,13 @@ const Game = {
                 this.pineappleUltimatePickups.splice(i, 1);
             }
         }
+        for (let i = this.pineappleSupplementPickups.length - 1; i >= 0; i--) {
+            const p = this.pineappleSupplementPickups[i];
+            try { p.update(deltaTime); } catch (_) { }
+            if (p.markedForDeletion) {
+                this.pineappleSupplementPickups.splice(i, 1);
+            }
+        }
 
         // 檢查玩家與出口的碰撞（第20波BOSS死亡後）
         // 組隊模式：檢查所有玩家（本地玩家 + 遠程玩家），任何一個玩家觸碰到出口都會觸發勝利
@@ -941,6 +949,9 @@ const Game = {
 
         // 繪製鳳梨大絕掉落物（層級與寶箱一致）
         for (const p of this.pineappleUltimatePickups) {
+            try { p.draw(this.ctx); } catch (_) { }
+        }
+        for (const p of this.pineappleSupplementPickups) {
             try { p.draw(this.ctx); } catch (_) { }
         }
 
@@ -2342,6 +2353,39 @@ const Game = {
             } catch (_) { }
         } catch (_) { }
     },
+    spawnPineappleSupplementPickup: function (targetX, targetY, opts = {}) {
+        try {
+            if (typeof PineappleSupplementPickup === 'undefined') return;
+            const isFromServer = opts && opts.fromServer;
+            if (this.multiplayer && this.multiplayer.enabled && !isFromServer) {
+                try {
+                    if (!opts.id) {
+                        opts.id = (typeof Utils !== 'undefined' && Utils.generateUUID ? Utils.generateUUID() : `pine_supp_${Date.now()}_${Math.random()}`);
+                    }
+                    if (this.multiplayer.isHost && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            type: 'chest_spawn',
+                            x: targetX,
+                            y: targetY,
+                            id: opts.id,
+                            chestType: 'PINEAPPLE_SUPPLEMENT',
+                            spawnX: opts.spawnX || targetX,
+                            spawnY: opts.spawnY || targetY,
+                            healAmount: opts.healAmount || 0,
+                            flyDurationMs: opts.flyDurationMs || 600,
+                            expireMs: opts.expireMs || 60000
+                        });
+                    }
+                } catch (_) {}
+                return;
+            }
+            if (!opts.id) {
+                opts.id = (typeof Utils !== 'undefined' && Utils.generateUUID ? Utils.generateUUID() : `pine_supp_${Date.now()}_${Math.random()}`);
+            }
+            const o = new PineappleSupplementPickup(targetX, targetY, opts);
+            this.pineappleSupplementPickups.push(o);
+        } catch (_) { }
+    },
 
     // 生成出口（第20波BOSS死亡後）
     spawnExit: function () {
@@ -2607,6 +2651,9 @@ const Game = {
                 if (charId === 'rabi' && mapId === 'city') {
                     Achievements.unlock('RABI_CITY_CLEAR');
                 }
+                if (charId === 'pineapple' && mapId === 'city') {
+                    Achievements.unlock('PINEAPPLE_CITY_CLEAR');
+                }
                 // 灰妲通關草原：解鎖幼妲天使成就
                 if (charId === 'dada' && mapId === 'forest') {
                     Achievements.unlock('DADA_FOREST_CLEAR');
@@ -2665,6 +2712,7 @@ const Game = {
         this.experienceOrbs = [];
         this.chests = [];
         this.pineappleUltimatePickups = [];
+        this.pineappleSupplementPickups = [];
         this.obstacles = [];
         this.decorations = [];
         // ✅ MMORPG 架構：重置障礙物和裝飾生成標記
