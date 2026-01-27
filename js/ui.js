@@ -690,6 +690,7 @@ const UI = {
         const hasGravityWave = sourceWeaponsInfo.some(w => w.type === 'GRAVITY_WAVE');
         const hasRadiantGlory = sourceWeaponsInfo.some(w => w.type === 'RADIANT_GLORY');
         const hasDeathlineSuperman = sourceWeaponsInfo.some(w => w.type === 'DEATHLINE_SUPERMAN');
+        const hasPineappleSupplement = sourceWeaponsInfo.some(w => w.type === 'PINEAPPLE_SUPPLEMENT');
         // 檢查召喚AI LV2：如果已合成召喚AI LV2，則隱藏連鎖閃電的升級選項
         const hasSummonAILv2 = sourceWeaponsInfo.some(w => w.type === 'SUMMON_AI' && typeof w.level === 'number' && w.level >= 2);
         // 檢查召喚AI LV1升級到LV2的條件（需要連鎖閃電LV10）
@@ -717,6 +718,7 @@ const UI = {
                     (hasGravityWave && (info.type === 'AURA_FIELD' || info.type === 'INVINCIBLE')) ||
                     (hasDeathlineSuperman && (info.type === 'DAGGER' || info.type === 'DEATHLINE_WARRIOR')) ||
                     (hasRadiantGlory && (info.type === 'CHAIN_LIGHTNING' || info.type === 'LASER')) ||
+                    (hasPineappleSupplement && (info.type === 'DAGGER' || info.type === 'ADRENALINE')) ||
                     (hasSummonAILv2 && info.type === 'CHAIN_LIGHTNING')) continue;
             // 召喚AI特殊處理：只有滿足合成條件（連鎖閃電LV10）才能升級到LV2
             if (info.type === 'SUMMON_AI' && info.level === 1 && !canUpgradeSummonAIToLv2) {
@@ -756,6 +758,7 @@ const UI = {
                 (hasGravityWave && (weaponType === 'AURA_FIELD' || weaponType === 'INVINCIBLE')) ||
                 (hasDeathlineSuperman && (weaponType === 'DAGGER' || weaponType === 'DEATHLINE_WARRIOR')) ||
                 (hasRadiantGlory && (weaponType === 'CHAIN_LIGHTNING' || weaponType === 'LASER')) ||
+                (hasPineappleSupplement && (weaponType === 'DAGGER' || weaponType === 'ADRENALINE')) ||
                 (hasSummonAILv2ForNew && weaponType === 'CHAIN_LIGHTNING')) continue;
             // 召喚AI技能：需要成就解鎖（星雲征服者）
             if (weaponType === 'SUMMON_AI') {
@@ -803,6 +806,29 @@ const UI = {
                         name: cfgF.NAME,
                         level: 1,
                         description: cfgF.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        try {
+            const hasPineappleSuppFusion = playerWeaponTypes.includes('PINEAPPLE_SUPPLEMENT');
+            const cheerPS = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
+            const adrenPS = sourceWeaponsInfo.find(w => w.type === 'ADRENALINE');
+            const fusionUnlockedPS = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('PINEAPPLE_SUPPLEMENT')); } catch(_) { return false; }
+            })();
+            const cheerPSLevel = (cheerPS && typeof cheerPS.level === 'number') ? cheerPS.level : 0;
+            const adrenPSLevel = (adrenPS && typeof adrenPS.level === 'number') ? adrenPS.level : 0;
+            const fusionReadyPS = (!!cheerPS && !!adrenPS && cheerPSLevel >= 10 && adrenPSLevel >= 10);
+            if (!hasPineappleSuppFusion && fusionReadyPS && fusionUnlockedPS) {
+                const cfgPS = CONFIG.WEAPONS['PINEAPPLE_SUPPLEMENT'];
+                if (cfgPS && Array.isArray(cfgPS.LEVELS) && cfgPS.LEVELS.length > 0) {
+                    options.push({
+                        type: 'PINEAPPLE_SUPPLEMENT',
+                        name: cfgPS.NAME,
+                        level: 1,
+                        description: cfgPS.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -1498,6 +1524,33 @@ const UI = {
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
             // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        if (weaponType === 'PINEAPPLE_SUPPLEMENT') {
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'ADRENALINE');
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'PINEAPPLE_SUPPLEMENT');
+                const cfgPS = CONFIG.WEAPONS['PINEAPPLE_SUPPLEMENT'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgPS && curLv < cfgPS.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'PINEAPPLE_SUPPLEMENT', level: 1 });
+                }
+            } else {
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'ADRENALINE');
+                const existingPS = player.weapons.find(w => w.type === 'PINEAPPLE_SUPPLEMENT');
+                if (existingPS) {
+                    player.upgradeWeapon('PINEAPPLE_SUPPLEMENT');
+                } else {
+                    player.addWeapon('PINEAPPLE_SUPPLEMENT');
+                }
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
             this.hideLevelUpMenu();
             return;
         }
