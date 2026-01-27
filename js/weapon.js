@@ -154,6 +154,36 @@
                     return;
                 }
 
+                if (this.type === 'PINEAPPLE_SUPPLEMENT') {
+                    const count = 5;
+                    const minD = 200;
+                    const maxD = 800;
+                    const flyDurationMs = 600;
+                    const expireMs = 60000;
+                    const worldW = (typeof Game !== 'undefined' && Game.worldWidth) ? Game.worldWidth : (CONFIG && CONFIG.CANVAS_WIDTH) || 1280;
+                    const worldH = (typeof Game !== 'undefined' && Game.worldHeight) ? Game.worldHeight : (CONFIG && CONFIG.CANVAS_HEIGHT) || 720;
+                    for (let i = 0; i < count; i++) {
+                        const ang = Math.random() * Math.PI * 2;
+                        const dist = minD + Math.random() * (maxD - minD);
+                        let tx = this.player.x + Math.cos(ang) * dist;
+                        let ty = this.player.y + Math.sin(ang) * dist;
+                        tx = Utils.clamp(tx, 53 / 2, worldW - 53 / 2);
+                        ty = Utils.clamp(ty, 100 / 2, worldH - 100 / 2);
+                        try {
+                            if (typeof Game !== 'undefined' && typeof Game.spawnPineappleSupplementPickup === 'function') {
+                                Game.spawnPineappleSupplementPickup(tx, ty, {
+                                    spawnX: this.player.x,
+                                    spawnY: this.player.y,
+                                    healAmount: (this.level + 2),
+                                    flyDurationMs,
+                                    expireMs
+                                });
+                            }
+                        } catch (_) {}
+                    }
+                    return;
+                }
+
                 // 融合技能：幼妲天使（超級加強版，每5秒補血並產生華麗聖光特效）
                 if (this.type === 'FRENZY_YOUNG_DADA_GLORY') {
                     // 根據等級獲取補血量（LV1~LV10：12, 14, 16, 18, 20, 22, 24, 26, 28, 30）
