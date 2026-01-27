@@ -401,12 +401,16 @@ function handleGameData(ws, roomId, uid, data) {
 
   // ✅ 权威服务器：处理宝箱生成（由主机通知）
   if (gameState && data.type === 'chest_spawn') {
-    // 主机决定生成宝箱，服务器记录状态
     gameState.addChest({
       id: data.id,
       x: data.x,
       y: data.y,
-      type: data.chestType || 'NORMAL'
+      type: data.chestType || 'NORMAL',
+      spawnX: data.spawnX,
+      spawnY: data.spawnY,
+      flyDurationMs: data.flyDurationMs,
+      expireMs: data.expireMs,
+      healAmount: data.healAmount
     });
     // ✅ 伺服器權威：不再轉發 chest_spawn（以 state.chests 同步即可，避免多餘流量與重複生成）
     return;
@@ -414,8 +418,8 @@ function handleGameData(ws, roomId, uid, data) {
 
   // ✅ 权威服务器：处理宝箱收集尝试（解决竞争条件）
   if (gameState && data.type === 'try_collect_chest') {
-    const success = gameState.collectChest(uid, data.chestId);
-    if (success) {
+    const removed = gameState.collectChest(uid, data.chestId);
+    if (removed) {
       // 收集成功，广播给所有人（包括自己）
       broadcastToRoom(actualRoomId, null, {
         type: 'game-data',
@@ -424,10 +428,10 @@ function handleGameData(ws, roomId, uid, data) {
           type: 'chest_collected',
           chestId: data.chestId,
           collectorUid: uid,
-          chestType: data.chestType, // 传递类型以区分普通宝箱和凤梨
-          // 向後相容：讓舊客戶端可用座標移除（新客戶端以 chestId 優先）
-          x: data.x,
-          y: data.y
+          chestType: removed.type,
+          x: removed.x,
+          y: removed.y,
+          healAmount: (removed.type === 'PINEAPPLE_SUPPLEMENT' && typeof removed.healAmount === 'number') ? removed.healAmount : undefined
         }
       });
     }
@@ -597,4 +601,3 @@ process.on('SIGTERM', () => {
     });
   });
 });
-
