@@ -47,6 +47,21 @@ function _getGlobalCtor(name) {
   return undefined;
 }
 
+// 輕量快取：避免在高頻更新路徑重複做全域查找
+function _getCtor(name) {
+  try {
+    if (!_getCtor._cache) _getCtor._cache = new Map();
+    const cache = _getCtor._cache;
+    const hit = cache.get(name);
+    if (hit) return hit;
+    const ctor = _getGlobalCtor(name);
+    if (ctor) cache.set(name, ctor);
+    return ctor;
+  } catch (_) {
+    return _getGlobalCtor(name);
+  }
+}
+
 // 你的 Firebase Web 設定（由使用者提供）
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCjAVvO_zSTy6XYzPPibioDpvmBZTlW-s4",
@@ -5710,7 +5725,7 @@ function handleServerGameState(state, timestamp) {
 // ✅ 宝箱同步（服务器权威）
 function updateChestsFromServer(chests) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.chests) return;
-  const ChestCtor = _getGlobalCtor("Chest");
+  const ChestCtor = _getCtor("Chest");
   if (!ChestCtor) return;
 
   // ✅ 分流：NORMAL 走 Game.chests；PINEAPPLE 走 Game.pineappleUltimatePickups；PINEAPPLE_SUPPLEMENT 走 Game.pineappleSupplementPickups
@@ -5743,10 +5758,17 @@ function updateChestsFromServer(chests) {
     const isPineSupp = (chestState.type === 'PINEAPPLE_SUPPLEMENT');
     const list = isPine ? Game.pineappleUltimatePickups : (isPineSupp ? Game.pineappleSupplementPickups : Game.chests);
 
-    let local = list.find(x => x && x.id === chestState.id);
+    // 本地索引加速
+    if (!updateChestsFromServer._localIndex) updateChestsFromServer._localIndex = new Map();
+    const idx = updateChestsFromServer._localIndex;
+    // 重建索引（僅針對當前類型清單）
+    idx.clear();
+    for (const x of list) { if (x && x.id) idx.set(x.id, x); }
+
+    let local = idx.get(chestState.id);
     if (!local) {
       if (isPine) {
-        const UltimateCtor = _getGlobalCtor("PineappleUltimatePickup");
+        const UltimateCtor = _getCtor("PineappleUltimatePickup");
         if (UltimateCtor) {
           const opts = {
             id: chestState.id,
@@ -5758,7 +5780,7 @@ function updateChestsFromServer(chests) {
           local = new UltimateCtor(chestState.x || 0, chestState.y || 0, opts);
         }
       } else if (isPineSupp) {
-        const SuppCtor = _getGlobalCtor("PineappleSupplementPickup");
+        const SuppCtor = _getCtor("PineappleSupplementPickup");
         if (SuppCtor) {
           const opts = {
             id: chestState.id,
@@ -5875,7 +5897,7 @@ function updateEnemiesFromServer(enemies) {
   // ✅ 修復：防止 enemies 不是數組導致整個系統崩潰
   if (!Array.isArray(enemies)) return;
 
-  const EnemyCtor = _getGlobalCtor("Enemy");
+  const EnemyCtor = _getCtor("Enemy");
   const isBossType = (t) => (
     t === 'MINI_BOSS' || t === 'BOSS' ||
     t === 'ELF_MINI_BOSS' || t === 'ELF_BOSS' ||
@@ -5886,6 +5908,11 @@ function updateEnemiesFromServer(enemies) {
   // ✅ 修復：過濾掉 null/undefined 元素，防止 e.id 訪問錯誤
   const serverEnemyIds = new Set(enemies.filter(e => e && e.id).map(e => e.id));
   const localEnemyIds = new Set(Game.enemies.filter(e => e && e.id).map(e => e.id));
+  // 本地索引以加速查找
+  if (!updateEnemiesFromServer._localIndex) updateEnemiesFromServer._localIndex = new Map();
+  const eidx = updateEnemiesFromServer._localIndex;
+  eidx.clear();
+  for (const e of Game.enemies) { if (e && e.id) eidx.set(e.id, e); }
 
   // 移除服务器不存在的敌人
   for (let i = Game.enemies.length - 1; i >= 0; i--) {
@@ -5900,7 +5927,7 @@ function updateEnemiesFromServer(enemies) {
   for (const enemyState of enemies) {
     // ✅ 修復：跳過無效的敵人狀態，防止整個系統崩潰
     if (!enemyState || !enemyState.id) continue;
-    let enemy = Game.enemies.find(e => e && e.id === enemyState.id);
+    let enemy = eidx.get(enemyState.id);
     if (!enemy && EnemyCtor) {
       // 创建新敌人
       enemy = new EnemyCtor(enemyState.x, enemyState.y, enemyState.type);
@@ -5908,6 +5935,7 @@ function updateEnemiesFromServer(enemies) {
       // ✅ 權威多人：敵人 AI/攻擊/遠程投射物由伺服器權威處理；客戶端敵人只做顯示（避免本地生成火彈/瓶子）
       try { enemy._netSimulated = true; } catch (_) { }
       Game.enemies.push(enemy);
+      eidx.set(enemy.id, enemy);
     }
     if (enemy) {
       // ✅ 多人視覺回饋：傷害數字統一改用 server hitEvents（含爆擊標記）
@@ -5987,12 +6015,17 @@ function updateProjectilesFromServer(projectiles) {
   // ✅ 修復：防止 projectiles 不是數組導致整個系統崩潰
   if (!Array.isArray(projectiles)) return;
 
-  const ProjectileCtor = _getGlobalCtor("Projectile");
+  const ProjectileCtor = _getCtor("Projectile");
 
   // 创建投射物ID映射
   // ✅ 修復：過濾掉 null/undefined 元素，防止 p.id 訪問錯誤
   const serverProjectileIds = new Set(projectiles.filter(p => p && p.id).map(p => p.id));
   const localProjectileIds = new Set(Game.projectiles.filter(p => p && p.id).map(p => p.id));
+  // 本地索引以加速查找
+  if (!updateProjectilesFromServer._localIndex) updateProjectilesFromServer._localIndex = new Map();
+  const pidx = updateProjectilesFromServer._localIndex;
+  pidx.clear();
+  for (const p of Game.projectiles) { if (p && p.id) pidx.set(p.id, p); }
 
   // ⚠️ 修復：移除服务器不存在的投射物，但排除通過 projectile_spawn 事件創建的特殊視覺效果
   // 這些特殊視覺效果（雷射、連鎖閃電、斬擊、鳳梨環繞等）不在服務器的 projectiles 中，
@@ -6049,13 +6082,14 @@ function updateProjectilesFromServer(projectiles) {
   for (const projState of projectiles) {
     // ✅ 修復：跳過無效的投射物狀態，防止整個系統崩潰
     if (!projState || !projState.id) continue;
-    let proj = Game.projectiles.find(p => p && p.id === projState.id);
+    let proj = pidx.get(projState.id);
     if (!proj && ProjectileCtor) {
       // 创建新投射物（仅视觉）
       proj = new ProjectileCtor(projState.x, projState.y, projState.angle, projState.weaponType, 0, projState.speed, projState.size);
       proj.id = projState.id;
       proj._isVisualOnly = true; // 仅视觉，伤害由服务器计算
       Game.projectiles.push(proj);
+      pidx.set(proj.id, proj);
     }
     if (proj) {
       // ✅ 網路插值：記錄目標位置，避免每 33ms 硬跳造成閃現
@@ -6097,10 +6131,14 @@ function updateBossProjectilesFromServer(bossProjectiles) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.multiplayer.enabled) return;
   if (!Array.isArray(Game.bossProjectiles)) Game.bossProjectiles = [];
 
-  const BossProjectileCtor = _getGlobalCtor("BossProjectile");
-  const BottleProjectileCtor = _getGlobalCtor("BottleProjectile");
+  const BossProjectileCtor = _getCtor("BossProjectile");
+  const BottleProjectileCtor = _getCtor("BottleProjectile");
 
   const serverIds = new Set(bossProjectiles.map(p => p && p.id).filter(Boolean));
+  if (!updateBossProjectilesFromServer._localIndex) updateBossProjectilesFromServer._localIndex = new Map();
+  const bidx = updateBossProjectilesFromServer._localIndex;
+  bidx.clear();
+  for (const bp of Game.bossProjectiles) { if (bp && bp.id) bidx.set(bp.id, bp); }
   for (let i = Game.bossProjectiles.length - 1; i >= 0; i--) {
     const p = Game.bossProjectiles[i];
     if (!p || !serverIds.has(p.id)) {
@@ -6111,7 +6149,7 @@ function updateBossProjectilesFromServer(bossProjectiles) {
 
   for (const st of bossProjectiles) {
     if (!st || !st.id) continue;
-    let p = Game.bossProjectiles.find(x => x && x.id === st.id);
+    let p = bidx.get(st.id);
 
     if (!p) {
       // 只做視覺：不讓本地跑碰撞/扣血
@@ -6147,6 +6185,7 @@ function updateBossProjectilesFromServer(bossProjectiles) {
         }
         p._isVisualOnly = true;
         Game.bossProjectiles.push(p);
+        bidx.set(p.id, p);
       }
     }
 
@@ -6265,10 +6304,14 @@ function updateCarHazardsFromServer(carHazards) {
 function updateExperienceOrbsFromServer(orbs) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.experienceOrbs) return;
 
-  const ExperienceOrbCtor = _getGlobalCtor("ExperienceOrb");
+  const ExperienceOrbCtor = _getCtor("ExperienceOrb");
 
   // 创建经验球ID映射
   const serverOrbIds = new Set(orbs.map(o => o.id));
+  if (!updateExperienceOrbsFromServer._localIndex) updateExperienceOrbsFromServer._localIndex = new Map();
+  const oidx = updateExperienceOrbsFromServer._localIndex;
+  oidx.clear();
+  for (const o of Game.experienceOrbs) { if (o && o.id) oidx.set(o.id, o); }
 
   // 移除服务器不存在的经验球
   for (let i = Game.experienceOrbs.length - 1; i >= 0; i--) {
@@ -6279,11 +6322,12 @@ function updateExperienceOrbsFromServer(orbs) {
 
   // 更新或创建经验球
   for (const orbState of orbs) {
-    let orb = Game.experienceOrbs.find(o => o.id === orbState.id);
+    let orb = oidx.get(orbState.id);
     if (!orb && ExperienceOrbCtor) {
       orb = new ExperienceOrbCtor(orbState.x, orbState.y, orbState.value);
       orb.id = orbState.id;
       Game.experienceOrbs.push(orb);
+      oidx.set(orb.id, orb);
     }
     if (orb) {
       // ✅ 網路插值：記錄目標位置，避免硬跳/吸附造成不同步
