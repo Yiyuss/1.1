@@ -374,10 +374,195 @@ class Chest extends Entity {
     }
 }
 
+class PineappleSupplementPickup extends Chest {
+    constructor(x, y, opts = {}) {
+        super(x, y, (opts && opts.id) ? opts.id : null);
+        this.width = 53;
+        this.height = 100;
+        try {
+            this.collisionRadius = Math.max(this.width, this.height) / 2;
+            this.setCollisionPolygon([
+                [-this.width / 2, -this.height / 2],
+                [this.width / 2, -this.height / 2],
+                [this.width / 2, this.height / 2],
+                [-this.width / 2, this.height / 2]
+            ]);
+        } catch (_) { }
+        this._healAmount = (opts && typeof opts.healAmount === 'number') ? Math.max(0, Math.floor(opts.healAmount)) : 3;
+        this._spawnX = (opts && typeof opts.spawnX === 'number') ? opts.spawnX : x;
+        this._spawnY = (opts && typeof opts.spawnY === 'number') ? opts.spawnY : y;
+        this._targetX = x;
+        this._targetY = y;
+        this._flyStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        this._flyDuration = (opts && typeof opts.flyDurationMs === 'number') ? Math.max(0, Math.floor(opts.flyDurationMs)) : 600;
+        this.x = this._spawnX;
+        this.y = this._spawnY;
+        this._landed = (this._flyDuration <= 0);
+        this._bornAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        this._expireMs = (opts && typeof opts.expireMs === 'number') ? Math.max(1, Math.floor(opts.expireMs)) : 60000;
+    }
+    update(deltaTime) {
+        if (!this._landed) {
+            const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+            const t = Math.min(1, Math.max(0, (now - this._flyStart) / Math.max(1, this._flyDuration)));
+            const k = 1 - (1 - t) * (1 - t);
+            this.x = this._spawnX + (this._targetX - this._spawnX) * k;
+            this.y = this._spawnY + (this._targetY - this._spawnY) * k;
+            if (t >= 1) this._landed = true;
+        }
+        const now2 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        if (!this.markedForDeletion && (now2 - this._bornAt) >= this._expireMs) {
+            this.markedForDeletion = true;
+        }
+        if (this._landed && !this.markedForDeletion) {
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+            if (isMultiplayer) {
+                const p = Game.player;
+                if (p && this.isColliding(p)) {
+                    this.collect(p);
+                    return;
+                }
+            } else {
+                const p = Game.player;
+                if (p && this.isColliding(p)) {
+                    this.collect(p);
+                    return;
+                }
+            }
+        }
+        this.x = Utils.clamp(this.x, this.width / 2, (Game.worldWidth || Game.canvas.width) - this.width / 2);
+        this.y = Utils.clamp(this.y, this.height / 2, (Game.worldHeight || Game.canvas.height) - this.height / 2);
+        const dt = Math.max(1, deltaTime);
+        this._beamPhase += dt * 0.0025;
+    }
+    draw(ctx) {
+        ctx.save();
+        ctx.globalCompositeOperation = this.tune.compositeBack;
+        const H = this.beamH;
+        const x = this.x, y = this.y;
+        const baseY = this.y + this.height * 0.35;
+        const baseAlphaInner = this.tune.baseSync
+            ? Math.max(this.tune.outerAlpha0, this.tune.coreAlpha0 || 0) * this.tune.baseMatchFactor
+            : 0.45;
+        const baseAlphaSoft = baseAlphaInner * (this.tune.baseSoftFactor || 0.55);
+        if (this.tune.useBaseSoft) {
+            this._drawRadialEllipse(ctx, x, baseY, this.tune.baseEllipseRxSoft, this.tune.baseEllipseRySoft, [
+                [0.00, `rgba(255,230,150,${baseAlphaSoft})`],
+                [0.70, `rgba(255,220,140,${this.tune.baseSoftMidAlpha})`],
+                [1.00, `rgba(255,220,140,${this.tune.baseSoftEdgeAlpha})`],
+            ], 'source-over');
+        }
+        this._drawRadialEllipse(ctx, x, baseY, this.tune.baseEllipseRxOuter, this.tune.baseEllipseRyOuter, [
+            [0.00, `rgba(255,230,150,${baseAlphaInner})`],
+            [0.50, `rgba(255,215,120,${this.tune.baseOuterMidAlpha})`],
+            [1.00, `rgba(255,215,120,${this.tune.baseOuterEdgeAlpha})`],
+        ], 'source-over');
+        this._drawRadialEllipse(ctx, x, baseY, this.tune.baseEllipseRxCore, this.tune.baseEllipseRyCore, [
+            [0.00, `rgba(255,240,190,${this.tune.coreAlpha0})`],
+            [0.40, `rgba(255,235,175,${this.tune.coreAlpha40})`],
+            [0.85, `rgba(255,235,175,${this.tune.coreAlpha85})`],
+            [1.00, `rgba(255,235,175,${this.tune.coreAlpha100})`],
+        ], this.tune.coreComposite);
+        if (this.tune.useBaseCoreRim) {
+            this._drawRadialEllipse(ctx, x, baseY, this.tune.baseCoreRimRx, this.tune.baseCoreRimRy, [
+                [0.00, `rgba(255,236,180,${this.tune.baseCoreRimAlpha})`],
+                [1.00, `rgba(255,236,180,${this.tune.baseCoreRimEdgeAlpha})`],
+            ], this.tune.baseCoreRimComposite, 32, this.tune.baseCoreRimInnerRatio);
+        }
+        const beamBottomY = this.tune.linkBeamToBase
+            ? (baseY - (this.tune.beamBottomGapPx || 0))
+            : (y + (this.tune.beamBottomOffsetPx || 0));
+        const featherRatio = Math.min(0.25, (this.tune.beamBottomFeatherPx || 0) / H);
+        const WbOuter = this.beamBaseW * (1 + Math.sin(this._beamPhase) * this.tune.breathAmplitudeOuter);
+        const WtOuter = this.beamTopW;
+        this._drawBeamTrapezoid(ctx, x, beamBottomY, H, WbOuter, WtOuter, [
+            [0.00, `rgba(255,235,170,${this.tune.outerBottomAlpha})`],
+            [featherRatio, `rgba(255,235,170,${this.tune.outerAlpha0})`],
+            [0.35, `rgba(255,225,150,${this.tune.outerAlpha35})`],
+            [0.80, `rgba(255,225,150,${this.tune.outerAlpha80})`],
+            [1.00, `rgba(255,225,150,${this.tune.outerAlpha100})`],
+        ], `rgba(255,225,150,${this.tune.shadowAlphaOuter})`, this.tune.shadowBlurOuter, 'source-over');
+        if (this.tune.useCore) {
+            const WbCore = this.tune.coreBaseW * (1 + Math.sin(this._beamPhase) * this.tune.breathAmplitudeCore);
+            const WtCore = this.tune.coreTopW;
+            this._drawBeamTrapezoid(ctx, x, beamBottomY, H, WbCore, WtCore, [
+                [0.00, `rgba(255,240,190,${this.tune.coreBottomAlpha})`],
+                [featherRatio, `rgba(255,240,190,${this.tune.coreAlpha0})`],
+                [0.40, `rgba(255,235,175,${this.tune.coreAlpha40})`],
+                [0.85, `rgba(255,235,175,${this.tune.coreAlpha85})`],
+                [1.00, `rgba(255,235,175,${this.tune.coreAlpha100})`],
+            ], `rgba(255,235,175,${this.tune.shadowAlphaCore})`, this.tune.shadowBlurCore, this.tune.coreComposite);
+        }
+        const img = (Game.images || {})['A48'];
+        if (img) {
+            const h = this.height;
+            const w = this.width;
+            ctx.drawImage(img, this.x - w / 2, this.y - h / 2, w, h);
+        } else {
+            ctx.fillStyle = '#f4d03f';
+            ctx.fillRect(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
+        }
+        ctx.restore();
+    }
+    collect(player) {
+        if (this.markedForDeletion || this.isCollecting) return;
+        const targetPlayer = player || Game.player;
+        if (!targetPlayer) {
+            this.markedForDeletion = true;
+            this.destroy();
+            return;
+        }
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        let isSurvivalMode = false;
+        try {
+            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                    ? ModeManager.getActiveModeId()
+                    : null);
+            isSurvivalMode = (activeId === 'survival' || activeId === null);
+        } catch (_) { }
+        if (isSurvivalMode && isMultiplayer) {
+            this.isCollecting = true;
+            if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                window.SurvivalOnlineRuntime.sendToNet({
+                    type: 'try_collect_chest',
+                    chestId: this.id,
+                    chestType: 'PINEAPPLE_SUPPLEMENT',
+                    x: this.x,
+                    y: this.y,
+                    healAmount: this._healAmount || 0
+                });
+            }
+            return;
+        }
+        this.markedForDeletion = true;
+        const heal = this._healAmount || 0;
+        targetPlayer.health = Math.min(targetPlayer.maxHealth, targetPlayer.health + heal);
+        if (typeof UI !== 'undefined') {
+            try { UI.updateHealthBar(targetPlayer.health, targetPlayer.maxHealth); } catch (_) { }
+        }
+        if (targetPlayer === Game.player && !targetPlayer._isRemotePlayer) {
+            try {
+                if (typeof AudioManager !== 'undefined') {
+                    if (AudioManager.expSoundEnabled !== false) {
+                        AudioManager.playSound('collect_exp');
+                    }
+                }
+            } catch (_) { }
+        }
+        this.destroy();
+    }
+}
 // ✅ 讓 ES module（例如 survival_online.js）可以從 globalThis 取得建構子
 try {
     if (typeof window !== 'undefined') {
         window.Chest = Chest;
+        try { window.PineappleUltimatePickup = PineappleUltimatePickup; } catch (_) {}
+        try { window.PineappleSupplementPickup = PineappleSupplementPickup; } catch (_) {}
     }
 } catch (_) { }
 
