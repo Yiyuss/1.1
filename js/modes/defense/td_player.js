@@ -80,6 +80,10 @@ class TDPlayer {
                     src = 'assets/images/player4.png';
                 } else if (sc.spriteImageKey === 'player5') {
                     src = 'assets/images/player5.png';
+                } else if (sc.spriteImageKey === 'player6') {
+                    src = 'assets/images/player6.gif';
+                } else if (sc.spriteImageKey === 'player7') {
+                    src = 'assets/images/player7.png';
                 } else {
                     src = `assets/images/${sc.spriteImageKey}.gif`;
                 }
@@ -91,6 +95,10 @@ class TDPlayer {
                 src = 'assets/images/player4.png';
             } else if (sc && (sc.id === 'rabi' || sc.spriteImageKey === 'player5')) {
                 src = 'assets/images/player5.png';
+            } else if (sc && (sc.id === 'pineapple' || sc.spriteImageKey === 'player6')) {
+                src = 'assets/images/player6.gif';
+            } else if (sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7')) {
+                src = 'assets/images/player7.png';
             }
         } catch(_) {}
         this.sprite = {
