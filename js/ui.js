@@ -2177,7 +2177,8 @@ const UI = {
             // 第五位角色（艾比Rabi）：使用 player5-2.png
             'player5-2': 'assets/images/player5-2.png',
             // 第六位角色（鳳梨不咬舌）：使用 player6-2.png
-            'player6-2': 'assets/images/player6-2.png'
+            'player6-2': 'assets/images/player6-2.png',
+            'player7-2': 'assets/images/player7-2.png'
         };
         const url = map[key] || map['player'];
         bgEl.style.backgroundImage = `url('${url}')`;
