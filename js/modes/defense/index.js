@@ -39,7 +39,6 @@ function safePlayDefense(ctx) {
           { key: bgKey, src: bgSrc },
           // 兼容舊代碼：保留防禦背景別名鍵
           { key: 'defense_bg4', src: bgSrc },
-          // 玩家主體與 HUD 頭像實際會根據選角角色決定圖像，本地資源僅作預載
           { key: 'player', src: 'assets/images/player.gif' },
           { key: 'player2', src: 'assets/images/player2.png' },
           { key: 'player2-1', src: 'assets/images/player2-1.png' },
@@ -51,6 +50,9 @@ function safePlayDefense(ctx) {
           { key: 'player5-2', src: 'assets/images/player5-2.png' },
           { key: 'player6', src: 'assets/images/player6.gif' },
           { key: 'player6-2', src: 'assets/images/player6-2.png' },
+          { key: 'player7', src: 'assets/images/player7.png' },
+          { key: 'player7-1', src: 'assets/images/player7-1.png' },
+          { key: 'player7-2', src: 'assets/images/player7-2.png' },
           { key: 'defense_avatar', src: 'assets/images/player1-2.png' },
           { key: 'zombie', src: 'assets/images/zombie.png' },
           { key: 'zombie2', src: 'assets/images/zombie2.png' },
