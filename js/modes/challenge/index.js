@@ -640,6 +640,26 @@ function safePlayShura(ctx) {
               } else {
                 window.ChallengeGifOverlay.showOrUpdate('challenge-player', player2Src, player.x, player.y, actorSize);
               }
+            } else if (sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7')) {
+              const player7Key = player.facingRight ? 'player7-1' : 'player7';
+              const imgObj = (Game.images && Game.images[player7Key]) ? Game.images[player7Key] : null;
+              let player7Src = actorSrc;
+              if (imgObj && imgObj.src) {
+                player7Src = imgObj.src;
+              } else {
+                player7Src = player.facingRight ? 'assets/images/player7-1.png' : 'assets/images/player7.png';
+              }
+              const baseImgObj = (Game.images && Game.images['player7']) ? Game.images['player7'] : null;
+              if (baseImgObj && baseImgObj.complete) {
+                const imgWidth = baseImgObj.naturalWidth || baseImgObj.width || 290;
+                const imgHeight = baseImgObj.naturalHeight || baseImgObj.height || 242;
+                const aspectRatio = imgWidth / imgHeight;
+                const renderHeight = actorSize;
+                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', player7Src, player.x, player.y, { width: renderWidth, height: renderHeight });
+              } else {
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', player7Src, player.x, player.y, actorSize);
+              }
             } else if ((!sc || sc.id === 'margaret' || sc.spriteImageKey === 'player') || /player\.gif$/i.test(actorSrc)) {
               // player.gif 保持原比例（1:1），使用模式原有的尺寸計算
               const imgObj = (Game.images && Game.images['player']) ? Game.images['player'] : null;
