@@ -1757,7 +1757,7 @@
         npcTarget: null // 目標NPC（用於自動移動）
       };
 
-      // 根據選角角色決定玩家圖片（支援 player2 方向切換）
+      // 根據選角角色決定玩家圖片（支援 player2 / player7 方向切換）
       function getPlayerImage() {
       const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
         let imgKey = 'player'; // 預設瑪格麗特
@@ -1771,11 +1771,17 @@
         imgKey = 'player4';
       } else if (sc && sc.id === 'rabi') {
         imgKey = 'player5';
+      } else if (sc && sc.id === 'pineapple') {
+        imgKey = 'player6';
+      } else if (sc && sc.id === 'elondier') {
+        imgKey = 'player7';
       }
         
-        // 特殊處理：player2根據移動方向切換圖片（左邊player2.png，右邊player2-1.png）
+        // 特殊處理：player2 / player7 根據移動方向切換圖片（左圖/右圖）
         if (imgKey === 'player2') {
           imgKey = player.facingRight ? 'player2-1' : 'player2';
+        } else if (imgKey === 'player7') {
+          imgKey = player.facingRight ? 'player7-1' : 'player7';
         }
         
         // 優先從 Game.images 取得
@@ -2476,6 +2482,12 @@
               const aspectRatio = imgWidth / imgHeight;
               renderHeight = Math.floor(PLAYER_H * 0.85); // 縮小到 85%
               renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+            } else if (sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7')) {
+              const imgWidth = currentPlayerImg.naturalWidth || currentPlayerImg.width || 290;
+              const imgHeight = currentPlayerImg.naturalHeight || currentPlayerImg.height || 242;
+              const aspectRatio = imgWidth / imgHeight;
+              renderHeight = Math.floor(PLAYER_H * 0.85);
+              renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
             }
             
             // 使用 MainGifOverlay 顯示（支援 GIF 動畫）
@@ -2484,8 +2496,7 @@
             let renderX = player.x - camX;
             let renderY = player.y - camY;
             
-            // player2 特殊處理：如果渲染寬度與 PLAYER_W 不同，需要調整位置以保持碰撞檢測一致
-            if (sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2')) {
+            if (sc && ((sc.id === 'dada' || sc.spriteImageKey === 'player2') || (sc.id === 'elondier' || sc.spriteImageKey === 'player7'))) {
               // player2 縮小後，渲染寬度可能與 PLAYER_W 不同
               // 為了保持碰撞檢測一致，需要調整渲染位置
               // 確保角色的視覺中心對齊 player.x + PLAYER_W/2
