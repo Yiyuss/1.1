@@ -33,6 +33,8 @@
           { key: 'npc6_portrait', src: 'assets/images/NPC6-2.png' },
           { key: 'npc7_gif', src: 'assets/images/NPC7.gif' },
           { key: 'npc7_portrait', src: 'assets/images/NPC7-2.png' },
+          { key: 'npc8', src: 'assets/images/NPC8.png' },
+          { key: 'npc8_portrait', src: 'assets/images/NPC8-2.png' },
           // 主屋室內家具（JSON 中使用的所有家具）
           { key: 'f_bed_front', src: 'js/modes/main/bed-front-273x289.png' },
           { key: 'f_big_bookcase', src: 'js/modes/main/big bookcase-245x289.png' },
@@ -516,6 +518,34 @@
             channelLink: 'https://www.youtube.com/channel/UCOuJKc5wDEZmPEx3z6xfvbg',
             onFinalState: () => syncYouTubeCodeButtonState('pineapple')
           }
+        },
+        'earendel': { 
+          type: 'npc_indoor',
+          imageKey: 'npc8',
+          portraitImage: 'assets/images/NPC8-2.png',
+          portraitAlt: '厄倫蒂兒',
+          spriteSheetKey: 'npc_sprite',
+          triggerDistance: 55,
+          targetDistance: 45,
+          dialogue: {
+            messages: [
+              '.--. . --- .--. .-.. . / --- ..-. / . .- .-. - .... --..-- / .... .- ...- . / -.-- --- ..- / .... . .- .-. -.. / -- . ..--..。',
+              '.... .- ...- . / -.-- --- ..- / -.. . - . -.-. - . -.. / -- . ..--..？',
+              '觀看我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
+            ],
+            finalButtons: [
+              { id: 'main-dialogue-youtube-earendel', text: '進入頻道', action: 'youtube' },
+              { id: 'main-dialogue-code-earendel', text: '領取序號', action: 'code', disabled: true },
+              { id: 'main-dialogue-exit', text: '離開', action: 'exit' }
+            ],
+            code: 'EARENDEL2026',
+            youtubeUrl: 'https://youtu.be/j1CSnbkGie0?si=qkLaEliXtWmvKika',
+            channelId: 'UCwzpXmWAFEVKH3VzwvSlY_w',
+            channelName: '厄倫蒂兒 Earendel YouTube 頻道',
+            channelLink: 'https://www.youtube.com/@EarendelXDFP',
+            onFinalState: () => syncYouTubeCodeButtonState('earendel')
+          }
         }
       };
       
@@ -524,7 +554,7 @@
       const YT_CODE_UNLOCK_KEY_PREFIX = 'main_youtube_code_unlocked_';
 
       function isYouTubeNpcType(npcType) {
-        return npcType === 'lilylinglan' || npcType === 'margaret' || npcType === 'dada' || npcType === 'loco' || npcType === 'abby' || npcType === 'pineapple';
+        return npcType === 'lilylinglan' || npcType === 'margaret' || npcType === 'dada' || npcType === 'loco' || npcType === 'abby' || npcType === 'pineapple' || npcType === 'earendel';
       }
 
       function getYouTubeUnlockKey(npcType) {
@@ -547,6 +577,7 @@
           case 'loco': return 'main-dialogue-code-loco';
           case 'abby': return 'main-dialogue-code-abby';
           case 'pineapple': return 'main-dialogue-code-pineapple';
+          case 'earendel': return 'main-dialogue-code-earendel';
           default: return null;
         }
       }
@@ -678,7 +709,7 @@
           } else if (id === 'main-dialogue-exit') {
             playButtonSound();
             closeDialogue();
-          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco' || id === 'main-dialogue-youtube-abby' || id === 'main-dialogue-youtube-pineapple') {
+          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco' || id === 'main-dialogue-youtube-abby' || id === 'main-dialogue-youtube-pineapple' || id === 'main-dialogue-youtube-earendel') {
             playButtonSound();
             // 點選進入頻道時，順便解鎖一次性的「領取序號」
             try {
@@ -689,7 +720,7 @@
               }
             } catch(_) {}
             showYouTubeWindow(currentDialogueNPC);
-          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco' || id === 'main-dialogue-code-abby' || id === 'main-dialogue-code-pineapple') {
+          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco' || id === 'main-dialogue-code-abby' || id === 'main-dialogue-code-pineapple' || id === 'main-dialogue-code-earendel') {
             // 防止重複點擊：如果序號窗口已經打開，直接返回
             if (isCodeWindowOpen) {
               return; // 已經有窗口打開，不重複創建
@@ -1738,6 +1769,37 @@
             npc.npcType = 'margaret'; // 標記為瑪格麗特NPC
             this.entities.push(npc);
             console.log(`[室內NPC] 瑪格麗特已放置在Bigsofa左側 (${npcX}, ${npcY})`);
+          }
+          
+          const loveseats = layoutData.furniture.filter(item => item.key === 'loveseat-front-263x196');
+          if (loveseats && loveseats.length > 0) {
+            const mapPixelW = this.width * TILE;
+            const centerX = mapPixelW / 2;
+            let targetLoveseat = loveseats[0];
+            let minDist = Math.abs((targetLoveseat.x + targetLoveseat.w / 2) - centerX);
+            for (let i = 1; i < loveseats.length; i++) {
+              const item = loveseats[i];
+              const dist = Math.abs((item.x + item.w / 2) - centerX);
+              if (dist < minDist) {
+                minDist = dist;
+                targetLoveseat = item;
+              }
+            }
+            const SRC_W = 290;
+            const SRC_H = 242;
+            const NPC_H = 60;
+            const NPC_W = Math.round(SRC_W * (NPC_H / SRC_H));
+            const npcX = targetLoveseat.x + (targetLoveseat.w / 2) - (NPC_W / 2);
+            const npcY = targetLoveseat.y + targetLoveseat.h - 25;
+            let npcEarendel = new Entity('npc_indoor', npcX, npcY, NPC_W, NPC_H);
+            npcEarendel.solid = false;
+            npcEarendel.domId = 'main-npc-indoor-earendel';
+            npcEarendel.layerId = 'npc-indoor';
+            npcEarendel.spriteSheet = null;
+            npcEarendel.spriteFrame = 0;
+            npcEarendel.npcType = 'earendel';
+            this.entities.push(npcEarendel);
+            console.log(`[室內NPC] 厄倫蒂兒已放置在loveseat前方 (${npcX}, ${npcY})，原始比例 290x242 -> ${NPC_W}x${NPC_H}`);
           }
         }
       };
