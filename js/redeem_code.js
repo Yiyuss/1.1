@@ -41,6 +41,7 @@ const RedeemCodeSystem = {
         'BUG18554': 10000,           // 永久有效 BUG回報序號
         'DADA2025': 10000,           // 永久有效 灰妲序號
         'LOCO2025': 10000,           // 永久有效 洛可序號
+        'EARENDEL2026': 10000,       // 永久有效 蒂兒序號
         'MARGARETNORTH2025': 10000,  // 永久有效 瑪麗序號
         'LINGLAN2025': 10000,        // 永久有效 鈴蘭序號
         'PINEAPPLE2026': 10000,      // 永久有效 鳳梨序號
@@ -243,4 +244,5 @@ if (typeof window !== 'undefined') {
         }
     };
 }
+
 
