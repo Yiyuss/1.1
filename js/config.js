@@ -1089,6 +1089,23 @@ const CONFIG = {
             exclusiveWeapons: ['SIXTH_SENSE', 'BAGUETTE_THROW', 'PINEAPPLE_ORBIT', 'ADRENALINE'],
             // 解鎖價格（遊戲金幣）：1萬金幣
             unlockCost: 10000
+        },
+        {
+            id: 'elondier',
+            name: '厄倫蒂兒',
+            hpMultiplier: 1.0,
+            hpBonus: 0,
+            speedMultiplier: 1.0,
+            dodgeChanceBonusPct: 0.10,
+            description: `角色介紹：最喜歡地球的恆星精神體，迷路途中被未知訊號吸引而來。\n專屬技能：暫無`,
+            avatarImageKey: 'player7-2',
+            hudImageKey: 'player7-2',
+            spriteImageKey: 'player7',
+            levelUpBgKey: 'player7-2',
+            canUseUltimate: true,
+            disabledWeapons: [],
+            exclusiveWeapons: [],
+            unlockCost: 10000
         }
     ],
     
