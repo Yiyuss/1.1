@@ -477,6 +477,7 @@ function initPlayerSprite() {
         else if (id === 'rokurost') key = 'player4';
         else if (id === 'rabi') key = 'player5';
         else if (id === 'pineapple') key = 'player6';
+        else if (id === 'elondier') key = 'player7';
 
         let parentImg = null;
         try {
@@ -493,6 +494,8 @@ function initPlayerSprite() {
             playerSpriteScale = 0.08; // player4.png 高 627，0.08 ≈ 50px（與其他角色接近）
         } else if (id === 'rabi') {
             playerSpriteScale = 0.11; // player5.png 高 467，0.11 ≈ 51px（與其他角色接近）
+        } else if (id === 'elondier') {
+            playerSpriteScale = 0.18;
         } else {
             playerSpriteScale = 0.16; // player.gif / player3.gif 高 320，0.16 ≈ 51px
         }
@@ -507,17 +510,17 @@ function initPlayerSprite() {
             // 水平：以 player.x+10 為角色中心（原本矩形身體中心）
             playerSpriteOffsetX = 10 - w / 2;
             
-            // 如果是player2，同時從父視窗載入player2-1.png（用於方向切換）
-            if (id === 'dada') {
+            if (id === 'dada' || id === 'elondier') {
                 try {
                     const parentWin = (window.parent && window.parent !== window) ? window.parent : null;
-                    if (parentWin && parentWin.Game && parentWin.Game.images && parentWin.Game.images['player2-1']) {
-                        playerSpriteImg2 = parentWin.Game.images['player2-1'];
+                    const altKey = (id === 'dada') ? 'player2-1' : 'player7-1';
+                    if (parentWin && parentWin.Game && parentWin.Game.images && parentWin.Game.images[altKey]) {
+                        playerSpriteImg2 = parentWin.Game.images[altKey];
                     } else {
                         const img2 = new Image();
                         img2.onload = function(){ playerSpriteImg2 = img2; };
                         img2.onerror = function(){ playerSpriteImg2 = null; };
-                        img2.src = '../../../assets/images/player2-1.png';
+                        img2.src = (id === 'dada') ? '../../../assets/images/player2-1.png' : '../../../assets/images/player7-1.png';
                     }
                 } catch(_){}
             }
@@ -537,6 +540,8 @@ function initPlayerSprite() {
             src = '../../../assets/images/player5.png';
         } else if (id === 'pineapple') {
             src = '../../../assets/images/player6.gif';
+        } else if (id === 'elondier') {
+            src = '../../../assets/images/player7.png';
         }
         const img = new Image();
         img.onload = function(){
@@ -547,12 +552,11 @@ function initPlayerSprite() {
             playerSpriteOffsetY = 38 - h;
             playerSpriteOffsetX = 10 - w / 2;
             
-            // 如果是player2，同時載入player2-1.png（用於方向切換）
-            if (id === 'dada') {
+            if (id === 'dada' || id === 'elondier') {
                 const img2 = new Image();
                 img2.onload = function(){ playerSpriteImg2 = img2; };
                 img2.onerror = function(){ playerSpriteImg2 = null; };
-                img2.src = '../../../assets/images/player2-1.png';
+                img2.src = (id === 'dada') ? '../../../assets/images/player2-1.png' : '../../../assets/images/player7-1.png';
             }
         };
         img.onerror = function(){
@@ -4498,11 +4502,11 @@ function draw() {
     // 只有灰妲（player2）需要根據方向動態切換圖片（參考生存模式）
     let id = (typeof window !== 'undefined' && window.ADVENTURE_SELECTED_CHARACTER_ID) ? String(window.ADVENTURE_SELECTED_CHARACTER_ID) : 'margaret';
     const isPlayer2 = (id === 'dada');
+    const isPlayer7 = (id === 'elondier');
     let imgToUse = playerSpriteImg;
     let imgSrc = playerSpriteImg ? playerSpriteImg.src : null;
     
-    if (isPlayer2 && playerSpriteImg2) {
-        // 灰妲：根據方向切換player2和player2-1（參考生存模式）
+    if ((isPlayer2 || isPlayer7) && playerSpriteImg2) {
         if (player.facingRight && playerSpriteImg2.complete) {
             imgToUse = playerSpriteImg2;
             imgSrc = playerSpriteImg2.src;
@@ -4514,11 +4518,10 @@ function draw() {
     
     if (playerSpriteReady && imgToUse && typeof AdventureGifOverlay !== 'undefined' && typeof AdventureGifOverlay.showOrUpdate === 'function') {
         let w, h;
-        if (isPlayer2) {
-            // player2.png / player2-1.png 保持原比例（290x242）
+        if (isPlayer2 || isPlayer7) {
             const imgWidth = imgToUse.width || 290;
             const imgHeight = imgToUse.height || 242;
-            const aspectRatio = imgWidth / imgHeight; // 290/242 ≈ 1.198
+            const aspectRatio = imgWidth / imgHeight;
             h = Math.max(1, Math.floor(imgHeight * playerSpriteScale));
             w = Math.max(1, Math.floor(h * aspectRatio));
         } else {
