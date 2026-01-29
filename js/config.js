@@ -999,7 +999,7 @@ const CONFIG = {
             hpMultiplier: 1.0,
             hpBonus: 2000, 
             speedMultiplier: 1.0,
-            description: `角色介紹：傳說中的未知信號，被她抓到，就會被馬桶坐坐！\n專屬技能：暫無`,
+            description: `角色介紹：傳說中的未知信號，被她抓到，就會被馬桶坐坐！\n專屬技能：施工中`,
             // 選角預覽圖（下方角色介紹用）：使用 player3-2.png
             avatarImageKey: 'player3-2',
             // 所有模式的 HUD 左上角頭像：使用 player3-2.png
@@ -1011,7 +1011,7 @@ const CONFIG = {
             // 第三位角色暫時不能使用大絕（Q），專屬技能還沒製作
             canUseUltimate: false,
             disabledWeapons: [],
-            // 專屬技能：暫無
+            // 專屬技能：施工中
             exclusiveWeapons: [],
             // 解鎖價格（遊戲金幣）：100萬金幣
             unlockCost: 1000000
@@ -1097,7 +1097,7 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10,
-            description: `角色介紹：最喜歡地球的恆星精神體，迷路途中被未知訊號吸引而來。\n專屬技能：暫無`,
+            description: `角色介紹：最喜歡地球的恆星精神體，迷路途中被未知訊號吸引而來。\n專屬技能：施工中`,
             avatarImageKey: 'player7-2',
             hudImageKey: 'player7-2',
             spriteImageKey: 'player7',
