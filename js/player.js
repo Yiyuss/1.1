@@ -335,9 +335,13 @@ class Player extends Entity {
             ? this.spriteImageKey
             : 'player';
         
-        // 特殊處理：player2根據移動方向切換圖片（左邊player2.png，右邊player2-1.png）
-        if (baseKey === 'player2' && !this.isUltimateActive) {
-            baseKey = this.facingRight ? 'player2-1' : 'player2';
+        // 特殊處理：player2與player7根據移動方向切換圖片（左圖/右圖）
+        if (!this.isUltimateActive) {
+            if (baseKey === 'player2') {
+                baseKey = this.facingRight ? 'player2-1' : 'player2';
+            } else if (baseKey === 'player7') {
+                baseKey = this.facingRight ? 'player7-1' : 'player7';
+            }
         }
         
         // 使用角色特定的大招圖片鍵（若存在），否則使用預設
@@ -425,6 +429,14 @@ class Player extends Entity {
                     const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
                     const aspectRatio = imgWidth / imgHeight; // 290/242 ≈ 1.198
                     // 使用模式原有的尺寸計算方式，保持原比例
+                    const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                } else if ((imgKey === 'player7' || imgKey === 'player7-1') && imgObj.complete) {
+                    // player7.png / player7-1.png 保持原比例（290x242）
+                    const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
+                    const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
+                    const aspectRatio = imgWidth / imgHeight;
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                     window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
