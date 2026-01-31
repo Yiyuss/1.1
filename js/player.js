@@ -1407,7 +1407,7 @@ class Player extends Entity {
             try {
                 if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
                     for (const p of Game.projectiles) {
-                        if (p && p.weaponType === 'AURA_FIELD' && p.player === this && !p.markedForDeletion) {
+                        if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD') && p.player === this && !p.markedForDeletion) {
                             if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
                         }
                     }
