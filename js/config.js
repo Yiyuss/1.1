@@ -284,12 +284,7 @@ const CONFIG = {
                 { COUNT: 2, DESCRIPTION: "生成2個綿羊護體環繞3秒" },
                 { COUNT: 3, DESCRIPTION: "生成3個綿羊護體環繞3秒" },
                 { COUNT: 4, DESCRIPTION: "生成4個綿羊護體環繞3秒" },
-                { COUNT: 5, DESCRIPTION: "生成5個綿羊護體環繞3秒" },
-                { COUNT: 6, DESCRIPTION: "生成6個綿羊護體環繞3秒" },
-                { COUNT: 7, DESCRIPTION: "生成7個綿羊護體環繞3秒" },
-                { COUNT: 8, DESCRIPTION: "生成8個綿羊護體環繞3秒" },
-                { COUNT: 9, DESCRIPTION: "生成9個綿羊護體環繞3秒" },
-                { COUNT: 10, DESCRIPTION: "生成10個綿羊護體環繞3秒" }
+                { COUNT: 5, DESCRIPTION: "生成5個綿羊護體環繞3秒" }
             ]
         },
         // 新武器：鳳梨環繞（鳳梨不咬舌專屬技能；圖片/特效/邏輯與綿羊護體相同，僅替換環繞物圖片）
@@ -309,12 +304,7 @@ const CONFIG = {
                 { COUNT: 2, DESCRIPTION: "生成2個鳳梨環繞環繞3秒" },
                 { COUNT: 3, DESCRIPTION: "生成3個鳳梨環繞環繞3秒" },
                 { COUNT: 4, DESCRIPTION: "生成4個鳳梨環繞環繞3秒" },
-                { COUNT: 5, DESCRIPTION: "生成5個鳳梨環繞環繞3秒" },
-                { COUNT: 6, DESCRIPTION: "生成6個鳳梨環繞環繞3秒" },
-                { COUNT: 7, DESCRIPTION: "生成7個鳳梨環繞環繞3秒" },
-                { COUNT: 8, DESCRIPTION: "生成8個鳳梨環繞環繞3秒" },
-                { COUNT: 9, DESCRIPTION: "生成9個鳳梨環繞環繞3秒" },
-                { COUNT: 10, DESCRIPTION: "生成10個鳳梨環繞環繞3秒" }
+                { COUNT: 5, DESCRIPTION: "生成5個鳳梨環繞環繞3秒" }
             ]
         },
         HEART_COMPANION: {
@@ -333,12 +323,7 @@ const CONFIG = {
                 { COUNT: 2, DESCRIPTION: "生成2個心意相隨環繞3秒" },
                 { COUNT: 3, DESCRIPTION: "生成3個心意相隨環繞3秒" },
                 { COUNT: 4, DESCRIPTION: "生成4個心意相隨環繞3秒" },
-                { COUNT: 5, DESCRIPTION: "生成5個心意相隨環繞3秒" },
-                { COUNT: 6, DESCRIPTION: "生成6個心意相隨環繞3秒" },
-                { COUNT: 7, DESCRIPTION: "生成7個心意相隨環繞3秒" },
-                { COUNT: 8, DESCRIPTION: "生成8個心意相隨環繞3秒" },
-                { COUNT: 9, DESCRIPTION: "生成9個心意相隨環繞3秒" },
-                { COUNT: 10, DESCRIPTION: "生成10個心意相隨環繞3秒" }
+                { COUNT: 5, DESCRIPTION: "生成5個心意相隨環繞3秒" }
             ]
         },
         HEART_CONNECTION: {
@@ -475,12 +460,7 @@ const CONFIG = {
                 { COUNT: 2, DESCRIPTION: "生成2個雞腿庇佑環繞3秒" },
                 { COUNT: 3, DESCRIPTION: "生成3個雞腿庇佑環繞3秒" },
                 { COUNT: 4, DESCRIPTION: "生成4個雞腿庇佑環繞3秒" },
-                { COUNT: 5, DESCRIPTION: "生成5個雞腿庇佑環繞3秒" },
-                { COUNT: 6, DESCRIPTION: "生成6個雞腿庇佑環繞3秒" },
-                { COUNT: 7, DESCRIPTION: "生成7個雞腿庇佑環繞3秒" },
-                { COUNT: 8, DESCRIPTION: "生成8個雞腿庇佑環繞3秒" },
-                { COUNT: 9, DESCRIPTION: "生成9個雞腿庇佑環繞3秒" },
-                { COUNT: 10, DESCRIPTION: "生成10個雞腿庇佑環繞3秒" }
+                { COUNT: 5, DESCRIPTION: "生成5個雞腿庇佑環繞3秒" }
             ]
         },
         ROTATING_MUFFIN: {
@@ -499,12 +479,7 @@ const CONFIG = {
                 { COUNT: 2, DESCRIPTION: "生成2個旋轉鬆餅環繞3秒" },
                 { COUNT: 3, DESCRIPTION: "生成3個旋轉鬆餅環繞3秒" },
                 { COUNT: 4, DESCRIPTION: "生成4個旋轉鬆餅環繞3秒" },
-                { COUNT: 5, DESCRIPTION: "生成5個旋轉鬆餅環繞3秒" },
-                { COUNT: 6, DESCRIPTION: "生成6個旋轉鬆餅環繞3秒" },
-                { COUNT: 7, DESCRIPTION: "生成7個旋轉鬆餅環繞3秒" },
-                { COUNT: 8, DESCRIPTION: "生成8個旋轉鬆餅環繞3秒" },
-                { COUNT: 9, DESCRIPTION: "生成9個旋轉鬆餅環繞3秒" },
-                { COUNT: 10, DESCRIPTION: "生成10個旋轉鬆餅環繞3秒" }
+                { COUNT: 5, DESCRIPTION: "生成5個旋轉鬆餅環繞3秒" }
             ]
         },
         MUFFIN_THROW: {
