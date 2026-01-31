@@ -2726,12 +2726,13 @@ const Runtime = (() => {
                 // 但需要確保體型恢復被跳過（因為由伺服器同步）
                 const backup = player._ultimateBackup;
                 if (backup && backup.weapons) {
-                  // 恢復武器
+                  // 恢復武器（等級以該技能 LEVELS 長度為上限）
                   const WeaponCtor = _getGlobalCtor("Weapon");
                   if (WeaponCtor) {
                     player.weapons = backup.weapons.map(info => {
                       const w = new WeaponCtor(player, info.type);
-                      w.level = info.level;
+                      const maxLv = w.config.LEVELS.length;
+                      w.level = Math.min(info.level, maxLv);
                       w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
                       return w;
                     });
@@ -5098,11 +5099,11 @@ function handleServerGameState(state, timestamp) {
                 // ✅ 修復：如果本地玩家正在大招狀態，確保武器被正確設置為LV10
                 // 這可以防止組隊模式下武器只放一次就沒了的問題
                 if (isNowUltimateActive) {
-                  // 檢查武器是否正確設置為LV10
+                  // 檢查武器是否正確設置為該技能最高級（炫球類為LV5，其餘為LV10）
                   const needsReactivate = !Game.player._ultimateBackup || 
                     !Game.player.weapons || 
                     Game.player.weapons.length === 0 ||
-                    Game.player.weapons.some(w => !w || w.level !== CONFIG.ULTIMATE.ULTIMATE_LEVEL);
+                    Game.player.weapons.some(w => !w || w.level !== Math.min(CONFIG.ULTIMATE.ULTIMATE_LEVEL, w.config.LEVELS.length));
                   
                   if (needsReactivate) {
                     // 武器沒有被正確設置，重新執行 activateUltimate
@@ -5126,12 +5127,13 @@ function handleServerGameState(state, timestamp) {
                   try {
                     const backup = Game.player._ultimateBackup;
                     if (backup && backup.weapons) {
-                      // 恢復武器
+                      // 恢復武器（等級以該技能 LEVELS 長度為上限）
                       const WeaponCtor = _getGlobalCtor("Weapon");
                       if (WeaponCtor) {
                         Game.player.weapons = backup.weapons.map(info => {
                           const w = new WeaponCtor(Game.player, info.type);
-                          w.level = info.level;
+                          const maxLv = w.config.LEVELS.length;
+                          w.level = Math.min(info.level, maxLv);
                           w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
                           return w;
                         });
