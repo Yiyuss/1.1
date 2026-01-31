@@ -23,7 +23,7 @@ class OrbitBall extends Entity {
         }
         
         // 雞腿庇佑、綿羊護體、鳳梨環繞、旋轉鬆餅和心意相隨：改為單次碰撞傷害（移除持續傷害，避免BOSS被秒殺）
-        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION') {
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION' || this.weaponType === 'STELLAR_ORBIT') {
             // 單次碰撞傷害模式：每個敵人只造成一次傷害，然後有冷卻時間
             this.collisionCooldown = new Map(); // 記錄每個敵人的最後碰撞時間
             this.collisionCooldownMs = 500; // 每個敵人500ms內只能受到一次傷害
@@ -101,7 +101,7 @@ class OrbitBall extends Entity {
         if (this.trail.length > this.trailMax) this.trail.shift();
 
         // 根據武器類型選擇傷害模式
-        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION') {
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION' || this.weaponType === 'STELLAR_ORBIT') {
             // 雞腿庇佑、綿羊護體、旋轉鬆餅和心意相隨：單次碰撞傷害模式（避免持續傷害導致BOSS被秒殺）
             const currentTime = Date.now();
             for (const enemy of Game.enemies) {
