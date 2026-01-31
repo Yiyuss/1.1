@@ -241,6 +241,36 @@
                     // 旋球技能不需要追蹤敵人角度，直接返回
                     return;
                 }
+                if (this.type === 'STELLAR_ORBIT') {
+                    const count = this.projectileCount;
+                    let angularSpeed = this.config.ANGULAR_SPEED;
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                    if (!isMultiplayer) {
+                        const speedMultiplier = 1.0 + (this.level - 1) / 9;
+                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
+                    }
+                    for (let i = 0; i < count; i++) {
+                        const angle = (i / count) * Math.PI * 2;
+                        const baseRadius = this.config.ORBIT_RADIUS;
+                        const perLevel = this.config.ORBIT_RADIUS_PER_LEVEL || 0;
+                        const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+                        const baseSize = this.config.PROJECTILE_SIZE;
+                        const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
+                        const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
+                        const orb = new OrbitBall(
+                            this.player,
+                            angle,
+                            dynamicRadius,
+                            this._computeFinalDamage(levelMul),
+                            dynamicSize,
+                            this.config.DURATION,
+                            angularSpeed,
+                            'stellar_orbit'
+                        );
+                        Game.addProjectile(orb);
+                    }
+                    return;
+                }
                 // 特殊技能：鳳梨環繞（與綿羊護體邏輯相同，但使用不同圖片）
                 if (this.type === 'PINEAPPLE_ORBIT') {
                     const count = this.projectileCount;
