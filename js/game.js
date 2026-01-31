@@ -1463,6 +1463,7 @@ const Game = {
                 
                 const isPersistentEffect = (
                     projectile.weaponType === 'AURA_FIELD' ||
+                    projectile.weaponType === 'STELLAR_FIELD' ||
                     projectile.weaponType === 'GRAVITY_WAVE' ||
                     projectile.weaponType === 'ORBIT' ||
                     projectile.weaponType === 'CHICKEN_BLESSING' ||
@@ -1796,6 +1797,7 @@ const Game = {
                     const isPersistentEffect = (
                         // 武器類型檢查
                         projectile.weaponType === 'AURA_FIELD' ||
+                        projectile.weaponType === 'STELLAR_FIELD' ||
                         projectile.weaponType === 'GRAVITY_WAVE' ||
                         projectile.weaponType === 'ORBIT' ||
                         projectile.weaponType === 'CHICKEN_BLESSING' ||
