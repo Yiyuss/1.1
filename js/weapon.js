@@ -403,6 +403,24 @@
                 return;
         }
 
+                // 特殊技能：恆星領域（厄倫蒂兒專屬，常駐場域，僅緩速不造成傷害）
+                if (this.type === 'STELLAR_FIELD') {
+                const baseRadius = this.config.FIELD_RADIUS || 150;
+                const perLevel = this.config.FIELD_RADIUS_PER_LEVEL || 20;
+                const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+                const slowPctBase = this.config.SLOW_PCT_BASE !== undefined ? this.config.SLOW_PCT_BASE : 5;
+                const slowPctPerLevel = this.config.SLOW_PCT_PER_LEVEL !== undefined ? this.config.SLOW_PCT_PER_LEVEL : 5;
+                const slowFactor = Math.max(0, Math.min(1, 1 - (slowPctBase + slowPctPerLevel * (this.level - 1)) / 100));
+                if (!this._auraEntity || this._auraEntity.markedForDeletion) {
+                this._auraEntity = new StellarField(this.player, dynamicRadius, slowFactor);
+                Game.addProjectile(this._auraEntity);
+            } else {
+                this._auraEntity.radius = dynamicRadius;
+                this._auraEntity.slowFactor = slowFactor;
+            }
+                return;
+        }
+
                 // 特殊技能：引力波（常駐場域，帶推怪功能）
                 if (this.type === 'GRAVITY_WAVE') {
                 const baseRadius = this.config.FIELD_RADIUS || 150;
