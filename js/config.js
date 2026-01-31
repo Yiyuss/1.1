@@ -270,15 +270,15 @@ const CONFIG = {
         },
         ORBIT: {
             NAME: "綿羊護體",
-            DAMAGE: 8,
+            DAMAGE: 12,
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
-            PROJECTILE_SIZE_PER_LEVEL: 4, // 炫球類：每升1級體積增量2倍（原2→4）
+            PROJECTILE_SIZE_PER_LEVEL: 6, // 炫球類：每升1級體積增量
             ORBIT_RADIUS: 60,
-            ORBIT_RADIUS_PER_LEVEL: 20, // 炫球類：每升1級半徑增量2倍（原10→20）
+            ORBIT_RADIUS_PER_LEVEL: 15, // 炫球類：每升1級半徑增量
             DURATION: 3000, // 3秒持續
-            ANGULAR_SPEED: 6.283, // 約1圈/秒
+            ANGULAR_SPEED: 3.683, // 約1圈/秒
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "生成1個綿羊護體環繞3秒" },
                 { COUNT: 2, DESCRIPTION: "生成2個綿羊護體環繞3秒" },
@@ -290,15 +290,15 @@ const CONFIG = {
         // 新武器：鳳梨環繞（鳳梨不咬舌專屬技能；圖片/特效/邏輯與綿羊護體相同，僅替換環繞物圖片）
         PINEAPPLE_ORBIT: {
             NAME: "鳳梨環繞",
-            DAMAGE: 8, // 與綿羊護體相同
+            DAMAGE: 12, // 與綿羊護體相同
             COOLDOWN: 4000, // 與綿羊護體相同
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20, // 與綿羊護體相同
-            PROJECTILE_SIZE_PER_LEVEL: 4, // 炫球類：每升1級體積增量2倍
+            PROJECTILE_SIZE_PER_LEVEL: 6, // 炫球類：每升1級體積增量
             ORBIT_RADIUS: 60,
-            ORBIT_RADIUS_PER_LEVEL: 20, // 炫球類：每升1級半徑增量2倍
+            ORBIT_RADIUS_PER_LEVEL: 15, // 炫球類：每升1級半徑增量
             DURATION: 3000, // 3秒持續
-            ANGULAR_SPEED: 6.283, // 約1圈/秒
+            ANGULAR_SPEED: 3.683, // 約1圈/秒
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "生成1個鳳梨環繞環繞3秒" },
                 { COUNT: 2, DESCRIPTION: "生成2個鳳梨環繞環繞3秒" },
@@ -309,15 +309,15 @@ const CONFIG = {
         },
         HEART_COMPANION: {
             NAME: "心意相隨",
-            DAMAGE: 8,
+            DAMAGE: 12,
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
-            PROJECTILE_SIZE_PER_LEVEL: 4, // 炫球類：每升1級體積增量2倍
+            PROJECTILE_SIZE_PER_LEVEL: 6, // 炫球類：每升1級體積增量
             ORBIT_RADIUS: 60,
-            ORBIT_RADIUS_PER_LEVEL: 20, // 炫球類：每升1級半徑增量2倍
+            ORBIT_RADIUS_PER_LEVEL: 15, // 炫球類：每升1級半徑增量
             DURATION: 3000, // 3秒持續
-            ANGULAR_SPEED: 6.283, // 約1圈/秒
+            ANGULAR_SPEED: 3.683, // 約1圈/秒
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "生成1個心意相隨環繞3秒" },
                 { COUNT: 2, DESCRIPTION: "生成2個心意相隨環繞3秒" },
@@ -446,15 +446,15 @@ const CONFIG = {
         },
         CHICKEN_BLESSING: {
             NAME: "雞腿庇佑",
-            DAMAGE: 8,
+            DAMAGE: 12,
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
-            PROJECTILE_SIZE_PER_LEVEL: 4, // 炫球類：每升1級體積增量2倍
+            PROJECTILE_SIZE_PER_LEVEL: 6, // 炫球類：每升1級體積增量
             ORBIT_RADIUS: 60,
-            ORBIT_RADIUS_PER_LEVEL: 20, // 炫球類：每升1級半徑增量2倍
+            ORBIT_RADIUS_PER_LEVEL: 15, // 炫球類：每升1級半徑增量
             DURATION: 3000, // 3秒持續
-            ANGULAR_SPEED: 6.283, // 約1圈/秒
+            ANGULAR_SPEED: 3.683, // 約1圈/秒
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "生成1個雞腿庇佑環繞3秒" },
                 { COUNT: 2, DESCRIPTION: "生成2個雞腿庇佑環繞3秒" },
@@ -465,15 +465,15 @@ const CONFIG = {
         },
         ROTATING_MUFFIN: {
             NAME: "旋轉鬆餅",
-            DAMAGE: 8,
+            DAMAGE: 12,
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
-            PROJECTILE_SIZE_PER_LEVEL: 4, // 炫球類：每升1級體積增量2倍
+            PROJECTILE_SIZE_PER_LEVEL: 6, // 炫球類：每升1級體積增量
             ORBIT_RADIUS: 60,
-            ORBIT_RADIUS_PER_LEVEL: 20, // 炫球類：每升1級半徑增量2倍
+            ORBIT_RADIUS_PER_LEVEL: 15, // 炫球類：每升1級半徑增量
             DURATION: 3000, // 3秒持續
-            ANGULAR_SPEED: 6.283, // 約1圈/秒
+            ANGULAR_SPEED: 3.683, // 約1圈/秒
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "生成1個旋轉鬆餅環繞3秒" },
                 { COUNT: 2, DESCRIPTION: "生成2個旋轉鬆餅環繞3秒" },
