@@ -1461,7 +1461,7 @@ const Runtime = (() => {
             // ✅ 修復：INVINCIBLE 是一次性效果（持續幾秒後消失，然後又持續幾秒後消失，很像是變長的斬擊）
             // 守護領域是永久常駐，無敵是持續幾秒後消失，所以無敵應該像斬擊一樣，每次施放都創建新的效果
             const isPersistentEffect = (
-              weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' ||
+              weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' ||
               weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' || weaponType === 'HEART_COMPANION' ||
               weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC'
             );
@@ -1541,7 +1541,7 @@ const Runtime = (() => {
             
             if (!existingProjectile) {
               // 根據武器類型創建對應的投射物
-              if (weaponType === "ORBIT" || weaponType === "CHICKEN_BLESSING" || weaponType === "ROTATING_MUFFIN" || weaponType === "HEART_COMPANION" || weaponType === "PINEAPPLE_ORBIT") {
+              if (weaponType === "ORBIT" || weaponType === "STELLAR_ORBIT" || weaponType === "CHICKEN_BLESSING" || weaponType === "ROTATING_MUFFIN" || weaponType === "HEART_COMPANION" || weaponType === "PINEAPPLE_ORBIT") {
                 // 環繞投射物：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
                 if (eventData.playerUid) {
@@ -1565,7 +1565,8 @@ const Runtime = (() => {
                   const imageKey = (weaponType === "CHICKEN_BLESSING") ? "chicken" :
                     (weaponType === "ROTATING_MUFFIN") ? "muffin" :
                       (weaponType === "HEART_COMPANION") ? "heart" :
-                        (weaponType === "PINEAPPLE_ORBIT") ? "pineapple" : "lightning";
+                        (weaponType === "PINEAPPLE_ORBIT") ? "pineapple" :
+                          (weaponType === "STELLAR_ORBIT") ? "stellar_orbit" : "lightning";
                   const initialAngle = eventData.angle || 0;
                   // ✅ 修復：使用從單機模式廣播的 radius、angularSpeed、size、duration，確保與單機模式一致
                   // 單機模式中，這些值會根據等級動態計算（radius、size 隨等級增長，angularSpeed 隨等級線性增長）
@@ -6071,7 +6072,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' || weaponType === 'INVINCIBLE' || weaponType === 'SING' ||
       // 持續視覺效果（通過事件廣播的）
       weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'GRAVITY_WAVE' ||
-      weaponType === 'ORBIT' || weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' ||
+      weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' || weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' ||
       weaponType === 'HEART_COMPANION' || weaponType === 'PINEAPPLE_ORBIT' ||
       weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC' ||
       weaponType === 'BIG_ICE_BALL' || weaponType === 'FRENZY_ICE_BALL' ||
