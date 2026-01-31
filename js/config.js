@@ -38,6 +38,7 @@ const CONFIG = {
             FIREBALL: 'assets/images/A5.png',
             LIGHTNING: 'assets/images/A6.png',
             ORBIT: 'assets/images/A7.png',
+            STELLAR_ORBIT: 'assets/images/A50.png',
             AURA_FIELD: 'assets/images/A13.png',
             INVINCIBLE: 'assets/images/A14.png',
             GRAVITY_WAVE: 'assets/images/A27.png',
@@ -285,6 +286,25 @@ const CONFIG = {
                 { COUNT: 3, DESCRIPTION: "生成3個綿羊護體環繞3秒" },
                 { COUNT: 4, DESCRIPTION: "生成4個綿羊護體環繞3秒" },
                 { COUNT: 5, DESCRIPTION: "生成5個綿羊護體環繞3秒" }
+            ]
+        },
+        STELLAR_ORBIT: {
+            NAME: "星體軌跡",
+            DAMAGE: 12,
+            COOLDOWN: 4000,
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 20,
+            PROJECTILE_SIZE_PER_LEVEL: 6,
+            ORBIT_RADIUS: 60,
+            ORBIT_RADIUS_PER_LEVEL: 15,
+            DURATION: 3000,
+            ANGULAR_SPEED: 3.683,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "生成1個星體軌跡環繞3秒" },
+                { COUNT: 2, DESCRIPTION: "生成2個星體軌跡環繞3秒" },
+                { COUNT: 3, DESCRIPTION: "生成3個星體軌跡環繞3秒" },
+                { COUNT: 4, DESCRIPTION: "生成4個星體軌跡環繞3秒" },
+                { COUNT: 5, DESCRIPTION: "生成5個星體軌跡環繞3秒" }
             ]
         },
         // 新武器：鳳梨環繞（鳳梨不咬舌專屬技能；圖片/特效/邏輯與綿羊護體相同，僅替換環繞物圖片）
@@ -1097,14 +1117,14 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10,
-            description: `角色介紹：最喜歡地球的恆星精神體，迷路途中被未知訊號吸引而來。\n專屬技能：恆星領域`,
+            description: `角色介紹：最喜歡地球的恆星精神體，迷路途中被未知訊號吸引而來。\n專屬技能：恆星領域、星體軌跡`,
             avatarImageKey: 'player7-2',
             hudImageKey: 'player7-2',
             spriteImageKey: 'player7',
             levelUpBgKey: 'player7-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: ['STELLAR_FIELD'],
+            exclusiveWeapons: ['STELLAR_FIELD', 'STELLAR_ORBIT'],
             unlockCost: 10000
         }
     ],
