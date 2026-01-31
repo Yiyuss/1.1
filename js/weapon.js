@@ -1400,9 +1400,20 @@
         }
     }
     
+    let pineappleOrbitFlat = 0;
+    if (this.type === 'PINEAPPLE_ORBIT' && typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+        const pineappleOrbitBoostLevel = TalentSystem.getTalentLevel('pineapple_orbit_boost') || 0;
+        if (pineappleOrbitBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.pineapple_orbit_boost) {
+            const effect = TalentSystem.tieredTalents.pineapple_orbit_boost.levels[pineappleOrbitBoostLevel - 1];
+            if (effect && typeof effect.flat === 'number') {
+                pineappleOrbitFlat = effect.flat;
+            }
+        }
+    }
+    
     const lvPct = Math.max(0, (levelMul || 1) - 1);
     const percentSum = lvPct + talentPct + attrPct;
-    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat; // 單純加法：先加再乘百分比
+    const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat;
     const value = baseFlat * (1 + percentSum);
     return value;
 };
