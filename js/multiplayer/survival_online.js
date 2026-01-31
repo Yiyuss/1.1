@@ -1461,7 +1461,7 @@ const Runtime = (() => {
             // ✅ 修復：INVINCIBLE 是一次性效果（持續幾秒後消失，然後又持續幾秒後消失，很像是變長的斬擊）
             // 守護領域是永久常駐，無敵是持續幾秒後消失，所以無敵應該像斬擊一樣，每次施放都創建新的效果
             const isPersistentEffect = (
-              weaponType === 'AURA_FIELD' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' ||
+              weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' ||
               weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' || weaponType === 'HEART_COMPANION' ||
               weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC'
             );
@@ -1516,6 +1516,7 @@ const Runtime = (() => {
                 if (typeof eventData.radius === "number") existingProjectile.radius = eventData.radius;
                 if (typeof eventData.duration === "number") existingProjectile.duration = eventData.duration;
                 if (typeof eventData.durationMs === "number") existingProjectile.durationMs = eventData.durationMs;
+                if (typeof eventData.slowFactor === "number") existingProjectile.slowFactor = eventData.slowFactor; // 恆星領域升級時同步緩速
                 // 更新玩家引用（確保位置正確）
                 if (eventData.playerUid) {
                   const isLocalPlayer = (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid));
@@ -2053,6 +2054,33 @@ const Runtime = (() => {
                   effect._remotePlayerUid = eventData.playerUid;
                   if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
                   // ⚠️ 修復：已經在1356行之前檢查過了，這裡不需要再次檢查（避免重複添加）
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "STELLAR_FIELD" && typeof StellarField !== "undefined") {
+                // 恆星領域（與守護領域同結構）：需要找到對應的玩家（使用完整的 Player 對象）
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) targetPlayer = remotePlayer;
+                    }
+                  }
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                if (targetPlayer) {
+                  const cfg = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.STELLAR_FIELD) || {};
+                  const effect = new StellarField(
+                    targetPlayer,
+                    typeof eventData.radius === 'number' ? eventData.radius : (cfg.FIELD_RADIUS || 100),
+                    typeof eventData.slowFactor === 'number' ? eventData.slowFactor : 0.95
+                  );
+                  effect.id = projectileId;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
                   Game.projectiles.push(effect);
                 }
               } else if (weaponType === "GRAVITY_WAVE" && typeof GravityWaveField !== "undefined") {
@@ -2720,7 +2748,7 @@ const Runtime = (() => {
                 // ✅ 修復：清理守護領域等持續效果（與單機模式一致）
                 if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
                   for (const p of Game.projectiles) {
-                    if (p && p.weaponType === 'AURA_FIELD' && p.player === player && !p.markedForDeletion) {
+                    if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD') && p.player === player && !p.markedForDeletion) {
                       if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
                     }
                   }
@@ -5120,7 +5148,7 @@ function handleServerGameState(state, timestamp) {
                     // ✅ 修復：清理守護領域等持續效果（與單機模式一致）
                     if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
                       for (const p of Game.projectiles) {
-                        if (p && p.weaponType === 'AURA_FIELD' && p.player === Game.player && !p.markedForDeletion) {
+                        if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD') && p.player === Game.player && !p.markedForDeletion) {
                           if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
                         }
                       }
@@ -6040,7 +6068,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' ||
       weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' || weaponType === 'INVINCIBLE' || weaponType === 'SING' ||
       // 持續視覺效果（通過事件廣播的）
-      weaponType === 'AURA_FIELD' || weaponType === 'GRAVITY_WAVE' ||
+      weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'GRAVITY_WAVE' ||
       weaponType === 'ORBIT' || weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' ||
       weaponType === 'HEART_COMPANION' || weaponType === 'PINEAPPLE_ORBIT' ||
       weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC' ||
@@ -6050,7 +6078,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'JUDGMENT' || weaponType === 'DIVINE_JUDGMENT' || weaponType === 'EXPLOSION' ||
       // 通過構造函數名稱檢查
       constructorName === 'LaserBeam' || constructorName === 'ChainLightningEffect' || constructorName === 'FrenzyLightningEffect' ||
-      constructorName === 'SlashEffect' || constructorName === 'InvincibleEffect' || constructorName === 'SingEffect' || constructorName === 'AuraField' || constructorName === 'GravityWaveField' ||
+      constructorName === 'SlashEffect' || constructorName === 'InvincibleEffect' || constructorName === 'SingEffect' || constructorName === 'AuraField' || constructorName === 'StellarField' || constructorName === 'GravityWaveField' ||
       constructorName === 'OrbitBall' || constructorName === 'RadiantGloryEffect' || constructorName === 'ShockwaveEffect' ||
       constructorName === 'IceFieldEffect' || constructorName === 'YoungDadaGloryEffect' || constructorName === 'FrenzyYoungDadaGloryEffect' ||
       constructorName === 'DeathlineWarriorEffect' || constructorName === 'JudgmentEffect' || constructorName === 'DivineJudgmentEffect' ||
