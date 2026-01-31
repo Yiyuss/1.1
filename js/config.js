@@ -59,6 +59,7 @@ const CONFIG = {
             JUDGMENT: 'assets/images/A38.png',
             DIVINE_JUDGMENT: 'assets/images/A40.png',
             SIXTH_SENSE: 'assets/images/A41.png',
+            STELLAR_FIELD: 'assets/images/A49.png',
             BAGUETTE_THROW: 'assets/images/A42.png',
             PINEAPPLE_ORBIT: 'assets/images/A44.png',
             ADRENALINE: 'assets/images/A46.png',
@@ -115,6 +116,30 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "場域範圍提升（+70px）" },
                 { COUNT: 1, DESCRIPTION: "場域範圍提升（+80px）" },
                 { COUNT: 1, DESCRIPTION: "場域範圍提升（+90px）" }
+            ]
+        },
+        // 恆星領域（厄倫蒂兒專屬）：常駐場域，與守護領域持續特效邏輯相同，範圍內不造成傷害、僅緩速
+        STELLAR_FIELD: {
+            NAME: "恆星領域",
+            DAMAGE: 0,
+            COOLDOWN: 1000,
+            PROJECTILE_SPEED: 0,
+            FIELD_RADIUS: 100,
+            FIELD_RADIUS_PER_LEVEL: 20,
+            SLOW_PCT_BASE: 5,
+            SLOW_PCT_PER_LEVEL: 5,
+            VISUAL_SCALE: 1.95,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "在腳底生成恆星領域，範圍內緩速5%（範圍100）" },
+                { COUNT: 1, DESCRIPTION: "範圍+20px、緩速+5%" },
+                { COUNT: 1, DESCRIPTION: "範圍+40px、緩速+5%" },
+                { COUNT: 1, DESCRIPTION: "範圍+60px、緩速+5%" },
+                { COUNT: 1, DESCRIPTION: "範圍+80px、緩速+5%" },
+                { COUNT: 1, DESCRIPTION: "範圍+100px、緩速+5%" },
+                { COUNT: 1, DESCRIPTION: "範圍+120px、緩速+5%" },
+                { COUNT: 1, DESCRIPTION: "範圍+140px、緩速+5%" },
+                { COUNT: 1, DESCRIPTION: "範圍+160px、緩速+5%" },
+                { COUNT: 1, DESCRIPTION: "範圍+180px、緩速+5%" }
             ]
         },
         SING: {
@@ -1097,14 +1122,14 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10,
-            description: `角色介紹：最喜歡地球的恆星精神體，迷路途中被未知訊號吸引而來。\n專屬技能：施工中`,
+            description: `角色介紹：最喜歡地球的恆星精神體，迷路途中被未知訊號吸引而來。\n專屬技能：恆星領域`,
             avatarImageKey: 'player7-2',
             hudImageKey: 'player7-2',
             spriteImageKey: 'player7',
             levelUpBgKey: 'player7-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: [],
+            exclusiveWeapons: ['STELLAR_FIELD'],
             unlockCost: 10000
         }
     ],
