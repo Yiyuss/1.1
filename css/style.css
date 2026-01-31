@@ -1241,7 +1241,8 @@ body {
     top: clamp(6px, calc(10px * var(--ui-scale)), 10px);
     left: clamp(6px, calc(10px * var(--ui-scale)), 10px);
     width: clamp(48px, calc(96px * var(--ui-scale)), 96px);
-    height: clamp(48px, calc(96px * var(--ui-scale)), 96px);
+    height: auto;
+    aspect-ratio: 452/480;
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.35);
@@ -1251,6 +1252,7 @@ body {
     width: 100%;
     height: 100%;
     display: block;
+    object-fit: contain;
     image-rendering: pixelated;
 }
 
