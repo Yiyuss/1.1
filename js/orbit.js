@@ -22,18 +22,9 @@ class OrbitBall extends Entity {
             this.weaponType = 'ORBIT';
         }
         
-        // 雞腿庇佑、綿羊護體、鳳梨環繞、旋轉鬆餅和心意相隨：改為單次碰撞傷害（移除持續傷害，避免BOSS被秒殺）
-        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION' || this.weaponType === 'STELLAR_ORBIT') {
-            // 單次碰撞傷害模式：每個敵人只造成一次傷害，然後有冷卻時間
-            this.collisionCooldown = new Map(); // 記錄每個敵人的最後碰撞時間
-            this.collisionCooldownMs = 500; // 每個敵人500ms內只能受到一次傷害
-            this.singleHitDamage = Math.max(1, Math.round(this.damage));
-        } else {
-            // 其他武器：保持原來的持續傷害模式（如果有其他使用OrbitBall的武器）
-            this.tickDamage = Math.max(1, Math.round(this.damage));
-            this.tickIntervalMs = 120; // 每0.12秒一次，類似雷射頻率
-            this.tickAccumulator = 0;
-        }
+        this.collisionCooldown = new Map();
+        this.collisionCooldownMs = 500;
+        this.singleHitDamage = Math.max(1, Math.round(this.damage));
         
         this.duration = durationMs;
         this.angularSpeed = angularSpeedRadPerSec; // 弧度/秒
@@ -174,47 +165,6 @@ class OrbitBall extends Entity {
                         this.collisionCooldown.delete(enemyId);
                     }
                 }
-            }
-        } else {
-            // 其他武器（如ORBIT）：保持原來的持續傷害模式
-            this.tickAccumulator += deltaTime;
-            while (this.tickAccumulator >= this.tickIntervalMs) {
-                for (const enemy of Game.enemies) {
-                    if (this.isColliding(enemy)) {
-                        let finalDamage = this.tickDamage;
-                        let isCrit = false;
-                        let lifestealAmount = 0;
-                        if (typeof DamageSystem !== 'undefined') {
-                            const result = DamageSystem.computeHit(this.tickDamage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
-                            finalDamage = result.amount;
-                            isCrit = result.isCrit;
-                            lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
-                        }
-                        
-                        // ✅ MMO 架構：每個玩家都獨立造成傷害，通用單機和MMO
-                        // 單機模式：直接造成傷害
-                        // 多人模式：每個玩家都造成傷害，並發送enemy_damage（用於同步傷害數字）
-                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-                        let isSurvivalMode = false;
-                        try {
-                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                ? GameModeManager.getCurrent()
-                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                    ? ModeManager.getActiveModeId()
-                                    : null);
-                            isSurvivalMode = (activeId === 'survival' || activeId === null);
-                        } catch (_) {}
-                        
-                        // 造成傷害（單機和多人模式都執行）
-                        enemy.takeDamage(finalDamage);
-                        if (typeof DamageNumbers !== 'undefined') {
-                            DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemy.id });
-                        }
-                        
-                        // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再發送 enemy_damage
-                    }
-                }
-                this.tickAccumulator -= this.tickIntervalMs;
             }
         }
 
