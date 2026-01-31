@@ -94,6 +94,11 @@ const TalentSystem = {
             description: '升級可強化旋轉鬆餅的基礎攻擊。',
             cost: 10000
         },
+        pineapple_orbit_boost: {
+            name: '鳳梨環繞強化',
+            description: '升級可強化鳳梨環繞的基礎攻擊。',
+            cost: 10000
+        },
         // 新增：引力強化（增加引力波的推力）
         gravity_wave_boost: {
             name: '引力強化',
@@ -273,6 +278,16 @@ const TalentSystem = {
         },
         // 新增：旋轉鬆餅強化（強化旋轉鬆餅的基礎攻擊：+5/+10/+15/+20/+25/+30）
         rotating_muffin_boost: {
+            levels: [
+                { flat: 5, cost: 10000 },
+                { flat: 10, cost: 20000 },
+                { flat: 15, cost: 30000 },
+                { flat: 20, cost: 40000 },
+                { flat: 25, cost: 50000 },
+                { flat: 30, cost: 60000 }
+            ]
+        },
+        pineapple_orbit_boost: {
             levels: [
                 { flat: 5, cost: 10000 },
                 { flat: 10, cost: 20000 },
@@ -747,6 +762,9 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'rotating_muffin_boost') {
             const flat = eff.flat || 0;
             return `旋轉鬆餅基礎攻擊+${flat}`;
+        } else if (id === 'pineapple_orbit_boost') {
+            const flat = eff.flat || 0;
+            return `鳳梨環繞基礎攻擊+${flat}`;
         } else if (id === 'gravity_wave_boost') {
             const multiplier = eff.pushMultiplier || 0;
             const percent = Math.round(multiplier * 100);
