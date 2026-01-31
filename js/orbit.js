@@ -16,6 +16,8 @@ class OrbitBall extends Entity {
             this.weaponType = 'HEART_COMPANION';
         } else if (imageKey === 'pineapple') {
             this.weaponType = 'PINEAPPLE_ORBIT';
+        } else if (imageKey === 'stellar_orbit') {
+            this.weaponType = 'STELLAR_ORBIT';
         } else {
             this.weaponType = 'ORBIT';
         }
@@ -234,6 +236,8 @@ class OrbitBall extends Entity {
                 actualImageKey = 'A34';
             } else if (this.imageKey === 'pineapple') {
                 actualImageKey = 'A45';
+            } else if (this.imageKey === 'stellar_orbit') {
+                actualImageKey = 'A51';
             }
             for (let i = 0; i < this.trail.length; i++) {
                 const t = this.trail[i];
@@ -248,6 +252,13 @@ class OrbitBall extends Entity {
                         const iw = trailImg.naturalWidth || trailImg.width || 53;
                         const ih = trailImg.naturalHeight || trailImg.height || 100;
                         const aspect = iw / ih; // 53/100
+                        const renderH = s;
+                        const renderW = Math.max(1, Math.floor(renderH * aspect));
+                        ctx.drawImage(trailImg, t.x - renderW / 2, t.y - renderH / 2, renderW, renderH);
+                    } else if (this.weaponType === 'STELLAR_ORBIT') {
+                        const iw = trailImg.naturalWidth || trailImg.width || 100;
+                        const ih = trailImg.naturalHeight || trailImg.height || 98;
+                        const aspect = iw / ih;
                         const renderH = s;
                         const renderW = Math.max(1, Math.floor(renderH * aspect));
                         ctx.drawImage(trailImg, t.x - renderW / 2, t.y - renderH / 2, renderW, renderH);
@@ -270,6 +281,8 @@ class OrbitBall extends Entity {
             actualImageKey = 'A34';
         } else if (this.imageKey === 'pineapple') {
             actualImageKey = 'A45';
+        } else if (this.imageKey === 'stellar_orbit') {
+            actualImageKey = 'A51';
         }
         const img = (Game.images && Game.images[actualImageKey]) ? Game.images[actualImageKey] : null;
         if (img && img.complete && (img.naturalWidth > 0 || img.width > 0)) {
@@ -278,6 +291,13 @@ class OrbitBall extends Entity {
                 const iw = img.naturalWidth || img.width || 53;
                 const ih = img.naturalHeight || img.height || 100;
                 const aspect = iw / ih; // 53/100
+                const renderH = size;
+                const renderW = Math.max(1, Math.floor(renderH * aspect));
+                ctx.drawImage(img, this.x - renderW / 2, this.y - renderH / 2, renderW, renderH);
+            } else if (this.weaponType === 'STELLAR_ORBIT') {
+                const iw = img.naturalWidth || img.width || 100;
+                const ih = img.naturalHeight || img.height || 98;
+                const aspect = iw / ih;
                 const renderH = size;
                 const renderW = Math.max(1, Math.floor(renderH * aspect));
                 ctx.drawImage(img, this.x - renderW / 2, this.y - renderH / 2, renderW, renderH);
