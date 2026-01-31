@@ -274,9 +274,9 @@ const CONFIG = {
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
-            PROJECTILE_SIZE_PER_LEVEL: 2,
+            PROJECTILE_SIZE_PER_LEVEL: 4, // 炫球類：每升1級體積增量2倍（原2→4）
             ORBIT_RADIUS: 60,
-            ORBIT_RADIUS_PER_LEVEL: 10,
+            ORBIT_RADIUS_PER_LEVEL: 20, // 炫球類：每升1級半徑增量2倍（原10→20）
             DURATION: 3000, // 3秒持續
             ANGULAR_SPEED: 6.283, // 約1圈/秒
             LEVELS: [
@@ -294,9 +294,9 @@ const CONFIG = {
             COOLDOWN: 4000, // 與綿羊護體相同
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20, // 與綿羊護體相同
-            PROJECTILE_SIZE_PER_LEVEL: 2, // 與綿羊護體相同
+            PROJECTILE_SIZE_PER_LEVEL: 4, // 炫球類：每升1級體積增量2倍
             ORBIT_RADIUS: 60,
-            ORBIT_RADIUS_PER_LEVEL: 10,
+            ORBIT_RADIUS_PER_LEVEL: 20, // 炫球類：每升1級半徑增量2倍
             DURATION: 3000, // 3秒持續
             ANGULAR_SPEED: 6.283, // 約1圈/秒
             LEVELS: [
@@ -313,9 +313,9 @@ const CONFIG = {
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
-            PROJECTILE_SIZE_PER_LEVEL: 2,
+            PROJECTILE_SIZE_PER_LEVEL: 4, // 炫球類：每升1級體積增量2倍
             ORBIT_RADIUS: 60,
-            ORBIT_RADIUS_PER_LEVEL: 10,
+            ORBIT_RADIUS_PER_LEVEL: 20, // 炫球類：每升1級半徑增量2倍
             DURATION: 3000, // 3秒持續
             ANGULAR_SPEED: 6.283, // 約1圈/秒
             LEVELS: [
@@ -450,9 +450,9 @@ const CONFIG = {
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
-            PROJECTILE_SIZE_PER_LEVEL: 2,
+            PROJECTILE_SIZE_PER_LEVEL: 4, // 炫球類：每升1級體積增量2倍
             ORBIT_RADIUS: 60,
-            ORBIT_RADIUS_PER_LEVEL: 10,
+            ORBIT_RADIUS_PER_LEVEL: 20, // 炫球類：每升1級半徑增量2倍
             DURATION: 3000, // 3秒持續
             ANGULAR_SPEED: 6.283, // 約1圈/秒
             LEVELS: [
@@ -469,9 +469,9 @@ const CONFIG = {
             COOLDOWN: 4000,
             PROJECTILE_SPEED: 0,
             PROJECTILE_SIZE: 20,
-            PROJECTILE_SIZE_PER_LEVEL: 2,
+            PROJECTILE_SIZE_PER_LEVEL: 4, // 炫球類：每升1級體積增量2倍
             ORBIT_RADIUS: 60,
-            ORBIT_RADIUS_PER_LEVEL: 10,
+            ORBIT_RADIUS_PER_LEVEL: 20, // 炫球類：每升1級半徑增量2倍
             DURATION: 3000, // 3秒持續
             ANGULAR_SPEED: 6.283, // 約1圈/秒
             LEVELS: [
