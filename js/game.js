@@ -1495,6 +1495,7 @@ const Game = {
                     isAICompanion ||
                     (projectile.constructor && (
                         projectile.constructor.name === 'AuraField' ||
+                        projectile.constructor.name === 'StellarField' ||
                         projectile.constructor.name === 'GravityWaveField' ||
                         projectile.constructor.name === 'OrbitBall' ||
                         projectile.constructor.name === 'LaserBeam' ||
@@ -1708,6 +1709,12 @@ const Game = {
                             // ⚠️ 注意：AURA_FIELD 是常駐場域，沒有 duration（永久存在直到武器被移除）
                             // 但為了與單機一致，我們只在首次創建時廣播，之後的更新不廣播（避免重複創建）
                             // 這裡的廣播邏輯由去重機制處理（在 survival_online.js 中檢查是否已存在）
+                        }
+                        // 組隊模式：恆星領域（與守護領域同為常駐場域，僅廣播視覺與緩速參數）
+                        if (projectile.weaponType === "STELLAR_FIELD") {
+                            projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.STELLAR_FIELD ? CONFIG.WEAPONS.STELLAR_FIELD.FIELD_RADIUS : 100);
+                            projectileData.visualScale = projectile.visualScale || 1.95;
+                            projectileData.slowFactor = (typeof projectile.slowFactor === 'number') ? projectile.slowFactor : 0.95;
                         }
                         
                         if (projectile.weaponType === "GRAVITY_WAVE") {
@@ -2023,6 +2030,12 @@ const Game = {
                         projectileData.damage = projectile.tickDamage || projectile.damage || 0; // ✅ 传递持续伤害值
                         projectileData.radius = projectile.radius || 60; // ✅ 與單機一致：使用 CONFIG.AURA_FIELD.FIELD_RADIUS（60）
                         projectileData.visualScale = projectile.visualScale || 1.95; // ✅ 與單機一致：使用 CONFIG.AURA_FIELD.VISUAL_SCALE（1.95）
+                    }
+                    // 組隊模式：如果是恆星領域（StellarField），添加額外屬性（與守護領域同結構）
+                    if (projectile.weaponType === "STELLAR_FIELD") {
+                        projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.STELLAR_FIELD ? CONFIG.WEAPONS.STELLAR_FIELD.FIELD_RADIUS : 100);
+                        projectileData.visualScale = projectile.visualScale || 1.95;
+                        projectileData.slowFactor = (typeof projectile.slowFactor === 'number') ? projectile.slowFactor : 0.95;
                     }
 
                     // 如果是重力波（GravityWaveField），添加額外屬性
