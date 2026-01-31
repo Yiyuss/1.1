@@ -227,7 +227,7 @@
             const p = Game.projectiles[i];
             if (!p) continue;
             const wt = p.weaponType;
-            if (wt === 'GRAVITY_WAVE' || wt === 'AURA_FIELD' || wt === 'ORBIT' || wt === 'CHICKEN_BLESSING' || wt === 'ROTATING_MUFFIN' || wt === 'HEART_COMPANION' || wt === 'PINEAPPLE_ORBIT' || wt === 'LASER' || wt === 'RADIANT_GLORY') {
+            if (wt === 'GRAVITY_WAVE' || wt === 'AURA_FIELD' || wt === 'STELLAR_FIELD' || wt === 'ORBIT' || wt === 'CHICKEN_BLESSING' || wt === 'ROTATING_MUFFIN' || wt === 'HEART_COMPANION' || wt === 'PINEAPPLE_ORBIT' || wt === 'LASER' || wt === 'RADIANT_GLORY') {
               try { if (typeof p.destroy === 'function') p.destroy(); } catch(_){}
               Game.projectiles.splice(i, 1);
             }
