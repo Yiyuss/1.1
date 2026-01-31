@@ -1165,10 +1165,11 @@ class Player extends Entity {
         this.height = Math.floor(this.height * sizeMultiplier);
         this.collisionRadius = Math.max(this.width, this.height) / 2;
         
-        // 啟用武器，全部LV10（使用角色特定配置或預設配置）
+        // 啟用武器，全部設為該技能最高級（若技能僅5級則為LV5，否則為LV10）
         this.weapons = ultimateWeapons.map(type => {
             const w = new Weapon(this, type);
-            w.level = CONFIG.ULTIMATE.ULTIMATE_LEVEL;
+            const maxLv = w.config.LEVELS.length;
+            w.level = Math.min(CONFIG.ULTIMATE.ULTIMATE_LEVEL, maxLv);
             w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
             return w;
         });
@@ -1375,10 +1376,11 @@ class Player extends Entity {
         }
         // 組隊模式下，體型由伺服器同步（handleServerGameState 會處理）
         
-        // 恢復原本武器與等級
+        // 恢復原本武器與等級（等級以該技能 LEVELS 長度為上限，避免炫球類改為5級後備份仍為10導致越界）
         this.weapons = this._ultimateBackup.weapons.map(info => {
             const w = new Weapon(this, info.type);
-            w.level = info.level;
+            const maxLv = w.config.LEVELS.length;
+            w.level = Math.min(info.level, maxLv);
             w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
             return w;
         });
