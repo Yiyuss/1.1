@@ -1466,6 +1466,7 @@ const Game = {
                     projectile.weaponType === 'STELLAR_FIELD' ||
                     projectile.weaponType === 'GRAVITY_WAVE' ||
                     projectile.weaponType === 'ORBIT' ||
+                    projectile.weaponType === 'STELLAR_ORBIT' ||
                     projectile.weaponType === 'CHICKEN_BLESSING' ||
                     projectile.weaponType === 'ROTATING_MUFFIN' ||
                     projectile.weaponType === 'HEART_COMPANION' ||
@@ -1807,6 +1808,7 @@ const Game = {
                         projectile.weaponType === 'STELLAR_FIELD' ||
                         projectile.weaponType === 'GRAVITY_WAVE' ||
                         projectile.weaponType === 'ORBIT' ||
+                        projectile.weaponType === 'STELLAR_ORBIT' ||
                         projectile.weaponType === 'CHICKEN_BLESSING' ||
                         projectile.weaponType === 'ROTATING_MUFFIN' ||
                         projectile.weaponType === 'HEART_COMPANION' ||
