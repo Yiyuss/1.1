@@ -542,7 +542,7 @@ class GameState {
     // 迴避判定（由 client 計算最終 dodgeRate 並送到 meta）
     if (!ignoreDodge) {
       const r = player.meta && typeof player.meta.dodgeRate === 'number' ? player.meta.dodgeRate : 0;
-      const rate = Math.max(0, Math.min(0.95, r));
+      const rate = Math.max(0, Math.min(1, r));
       if (rate > 0 && Math.random() < rate) {
         // 这是正常情况（回避），不需要警告
         return;
@@ -899,7 +899,7 @@ class GameState {
         // ✅ 單機同源：同步本地玩家的防禦/迴避/無敵/爆擊率等最終值（避免多人「被連打秒死」）
         try {
           if (!player.meta) player.meta = {};
-          if (typeof input.dodgeRate === 'number') player.meta.dodgeRate = Math.max(0, Math.min(0.95, input.dodgeRate));
+          if (typeof input.dodgeRate === 'number') player.meta.dodgeRate = Math.max(0, Math.min(1, input.dodgeRate));
           if (typeof input.damageReductionFlat === 'number') player.meta.damageReductionFlat = Math.max(0, Math.floor(input.damageReductionFlat));
           if (typeof input.invulnerabilityDurationMs === 'number') player.meta.invulnerabilityDurationMs = Math.max(0, Math.floor(input.invulnerabilityDurationMs));
           if (typeof input.skillInvulnerableUntil === 'number') player.skillInvulnerableUntil = Math.max(0, Math.floor(input.skillInvulnerableUntil));
