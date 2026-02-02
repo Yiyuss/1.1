@@ -659,6 +659,7 @@ const UI = {
     getUpgradeOptions: function() {
         const options = [];
         const player = Game.player;
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
 
         // 在大招期間，升級選項基於「大招前的武器狀態」生成，避免因LV10臨時武器導致無選項
         // 安全檢查：確保 _ultimateBackup 存在且是有效的陣列，且玩家確實在大招狀態
@@ -737,7 +738,7 @@ const UI = {
         }
 
         // 新武器選項（基於來源狀態判定）
-        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'STELLAR_ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'STELLAR_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'SIXTH_SENSE', 'BAGUETTE_THROW', 'PINEAPPLE_ORBIT', 'ADRENALINE', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST', 'HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION', 'JUDGMENT', 'SUMMON_AI'];
+        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'STELLAR_ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'STELLAR_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'SIXTH_SENSE', 'PON', 'BAGUETTE_THROW', 'PINEAPPLE_ORBIT', 'ADRENALINE', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST', 'HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION', 'JUDGMENT', 'SUMMON_AI'];
         // 檢查角色專屬技能（使用上面已定義的 exclusiveWeapons 和 allExclusiveWeapons）
         const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
         // 使用上面已定義的 hasDeathlineSuperman 和 hasRadiantGlory（避免重複定義）
@@ -748,6 +749,7 @@ const UI = {
             if (allExclusiveWeapons.has(weaponType) && !exclusiveWeapons.has(weaponType)) {
                 continue; // 其他角色的專屬技能，當前角色不可見
             }
+            // PON：不隱藏於多人模式（與抽象化/第六感一致）
             // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
             // 檢查召喚AI LV2：如果已合成召喚AI LV2，則隱藏連鎖閃電的新增選項
             const hasSummonAILv2ForNew = sourceWeaponsInfo.some(w => w.type === 'SUMMON_AI' && typeof w.level === 'number' && w.level >= 2);
