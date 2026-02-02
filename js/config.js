@@ -60,6 +60,7 @@ const CONFIG = {
             JUDGMENT: 'assets/images/A38.png',
             DIVINE_JUDGMENT: 'assets/images/A40.png',
             SIXTH_SENSE: 'assets/images/A41.png',
+            PON: 'assets/images/A52.png',
             STELLAR_FIELD: 'assets/images/A49.png',
             BAGUETTE_THROW: 'assets/images/A42.png',
             PINEAPPLE_ORBIT: 'assets/images/A44.png',
@@ -840,6 +841,24 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "25%迴避傷害" }
             ]
         },
+        PON: {
+            NAME: "PON",
+            DAMAGE: 0,
+            COOLDOWN: 0,
+            DODGE_RATES: [0.10, 0.13, 0.16, 0.19, 0.22, 0.25, 0.28, 0.31, 0.35, 0.40],
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "10%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "13%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "16%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "19%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "22%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "25%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "28%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "31%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "35%迴避傷害" },
+                { COUNT: 1, DESCRIPTION: "40%迴避傷害" }
+            ]
+        },
         // 融合技能：狂熱大波（持有並滿級 應援棒(DAGGER) 與 大波球(BIG_ICE_BALL) 後可獲得）
         FRENZY_ICE_BALL: {
             NAME: "狂熱大波",
@@ -1117,14 +1136,14 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10,
-            description: `角色介紹：最喜歡地球的恆星精神體，迷路途中被未知訊號吸引而來。\n專屬技能：恆星領域、星體軌跡`,
+            description: `角色介紹：最喜歡地球的恆星精神體，迷路途中被未知訊號吸引而來。\n專屬技能：恆星領域、星體軌跡、PON`,
             avatarImageKey: 'player7-2',
             hudImageKey: 'player7-2',
             spriteImageKey: 'player7',
             levelUpBgKey: 'player7-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: ['STELLAR_FIELD', 'STELLAR_ORBIT'],
+            exclusiveWeapons: ['STELLAR_FIELD', 'STELLAR_ORBIT', 'PON'],
             unlockCost: 10000
         }
     ],
