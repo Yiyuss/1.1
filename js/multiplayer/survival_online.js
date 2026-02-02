@@ -2955,11 +2955,11 @@ const Runtime = (() => {
       const metaDue = (now - tick._lastMetaAt) >= 500;
       if (metaDue && typeof Game !== "undefined" && Game.player) {
         const p = Game.player;
-        // 依單機 takeDamage 的公式計算「最終迴避率」（含：技能 ABSTRACTION/SIXTH_SENSE + 天賦 + 角色基礎 + 模式上限）
+        // 依單機 takeDamage 的公式計算「最終迴避率」（含：技能 ABSTRACTION/SIXTH_SENSE/PON + 天賦 + 角色基礎）
         let weaponDodgeRate = 0;
         try {
           if (p.weapons && Array.isArray(p.weapons)) {
-            const passiveDodgeTypes = ["ABSTRACTION", "SIXTH_SENSE"];
+            const passiveDodgeTypes = ["ABSTRACTION", "SIXTH_SENSE", "PON"];
             for (const t of passiveDodgeTypes) {
               const wpn = p.weapons.find(w => w && w.type === t);
               if (wpn && wpn.config && Array.isArray(wpn.config.DODGE_RATES)) {
@@ -2972,18 +2972,7 @@ const Runtime = (() => {
         const talentDodgeRate = p.dodgeTalentRate || 0;
         const characterDodgeRate = p._characterBaseDodgeRate || 0;
         const totalDodgeRate = weaponDodgeRate + talentDodgeRate + characterDodgeRate;
-        let finalDodgeRate = totalDodgeRate;
-        try {
-          const isSurvival = (typeof Game !== "undefined" && Game.mode === "survival");
-          const isDada = !!(p.character && p.character.id === "dada");
-          if (isSurvival) {
-            finalDodgeRate = isDada ? Math.min(0.40, totalDodgeRate) : Math.min(0.15, talentDodgeRate + characterDodgeRate);
-          } else {
-            finalDodgeRate = Math.min(0.15, talentDodgeRate + characterDodgeRate);
-          }
-        } catch (_) {
-          finalDodgeRate = Math.min(0.15, talentDodgeRate + characterDodgeRate);
-        }
+        const finalDodgeRate = Math.max(0, Math.min(1, totalDodgeRate));
 
         const baseDef = p.baseDefense || 0;
         const talentDef = p.damageReductionFlat || 0;
@@ -3038,7 +3027,7 @@ const Runtime = (() => {
 
         const meta = {
           type: "player-meta",
-          dodgeRate: Math.max(0, Math.min(0.95, finalDodgeRate)),
+          dodgeRate: Math.max(0, Math.min(1, finalDodgeRate)),
           damageReductionFlat: reduction,
           invulnerabilityDurationMs: invulnMs,
           skillInvulnerableUntil,
