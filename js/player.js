@@ -597,7 +597,7 @@ class Player extends Entity {
             let weaponDodgeRate = 0;
             if (this.weapons && Array.isArray(this.weapons)) {
                 // 抽象化（灰妲）與第六感（鳳梨）邏輯相同：讀取各自 DODGE_RATES
-                const passiveDodgeTypes = ['ABSTRACTION', 'SIXTH_SENSE'];
+                const passiveDodgeTypes = ['ABSTRACTION', 'SIXTH_SENSE', 'PON'];
                 passiveDodgeTypes.forEach(t => {
                     const wpn = this.weapons.find(w => w && w.type === t);
                     if (wpn && wpn.config && Array.isArray(wpn.config.DODGE_RATES)) {
@@ -613,21 +613,8 @@ class Player extends Entity {
             const characterDodgeRate = this._characterBaseDodgeRate || 0;
             const totalDodgeRate = weaponDodgeRate + talentDodgeRate + characterDodgeRate;
             
-            // 計算總迴避率（生存模式：灰妲最高40%，其他角色15%；其他模式：所有角色15%）
-            // 注意：抽象化技能只在生存模式存在，所以其他模式只會有天賦迴避
-            let finalDodgeRate = totalDodgeRate;
-            if (typeof Game !== 'undefined' && Game.mode === 'survival') {
-                // 生存模式：灰妲最高40%（25%抽象化+15%天賦），其他角色15%（天賦）
-                const isDada = (this.character && this.character.id === 'dada');
-                if (isDada) {
-                    finalDodgeRate = Math.min(0.40, totalDodgeRate);
-                } else {
-                    finalDodgeRate = Math.min(0.15, talentDodgeRate + characterDodgeRate);
-                }
-            } else {
-                // 其他模式：所有角色最高15%（天賦 + 角色基礎迴避）
-                finalDodgeRate = Math.min(0.15, talentDodgeRate + characterDodgeRate);
-            }
+            // 計算最終迴避率（無上限，僅在比較時限制到100%）
+            const finalDodgeRate = Math.max(0, Math.min(1, totalDodgeRate));
             
             if (finalDodgeRate > 0 && Math.random() < finalDodgeRate) {
                 // 回避成功，不造成傷害
