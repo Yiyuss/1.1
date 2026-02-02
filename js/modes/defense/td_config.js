@@ -464,8 +464,7 @@ class TDGameState {
                 dodgeRate += sc.dodgeChanceBonusPct;
             }
         } catch(_){}
-        // 防禦模式：所有角色最高15%
-        dodgeRate = Math.min(0.15, dodgeRate);
+        dodgeRate = Math.max(0, Math.min(1, dodgeRate));
         
         if (dodgeRate > 0 && Math.random() < dodgeRate) {
             // 回避成功，不造成傷害
