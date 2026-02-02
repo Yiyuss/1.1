@@ -67,7 +67,9 @@ const UI = {
         this._currentUpgradeOptions = [];
         this._heldOptionIndex = null;
         this._pendingOptionIndex = null;
-        this._actionsBound = false;
+        if (typeof this._actionsBound !== 'boolean') {
+            this._actionsBound = false;
+        }
         // ✅ 组队模式：升级队列（用于处理连续升级时不覆盖前一个升级菜单）
         this._pendingLevelUps = [];
         // 依天賦等級擴充升級選單的操作次數（不改文字與版面）
