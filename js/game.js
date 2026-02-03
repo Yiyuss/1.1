@@ -2705,6 +2705,10 @@ const Game = {
             }
         } catch (_) { }
 
+        if (this.player && typeof this.player.clearWeapons === 'function') {
+            try { this.player.clearWeapons(); } catch (_) { }
+        }
+
         // 重置遊戲狀態
         this.enemies = [];
         // ⚠️ 修复：在清理 projectiles 之前，先清理所有车辆（INTERSECTION_CAR）
