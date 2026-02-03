@@ -289,10 +289,24 @@ const BuffSystem = {
         }
     },
     
+    clearDerivedCombatStats: function(player) {
+        if (!player) return;
+        player.damageTalentBaseBonusPct = 0;
+        player.damageSpecializationFlat = 0;
+        player.damageAttributeBonusPct = 0;
+        player.attackPowerUpgradeFlat = 0;
+        player.critChanceUpgradeBonusPct = 0;
+        player.critChanceBonusPct = 0;
+        player.dodgeTalentRate = 0;
+        player.healthRegenSpeedMultiplier = 1.0;
+        player._heartConnectionRegenMultiplier = 1.0;
+    },
+    
     // 從天賦系統應用buff（使用本地天賦系統）
     applyBuffsFromTalents: function(player) {
         if (!player) return;
         try {
+            this.clearDerivedCombatStats(player);
             const hpLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                 ? TalentSystem.getTalentLevel('hp_boost') : 0;
             const defLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
@@ -392,6 +406,7 @@ const BuffSystem = {
     applyBuffsFromTalentLevels: function(player, talentLevels) {
         if (!player || !talentLevels || typeof talentLevels !== 'object') return;
         try {
+            this.clearDerivedCombatStats(player);
             const hpLv = parseInt(talentLevels.hp_boost || 0, 10) || 0;
             const defLv = parseInt(talentLevels.defense_boost || 0, 10) || 0;
             const spdLv = parseInt(talentLevels.speed_boost || 0, 10) || 0;
