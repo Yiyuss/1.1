@@ -415,8 +415,10 @@ const UI = {
                 const start = this._get('start-screen'); if (start) start.classList.remove('hidden');
                 
                 // 然後顯示房間大廳覆蓋層（會蓋在開始畫面上方）
-                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
-                    window.SurvivalOnlineUI.openLobbyScreen();
+                if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                    if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
+                        window.SurvivalOnlineUI.openLobbyScreen();
+                    }
                 }
                 
                 // 確保結束目前模式並釋放其事件
