@@ -205,15 +205,22 @@ class DivineJudgmentEffect extends Entity {
             }
         }
         
-        // ✅ 組隊模式：發送一次 aoe_tick（範圍傷害，伺服器會計算範圍內所有敵人）
+        // ✅ 組隊模式：發送一次 aoe_tick（範圍傷害，附帶目標ID避免位置抖動）
         if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
             if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                const enemyIds = [];
+                for (const e of enemies) {
+                    if (!e || e.markedForDeletion || e.health <= 0) continue;
+                    const d = Utils.distance(x, y, e.x, e.y);
+                    if (d <= this.aoeRadius) enemyIds.push(e.id);
+                }
                 window.SurvivalOnlineRuntime.sendToNet({
                     type: 'aoe_tick',
                     weaponType: this.weaponType || 'DIVINE_JUDGMENT',
                     x: x,
                     y: y,
                     radius: this.aoeRadius,
+                    enemyIds: enemyIds.length ? enemyIds : undefined,
                     damage: baseDamage,
                     allowCrit: true,
                     critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
@@ -527,5 +534,4 @@ class DivineJudgmentEffect extends Entity {
         this.markedForDeletion = true;
     }
 }
-
 
