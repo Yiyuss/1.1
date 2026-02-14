@@ -3001,6 +3001,8 @@ const Runtime = (() => {
 
     _sendViaWebSocket({
       type: "move",
+      x: Game.player.x,
+      y: Game.player.y,
       vx,
       vy,
       deltaTime: dt
