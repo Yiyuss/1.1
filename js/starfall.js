@@ -209,7 +209,10 @@ class StarfallEffect extends Entity {
             }
         }
         
-        for (const enemy of enemies) {
+        const candidates = (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function')
+            ? Game.getEnemiesNearCircle(sword.targetX, sword.targetY, this.aoeRadius)
+            : enemies;
+        for (const enemy of candidates) {
             if (!enemy || enemy.markedForDeletion || enemy.health <= 0) continue;
             if (processedEnemies.has(enemy)) continue;
             
