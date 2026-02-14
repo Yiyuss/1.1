@@ -418,6 +418,7 @@ class SlashEffect extends Entity {
 
     _updateDomPositions() {
         if ((!this._domEls.length && !this._hitDomEls.length) || !this._domLayer) return;
+        if (this._lastDomUpdateAt && (Date.now() - this._lastDomUpdateAt) < 33) return;
         const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
         if (!canvas) return;
         const rect = canvas.getBoundingClientRect();
@@ -431,16 +432,25 @@ class SlashEffect extends Entity {
             let sx = (this.player.x + Math.cos(this.angle) * (this.overlayOffset || 60)) - camX;
             let sy = (this.player.y + Math.sin(this.angle) * (this.overlayOffset || 60)) - camY;
             if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
-            item.el.style.left = sx + 'px';
-            item.el.style.top = sy + 'px';
+            const leftPx = Math.round(sx);
+            const topPx = Math.round(sy);
+            if (item._lastLeft !== leftPx) { item.el.style.left = leftPx + 'px'; item._lastLeft = leftPx; }
+            if (item._lastTop !== topPx) { item.el.style.top = topPx + 'px'; item._lastTop = topPx; }
             // 角度可能隨玩家方向改變（保持一致即可）
-            item.el.style.transform = 'translate(-50%, -50%) rotate(' + this.angle + 'rad)';
+            if (item._lastAngle !== this.angle) {
+                item.el.style.transform = 'translate(-50%, -50%) rotate(' + this.angle + 'rad)';
+                item._lastAngle = this.angle;
+            }
             // 尺寸隨半徑變化（維持 192x250 比例）
             const heightPx = Math.max(56, this.radius * 0.75) * this.visualScale;
             const ratio = (this.overlayAspectW || 192) / (this.overlayAspectH || 250);
             const widthPx = Math.max(1, Math.floor(heightPx * ratio));
-            item.el.style.width = widthPx + 'px';
-            item.el.style.height = heightPx + 'px';
+            const dimsKey = (widthPx << 8) + Math.floor(heightPx);
+            if (item._lastDimsKey !== dimsKey) {
+                item.el.style.width = widthPx + 'px';
+                item.el.style.height = heightPx + 'px';
+                item._lastDimsKey = dimsKey;
+            }
         }
         for (const item of this._hitDomEls) {
             const enemy = item.enemy;
@@ -450,9 +460,12 @@ class SlashEffect extends Entity {
             let sx = ex - camX;
             let sy = ey - camY;
             if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
-            item.el.style.left = sx + 'px';
-            item.el.style.top = sy + 'px';
+            const leftPx = Math.round(sx);
+            const topPx = Math.round(sy);
+            if (item._lastLeft !== leftPx) { item.el.style.left = leftPx + 'px'; item._lastLeft = leftPx; }
+            if (item._lastTop !== topPx) { item.el.style.top = topPx + 'px'; item._lastTop = topPx; }
         }
+        this._lastDomUpdateAt = Date.now();
     }
 
     _destroyDom() {
