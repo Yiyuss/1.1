@@ -298,11 +298,10 @@ class ChainLightningEffect extends Entity {
                                     y: target.y,
                                     radius: 1,
                                     enemyIds: [target.id],
-                            enemyIds: [target.id],
                                     damage: finalDamage,
                                     allowCrit: true,
                                     critChanceBonusPct: critChance
-                            }
+                                });
                         }
                     }
                     // 多人模式：傷害由伺服器 hitEvents 返回傷害數字
@@ -745,13 +744,13 @@ class FrenzyLightningEffect extends Entity {
                                 const critChance = (isLocalPlayerAI && this.player && this.player.critChanceBonusPct != null) 
                                     ? this.player.critChanceBonusPct 
                                     : ((this.player && this.player.critChanceBonusPct) || 0);
-                        window.SurvivalOnlineRuntime.sendToNet({
+                                window.SurvivalOnlineRuntime.sendToNet({
                                     type: 'aoe_tick',
                                     weaponType: this.weaponType || 'CHAIN_LIGHTNING',
                                     x: target.x,
                                     y: target.y,
-                            radius: 1,
-                            enemyIds: [target.id],
+                                    radius: 1,
+                                    enemyIds: [target.id],
                                     damage: finalDamage,
                                     allowCrit: true,
                                     critChanceBonusPct: critChance
