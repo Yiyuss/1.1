@@ -132,7 +132,8 @@ class ShockwaveEffect extends Entity {
                             weaponType: this.weaponType || 'MIND_MAGIC',
                             x: enemy.x,
                             y: enemy.y,
-                            radius: 1, // 很小的半徑，只命中目標敵人（因為每個敵人只受一次傷害）
+                            radius: 1,
+                            enemyIds: [enemy.id],
                             damage: finalDamage,
                             allowCrit: true,
                             critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
