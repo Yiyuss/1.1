@@ -311,12 +311,13 @@ class ExplosionEffect extends Entity {
         
         const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
         if (!canvas) return;
+        const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
         const rect = canvas.getBoundingClientRect();
-        const scaleX = rect.width / canvas.width;
-        const scaleY = rect.height / canvas.height;
-        const camX = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0;
-        const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
-        const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+        const scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+        const scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+        const camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+        const camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+        const rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
         
         for (const hit of this.hitEnemies) {
             if (!hit || !hit.domEl) continue;
