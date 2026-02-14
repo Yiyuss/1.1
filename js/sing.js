@@ -80,14 +80,14 @@ class SingEffect extends Entity {
         const el = this.el; if (!el || !this._layer) return;
         if (this._lastDomUpdateAt && (Date.now() - this._lastDomUpdateAt) < 33) return;
         try {
+            const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
             const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
             if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = rect.width / canvas.width;
-            const scaleY = rect.height / canvas.height;
-            const camX = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0;
-            const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
-            const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+            const scaleX = vm ? vm.scaleX : (canvas.getBoundingClientRect().width / canvas.width);
+            const scaleY = vm ? vm.scaleY : (canvas.getBoundingClientRect().height / canvas.height);
+            const camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+            const camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+            const rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
 
             // ✅ 修復：參考無敵技能的處理方式，使用 this.x 和 this.y 而不是 this.player.x 和 this.player.y
             // 問題：當玩家靠近邊界時，this.player.x 和 this.player.y 可能沒有及時更新，導致位置計算錯誤
@@ -102,6 +102,10 @@ class SingEffect extends Entity {
                 sx = (this.x - camX) * scaleX;
                 sy = (this.y - camY) * scaleY - (this.offsetY || -250);
             }
+            const vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+            const vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            const margin = 128;
+            if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) return;
 
             const leftPx = Math.round(sx);
             const topPx = Math.round(sy);
