@@ -123,8 +123,7 @@ class SlashEffect extends Entity {
                             weaponType: this.weaponType || 'SLASH',
                             x: enemy.x,
                             y: enemy.y,
-                            radius: 1,
-                            enemyIds: [enemy.id],
+                            radius: 1, // 很小的半徑，只命中目標敵人
                             damage: finalDamage,
                             allowCrit: true,
                             critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
