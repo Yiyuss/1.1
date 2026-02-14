@@ -296,11 +296,12 @@ class ChainLightningEffect extends Entity {
                                     weaponType: this.weaponType || 'CHAIN_LIGHTNING',
                                     x: target.x,
                                     y: target.y,
-                                    radius: 1, // 很小的半徑，只命中目標敵人
+                                    radius: 1,
+                                    enemyIds: [target.id],
+                            enemyIds: [target.id],
                                     damage: finalDamage,
                                     allowCrit: true,
                                     critChanceBonusPct: critChance
-                                });
                             }
                         }
                     }
@@ -744,12 +745,13 @@ class FrenzyLightningEffect extends Entity {
                                 const critChance = (isLocalPlayerAI && this.player && this.player.critChanceBonusPct != null) 
                                     ? this.player.critChanceBonusPct 
                                     : ((this.player && this.player.critChanceBonusPct) || 0);
-                                window.SurvivalOnlineRuntime.sendToNet({
+                        window.SurvivalOnlineRuntime.sendToNet({
                                     type: 'aoe_tick',
                                     weaponType: this.weaponType || 'CHAIN_LIGHTNING',
                                     x: target.x,
                                     y: target.y,
-                                    radius: 1, // 很小的半徑，只命中目標敵人
+                            radius: 1,
+                            enemyIds: [target.id],
                                     damage: finalDamage,
                                     allowCrit: true,
                                     critChanceBonusPct: critChance
