@@ -145,8 +145,21 @@ class GravityWaveField extends Entity {
                         if (typeof DamageNumbers !== 'undefined') {
                             DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemy.id });
                         }
+                    } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                            window.SurvivalOnlineRuntime.sendToNet({
+                                type: 'aoe_tick',
+                                weaponType: this.weaponType || 'GRAVITY_WAVE',
+                                x: enemy.x,
+                                y: enemy.y,
+                                radius: 1,
+                                enemyIds: [enemy.id],
+                                damage: finalDamage,
+                                allowCrit: true,
+                                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                            });
+                        }
                     }
-                    // 多人模式：傷害由 game.js 自動發送 aoe_tick 到伺服器，伺服器透過 hitEvents 返回傷害數字
                 }
             }
             this.tickAccumulator -= this.tickIntervalMs;
