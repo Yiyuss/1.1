@@ -982,10 +982,36 @@ const Game = {
             // 禁用图像平滑以获得更清晰的像素化效果（避免缩放模糊）
             try { this.ctx.imageSmoothingEnabled = false; } catch (_) { }
 
+            let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
+            try {
+                vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+                canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+                if (canvas) {
+                    const rect = canvas.getBoundingClientRect();
+                    scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                    scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                    camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                    camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                    vw = canvas.width * scaleX;
+                    vh = canvas.height * scaleY;
+                }
+            } catch (_) {}
+            const marginDeco = 128;
             for (const deco of this.decorations) {
                 const img = (this.images || Game.images || {})[deco.imageKey];
                 const drawX = deco.x - deco.width / 2;
                 const drawY = deco.y - deco.height / 2;
+                if (canvas) {
+                    let sx = (deco.x - camX) * scaleX;
+                    let sy = (deco.y - camY) * scaleY;
+                    const left = sx - deco.width / 2;
+                    const right = sx + deco.width / 2;
+                    const top = sy - deco.height / 2;
+                    const bottom = sy + deco.height / 2;
+                    if (right < -marginDeco || bottom < -marginDeco || left > vw + marginDeco || top > vh + marginDeco) {
+                        continue;
+                    }
+                }
                 if (img && img.complete) {
                     // 获取图片的原始尺寸
                     const imgW = img.naturalWidth || img.width || deco.width;
@@ -1039,39 +1065,12 @@ const Game = {
             const exitImg = (this.images || Game.images || {})['exit'];
             const drawX = this.exit.x - this.exit.width / 2;
             const drawY = this.exit.y - this.exit.height / 2;
-            let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
-            try {
-                vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
-                canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
-                if (canvas) {
-                    const rect = canvas.getBoundingClientRect();
-                    scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
-                    scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
-                    camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
-                    camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
-                    rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
-                    vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
-                    vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
-                }
-            } catch (_) {}
-            const margin = 128;
-            const rectInView = (x, y, w, h) => {
-                if (!canvas) return true;
-                let sx = x - camX;
-                let sy = y - camY;
-                if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
-                const left = sx - w / 2, right = sx + w / 2, top = sy - h / 2, bottom = sy + h / 2;
-                return !(right < -margin || bottom < -margin || left > vw + margin || top > vh + margin);
-            };
-            if (!rectInView(this.exit.x, this.exit.y, this.exit.width, this.exit.height)) { /* skip draw */ }
-            else {
             if (exitImg && exitImg.complete) {
                 this.ctx.drawImage(exitImg, drawX, drawY, this.exit.width, this.exit.height);
             } else {
                 // 備用：繪製矩形
                 this.ctx.fillStyle = '#00ff00';
                 this.ctx.fillRect(drawX, drawY, this.exit.width, this.exit.height);
-            }
             }
         }
 
