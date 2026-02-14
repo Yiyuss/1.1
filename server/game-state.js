@@ -853,12 +853,32 @@ class GameState {
 
     switch (input.type) {
       case 'move':
-        // 更新玩家位置（服务器权威）
+        // 更新玩家位置（信任客戶端，但做基本防瞬移檢查）
         const speed = input.speed || 5;
         player.vx = input.vx || 0;
         player.vy = input.vy || 0;
-        player.x += player.vx * (input.deltaTime || 16.67) / 16.67;
-        player.y += player.vy * (input.deltaTime || 16.67) / 16.67;
+
+        // ✅ 優先使用客戶端回報的絕對座標（解決累積誤差導致的錯位）
+        if (typeof input.x === 'number' && typeof input.y === 'number') {
+            // 防瞬移檢查：如果移動距離過大（例如 > 500像素/幀），則視為非法或瞬移，改用服務器推算
+            // 但考慮到大跳/衝刺技能，閾值要寬鬆
+            const distSq = (input.x - player.x)**2 + (input.y - player.y)**2;
+            // 閾值：500px (約半個屏幕寬度)
+            if (distSq < 500 * 500) { 
+                player.x = input.x;
+                player.y = input.y;
+            } else {
+                // 過大位移，回退到服務器推算（防止瞬移掛，或網絡延遲後的跳變）
+                // 同時記錄警告
+                // console.warn(`[GameState] 玩家 ${uid} 移動距離過大 (${Math.sqrt(distSq).toFixed(1)}px)，回退到服務器推算`);
+                player.x += player.vx * (input.deltaTime || 16.67) / 16.67;
+                player.y += player.vy * (input.deltaTime || 16.67) / 16.67;
+            }
+        } else {
+            // 舊版客戶端兼容：使用速度推算
+            player.x += player.vx * (input.deltaTime || 16.67) / 16.67;
+            player.y += player.vy * (input.deltaTime || 16.67) / 16.67;
+        }
 
         // ✅ 边界检查（使用实例的世界大小）
         const worldWidth = this.worldWidth || 1920;
