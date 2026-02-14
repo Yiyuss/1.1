@@ -175,7 +175,8 @@ class DeathlineWarriorEffect extends Entity {
                     weaponType: this.weaponType || 'DEATHLINE_WARRIOR',
                     x: target.x,
                     y: target.y,
-                    radius: this.aoeRadius > 0 ? this.aoeRadius : 5, // 範圍傷害使用 aoeRadius，單體傷害使用很小的值（5）
+                    // ✅ 優化：單體傷害半徑從 5 增加到 60，以容忍網路延遲造成的敵人位置誤差（確保必中）
+                    radius: this.aoeRadius > 0 ? this.aoeRadius : 60, 
                     damage: baseDamage,
                     allowCrit: true,
                     critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
