@@ -222,7 +222,10 @@ class IceFieldEffect extends Entity {
         // 持续伤害（与守护领域相同的间隔）
         this.tickAccumulator += deltaTime;
         while (this.tickAccumulator >= this.tickIntervalMs) {
-            for (const enemy of Game.enemies) {
+            const candidates = (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function')
+                ? Game.getEnemiesNearCircle(this.x, this.y, this.radius)
+                : (Game.enemies || []);
+            for (const enemy of candidates) {
                 if (this.isColliding(enemy)) {
                     // 应用缓速效果（如果还没有应用，或者缓速效果已过期）
                     if (typeof enemy.applySlow === 'function') {
