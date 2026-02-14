@@ -208,7 +208,11 @@
             const frag = document.createDocumentFragment();
             const rectCanvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
             let rect = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false;
-            if (rectCanvas) {
+            const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+            if (vm && rectCanvas) {
+              scaleX = vm.scaleX; scaleY = vm.scaleY; camX = vm.camX; camY = vm.camY; rotatedPortrait = vm.rotatedPortrait;
+              rect = rectCanvas.getBoundingClientRect();
+            } else if (rectCanvas) {
               rect = rectCanvas.getBoundingClientRect();
               scaleX = rect.width / rectCanvas.width;
               scaleY = rect.height / rectCanvas.height;
