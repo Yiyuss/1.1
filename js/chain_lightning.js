@@ -296,7 +296,8 @@ class ChainLightningEffect extends Entity {
                                     weaponType: this.weaponType || 'CHAIN_LIGHTNING',
                                     x: target.x,
                                     y: target.y,
-                                    radius: 1, // 很小的半徑，只命中目標敵人
+                                    radius: 1,
+                                    enemyIds: [target.id],
                                     damage: finalDamage,
                                     allowCrit: true,
                                     critChanceBonusPct: critChance
@@ -749,7 +750,8 @@ class FrenzyLightningEffect extends Entity {
                                     weaponType: this.weaponType || 'CHAIN_LIGHTNING',
                                     x: target.x,
                                     y: target.y,
-                                    radius: 1, // 很小的半徑，只命中目標敵人
+                                    radius: 1,
+                                    enemyIds: [target.id],
                                     damage: finalDamage,
                                     allowCrit: true,
                                     critChanceBonusPct: critChance
