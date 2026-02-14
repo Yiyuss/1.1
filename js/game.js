@@ -1492,6 +1492,47 @@ const Game = {
         this.ctx.restore();
     },
 
+    // 近鄰查詢（敵人）：以64px格子索引快速篩選圓形近鄰
+    getEnemiesNearCircle: function (cx, cy, r) {
+        const cell = 64;
+        const enemies = Array.isArray(this.enemies) ? this.enemies : [];
+        const now = Date.now();
+        if (!this._enemyGrid || (now - (this._enemyGridBuiltAt || 0)) > 16) {
+            const grid = new Map();
+            for (const e of enemies) {
+                if (!e || e.markedForDeletion || e.health <= 0) continue;
+                const gi = Math.floor(e.x / cell);
+                const gj = Math.floor(e.y / cell);
+                const key = gi + '|' + gj;
+                let list = grid.get(key);
+                if (!list) { list = []; grid.set(key, list); }
+                list.push(e);
+            }
+            this._enemyGrid = grid;
+            this._enemyGridBuiltAt = now;
+        }
+        if (!this._enemyGrid) return enemies;
+        const minI = Math.floor((cx - r) / cell);
+        const maxI = Math.floor((cx + r) / cell);
+        const minJ = Math.floor((cy - r) / cell);
+        const maxJ = Math.floor((cy + r) / cell);
+        const results = [];
+        for (let i = minI; i <= maxI; i++) {
+            for (let j = minJ; j <= maxJ; j++) {
+                const key = i + '|' + j;
+                const list = this._enemyGrid.get(key);
+                if (!list) continue;
+                for (const e of list) {
+                    if (!e || e.markedForDeletion || e.health <= 0) continue;
+                    const dx = e.x - cx;
+                    const dy = e.y - cy;
+                    if ((dx * dx + dy * dy) <= r * r) results.push(e);
+                }
+            }
+        }
+        return results;
+    },
+
     // 添加敵人
     addEnemy: function (enemy) {
         // 確保敵人有唯一ID（用於組隊模式同步）
