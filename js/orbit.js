@@ -177,7 +177,30 @@ class OrbitBall extends Entity {
 
     draw(ctx) {
         ctx.save();
+        let canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
+        try {
+            const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+            canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                vw = canvas.width * scaleX;
+                vh = canvas.height * scaleY;
+            }
+        } catch (_) {}
+        const margin = 128;
+        const rectInView = (x, y, w, h) => {
+            if (!canvas) return true;
+            let sx = (x - camX) * scaleX;
+            let sy = (y - camY) * scaleY;
+            const left = sx - w / 2, right = sx + w / 2, top = sy - h / 2, bottom = sy + h / 2;
+            return !(right < -margin || bottom < -margin || left > vw + margin || top > vh + margin);
+        };
         const size = Math.max(this.width, this.height);
+        if (!rectInView(this.x, this.y, size, size)) { ctx.restore(); return; }
 
         // 視覺：拖尾繪製（輕量、僅顯示）
         if (this.trail && this.trail.length) {
