@@ -78,6 +78,7 @@ class SingEffect extends Entity {
 
     _updateDomPosition() {
         const el = this.el; if (!el || !this._layer) return;
+        if (this._lastDomUpdateAt && (Date.now() - this._lastDomUpdateAt) < 33) return;
         try {
             const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
             if (!canvas) return;
@@ -102,8 +103,11 @@ class SingEffect extends Entity {
                 sy = (this.y - camY) * scaleY - (this.offsetY || -250);
             }
 
-            el.style.left = Math.round(sx) + 'px';
-            el.style.top = Math.round(sy) + 'px';
+            const leftPx = Math.round(sx);
+            const topPx = Math.round(sy);
+            if (this._lastLeft !== leftPx) { el.style.left = leftPx + 'px'; this._lastLeft = leftPx; }
+            if (this._lastTop !== topPx) { el.style.top = topPx + 'px'; this._lastTop = topPx; }
+            this._lastDomUpdateAt = Date.now();
         } catch (_) {}
     }
 
