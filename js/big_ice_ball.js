@@ -260,8 +260,22 @@ class IceFieldEffect extends Entity {
                             );
                         }
                     }
-                    // 多人模式：傷害由 game.js 自動發送 aoe_tick 到伺服器，伺服器透過 hitEvents 返回傷害數字
-                    // 減速效果由伺服器權威處理，客戶端只顯示視覺效果
+                    // 多人模式：向伺服器發送 aoe_tick（單體命中，附帶目標ID）
+                    else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                            window.SurvivalOnlineRuntime.sendToNet({
+                                type: 'aoe_tick',
+                                weaponType: this.weaponType || 'BIG_ICE_BALL',
+                                x: enemy.x,
+                                y: enemy.y,
+                                radius: 1,
+                                enemyIds: [enemy.id],
+                                damage: finalDamage,
+                                allowCrit: true,
+                                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                            });
+                        }
+                    }
                 }
             }
             this.tickAccumulator -= this.tickIntervalMs;
@@ -366,4 +380,3 @@ class IceFieldEffect extends Entity {
 // 导出到全局
 window.IceBallProjectile = IceBallProjectile;
 window.IceFieldEffect = IceFieldEffect;
-
