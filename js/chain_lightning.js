@@ -381,7 +381,7 @@ class ChainLightningEffect extends Entity {
         ctx.save();
         const elapsed = Date.now() - this.startTime;
         // 視窗外剔除：使用 viewMetrics 估算螢幕範圍，避免不必要繪製
-        let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+        let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
         try {
             vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
             canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
@@ -391,17 +391,15 @@ class ChainLightningEffect extends Entity {
                 scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
                 camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
                 camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
-                rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
-                vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
-                vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+                vw = canvas.width * scaleX;
+                vh = canvas.height * scaleY;
             }
         } catch (_) {}
         const margin = 128;
         const inView = (x, y) => {
             if (!canvas) return true;
-            let sx = x - camX;
-            let sy = y - camY;
-            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+            let sx = (x - camX) * scaleX;
+            let sy = (y - camY) * scaleY;
             return !(sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin);
         };
         // 電弧
