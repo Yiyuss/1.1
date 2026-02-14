@@ -90,6 +90,37 @@ class YoungDadaGloryEffect extends Entity {
         const elapsed = Date.now() - this.startTime;
         const dropProgress = Math.min(1, elapsed / this.dropDuration); // 快速照射進度
         const isMaintaining = elapsed >= this.dropDuration; // 是否進入維持階段
+        let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+        try {
+            vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+            canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
+                vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+                vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            }
+        } catch (_) {}
+        const margin = 128;
+        const rectInView = (x, y, w, h) => {
+            if (!canvas) return true;
+            let sx = x - camX;
+            let sy = y - camY;
+            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+            const left = sx - w / 2, right = sx + w / 2, top = sy - h / 2, bottom = sy + h / 2;
+            return !(right < -margin || bottom < -margin || left > vw + margin || top > vh + margin);
+        };
+        const circleInView = (x, y, r) => {
+            if (!canvas) return true;
+            let sx = x - camX;
+            let sy = y - camY;
+            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+            return !((sx + r) < -margin || (sy + r) < -margin || (sx - r) > (vw + margin) || (sy - r) > (vh + margin));
+        };
         
         ctx.save();
         
@@ -112,6 +143,8 @@ class YoungDadaGloryEffect extends Entity {
         // 延伸到底部下方一點點，僅用於羽化邊緣（兩層共用）
         const extendedBaseY = baseY + 20; // 只延伸20px用於羽化，不再延伸太多
         const extendedBaseWidth = currentBaseWidth + 20; // 底部稍微加寬以容納羽化
+        const totalHeight = extendedBaseY - currentTopY;
+        if (!rectInView(this.x, (currentTopY + extendedBaseY) / 2, extendedBaseWidth, Math.max(1, totalHeight))) { ctx.restore(); return; }
         
         // 繪製主體光芒（漸變錐形，從上往下，底部逐漸變透明以實現柔和過渡）
         const gradient = ctx.createLinearGradient(
