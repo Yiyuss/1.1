@@ -93,10 +93,14 @@ class StellarField extends Entity {
 
         // 依間隔施加緩速（不造成傷害），與守護領域相同節奏
         this.tickAccumulator += deltaTime;
-        while (this.tickAccumulator >= this.tickIntervalMs) {
-            for (const enemy of Game.enemies) {
+        let loops = 0;
+        const maxLoops = 3;
+        while (this.tickAccumulator >= this.tickIntervalMs && loops++ < maxLoops) {
+            const targets = (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function')
+                ? Game.getEnemiesNearCircle(this.x, this.y, this.collisionRadius)
+                : Game.enemies;
+            for (const enemy of targets) {
                 if (this.isColliding(enemy) && typeof enemy.applySlow === 'function') {
-                    // 短時緩速，離開範圍後很快恢復；在範圍內每 120ms 刷新
                     enemy.applySlow(200, this.slowFactor);
                 }
             }
@@ -163,16 +167,15 @@ class StellarField extends Entity {
 
     _updateDomPosition() {
         if (!this.el || !this._layer) return;
-        if (this._lastDomUpdateAt && (Date.now() - this._lastDomUpdateAt) < 33) return;
         try {
+            const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
             const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
             if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = rect.width / canvas.width;
-            const scaleY = rect.height / canvas.height;
-            const camX = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0;
-            const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
-            const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+            const scaleX = vm ? vm.scaleX : (canvas.getBoundingClientRect().width / canvas.width);
+            const scaleY = vm ? vm.scaleY : (canvas.getBoundingClientRect().height / canvas.height);
+            const camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+            const camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+            const rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
             let sx, sy;
             if (rotatedPortrait) {
                 sx = this.x - camX;
@@ -181,12 +184,20 @@ class StellarField extends Entity {
                 sx = (this.x - camX) * scaleX;
                 sy = (this.y - camY) * scaleY;
             }
-            this.el.style.left = sx + 'px';
-            this.el.style.top = sy + 'px';
+            const vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+            const vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            const margin = 128;
+            if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) return;
+            this.el.style.left = Math.round(sx) + 'px';
+            this.el.style.top = Math.round(sy) + 'px';
             const w = (this.radius * 2 * this.visualScale);
             const h = (this.radius * 2 * this.visualScale);
-            this.el.style.width = w + 'px';
-            this.el.style.height = h + 'px';
+            const whKey = `${Math.round(w)}x${Math.round(h)}`;
+            if (this._lastWhKey !== whKey) {
+                this.el.style.width = w + 'px';
+                this.el.style.height = h + 'px';
+                this._lastWhKey = whKey;
+            }
             const scaleBgX = w / this.frameWidth;
             const scaleBgY = h / this.frameHeight;
             const bgW = this.sheetCols * this.frameWidth * scaleBgX;
@@ -196,7 +207,6 @@ class StellarField extends Entity {
                 this.el.style.backgroundSize = `${bgW}px ${bgH}px`;
                 this._lastBgKey = key;
             }
-            this._lastDomUpdateAt = Date.now();
         } catch(_) {}
     }
 
