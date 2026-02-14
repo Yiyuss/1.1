@@ -3296,45 +3296,10 @@ const Runtime = (() => {
   }
 
   // MMO 架構：每個玩家都直接發送消息，不依賴隊長端
-  // ✅ 組隊系統：aoe_tick 封包合併（降低封包負載，維持體感一致）
-  let _aoeBatchBuffer = [];
-  let _aoeBatchTimer = null;
-  const AOE_BATCH_INTERVAL_MS = 33; // 約 30Hz
-  const AOE_BATCH_MAX_ENTRIES = 64;
-  function _flushAoeBatch() {
-    try {
-      if (!_aoeBatchBuffer.length) return;
-      const entries = _aoeBatchBuffer.splice(0, _aoeBatchBuffer.length);
-      _aoeBatchTimer = null;
-      _sendViaWebSocket({ type: 'aoe_tick_batch', entries });
-    } catch (_) {
-      _aoeBatchTimer = null;
-    }
-  }
   function sendToNet(obj) {
     if (!obj) return;
-    try {
-      const isEnabled = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-      if (isEnabled && obj.type === 'aoe_tick') {
-        const entry = {
-          weaponType: obj.weaponType,
-          x: obj.x,
-          y: obj.y,
-          radius: obj.radius,
-          damage: obj.damage,
-          allowCrit: obj.allowCrit,
-          critChanceBonusPct: obj.critChanceBonusPct,
-          enemyIds: Array.isArray(obj.enemyIds) ? obj.enemyIds.slice(0, 12) : undefined
-        };
-        _aoeBatchBuffer.push(entry);
-        if (_aoeBatchBuffer.length >= AOE_BATCH_MAX_ENTRIES) {
-          _flushAoeBatch();
-        } else if (!_aoeBatchTimer) {
-          _aoeBatchTimer = setTimeout(_flushAoeBatch, AOE_BATCH_INTERVAL_MS);
-        }
-        return;
-      }
-    } catch (_) { }
+    // ✅ MMO 架構：每個玩家都直接通過 WebSocket 發送消息，不依賴隊長端
+    // 注意：狀態同步已由 tick 函數處理，這裡主要用於發送事件（攻擊、技能等）
     _sendViaWebSocket(obj);
   }
 
