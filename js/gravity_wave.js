@@ -127,7 +127,7 @@ class GravityWaveField extends Entity {
                     
                     // ✅ 權威伺服器模式：持續效果傷害由 game.js 自動發送 aoe_tick 到伺服器
                     // 單機模式：直接造成傷害並顯示傷害數字
-                    // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器 hitEvents 處理
+                    // 多人模式：向伺服器發送 aoe_tick，權威結算傷害
                     const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                     let isSurvivalMode = false;
                     try {
@@ -139,14 +139,26 @@ class GravityWaveField extends Entity {
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
-                    // 單機模式：直接造成傷害並顯示傷害數字
                     if (!isSurvivalMode || !isMultiplayer) {
                         enemy.takeDamage(finalDamage);
                         if (typeof DamageNumbers !== 'undefined') {
                             DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemy.id });
                         }
+                    } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                            window.SurvivalOnlineRuntime.sendToNet({
+                                type: 'aoe_tick',
+                                weaponType: this.weaponType || 'GRAVITY_WAVE',
+                                x: enemy.x,
+                                y: enemy.y,
+                                radius: 1,
+                                enemyIds: [enemy.id],
+                                damage: finalDamage,
+                                allowCrit: true,
+                                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                            });
+                        }
                     }
-                    // 多人模式：傷害由 game.js 自動發送 aoe_tick 到伺服器，伺服器透過 hitEvents 返回傷害數字
                 }
             }
             this.tickAccumulator -= this.tickIntervalMs;
