@@ -351,6 +351,13 @@ class Chest extends Entity {
                     y: this.y
                 });
             }
+            try {
+                setTimeout(() => {
+                    if (!this.markedForDeletion) {
+                        this.isCollecting = false;
+                    }
+                }, 500);
+            } catch (_) {}
             // 這裡不執行 destroy，等待服務器回傳 chest_collected 事件
             // 當收到 chest_collected 事件時，在 external event handler 中處理移除和獎勵
             return;
@@ -537,6 +544,13 @@ class PineappleSupplementPickup extends Chest {
                     healAmount: this._healAmount || 0
                 });
             }
+            try {
+                setTimeout(() => {
+                    if (!this.markedForDeletion) {
+                        this.isCollecting = false;
+                    }
+                }, 500);
+            } catch (_) {}
             return;
         }
         this.markedForDeletion = true;
