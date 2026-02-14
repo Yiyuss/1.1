@@ -1170,7 +1170,7 @@ const Game = {
 
         // 前景層：爆炸粒子（例如追蹤綿羊命中效果）
         if (this.explosionParticles) {
-            let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+            let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
             try {
                 vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
                 canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
@@ -1180,17 +1180,15 @@ const Game = {
                     scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
                     camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
                     camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
-                    rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
-                    vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
-                    vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+                    vw = canvas.width * scaleX;
+                    vh = canvas.height * scaleY;
                 }
             } catch (_) {}
             const margin = 128;
             const inView = (x, y, r = 0) => {
                 if (!canvas) return true;
-                let sx = x - camX;
-                let sy = y - camY;
-                if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+                let sx = (x - camX) * scaleX;
+                let sy = (y - camY) * scaleY;
                 return !((sx + r) < -margin || (sy + r) < -margin || (sx - r) > (vw + margin) || (sy - r) > (vh + margin));
             };
             for (const particle of this.explosionParticles) {
