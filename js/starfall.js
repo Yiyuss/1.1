@@ -168,22 +168,15 @@ class StarfallEffect extends Entity {
             }
         }
         
-        // 組隊模式：發送 aoe_tick（附帶目標ID避免位置抖動）
+        // 組隊模式：發送 aoe_tick
         if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
             if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                const enemyIds = [];
-                for (const e of enemies) {
-                    if (!e || e.markedForDeletion || e.health <= 0) continue;
-                    const d = Utils.distance(sword.targetX, sword.targetY, e.x, e.y);
-                    if (d <= this.aoeRadius) enemyIds.push(e.id);
-                }
                 window.SurvivalOnlineRuntime.sendToNet({
                     type: 'aoe_tick',
                     weaponType: this.weaponType,
                     x: sword.targetX,
                     y: sword.targetY,
                     radius: this.aoeRadius,
-                    enemyIds: enemyIds.length ? enemyIds : undefined,
                     damage: baseDamage,
                     allowCrit: true,
                     critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
