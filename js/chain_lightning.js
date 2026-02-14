@@ -251,8 +251,9 @@ class ChainLightningEffect extends Entity {
                         (typeof Player !== 'undefined' && target instanceof Player)
                     ));
                     
-                    // 單機模式：直接造成傷害並顯示傷害數字（但只對敵人）
-                    if (!isSurvivalMode || !isMultiplayer) {
+                    // 單機或無伺服器可用：直接造成傷害並顯示傷害數字（但只對敵人）
+                    const canSend = (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function");
+                    if (!isSurvivalMode || !isMultiplayer || !canSend) {
                         if (!isPlayer && target && !target.markedForDeletion && target.health > 0) {
                             target.takeDamage(finalDamage);
                             if (typeof DamageNumbers !== 'undefined') {
@@ -705,8 +706,9 @@ class FrenzyLightningEffect extends Entity {
                         (typeof Player !== 'undefined' && target instanceof Player)
                     ));
                     
-                    // 單機模式：直接造成傷害並顯示傷害數字（但只對敵人）
-                    if (!isSurvivalMode || !isMultiplayer) {
+                    // 單機或無伺服器可用：直接造成傷害並顯示傷害數字（但只對敵人）
+                    const canSend = (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function");
+                    if (!isSurvivalMode || !isMultiplayer || !canSend) {
                         if (!isPlayer && target && !target.markedForDeletion && target.health > 0) {
                             target.takeDamage(finalDamage);
                             if (typeof DamageNumbers !== 'undefined') {
