@@ -775,6 +775,30 @@
             }
 
             draw(ctx) {
+                let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+                try {
+                    vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+                    canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+                    if (canvas) {
+                        const rect = canvas.getBoundingClientRect();
+                        scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                        scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                        camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                        camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                        rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
+                        vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+                        vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+                    }
+                } catch (_) {}
+                const margin = 128;
+                const rectInView = (x, y, w, h) => {
+                    if (!canvas) return true;
+                    let sx = x - camX;
+                    let sy = y - camY;
+                    if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+                    const left = sx - w / 2, right = sx + w / 2, top = sy - h / 2, bottom = sy + h / 2;
+                    return !(right < -margin || bottom < -margin || left > vw + margin || top > vh + margin);
+                };
                 // ========================================================================
                 // 花護衛與花女王的背景特效（雪碧圖動畫，在Canvas繪製之前顯示，位於敵人圖片後方）
                 // ========================================================================
@@ -802,6 +826,8 @@
                         const drawSize = Math.max(this.width, this.height) * 1.2;
                         const drawX = this.x - drawSize / 2;
                         const drawY = this.y - drawSize / 2;
+                        if (!rectInView(this.x, this.y, drawSize, drawSize)) { ctx.restore(); }
+                        else {
 
                         // 繪製雪碧圖動畫（在敵人圖片之前，自然顯示在後方）
                         ctx.imageSmoothingEnabled = false; // 保持像素風格
@@ -811,12 +837,12 @@
                             drawX, drawY, drawSize, drawSize
                         );
 
+                        }
                         ctx.restore();
                     } catch (e) {
                         // 忽略錯誤，避免影響正常繪製
                         console.warn('[Enemy] 花護衛背景雪碧圖動畫顯示失敗:', e);
                     }
-                }
 
                 // 花女王的背景GIF特效（保留原有邏輯，可選）
                 if (this.type === 'ELF_BOSS' && !this.isDying) {
@@ -992,6 +1018,7 @@
                         this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' ||
                         (enemyConfig && typeof enemyConfig.WIDTH === 'number' && typeof enemyConfig.HEIGHT === 'number')) {
                         drawW = this.width; drawH = this.height;
+                        if (!rectInView(this.x, this.y, drawW, drawH)) { ctx.restore(); return; }
                         ctx.drawImage(
                             Game.images[imageName],
                             this.x - drawW / 2,
@@ -1003,12 +1030,14 @@
                         // 其他敵人維持以實體 size（正方形）繪製
                         const size = Math.max(this.width, this.height);
                         drawW = size; drawH = size;
+                        if (!rectInView(this.x, this.y, drawW, drawH)) { ctx.restore(); return; }
                         ctx.drawImage(Game.images[imageName], this.x - size / 2, this.y - size / 2, size, size);
                     }
                 } else {
                     // 備用：使用純色圓形
                     drawW = Math.max(this.width, this.height);
                     drawH = Math.max(this.width, this.height);
+                    if (!rectInView(this.x, this.y, drawW, drawH)) { ctx.restore(); return; }
                     ctx.fillStyle = color;
                     ctx.beginPath();
                     ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2, 0, Math.PI * 2);
