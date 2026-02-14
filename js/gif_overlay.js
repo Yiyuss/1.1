@@ -5,6 +5,7 @@
 (function(){
   const ID_PREFIX = 'gif-overlay-';
   const _flashTimers = new Map();
+  const _updateInfo = new Map();
 
   function getViewport(){
     return document.getElementById('viewport');
@@ -73,10 +74,19 @@
         }
         const halfW = Math.floor(w / 2);
         const halfH = Math.floor(h / 2);
-        el.style.left = (Math.floor(centerX * uiScale) - halfW) + 'px';
-        el.style.top = (Math.floor(centerY * uiScale) - halfH) + 'px';
-        el.style.width = w + 'px';
-        el.style.height = h + 'px';
+        const leftPx = Math.floor(centerX * uiScale) - halfW;
+        const topPx = Math.floor(centerY * uiScale) - halfH;
+        const key = ID_PREFIX + id;
+        const now = Date.now();
+        const info = _updateInfo.get(key) || { t: 0, l: null, tp: null, w: null, h: null };
+        if ((now - info.t) >= 33) {
+          if (info.l !== leftPx) { el.style.left = leftPx + 'px'; info.l = leftPx; }
+          if (info.tp !== topPx) { el.style.top = topPx + 'px'; info.tp = topPx; }
+          if (info.w !== w) { el.style.width = w + 'px'; info.w = w; }
+          if (info.h !== h) { el.style.height = h + 'px'; info.h = h; }
+          info.t = now;
+          _updateInfo.set(key, info);
+        }
         el.style.display = '';
       } catch(_) {}
     },
