@@ -1,4 +1,5 @@
 // 斬擊效果：在玩家面前形成扇形範圍，短時間演出並瞬時造成傷害
+// 注意：此檔僅用於技能視覺與疊層演出；「人物屬性（玩家與 AI）」的疊層顯示嚴禁改動與節流，請勿將此檔的 DOM 更新策略套用到人物顯示。
 class SlashEffect extends Entity {
     constructor(player, angle, damage, radius, arcDeg, durationMs) {
         super(player.x, player.y, 2, 2);
