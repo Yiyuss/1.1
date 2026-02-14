@@ -1145,37 +1145,32 @@ class GameState {
       // ✅ 原有逻辑：圆形范围伤害（Aura/Orbit/Gravity/IceField 等）
       const x = (typeof input.x === 'number') ? input.x : player.x;
       const y = (typeof input.y === 'number') ? input.y : player.y;
-      const radius = Math.max(1, Math.min(800, Math.floor(input.radius || 120)));
-      const targetEnemyIds = (Array.isArray(input.enemyIds) && input.enemyIds.length > 0)
-        ? new Set(input.enemyIds)
-        : null;
+      const radius = Math.max(10, Math.min(800, Math.floor(input.radius || 120)));
 
       const r2 = radius * radius;
       for (const enemy of this.enemies) {
         if (!enemy || enemy.isDead || enemy.health <= 0) continue;
-        if (targetEnemyIds && !targetEnemyIds.has(enemy.id)) continue;
-        if (!targetEnemyIds) {
-          const dx = enemy.x - x;
-          const dy = enemy.y - y;
-          if ((dx * dx + dy * dy) > r2) continue;
+        const dx = enemy.x - x;
+        const dy = enemy.y - y;
+        if ((dx * dx + dy * dy) <= r2) {
+          // ✅ 與單機一致：AOE 也套用浮動/爆擊（並回傳命中事件供前端顯示）
+          // ✅ 使用 player.meta.critChanceBonusPct（持續同步的爆擊率）
+          const hit = this._computeHit(damage, input, player);
+          this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
+          // ✅ 單機同源：命中後吸血（不獸控制）
+          this._applyLifesteal(uid, hit.amount);
+          try {
+            this.hitEvents.push({
+              enemyId: enemy.id,
+              x: enemy.x,
+              y: enemy.y,
+              h: enemy.size || 32,
+              damage: hit.amount,
+              isCrit: hit.isCrit,
+              weaponType: input.weaponType || null // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
+            });
+          } catch (_) { }
         }
-        // ✅ 與單機一致：AOE 也套用浮動/爆擊（並回傳命中事件供前端顯示）
-        // ✅ 使用 player.meta.critChanceBonusPct（持續同步的爆擊率）
-        const hit = this._computeHit(damage, input, player);
-        this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
-        // ✅ 單機同源：命中後吸血（不獸控制）
-        this._applyLifesteal(uid, hit.amount);
-        try {
-          this.hitEvents.push({
-            enemyId: enemy.id,
-            x: enemy.x,
-            y: enemy.y,
-            h: enemy.size || 32,
-            damage: hit.amount,
-            isCrit: hit.isCrit,
-            weaponType: input.weaponType || null // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
-          });
-        } catch (_) { }
       }
     }
   }
