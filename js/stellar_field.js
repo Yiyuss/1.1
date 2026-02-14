@@ -162,6 +162,7 @@ class StellarField extends Entity {
 
     _updateDomPosition() {
         if (!this.el || !this._layer) return;
+        if (this._lastDomUpdateAt && (Date.now() - this._lastDomUpdateAt) < 33) return;
         try {
             const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
             if (!canvas) return;
@@ -189,12 +190,18 @@ class StellarField extends Entity {
             const scaleBgY = h / this.frameHeight;
             const bgW = this.sheetCols * this.frameWidth * scaleBgX;
             const bgH = this.sheetRows * this.frameHeight * scaleBgY;
-            this.el.style.backgroundSize = `${bgW}px ${bgH}px`;
+            const key = `${Math.round(bgW)}x${Math.round(bgH)}`;
+            if (this._lastBgKey !== key) {
+                this.el.style.backgroundSize = `${bgW}px ${bgH}px`;
+                this._lastBgKey = key;
+            }
+            this._lastDomUpdateAt = Date.now();
         } catch(_) {}
     }
 
     _updateAnimation(deltaTime) {
         if (!this.el) return;
+        if (this._lastAnimUpdateAt && (Date.now() - this._lastAnimUpdateAt) < 33) return;
         const frameDuration = 1000 / this.animationFps;
         this.animAccumulator += deltaTime || 0;
         while (this.animAccumulator >= frameDuration) {
@@ -208,6 +215,7 @@ class StellarField extends Entity {
         const offsetX = -col * w;
         const offsetY = -row * h;
         this.el.style.backgroundPosition = `${offsetX}px ${offsetY}px`;
+        this._lastAnimUpdateAt = Date.now();
     }
 
     destroy() {
