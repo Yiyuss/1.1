@@ -110,6 +110,12 @@ const TalentSystem = {
             name: 'AI強化',
             description: '升級可提升召喚AI的傷害。',
             cost: 3000
+        },
+        // 新增：星體軌跡強化
+        stellar_orbit_boost: {
+            name: '星體軌跡強化',
+            description: '升級可強化星體軌跡的基礎攻擊。',
+            cost: 10000
         }
     },
 
@@ -317,6 +323,17 @@ const TalentSystem = {
                 { multiplier: 1.50, cost: 24000 },
                 { multiplier: 1.70, cost: 35000 },
                 { multiplier: 2.00, cost: 45000 }
+            ]
+        },
+        // 新增：星體軌跡強化（+5/+10/+15/+20/+25/+30）
+        stellar_orbit_boost: {
+            levels: [
+                { flat: 5, cost: 10000 },
+                { flat: 10, cost: 20000 },
+                { flat: 15, cost: 30000 },
+                { flat: 20, cost: 40000 },
+                { flat: 25, cost: 50000 },
+                { flat: 30, cost: 60000 }
             ]
         }
     },
@@ -772,6 +789,9 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'ai_boost') {
             const pct = Math.round((eff.multiplier - 1) * 100);
             return `召喚AI傷害+${pct}%`;
+        } else if (id === 'stellar_orbit_boost') {
+            const flat = eff.flat || 0;
+            return `星體軌跡基礎攻擊+${flat}`;
         }
         return base;
     };
