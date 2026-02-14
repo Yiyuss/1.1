@@ -76,8 +76,17 @@ class ShockwaveEffect extends Entity {
         // 命中判定：距離中心落在當前環寬度範圍內
         const r = this.currentRadius || 0;
         const half = this.ringWidth * 0.5;
-        const enemies = (Game && Array.isArray(Game.enemies)) ? Game.enemies : [];
-        for (const enemy of enemies) {
+        let candidates = [];
+        try {
+            if (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function') {
+                candidates = Game.getEnemiesNearCircle(this.cx, this.cy, r + half);
+            } else {
+                candidates = (Game && Array.isArray(Game.enemies)) ? Game.enemies : [];
+            }
+        } catch (_) {
+            candidates = (Game && Array.isArray(Game.enemies)) ? Game.enemies : [];
+        }
+        for (const enemy of candidates) {
             if (!enemy || enemy.markedForDeletion || enemy.health <= 0) continue;
             if (this.hitEnemies.has(enemy.id)) continue;
             const d = Utils.distance(this.cx, this.cy, enemy.x, enemy.y);
@@ -170,9 +179,8 @@ class ShockwaveEffect extends Entity {
         const margin = 128;
         const circleInView = (x, y, radius) => {
             if (!canvas) return true;
-            let sx = x - camX;
-            let sy = y - camY;
-            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+            let sx = (x - camX) * scaleX;
+            let sy = (y - camY) * scaleY;
             return !( (sx + radius) < -margin || (sy + radius) < -margin || (sx - radius) > (vw + margin) || (sy - radius) > (vh + margin) );
         };
         if (!circleInView(this.cx, this.cy, r)) return;
