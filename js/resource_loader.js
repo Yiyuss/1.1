@@ -6,44 +6,44 @@ const ResourceLoader = {
     images: [],
     sounds: [],
     music: [],
-    
+
     // 更新加載進度
     updateProgress(status, details) {
         const progressBar = document.getElementById('loading-progress-fill');
         const statusText = document.getElementById('loading-status');
         const detailsText = document.getElementById('loading-details');
-        
+
         if (progressBar && this.totalResources > 0) {
             const percent = Math.min(100, Math.round((this.loadedResources / this.totalResources) * 100));
             progressBar.style.width = percent + '%';
         }
-        
+
         if (statusText) {
             statusText.textContent = status || '載入中...';
         }
-        
+
         if (detailsText && details) {
             detailsText.textContent = details;
         }
     },
-    
+
     // 預加載所有資源
     async preloadAll() {
         this.loadedResources = 0;
         this.images = [];
         this.sounds = [];
         this.music = [];
-        
+
         // 收集所有需要加載的資源
         const imageList = this.getImageList();
         const soundList = this.getSoundList();
         const musicList = this.getMusicList();
-        
+
         this.totalResources = imageList.length + soundList.length + musicList.length;
         this.updateProgress('準備載入資源...', `共 ${this.totalResources} 個資源`);
-        
+
         const TIMEOUT_MS = 10000; // 10秒超時
-        
+
         // 超時包裝函數：為 Promise 添加超時機制
         const withTimeout = (promise, timeoutMs, resourceName, resourceType) => {
             return Promise.race([
@@ -55,10 +55,10 @@ const ResourceLoader = {
                 })
             ]);
         };
-        
+
         // 並行加載所有資源
         const allPromises = [];
-        
+
         // 加載圖片
         this.updateProgress('載入圖片資源...', `0 / ${imageList.length} 圖片`);
         imageList.forEach((img, index) => {
@@ -75,7 +75,7 @@ const ResourceLoader = {
             // 添加超時機制
             allPromises.push(withTimeout(promise, TIMEOUT_MS, img.name, '圖片'));
         });
-        
+
         // 加載音效
         this.updateProgress('載入音效資源...', `0 / ${soundList.length} 音效`);
         soundList.forEach((sound, index) => {
@@ -92,7 +92,7 @@ const ResourceLoader = {
             // 添加超時機制
             allPromises.push(withTimeout(promise, TIMEOUT_MS, sound.name, '音效'));
         });
-        
+
         // 加載BGM
         this.updateProgress('載入背景音樂...', `0 / ${musicList.length} 音樂`);
         musicList.forEach((music, index) => {
@@ -109,18 +109,18 @@ const ResourceLoader = {
             // 添加超時機制
             allPromises.push(withTimeout(promise, TIMEOUT_MS, music.name, 'BGM'));
         });
-        
+
         // 使用 Promise.allSettled 而不是 Promise.all，避免單個資源失敗阻塞整個載入
         await Promise.allSettled(allPromises);
-        
+
         this.updateProgress('載入完成！', '所有資源已準備就緒');
-        
+
         // 延遲一小段時間讓用戶看到100%進度
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         return true;
     },
-    
+
     // 加載圖片
     loadImage(name, src) {
         return new Promise((resolve) => {
@@ -129,7 +129,7 @@ const ResourceLoader = {
                 resolve();
                 return;
             }
-            
+
             const image = new Image();
             image.onload = () => {
                 if (!Game.images) Game.images = {};
@@ -146,7 +146,7 @@ const ResourceLoader = {
             image.src = src;
         });
     },
-    
+
     // 加載音效
     loadSound(name, src) {
         return new Promise((resolve) => {
@@ -165,11 +165,11 @@ const ResourceLoader = {
                     return;
                 }
             }
-            
+
             const audio = new Audio();
             audio.src = src;
             audio.volume = AudioManager.soundVolume || 0.7;
-            
+
             // 音效加載完成
             audio.addEventListener('canplaythrough', () => {
                 if (!AudioManager.sounds) AudioManager.sounds = {};
@@ -177,24 +177,24 @@ const ResourceLoader = {
                 this.sounds.push({ name, audio });
                 resolve();
             }, { once: true });
-            
+
             // 音效加載失敗
             audio.onerror = () => {
                 console.warn(`無法加載音效: ${name}`);
                 if (!AudioManager.sounds) AudioManager.sounds = {};
                 AudioManager.sounds[name] = {
-                    play: function() {},
-                    pause: function() {},
-                    cloneNode: function() { return this; }
+                    play: function () { },
+                    pause: function () { },
+                    cloneNode: function () { return this; }
                 };
                 resolve();
             };
-            
+
             // 開始加載
             audio.load();
         });
     },
-    
+
     // 加載BGM
     loadMusic(name, src) {
         return new Promise((resolve) => {
@@ -213,12 +213,12 @@ const ResourceLoader = {
                     return;
                 }
             }
-            
+
             const audio = new Audio();
             audio.src = src;
             audio.volume = AudioManager.musicVolume || 0.5;
             audio.loop = true;
-            
+
             // BGM加載完成
             audio.addEventListener('canplaythrough', () => {
                 if (!AudioManager.music) AudioManager.music = {};
@@ -226,25 +226,25 @@ const ResourceLoader = {
                 this.music.push({ name, audio });
                 resolve();
             }, { once: true });
-            
+
             // BGM加載失敗
             audio.onerror = () => {
                 console.warn(`無法加載音樂: ${name}`);
                 if (!AudioManager.music) AudioManager.music = {};
                 AudioManager.music[name] = {
-                    play: function() {},
-                    pause: function() {},
+                    play: function () { },
+                    pause: function () { },
                     currentTime: 0,
                     loop: true
                 };
                 resolve();
             };
-            
+
             // 開始加載
             audio.load();
         });
     },
-    
+
     // 獲取圖片列表
     getImageList() {
         return [
@@ -322,6 +322,8 @@ const ResourceLoader = {
             { name: 'A45', src: 'assets/images/A45.png' },
             { name: 'A50', src: 'assets/images/A50.png' },
             { name: 'A51', src: 'assets/images/A51.png' },
+            { name: 'A53', src: 'assets/images/A53.png' },
+            { name: 'A54', src: 'assets/images/A54.png' },
             { name: 'A48', src: 'assets/images/A48.png' },
             { name: 'AI', src: 'assets/images/AI.png' },
             { name: 'AI2', src: 'assets/images/AI2.png' },
@@ -395,7 +397,7 @@ const ResourceLoader = {
             { name: 'exit', src: 'assets/images/exit.png' }
         ];
     },
-    
+
     // 獲取音效列表
     getSoundList() {
         return [
@@ -424,7 +426,7 @@ const ResourceLoader = {
             { name: 'car', src: 'assets/audio/car.mp3' }
         ];
     },
-    
+
     // 獲取BGM列表
     getMusicList() {
         return [
@@ -448,28 +450,28 @@ async function preloadAllResources() {
         if (!Game.images) Game.images = {};
         if (!AudioManager.sounds) AudioManager.sounds = {};
         if (!AudioManager.music) AudioManager.music = {};
-        
+
         // 關鍵：先停止所有BGM，避免主選單切換分頁恢復的BGM殘留
         try {
             if (typeof AudioManager !== 'undefined' && typeof AudioManager.stopAllMusic === 'function') {
                 AudioManager.stopAllMusic();
             }
-        } catch (_) {}
-        
+        } catch (_) { }
+
         // 注意：不要重複調用 AudioManager.init()，因為它會在 main.js 中已經初始化過
         // 重複調用會重新創建所有BGM實例，導致舊實例殘留造成污染
         // 只在 AudioManager 完全未初始化時才調用
         if (typeof AudioManager.init === 'function' && (!AudioManager.music || Object.keys(AudioManager.music).length === 0)) {
             AudioManager.init();
         }
-        
+
         // 開始預加載
         await ResourceLoader.preloadAll();
-        
+
         // 加載完成，進入選角介面
         hide(DOMCache.get('loading-screen'));
         show(DOMCache.get('character-select-screen'));
-        
+
         // 播放選單音樂（確保使用統一的BGM實例）
         if (AudioManager.playMusic) {
             AudioManager.isMuted = false;
@@ -479,21 +481,21 @@ async function preloadAllResources() {
                 } else {
                     AudioManager.playMusic('menu_music');
                 }
-            } catch (_) {}
+            } catch (_) { }
         }
     } catch (error) {
         console.error('資源預加載失敗:', error);
         // 即使加載失敗，也進入選角介面
         hide(DOMCache.get('loading-screen'));
         show(DOMCache.get('character-select-screen'));
-        
+
         // 關鍵：先停止所有BGM，避免殘留
         try {
             if (typeof AudioManager !== 'undefined' && typeof AudioManager.stopAllMusic === 'function') {
                 AudioManager.stopAllMusic();
             }
-        } catch (_) {}
-        
+        } catch (_) { }
+
         // 嘗試播放選單音樂（即使加載失敗）
         try {
             if (AudioManager.playMusic) {
@@ -504,7 +506,7 @@ async function preloadAllResources() {
                     AudioManager.playMusic('menu_music');
                 }
             }
-        } catch (_) {}
+        } catch (_) { }
     }
 }
 
