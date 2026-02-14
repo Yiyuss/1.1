@@ -117,7 +117,7 @@ const Game = {
         }
 
         // ✅ 已移除状态机（采用页面刷新方案，不再需要）
-        
+
         // 初始化波次系統
         WaveSystem.init();
 
@@ -144,7 +144,7 @@ const Game = {
             // 解決方案：檢測到 deltaTime 過大時，重置 lastUpdateTime，避免狀態跳躍
             const MAX_DELTA_TIME = 100;
             const isMultiplayer = (this.multiplayer && this.multiplayer.enabled);
-            
+
             if (deltaTime > MAX_DELTA_TIME) {
                 // ✅ 硬需求：只處理組隊模式，不影響單機模式
                 if (isMultiplayer) {
@@ -155,11 +155,11 @@ const Game = {
                     deltaTime = 0; // 跳過這一幀，等待服務器狀態同步
                 } else {
                     // 單機模式：限制 deltaTime，保持原有邏輯
-                deltaTime = MAX_DELTA_TIME;
+                    deltaTime = MAX_DELTA_TIME;
                     this.lastUpdateTime = currentTime;
-            }
+                }
             } else {
-            this.lastUpdateTime = currentTime;
+                this.lastUpdateTime = currentTime;
             }
         }
 
@@ -384,13 +384,13 @@ const Game = {
                 // 更新AI
                 this.player.aiCompanion.update(deltaTime);
             }
-            
+
             // 更新远程玩家的AI（组队模式）
             if (this.multiplayer && this.multiplayer.enabled) {
                 // 从projectiles数组中找出所有AI
                 for (const proj of this.projectiles) {
-                    if (proj && proj.constructor && proj.constructor.name === 'AICompanion' && 
-                        typeof proj.update === 'function' && 
+                    if (proj && proj.constructor && proj.constructor.name === 'AICompanion' &&
+                        typeof proj.update === 'function' &&
                         proj !== this.player.aiCompanion) {
                         // 这是远程玩家的AI，直接更新
                         proj.update(deltaTime);
@@ -644,69 +644,69 @@ const Game = {
             if (this.multiplayer && this.multiplayer.enabled) {
                 // 僅保留繪製（draw）即可
             } else {
-            const exitCenterX = this.exit.x;
-            const exitCenterY = this.exit.y;
-            const exitHalfWidth = this.exit.width / 2;
-            const exitHalfHeight = this.exit.height / 2;
+                const exitCenterX = this.exit.x;
+                const exitCenterY = this.exit.y;
+                const exitHalfWidth = this.exit.width / 2;
+                const exitHalfHeight = this.exit.height / 2;
 
-            // 收集所有需要檢查的玩家（本地玩家 + 遠程玩家）
-            const allPlayers = [];
-            if (this.player) allPlayers.push(this.player);
+                // 收集所有需要檢查的玩家（本地玩家 + 遠程玩家）
+                const allPlayers = [];
+                if (this.player) allPlayers.push(this.player);
 
-            // 組隊模式：添加遠程玩家（僅隊長端）
-            try {
-                let isSurvivalMode = false;
+                // 組隊模式：添加遠程玩家（僅隊長端）
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
-                    isSurvivalMode = (activeId === 'survival' || activeId === null);
-                } catch (_) { }
-
-                // ✅ 修復：MMO 架構，所有玩家端都應該檢查所有玩家（本地+遠程），不依賴室長端
-                if (isSurvivalMode && this.multiplayer) {
-                    // 使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+                    let isSurvivalMode = false;
                     try {
-                        if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
-                            const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
-                            if (typeof rm.getAllPlayers === 'function') {
-                                const remotePlayers = rm.getAllPlayers();
-                                for (const remotePlayer of remotePlayers) {
-                                    if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
-                                        allPlayers.push(remotePlayer);
+                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                            ? GameModeManager.getCurrent()
+                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                                ? ModeManager.getActiveModeId()
+                                : null);
+                        isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    } catch (_) { }
+
+                    // ✅ 修復：MMO 架構，所有玩家端都應該檢查所有玩家（本地+遠程），不依賴室長端
+                    if (isSurvivalMode && this.multiplayer) {
+                        // 使用 RemotePlayerManager 獲取遠程玩家（所有端都可以）
+                        try {
+                            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                                const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                                if (typeof rm.getAllPlayers === 'function') {
+                                    const remotePlayers = rm.getAllPlayers();
+                                    for (const remotePlayer of remotePlayers) {
+                                        if (remotePlayer && !remotePlayer.markedForDeletion && !remotePlayer._isDead) {
+                                            allPlayers.push(remotePlayer);
+                                        }
                                     }
                                 }
                             }
+                        } catch (_) { }
+                    }
+                } catch (_) { }
+
+                // ✅ 權威伺服器模式：多人進行中時，出口觸碰判定由伺服器 state.isVictory 統一權威
+                // 避免客戶端廣播 game_victory 造成互打與循環
+                const isServerAuthoritative = (this.multiplayer && this.multiplayer.enabled);
+                if (!isServerAuthoritative) {
+                    // 單機模式：客戶端檢查出口觸碰
+                    for (const player of allPlayers) {
+                        if (!player) continue;
+                        const playerRadius = player.collisionRadius || 16;
+                        const playerX = player.x;
+                        const playerY = player.y;
+
+                        // 計算玩家中心到出口矩形的最短距離
+                        const closestX = Math.max(exitCenterX - exitHalfWidth, Math.min(playerX, exitCenterX + exitHalfWidth));
+                        const closestY = Math.max(exitCenterY - exitHalfHeight, Math.min(playerY, exitCenterY + exitHalfHeight));
+                        const distance = Utils.distance(playerX, playerY, closestX, closestY);
+
+                        if (distance < playerRadius) {
+                            // 任何一個玩家碰到出口，觸發勝利
+                            this.victory();
+                            break; // 觸發勝利後跳出循環
                         }
-                    } catch (_) { }
-                }
-            } catch (_) { }
-
-            // ✅ 權威伺服器模式：多人進行中時，出口觸碰判定由伺服器 state.isVictory 統一權威
-            // 避免客戶端廣播 game_victory 造成互打與循環
-            const isServerAuthoritative = (this.multiplayer && this.multiplayer.enabled);
-            if (!isServerAuthoritative) {
-                // 單機模式：客戶端檢查出口觸碰
-                for (const player of allPlayers) {
-                    if (!player) continue;
-                    const playerRadius = player.collisionRadius || 16;
-                    const playerX = player.x;
-                    const playerY = player.y;
-
-                    // 計算玩家中心到出口矩形的最短距離
-                    const closestX = Math.max(exitCenterX - exitHalfWidth, Math.min(playerX, exitCenterX + exitHalfWidth));
-                    const closestY = Math.max(exitCenterY - exitHalfHeight, Math.min(playerY, exitCenterY + exitHalfHeight));
-                    const distance = Utils.distance(playerX, playerY, closestX, closestY);
-
-                    if (distance < playerRadius) {
-                        // 任何一個玩家碰到出口，觸發勝利
-                        this.victory();
-                        break; // 觸發勝利後跳出循環
                     }
                 }
-            }
             }
         }
 
@@ -980,12 +980,12 @@ const Game = {
                     console.warn('[Game] drawEntities: 本地玩家AI绘制失败:', e);
                 }
             }
-            
+
             // 绘制远程玩家的AI（组队模式）
             if (this.multiplayer && this.multiplayer.enabled) {
                 for (const proj of this.projectiles) {
-                    if (proj && proj.constructor && proj.constructor.name === 'AICompanion' && 
-                        typeof proj.draw === 'function' && 
+                    if (proj && proj.constructor && proj.constructor.name === 'AICompanion' &&
+                        typeof proj.draw === 'function' &&
                         proj !== this.player.aiCompanion) {
                         // 这是远程玩家的AI，绘制它
                         try {
@@ -1016,6 +1016,8 @@ const Game = {
                 projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
                 projectile.weaponType === 'JUDGMENT' ||
                 projectile.weaponType === 'DIVINE_JUDGMENT' ||
+                projectile.weaponType === 'STARFALL' ||
+                projectile.weaponType === 'STARFALL_MOON' ||
                 projectile.weaponType === 'INTERSECTION_CAR'
             ) {
                 // 延後到前景層（敵人之上）再繪製
@@ -1120,6 +1122,8 @@ const Game = {
                 projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
                 projectile.weaponType === 'JUDGMENT' ||
                 projectile.weaponType === 'DIVINE_JUDGMENT' ||
+                projectile.weaponType === 'STARFALL' ||
+                projectile.weaponType === 'STARFALL_MOON' ||
                 projectile.weaponType === 'INTERSECTION_CAR'
             ) {
                 try {
@@ -1377,7 +1381,7 @@ const Game = {
                 console.warn('[Game.addProjectile] 投射物為 null 或 undefined');
                 return;
             }
-            
+
             // ✅ 防污染：只在生存模式下發送攻擊輸入
             let isSurvivalMode = false;
             try {
@@ -1388,7 +1392,7 @@ const Game = {
                         : null);
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
-            
+
             // ⚠️ 修复：移除频繁的日志，避免洗掉其他重要报告
             // if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled) {
             //     console.log('[Game.addProjectile] 組隊模式，處理投射物', {
@@ -1398,12 +1402,12 @@ const Game = {
             //         constructorName: projectile.constructor?.name
             //     });
             // }
-            
+
             if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled) {
                 // ✅ 修复：检查是否为AICompanion（需要特殊处理）
                 const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
                     (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
-                
+
                 // ✅ 修复：AI是持续效果，需要本地更新，所以应该总是被添加到projectiles
                 // 架构问题：组队模式强制要求"识别检查"，但AI作为持续效果，应该总是被添加
                 // 解决方案：对于AI，如果player指向本地玩家，直接允许通过，不进行严格的"识别检查"
@@ -1434,11 +1438,11 @@ const Game = {
                     // 架构修复：需要识别"本地玩家的AI创建的投射物"
                     // 如果 projectile.player 是 AICompanion，且 AICompanion.player === this.player，那么这是"本地玩家的AI创建的投射物"
                     const isDirectPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
-                    const isAICreatedProjectile = (projectile && projectile.player && 
+                    const isAICreatedProjectile = (projectile && projectile.player &&
                         projectile.player.constructor && projectile.player.constructor.name === 'AICompanion' &&
                         projectile.player.player === this.player);
                     const isLocalPlayerProjectile = isDirectPlayerProjectile || isAICreatedProjectile;
-                    
+
                     // ⚠️ 修復：在 enabled 模式下，只有本地玩家的投射物才需要處理
                     // 遠程玩家的投射物應該由伺服器同步，不應該在這裡處理
                     if (!isLocalPlayerProjectile) {
@@ -1446,7 +1450,7 @@ const Game = {
                         return;
                     }
                 }
-                
+
                 // ⚠️ 修復：檢查 sendToNet 是否可用
                 if (typeof window === 'undefined' || !window.SurvivalOnlineRuntime || typeof window.SurvivalOnlineRuntime.sendToNet !== 'function') {
                     console.warn('[Game.addProjectile] SurvivalOnlineRuntime.sendToNet 不可用，無法發送攻擊', {
@@ -1460,7 +1464,7 @@ const Game = {
                 }
 
                 // ✅ 修复：isAICompanion 已经在上面定义了，这里不需要重复定义
-                
+
                 const isPersistentEffect = (
                     projectile.weaponType === 'AURA_FIELD' ||
                     projectile.weaponType === 'STELLAR_FIELD' ||
@@ -1528,12 +1532,12 @@ const Game = {
                     // 優先使用 size 屬性，其次使用 width/height，最後使用武器配置的默認值
                     let projectileSize = projectile.size;
                     if (!projectileSize || projectileSize <= 0) {
-                      projectileSize = projectile.width || projectile.height;
+                        projectileSize = projectile.width || projectile.height;
                     }
                     if (!projectileSize || projectileSize <= 0) {
-                      // 如果還是沒有，嘗試從武器配置獲取默認值
-                      const weaponConfig = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[projectile.weaponType]) || {};
-                      projectileSize = weaponConfig.PROJECTILE_SIZE || 20;
+                        // 如果還是沒有，嘗試從武器配置獲取默認值
+                        const weaponConfig = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[projectile.weaponType]) || {};
+                        projectileSize = weaponConfig.PROJECTILE_SIZE || 20;
                     }
                     const attackInput = {
                         type: 'attack',
@@ -1553,7 +1557,7 @@ const Game = {
                         critChanceBonusPct: (this.player && typeof this.player.critChanceBonusPct === 'number') ? this.player.critChanceBonusPct : 0,
                         timestamp: Date.now()
                     };
-                    try { 
+                    try {
                         window.SurvivalOnlineRuntime.sendToNet(attackInput);
                         // ⚠️ 修复：移除频繁的日志，避免洗掉其他重要报告
                         // console.log('[Game.addProjectile] ✅ 已發送攻擊輸入到伺服器', {
@@ -1562,7 +1566,7 @@ const Game = {
                         //     y: attackInput.y,
                         //     damage: attackInput.damage
                         // });
-                    } catch (e) { 
+                    } catch (e) {
                         console.error('[Game.addProjectile] ❌ 發送攻擊輸入失敗', e);
                     }
                     return; // 不本地生成標準投射物
@@ -1571,7 +1575,7 @@ const Game = {
                 // 持續效果/其他：保留本地視覺，並廣播給其他玩家（讓遠程玩家也能看到）
                 // ✅ 修復：組隊模式下，SING是一次性效果，需要先清理本地玩家之前創建的效果，避免疊加
                 // ⚠️ 重要：參考無敵技能的修復方式，清理所有同玩家的SING效果（包括_isVisualOnly），確保完全清理
-                if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && 
+                if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled &&
                     projectile.weaponType === "SING" && projectile.player === this.player) {
                     // ✅ 修復：清理本地玩家之前創建的所有SING效果（包括_isVisualOnly），避免疊加和白色巨大球體
                     const playerUid = (this.multiplayer && this.multiplayer.uid) ? this.multiplayer.uid : null;
@@ -1593,33 +1597,33 @@ const Game = {
                         }
                     }
                 }
-                
+
                 this.projectiles.push(projectile);
-                
+
                 // ⚠️ 修復：持續效果也需要廣播給其他玩家，確保視覺效果與單機一致
                 // 特別是 CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH 等需要讓遠程玩家看到
                 try {
                     // ✅ 架构修复：识别"本地玩家的AI创建的投射物"，也需要广播
                     // 如果 projectile.player 是 AICompanion，且 AICompanion.player === this.player，那么这是"本地玩家的AI创建的投射物"
                     const isDirectPlayerProjectile = (projectile && projectile.player && projectile.player === this.player);
-                    const isAICreatedProjectile = (projectile && projectile.player && 
+                    const isAICreatedProjectile = (projectile && projectile.player &&
                         projectile.player.constructor && projectile.player.constructor.name === 'AICompanion' &&
                         projectile.player.player === this.player);
                     const shouldBroadcast = isDirectPlayerProjectile || isAICreatedProjectile;
-                    
-                    if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && 
+
+                    if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled &&
                         typeof window !== 'undefined' && window.SurvivalOnlineBroadcastEvent &&
                         shouldBroadcast) {
                         // 構建投射物數據（與舊多人模式一致）
                         const projectileId = projectile.id || `projectile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
                         if (!projectile.id) projectile.id = projectileId;
-                        
+
                         const playerUid = (this.multiplayer && this.multiplayer.uid) ? this.multiplayer.uid : null;
-                        
+
                         // ✅ 修复：检查是否为AICompanion，确保weaponType正确设置
                         const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
                             (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
-                        
+
                         const projectileData = {
                             id: projectileId,
                             x: projectile.x || 0,
@@ -1629,18 +1633,18 @@ const Game = {
                             playerUid: playerUid,
                             damage: projectile.damage || 0
                         };
-                        
+
                         // ✅ 修复：如果是AICompanion，添加额外属性
                         if (isAICompanion) {
                             projectileData.summonAILevel = (typeof projectile.summonAILevel === "number") ? projectile.summonAILevel : 1;
                             projectileData.width = projectile.width || CONFIG.PLAYER.SIZE;
                             projectileData.height = projectile.height || CONFIG.PLAYER.SIZE;
                         }
-                        
+
                         // 根據武器類型添加額外屬性（與舊多人模式一致）
                         // ✅ 修復：旋球類技能（ORBIT、PINEAPPLE_ORBIT、CHICKEN_BLESSING、ROTATING_MUFFIN、HEART_COMPANION）
                         // 需要廣播 radius、angularSpeed、duration、size，確保與單機模式一致
-                        if (projectile.radius !== undefined || 
+                        if (projectile.radius !== undefined ||
                             (projectile.constructor && projectile.constructor.name === 'OrbitBall')) {
                             // ✅ 修復：確保 size 從 width 或 height 獲取（OrbitBall 使用 width/height 表示大小）
                             const orbitSize = projectile.size || projectile.width || projectile.height || 20;
@@ -1649,7 +1653,7 @@ const Game = {
                             projectileData.duration = projectile.duration || 3000;
                             projectileData.size = orbitSize;
                         }
-                        
+
                         if (projectile.width !== undefined && projectile.weaponType === "LASER") {
                             projectileData.width = projectile.width;
                             // ⚠️ 修復：使用實際的 duration（從 CONFIG.DURATION 傳遞），確保與單機一致
@@ -1659,14 +1663,14 @@ const Game = {
                             // 單機模式：使用 this.config.TICK_INTERVAL_MS || 120
                             projectileData.tickInterval = projectile.tickIntervalMs || 120;
                         }
-                        
+
                         if (projectile.maxRadius !== undefined && projectile.weaponType === "MIND_MAGIC") {
                             projectileData.maxRadius = projectile.maxRadius;
                             projectileData.ringWidth = projectile.ringWidth || 18;
                             projectileData.duration = projectile.durationMs || 1000;
                             projectileData.palette = projectile.palette || null;
                         }
-                        
+
                         if (projectile.weaponType === "CHAIN_LIGHTNING") {
                             // ✅ 修復：使用與單機一致的默認值（CONFIG.CHAIN_LIGHTNING）
                             projectileData.damage = projectile.damage || 0;
@@ -1684,7 +1688,7 @@ const Game = {
                             projectileData.branchCount = projectile.branchCount || 10;
                             projectileData.chainsPerBranch = projectile.chainsPerBranch || 10;
                         }
-                        
+
                         if (projectile.weaponType === "SLASH") {
                             // ✅ 修復：使用與單機一致的默認值（CONFIG.SLASH）
                             projectileData.damage = projectile.damage || 0;
@@ -1702,7 +1706,7 @@ const Game = {
                             projectileData.duration = projectile.durationMs || (projectile.duration || 1200); // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.DURATION（1200ms）
                             projectileData.visualScale = projectile.visualScale || 2.0; // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.VISUAL_SCALE（2.0）
                         }
-                        
+
                         if (projectile.weaponType === "AURA_FIELD") {
                             projectileData.damage = projectile.tickDamage || projectile.damage || 0;
                             projectileData.radius = projectile.radius || 150;
@@ -1717,7 +1721,7 @@ const Game = {
                             projectileData.visualScale = projectile.visualScale || 1.95;
                             projectileData.slowFactor = (typeof projectile.slowFactor === 'number') ? projectile.slowFactor : 0.95;
                         }
-                        
+
                         if (projectile.weaponType === "GRAVITY_WAVE") {
                             projectileData.damage = projectile.tickDamage || projectile.damage || 0;
                             projectileData.radius = projectile.radius || 150;
@@ -1727,7 +1731,7 @@ const Game = {
                             // 但為了與單機一致，我們只在首次創建時廣播，之後的更新不廣播（避免重複創建）
                             // 這裡的廣播邏輯由去重機制處理（在 survival_online.js 中檢查是否已存在）
                         }
-                        
+
                         if (projectile.weaponType === "RADIANT_GLORY") {
                             projectileData.damage = projectile.tickDamage || projectile.damage || 0;
                             projectileData.width = projectile.width || 8; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.BEAM_WIDTH_BASE（8）
@@ -1736,14 +1740,14 @@ const Game = {
                             projectileData.beamCount = projectile.beamCount || 10;
                             projectileData.rotationSpeed = projectile.rotationSpeed || 1.0; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.ROTATION_SPEED（1.0）
                         }
-                        
+
                         // 廣播投射物生成事件（讓遠程玩家也能看到）
                         window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
                     }
                 } catch (e) {
                     console.warn('[Game.addProjectile] 廣播持續效果失敗:', e);
                 }
-                
+
                 return;
             }
         } catch (_) { }
@@ -1801,7 +1805,7 @@ const Game = {
                     // ✅ 修復：檢查是否為 AICompanion（召喚AI）
                     const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
                         (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
-                    
+
                     const isPersistentEffect = (
                         // 武器類型檢查
                         projectile.weaponType === 'AURA_FIELD' ||
@@ -1895,12 +1899,12 @@ const Game = {
                     // ✅ 修復：確保 size 正確獲取（投射物使用 width/height 表示大小，但也要檢查 size 屬性）
                     let projectileSize = projectile.size;
                     if (!projectileSize || projectileSize <= 0) {
-                      projectileSize = projectile.width || projectile.height;
+                        projectileSize = projectile.width || projectile.height;
                     }
                     if (!projectileSize || projectileSize <= 0) {
-                      // 如果還是沒有，嘗試從武器配置獲取默認值
-                      const weaponConfig = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[projectile.weaponType]) || {};
-                      projectileSize = weaponConfig.PROJECTILE_SIZE || 20;
+                        // 如果還是沒有，嘗試從武器配置獲取默認值
+                        const weaponConfig = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[projectile.weaponType]) || {};
+                        projectileSize = weaponConfig.PROJECTILE_SIZE || 20;
                     }
                     const projectileData = {
                         id: projectile.id,
@@ -2393,7 +2397,7 @@ const Game = {
                             expireMs: opts.expireMs || 60000
                         });
                     }
-                } catch (_) {}
+                } catch (_) { }
                 return;
             }
             if (!opts.id) {
@@ -2520,7 +2524,7 @@ const Game = {
         console.log('[Game] gameOver: 设置 _gameOverEventSent = true');
         this._gameOverEventSent = true; // 標記為已處理
         this.isGameOver = true;
-        
+
         // ⚠️ 修复：游戏结束时完全清理所有游戏数据，确保重新进入游戏时是全新状态
         // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
         // 这样才不会污染到单机、其他模式，以及组队模式的下一局
@@ -2534,14 +2538,14 @@ const Game = {
                     if (AudioManager.stopAllSounds) AudioManager.stopAllSounds();
                 } catch (_) { }
             }
-            
+
             // ⚠️ 修复：延迟调用 reset()，等待游戏结束画面显示后再清理
             // 这样可以避免 reset() 影响视频播放
             // 完全重置游戏状态会在 _returnToStartFrom 中调用（通过 Game.init 或 startGame）
         } catch (e) {
             console.warn('[Game] gameOver: 清理游戏状态失败:', e);
         }
-        
+
         // ⚠️ 修复：先显示游戏结束画面，然后再处理组队模式的房间大厅逻辑
         // 确保游戏结束画面一定会显示，不会被房间大厅覆盖
         console.log('[Game] gameOver: 调用 UI.showGameOverScreen()');
@@ -2550,7 +2554,7 @@ const Game = {
         } else {
             console.error('[Game] gameOver: UI 或 UI.showGameOverScreen 不存在！', typeof UI, typeof UI?.showGameOverScreen);
         }
-        
+
         // ✅ 正常結束：組隊模式下回到房間，單機模式下正常返回開始畫面
         // ⚠️ 注意：房间大厅逻辑应该在游戏结束画面显示之后处理，或者延迟处理
         // 因为游戏结束画面需要先显示，然后用户看完后再回到房间大厅
@@ -2590,7 +2594,7 @@ const Game = {
         }
         this._victoryEventSent = true; // 標記為已處理
         this.isGameOver = true;
-        
+
         // ⚠️ 修复：游戏结束时完全清理所有游戏数据，确保重新进入游戏时是全新状态
         // 与单机模式一致：完完全全清理掉游戏的任何资料，只保留大厅的资讯
         // 这样才不会污染到单机、其他模式，以及组队模式的下一局
@@ -2604,14 +2608,14 @@ const Game = {
                     if (AudioManager.stopAllSounds) AudioManager.stopAllSounds();
                 } catch (_) { }
             }
-            
+
             // ⚠️ 修复：延迟调用 reset()，等待胜利画面显示后再清理
             // 这样可以避免 reset() 影响视频播放
             // 完全重置游戏状态会在 _returnToStartFrom 中调用（通过 Game.init 或 startGame）
         } catch (e) {
             console.warn('[Game] victory: 清理游戏状态失败:', e);
         }
-        
+
         // ✅ 正常結束：組隊模式下回到房間，單機模式下正常返回開始畫面
         try {
             // 確保只在生存模式下執行組隊邏輯
@@ -2865,7 +2869,7 @@ const Game = {
             this.worldWidth = CONFIG.CANVAS_WIDTH * (CONFIG.WORLD?.GRID_X || 3);
             this.worldHeight = CONFIG.CANVAS_HEIGHT * (CONFIG.WORLD?.GRID_Y || 3);
         }
-        
+
         // 重新置中玩家（使用当前世界大小，可能是上一局的值，但会在 startNewGame() 中更新）
         this.player = new Player(this.worldWidth / 2, this.worldHeight / 2);
         // 應用選角屬性（若有）
@@ -3073,10 +3077,10 @@ const Game = {
             }
             // ✅ 已移除状态机和地图ID验证（采用页面刷新方案，不再需要）
         }
-        
+
         // ⚠️ 重构：先清理（reset 只负责清理，不负责初始化）
         this.reset();
-        
+
         // ⚠️ 关键修复：在 reset() 之后，根据新的 selectedMap 设置世界大小和随机种子
         // 这样可以确保使用新的地图信息，而不是上一局的地图信息
         // 根据地图类型设定世界大小
@@ -3091,17 +3095,17 @@ const Game = {
             this.worldHeight = CONFIG.CANVAS_HEIGHT * (CONFIG.WORLD?.GRID_Y || 3);
             console.log(`[Game] 设置世界大小 (九宮格模式): ${this.worldWidth}x${this.worldHeight}`);
         }
-        
+
         // 更新玩家位置（因为世界大小可能改变了）
         if (this.player) {
             this.player.x = this.worldWidth / 2;
             this.player.y = this.worldHeight / 2;
         }
-        
+
         // 重置鏡頭
         this.camera.x = Utils.clamp(this.player.x - this.canvas.width / 2, 0, Math.max(0, this.worldWidth - this.canvas.width));
         this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
-        
+
         // MMO 架構：多人模式設置確定性隨機數種子，確保所有客戶端生成相同的敵人
         try {
             let isSurvivalMode = false;
@@ -3202,14 +3206,14 @@ const Game = {
                         : null);
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
-            
+
             if (!isSurvivalMode) {
                 // 非生存模式：清空列表，避免污染
                 const playersListEl = document.getElementById('multiplayer-players-list');
                 if (playersListEl) playersListEl.innerHTML = '';
                 return;
             }
-            
+
             const playersListEl = document.getElementById('multiplayer-players-list');
             if (!playersListEl) return;
 
@@ -3340,20 +3344,20 @@ const Game = {
      */
     spawnObstacles: function () {
         // ✅ 已移除状态机和地图ID验证（采用页面刷新方案，不再需要）
-        
+
         // ✅ 单机和组队都适用：如果游戏已暂停或已结束，不要生成 obstacles
         if (this.isPaused || this.isGameOver) {
             console.log('[Game] spawnObstacles: 游戏已暂停或已结束，跳过生成');
             return;
         }
-        
+
         // ✅ 權威伺服器模式：多人進行中時，由 host 上傳 obstacles 到 server，所有端由 state.obstacles 同步
         try {
             if (this.multiplayer && this.multiplayer.enabled && !this.multiplayer.isHost) {
                 return;
             }
         } catch (_) { }
-        
+
         // ⚠️ 修复：强制清理旧的 obstacles，确保不会残留上一局的数据
         // 这是关键修复：在生成新的 obstacles 之前，先清理所有旧的
         // 因为 Game.reset() 和 Game.init() 之间可能有延迟，旧的 obstacles 可能还在
@@ -3369,7 +3373,7 @@ const Game = {
             }
             this.obstacles = [];
         }
-        
+
         const size = 150;
         const half = size / 2;
         const types = ['S1', 'S2'];
@@ -3426,23 +3430,23 @@ const Game = {
                 // 否则，等待 sendNewSession 中的延迟发送逻辑
                 // ✅ 已移除 _newSessionSent 检查（采用页面刷新方案，不再需要）
                 const shouldSendNow = true;
-                
+
                 if (shouldSendNow) {
-                  const obstaclesData = this.obstacles.map(obs => ({
-                    x: obs.x,
-                    y: obs.y,
-                    imageKey: obs.imageKey,
-                    size: obs.size || size
-                  }));
-                  // ✅ 发送障碍物数据到服务器
-                  const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
-                  if (currentMapId && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                    window.SurvivalOnlineRuntime.sendToNet({ 
-                      type: 'obstacles', 
-                      obstacles: obstaclesData,
-                      mapId: currentMapId
-                    });
-                  }
+                    const obstaclesData = this.obstacles.map(obs => ({
+                        x: obs.x,
+                        y: obs.y,
+                        imageKey: obs.imageKey,
+                        size: obs.size || size
+                    }));
+                    // ✅ 发送障碍物数据到服务器
+                    const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
+                    if (currentMapId && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            type: 'obstacles',
+                            obstacles: obstaclesData,
+                            mapId: currentMapId
+                        });
+                    }
                 }
                 // ⚠️ 修复：无论是否发送，都 return，避免重复发送
                 return;
@@ -3487,20 +3491,20 @@ const Game = {
      */
     spawnDecorations: function () {
         // ✅ 已移除状态机和地图ID验证（采用页面刷新方案，不再需要）
-        
+
         // ✅ 单机和组队都适用：如果游戏已暂停或已结束，不要生成 decorations
         if (this.isPaused || this.isGameOver) {
             console.log('[Game] spawnDecorations: 游戏已暂停或已结束，跳过生成');
             return;
         }
-        
+
         // ✅ 權威伺服器模式：多人進行中時，由 host 上傳 decorations 到 server，所有端由 state.decorations 同步
         try {
             if (this.multiplayer && this.multiplayer.enabled && !this.multiplayer.isHost) {
                 return;
             }
         } catch (_) { }
-        
+
         // ⚠️ 修复：强制清理旧的 decorations，确保不会残留上一局的数据
         // 这是关键修复：在生成新的 decorations 之前，先清理所有旧的
         // 因为 Game.reset() 和 Game.init() 之间可能有延迟，旧的 decorations 可能还在
@@ -3508,7 +3512,7 @@ const Game = {
             // decorations 通常是普通对象，不需要 destroy，直接清理数组即可
             this.decorations = [];
         }
-        
+
         // 第二、第三、第四、第五張地圖（forest、desert、garden、intersection）不生成裝飾物，僅保留 S1/S2 障礙物。
         // 注意：不更改任何顯示文字與其他地圖行為；維持第一張地圖邏輯。
         // 第四張地圖（garden）的 S10-S16 裝飾物邏輯保留在註釋中，供未來其他地圖使用。
@@ -3636,24 +3640,24 @@ const Game = {
                 // 否则，等待 sendNewSession 中的延迟发送逻辑
                 // ✅ 已移除 _newSessionSent 检查（采用页面刷新方案，不再需要）
                 const shouldSendNow = true;
-                
+
                 if (shouldSendNow) {
-                  const decorationsData = this.decorations.map(deco => ({
-                    x: deco.x,
-                    y: deco.y,
-                    width: deco.width,
-                    height: deco.height,
-                    imageKey: deco.imageKey
-                  }));
-                  // ✅ 发送装饰数据到服务器
-                  const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
-                  if (currentMapId && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                    window.SurvivalOnlineRuntime.sendToNet({ 
-                      type: 'decorations', 
-                      decorations: decorationsData,
-                      mapId: currentMapId
-                    });
-                  }
+                    const decorationsData = this.decorations.map(deco => ({
+                        x: deco.x,
+                        y: deco.y,
+                        width: deco.width,
+                        height: deco.height,
+                        imageKey: deco.imageKey
+                    }));
+                    // ✅ 发送装饰数据到服务器
+                    const currentMapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
+                    if (currentMapId && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            type: 'decorations',
+                            decorations: decorationsData,
+                            mapId: currentMapId
+                        });
+                    }
                 }
                 // ⚠️ 修复：无论是否发送，都 return，避免重复发送
                 return;
