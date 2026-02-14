@@ -27,6 +27,7 @@ class ExplosionEffect extends Entity {
         
         // 被击中的敌人列表（用于显示knife2.gif效果）
         this.hitEnemies = [];
+        this._hitPool = [];
     }
     
     _loadSpriteSheet() {
@@ -278,7 +279,7 @@ class ExplosionEffect extends Entity {
             const hit = this.hitEnemies[i];
             if (!hit) continue;
             
-            const el = document.createElement('img');
+            const el = this._hitPool.length ? this._hitPool.pop() : document.createElement('img');
             const src = hitImg.src + (hitImg.src.includes('?') ? '&' : '?') + 'cb=' + Date.now();
             el.src = src;
             el.alt = 'ExplosionHit';
@@ -347,6 +348,7 @@ class ExplosionEffect extends Entity {
         for (const hit of this.hitEnemies) {
             if (hit && hit.domEl && hit.domEl.parentNode) {
                 hit.domEl.parentNode.removeChild(hit.domEl);
+                this._hitPool.push(hit.domEl);
             }
         }
         this.hitEnemies = [];
