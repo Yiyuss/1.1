@@ -5,7 +5,6 @@
 (function(){
   const ID_PREFIX = 'gif-overlay-';
   const _flashTimers = new Map();
-  const _updateInfo = new Map();
 
   function getViewport(){
     return document.getElementById('viewport');
@@ -74,25 +73,14 @@
         }
         const halfW = Math.floor(w / 2);
         const halfH = Math.floor(h / 2);
-        const leftPx = Math.floor(centerX * uiScale) - halfW;
-        const topPx = Math.floor(centerY * uiScale) - halfH;
-        const key = ID_PREFIX + id;
-        const now = Date.now();
-        const info = _updateInfo.get(key) || { t: 0, l: null, tp: null, w: null, h: null };
-        const changed = (info.l !== leftPx) || (info.tp !== topPx) || (info.w !== w) || (info.h !== h) || (info.l === null) || (info.tp === null);
-        if (changed || (now - info.t) >= 33) {
-          if (info.l !== leftPx) { el.style.left = leftPx + 'px'; info.l = leftPx; }
-          if (info.tp !== topPx) { el.style.top = topPx + 'px'; info.tp = topPx; }
-          if (info.w !== w) { el.style.width = w + 'px'; info.w = w; }
-          if (info.h !== h) { el.style.height = h + 'px'; info.h = h; }
-          info.t = now;
-          _updateInfo.set(key, info);
-        }
+        el.style.left = (Math.floor(centerX * uiScale) - halfW) + 'px';
+        el.style.top = (Math.floor(centerY * uiScale) - halfH) + 'px';
+        el.style.width = w + 'px';
+        el.style.height = h + 'px';
         el.style.display = '';
       } catch(_) {}
     },
     // 簡單紅閃：在指定圖片元素上暫時套用紅色光暈與透明度（不使用遮罩）
-    // options: { color?: string, durationMs?: number, opacity?: number }
     flash(id, options){
       try {
         const el = ensureImg(id, false);
