@@ -124,6 +124,26 @@ class BottleProjectile extends Entity {
 
     draw(ctx) {
         if (!ctx) return;
+        let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+        try {
+            vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+            canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
+                vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+                vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            }
+        } catch (_) {}
+        const margin = 128;
+        let sx = this.x - camX;
+        let sy = this.y - camY;
+        if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+        if (canvas && (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin)) return;
         const img = (typeof Game !== 'undefined' && Game.images) ? Game.images['bottle'] : null;
         ctx.save();
 
