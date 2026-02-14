@@ -1495,9 +1495,20 @@
                 }
             }
 
+            let stellarOrbitFlat = 0;
+            if (this.type === 'STELLAR_ORBIT' && typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+                const stellarOrbitBoostLevel = TalentSystem.getTalentLevel('stellar_orbit_boost') || 0;
+                if (stellarOrbitBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.stellar_orbit_boost) {
+                    const effect = TalentSystem.tieredTalents.stellar_orbit_boost.levels[stellarOrbitBoostLevel - 1];
+                    if (effect && typeof effect.flat === 'number') {
+                        stellarOrbitFlat = effect.flat;
+                    }
+                }
+            }
+
             const lvPct = Math.max(0, (levelMul || 1) - 1);
             const percentSum = lvPct + talentPct + attrPct;
-            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat;
+            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat;
             const value = baseFlat * (1 + percentSum);
             return value;
         };
