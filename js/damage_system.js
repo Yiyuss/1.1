@@ -139,6 +139,7 @@
     _lastShowByEnemy: new Map(),
     _queue: [],
     _rafScheduled: false,
+    _elPool: [],
 
     ensureLayer(){
       if (this._layer && this._layer.isConnected) return this._layer;
@@ -247,7 +248,7 @@
                 }
                 if (sx < 0 || sy < 0 || sx > vw || sy > vh) continue;
               }
-              const el = document.createElement('div');
+              const el = this._elPool.pop() || document.createElement('div');
               el.textContent = String(item.value);
               el.style.position = 'absolute';
               el.style.left = Math.round(sx) + 'px';
@@ -290,6 +291,7 @@
               ], { duration, easing, fill: 'forwards' });
               anim.onfinish = () => {
                 if (el && el.parentNode) el.parentNode.removeChild(el);
+                this._elPool.push(el);
               };
             }
             layer.appendChild(frag);
