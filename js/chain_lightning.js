@@ -26,6 +26,8 @@ class ChainLightningEffect extends Entity {
             particle: '#66ccff'
         };
         this.revealedCount = 0;
+        this._particlePool = [];
+        this._arcPoints = [];
         this._buildChain();
         // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
         if (player && !player._isRemotePlayer && typeof AudioManager !== 'undefined') {
@@ -324,7 +326,10 @@ class ChainLightningEffect extends Entity {
             p.y += p.vy * (deltaTime / 16.67);
         }
         for (let i = toRemove.length - 1; i >= 0; i--) {
-            this.particles.splice(toRemove[i], 1);
+            const idx = toRemove[i];
+            const obj = this.particles[idx];
+            this.particles.splice(idx, 1);
+            this._particlePool.push(obj);
         }
     }
 
@@ -342,17 +347,17 @@ class ChainLightningEffect extends Entity {
             const py = fy + dy * t + (Math.random() - 0.5) * 8;
             const speed = 1 + Math.random() * 3;
             const angle = Math.random() * Math.PI * 2;
-            const life = 200 + Math.random() * 250; // 保持原生命區間（純視覺）
-            this.particles.push({
-                x: px,
-                y: py,
-                vx: Math.cos(angle) * speed + dirX * 0.5,
-                vy: Math.sin(angle) * speed + dirY * 0.5,
-                life,
-                maxLife: life, // 新增：用於透明度計算，不影響邏輯
-                size: 3 + Math.random() * 2.5, // 純視覺：放大粒子
-                color: this.palette.particle || '#66ccff'
-            });
+            const life = 200 + Math.random() * 250;
+            const p = this._particlePool.pop() || {};
+            p.x = px;
+            p.y = py;
+            p.vx = Math.cos(angle) * speed + dirX * 0.5;
+            p.vy = Math.sin(angle) * speed + dirY * 0.5;
+            p.life = life;
+            p.maxLife = life;
+            p.size = 3 + Math.random() * 2.5;
+            p.color = this.palette.particle || '#66ccff';
+            this.particles.push(p);
         }
     }
 
@@ -374,25 +379,48 @@ class ChainLightningEffect extends Entity {
 
     draw(ctx) {
         ctx.save();
-        // 繪製已揭示段落的電弧（抖動多段）
         const elapsed = Date.now() - this.startTime;
+        // 視窗外剔除：使用 viewMetrics 估算螢幕範圍，避免不必要繪製
+        let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+        try {
+            vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+            canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
+                vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+                vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            }
+        } catch (_) {}
+        const margin = 128;
+        const inView = (x, y) => {
+            if (!canvas) return true;
+            let sx = x - camX;
+            let sy = y - camY;
+            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+            return !(sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin);
+        };
+        // 電弧
         for (const seg of this.segments) {
             if (elapsed < seg.revealAt) continue;
             const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
+            if (!inView(fx, fy) && !inView(tx, ty)) continue;
             this._drawElectricArc(ctx, fx, fy, tx, ty);
         }
-        // 使用加色混合提升火花的亮度與震撼感（僅此效果範圍內）
+        // 粒子
         ctx.globalCompositeOperation = 'lighter';
-        // 繪製粒子（雙層：外層光暈 + 核心）
         for (const p of this.particles) {
+            if (!inView(p.x, p.y)) continue;
             const alpha = Math.max(0.04, Math.min(1, p.life / (p.maxLife || 250)));
             ctx.fillStyle = p.color || (this.palette.particle || '#66ccff');
-            // 外層光暈（柔和擴散）
             ctx.globalAlpha = alpha * 0.25;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size * 1.8, 0, Math.PI * 2);
             ctx.fill();
-            // 核心亮點
             ctx.globalAlpha = alpha;
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -410,13 +438,16 @@ class ChainLightningEffect extends Entity {
         const angle = Math.atan2(dy, dx);
         const nx = -Math.sin(angle);
         const ny = Math.cos(angle);
-        const points = [];
+        const points = this._arcPoints;
+        points.length = steps + 1;
         for (let i = 0; i <= steps; i++) {
             const t = i / steps;
             const bx = x1 + dx * t;
             const by = y1 + dy * t;
             const jitter = (Math.random() - 0.5) * jitterAmp;
-            points.push({ x: bx + nx * jitter, y: by + ny * jitter });
+            const obj = points[i] || (points[i] = {});
+            obj.x = bx + nx * jitter;
+            obj.y = by + ny * jitter;
         }
         // 外層光暈（加粗）
         ctx.globalAlpha = 0.35;
@@ -479,6 +510,9 @@ class FrenzyLightningEffect extends Entity {
             core: '#ffffff',
             particle: '#66ccff'
         };
+        // 計算暫存：粒子池與電弧點重用
+        this._particlePool = [];
+        this._arcPoints = [];
         // ✅ 修復：只有在 player 有效時才構建連鎖
         if (this.player && !this.markedForDeletion) {
             this._buildFrenzy();
@@ -779,7 +813,10 @@ class FrenzyLightningEffect extends Entity {
             p.y += p.vy * (deltaTime / 16.67);
         }
         for (let i = toRemove.length - 1; i >= 0; i--) {
-            this.particles.splice(toRemove[i], 1);
+            const idx = toRemove[i];
+            const obj = this.particles[idx];
+            this.particles.splice(idx, 1);
+            this._particlePool.push(obj);
         }
     }
 
@@ -798,16 +835,16 @@ class FrenzyLightningEffect extends Entity {
             const speed = 1 + Math.random() * 3;
             const angle = Math.random() * Math.PI * 2;
             const life = 200 + Math.random() * 250;
-            this.particles.push({
-                x: px,
-                y: py,
-                vx: Math.cos(angle) * speed + dirX * 0.5,
-                vy: Math.sin(angle) * speed + dirY * 0.5,
-                life,
-                maxLife: life,
-                size: 3 + Math.random() * 2.5,
-                color: this.palette.particle || '#66ccff'
-            });
+            const p = this._particlePool.pop() || {};
+            p.x = px;
+            p.y = py;
+            p.vx = Math.cos(angle) * speed + dirX * 0.5;
+            p.vy = Math.sin(angle) * speed + dirY * 0.5;
+            p.life = life;
+            p.maxLife = life;
+            p.size = 3 + Math.random() * 2.5;
+            p.color = this.palette.particle || '#66ccff';
+            this.particles.push(p);
         }
     }
 
@@ -859,13 +896,16 @@ class FrenzyLightningEffect extends Entity {
         const angle = Math.atan2(dy, dx);
         const nx = -Math.sin(angle);
         const ny = Math.cos(angle);
-        const points = [];
+        const points = this._arcPoints;
+        points.length = steps + 1;
         for (let i = 0; i <= steps; i++) {
             const t = i / steps;
             const bx = x1 + dx * t;
             const by = y1 + dy * t;
             const jitter = (Math.random() - 0.5) * jitterAmp;
-            points.push({ x: bx + nx * jitter, y: by + ny * jitter });
+            const obj = points[i] || (points[i] = {});
+            obj.x = bx + nx * jitter;
+            obj.y = by + ny * jitter;
         }
         ctx.globalAlpha = 0.35;
         ctx.lineWidth = 10;
