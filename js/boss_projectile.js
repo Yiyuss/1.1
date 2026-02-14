@@ -275,21 +275,19 @@ class BossProjectile extends Entity {
     
     // 生成拖尾粒子
     spawnTrailParticle() {
-        const particle = {
-            x: this.x + (Math.random() - 0.5) * this.width,
-            y: this.y + (Math.random() - 0.5) * this.width,
-            vx: (Math.random() - 0.5) * 2,
-            vy: (Math.random() - 0.5) * 2,
-            life: 300 + Math.random() * 200,
-            maxLife: 300 + Math.random() * 200,
-            size: 2 + Math.random() * 3
-        };
-        
+        if (!this._trailPool) this._trailPool = [];
+        const particle = this._trailPool.pop() || {};
+        particle.x = this.x + (Math.random() - 0.5) * this.width;
+        particle.y = this.y + (Math.random() - 0.5) * this.width;
+        particle.vx = (Math.random() - 0.5) * 2;
+        particle.vy = (Math.random() - 0.5) * 2;
+        particle.life = 300 + Math.random() * 200;
+        particle.maxLife = particle.life;
+        particle.size = 2 + Math.random() * 3;
         this.particles.push(particle);
-        
-        // 限制粒子數量
         if (this.particles.length > 20) {
-            this.particles.shift();
+            const removed = this.particles.shift();
+            if (removed) this._trailPool.push(removed);
         }
     }
     
@@ -303,7 +301,8 @@ class BossProjectile extends Entity {
             particle.life -= deltaTime;
             
             if (particle.life <= 0) {
-                this.particles.splice(i, 1);
+                const removed = this.particles.splice(i, 1)[0];
+                if (removed) this._trailPool && this._trailPool.push(removed);
             }
         }
     }
