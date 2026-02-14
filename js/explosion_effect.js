@@ -370,6 +370,33 @@ class ExplosionEffect extends Entity {
         // 放大1.5倍
         const drawWidth = this.frameWidth * 1.5;
         const drawHeight = this.frameHeight * 1.5;
+        
+        // 视窗外剔除：中心点与矩形在视窗外（含 128px 容差）时不绘制
+        let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+        try {
+            vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+            canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
+                vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+                vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            }
+        } catch (_) {}
+        const margin = 128;
+        const rectInView = (x, y, w, h) => {
+            if (!canvas) return true;
+            let sx = x - camX;
+            let sy = y - camY;
+            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+            const left = sx - w / 2, right = sx + w / 2, top = sy - h / 2, bottom = sy + h / 2;
+            return !(right < -margin || bottom < -margin || left > vw + margin || top > vh + margin);
+        };
+        if (!rectInView(this.x, this.y, drawWidth, drawHeight)) return;
         ctx.save();
         ctx.drawImage(
             this.spriteSheet,
