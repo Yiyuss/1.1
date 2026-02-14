@@ -59,7 +59,41 @@ const Game = {
     // ⚠️ 组队模式专用：游戏状态标记（只在组队模式下使用，单机模式始终为 null）
     // ✅ 已移除状态机和地图ID验证（采用页面刷新方案，不再需要）
 
+    spatialCellSize: 64,
+    _enemyGrid: null,
+    rebuildEnemyGrid: function () {
+        const size = this.spatialCellSize || 64;
+        const grid = Object.create(null);
+        for (const e of this.enemies) {
+            if (!e || typeof e.x !== 'number' || typeof e.y !== 'number') continue;
+            const cx = (e.x / size) | 0;
+            const cy = (e.y / size) | 0;
+            const key = cx + ',' + cy;
+            (grid[key] || (grid[key] = [])).push(e);
+        }
+        this._enemyGrid = grid;
+    },
+    getEnemiesNearCircle: function (x, y, r) {
+        const res = [];
+        const grid = this._enemyGrid;
+        const size = this.spatialCellSize || 64;
+        if (!grid || typeof x !== 'number' || typeof y !== 'number' || typeof r !== 'number') return this.enemies;
+        const minCx = ((x - r) / size) | 0;
+        const maxCx = ((x + r) / size) | 0;
+        const minCy = ((y - r) / size) | 0;
+        const maxCy = ((y + r) / size) | 0;
+        for (let cy = minCy; cy <= maxCy; cy++) {
+            for (let cx = minCx; cx <= maxCx; cx++) {
+                const bucket = grid[cx + ',' + cy];
+                if (bucket) {
+                    for (let i = 0; i < bucket.length; i++) res.push(bucket[i]);
+                }
+            }
+        }
+        return res.length ? res : this.enemies;
+    },
     init: function () {
+        // 獲取畫布和上下文
         // 獲取畫布和上下文
         this.canvas = document.getElementById('game-canvas');
         this.ctx = this.canvas.getContext('2d');
@@ -224,6 +258,20 @@ const Game = {
         // 正規化時間倍率，避免粒子/效果更新時發生未定義錯誤
         const deltaMul = deltaTime / 16.67;
 
+        // 視窗尺度快取：本幀只計算一次，供所有疊層/特效使用（不影響人物顯示）
+        try {
+            const canvas = this.canvas || document.getElementById('game-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = rect.width / canvas.width;
+                const scaleY = rect.height / canvas.height;
+                const camX = (this.camera && this.camera.x) ? this.camera.x : 0;
+                const camY = (this.camera && this.camera.y) ? this.camera.y : 0;
+                const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+                this.viewMetrics = { scaleX, scaleY, camX, camY, rotatedPortrait };
+            }
+        } catch(_) {}
+
         // 花園地圖：每30秒播放一次視頻
         if (this.selectedMap && this.selectedMap.id === 'garden' && !this.isPaused && !this.isGameOver) {
             this._updateGardenVideo(deltaTime);
@@ -340,6 +388,19 @@ const Game = {
         // 更新鏡頭位置（跟隨玩家，並夾限在世界邊界）
         this.camera.x = Utils.clamp(this.player.x - this.canvas.width / 2, 0, Math.max(0, this.worldWidth - this.canvas.width));
         this.camera.y = Utils.clamp(this.player.y - this.canvas.height / 2, 0, Math.max(0, this.worldHeight - this.canvas.height));
+        // 重新計算本幀視窗尺度快取（確保鏡頭更新後數據一致）
+        try {
+            const canvas = this.canvas || document.getElementById('game-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = rect.width / canvas.width;
+                const scaleY = rect.height / canvas.height;
+                const camX = this.camera.x || 0;
+                const camY = this.camera.y || 0;
+                const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+                this.viewMetrics = { scaleX, scaleY, camX, camY, rotatedPortrait };
+            }
+        } catch(_) {}
 
         // 更新武器（第二次，保留歷史節奏）
         this._updateWeapons(deltaTime);
@@ -364,6 +425,7 @@ const Game = {
                 }
             }
         }
+        this.rebuildEnemyGrid();
 
         // ✅ 替代方案：直接更新所有AI，绕过addProjectile的复杂逻辑
         // 这样可以确保AI总是被更新，不管它们是否在projectiles数组中
@@ -377,6 +439,23 @@ const Game = {
                         this.player.aiCompanion.player = this.player;
                     }
                 }
+                // 根因修復：鏡像武器等級到 AI（避免狀態分歧）
+                try {
+                    let aiLevel = 1;
+                    // 正常期間：讀取武器陣列
+                    if (Array.isArray(this.player.weapons)) {
+                        const w = this.player.weapons.find(w => w && w.type === 'SUMMON_AI');
+                        if (w && typeof w.level === 'number') aiLevel = w.level;
+                    }
+                    // 大招期間：優先讀取 _ultimateBackup
+                    if (this.player.isUltimateActive && this.player._ultimateBackup && Array.isArray(this.player._ultimateBackup.weapons)) {
+                        const w2 = this.player._ultimateBackup.weapons.find(info => info && info.type === 'SUMMON_AI');
+                        if (w2 && typeof w2.level === 'number') aiLevel = w2.level;
+                    }
+                    if (typeof this.player.aiCompanion.setSkillLevel === 'function') {
+                        this.player.aiCompanion.setSkillLevel(aiLevel);
+                    }
+                } catch(_) {}
                 // 确保AI在projectiles数组中（如果不在，添加进去）
                 if (this.projectiles.indexOf(this.player.aiCompanion) === -1) {
                     this.projectiles.push(this.player.aiCompanion);
