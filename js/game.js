@@ -1468,6 +1468,8 @@ const Game = {
                 const isPersistentEffect = (
                     projectile.weaponType === 'AURA_FIELD' ||
                     projectile.weaponType === 'STELLAR_FIELD' ||
+                    projectile.weaponType === 'STARFALL' ||
+                    projectile.weaponType === 'STARFALL_MOON' ||
                     projectile.weaponType === 'GRAVITY_WAVE' ||
                     projectile.weaponType === 'ORBIT' ||
                     projectile.weaponType === 'STELLAR_ORBIT' ||
@@ -1507,6 +1509,8 @@ const Game = {
                         projectile.constructor.name === 'RadiantGloryEffect' ||
                         projectile.constructor.name === 'IceFieldEffect' ||
                         projectile.constructor.name === 'ShockwaveEffect' ||
+                        projectile.constructor.name === 'StarfallEffect' ||
+                        projectile.constructor.name === 'StarfallMoon' ||
                         // ✅ 修復：ChainLightningEffect、FrenzyLightningEffect、SlashEffect、InvincibleEffect、SingEffect 是特殊視覺效果
                         projectile.constructor.name === 'ChainLightningEffect' ||
                         projectile.constructor.name === 'FrenzyLightningEffect' ||
@@ -1741,6 +1745,18 @@ const Game = {
                             projectileData.rotationSpeed = projectile.rotationSpeed || 1.0; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.ROTATION_SPEED（1.0）
                         }
 
+                    // 如果是星隕（StarfallEffect），添加額外屬性（與裁決相同結構）
+                    if (projectile.weaponType === "STARFALL") {
+                        projectileData.damage = projectile.damage || 0;
+                        projectileData.swordCount = projectile.swordCount || 1;
+                        projectileData.detectRadius = projectile.detectRadius || 400;
+                        projectileData.aoeRadius = projectile.aoeRadius || 100;
+                        projectileData.swordImageWidth = projectile.swordImageWidth || 30;
+                        projectileData.swordImageHeight = projectile.swordImageHeight || 29;
+                        projectileData.fallDurationMs = projectile.fallDurationMs || 250;
+                        projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300;
+                    }
+
                         // 廣播投射物生成事件（讓遠程玩家也能看到）
                         window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
                     }
@@ -1810,6 +1826,8 @@ const Game = {
                         // 武器類型檢查
                         projectile.weaponType === 'AURA_FIELD' ||
                         projectile.weaponType === 'STELLAR_FIELD' ||
+                        projectile.weaponType === 'STARFALL' ||
+                        projectile.weaponType === 'STARFALL_MOON' ||
                         projectile.weaponType === 'GRAVITY_WAVE' ||
                         projectile.weaponType === 'ORBIT' ||
                         projectile.weaponType === 'STELLAR_ORBIT' ||
@@ -1849,6 +1867,8 @@ const Game = {
                             projectile.constructor.name === 'RadiantGloryEffect' ||
                             projectile.constructor.name === 'IceFieldEffect' ||
                             projectile.constructor.name === 'ShockwaveEffect' ||
+                            projectile.constructor.name === 'StarfallEffect' ||
+                            projectile.constructor.name === 'StarfallMoon' ||
                             // ✅ 修復：ChainLightningEffect、FrenzyLightningEffect、SlashEffect、InvincibleEffect、SingEffect 是特殊視覺效果
                             projectile.constructor.name === 'ChainLightningEffect' ||
                             projectile.constructor.name === 'FrenzyLightningEffect' ||
@@ -1994,6 +2014,18 @@ const Game = {
                         projectileData.swordImageHeight = projectile.swordImageHeight || 200; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.SWORD_IMAGE_HEIGHT（200）
                         projectileData.fallDurationMs = projectile.fallDurationMs || 250; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FALL_DURATION_MS（250ms）
                         projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FADE_OUT_DURATION_MS（300ms）
+                    }
+
+                    // 如果是星隕（StarfallEffect），添加額外屬性（與裁決相同結構）
+                    if (projectile.weaponType === "STARFALL") {
+                        projectileData.damage = projectile.damage || 0;
+                        projectileData.swordCount = projectile.swordCount || 1;
+                        projectileData.detectRadius = projectile.detectRadius || 400;
+                        projectileData.aoeRadius = projectile.aoeRadius || 100;
+                        projectileData.swordImageWidth = projectile.swordImageWidth || 30;
+                        projectileData.swordImageHeight = projectile.swordImageHeight || 29;
+                        projectileData.fallDurationMs = projectile.fallDurationMs || 250;
+                        projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300;
                     }
 
                     // 如果是爆炸效果（ExplosionEffect），添加額外屬性
