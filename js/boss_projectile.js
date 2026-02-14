@@ -216,13 +216,37 @@ class BossProjectile extends Entity {
     
     draw(ctx) {
         ctx.save();
+        let canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
+        try {
+            const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+            canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                vw = canvas.width * scaleX;
+                vh = canvas.height * scaleY;
+            }
+        } catch (_) {}
+        const margin = 128;
+        const circleInView = (x, y, r) => {
+            if (!canvas) return true;
+            let sx = (x - camX) * scaleX;
+            let sy = (y - camY) * scaleY;
+            return !((sx + r) < -margin || (sy + r) < -margin || (sx - r) > (vw + margin) || (sy - r) > (vh + margin));
+        };
         
         // 繪製拖尾粒子
-        this.drawParticles(ctx);
+        if (circleInView(this.x, this.y, Math.max(this.glowSize, this.width) * 0.75)) {
+            this.drawParticles(ctx);
+        }
         
         // 繪製外層光暈
         const pulseScale = 1 + Math.sin(this.pulsePhase) * 0.2;
         const glowRadius = this.glowSize * pulseScale * 0.5;
+        if (!circleInView(this.x, this.y, Math.max(glowRadius, this.width / 2))) { ctx.restore(); return; }
         
         const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, glowRadius);
         gradient.addColorStop(0, 'rgba(255, 100, 0, 0.8)');
