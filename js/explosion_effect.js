@@ -187,14 +187,14 @@ class ExplosionEffect extends Entity {
         } catch (_) {}
         if (!layer) return;
         
+        const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
         const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
         if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = rect.width / canvas.width;
-        const scaleY = rect.height / canvas.height;
-        const camX = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0;
-        const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
-        const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+        const scaleX = vm ? vm.scaleX : (canvas.getBoundingClientRect().width / canvas.width);
+        const scaleY = vm ? vm.scaleY : (canvas.getBoundingClientRect().height / canvas.height);
+        const camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+        const camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+        const rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
         
         let sx = x - camX;
         let sy = y - camY;
@@ -330,6 +330,10 @@ class ExplosionEffect extends Entity {
                 sx *= scaleX;
                 sy *= scaleY;
             }
+            const vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+            const vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            const margin = 128;
+            if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) continue;
             
             const leftPx = Math.round(sx);
             const topPx = Math.round(sy);
