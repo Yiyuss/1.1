@@ -16,6 +16,33 @@ class Obstacle extends Entity {
 
     draw(ctx) {
         ctx.save();
+        let canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
+        try {
+            const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+            canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                vw = canvas.width * scaleX;
+                vh = canvas.height * scaleY;
+            }
+        } catch (_) {}
+        const margin = 128;
+        if (canvas) {
+            let sx = (this.x - camX) * scaleX;
+            let sy = (this.y - camY) * scaleY;
+            const left = sx - this.width / 2;
+            const right = sx + this.width / 2;
+            const top = sy - this.height / 2;
+            const bottom = sy + this.height / 2;
+            if (right < -margin || bottom < -margin || left > vw + margin || top > vh + margin) {
+                ctx.restore();
+                return;
+            }
+        }
         const img = Game.images && Game.images[this.imageKey];
         const halfW = this.width / 2;
         const halfH = this.height / 2;
