@@ -11,7 +11,7 @@ const CONFIG = {
         BORDER_COLOR: '#000',
         BORDER_ALPHA: 0.8
     },
-    
+
     // 玩家設置
     PLAYER: {
         SPEED: 3, // 降低移動速度
@@ -61,6 +61,7 @@ const CONFIG = {
             DIVINE_JUDGMENT: 'assets/images/A40.png',
             SIXTH_SENSE: 'assets/images/A41.png',
             PON: 'assets/images/A52.png',
+            STARFALL: 'assets/images/A53.png',
             STELLAR_FIELD: 'assets/images/A49.png',
             BAGUETTE_THROW: 'assets/images/A42.png',
             PINEAPPLE_ORBIT: 'assets/images/A44.png',
@@ -75,7 +76,7 @@ const CONFIG = {
             ATTR_ATTACK_POWER: 'assets/images/A12.png'
         }
     },
-    
+
     // 武器設置
     WEAPONS: {
         INVINCIBLE: {
@@ -663,7 +664,7 @@ const CONFIG = {
         // 融合技能：引力波（守護領域LV10 + 無敵LV10）
         GRAVITY_WAVE: {
             NAME: "引力波",
-            DAMAGE: 5, 
+            DAMAGE: 5,
             COOLDOWN: 1000,
             PROJECTILE_SPEED: 0,
             // 場域半徑：與守護領域LV10相同（60 + 10*9 = 150）
@@ -859,6 +860,33 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "40%迴避傷害" }
             ]
         },
+        // 新武器：星隕（厄倫蒂兒專屬技能）
+        // - 頭頂懸浮月亮 (A54.png)，攻擊邏輯同裁決，使用 A51.png
+        STARFALL: {
+            NAME: "星隕",
+            DAMAGE: 15, // 基礎傷害（同裁決）
+            COOLDOWN: 2400, // 冷卻（同裁決）
+            DETECT_RADIUS: 400, // 偵測半徑（同裁決）
+            BASE_AOE_RADIUS: 100, // 傷害範圍（同裁決）
+            AOE_RADIUS_PER_LEVEL: 12, // 每級增加範圍（同裁決）
+            SWORD_IMAGE_WIDTH: 30, // A51.png 寬度（縮小以小於月亮）
+            SWORD_IMAGE_HEIGHT: 29, // A51.png 高度（保持比例）
+            FALL_DURATION_MS: 250, // 下落時間（同裁決）
+            FADE_OUT_DURATION_MS: 300, // 淡出時間（同裁決）
+            MOON_IMAGE_SCALE: 1.5, // 月亮大小為玩家1.5倍
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "召喚月亮懸浮，每2.4秒降下星隕攻擊敵人" },
+                { COUNT: 2, DESCRIPTION: "每2.4秒降下2顆星隕" },
+                { COUNT: 3, DESCRIPTION: "每2.4秒降下3顆星隕" },
+                { COUNT: 4, DESCRIPTION: "每2.4秒降下4顆星隕" },
+                { COUNT: 5, DESCRIPTION: "每2.4秒降下5顆星隕" },
+                { COUNT: 6, DESCRIPTION: "每2.4秒降下6顆星隕" },
+                { COUNT: 7, DESCRIPTION: "每2.4秒降下7顆星隕" },
+                { COUNT: 8, DESCRIPTION: "每2.4秒降下8顆星隕" },
+                { COUNT: 9, DESCRIPTION: "每2.4秒降下9顆星隕" },
+                { COUNT: 10, DESCRIPTION: "每2.4秒降下10顆星隕" }
+            ]
+        },
         // 融合技能：狂熱大波（持有並滿級 應援棒(DAGGER) 與 大波球(BIG_ICE_BALL) 後可獲得）
         FRENZY_ICE_BALL: {
             NAME: "狂熱大波",
@@ -945,38 +973,38 @@ const CONFIG = {
         MAX: 100,
         REGEN_PER_SEC: 1
     },
-        ULTIMATE: {
-            DURATION_MS: 15000,
-            PLAYER_SIZE_MULTIPLIER: 2.5, // 變身體型再放大一些
-            IMAGE_KEY: 'playerN',
-            ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'SLASH'],
-            ULTIMATE_LEVEL: 10
+    ULTIMATE: {
+        DURATION_MS: 15000,
+        PLAYER_SIZE_MULTIPLIER: 2.5, // 變身體型再放大一些
+        IMAGE_KEY: 'playerN',
+        ULTIMATE_WEAPONS: ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'SLASH'],
+        ULTIMATE_LEVEL: 10
+    },
+    // 角色特定的大招配置（覆蓋 ULTIMATE 預設值）
+    CHARACTER_ULTIMATES: {
+        'margaret': {
+            // 使用預設 ULTIMATE 配置
         },
-        // 角色特定的大招配置（覆蓋 ULTIMATE 預設值）
-        CHARACTER_ULTIMATES: {
-            'margaret': {
-                // 使用預設 ULTIMATE 配置
-            },
-            'dada': {
-                IMAGE_KEY: 'playerN2', // 使用 playerN2.gif 動態圖片
-                ULTIMATE_WEAPONS: ['AURA_FIELD'], // 只裝上LV10的守護領域
-                EXTRA_DEFENSE: 10, // 大絕期間額外防禦+10
-                AUDIO_KEY: 'playerN2', // 大絕期間播放 playerN2.mp3
-                PLAYER_SIZE_MULTIPLIER: 3.5 // 大絕期間體型放大倍率（比預設2.5更大）
-            },
-            'rokurost': {
-                IMAGE_KEY: 'playerN3', // 使用 playerN3.png 變身圖片（267x300）
-                ULTIMATE_WEAPONS: ['MUFFIN_THROW', 'ROTATING_MUFFIN', 'UNCONTROLLABLE_BEAST'], // LV10的鬆餅投擲、旋轉鬆餅、不獸控制
-                EXTRA_HP: 600, // 大絕期間HP暫時+600
-                PLAYER_SIZE_MULTIPLIER: 2.5 // 使用預設體型放大倍率
-            },
-            'rabi': {
-                // 艾比大绝：不变身，直接施放全地图爆炸
-                IS_EXPLOSION_ULTIMATE: true, // 标记为爆炸大绝
-                AUDIO_KEY: 'Explosion' // 使用Explosion.mp3音效
-            }
-            // 'lilylinglan': 第三位角色大招暫未製作
+        'dada': {
+            IMAGE_KEY: 'playerN2', // 使用 playerN2.gif 動態圖片
+            ULTIMATE_WEAPONS: ['AURA_FIELD'], // 只裝上LV10的守護領域
+            EXTRA_DEFENSE: 10, // 大絕期間額外防禦+10
+            AUDIO_KEY: 'playerN2', // 大絕期間播放 playerN2.mp3
+            PLAYER_SIZE_MULTIPLIER: 3.5 // 大絕期間體型放大倍率（比預設2.5更大）
         },
+        'rokurost': {
+            IMAGE_KEY: 'playerN3', // 使用 playerN3.png 變身圖片（267x300）
+            ULTIMATE_WEAPONS: ['MUFFIN_THROW', 'ROTATING_MUFFIN', 'UNCONTROLLABLE_BEAST'], // LV10的鬆餅投擲、旋轉鬆餅、不獸控制
+            EXTRA_HP: 600, // 大絕期間HP暫時+600
+            PLAYER_SIZE_MULTIPLIER: 2.5 // 使用預設體型放大倍率
+        },
+        'rabi': {
+            // 艾比大绝：不变身，直接施放全地图爆炸
+            IS_EXPLOSION_ULTIMATE: true, // 标记为爆炸大绝
+            AUDIO_KEY: 'Explosion' // 使用Explosion.mp3音效
+        }
+        // 'lilylinglan': 第三位角色大招暫未製作
+    },
 
     // 選角列表（目前 2 名角色）
     // 維護備註：
@@ -1036,7 +1064,7 @@ const CONFIG = {
             name: '森森鈴蘭',
             // 第三位角色：初始血量比第一位角色多 2000，其餘基礎數值相同
             hpMultiplier: 1.0,
-            hpBonus: 2000, 
+            hpBonus: 2000,
             speedMultiplier: 1.0,
             description: `角色介紹：傳說中的未知信號，被她抓到，就會被馬桶坐坐！\n專屬技能：施工中`,
             // 選角預覽圖（下方角色介紹用）：使用 player3-2.png
@@ -1136,18 +1164,18 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10,
-            description: `角色介紹：最喜歡地球的恆星精神體，迷路途中被未知訊號吸引而來。\n專屬技能：恆星領域、星體軌跡、PON`,
+            description: `角色介紹：最喜歡地球的恆星精神體，迷路途中被未知訊號吸引而來。\n專屬技能：恆星領域、星體軌跡、PON、星隕`,
             avatarImageKey: 'player7-2',
             hudImageKey: 'player7-2',
             spriteImageKey: 'player7',
             levelUpBgKey: 'player7-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: ['STELLAR_FIELD', 'STELLAR_ORBIT', 'PON'],
+            exclusiveWeapons: ['STELLAR_FIELD', 'STELLAR_ORBIT', 'PON', 'STARFALL'],
             unlockCost: 10000
         }
     ],
-    
+
     // 新增：地圖列表（背景鍵）
     MAPS: [
         { id: 'city', name: 'LV1.廁所', backgroundKey: 'background' },
@@ -1248,7 +1276,7 @@ const CONFIG = {
             EXPERIENCE: 10,           // 擊殺經驗值（最高）
             COLLISION_RADIUS: 16      // 碰撞半徑
         },
-        
+
         // ========================================================================
         // 第2張地圖：草原 (forest) - 強化敵人
         // ========================================================================
@@ -1279,7 +1307,7 @@ const CONFIG = {
             EXPERIENCE: 10,            // 擊殺經驗值
             COLLISION_RADIUS: 16      // 碰撞半徑
         },
-        
+
         // ========================================================================
         // 第3張地圖：宇宙 (desert) - 高級敵人
         // ========================================================================
@@ -1310,7 +1338,7 @@ const CONFIG = {
             EXPERIENCE: 10,             // 擊殺經驗值
             COLLISION_RADIUS: 16       // 碰撞半徑
         },
-        
+
         // ========================================================================
         // 第4張地圖：花園 (garden) - 花精靈系列
         // ========================================================================
@@ -1434,7 +1462,7 @@ const CONFIG = {
             EXPERIENCE: 10,           // 擊殺經驗值
             COLLISION_RADIUS: 16      // 碰撞半徑
         },
-        
+
         // BOSS系列
         HUMAN_MINI_BOSS: {
             NAME: "混混",
@@ -1478,7 +1506,7 @@ const CONFIG = {
                 TURN_RATE: 2.5          // 追蹤轉向速率（弧度/秒）
             }
         },
-        
+
         // ========================================================================
         // BOSS類敵人（通用）
         // 放在所有地圖段落之後，讓 CONFIG.ENEMIES 可依地圖順序往下閱讀
@@ -1524,7 +1552,7 @@ const CONFIG = {
             }
         }
     },
-    
+
     // 經驗值設置
     EXPERIENCE: {
         SIZE: 16,
@@ -1539,7 +1567,7 @@ const CONFIG = {
         LEVEL_UP_MULTIPLIER_LATE: 1.055,
         LEVEL_UP_LINEAR_LATE: 0
     },
-    
+
     // 波次設置
     WAVES: {
         DURATION: 60000, // 每波持續60秒
@@ -1653,7 +1681,7 @@ const CONFIG = {
                 }
             }
         },
-        
+
         // 小BOSS血量配置（依地圖與難度）
         // 格式：{ startWave1: 第1波血量, endWave30: 第30波血量 }
         MINI_BOSS: {
@@ -1724,7 +1752,7 @@ const CONFIG = {
                 }
             }
         },
-        
+
         // 大BOSS血量配置（依地圖與難度）
         // 格式：{ wave20: 第20波血量 }
         // 注意：大BOSS僅在第20波出現（原為第30波，已縮短為20波）
@@ -1785,7 +1813,7 @@ const CONFIG = {
             }
         }
     },
-    
+
     // 優化設置
     OPTIMIZATION: {
         MAX_ENEMIES: 550, // 最大敵人數量，提高密度
@@ -1794,7 +1822,7 @@ const CONFIG = {
         ORB_PULSE_DISABLE_THRESHOLD: 100, // 經驗球超過此數量關閉呼吸閃爍
         CLEANUP_INTERVAL: 1000 // 清理間隔（毫秒）
     },
-    
+
     // 彈幕系統（骨架開關）：預設關閉，不影響現有遊戲
     BULLET_SYSTEM: {
         ENABLED: true
