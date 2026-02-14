@@ -90,7 +90,7 @@ class YoungDadaGloryEffect extends Entity {
         const elapsed = Date.now() - this.startTime;
         const dropProgress = Math.min(1, elapsed / this.dropDuration); // 快速照射進度
         const isMaintaining = elapsed >= this.dropDuration; // 是否進入維持階段
-        let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+        let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
         try {
             vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
             canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
@@ -100,25 +100,22 @@ class YoungDadaGloryEffect extends Entity {
                 scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
                 camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
                 camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
-                rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
-                vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
-                vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+                vw = canvas.width * scaleX;
+                vh = canvas.height * scaleY;
             }
         } catch (_) {}
         const margin = 128;
         const rectInView = (x, y, w, h) => {
             if (!canvas) return true;
-            let sx = x - camX;
-            let sy = y - camY;
-            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+            let sx = (x - camX) * scaleX;
+            let sy = (y - camY) * scaleY;
             const left = sx - w / 2, right = sx + w / 2, top = sy - h / 2, bottom = sy + h / 2;
             return !(right < -margin || bottom < -margin || left > vw + margin || top > vh + margin);
         };
         const circleInView = (x, y, r) => {
             if (!canvas) return true;
-            let sx = x - camX;
-            let sy = y - camY;
-            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+            let sx = (x - camX) * scaleX;
+            let sy = (y - camY) * scaleY;
             return !((sx + r) < -margin || (sy + r) < -margin || (sx - r) > (vw + margin) || (sy - r) > (vh + margin));
         };
         
