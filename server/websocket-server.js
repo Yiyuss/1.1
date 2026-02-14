@@ -388,30 +388,6 @@ function handleGameData(ws, roomId, uid, data) {
     // 不需要转发，服务器会定期广播状态
     return;
   }
-  // ✅ 权威服务器：批次持續傷害（降低封包負載）
-  if (gameState && data.type === 'aoe_tick_batch' && Array.isArray(data.entries)) {
-    try {
-      const entries = data.entries.slice(0, 128);
-      for (const entry of entries) {
-        if (!entry || typeof entry !== 'object') continue;
-        const input = {
-          type: 'aoe_tick',
-          weaponType: entry.weaponType,
-          x: entry.x,
-          y: entry.y,
-          radius: entry.radius,
-          damage: entry.damage,
-          allowCrit: entry.allowCrit,
-          critChanceBonusPct: entry.critChanceBonusPct,
-          enemyIds: Array.isArray(entry.enemyIds) ? entry.enemyIds.slice(0, 32) : undefined
-        };
-        gameState.handleInput(uid, input);
-      }
-    } catch (e) {
-      console.warn('[WebSocket] aoe_tick_batch 處理失敗：', e);
-    }
-    return;
-  }
 
   // ✅ 多人元素（視覺特效）：VFX 事件通道（只轉發，不進入權威 game-state）
   // 目的：讓隊友也看得到粒子/鏡頭效果，但不影響單機與權威邏輯。
