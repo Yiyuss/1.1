@@ -137,6 +137,8 @@
     _throttleMs: 120,
     _maxElements: 60,
     _lastShowByEnemy: new Map(),
+    _queue: [],
+    _rafScheduled: false,
 
     ensureLayer(){
       if (this._layer && this._layer.isConnected) return this._layer;
@@ -194,116 +196,105 @@
      * - DOM 上限與每敵人節流避免大量同幀命中造成停滯；不影響任何數值與行為，只影響「顯示密度」。
      */
     async show(value, x, y, isCrit, opts){
-      const layer = this.ensureLayer();
-      if (!layer) return;
-      await this.ensureFont();
-
-      // 每敵人節流：避免同一敵人瞬間產生過多數字
-      try {
-        const enemyId = opts && opts.enemyId != null ? opts.enemyId : null;
-        if (enemyId !== null) {
-          const now = Date.now();
-          const last = this._lastShowByEnemy.get(enemyId) || 0;
-          if (now - last < this._throttleMs) return;
-          this._lastShowByEnemy.set(enemyId, now);
-        }
-      } catch (_) {}
-
-      // 世界→螢幕座標映射：扣除鏡頭偏移並考慮CSS縮放
-      let sx = x, sy = y;
-      try {
-        const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = rect.width / canvas.width;
-        const scaleY = rect.height / canvas.height;
-        const camX = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0;
-        const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
-        const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
-        if (rotatedPortrait) {
-          // 直立旋轉90°：世界→螢幕座標（與 input.js 的CW映射相反變換）
-          const xPrime = x - camX;
-          const yPrime = y - camY;
-          // 直立旋轉：使用畫布原座標，交由 viewport 的 transform 處理縮放/旋轉
-          sx = xPrime;
-          sy = yPrime;
-        } else {
-          // 未旋轉：標準座標換算
-          sx = (x - camX) * scaleX;
-          sy = (y - camY) * scaleY;
-        }
-        // 若位於可視範圍之外，略過渲染（避免邊界外跳動）
-        const vw = layer.clientWidth || rect.width;
-        const vh = layer.clientHeight || rect.height;
-        if (sx < 0 || sy < 0 || sx > vw || sy > vh) return;
-      } catch (_) {}
-
-      // 控制元素總量上限，避免 DOM 膨脹造成卡頓
-      try {
-        const max = this._maxElements || 60;
-        while (layer.childElementCount >= max) {
-          if (layer.firstElementChild) layer.removeChild(layer.firstElementChild);
-          else break;
-        }
-      } catch (_) {}
-
-      const el = document.createElement('div');
-      el.textContent = String(value);
-      el.style.position = 'absolute';
-      el.style.left = Math.round(sx) + 'px';
-      el.style.top = Math.round(sy) + 'px';
-      el.style.transform = 'translate(-50%, -50%)';
-      el.style.fontFamily = this._fontLoaded ? 'GenSenRounded-H, sans-serif' : 'sans-serif';
-      el.style.fontWeight = isCrit ? '800' : '600';
-      // 字放大：一般 28px、爆擊 34px（手機視覺適度縮小，不影響 PC）
-      try {
-        const isMobile = (typeof window !== 'undefined') && (
-          (window.matchMedia && (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches))
-        );
-        const baseSize = isCrit ? 34 : 28;
-        // 手機字級再縮小：0.85 -> 0.75（僅影響手機，不動PC）
-        const size = isMobile ? Math.round(baseSize * 0.75) : baseSize;
-        el.style.fontSize = size + 'px';
-      } catch (_) {
-        el.style.fontSize = isCrit ? '34px' : '28px';
+      this._queue.push({ value, x, y, isCrit, opts });
+      if (!this._rafScheduled) {
+        this._rafScheduled = true;
+        requestAnimationFrame(async () => {
+          try {
+            const layer = this.ensureLayer();
+            if (!layer) { this._queue.length = 0; this._rafScheduled = false; return; }
+            await this.ensureFont();
+            // flush
+            const frag = document.createDocumentFragment();
+            const rectCanvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+            let rect = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false;
+            if (rectCanvas) {
+              rect = rectCanvas.getBoundingClientRect();
+              scaleX = rect.width / rectCanvas.width;
+              scaleY = rect.height / rectCanvas.height;
+              camX = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0;
+              camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
+              rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+            }
+            const vw = layer.clientWidth || (rect ? rect.width : 0);
+            const vh = layer.clientHeight || (rect ? rect.height : 0);
+            const now = Date.now();
+            // enforce max count before adding
+            const max = this._maxElements || 60;
+            while (layer.childElementCount >= max) {
+              if (layer.firstElementChild) layer.removeChild(layer.firstElementChild); else break;
+            }
+            for (let i = 0; i < this._queue.length; i++) {
+              const item = this._queue[i];
+              const enemyId = item.opts && item.opts.enemyId != null ? item.opts.enemyId : null;
+              if (enemyId !== null) {
+                const last = this._lastShowByEnemy.get(enemyId) || 0;
+                if (now - last < this._throttleMs) continue;
+                this._lastShowByEnemy.set(enemyId, now);
+              }
+              let sx = item.x, sy = item.y;
+              if (rectCanvas) {
+                if (rotatedPortrait) {
+                  sx = item.x - camX;
+                  sy = item.y - camY;
+                } else {
+                  sx = (item.x - camX) * scaleX;
+                  sy = (item.y - camY) * scaleY;
+                }
+                if (sx < 0 || sy < 0 || sx > vw || sy > vh) continue;
+              }
+              const el = document.createElement('div');
+              el.textContent = String(item.value);
+              el.style.position = 'absolute';
+              el.style.left = Math.round(sx) + 'px';
+              el.style.top = Math.round(sy) + 'px';
+              el.style.transform = 'translate(-50%, -50%)';
+              el.style.fontFamily = this._fontLoaded ? 'GenSenRounded-H, sans-serif' : 'sans-serif';
+              el.style.fontWeight = item.isCrit ? '800' : '600';
+              try {
+                const isMobile = (typeof window !== 'undefined') && (
+                  (window.matchMedia && (window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(pointer: coarse)').matches))
+                );
+                const baseSize = item.isCrit ? 34 : 28;
+                const size = isMobile ? Math.round(baseSize * 0.75) : baseSize;
+                el.style.fontSize = size + 'px';
+              } catch (_) {
+                el.style.fontSize = item.isCrit ? '34px' : '28px';
+              }
+              el.style.color = item.isCrit ? '#ffeb3b' : '#ffffff';
+              el.style.webkitTextStroke = item.isCrit ? '1.4px #ffffff' : '1.2px #ffffff';
+              const baseShadow = item.isCrit
+                ? '0 0 12px rgba(255, 235, 59, 0.85), 0 0 5px rgba(255, 255, 255, 0.7)'
+                : '0 0 9px rgba(255, 255, 255, 0.65)';
+              const borderShadow = ', 0 0 2px #000, 1.5px 0 0 #000, -1.5px 0 0 #000, 0 1.5px 0 #000, 0 -1.5px 0 #000';
+              el.style.textShadow = baseShadow + borderShadow;
+              el.style.willChange = 'transform, opacity';
+              frag.appendChild(el);
+              const vx = item.opts && typeof item.opts.dirX === 'number' ? item.opts.dirX : 0;
+              const vy = item.opts && typeof item.opts.dirY === 'number' ? item.opts.dirY : -1;
+              const len = Math.hypot(vx, vy) || 1;
+              const nx = vx / len;
+              const ny = vy / len;
+              const mag = item.isCrit ? 46 : 36;
+              const dx = nx * mag;
+              const dy = ny * mag;
+              const duration = item.isCrit ? 2100 : 1700;
+              const easing = 'cubic-bezier(0.22, 1, 0.36, 1)';
+              const anim = el.animate([
+                { transform: 'translate(-50%, -50%)', opacity: 1 },
+                { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`, opacity: 0 }
+              ], { duration, easing, fill: 'forwards' });
+              anim.onfinish = () => {
+                if (el && el.parentNode) el.parentNode.removeChild(el);
+              };
+            }
+            layer.appendChild(frag);
+          } finally {
+            this._queue.length = 0;
+            this._rafScheduled = false;
+          }
+        });
       }
-      el.style.color = isCrit ? '#ffeb3b' : '#ffffff';
-      // 維護註解：傷害數字邊框強化 — 先以白色較粗外框提升字重，外層保留原有「黑色細邊框」以維持對比度與可讀性
-      // 依賴與安全性：
-      // - 使用 `-webkit-text-stroke` 實作白色粗邊；以 `textShadow` 多方向陰影模擬外層黑色細邊框（跨瀏覽器回退）。
-      // - 僅更動視覺，不改動文字內容、動畫、計算邏輯與任何數值。
-      el.style.webkitTextStroke = isCrit ? '1.4px #ffffff' : '1.2px #ffffff';
-      const baseShadow = isCrit
-        ? '0 0 12px rgba(255, 235, 59, 0.85), 0 0 5px rgba(255, 255, 255, 0.7)'
-        : '0 0 9px rgba(255, 255, 255, 0.65)';
-      const borderShadow = ', 0 0 2px #000, 1.5px 0 0 #000, -1.5px 0 0 #000, 0 1.5px 0 #000, 0 -1.5px 0 #000';
-      el.style.textShadow = baseShadow + borderShadow;
-      el.style.willChange = 'transform, opacity';
-      
-      layer.appendChild(el);
-
-      // 方向：依照攻擊向量移動；若未提供則向上
-      const vx = opts && typeof opts.dirX === 'number' ? opts.dirX : 0;
-      const vy = opts && typeof opts.dirY === 'number' ? opts.dirY : -1;
-      const len = Math.hypot(vx, vy) || 1;
-      const nx = vx / len;
-      const ny = vy / len;
-      // 位移量：一般 36px、爆擊 46px；不再隨機跳動
-      const mag = isCrit ? 46 : 36;
-      const dx = nx * mag;
-      const dy = ny * mag;
-      // 顯示時間加長：一般 1700ms、爆擊 2100ms
-      const duration = isCrit ? 2100 : 1700;
-      const easing = 'cubic-bezier(0.22, 1, 0.36, 1)';
-
-      const anim = el.animate([
-        { transform: 'translate(-50%, -50%)', opacity: 1 },
-        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`, opacity: 0 }
-      ], { duration, easing, fill: 'forwards' });
-
-      anim.onfinish = () => {
-        if (el && el.parentNode) el.parentNode.removeChild(el);
-      };
     }
   };
 
