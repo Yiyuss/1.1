@@ -35,6 +35,8 @@ class SlashEffect extends Entity {
         this._domLayer = null;
         this._domEls = [];
         this._hitDomEls = [];
+        this._poolDomEls = [];
+        this._poolHitEls = [];
         this._domInitialized = false;
         this._hitDomCreated = false;
         // 視覺倍率：隨半徑放大（只影響 DOM 圖像尺寸）
@@ -326,13 +328,11 @@ class SlashEffect extends Entity {
         const layer = this._ensureDomLayer();
         if (!layer) return;
         const makeImg = (x, y, sizePx, angle) => {
-            const el = document.createElement('img');
-            // 每次建立唯一資源 URL，確保 GIF 從第1偵開始播放
+            let el = this._poolDomEls.length ? this._poolDomEls.pop() : document.createElement('img');
             const freshSrc = this._freshGifSrc(src);
             el.src = freshSrc;
             el.alt = 'Slash';
             el.style.position = 'absolute';
-            // 依 192x250 比例設定寬高（維持原始長寬比）
             const ratio = (this.overlayAspectW || 192) / (this.overlayAspectH || 250);
             const heightPx = sizePx;
             const widthPx = Math.max(1, Math.floor(heightPx * ratio));
@@ -340,10 +340,8 @@ class SlashEffect extends Entity {
             el.style.height = heightPx + 'px';
             el.style.transform = 'translate(-50%, -50%) rotate(' + angle + 'rad)';
             el.style.imageRendering = 'pixelated';
-            // 不使用任何濾色或濾鏡（已去背）
             el.style.backgroundColor = 'transparent';
             el.style.opacity = '1';
-            // 等待載入完成再顯示，避免半截畫面
             el.style.visibility = 'hidden';
             el.loading = 'eager';
             el.decoding = 'sync';
@@ -368,7 +366,7 @@ class SlashEffect extends Entity {
         const hitImg = (Game && Game.images) ? Game.images[this.hitOverlayImageKey] : null;
         if (!hitImg || !hitImg.complete || !(hitImg.naturalWidth > 0)) return;
         const makeHit = (x, y, sizePx) => {
-            const el = document.createElement('img');
+            let el = this._poolHitEls.length ? this._poolHitEls.pop() : document.createElement('img');
             const src = this._freshGifSrc(hitImg.src);
             el.src = src;
             el.alt = 'SlashHit';
@@ -378,7 +376,7 @@ class SlashEffect extends Entity {
             const widthPx = Math.max(1, Math.floor(heightPx * ratio));
             el.style.width = widthPx + 'px';
             el.style.height = heightPx + 'px';
-            el.style.transform = 'translate(-50%, -50%)'; // 濺血不旋轉
+            el.style.transform = 'translate(-50%, -50%)';
             el.style.imageRendering = 'pixelated';
             el.style.backgroundColor = 'transparent';
             el.style.opacity = '1';
@@ -480,10 +478,10 @@ class SlashEffect extends Entity {
     _destroyDom() {
         try {
             for (const item of this._domEls) {
-                if (item.el && item.el.parentNode) item.el.parentNode.removeChild(item.el);
+                if (item.el && item.el.parentNode) { item.el.parentNode.removeChild(item.el); this._poolDomEls.push(item.el); }
             }
             for (const item of this._hitDomEls) {
-                if (item.el && item.el.parentNode) item.el.parentNode.removeChild(item.el);
+                if (item.el && item.el.parentNode) { item.el.parentNode.removeChild(item.el); this._poolHitEls.push(item.el); }
             }
         } catch(_) {}
         this._domEls.length = 0;
