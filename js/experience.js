@@ -135,10 +135,34 @@
     
     draw(ctx) {
         ctx.save();
+        let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+        try {
+            vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+            canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
+                vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+                vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            }
+        } catch (_) {}
+        const margin = 128;
+        const circleInView = (x, y, r) => {
+            if (!canvas) return true;
+            let sx = x - camX;
+            let sy = y - camY;
+            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+            return !((sx + r) < -margin || (sy + r) < -margin || (sx - r) > (vw + margin) || (sy - r) > (vh + margin));
+        };
+        const size = Math.max(this.width, this.height);
+        if (!circleInView(this.x, this.y, size / 2)) { ctx.restore(); return; }
         
         // 優先使用圖片繪製（1:1比例）
         if (Game.images && Game.images.exp_orb) {
-            const size = Math.max(this.width, this.height);
             ctx.drawImage(Game.images.exp_orb, this.x - size / 2, this.y - size / 2, size, size);
         } else {
             // 備用：使用純色圓形
