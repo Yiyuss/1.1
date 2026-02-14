@@ -113,8 +113,13 @@ class GravityWaveField extends Entity {
 
         // 依間隔造成持續傷害（補齊延遲）
         this.tickAccumulator += deltaTime;
-        while (this.tickAccumulator >= this.tickIntervalMs) {
-            for (const enemy of Game.enemies) {
+        let loops = 0;
+        const maxLoops = 3;
+        while (this.tickAccumulator >= this.tickIntervalMs && loops++ < maxLoops) {
+            const targets = (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function')
+                ? Game.getEnemiesNearCircle(this.x, this.y, this.collisionRadius)
+                : Game.enemies;
+            for (const enemy of targets) {
                 if (this.isColliding(enemy)) {
                     let finalDamage = this.tickDamage;
                     let isCrit = false;
@@ -170,7 +175,10 @@ class GravityWaveField extends Entity {
         this.pushAccumulator += deltaTime;
         if (this.pushAccumulator >= this.pushIntervalMs) {
             const currentTime = Date.now();
-            for (const enemy of Game.enemies) {
+            const targets2 = (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function')
+                ? Game.getEnemiesNearCircle(this.x, this.y, this.collisionRadius)
+                : Game.enemies;
+            for (const enemy of targets2) {
                 if (this.isColliding(enemy)) {
                     const enemyId = enemy.id || enemy;
                     const lastPushTime = this.enemyLastPushTime.get(enemyId) || 0;
@@ -277,16 +285,15 @@ class GravityWaveField extends Entity {
 
     _updateDomPosition() {
         if (!this.el || !this._layer) return;
-        if (this._lastDomUpdateAt && (Date.now() - this._lastDomUpdateAt) < 33) return;
         try {
+            const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
             const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
             if (!canvas) return;
-            const rect = canvas.getBoundingClientRect();
-            const scaleX = rect.width / canvas.width;
-            const scaleY = rect.height / canvas.height;
-            const camX = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0;
-            const camY = (typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0;
-            const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
+            const scaleX = vm ? vm.scaleX : (canvas.getBoundingClientRect().width / canvas.width);
+            const scaleY = vm ? vm.scaleY : (canvas.getBoundingClientRect().height / canvas.height);
+            const camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+            const camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+            const rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
             let sx, sy;
             if (rotatedPortrait) {
                 sx = this.x - camX;
@@ -295,13 +302,21 @@ class GravityWaveField extends Entity {
                 sx = (this.x - camX) * scaleX;
                 sy = (this.y - camY) * scaleY;
             }
-            this.el.style.left = sx + 'px';
-            this.el.style.top = sy + 'px';
+            const vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+            const vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            const margin = 128;
+            if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) return;
+            this.el.style.left = Math.round(sx) + 'px';
+            this.el.style.top = Math.round(sy) + 'px';
             // 同步尺寸（半徑可能動態成長）
             const w = (this.radius * 2 * this.visualScale);
             const h = (this.radius * 2 * this.visualScale);
-            this.el.style.width = w + 'px';
-            this.el.style.height = h + 'px';
+            const whKey = `${Math.round(w)}x${Math.round(h)}`;
+            if (this._lastWhKey !== whKey) {
+                this.el.style.width = w + 'px';
+                this.el.style.height = h + 'px';
+                this._lastWhKey = whKey;
+            }
             // 動態計算背景尺寸，使每格對應元素尺寸
             const scaleBgX = w / this.frameWidth;
             const scaleBgY = h / this.frameHeight;
@@ -312,7 +327,6 @@ class GravityWaveField extends Entity {
                 this.el.style.backgroundSize = `${bgW}px ${bgH}px`;
                 this._lastBgKey = key;
             }
-            this._lastDomUpdateAt = Date.now();
         } catch(_) {}
     }
 
