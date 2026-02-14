@@ -173,7 +173,31 @@ class LaserBeam extends Entity {
         this.pulsePhase += deltaTime;
         if (this.tickAccumulator >= this.tickIntervalMs) {
             const half = this.width / 2;
-            for (const enemy of Game.enemies) {
+            let candidates = Game.enemies || [];
+            try {
+                if (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function') {
+                    const dx = this.endX - this.startX;
+                    const dy = this.endY - this.startY;
+                    const dist = Math.hypot(dx, dy);
+                    const midX = (this.startX + this.endX) / 2;
+                    const midY = (this.startY + this.endY) / 2;
+                    const rMid = Math.max(half + 64, dist / 2 + half + 32);
+                    const rEnd = half + 64;
+                    const set = new Map();
+                    const addList = (list) => {
+                        for (const e of list || []) {
+                            const key = e && (e.id || e);
+                            if (!key) continue;
+                            if (!set.has(key)) set.set(key, e);
+                        }
+                    };
+                    addList(Game.getEnemiesNearCircle(midX, midY, rMid));
+                    addList(Game.getEnemiesNearCircle(this.startX, this.startY, rEnd));
+                    addList(Game.getEnemiesNearCircle(this.endX, this.endY, rEnd));
+                    candidates = Array.from(set.values());
+                }
+            } catch (_) {}
+            for (const enemy of candidates) {
                 const d = this.pointSegmentDistance(enemy.x, enemy.y, this.startX, this.startY, this.endX, this.endY);
                 if (d <= half + enemy.collisionRadius) {
                     // 光芒萬丈特殊處理：每個敵人最多只能被3條雷射持續傷害
@@ -245,8 +269,32 @@ class LaserBeam extends Entity {
                         if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                             // 計算受影響的敵人範圍
                             const half = this.width / 2;
-                            const hitEnemies = [];
-                            for (const e of Game.enemies) {
+                            let hitEnemies = [];
+                            let candidates2 = Game.enemies || [];
+                            try {
+                                if (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function') {
+                                    const dx2 = this.endX - this.startX;
+                                    const dy2 = this.endY - this.startY;
+                                    const dist2 = Math.hypot(dx2, dy2);
+                                    const midX2 = (this.startX + this.endX) / 2;
+                                    const midY2 = (this.startY + this.endY) / 2;
+                                    const rMid2 = Math.max(half + 64, dist2 / 2 + half + 32);
+                                    const rEnd2 = half + 64;
+                                    const set2 = new Map();
+                                    const addList2 = (list) => {
+                                        for (const e2 of list || []) {
+                                            const key2 = e2 && (e2.id || e2);
+                                            if (!key2) continue;
+                                            if (!set2.has(key2)) set2.set(key2, e2);
+                                        }
+                                    };
+                                    addList2(Game.getEnemiesNearCircle(midX2, midY2, rMid2));
+                                    addList2(Game.getEnemiesNearCircle(this.startX, this.startY, rEnd2));
+                                    addList2(Game.getEnemiesNearCircle(this.endX, this.endY, rEnd2));
+                                    candidates2 = Array.from(set2.values());
+                                }
+                            } catch (_) {}
+                            for (const e of candidates2) {
                                 if (!e || e.markedForDeletion) continue;
                                 const d = this.pointSegmentDistance(e.x, e.y, this.startX, this.startY, this.endX, this.endY);
                                 if (d <= half + e.collisionRadius) {
