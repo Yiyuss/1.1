@@ -5785,6 +5785,10 @@ function updateInteraction() {
                 if (id === IDS.AIR || (targetBlock && targetBlock.transparent)) {
                     setWall(tx, ty, handItem.id);
                     handItem.count--;
+                    if (handItem.count <= 0) {
+                        handItem.id = IDS.AIR;
+                        handItem.count = 0;
+                    }
                     updateUI();
                     mouse.right = false;
                 }
@@ -5848,6 +5852,10 @@ function updateInteraction() {
                                     setTile(tx, ty, IDS.DOOR_CLOSED);
                                     setTile(tx, ty + 1, IDS.DOOR_CLOSED);
                                     handItem.count--;
+                                    if (handItem.count <= 0) {
+                                        handItem.id = IDS.AIR;
+                                        handItem.count = 0;
+                                    }
                                     updateUI();
                                     mouse.right = false;
                                 } else {
@@ -5860,6 +5868,10 @@ function updateInteraction() {
                             // 其他方塊正常放置
                             setTile(tx, ty, handItem.id);
                             handItem.count--;
+                            if (handItem.count <= 0) {
+                                handItem.id = IDS.AIR;
+                                handItem.count = 0;
+                            }
                             updateUI();
                             mouse.right = false;
                         }
