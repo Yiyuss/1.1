@@ -866,13 +866,38 @@ class FrenzyLightningEffect extends Entity {
     draw(ctx) {
         ctx.save();
         const elapsed = Date.now() - this.startTime;
+        let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+        try {
+            vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+            canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+            if (canvas) {
+                const rect = canvas.getBoundingClientRect();
+                scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
+                vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+                vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            }
+        } catch (_) {}
+        const margin = 128;
+        const inView = (x, y) => {
+            if (!canvas) return true;
+            let sx = x - camX;
+            let sy = y - camY;
+            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+            return !(sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin);
+        };
         for (const seg of this.segments) {
             if (elapsed < seg.revealAt) continue;
             const { fx, fy, tx, ty } = this._segmentEndpoints(seg);
+            if (!inView(fx, fy) && !inView(tx, ty)) continue;
             this._drawElectricArc(ctx, fx, fy, tx, ty);
         }
         ctx.globalCompositeOperation = 'lighter';
         for (const p of this.particles) {
+            if (!inView(p.x, p.y)) continue;
             const alpha = Math.max(0.04, Math.min(1, p.life / (p.maxLife || 250)));
             ctx.fillStyle = p.color || '#66ccff';
             ctx.globalAlpha = alpha * 0.25;
