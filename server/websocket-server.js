@@ -44,8 +44,8 @@ let lastGameUpdate = Date.now();
 let lastBroadcastAt = Date.now();
 
 // ✅ 安全配置：速率限制 (Rate Limiting)
-const RATE_LIMIT_WINDOW = 1000; // 1秒窗口
-const MAX_PACKETS_PER_SEC = 60; // 每秒最多60個包 (對應 60Hz)
+const RATE_LIMIT_WINDOW = 1000;
+const MAX_PACKETS_PER_SEC = 120;
 const rateLimits = new Map(); // ws -> { count, resetTime }
 
 const server = https.createServer(serverOptions);
@@ -170,7 +170,6 @@ wss.on('connection', (ws, req) => {
 });
 
 function handleMessage(ws, msg) {
-  // ✅ 安全检查：速率限制
   const now = Date.now();
   let limiter = rateLimits.get(ws);
   if (!limiter) {
@@ -183,10 +182,21 @@ function handleMessage(ws, msg) {
     limiter.resetTime = now + RATE_LIMIT_WINDOW;
   }
 
-  limiter.count++;
-  if (limiter.count > MAX_PACKETS_PER_SEC) {
-    console.warn(`[Security] Rate limit exceeded for ${users.get(ws)?.uid || 'unknown'}`);
-    return; // 丟棄超量封包
+  const dataType =
+    (msg && msg.type === 'game-data' && msg.data && typeof msg.data.type === 'string')
+      ? msg.data.type
+      : (typeof msg.type === 'string' ? msg.type : 'unknown');
+  let cost = 1;
+  if (dataType === 'move') cost = 0.25;
+  else if (dataType === 'player-meta') cost = 0.5;
+  else if (dataType === 'vfx') cost = 0.25;
+  const nextCount = limiter.count + cost;
+  if (nextCount > MAX_PACKETS_PER_SEC) {
+    if (dataType === 'move' || dataType === 'vfx') {
+      return;
+    }
+  } else {
+    limiter.count = nextCount;
   }
 
   const { type, roomId, uid, isHost, data } = msg;
