@@ -306,6 +306,7 @@ class ExplosionEffect extends Entity {
     
     _updateHitOverlayPositions() {
         if (!this.hitEnemies.length) return;
+        if (this._lastHitDomUpdateAt && (Date.now() - this._lastHitDomUpdateAt) < 33) return;
         
         const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
         if (!canvas) return;
@@ -330,9 +331,12 @@ class ExplosionEffect extends Entity {
                 sy *= scaleY;
             }
             
-            hit.domEl.style.left = sx + 'px';
-            hit.domEl.style.top = sy + 'px';
+            const leftPx = Math.round(sx);
+            const topPx = Math.round(sy);
+            if (hit._lastLeft !== leftPx) { hit.domEl.style.left = leftPx + 'px'; hit._lastLeft = leftPx; }
+            if (hit._lastTop !== topPx) { hit.domEl.style.top = topPx + 'px'; hit._lastTop = topPx; }
         }
+        this._lastHitDomUpdateAt = Date.now();
     }
     
     _destroyHitOverlays() {
