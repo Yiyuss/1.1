@@ -79,7 +79,8 @@
         const key = ID_PREFIX + id;
         const now = Date.now();
         const info = _updateInfo.get(key) || { t: 0, l: null, tp: null, w: null, h: null };
-        if ((now - info.t) >= 33) {
+        const changed = (info.l !== leftPx) || (info.tp !== topPx) || (info.w !== w) || (info.h !== h) || (info.l === null) || (info.tp === null);
+        if (changed || (now - info.t) >= 33) {
           if (info.l !== leftPx) { el.style.left = leftPx + 'px'; info.l = leftPx; }
           if (info.tp !== topPx) { el.style.top = topPx + 'px'; info.tp = topPx; }
           if (info.w !== w) { el.style.width = w + 'px'; info.w = w; }
