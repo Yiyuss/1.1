@@ -57,6 +57,7 @@
   const GifOverlay = {
     showOrUpdate(id, src, centerX, centerY, size, isBackground){
       try {
+        // 注意：人物屬性（'player'、'ai-companion'）的疊層顯示不可節流、不可改比例；本函式需保持每次呼叫皆更新 left/top/width/height。
         const el = ensureImg(id, isBackground);
         if (!el) return;
         if (src && el.src !== src) el.src = src;
