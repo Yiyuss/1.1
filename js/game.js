@@ -1144,16 +1144,40 @@ const Game = {
 
         // 前景層：爆炸粒子（例如追蹤綿羊命中效果）
         if (this.explosionParticles) {
+            let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+            try {
+                vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+                canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+                if (canvas) {
+                    const rect = canvas.getBoundingClientRect();
+                    scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                    scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                    camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                    camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                    rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
+                    vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+                    vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+                }
+            } catch (_) {}
+            const margin = 128;
+            const inView = (x, y, r = 0) => {
+                if (!canvas) return true;
+                let sx = x - camX;
+                let sy = y - camY;
+                if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+                return !((sx + r) < -margin || (sy + r) < -margin || (sx - r) > (vw + margin) || (sy - r) > (vh + margin));
+            };
             for (const particle of this.explosionParticles) {
-                this.ctx.save();
                 const baseAlpha = particle.life / particle.maxLife;
                 const isLightning = particle && particle.source === 'LIGHTNING';
                 const isBaguette = particle && particle.source === 'BAGUETTE_THROW';
                 const isMuffinThrow = particle && particle.source === 'MUFFIN_THROW';
                 const isHeartTransmission = particle && particle.source === 'HEART_TRANSMISSION';
+                const drawSize = (isLightning || isBaguette || isMuffinThrow || isHeartTransmission) ? particle.size * 1.3 : particle.size;
+                if (!inView(particle.x, particle.y, drawSize)) continue;
+                this.ctx.save();
                 // ✅ 修復：追蹤綿羊/法棍投擲/鬆餅投擲/心意傳遞命中粒子更不透明，且稍微放大
                 const alpha = (isLightning || isBaguette || isMuffinThrow || isHeartTransmission) ? Math.min(1, 0.5 + baseAlpha * 0.6) : baseAlpha;
-                const drawSize = (isLightning || isBaguette || isMuffinThrow || isHeartTransmission) ? particle.size * 1.3 : particle.size;
                 this.ctx.globalAlpha = alpha;
                 this.ctx.fillStyle = particle.color;
                 this.ctx.beginPath();
@@ -1165,6 +1189,30 @@ const Game = {
 
         // 前景層：心意傳遞效果圖片（A36.png，310x290比例）
         if (this.heartTransmissionEffects) {
+            let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, rotatedPortrait = false, vw = 0, vh = 0;
+            try {
+                vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
+                canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
+                if (canvas) {
+                    const rect = canvas.getBoundingClientRect();
+                    scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+                    scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+                    camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
+                    camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
+                    rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
+                    vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
+                    vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+                }
+            } catch (_) {}
+            const margin = 128;
+            const rectInView = (x, y, w, h) => {
+                if (!canvas) return true;
+                let sx = x - camX;
+                let sy = y - camY;
+                if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
+                const left = sx - w / 2, right = sx + w / 2, top = sy - h / 2, bottom = sy + h / 2;
+                return !(right < -margin || bottom < -margin || left > vw + margin || top > vh + margin);
+            };
             for (let i = this.heartTransmissionEffects.length - 1; i >= 0; i--) {
                 const effect = this.heartTransmissionEffects[i];
                 effect.life -= 16.67; // 假設60fps，每幀約16.67ms
@@ -1175,6 +1223,7 @@ const Game = {
                 const alpha = effect.life / effect.maxLife;
                 const img = (this.images || Game.images || {})['A36'];
                 if (img && img.complete) {
+                    if (!rectInView(effect.x, effect.y, effect.width, effect.height)) continue;
                     this.ctx.save();
                     this.ctx.globalAlpha = alpha;
                     const drawX = effect.x - effect.width / 2;
