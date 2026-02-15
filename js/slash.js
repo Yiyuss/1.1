@@ -425,18 +425,17 @@ class SlashEffect extends Entity {
         const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
         const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
         if (!canvas) return;
-        const scaleX = vm ? vm.scaleX : (canvas.getBoundingClientRect().width / canvas.width);
-        const scaleY = vm ? vm.scaleY : (canvas.getBoundingClientRect().height / canvas.height);
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
+        const scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
         const camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
         const camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
-        const rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
         for (const item of this._domEls) {
             // 固定在玩家前方 overlayOffset（不隨半徑距離變動）
-            let sx = (this.player.x + Math.cos(this.angle) * (this.overlayOffset || 60)) - camX;
-            let sy = (this.player.y + Math.sin(this.angle) * (this.overlayOffset || 60)) - camY;
-            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
-            const vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
-            const vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            let sx = ((this.player.x + Math.cos(this.angle) * (this.overlayOffset || 60)) - camX) * scaleX;
+            let sy = ((this.player.y + Math.sin(this.angle) * (this.overlayOffset || 60)) - camY) * scaleY;
+            const vw = canvas.width * scaleX;
+            const vh = canvas.height * scaleY;
             const margin = 128;
             if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) continue;
             const leftPx = Math.round(sx);
@@ -464,11 +463,10 @@ class SlashEffect extends Entity {
             // 即使敵人死亡或被標記刪除，也保留在最後命中的位置顯示濺血
             const ex = (enemy && !enemy.markedForDeletion) ? enemy.x : (item.x || 0);
             const ey = (enemy && !enemy.markedForDeletion) ? enemy.y : (item.y || 0);
-            let sx = ex - camX;
-            let sy = ey - camY;
-            if (!rotatedPortrait) { sx *= scaleX; sy *= scaleY; }
-            const vw2 = rotatedPortrait ? canvas.width : canvas.width * scaleX;
-            const vh2 = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            let sx = (ex - camX) * scaleX;
+            let sy = (ey - camY) * scaleY;
+            const vw2 = canvas.width * scaleX;
+            const vh2 = canvas.height * scaleY;
             const margin2 = 128;
             if (sx < -margin2 || sy < -margin2 || sx > vw2 + margin2 || sy > vh2 + margin2) continue;
             const leftPx = Math.round(sx);
