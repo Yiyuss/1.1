@@ -425,9 +425,8 @@ class SlashEffect extends Entity {
         const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
         const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
         if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
-        const scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
+        const scaleX = vm ? vm.scaleX : 1;
+        const scaleY = vm ? vm.scaleY : 1;
         const camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
         const camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
         for (const item of this._domEls) {
