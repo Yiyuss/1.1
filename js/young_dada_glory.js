@@ -15,16 +15,28 @@ class YoungDadaGloryEffect extends Entity {
         this.dropDuration = 150; // 快速照射時間（毫秒），馬上照下來
         this.particles = []; // 粒子效果
         
-        // 初始化粒子
+        // 初始化粒子（池化）
+        try { YoungDadaGloryEffect._pool = YoungDadaGloryEffect._pool || []; } catch(_) {}
         for (let i = 0; i < 20; i++) {
-            this.particles.push({
-                x: 0,
-                y: 0,
-                size: Math.random() * 8 + 4,
-                alpha: Math.random() * 0.5 + 0.3,
-                speed: Math.random() * 3 + 2
-            });
+            const p = (YoungDadaGloryEffect._pool && YoungDadaGloryEffect._pool.pop()) || {};
+            p.x = 0;
+            p.y = 0;
+            p.size = Math.random() * 8 + 4;
+            p.alpha = Math.random() * 0.5 + 0.3;
+            p.speed = Math.random() * 3 + 2;
+            this.particles.push(p);
         }
+    }
+    
+    destroy() {
+        this.markedForDeletion = true;
+        try {
+            YoungDadaGloryEffect._pool = YoungDadaGloryEffect._pool || [];
+            for (const p of this.particles) {
+                YoungDadaGloryEffect._pool.push(p);
+            }
+            this.particles.length = 0;
+        } catch(_) {}
     }
 
     update(deltaTime) {
