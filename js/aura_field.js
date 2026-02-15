@@ -249,21 +249,14 @@ class AuraField extends Entity {
             const vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
             const canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
             if (!canvas) return;
-            const scaleX = vm ? vm.scaleX : (canvas.getBoundingClientRect().width / canvas.width);
-            const scaleY = vm ? vm.scaleY : (canvas.getBoundingClientRect().height / canvas.height);
+            const scaleX = vm ? vm.scaleX : 1;
+            const scaleY = vm ? vm.scaleY : 1;
             const camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
             const camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
-            const rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
-            let sx, sy;
-            if (rotatedPortrait) {
-                sx = this.x - camX;
-                sy = this.y - camY;
-            } else {
-                sx = (this.x - camX) * scaleX;
-                sy = (this.y - camY) * scaleY;
-            }
-            const vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
-            const vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            let sx = (this.x - camX) * scaleX;
+            let sy = (this.y - camY) * scaleY;
+            const vw = canvas.width * scaleX;
+            const vh = canvas.height * scaleY;
             const margin = 128;
             if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) return;
             this.el.style.left = Math.round(sx) + 'px';
