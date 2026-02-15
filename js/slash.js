@@ -148,16 +148,17 @@ class SlashEffect extends Entity {
             const r = this.radius * (0.7 + Math.random() * 0.3);
             const px = this.player.x + Math.cos(ang) * r;
             const py = this.player.y + Math.sin(ang) * r;
-            this.particles.push({
-                x: px,
-                y: py,
-                vx: (Math.random() - 0.5) * 1.4,
-                vy: (Math.random() - 0.5) * 1.4,
-                life: 240 + Math.random() * 160,
-                maxLife: 400,
-                size: 3 + Math.random() * 2,
-                color: '#ffcc66'
-            });
+            if (!this._particlePool) this._particlePool = [];
+            const p = this._particlePool.pop() || {};
+            p.x = px;
+            p.y = py;
+            p.vx = (Math.random() - 0.5) * 1.4;
+            p.vy = (Math.random() - 0.5) * 1.4;
+            p.life = 240 + Math.random() * 160;
+            p.maxLife = 400;
+            p.size = 3 + Math.random() * 2;
+            p.color = '#ffcc66';
+            this.particles.push(p);
         }
     }
 
@@ -167,7 +168,10 @@ class SlashEffect extends Entity {
             const p = particles[i];
             p.life -= dt;
             if (p.life <= 0) {
-                particles.splice(i, 1);
+                const removed = particles.splice(i, 1)[0];
+                if (removed) {
+                    (this._particlePool = this._particlePool || []).push(removed);
+                }
                 continue;
             }
             p.x += p.vx;
