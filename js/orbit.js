@@ -34,6 +34,7 @@ class OrbitBall extends Entity {
         // 視覺：輕量拖尾緩存（不影響傷害或判定）
         this.trail = [];
         this.trailMax = 12;
+        this._trailPool = [];
     }
 
     update(deltaTime) {
@@ -49,9 +50,14 @@ class OrbitBall extends Entity {
                     // 跟隨遠程玩家位置旋轉
                     this.x = remotePlayer.x + Math.cos(this.angle) * this.radius;
                     this.y = remotePlayer.y + Math.sin(this.angle) * this.radius;
-                    // 視覺：更新拖尾記錄（僅視覺）
-                    this.trail.push({ x: this.x, y: this.y, size: this.width });
-                    if (this.trail.length > this.trailMax) this.trail.shift();
+                    // 視覺：更新拖尾記錄（僅視覺，池化）
+                    const node = this._trailPool.pop() || {};
+                    node.x = this.x; node.y = this.y; node.size = this.width;
+                    this.trail.push(node);
+                    if (this.trail.length > this.trailMax) {
+                        const removed = this.trail.shift();
+                        if (removed) this._trailPool.push(removed);
+                    }
                     // 檢查持續時間（僅視覺）
                     const elapsed = Date.now() - this.startTime;
                     if (elapsed >= this.duration) {
@@ -64,9 +70,14 @@ class OrbitBall extends Entity {
                         this.angle += this.angularSpeed * (deltaTime / 1000);
                         this.x = Game.player.x + Math.cos(this.angle) * this.radius;
                         this.y = Game.player.y + Math.sin(this.angle) * this.radius;
-                        // 視覺：更新拖尾記錄
-                        this.trail.push({ x: this.x, y: this.y, size: this.width });
-                        if (this.trail.length > this.trailMax) this.trail.shift();
+                        // 視覺：更新拖尾記錄（池化）
+                        const node2 = this._trailPool.pop() || {};
+                        node2.x = this.x; node2.y = this.y; node2.size = this.width;
+                        this.trail.push(node2);
+                        if (this.trail.length > this.trailMax) {
+                            const removed2 = this.trail.shift();
+                            if (removed2) this._trailPool.push(removed2);
+                        }
                         // 檢查持續時間
                         const elapsed = Date.now() - this.startTime;
                         if (elapsed >= this.duration) {
@@ -87,15 +98,26 @@ class OrbitBall extends Entity {
         this.x = this.player.x + Math.cos(this.angle) * this.radius;
         this.y = this.player.y + Math.sin(this.angle) * this.radius;
 
-        // 視覺：更新拖尾記錄
-        this.trail.push({ x: this.x, y: this.y, size: this.width });
-        if (this.trail.length > this.trailMax) this.trail.shift();
+        // 視覺：更新拖尾記錄（池化）
+        const node3 = this._trailPool.pop() || {};
+        node3.x = this.x; node3.y = this.y; node3.size = this.width;
+        this.trail.push(node3);
+        if (this.trail.length > this.trailMax) {
+            const removed3 = this.trail.shift();
+            if (removed3) this._trailPool.push(removed3);
+        }
 
         // 根據武器類型選擇傷害模式
         if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION' || this.weaponType === 'STELLAR_ORBIT') {
             // 雞腿庇佑、綿羊護體、旋轉鬆餅和心意相隨：單次碰撞傷害模式（避免持續傷害導致BOSS被秒殺）
             const currentTime = Date.now();
-            for (const enemy of Game.enemies) {
+            let candidates = Game.enemies || [];
+            try {
+                if (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function') {
+                    candidates = Game.getEnemiesNearCircle(this.x, this.y, (this.collisionRadius || this.width / 2) + 64);
+                }
+            } catch (_) {}
+            for (const enemy of candidates) {
                 if (this.isColliding(enemy)) {
                     const enemyId = enemy.id || enemy;
                     const lastHitTime = this.collisionCooldown.get(enemyId) || 0;
