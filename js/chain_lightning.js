@@ -38,7 +38,13 @@ class ChainLightningEffect extends Entity {
     _findNearestEnemy(x, y, excludeIds = new Set(), withinRadius = null) {
         let best = null;
         let bestDist = Infinity;
-        for (const enemy of (Game.enemies || [])) {
+        let candidates = Game.enemies || [];
+        try {
+            if (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function' && typeof withinRadius === 'number' && withinRadius > 0) {
+                candidates = Game.getEnemiesNearCircle(x, y, withinRadius);
+            }
+        } catch (_) {}
+        for (const enemy of candidates) {
             if (!enemy || enemy.markedForDeletion || enemy.health <= 0) continue;
             if (excludeIds.has(enemy.id)) continue;
             const d = Utils.distance(x, y, enemy.x, enemy.y);
