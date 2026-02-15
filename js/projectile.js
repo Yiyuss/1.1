@@ -82,7 +82,14 @@ class Projectile extends Entity {
             // 若分配目標不存在，退回最近敵人
             if (!target) {
                 let minDist = Infinity;
-                for (const enemy of Game.enemies) {
+                let candidates = Game.enemies || [];
+                try {
+                    if (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function') {
+                        const r = this.homingRange || 360;
+                        candidates = Game.getEnemiesNearCircle(this.x, this.y, r);
+                    }
+                } catch (_) {}
+                for (const enemy of candidates) {
                     const d = Utils.distance(this.x, this.y, enemy.x, enemy.y);
                     if (d < minDist) { minDist = d; target = enemy; }
                 }
@@ -142,7 +149,13 @@ class Projectile extends Entity {
         }
         
         // 檢查與敵人的碰撞
-        for (const enemy of Game.enemies) {
+        let _candidates = Game.enemies || [];
+        try {
+            if (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function') {
+                _candidates = Game.getEnemiesNearCircle(this.x, this.y, (this.collisionRadius || 12) + 64);
+            }
+        } catch (_) {}
+        for (const enemy of _candidates) {
             if (this.isColliding(enemy)) {
                 // ✅ 權威伺服器模式：投射物傷害由伺服器權威處理
                 // 單機模式：直接造成傷害並顯示傷害數字
@@ -235,7 +248,13 @@ class Projectile extends Entity {
                         const mul = (typeof cfg.SPLASH_RADIUS_MULTIPLIER === 'number') ? cfg.SPLASH_RADIUS_MULTIPLIER : 2.6;
                         const minR = (typeof cfg.SPLASH_MIN_RADIUS === 'number') ? cfg.SPLASH_MIN_RADIUS : 34;
                         const splashRadius = Math.max(minR, (this.collisionRadius || 12) * mul);
-                        for (const e of Game.enemies) {
+                        let _sCandidates = Game.enemies || [];
+                        try {
+                            if (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function') {
+                                _sCandidates = Game.getEnemiesNearCircle(enemy.x, enemy.y, splashRadius);
+                            }
+                        } catch (_) {}
+                        for (const e of _sCandidates) {
                             if (!e || e.id === enemy.id) continue;
                             const dist = Utils.distance(enemy.x, enemy.y, e.x, e.y);
                             if (dist <= splashRadius) {
