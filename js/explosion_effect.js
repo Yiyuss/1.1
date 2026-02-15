@@ -317,7 +317,6 @@ class ExplosionEffect extends Entity {
         const scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
         const camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
         const camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
-        const rotatedPortrait = vm ? vm.rotatedPortrait : document.documentElement.classList.contains('mobile-rotation-active');
         
         for (const hit of this.hitEnemies) {
             if (!hit || !hit.domEl) continue;
@@ -326,14 +325,10 @@ class ExplosionEffect extends Entity {
             const ex = (enemy && !enemy.markedForDeletion) ? enemy.x : (hit.x || 0);
             const ey = (enemy && !enemy.markedForDeletion) ? enemy.y : (hit.y || 0);
             
-            let sx = ex - camX;
-            let sy = ey - camY;
-            if (!rotatedPortrait) {
-                sx *= scaleX;
-                sy *= scaleY;
-            }
-            const vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
-            const vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
+            let sx = (ex - camX) * scaleX;
+            let sy = (ey - camY) * scaleY;
+            const vw = canvas.width * scaleX;
+            const vh = canvas.height * scaleY;
             const margin = 128;
             if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) continue;
             
