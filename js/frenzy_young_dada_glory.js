@@ -16,31 +16,33 @@ class FrenzyYoungDadaGloryEffect extends Entity {
         this.particles = []; // 粒子效果（更多粒子）
         this.outerParticles = []; // 外層粒子效果
         
-        // 初始化主體粒子（比幼妲光輝更多）
+        // 初始化主體粒子（池化）
+        try { FrenzyYoungDadaGloryEffect._pool = FrenzyYoungDadaGloryEffect._pool || []; } catch(_) {}
         for (let i = 0; i < 40; i++) {
-            this.particles.push({
-                x: (Math.random() - 0.5) * this.baseWidth, // 初始化时设置x位置
-                y: 0,
-                baseY: -this.maxHeight * (0.5 + Math.random() * 0.5), // 保存基础y位置
-                size: Math.random() * 12 + 6,
-                baseAlpha: Math.random() * 0.6 + 0.4, // 保存基础透明度
-                speed: Math.random() * 4 + 3,
-                rotation: Math.random() * Math.PI * 2,
-                dropProgress: Math.random() // 保存下降进度偏移
-            });
+            const p = (FrenzyYoungDadaGloryEffect._pool && FrenzyYoungDadaGloryEffect._pool.pop()) || {};
+            p.x = (Math.random() - 0.5) * this.baseWidth;
+            p.y = 0;
+            p.baseY = -this.maxHeight * (0.5 + Math.random() * 0.5);
+            p.size = Math.random() * 12 + 6;
+            p.baseAlpha = Math.random() * 0.6 + 0.4;
+            p.speed = Math.random() * 4 + 3;
+            p.rotation = Math.random() * Math.PI * 2;
+            p.dropProgress = Math.random();
+            this.particles.push(p);
         }
         
-        // 初始化外層光暈粒子
+        // 初始化外層光暈粒子（池化）
+        try { FrenzyYoungDadaGloryEffect._outerPool = FrenzyYoungDadaGloryEffect._outerPool || []; } catch(_) {}
         for (let i = 0; i < 30; i++) {
-            this.outerParticles.push({
-                x: 0,
-                y: 0,
-                size: Math.random() * 8 + 4,
-                baseAlpha: Math.random() * 0.4 + 0.2, // 保存基础透明度
-                speed: Math.random() * 2 + 1,
-                rotation: Math.random() * Math.PI * 2,
-                distance: Math.random() * 60 + 40
-            });
+            const q = (FrenzyYoungDadaGloryEffect._outerPool && FrenzyYoungDadaGloryEffect._outerPool.pop()) || {};
+            q.x = 0;
+            q.y = 0;
+            q.size = Math.random() * 8 + 4;
+            q.baseAlpha = Math.random() * 0.4 + 0.2;
+            q.speed = Math.random() * 2 + 1;
+            q.rotation = Math.random() * Math.PI * 2;
+            q.distance = Math.random() * 60 + 40;
+            this.outerParticles.push(q);
         }
     }
 
@@ -116,6 +118,22 @@ class FrenzyYoungDadaGloryEffect extends Entity {
         if (elapsed >= this.duration) {
             this.destroy();
         }
+    }
+    
+    destroy() {
+        this.markedForDeletion = true;
+        try {
+            FrenzyYoungDadaGloryEffect._pool = FrenzyYoungDadaGloryEffect._pool || [];
+            FrenzyYoungDadaGloryEffect._outerPool = FrenzyYoungDadaGloryEffect._outerPool || [];
+            for (const p of this.particles) {
+                FrenzyYoungDadaGloryEffect._pool.push(p);
+            }
+            for (const q of this.outerParticles) {
+                FrenzyYoungDadaGloryEffect._outerPool.push(q);
+            }
+            this.particles.length = 0;
+            this.outerParticles.length = 0;
+        } catch(_) {}
     }
 
     draw(ctx) {
