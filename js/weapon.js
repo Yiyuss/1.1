@@ -1322,8 +1322,14 @@
             findNearestEnemy() {
                 let nearestEnemy = null;
                 let minDistance = Infinity;
-
-                for (const enemy of Game.enemies) {
+            let candidates = Game.enemies || [];
+            try {
+                if (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function') {
+                    const r = (this.detectRadius || 600);
+                    candidates = Game.getEnemiesNearCircle(this.player.x, this.player.y, r);
+                }
+            } catch (_) {}
+            for (const enemy of candidates) {
                     const distance = Utils.distance(this.player.x, this.player.y, enemy.x, enemy.y);
                     if (distance < minDistance) {
                         minDistance = distance;
