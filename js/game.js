@@ -1196,7 +1196,7 @@ const Game = {
                 const isLightning = particle && particle.source === 'LIGHTNING';
                 const isBaguette = particle && particle.source === 'BAGUETTE_THROW';
                 const isMuffinThrow = particle && particle.source === 'MUFFIN_THROW';
-                const isHeartTransmission = particle && particle.source === 'HEART_TRANSMISSION';
+                const isHeartTransmission = particle && (particle.source === 'HEART_TRANSMISSION' || particle.source === 'ELONDIER_CLONE_THROW');
                 const drawSize = (isLightning || isBaguette || isMuffinThrow || isHeartTransmission) ? particle.size * 1.3 : particle.size;
                 if (!inView(particle.x, particle.y, drawSize)) continue;
                 this.ctx.save();
@@ -1211,7 +1211,7 @@ const Game = {
             }
         }
 
-        // 前景層：心意傳遞效果圖片（A36.png，310x290比例）
+        // 前景層：心意傳遞/厄倫蒂兒分身投擲 命中特效圖片
         if (this.heartTransmissionEffects) {
             let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
             try {
@@ -1243,7 +1243,8 @@ const Game = {
                     continue;
                 }
                 const alpha = effect.life / effect.maxLife;
-                const img = (this.images || Game.images || {})['A36'];
+                const key = (effect && effect.imageKey) ? effect.imageKey : 'A36';
+                const img = (this.images || Game.images || {})[key];
                 if (img && img.complete) {
                     if (!rectInView(effect.x, effect.y, effect.width, effect.height)) continue;
                     this.ctx.save();
@@ -1690,6 +1691,8 @@ const Game = {
                     projectile.weaponType === 'EXPLOSION' ||
                     // ✅ 修復：SUMMON_AI（召喚AI）是持續效果，需要廣播給其他玩家
                     projectile.weaponType === 'SUMMON_AI' ||
+                    // ✅ 厄倫蒂兒大招分身：持續效果（需廣播讓其他玩家可見；傷害由分身投擲物的標準 attack input 處理）
+                    projectile.weaponType === 'ELONDIER_ULTIMATE_CLONE' ||
                     isAICompanion ||
                     (projectile.constructor && (
                         projectile.constructor.name === 'AuraField' ||
@@ -1716,7 +1719,8 @@ const Game = {
                         projectile.constructor.name === 'DivineJudgmentEffect' ||
                         projectile.constructor.name === 'ExplosionEffect' ||
                         // ✅ 修復：AICompanion（召喚AI）是持續效果，需要廣播給其他玩家
-                        projectile.constructor.name === 'AICompanion'
+                        projectile.constructor.name === 'AICompanion' ||
+                        projectile.constructor.name === 'ElondierUltimateClone'
                     )) ||
                     (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
                 );
@@ -2947,6 +2951,19 @@ const Game = {
                     try {
                         if (typeof proj.destroy === 'function') {
                             proj.destroy();
+                        }
+
+                        // 厄倫蒂兒大招分身：提供 cloneIndex/offset/duration，避免遠程端重疊與殘留
+                        if (projectile.weaponType === "ELONDIER_ULTIMATE_CLONE") {
+                            projectileData.cloneIndex = (typeof projectile.cloneIndex === 'number') ? projectile.cloneIndex : 0;
+                            projectileData.offsetX = (typeof projectile.offsetX === 'number') ? projectile.offsetX : 0;
+                            projectileData.offsetY = (typeof projectile.offsetY === 'number') ? projectile.offsetY : 0;
+                            const dur = (typeof projectile.durationMs === 'number' && projectile.durationMs > 0)
+                                ? projectile.durationMs
+                                : (typeof projectile.endTime === 'number' && projectile.endTime > 0)
+                                    ? Math.max(0, projectile.endTime - Date.now())
+                                    : (CONFIG && CONFIG.ULTIMATE ? CONFIG.ULTIMATE.DURATION_MS : 8000);
+                            projectileData.durationMs = dur;
                         }
                     } catch (_) { }
                     this.projectiles.splice(i, 1);
