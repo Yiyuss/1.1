@@ -290,7 +290,7 @@ class Projectile extends Entity {
                 // - 使用 Game.explosionParticles 現有更新/繪製管線，不新增新型別。
                 // - 僅添加視覺粒子與播放 bo.mp3，不更動任何傷害/冷卻/數量等數值。
                 // - 若 AudioManager 不存在，靜默跳過；若 explosionParticles 未初始化，按既有格式建立。
-                if (this.weaponType === 'LIGHTNING' || this.weaponType === 'MUFFIN_THROW' || this.weaponType === 'HEART_TRANSMISSION' || this.weaponType === 'BAGUETTE_THROW') {
+                if (this.weaponType === 'LIGHTNING' || this.weaponType === 'MUFFIN_THROW' || this.weaponType === 'HEART_TRANSMISSION' || this.weaponType === 'BAGUETTE_THROW' || this.weaponType === 'ELONDIER_CLONE_THROW') {
                     try {
                         const particleCount = 18; // 更顯眼，性能仍安全
                         for (let i = 0; i < particleCount; i++) {
@@ -315,6 +315,8 @@ class Projectile extends Entity {
                                 p.source = 'HEART_TRANSMISSION';
                             } else if (this.weaponType === 'BAGUETTE_THROW') {
                                 p.source = 'BAGUETTE_THROW';
+                            } else if (this.weaponType === 'ELONDIER_CLONE_THROW') {
+                                p.source = 'ELONDIER_CLONE_THROW';
                             }
                             if (!Game.explosionParticles) Game.explosionParticles = [];
                             Game.explosionParticles.push(p);
@@ -348,18 +350,32 @@ class Projectile extends Entity {
                                 }
                             } catch (_) {}
                         }
-                        // 心意傳遞命中時顯示效果圖片（A36.png，310x290比例）
-                        if (this.weaponType === 'HEART_TRANSMISSION') {
+                        // 命中特效圖片：
+                        // - HEART_TRANSMISSION：A36（310x290）
+                        // - ELONDIER_CLONE_THROW：A51（100x98），且特效尺寸約為 HEART_TRANSMISSION 的 50%
+                        if (this.weaponType === 'HEART_TRANSMISSION' || this.weaponType === 'ELONDIER_CLONE_THROW') {
                             const cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.HEART_TRANSMISSION) || {};
                             const effectWidth = cfg.EFFECT_IMAGE_WIDTH || 310;
                             const effectHeight = cfg.EFFECT_IMAGE_HEIGHT || 290;
                             const effectDuration = 300; // 效果持續300毫秒
+                            const scale = (this.weaponType === 'ELONDIER_CLONE_THROW') ? 0.5 : 1.0;
+                            const imageKey = (this.weaponType === 'ELONDIER_CLONE_THROW') ? 'A51' : 'A36';
+
+                            // A51：保持 100x98 比例，以「心意傳遞特效高度的一半」作為基準縮放
+                            let w = Math.max(1, Math.floor(effectWidth * scale));
+                            let h = Math.max(1, Math.floor(effectHeight * scale));
+                            if (this.weaponType === 'ELONDIER_CLONE_THROW') {
+                                const aspect = 100 / 98;
+                                h = Math.max(1, Math.floor(effectHeight * 0.5));
+                                w = Math.max(1, Math.floor(h * aspect));
+                            }
                             if (!Game.heartTransmissionEffects) Game.heartTransmissionEffects = [];
                             Game.heartTransmissionEffects.push({
                                 x: enemy.x,
                                 y: enemy.y,
-                                width: effectWidth,
-                                height: effectHeight,
+                                width: w,
+                                height: h,
+                                imageKey: imageKey,
                                 life: effectDuration,
                                 maxLife: effectDuration
                             });
@@ -420,6 +436,9 @@ class Projectile extends Entity {
             case 'HEART_TRANSMISSION':
                 imageName = 'A36';
                 break;
+            case 'ELONDIER_CLONE_THROW':
+                imageName = 'A51';
+                break;
         }
         
         // ✅ 根據角度旋轉投射物（讓投射物朝向正確方向）
@@ -428,11 +447,13 @@ class Projectile extends Entity {
         
         if (imageName && Game.images && Game.images[imageName]) {
             const size = Math.max(this.width, this.height);
-            if (this.weaponType === 'BAGUETTE_THROW') {
+            if (this.weaponType === 'BAGUETTE_THROW' || this.weaponType === 'ELONDIER_CLONE_THROW') {
                 // 法棍投擲投射物（A43.png，100x74）：保持寬高比，並以「最大邊=size」繪製
                 const img = Game.images[imageName];
-                const iw = img.naturalWidth || img.width || 100;
-                const ih = img.naturalHeight || img.height || 74;
+                const fallbackW = (this.weaponType === 'ELONDIER_CLONE_THROW') ? 100 : 100;
+                const fallbackH = (this.weaponType === 'ELONDIER_CLONE_THROW') ? 98 : 74;
+                const iw = img.naturalWidth || img.width || fallbackW;
+                const ih = img.naturalHeight || img.height || fallbackH;
                 const aspect = iw / ih;
                 const renderW = size;
                 const renderH = Math.max(1, Math.floor(size / Math.max(0.01, aspect))); // 以寬為基準縮放高度
@@ -448,6 +469,7 @@ class Projectile extends Entity {
             if (this.weaponType === 'BAGUETTE_THROW') color = '#0ff'; // 與追蹤綿羊相同的備用顏色
             if (this.weaponType === 'MUFFIN_THROW') color = '#0ff'; // 與追蹤綿羊相同的備用顏色
             if (this.weaponType === 'HEART_TRANSMISSION') color = '#0ff'; // 與追蹤綿羊相同的備用顏色
+            if (this.weaponType === 'ELONDIER_CLONE_THROW') color = '#0ff';
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
@@ -461,7 +483,8 @@ class Projectile extends Entity {
             this.weaponType === 'FIREBALL' ||
             this.weaponType === 'DAGGER' ||
             this.weaponType === 'MUFFIN_THROW' ||
-            this.weaponType === 'HEART_TRANSMISSION'
+            this.weaponType === 'HEART_TRANSMISSION' ||
+            this.weaponType === 'ELONDIER_CLONE_THROW'
         );
         if (shouldDrawTail) {
             ctx.globalAlpha = 0.5;
