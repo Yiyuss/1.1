@@ -1296,6 +1296,7 @@ class GameState {
       player.characterId === 'pineapple' || 
       player.characterId === 'rabi' || // 艾比（爆炸型大招）
       player.characterId === 'abby' || // 艾比（別名）
+      player.characterId === 'elondier' || // 厄倫蒂兒：分身大招（非變身）
       player.characterId === 'sensen' || // 森森鈴蘭（未來，目前未實作）
       player.characterId === 'lilylinglan' // 森森鈴蘭（別名）
     );
