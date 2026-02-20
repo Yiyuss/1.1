@@ -206,6 +206,14 @@ class Player extends Entity {
             this.deactivateUltimate();
         }
 
+        // 厄倫蒂兒大招（非變身）：分身時間到清理（保險，避免殘留）
+        try {
+            if (this._elondierCloneUltimateEndTime && Date.now() >= this._elondierCloneUltimateEndTime) {
+                this._elondierCloneUltimateEndTime = 0;
+                this._deactivateElondierUltimateClones();
+            }
+        } catch (_) { }
+
         // 更新無敵狀態
         if (this.isInvulnerable) {
             this.invulnerabilityTime += deltaTime;
@@ -1102,6 +1110,38 @@ class Player extends Entity {
             return;
         }
 
+        // 厄倫蒂兒（elondier）：不變身，改為召喚分身大招（Q）
+        // - 不套用預設瑪格麗特變身（避免裝上預設大招武器/圖片）
+        // - 大招時間仍沿用 CONFIG.ULTIMATE.DURATION_MS
+        if (characterId === 'elondier') {
+            try {
+                // 消耗能量
+                this.energy = 0;
+                if (typeof UI !== 'undefined' && typeof UI.updateEnergyBar === 'function') {
+                    UI.updateEnergyBar(this.energy, this.maxEnergy);
+                }
+
+                // 設置分身存在時間（不使用 isUltimateActive，避免套用預設變身圖片）
+                this._elondierCloneUltimateEndTime = Date.now() + (CONFIG && CONFIG.ULTIMATE ? CONFIG.ULTIMATE.DURATION_MS : 8000);
+
+                // 召喚分身
+                if (!this._isRemotePlayer && typeof ElondierUltimateClone !== 'undefined') {
+                    this._activateElondierUltimateClones(this._elondierCloneUltimateEndTime);
+                }
+
+                // 視覺：沿用既有大招鏡頭震動（單機元素）
+                try {
+                    if (!Game.cameraShake) {
+                        Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+                    }
+                    Game.cameraShake.active = true;
+                    Game.cameraShake.intensity = 8;
+                    Game.cameraShake.duration = 200;
+                } catch (_) { }
+            } catch (_) { }
+            return;
+        }
+
         // 保存必要的玩家狀態（僅變身型大招需要）
         this._ultimateBackup = {
             width: this.width,
@@ -1237,6 +1277,8 @@ class Player extends Entity {
             // ✅ 單機元素：鏡頭震動是單人元素，只在本地處理，不廣播給其他玩家
             // 注意：震動不應該通過 screen_effect 事件廣播，每個玩家應該獨立處理自己的震動
         } catch (_) {}
+
+        // 維護備註：厄倫蒂兒的大招屬於「非變身型」，已在上方分支 return，不會走到這裡
     }
 
     // 鳳梨大絕：噴出 5 顆大鳳梨，玩家碰觸獲得固定經驗
@@ -1405,6 +1447,11 @@ class Player extends Entity {
         // 能量歸零
         this.energy = 0;
         UI.updateEnergyBar(this.energy, this.maxEnergy);
+
+        // 厄倫蒂兒（elondier）大招：清理分身與分身投擲物（不影響玩家本尊投射物）
+        try {
+            this._deactivateElondierUltimateClones();
+        } catch (_) { }
         
         // 第二位角色大絕結束：恢復玩家GIF的z-index（在清理前檢查）
         const wasDadaUltimate = (this._ultimateImageKey === 'playerN2');
@@ -1421,6 +1468,77 @@ class Player extends Entity {
         this._ultimateBackup = null;
         this.ultimateEndTime = 0;
         this._ultimateImageKey = null;
+    }
+
+    // 厄倫蒂兒大招：召喚 4 隻分身（存在時間與大招相同）
+    _activateElondierUltimateClones(endTimeOverride) {
+        try {
+            if (typeof Game === 'undefined' || !Game || typeof Game.addProjectile !== 'function') return;
+            // 若已有舊分身，先清理（避免重複召喚）
+            this._deactivateElondierUltimateClones();
+
+            const clones = [];
+            const now = Date.now();
+            const endTime = (typeof endTimeOverride === 'number' && endTimeOverride > 0)
+                ? endTimeOverride
+                : (this.ultimateEndTime || (now + (CONFIG && CONFIG.ULTIMATE ? CONFIG.ULTIMATE.DURATION_MS : 8000)));
+
+            for (let i = 0; i < 4; i++) {
+                const jitterX = (Math.random() - 0.5) * 20;
+                const jitterY = (Math.random() - 0.5) * 20;
+                const c = new ElondierUltimateClone(this, this.x + jitterX, this.y + jitterY, {
+                    cloneIndex: i,
+                    endTime: endTime,
+                    durationMs: Math.max(0, endTime - now)
+                });
+                // 讓組隊廣播可以識別為「本地玩家創建的持續效果」
+                c.player = this;
+                c.id = `elondier_clone_${now}_${i}`;
+                clones.push(c);
+                Game.addProjectile(c);
+            }
+            this._elondierUltimateClones = clones;
+        } catch (_) { }
+    }
+
+    // 厄倫蒂兒大招：清理分身與分身投擲物
+    _deactivateElondierUltimateClones() {
+        try {
+            // 1) 清理分身實體（Game.projectiles）
+            if (typeof Game !== 'undefined' && Game && Array.isArray(Game.projectiles)) {
+                for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+                    const p = Game.projectiles[i];
+                    if (!p) continue;
+                    if (p.weaponType === 'ELONDIER_ULTIMATE_CLONE' && p.player === this) {
+                        try { if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true; } catch (_) { }
+                        Game.projectiles.splice(i, 1);
+                    }
+                }
+            }
+
+            // 2) 清理分身投擲物（僅此類型，避免影響玩家本尊投射物）
+            if (typeof Game !== 'undefined' && Game && Array.isArray(Game.projectiles)) {
+                for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+                    const p = Game.projectiles[i];
+                    if (!p) continue;
+                    if (p.weaponType === 'ELONDIER_CLONE_THROW' && p.player === this) {
+                        try { if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true; } catch (_) { }
+                        Game.projectiles.splice(i, 1);
+                    }
+                }
+            }
+
+            // 3) 清理 overlay（保險）
+            try {
+                if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hide === 'function') {
+                    for (let i = 0; i < 4; i++) {
+                        window.GifOverlay.hide(`elondier-clone-${i}`);
+                    }
+                }
+            } catch (_) { }
+
+            this._elondierUltimateClones = null;
+        } catch (_) { }
     }
     
     // 艾比大绝：不变身，直接施放全地图爆炸
