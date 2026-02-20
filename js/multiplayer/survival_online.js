@@ -1463,30 +1463,37 @@ const Runtime = (() => {
             const isPersistentEffect = (
               weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' ||
               weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' || weaponType === 'HEART_COMPANION' ||
-              weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC'
+              weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC' ||
+              // ✅ 厄倫蒂兒大招分身：需要同步生成（純視覺；投擲傷害走伺服器權威 attack input）
+              weaponType === 'ELONDIER_ULTIMATE_CLONE'
             );
             // ⚠️ 修復：LASER、CHAIN_LIGHTNING、SLASH、INVINCIBLE 是一次性效果，每次 fire() 都創建新的（與單機一致）
             // 不應該被標記為持續效果，否則會導致去重邏輯錯誤
 
             let existingProjectile = null;
             if (isPersistentEffect && playerUid) {
-              // ⚠️ 修復：對於持續效果，檢查是否已存在相同類型和玩家的效果
-              // 需要檢查本地玩家（playerUid === Game.multiplayer.uid）和遠程玩家
-              const isLocalPlayer = (playerUid === (Game.multiplayer && Game.multiplayer.uid));
-              existingProjectile = Game.projectiles.find(p => {
-                if (p.weaponType !== weaponType) return false;
-                // 檢查是否是同一個玩家的效果
-                if (isLocalPlayer) {
-                  // 本地玩家：檢查是否是本地玩家創建的效果（沒有 _remotePlayerUid 或 player === Game.player）
-                  return (!p._remotePlayerUid && p.player === Game.player) ||
-                    (p._remotePlayerUid === playerUid) ||
-                    (p.player && p.player === Game.player);
-                } else {
-                  // 遠程玩家：檢查 _remotePlayerUid 或 player._remoteUid
-                  return (p._remotePlayerUid === playerUid) ||
-                    (p.player && p.player._remoteUid === playerUid);
-                }
-              });
+              // ✅ 特例：厄倫蒂兒分身同一玩家會有 4 個，必須用 id 去重，不能用 weaponType+playerUid 合併
+              if (weaponType === 'ELONDIER_ULTIMATE_CLONE') {
+                existingProjectile = Game.projectiles.find(p => p && p.id === projectileId);
+              } else {
+                // ⚠️ 修復：對於持續效果，檢查是否已存在相同類型和玩家的效果
+                // 需要檢查本地玩家（playerUid === Game.multiplayer.uid）和遠程玩家
+                const isLocalPlayer = (playerUid === (Game.multiplayer && Game.multiplayer.uid));
+                existingProjectile = Game.projectiles.find(p => {
+                  if (p.weaponType !== weaponType) return false;
+                  // 檢查是否是同一個玩家的效果
+                  if (isLocalPlayer) {
+                    // 本地玩家：檢查是否是本地玩家創建的效果（沒有 _remotePlayerUid 或 player === Game.player）
+                    return (!p._remotePlayerUid && p.player === Game.player) ||
+                      (p._remotePlayerUid === playerUid) ||
+                      (p.player && p.player === Game.player);
+                  } else {
+                    // 遠程玩家：檢查 _remotePlayerUid 或 player._remoteUid
+                    return (p._remotePlayerUid === playerUid) ||
+                      (p.player && p.player._remoteUid === playerUid);
+                  }
+                });
+              }
             } else {
               // ⚠️ 修復：對於一次性效果（SLASH、LASER、CHAIN_LIGHTNING、INVINCIBLE），不應該檢查ID
               // 因為每次 fire() 都會創建新的效果，即使 ID 相同也應該創建新的（與單機一致）
@@ -1731,6 +1738,46 @@ const Runtime = (() => {
                     playerUid: eventData.playerUid,
                     eventData: eventData
                   });
+                }
+              } else if (weaponType === "ELONDIER_ULTIMATE_CLONE" && typeof ElondierUltimateClone !== "undefined") {
+                // 厄倫蒂兒大招分身：需要找到對應的玩家（使用完整 Player 物件）
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) targetPlayer = remotePlayer;
+                    }
+                  }
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+
+                if (targetPlayer) {
+                  const cloneIdx = (typeof eventData.cloneIndex === "number") ? eventData.cloneIndex : 0;
+                  const dur = (typeof eventData.durationMs === "number" && eventData.durationMs > 0)
+                    ? eventData.durationMs
+                    : ((typeof CONFIG !== 'undefined' && CONFIG.ULTIMATE) ? CONFIG.ULTIMATE.DURATION_MS : 8000);
+                  const clone = new ElondierUltimateClone(
+                    targetPlayer,
+                    eventData.x || targetPlayer.x,
+                    eventData.y || targetPlayer.y,
+                    {
+                      cloneIndex: cloneIdx,
+                      offsetX: (typeof eventData.offsetX === "number") ? eventData.offsetX : undefined,
+                      offsetY: (typeof eventData.offsetY === "number") ? eventData.offsetY : undefined,
+                      durationMs: dur,
+                      endTime: Date.now() + dur,
+                      _isVisualOnly: true,
+                      remotePlayerUid: eventData.playerUid
+                    }
+                  );
+                  clone.id = projectileId;
+                  clone._isVisualOnly = true;
+                  clone._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(clone);
                 }
               } else if ((weaponType === "CHAIN_LIGHTNING" || weaponType === "FRENZY_LIGHTNING") && typeof ChainLightningEffect !== "undefined") {
                 // 連鎖閃電：需要找到對應的玩家（使用完整的 Player 對象）
@@ -5304,7 +5351,7 @@ function handleServerGameState(state, timestamp) {
           // 使用 hitEvents 中的 playerUid 判斷是否是本地玩家的投射物
           const isLocalPlayer = (ev.playerUid && Game.multiplayer && Game.multiplayer.uid && ev.playerUid === Game.multiplayer.uid);
           if (isLocalPlayer && (weaponType === 'LIGHTNING' || weaponType === 'MUFFIN_THROW' ||
-            weaponType === 'HEART_TRANSMISSION' || weaponType === 'BAGUETTE_THROW') &&
+            weaponType === 'HEART_TRANSMISSION' || weaponType === 'BAGUETTE_THROW' || weaponType === 'ELONDIER_CLONE_THROW') &&
             typeof AudioManager !== 'undefined') {
             AudioManager.playSound('bo');
           }
@@ -5312,7 +5359,7 @@ function handleServerGameState(state, timestamp) {
           // ✅ 修復：所有需要粒子特效的技能（追蹤綿羊、鬆餅投擲、法棍投擲、心意傳遞）
           // 這些技能在命中時都會產生白色粒子特效
           if (weaponType === 'LIGHTNING' || weaponType === 'MUFFIN_THROW' ||
-            weaponType === 'BAGUETTE_THROW' || weaponType === 'HEART_TRANSMISSION') {
+            weaponType === 'BAGUETTE_THROW' || weaponType === 'HEART_TRANSMISSION' || weaponType === 'ELONDIER_CLONE_THROW') {
             try {
               const particleCount = 18; // 與單機模式一致
               if (!Game.explosionParticles) Game.explosionParticles = [];
@@ -5337,18 +5384,32 @@ function handleServerGameState(state, timestamp) {
             }
           }
 
-          if (weaponType === 'HEART_TRANSMISSION') {
-            // 心意傳遞命中時顯示效果圖片（A36.png，310x290比例）
+          if (weaponType === 'HEART_TRANSMISSION' || weaponType === 'ELONDIER_CLONE_THROW') {
+            // 命中特效圖片：
+            // - HEART_TRANSMISSION：A36（310x290）
+            // - ELONDIER_CLONE_THROW：A51（100x98），且特效尺寸約為 HEART_TRANSMISSION 的 50%
             const cfg = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.HEART_TRANSMISSION) || {};
             const effectWidth = cfg.EFFECT_IMAGE_WIDTH || 310;
             const effectHeight = cfg.EFFECT_IMAGE_HEIGHT || 290;
             const effectDuration = 300; // 效果持續300毫秒
+            const scale = (weaponType === 'ELONDIER_CLONE_THROW') ? 0.5 : 1.0;
+            const imageKey = (weaponType === 'ELONDIER_CLONE_THROW') ? 'A51' : 'A36';
+
+            // A51：保持 100x98 比例，以「心意傳遞特效高度的一半」作為基準縮放
+            let w = Math.max(1, Math.floor(effectWidth * scale));
+            let h = Math.max(1, Math.floor(effectHeight * scale));
+            if (weaponType === 'ELONDIER_CLONE_THROW') {
+              const aspect = 100 / 98;
+              h = Math.max(1, Math.floor(effectHeight * 0.5));
+              w = Math.max(1, Math.floor(h * aspect));
+            }
             if (!Game.heartTransmissionEffects) Game.heartTransmissionEffects = [];
             Game.heartTransmissionEffects.push({
               x: x,
               y: y,
-              width: effectWidth,
-              height: effectHeight,
+              width: w,
+              height: h,
+              imageKey: imageKey,
               life: effectDuration,
               maxLife: effectDuration
             });
