@@ -141,7 +141,7 @@ class ShockwaveEffect extends Entity {
                             weaponType: this.weaponType || 'MIND_MAGIC',
                             x: enemy.x,
                             y: enemy.y,
-                            radius: 1,
+                            radius: 10,
                             enemyIds: [enemy.id],
                             damage: finalDamage,
                             allowCrit: true,
