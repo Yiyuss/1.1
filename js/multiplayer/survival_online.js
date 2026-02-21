@@ -5397,12 +5397,13 @@ function handleServerGameState(state, timestamp) {
             AudioManager.playSound('bo');
           }
 
-          // ✅ 修復：所有需要粒子特效的技能（追蹤綿羊、鬆餅投擲、法棍投擲、心意傳遞）
+          // ✅ 修復：所有需要粒子特效的技能（追蹤綿羊、鬆餅投擲、法棍投擲、心意傳遞、厄倫蒂兒分身投擲物）
           // 這些技能在命中時都會產生白色粒子特效
           if (weaponType === 'LIGHTNING' || weaponType === 'MUFFIN_THROW' ||
             weaponType === 'BAGUETTE_THROW' || weaponType === 'HEART_TRANSMISSION' || weaponType === 'ELONDIER_CLONE_THROW') {
             try {
-              const particleCount = 18; // 與單機模式一致
+              // ✅ 僅組隊模式：厄倫蒂兒大招分身投擲物的命中粒子砍半（減少負擔），不影響單機
+              const particleCount = (weaponType === 'ELONDIER_CLONE_THROW') ? 9 : 18; // 18 與單機一致；ELONDIER_CLONE_THROW 砍半
               if (!Game.explosionParticles) Game.explosionParticles = [];
               for (let i = 0; i < particleCount; i++) {
                 const ang = Math.random() * Math.PI * 2;
@@ -6231,6 +6232,9 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'DEATHLINE_WARRIOR' || weaponType === 'DEATHLINE_SUPERMAN' ||
       weaponType === 'JUDGMENT' || weaponType === 'DIVINE_JUDGMENT' || weaponType === 'EXPLOSION' ||
       weaponType === 'STARFALL' || weaponType === 'STARFALL_MOON' ||
+      // ✅ 厄倫蒂兒大招分身：持續效果由 projectile_spawn 事件同步（本地分身也不在 state.projectiles）
+      // - 本地分身必須保留，才能繼續發射 ELONDIER_CLONE_THROW（傷害走伺服器權威 attack input）
+      weaponType === 'ELONDIER_ULTIMATE_CLONE' ||
       // 通過構造函數名稱檢查
       constructorName === 'LaserBeam' || constructorName === 'ChainLightningEffect' || constructorName === 'FrenzyLightningEffect' ||
       constructorName === 'SlashEffect' || constructorName === 'InvincibleEffect' || constructorName === 'SingEffect' || constructorName === 'AuraField' || constructorName === 'StellarField' || constructorName === 'InnateTemperamentField' || constructorName === 'GravityWaveField' ||
@@ -6238,6 +6242,7 @@ function updateProjectilesFromServer(projectiles) {
       constructorName === 'IceFieldEffect' || constructorName === 'YoungDadaGloryEffect' || constructorName === 'FrenzyYoungDadaGloryEffect' ||
       constructorName === 'DeathlineWarriorEffect' || constructorName === 'JudgmentEffect' || constructorName === 'DivineJudgmentEffect' ||
       constructorName === 'ExplosionEffect' || constructorName === 'StarfallEffect' || constructorName === 'StarfallMoon' ||
+      constructorName === 'ElondierUltimateClone' ||
       // 檢查是否有 _remotePlayerUid（通過事件創建的標記）
       (proj._remotePlayerUid && proj._isVisualOnly)
     );
