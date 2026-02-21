@@ -305,11 +305,12 @@ class ChainLightningEffect extends Entity {
                                     weaponType: this.weaponType || 'CHAIN_LIGHTNING',
                                     x: target.x,
                                     y: target.y,
-                                    radius: 1,
+                                    radius: 10,
                                     enemyIds: [target.id],
                                     damage: finalDamage,
                                     allowCrit: true,
-                                    critChanceBonusPct: critChance
+                                    critChanceBonusPct: critChance,
+                                    timestamp: Date.now()
                                 });
                             }
                         }
@@ -790,11 +791,12 @@ class FrenzyLightningEffect extends Entity {
                                     weaponType: this.weaponType || 'CHAIN_LIGHTNING',
                                     x: target.x,
                                     y: target.y,
-                                    radius: 1,
+                                    radius: 10,
                                     enemyIds: [target.id],
                                     damage: finalDamage,
                                     allowCrit: true,
-                                    critChanceBonusPct: critChance
+                                    critChanceBonusPct: critChance,
+                                    timestamp: Date.now()
                                 });
                             }
                         }
