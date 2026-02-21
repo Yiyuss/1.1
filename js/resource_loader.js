@@ -339,6 +339,7 @@ const ResourceLoader = {
             { name: 'field', src: 'assets/images/field.png' },
             { name: 'field2', src: 'assets/images/field2.png' },
             { name: 'star', src: 'assets/images/star.png' },
+            { name: 'star2', src: 'assets/images/star2.png' },
             { name: 'box', src: 'assets/images/BOX.png' },
             { name: 'LA', src: 'assets/images/LA.png' },
             { name: 'S1', src: 'assets/images/S1.png' },
