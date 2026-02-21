@@ -693,6 +693,7 @@ const UI = {
         const hasFrenzyIceBall = sourceWeaponsInfo.some(w => w.type === 'FRENZY_ICE_BALL');
         const hasFrenzyYoungDadaGlory = sourceWeaponsInfo.some(w => w.type === 'FRENZY_YOUNG_DADA_GLORY');
         const hasGravityWave = sourceWeaponsInfo.some(w => w.type === 'GRAVITY_WAVE');
+        const hasInnateTemperament = sourceWeaponsInfo.some(w => w.type === 'INNATE_TEMPERAMENT');
         const hasRadiantGlory = sourceWeaponsInfo.some(w => w.type === 'RADIANT_GLORY');
         const hasDeathlineSuperman = sourceWeaponsInfo.some(w => w.type === 'DEATHLINE_SUPERMAN');
         const hasPineappleSupplement = sourceWeaponsInfo.some(w => w.type === 'PINEAPPLE_SUPPLEMENT');
@@ -721,6 +722,7 @@ const UI = {
                     (hasFrenzyIceBall && (info.type === 'DAGGER' || info.type === 'BIG_ICE_BALL')) ||
                     (hasFrenzyYoungDadaGlory && (info.type === 'DAGGER' || info.type === 'YOUNG_DADA_GLORY')) ||
                     (hasGravityWave && (info.type === 'AURA_FIELD' || info.type === 'INVINCIBLE')) ||
+                    (hasInnateTemperament && (info.type === 'AURA_FIELD' || info.type === 'STELLAR_FIELD')) ||
                     (hasDeathlineSuperman && (info.type === 'DAGGER' || info.type === 'DEATHLINE_WARRIOR')) ||
                     (hasRadiantGlory && (info.type === 'CHAIN_LIGHTNING' || info.type === 'LASER')) ||
                     (hasPineappleSupplement && (info.type === 'DAGGER' || info.type === 'ADRENALINE')) ||
@@ -762,6 +764,7 @@ const UI = {
                 (hasFrenzyIceBall && (weaponType === 'DAGGER' || weaponType === 'BIG_ICE_BALL')) ||
                 (hasFrenzyYoungDadaGlory && (weaponType === 'DAGGER' || weaponType === 'YOUNG_DADA_GLORY')) ||
                 (hasGravityWave && (weaponType === 'AURA_FIELD' || weaponType === 'INVINCIBLE')) ||
+                (hasInnateTemperament && (weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD')) ||
                 (hasDeathlineSuperman && (weaponType === 'DAGGER' || weaponType === 'DEATHLINE_WARRIOR')) ||
                 (hasRadiantGlory && (weaponType === 'CHAIN_LIGHTNING' || weaponType === 'LASER')) ||
                 (hasPineappleSupplement && (weaponType === 'DAGGER' || weaponType === 'ADRENALINE')) ||
@@ -959,6 +962,30 @@ const UI = {
                         name: cfgGW.NAME,
                         level: 1,
                         description: cfgGW.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：先天氣質（需成就解鎖 + 同時持有且等級達標的 守護領域(AURA_FIELD) 與 恆星領域(STELLAR_FIELD)）
+        try {
+            const hasInnateFusion = playerWeaponTypes.includes('INNATE_TEMPERAMENT');
+            const auraField = sourceWeaponsInfo.find(w => w.type === 'AURA_FIELD');
+            const stellarField = sourceWeaponsInfo.find(w => w.type === 'STELLAR_FIELD');
+            const fusionUnlockedIT = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('INNATE_TEMPERAMENT')); } catch(_) { return false; }
+            })();
+            const auraFieldLevel = (auraField && typeof auraField.level === 'number') ? auraField.level : 0;
+            const stellarFieldLevel = (stellarField && typeof stellarField.level === 'number') ? stellarField.level : 0;
+            const fusionReadyIT = (!!auraField && !!stellarField && auraFieldLevel >= 10 && stellarFieldLevel >= 10);
+            if (!hasInnateFusion && fusionReadyIT && fusionUnlockedIT) {
+                const cfgIT = CONFIG.WEAPONS['INNATE_TEMPERAMENT'];
+                if (cfgIT && Array.isArray(cfgIT.LEVELS) && cfgIT.LEVELS.length > 0) {
+                    options.push({
+                        type: 'INNATE_TEMPERAMENT',
+                        name: cfgIT.NAME,
+                        level: 1,
+                        description: cfgIT.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -1402,6 +1429,67 @@ const UI = {
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
             // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        // 融合：先天氣質（移除 守護領域(AURA_FIELD)/恆星領域(STELLAR_FIELD)，加入或升級 INNATE_TEMPERAMENT）
+        if (weaponType === 'INNATE_TEMPERAMENT') {
+            // 先清理守護領域/恆星領域的實體（避免重疊，無論是否在大招模式）
+            try {
+                if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+                    for (const p of Game.projectiles) {
+                        if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD') && p.player === player && !p.markedForDeletion) {
+                            if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
+                        }
+                    }
+                }
+                // 清理武器實例中的 _auraEntity 引用（正常模式）
+                if (!player.isUltimateActive) {
+                    const auraWeapon = player.weapons.find(w => w.type === 'AURA_FIELD');
+                    if (auraWeapon && auraWeapon._auraEntity) {
+                        try {
+                            if (typeof auraWeapon._auraEntity.destroy === 'function') auraWeapon._auraEntity.destroy();
+                            else auraWeapon._auraEntity.markedForDeletion = true;
+                        } catch (_) { }
+                        auraWeapon._auraEntity = null;
+                    }
+                    const stellarWeapon = player.weapons.find(w => w.type === 'STELLAR_FIELD');
+                    if (stellarWeapon && stellarWeapon._auraEntity) {
+                        try {
+                            if (typeof stellarWeapon._auraEntity.destroy === 'function') stellarWeapon._auraEntity.destroy();
+                            else stellarWeapon._auraEntity.markedForDeletion = true;
+                        } catch (_) { }
+                        stellarWeapon._auraEntity = null;
+                    }
+                }
+            } catch (_) { }
+
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                // 移除基礎武器
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'AURA_FIELD' && info.type !== 'STELLAR_FIELD');
+                // 加入或升級融合武器
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'INNATE_TEMPERAMENT');
+                const cfgIT = CONFIG.WEAPONS['INNATE_TEMPERAMENT'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgIT && curLv < cfgIT.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'INNATE_TEMPERAMENT', level: 1 });
+                }
+            } else {
+                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'AURA_FIELD' && w.type !== 'STELLAR_FIELD');
+                const existingIT = player.weapons.find(w => w.type === 'INNATE_TEMPERAMENT');
+                if (existingIT) {
+                    player.upgradeWeapon('INNATE_TEMPERAMENT');
+                } else {
+                    player.addWeapon('INNATE_TEMPERAMENT');
+                }
+            }
+            try { this.updateSkillsList(); } catch (_) { }
+            this._playClick();
             this.hideLevelUpMenu();
             return;
         }
