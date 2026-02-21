@@ -77,6 +77,13 @@ const Achievements = (function(){
       icon: 'assets/images/A40.png',
       reward: '解鎖「神界裁決」技能。'
     },
+    ELONDIER_CITY_CLEAR: {
+      id: 'ELONDIER_CITY_CLEAR',
+      name: '厄倫蒂兒的勝利',
+      desc: '使用厄倫蒂兒角色通關廁所。',
+      icon: 'assets/images/A55.png',
+      reward: '解鎖「先天氣質」技能。'
+    },
     PINEAPPLE_CITY_CLEAR: {
       id: 'PINEAPPLE_CITY_CLEAR',
       name: '鳳梨不咬舌的勝利',
@@ -105,6 +112,7 @@ const Achievements = (function(){
     DEATHLINE_SUPERMAN: ['ROKUROST_CITY_CLEAR'],
     RADIANT_GLORY: ['CHALLENGE_GALAXY_CLEAR'],
     DIVINE_JUDGMENT: ['RABI_CITY_CLEAR'],
+    INNATE_TEMPERAMENT: ['ELONDIER_CITY_CLEAR'],
     PINEAPPLE_SUPPLEMENT: ['PINEAPPLE_CITY_CLEAR']
     // 未來：在此加入新融合技能的成就解鎖需求，例如：
     // OTHER_FUSION_SKILL: ['SOME_ACHIEVEMENT', 'ANOTHER_ACHIEVEMENT']
