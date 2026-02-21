@@ -1660,6 +1660,7 @@ const Game = {
                 const isPersistentEffect = (
                     projectile.weaponType === 'AURA_FIELD' ||
                     projectile.weaponType === 'STELLAR_FIELD' ||
+                    projectile.weaponType === 'INNATE_TEMPERAMENT' ||
                     projectile.weaponType === 'STARFALL' ||
                     projectile.weaponType === 'STARFALL_MOON' ||
                     projectile.weaponType === 'GRAVITY_WAVE' ||
@@ -1697,6 +1698,7 @@ const Game = {
                     (projectile.constructor && (
                         projectile.constructor.name === 'AuraField' ||
                         projectile.constructor.name === 'StellarField' ||
+                        projectile.constructor.name === 'InnateTemperamentField' ||
                         projectile.constructor.name === 'GravityWaveField' ||
                         projectile.constructor.name === 'OrbitBall' ||
                         projectile.constructor.name === 'LaserBeam' ||
@@ -1920,6 +1922,13 @@ const Game = {
                             projectileData.visualScale = projectile.visualScale || 1.95;
                             projectileData.slowFactor = (typeof projectile.slowFactor === 'number') ? projectile.slowFactor : 0.95;
                         }
+                        // 組隊模式：先天氣質（常駐場域，緩速 + 持續傷害）
+                        if (projectile.weaponType === "INNATE_TEMPERAMENT") {
+                            projectileData.damage = projectile.tickDamage || projectile.damage || 0;
+                            projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.INNATE_TEMPERAMENT ? CONFIG.WEAPONS.INNATE_TEMPERAMENT.FIELD_RADIUS : 280);
+                            projectileData.visualScale = projectile.visualScale || 1.95;
+                            projectileData.slowFactor = (typeof projectile.slowFactor === 'number') ? projectile.slowFactor : 0.5;
+                        }
 
                         if (projectile.weaponType === "GRAVITY_WAVE") {
                             projectileData.damage = projectile.tickDamage || projectile.damage || 0;
@@ -2021,6 +2030,7 @@ const Game = {
                         // 武器類型檢查
                         projectile.weaponType === 'AURA_FIELD' ||
                         projectile.weaponType === 'STELLAR_FIELD' ||
+                        projectile.weaponType === 'INNATE_TEMPERAMENT' ||
                         projectile.weaponType === 'STARFALL' ||
                         projectile.weaponType === 'STARFALL_MOON' ||
                         projectile.weaponType === 'GRAVITY_WAVE' ||
@@ -2056,6 +2066,7 @@ const Game = {
                         // 構造函數名稱檢查（更可靠）
                         (projectile.constructor && (
                             projectile.constructor.name === 'AuraField' ||
+                            projectile.constructor.name === 'InnateTemperamentField' ||
                             projectile.constructor.name === 'GravityWaveField' ||
                             projectile.constructor.name === 'OrbitBall' ||
                             projectile.constructor.name === 'LaserBeam' ||
@@ -2269,6 +2280,14 @@ const Game = {
                         projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.STELLAR_FIELD ? CONFIG.WEAPONS.STELLAR_FIELD.FIELD_RADIUS : 100);
                         projectileData.visualScale = projectile.visualScale || 1.95;
                         projectileData.slowFactor = (typeof projectile.slowFactor === 'number') ? projectile.slowFactor : 0.95;
+                    }
+
+                    // 組隊模式：先天氣質（InnateTemperamentField），添加額外屬性
+                    if (projectile.weaponType === "INNATE_TEMPERAMENT") {
+                        projectileData.damage = projectile.tickDamage || projectile.damage || 0;
+                        projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.INNATE_TEMPERAMENT ? CONFIG.WEAPONS.INNATE_TEMPERAMENT.FIELD_RADIUS : 280);
+                        projectileData.visualScale = projectile.visualScale || 1.95;
+                        projectileData.slowFactor = (typeof projectile.slowFactor === 'number') ? projectile.slowFactor : 0.5;
                     }
 
                     // 如果是重力波（GravityWaveField），添加額外屬性
@@ -2898,6 +2917,10 @@ const Game = {
                 // 艾比通關廁所：解鎖神界裁決成就
                 if (charId === 'rabi' && mapId === 'city') {
                     Achievements.unlock('RABI_CITY_CLEAR');
+                }
+                // 厄倫蒂兒通關廁所：解鎖先天氣質成就
+                if (charId === 'elondier' && mapId === 'city') {
+                    Achievements.unlock('ELONDIER_CITY_CLEAR');
                 }
                 if (charId === 'pineapple' && mapId === 'city') {
                     Achievements.unlock('PINEAPPLE_CITY_CLEAR');
