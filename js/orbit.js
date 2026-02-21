@@ -164,11 +164,12 @@ class OrbitBall extends Entity {
                                     weaponType: this.weaponType || 'PINEAPPLE_ORBIT',
                                     x: enemy.x,
                                     y: enemy.y,
-                                    radius: 1,
+                                    radius: 10,
                                     enemyIds: [enemyId],
                                     damage: finalDamage,
                                     allowCrit: true,
-                                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
+                                    timestamp: Date.now()
                                 });
                             }
                         }
