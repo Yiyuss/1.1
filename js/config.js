@@ -63,6 +63,7 @@ const CONFIG = {
             PON: 'assets/images/A52.png',
             STARFALL: 'assets/images/A53.png',
             STELLAR_FIELD: 'assets/images/A49.png',
+            INNATE_TEMPERAMENT: 'assets/images/A55.png',
             BAGUETTE_THROW: 'assets/images/A42.png',
             PINEAPPLE_ORBIT: 'assets/images/A44.png',
             ADRENALINE: 'assets/images/A46.png',
@@ -134,15 +135,15 @@ const CONFIG = {
             VISUAL_SCALE: 1.95,
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "在腳底生成恆星領域，範圍內緩速5%（範圍100）" },
-                { COUNT: 1, DESCRIPTION: "範圍+20px、緩速+5%" },
-                { COUNT: 1, DESCRIPTION: "範圍+40px、緩速+5%" },
-                { COUNT: 1, DESCRIPTION: "範圍+60px、緩速+5%" },
-                { COUNT: 1, DESCRIPTION: "範圍+80px、緩速+5%" },
-                { COUNT: 1, DESCRIPTION: "範圍+100px、緩速+5%" },
-                { COUNT: 1, DESCRIPTION: "範圍+120px、緩速+5%" },
-                { COUNT: 1, DESCRIPTION: "範圍+140px、緩速+5%" },
-                { COUNT: 1, DESCRIPTION: "範圍+160px、緩速+5%" },
-                { COUNT: 1, DESCRIPTION: "範圍+180px、緩速+5%" }
+                { COUNT: 1, DESCRIPTION: "範圍+20px、緩速+10%" },
+                { COUNT: 1, DESCRIPTION: "範圍+40px、緩速+15%" },
+                { COUNT: 1, DESCRIPTION: "範圍+60px、緩速+20%" },
+                { COUNT: 1, DESCRIPTION: "範圍+80px、緩速+25%" },
+                { COUNT: 1, DESCRIPTION: "範圍+100px、緩速+30%" },
+                { COUNT: 1, DESCRIPTION: "範圍+120px、緩速+35%" },
+                { COUNT: 1, DESCRIPTION: "範圍+140px、緩速+40%" },
+                { COUNT: 1, DESCRIPTION: "範圍+160px、緩速+45%" },
+                { COUNT: 1, DESCRIPTION: "範圍+180px、緩速+50%" }
             ]
         },
         SING: {
@@ -674,6 +675,33 @@ const CONFIG = {
             // 備註：此武器為常駐型，傷害與範圍與守護領域LV10相同，LV1~LV10基礎攻擊+1~+10
             LEVELS: [
                 { COUNT: 1, DESCRIPTION: "在腳底生成持續傷害場域，基礎攻擊+1" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+2" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+3" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+4" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+5" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+6" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+7" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+8" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+9" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+10" }
+            ]
+        },
+        // 融合技能：先天氣質（守護領域LV10 + 恆星領域LV10）
+        // - 場域效果：恆星領域LV10（緩速50%）完全相同，並額外造成守護領域LV10同款持續傷害
+        // - 範圍：與恆星領域LV10相同（100 + 20*9 = 280）
+        // - 持續傷害：tick=120ms（與守護領域一致）；每升1級基礎攻擊+1（LV1~LV10）
+        INNATE_TEMPERAMENT: {
+            NAME: "先天氣質",
+            DAMAGE: 3, // 與守護領域基礎傷害一致（再由 weapon.js 對本武器每級+1）
+            COOLDOWN: 1000,
+            PROJECTILE_SPEED: 0,
+            FIELD_RADIUS: 280,
+            FIELD_RADIUS_PER_LEVEL: 0,
+            SLOW_FACTOR: 0.5, // 緩速50%（恆星領域LV10）
+            SLOW_DURATION_MS: 200, // 與恆星領域 applySlow(200ms) 一致
+            VISUAL_SCALE: 1.95,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "在腳底生成先天氣質，範圍內緩速50%並造成持續傷害，基礎攻擊+1" },
                 { COUNT: 1, DESCRIPTION: "基礎攻擊+2" },
                 { COUNT: 1, DESCRIPTION: "基礎攻擊+3" },
                 { COUNT: 1, DESCRIPTION: "基礎攻擊+4" },
