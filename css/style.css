@@ -2422,7 +2422,13 @@ body {
 }
 
 /* 成就介面容器：沿用天賦的半透明面板背景 */
-#achievements-screen .char-card-wrap { position: relative; background: var(--panel-grad), url('../assets/images/background3.jpg') center/cover no-repeat; }
+#achievements-screen .char-card-wrap {
+  position: relative;
+  background: var(--panel-grad), url('../assets/images/background3.jpg') center/cover no-repeat;
+  scrollbar-width: none; /* Firefox 隱藏捲軸 */
+  -ms-overflow-style: none; /* IE/Edge 隱藏捲軸 */
+}
+#achievements-screen .char-card-wrap::-webkit-scrollbar { width: 0; height: 0; } /* WebKit 隱藏捲軸 */
 #achievements-screen #achievements-back { position: absolute; right: 14px; bottom: 14px; margin: 0; }
 
 /* 成就介面背景：與其他介面一致使用 background2.jpg */
