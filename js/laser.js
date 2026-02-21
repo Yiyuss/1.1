@@ -313,7 +313,8 @@ class LaserBeam extends Entity {
                                     damage: this.damage,
                                     allowCrit: true,
                                     critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
-                                    enemyIds: hitEnemies
+                                    enemyIds: hitEnemies,
+                                    timestamp: Date.now()
                                 });
                             }
                         }
