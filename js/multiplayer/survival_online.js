@@ -6074,6 +6074,36 @@ function updateRemotePlayerFromServer(playerState) {
   } catch (_) { }
 }
 
+// ✅ 生存多人：清空/移除 enemies 前先釋放可能殘留的資源（DOM/overlay/標記）
+function _survivalOnlineDisposeEnemyBeforeRemove(enemy) {
+  if (!enemy) return;
+
+  // 1) 清理敵人掛載的 DOM 特效（例如裁決命中特效）
+  try {
+    if (typeof enemy._clearJudgmentEffects === 'function') {
+      enemy._clearJudgmentEffects();
+    }
+  } catch (_) { }
+
+  // 2) 清理可能存在的 GifOverlay（保守：同時嘗試 elf boss / mini boss 兩種 key）
+  try {
+    if (enemy._gifInstanceId && typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hide === 'function') {
+      const iid = String(enemy._gifInstanceId);
+      try { window.GifOverlay.hide('elf-boss-bg-' + iid); } catch (_) { }
+      try { window.GifOverlay.hide('elf-mini-boss-bg-' + iid); } catch (_) { }
+      // 兼容另一種 key 組法（舊邏輯/不同拼接）
+      try { window.GifOverlay.hide('elf-boss-bg' + '-' + iid); } catch (_) { }
+      try { window.GifOverlay.hide('elf-mini-boss-bg' + '-' + iid); } catch (_) { }
+    }
+  } catch (_) { }
+
+  // 3) 按既有生命週期做標記（避免其他系統依賴 markedForDeletion）
+  try {
+    if (typeof enemy.destroy === 'function') enemy.destroy();
+    else enemy.markedForDeletion = true;
+  } catch (_) { }
+}
+
 // ✅ 不影响单机：只在多人模式下执行
 function updateEnemiesFromServer(enemies) {
   if (typeof Game === 'undefined' || !Game.multiplayer || !Game.enemies) return;
@@ -6102,6 +6132,7 @@ function updateEnemiesFromServer(enemies) {
     const enemy = Game.enemies[i];
     // ✅ 修復：防止 enemy 為 null/undefined 或沒有 id 導致崩潰
     if (!enemy || !enemy.id || !serverEnemyIds.has(enemy.id)) {
+      try { _survivalOnlineDisposeEnemyBeforeRemove(enemy); } catch (_) { }
       Game.enemies.splice(i, 1);
     }
   }
