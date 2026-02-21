@@ -6118,9 +6118,14 @@ function updateEnemiesFromServer(enemies) {
   );
 
   // 创建敌人ID映射
-  // ✅ 修復：過濾掉 null/undefined 元素，防止 e.id 訪問錯誤
-  const serverEnemyIds = new Set(enemies.filter(e => e && e.id).map(e => e.id));
-  const localEnemyIds = new Set(Game.enemies.filter(e => e && e.id).map(e => e.id));
+  // ✅ 降低 GC：重用 Set，避免 filter/map 每幀配置
+  if (!updateEnemiesFromServer._serverIds) updateEnemiesFromServer._serverIds = new Set();
+  const serverEnemyIds = updateEnemiesFromServer._serverIds;
+  serverEnemyIds.clear();
+  for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i];
+    if (e && e.id) serverEnemyIds.add(e.id);
+  }
   // 本地索引以加速查找
   if (!updateEnemiesFromServer._localIndex) updateEnemiesFromServer._localIndex = new Map();
   const eidx = updateEnemiesFromServer._localIndex;
@@ -6232,9 +6237,14 @@ function updateProjectilesFromServer(projectiles) {
   const ProjectileCtor = _getCtor("Projectile");
 
   // 创建投射物ID映射
-  // ✅ 修復：過濾掉 null/undefined 元素，防止 p.id 訪問錯誤
-  const serverProjectileIds = new Set(projectiles.filter(p => p && p.id).map(p => p.id));
-  const localProjectileIds = new Set(Game.projectiles.filter(p => p && p.id).map(p => p.id));
+  // ✅ 降低 GC：重用 Set，避免 filter/map 每幀配置
+  if (!updateProjectilesFromServer._serverIds) updateProjectilesFromServer._serverIds = new Set();
+  const serverProjectileIds = updateProjectilesFromServer._serverIds;
+  serverProjectileIds.clear();
+  for (let i = 0; i < projectiles.length; i++) {
+    const p = projectiles[i];
+    if (p && p.id) serverProjectileIds.add(p.id);
+  }
   // 本地索引以加速查找
   if (!updateProjectilesFromServer._localIndex) updateProjectilesFromServer._localIndex = new Map();
   const pidx = updateProjectilesFromServer._localIndex;
@@ -6280,6 +6290,8 @@ function updateProjectilesFromServer(projectiles) {
   };
 
   // 移除服务器不存在的投射物（但排除特殊視覺效果）
+  const now = Date.now();
+  const VISUAL_EFFECT_HARD_MAX_AGE = 45000; // 45 秒：保守上限，避免特殊視覺效果因例外路徑常駐
   for (let i = Game.projectiles.length - 1; i >= 0; i--) {
     const proj = Game.projectiles[i];
     // ✅ 修復：防止 proj 為 null/undefined 或沒有 id 導致崩潰
@@ -6288,11 +6300,25 @@ function updateProjectilesFromServer(projectiles) {
       // 沒有 ID 的投射物，如果不是特殊視覺效果，則刪除
       if (!isSpecialVisualEffect(proj)) {
         Game.projectiles.splice(i, 1);
+      } else {
+        // ✅ 特殊視覺效果：若已標記刪除或超時，允許移除（避免累積）
+        try {
+          if (proj && (proj.markedForDeletion || (proj._isVisualOnly && proj._createdAt && (now - proj._createdAt > VISUAL_EFFECT_HARD_MAX_AGE)))) {
+            Game.projectiles.splice(i, 1);
+          }
+        } catch (_) { }
       }
     } else if (!serverProjectileIds.has(proj.id)) {
       // 不在服務器列表中的投射物，如果是特殊視覺效果，則保留（它們通過事件廣播）
       if (!isSpecialVisualEffect(proj)) {
         Game.projectiles.splice(i, 1);
+      } else {
+        // ✅ 特殊視覺效果：若已標記刪除或超時，允許移除（避免累積）
+        try {
+          if (proj && (proj.markedForDeletion || (proj._isVisualOnly && proj._createdAt && (now - proj._createdAt > VISUAL_EFFECT_HARD_MAX_AGE)))) {
+            Game.projectiles.splice(i, 1);
+          }
+        } catch (_) { }
       }
     }
   }
@@ -6353,7 +6379,14 @@ function updateBossProjectilesFromServer(bossProjectiles) {
   const BossProjectileCtor = _getCtor("BossProjectile");
   const BottleProjectileCtor = _getCtor("BottleProjectile");
 
-  const serverIds = new Set(bossProjectiles.map(p => p && p.id).filter(Boolean));
+  // ✅ 降低 GC：重用 Set，避免 map/filter 配置
+  if (!updateBossProjectilesFromServer._serverIds) updateBossProjectilesFromServer._serverIds = new Set();
+  const serverIds = updateBossProjectilesFromServer._serverIds;
+  serverIds.clear();
+  for (let i = 0; i < bossProjectiles.length; i++) {
+    const p = bossProjectiles[i];
+    if (p && p.id) serverIds.add(p.id);
+  }
   if (!updateBossProjectilesFromServer._localIndex) updateBossProjectilesFromServer._localIndex = new Map();
   const bidx = updateBossProjectilesFromServer._localIndex;
   bidx.clear();
