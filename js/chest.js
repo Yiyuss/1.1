@@ -625,8 +625,7 @@ class PineappleSupplementPickup extends Chest {
 try {
     if (typeof window !== 'undefined') {
         window.Chest = Chest;
-        try { window.PineappleUltimatePickup = PineappleUltimatePickup; } catch (_) {}
-        try { window.PineappleSupplementPickup = PineappleSupplementPickup; } catch (_) {}
+        try { window.PineappleSupplementPickup = PineappleSupplementPickup; } catch (_) { }
     }
 } catch (_) { }
 
@@ -892,3 +891,10 @@ class PineappleUltimatePickup extends Chest {
         this.destroy();
     }
 }
+
+// ✅ ES module 相容：PineappleUltimatePickup 在 class 宣告後再掛到 window
+try {
+    if (typeof window !== 'undefined') {
+        try { window.PineappleUltimatePickup = PineappleUltimatePickup; } catch (_) { }
+    }
+} catch (_) { }
