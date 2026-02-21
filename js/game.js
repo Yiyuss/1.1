@@ -62,29 +62,36 @@ const Game = {
     spatialCellSize: 64,
     _enemyGrid: null,
     rebuildEnemyGrid: function () {
+        // ✅ 與 getEnemiesNearCircle 的 Map 索引一致，避免 _enemyGrid 變成 plain object 導致 .get() 崩潰
         const size = this.spatialCellSize || 64;
-        const grid = Object.create(null);
-        for (const e of this.enemies) {
+        const enemies = Array.isArray(this.enemies) ? this.enemies : [];
+        const grid = new Map();
+        for (const e of enemies) {
             if (!e || typeof e.x !== 'number' || typeof e.y !== 'number') continue;
-            const cx = (e.x / size) | 0;
-            const cy = (e.y / size) | 0;
-            const key = cx + ',' + cy;
-            (grid[key] || (grid[key] = [])).push(e);
+            if (e.markedForDeletion || e.health <= 0) continue;
+            const gi = Math.floor(e.x / size);
+            const gj = Math.floor(e.y / size);
+            const key = gi + '|' + gj;
+            let list = grid.get(key);
+            if (!list) { list = []; grid.set(key, list); }
+            list.push(e);
         }
         this._enemyGrid = grid;
+        this._enemyGridBuiltAt = Date.now();
     },
     getEnemiesNearCircle: function (x, y, r) {
         const res = [];
         const grid = this._enemyGrid;
         const size = this.spatialCellSize || 64;
-        if (!grid || typeof x !== 'number' || typeof y !== 'number' || typeof r !== 'number') return this.enemies;
+        // ✅ 保守：若 grid 不是 Map（歷史殘留/被覆寫），直接回退全表避免崩潰
+        if (!grid || typeof grid.get !== 'function' || typeof x !== 'number' || typeof y !== 'number' || typeof r !== 'number') return this.enemies;
         const minCx = ((x - r) / size) | 0;
         const maxCx = ((x + r) / size) | 0;
         const minCy = ((y - r) / size) | 0;
         const maxCy = ((y + r) / size) | 0;
         for (let cy = minCy; cy <= maxCy; cy++) {
             for (let cx = minCx; cx <= maxCx; cx++) {
-                const bucket = grid[cx + ',' + cy];
+                const bucket = grid.get(cx + '|' + cy);
                 if (bucket) {
                     for (let i = 0; i < bucket.length; i++) res.push(bucket[i]);
                 }
