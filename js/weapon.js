@@ -451,6 +451,25 @@
                     return;
                 }
 
+                // 融合技能：先天氣質（常駐場域，緩速50% + 持續傷害）
+                if (this.type === 'INNATE_TEMPERAMENT') {
+                    const baseRadius = this.config.FIELD_RADIUS || 280;
+                    const perLevel = this.config.FIELD_RADIUS_PER_LEVEL || 0;
+                    const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+                    const slowFactor = (typeof this.config.SLOW_FACTOR === 'number') ? this.config.SLOW_FACTOR : 0.5;
+                    const dmg = this._computeFinalDamage(levelMul);
+                    if (!this._auraEntity || this._auraEntity.markedForDeletion) {
+                        this._auraEntity = new InnateTemperamentField(this.player, dynamicRadius, dmg, slowFactor);
+                        Game.addProjectile(this._auraEntity);
+                    } else {
+                        this._auraEntity.radius = dynamicRadius;
+                        this._auraEntity.damage = dmg;
+                        this._auraEntity.tickDamage = Math.max(0, Math.round(dmg));
+                        this._auraEntity.slowFactor = slowFactor;
+                    }
+                    return;
+                }
+
                 // 特殊技能：引力波（常駐場域，帶推怪功能）
                 if (this.type === 'GRAVITY_WAVE') {
                     const baseRadius = this.config.FIELD_RADIUS || 150;
@@ -1421,6 +1440,10 @@
             const gravityWaveExtra = (this.type === 'GRAVITY_WAVE')
                 ? (1 * Math.max(1, this.level))
                 : 0;
+            // 先天氣質：每等 +1 基礎傷害（LV1~LV10）
+            const innateTemperamentExtra = (this.type === 'INNATE_TEMPERAMENT')
+                ? (1 * Math.max(1, this.level))
+                : 0;
             // 光芒萬丈：每級+1基礎攻擊
             const radiantGloryExtra = (this.type === 'RADIANT_GLORY' && this.config && this.config.DAMAGE_PER_LEVEL)
                 ? (this.config.DAMAGE_PER_LEVEL * Math.max(0, this.level - 1))
@@ -1514,7 +1537,7 @@
 
             const lvPct = Math.max(0, (levelMul || 1) - 1);
             const percentSum = lvPct + talentPct + attrPct;
-            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat;
+            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + innateTemperamentExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat;
             const value = baseFlat * (1 + percentSum);
             return value;
         };
