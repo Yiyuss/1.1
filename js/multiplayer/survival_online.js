@@ -1461,7 +1461,7 @@ const Runtime = (() => {
             // ✅ 修復：INVINCIBLE 是一次性效果（持續幾秒後消失，然後又持續幾秒後消失，很像是變長的斬擊）
             // 守護領域是永久常駐，無敵是持續幾秒後消失，所以無敵應該像斬擊一樣，每次施放都創建新的效果
             const isPersistentEffect = (
-              weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' ||
+              weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'INNATE_TEMPERAMENT' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' ||
               weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' || weaponType === 'HEART_COMPANION' ||
               weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC' ||
               // ✅ 厄倫蒂兒大招分身：需要同步生成（純視覺；投擲傷害走伺服器權威 attack input）
@@ -1524,6 +1524,19 @@ const Runtime = (() => {
                 if (typeof eventData.duration === "number") existingProjectile.duration = eventData.duration;
                 if (typeof eventData.durationMs === "number") existingProjectile.durationMs = eventData.durationMs;
                 if (typeof eventData.slowFactor === "number") existingProjectile.slowFactor = eventData.slowFactor; // 恆星領域升級時同步緩速
+                // 先天氣質：同步持續傷害與緩速（僅組隊模式）
+                if (weaponType === 'INNATE_TEMPERAMENT') {
+                  const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                  if (isMultiplayer) {
+                    if (typeof eventData.damage === "number") {
+                      existingProjectile.damage = eventData.damage;
+                      existingProjectile.tickDamage = Math.max(0, Math.round(eventData.damage));
+                    }
+                    if (typeof eventData.slowFactor === "number") {
+                      existingProjectile.slowFactor = eventData.slowFactor;
+                    }
+                  }
+                }
                 // 更新玩家引用（確保位置正確）
                 if (eventData.playerUid) {
                   const isLocalPlayer = (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid));
@@ -2183,6 +2196,34 @@ const Runtime = (() => {
                     targetPlayer,
                     typeof eventData.radius === 'number' ? eventData.radius : (cfg.FIELD_RADIUS || 100),
                     typeof eventData.slowFactor === 'number' ? eventData.slowFactor : 0.95
+                  );
+                  effect.id = projectileId;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "INNATE_TEMPERAMENT" && typeof InnateTemperamentField !== "undefined") {
+                // 先天氣質（常駐場域）：需要找到對應的玩家（使用完整的 Player 對象）
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                if (!isMultiplayer) return;
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                    const remotePlayer = rt.RemotePlayerManager.get(eventData.playerUid);
+                    if (remotePlayer) targetPlayer = remotePlayer;
+                  }
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                if (targetPlayer) {
+                  const cfg = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.INNATE_TEMPERAMENT) || {};
+                  const effect = new InnateTemperamentField(
+                    targetPlayer,
+                    typeof eventData.radius === 'number' ? eventData.radius : (cfg.FIELD_RADIUS || 280),
+                    typeof eventData.damage === 'number' ? eventData.damage : 0,
+                    typeof eventData.slowFactor === 'number' ? eventData.slowFactor : ((typeof cfg.SLOW_FACTOR === 'number') ? cfg.SLOW_FACTOR : 0.5)
                   );
                   effect.id = projectileId;
                   effect._remotePlayerUid = eventData.playerUid;
@@ -6181,7 +6222,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' ||
       weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' || weaponType === 'INVINCIBLE' || weaponType === 'SING' ||
       // 持續視覺效果（通過事件廣播的）
-      weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'GRAVITY_WAVE' ||
+      weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'INNATE_TEMPERAMENT' || weaponType === 'GRAVITY_WAVE' ||
       weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' || weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' ||
       weaponType === 'HEART_COMPANION' || weaponType === 'PINEAPPLE_ORBIT' ||
       weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC' ||
@@ -6192,7 +6233,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'STARFALL' || weaponType === 'STARFALL_MOON' ||
       // 通過構造函數名稱檢查
       constructorName === 'LaserBeam' || constructorName === 'ChainLightningEffect' || constructorName === 'FrenzyLightningEffect' ||
-      constructorName === 'SlashEffect' || constructorName === 'InvincibleEffect' || constructorName === 'SingEffect' || constructorName === 'AuraField' || constructorName === 'StellarField' || constructorName === 'GravityWaveField' ||
+      constructorName === 'SlashEffect' || constructorName === 'InvincibleEffect' || constructorName === 'SingEffect' || constructorName === 'AuraField' || constructorName === 'StellarField' || constructorName === 'InnateTemperamentField' || constructorName === 'GravityWaveField' ||
       constructorName === 'OrbitBall' || constructorName === 'RadiantGloryEffect' || constructorName === 'ShockwaveEffect' ||
       constructorName === 'IceFieldEffect' || constructorName === 'YoungDadaGloryEffect' || constructorName === 'FrenzyYoungDadaGloryEffect' ||
       constructorName === 'DeathlineWarriorEffect' || constructorName === 'JudgmentEffect' || constructorName === 'DivineJudgmentEffect' ||
