@@ -561,6 +561,7 @@ const Game = {
         if (this.multiplayer && this.multiplayer.enabled) {
             const now = Date.now();
             const VISUAL_EFFECT_MAX_AGE = 30000; // 30 秒
+            const VISUAL_EFFECT_HARD_MAX_AGE = 45000; // 45 秒（保守上限，避免例外路徑常駐）
 
             for (let i = this.projectiles.length - 1; i >= 0; i--) {
                 const p = this.projectiles[i];
@@ -573,9 +574,35 @@ const Game = {
                             if (typeof p.destroy === 'function') {
                                 p.destroy();
                             }
+                            // 保守清理：若 destroy 未處理 DOM，這裡補一刀
+                            if (p.el && p.el.parentNode) {
+                                p.el.parentNode.removeChild(p.el);
+                            }
+                            p.el = null;
                         } catch (_) { }
                         this.projectiles.splice(i, 1);
                     }
+                }
+            }
+
+            // ✅ 追加保護：對「已標記刪除」但因例外路徑仍殘留的投射物，給硬上限回收
+            for (let i = this.projectiles.length - 1; i >= 0; i--) {
+                const p = this.projectiles[i];
+                if (!p) continue;
+                // AICompanion / 核心物件不在這裡處理
+                if (p.constructor && p.constructor.name === 'AICompanion') continue;
+                if (p.markedForDeletion) {
+                    try {
+                        if (!p._createdAt) p._createdAt = now;
+                        if (now - p._createdAt > VISUAL_EFFECT_HARD_MAX_AGE) {
+                            try { if (typeof p.destroy === 'function') p.destroy(); } catch (_) { }
+                            try {
+                                if (p.el && p.el.parentNode) p.el.parentNode.removeChild(p.el);
+                                p.el = null;
+                            } catch (_) { }
+                            this.projectiles.splice(i, 1);
+                        }
+                    } catch (_) { }
                 }
             }
         }
