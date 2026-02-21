@@ -118,18 +118,19 @@ class SlashEffect extends Entity {
                         DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: dy, dirY: dx, enemyId: enemy.id });
                     }
                 } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
-                    // ⚠️ 修復：多人模式：本地玩家使用斬擊時，需要發送傷害到伺服器
-                    // 斬擊是單次傷害，使用 aoe_tick 但只針對單個敵人（radius 設為很小的值）
+                    // ✅ 多人權威：斬擊傷害由伺服器結算；客戶端只送「命中判定輸入」
+                    // 統一 aoe_tick 送包格式（含最小半徑與 timestamp），避免被伺服器防呆忽略而變成純視覺
                     if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                         window.SurvivalOnlineRuntime.sendToNet({
                             type: 'aoe_tick',
                             weaponType: this.weaponType || 'SLASH',
                             x: enemy.x,
                             y: enemy.y,
-                            radius: 1, // 很小的半徑，只命中目標敵人
+                            radius: 10, // 與多人通用 AOE tick 同源：最小半徑至少 10
                             damage: finalDamage,
                             allowCrit: true,
-                            critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                            critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
+                            timestamp: Date.now()
                         });
                     }
                 }
