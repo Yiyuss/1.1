@@ -101,59 +101,61 @@ class InnateTemperamentField extends Entity {
         let loops = 0;
         const maxLoops = 3;
         while (this.tickAccumulator >= this.tickIntervalMs && loops++ < maxLoops) {
-            const targets = (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function')
-                ? Game.getEnemiesNearCircle(this.x, this.y, this.collisionRadius)
-                : Game.enemies;
-            for (const enemy of targets) {
-                if (!this.isColliding(enemy)) continue;
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+            let isSurvivalMode = false;
+            try {
+                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) { }
 
-                // 緩速（與恆星領域一致）
-                if (enemy && typeof enemy.applySlow === 'function') {
-                    enemy.applySlow(this.slowDurationMs, this.slowFactor);
-                }
-
-                // 持續傷害（與守護領域一致）
-                let finalDamage = this.tickDamage;
-                let isCrit = false;
-                if (typeof DamageSystem !== 'undefined') {
-                    const result = DamageSystem.computeHit(this.tickDamage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
-                    finalDamage = result.amount;
-                    isCrit = result.isCrit;
-                }
-
-                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                let isSurvivalMode = false;
+            // ✅ 多人權威：只送「一次圓形 aoe_tick」給伺服器，避免對每個敵人爆量送包（晚局雪崩根因）
+            if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
-                    isSurvivalMode = (activeId === 'survival' || activeId === null);
+                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            type: 'aoe_tick',
+                            weaponType: this.weaponType || 'INNATE_TEMPERAMENT',
+                            x: this.x,
+                            y: this.y,
+                            radius: Math.max(10, Math.floor(this.collisionRadius || this.radius || 120)),
+                            damage: Math.max(0, Math.floor(this.tickDamage || 0)),
+                            allowCrit: true,
+                            critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
+                            timestamp: Date.now()
+                        });
+                    }
                 } catch (_) { }
+            } else {
+                // 單機/非生存：維持原本逐怪判定（含緩速+浮字）
+                const targets = (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function')
+                    ? Game.getEnemiesNearCircle(this.x, this.y, this.collisionRadius)
+                    : Game.enemies;
+                for (const enemy of targets) {
+                    if (!this.isColliding(enemy)) continue;
 
-                // 單機/非生存：直接扣血 + 浮字
-                if (!isSurvivalMode || !isMultiplayer) {
+                    // 緩速（與恆星領域一致）
+                    if (enemy && typeof enemy.applySlow === 'function') {
+                        enemy.applySlow(this.slowDurationMs, this.slowFactor);
+                    }
+
+                    // 持續傷害（與守護領域一致）
+                    let finalDamage = this.tickDamage;
+                    let isCrit = false;
+                    if (typeof DamageSystem !== 'undefined') {
+                        const result = DamageSystem.computeHit(this.tickDamage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
+                        finalDamage = result.amount;
+                        isCrit = result.isCrit;
+                    }
+
                     if (enemy && typeof enemy.takeDamage === 'function') {
                         enemy.takeDamage(finalDamage);
                     }
                     if (typeof DamageNumbers !== 'undefined') {
                         DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height || 0) / 2, isCrit, { dirX: (enemy.x - this.x), dirY: (enemy.y - this.y), enemyId: enemy.id });
-                    }
-                } else if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
-                    // 權威伺服器模式：由伺服器結算傷害
-                    if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                        window.SurvivalOnlineRuntime.sendToNet({
-                            type: 'aoe_tick',
-                            weaponType: this.weaponType || 'INNATE_TEMPERAMENT',
-                            x: enemy.x,
-                            y: enemy.y,
-                            radius: 1,
-                            enemyIds: [enemy.id],
-                            damage: finalDamage,
-                            allowCrit: true,
-                            critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
-                        });
                     }
                 }
             }
