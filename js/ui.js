@@ -2738,6 +2738,12 @@ _actionHold: function() {
             const enabled = (typeof AudioManager !== 'undefined') ? (AudioManager.expSoundEnabled !== false) : true;
             label.textContent = enabled ? 'EXP音效：開' : 'EXP音效：關';
         };
+        // 組隊模式修復：UI.init() 會因 Game.reset() 被多次呼叫，只綁定一次避免重複 listener 導致開關無效
+        if (this._expSoundToggleBound) {
+            refresh();
+            return;
+        }
+        this._expSoundToggleBound = true;
         refresh();
         btn.addEventListener('click', () => {
             try {
@@ -2762,6 +2768,12 @@ _actionHold: function() {
             const enabled = (typeof AudioManager !== 'undefined') ? (AudioManager.deathSoundEnabled !== false) : true;
             label.textContent = enabled ? '死亡音效：開' : '死亡音效：關';
         };
+        // 組隊模式修復：UI.init() 會因 Game.reset() 被多次呼叫，只綁定一次避免重複 listener 導致開關無效
+        if (this._deathSoundToggleBound) {
+            refresh();
+            return;
+        }
+        this._deathSoundToggleBound = true;
         refresh();
         btn.addEventListener('click', () => {
             try {
