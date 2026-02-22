@@ -343,12 +343,14 @@ class Player extends Entity {
             ? this.spriteImageKey
             : 'player';
         
-        // 特殊處理：player2與player7根據移動方向切換圖片（左圖/右圖）
+        // 特殊處理：player2、player7、player8 根據移動方向切換圖片（左圖/右圖）
         if (!this.isUltimateActive) {
             if (baseKey === 'player2') {
                 baseKey = this.facingRight ? 'player2-1' : 'player2';
             } else if (baseKey === 'player7') {
                 baseKey = this.facingRight ? 'player7-1' : 'player7';
+            } else if (baseKey === 'player8') {
+                baseKey = this.facingRight ? 'player8-1' : 'player8';
             }
         }
         
@@ -446,6 +448,15 @@ class Player extends Entity {
                     const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
                     const aspectRatio = imgWidth / imgHeight;
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                } else if ((imgKey === 'player8' || imgKey === 'player8-1') && imgObj.complete) {
+                    // player8.png / player8-1.png 保持原比例（300x238），體型較寬故顯示再縮小：參考高度略大於 player7
+                    const imgWidth = imgObj.naturalWidth || imgObj.width || 300;
+                    const imgHeight = imgObj.naturalHeight || imgObj.height || 238;
+                    const aspectRatio = imgWidth / imgHeight;
+                    const refHeight = 265;
+                    const renderHeight = Math.max(1, Math.floor(baseSize * visualScale * (imgHeight / refHeight)));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                     window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
                 } else {
