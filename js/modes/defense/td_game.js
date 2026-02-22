@@ -789,14 +789,16 @@ class TDGame {
                 const isPlayer2 = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2');
                 const isPlayer6 = sc && (sc.id === 'pineapple' || sc.spriteImageKey === 'player6');
                 const isPlayer7 = sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7');
+                const isPlayer8 = sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8');
                 
-                if ((playerIsGif || isPlayer4 || isPlayer5 || isPlayer2 || isPlayer6 || isPlayer7) && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
+                if ((playerIsGif || isPlayer4 || isPlayer5 || isPlayer2 || isPlayer6 || isPlayer7 || isPlayer8) && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
                     const screenX = this.player.x - this.camera.x;
                     const screenY = this.player.y - this.camera.y;
                     
                     let playerSrc = this.player.sprite.src;
                     let player2ImgObj = null;
                     let player7ImgObj = null;
+                    let player8ImgObj = null;
                     if (isPlayer2) {
                         const player2Key = this.player.facingRight ? 'player2-1' : 'player2';
                         player2ImgObj = (Game.images && Game.images[player2Key]) ? Game.images[player2Key] : null;
@@ -813,6 +815,15 @@ class TDGame {
                             playerSrc = player7ImgObj.src;
                         } else {
                             playerSrc = this.player.facingRight ? 'assets/images/player7-1.png' : 'assets/images/player7.png';
+                        }
+                    }
+                    if (isPlayer8) {
+                        const player8Key = this.player.facingRight ? 'player8-1' : 'player8';
+                        player8ImgObj = (Game.images && Game.images[player8Key]) ? Game.images[player8Key] : null;
+                        if (player8ImgObj && player8ImgObj.src) {
+                            playerSrc = player8ImgObj.src;
+                        } else {
+                            playerSrc = this.player.facingRight ? 'assets/images/player8-1.png' : 'assets/images/player8.png';
                         }
                     }
                     
@@ -878,6 +889,19 @@ class TDGame {
                             const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
                             const aspectRatio = imgWidth / imgHeight;
                             const renderHeight = this.player.size;
+                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
+                        } else {
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
+                        }
+                    } else if (isPlayer8) {
+                        const imgObj = player8ImgObj || ((Game.images && Game.images['player8']) ? Game.images['player8'] : null);
+                        if (imgObj && imgObj.complete) {
+                            const imgWidth = imgObj.naturalWidth || imgObj.width || 300;
+                            const imgHeight = imgObj.naturalHeight || imgObj.height || 238;
+                            const aspectRatio = imgWidth / imgHeight;
+                            const refHeight = 265;
+                            const renderHeight = Math.max(1, Math.floor(this.player.size * (imgHeight / refHeight)));
                             const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                             window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
                         } else {
