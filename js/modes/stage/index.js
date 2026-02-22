@@ -256,6 +256,22 @@ function safePlayStage(ctx) {
                 const fallbackSrc = keys.right ? 'assets/images/player7-1.png' : 'assets/images/player7.png';
                 window.GifOverlay.showOrUpdate('stage-player', fallbackSrc, player.x, player.y, actorSize);
               }
+            } else if (sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8')) {
+              const imgKey = keys.right ? 'player8-1' : 'player8';
+              const imgObj = (Game.images && Game.images[imgKey]) ? Game.images[imgKey] : null;
+              if (imgObj && imgObj.complete) {
+                const imgWidth = imgObj.naturalWidth || imgObj.width || 300;
+                const imgHeight = imgObj.naturalHeight || imgObj.height || 238;
+                const aspectRatio = imgWidth / imgHeight;
+                const refHeight = 265;
+                const renderHeight = Math.max(1, Math.floor(actorSize * (imgHeight / refHeight)));
+                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                const src = (imgObj && imgObj.src) ? imgObj.src : actorSrc;
+                window.GifOverlay.showOrUpdate('stage-player', src, player.x, player.y, { width: renderWidth, height: renderHeight });
+              } else {
+                const fallbackSrc = keys.right ? 'assets/images/player8-1.png' : 'assets/images/player8.png';
+                window.GifOverlay.showOrUpdate('stage-player', fallbackSrc, player.x, player.y, actorSize);
+              }
             } else if (sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2')) {
               const imgKey = keys.right ? 'player2-1' : 'player2';
               const imgObj = (Game.images && Game.images[imgKey]) ? Game.images[imgKey] : null;
