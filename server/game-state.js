@@ -213,7 +213,11 @@ class GameState {
       if (!e || !e.active) { this.bulletEmitters.splice(i, 1); continue; }
       if (e.lifeMs > 0 && now - e.createdAt >= e.lifeMs) { this.bulletEmitters.splice(i, 1); continue; }
 
-      const anchor = this.enemies.find(x => x && x.id === e.anchorEnemyId);
+      // ✅ 性能：用空間索引的 id->enemy 映射取代全表 find（晚局 enemy 多時很貴）
+      const idx = this._enemyIndexById;
+      const anchor = (idx && typeof idx.get === 'function')
+        ? idx.get(e.anchorEnemyId)
+        : this.enemies.find(x => x && x.id === e.anchorEnemyId);
       if (!anchor || anchor.isDead || anchor.health <= 0) { this.bulletEmitters.splice(i, 1); continue; }
 
       const rate = Math.max(0, e.rateMs || 0);
@@ -1805,6 +1809,10 @@ class GameState {
     // ✅ 空間索引：供軟排斥近鄰查詢（避免 O(n^2)）
     try { this._rebuildEnemySpatialIndex(); } catch (_) { }
 
+    const enemyTotal = this.enemies.length;
+    // ✅ 晚局保護：堆怪時「軟碰撞」仍可能趨近 O(n²)；啟用 crowd LOD 降成本
+    const crowdMode = enemyTotal >= 280;
+
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
 
@@ -1968,8 +1976,10 @@ class GameState {
         }
 
         // ✅ 修复：与单机一致 - 怪物之间的软排斥（参考 js/enemy.js Line 460-524）
+        // ✅ 晚局保護：crowdMode 下只對大體積敵人保留軟排斥（避免密集時 n²）
         const enemyRadius = enemy.collisionRadius || (enemy.size || 32) / 2;
-        const maxCheckDistanceSq = 200 * 200; // 只检查附近的敌人（性能优化）
+        const checkRadius = crowdMode ? 160 : 200;
+        const maxCheckDistanceSq = checkRadius * checkRadius; // 只检查附近的敌人（性能优化）
         
         // 判断是否为花园大体积敌人
         const isGardenLargeEnemyForRepulsion = (this.selectedMap && this.selectedMap.id === 'garden') &&
@@ -1977,6 +1987,9 @@ class GameState {
         // 判断是否为大体积敌人
         const isLargeEnemyForRepulsion = (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' ||
           enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS');
+
+        const shouldDoRepulsion = (!crowdMode) || isLargeEnemyForRepulsion;
+        const MAX_REPULSION_NEIGHBORS = crowdMode ? 6 : 16;
 
         // 互斥强度：大体积敌人需要更强的推力，避免被小敌人卡住
         let repulsionStrength = 0.15; // 默认互斥强度
@@ -1991,39 +2004,42 @@ class GameState {
         let repulsionY = 0;
         let repulsionCount = 0;
 
-        // 只检查附近的敌人（使用空間索引；避免晚局全表掃描）
-        const repulsionCandidates = this._getEnemiesNearCircle(enemy.x, enemy.y, 200);
-        for (let c = 0; c < repulsionCandidates.length; c++) {
-          const otherEnemy = repulsionCandidates[c];
-          if (otherEnemy === enemy || otherEnemy.isDead || otherEnemy.isDying) continue;
+        if (shouldDoRepulsion && repulsionStrength > 0) {
+          // 只检查附近的敌人（使用空間索引；避免晚局全表掃描）
+          const repulsionCandidates = this._getEnemiesNearCircle(enemy.x, enemy.y, checkRadius);
+          for (let c = 0; c < repulsionCandidates.length; c++) {
+            const otherEnemy = repulsionCandidates[c];
+            if (otherEnemy === enemy || otherEnemy.isDead || otherEnemy.isDying) continue;
 
-          const dx = enemy.x - otherEnemy.x;
-          const dy = enemy.y - otherEnemy.y;
-          const distSq = dx * dx + dy * dy;
+            const dx = enemy.x - otherEnemy.x;
+            const dy = enemy.y - otherEnemy.y;
+            const distSq = dx * dx + dy * dy;
 
-          // 距离阈值检查（性能优化）
-          if (distSq > maxCheckDistanceSq) continue;
+            // 距离阈值检查（性能优化）
+            if (distSq > maxCheckDistanceSq) continue;
 
-          const distance = Math.sqrt(distSq);
-          const otherRadius = otherEnemy.collisionRadius || (otherEnemy.size || 32) / 2;
-          const minDistance = enemyRadius + otherRadius;
+            const distance = Math.sqrt(distSq);
+            const otherRadius = otherEnemy.collisionRadius || (otherEnemy.size || 32) / 2;
+            const minDistance = enemyRadius + otherRadius;
 
-          // 如果距离小于最小距离，计算互斥力
-          if (distance < minDistance && distance > 0.0001) {
-            // 标准化方向向量（从其他敌人指向自己）
-            const dirX = dx / distance;
-            const dirY = dy / distance;
+            // 如果距离小于最小距离，计算互斥力
+            if (distance < minDistance && distance > 0.0001) {
+              // 标准化方向向量（从其他敌人指向自己）
+              const dirX = dx / distance;
+              const dirY = dy / distance;
 
-            // 计算重叠深度
-            const overlap = minDistance - distance;
+              // 计算重叠深度
+              const overlap = minDistance - distance;
 
-            // 互斥力与重叠深度成正比，但使用平方根避免过强
-            const force = Math.sqrt(overlap) * repulsionStrength * deltaMul;
+              // 互斥力与重叠深度成正比，但使用平方根避免过强
+              const force = Math.sqrt(overlap) * repulsionStrength * deltaMul;
 
-            // 累积互斥力
-            repulsionX += dirX * force;
-            repulsionY += dirY * force;
-            repulsionCount++;
+              // 累积互斥力
+              repulsionX += dirX * force;
+              repulsionY += dirY * force;
+              repulsionCount++;
+              if (repulsionCount >= MAX_REPULSION_NEIGHBORS) break;
+            }
           }
         }
 
@@ -2822,6 +2838,8 @@ class GameState {
         collisionRadius: e.collisionRadius,
         isDead: e.isDead === true,
         isDying: e.isDying === true,
+        // ✅ 客戶端本地化音效：只讓擊殺者播放（SurvivalOnline 依此判斷）
+        killerUid: (typeof e.killerUid === 'string' && e.killerUid) ? e.killerUid : null,
         deathElapsed: e.deathElapsed,
         deathVelX: e.deathVelX,
         deathVelY: e.deathVelY,
