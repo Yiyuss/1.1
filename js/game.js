@@ -191,7 +191,16 @@ const Game = {
                 if (isMultiplayer) {
                     // 組隊模式下：頁面恢復時 deltaTime 過大，重置 lastUpdateTime
                     // 這樣可以避免狀態跳躍，讓服務器狀態同步來恢復正確的遊戲狀態
-                    console.warn(`[Game] 檢測到 deltaTime 過大 (${deltaTime}ms)，重置 lastUpdateTime（組隊模式頁面恢復）`);
+                    // 節流：避免在晚局刷爆 console 反而拖慢主執行緒
+                    try {
+                        const now = currentTime;
+                        if (!this._lastLargeDeltaWarnAt || (now - this._lastLargeDeltaWarnAt) > 1000) {
+                            this._lastLargeDeltaWarnAt = now;
+                            console.warn(`[Game] 檢測到 deltaTime 過大 (${deltaTime}ms)，重置 lastUpdateTime（組隊模式頁面恢復）`);
+                        }
+                    } catch (_) {
+                        console.warn(`[Game] 檢測到 deltaTime 過大 (${deltaTime}ms)，重置 lastUpdateTime（組隊模式頁面恢復）`);
+                    }
                     this.lastUpdateTime = currentTime;
                     deltaTime = 0; // 跳過這一幀，等待服務器狀態同步
                 } else {
