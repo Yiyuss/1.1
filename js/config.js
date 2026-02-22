@@ -1201,6 +1201,25 @@ const CONFIG = {
             disabledWeapons: [],
             exclusiveWeapons: ['STELLAR_FIELD', 'STELLAR_ORBIT', 'PON', 'STARFALL'],
             unlockCost: 10000
+        },
+        {
+            id: 'baibaihong',
+            name: '白白虹',
+            hpMultiplier: 1.0,
+            hpBonus: -50,
+            speedMultiplier: 1.0,
+            critChanceBonusPct: 0.15,
+            description: `角色介紹：怕生的天才社畜工程師，追尋未知信號而來。\n專屬技能：暫無\n專屬大招：暫無`,
+            // 選角預覽圖（下方角色介紹用）：使用 player8-2.png（與其他角色邏輯相同：player7-2、player6-2 等）
+            avatarImageKey: 'player8-2',
+            // 所有模式的 HUD 左上角頭像：使用 player8-2.png
+            hudImageKey: 'player8-2',
+            spriteImageKey: 'player8',
+            levelUpBgKey: 'player8-2',
+            canUseUltimate: true,
+            disabledWeapons: [],
+            exclusiveWeapons: [],
+            unlockCost: 10000
         }
     ],
 
