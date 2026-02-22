@@ -824,7 +824,20 @@ const Game = {
         }
 
         // 優化：限制實體數量
-        this.optimizeEntities();
+        // ✅ 避免每幀重活：按 CLEANUP_INTERVAL 節奏執行（預設 1000ms）
+        try {
+            const interval = (typeof CONFIG !== 'undefined' && CONFIG.OPTIMIZATION && typeof CONFIG.OPTIMIZATION.CLEANUP_INTERVAL === 'number')
+                ? CONFIG.OPTIMIZATION.CLEANUP_INTERVAL
+                : 1000;
+            const now = Date.now();
+            if (!this._lastOptimizeAt || (now - this._lastOptimizeAt) >= interval) {
+                this.optimizeEntities();
+                this._lastOptimizeAt = now;
+            }
+        } catch (_) {
+            // 保守回退：維持原行為
+            this.optimizeEntities();
+        }
 
         // 生存模式聯機（測試）：多人位置同步（僅在生存模式下執行）
         try {
@@ -2733,11 +2746,13 @@ const Game = {
 
     // 優化實體數量
     optimizeEntities: function () {
+        const isServerAuthoritative = (this.multiplayer && this.multiplayer.enabled);
         // 如果敵人數量超過限制，移除最遠的敵人
         const baseMax = CONFIG.OPTIMIZATION.MAX_ENEMIES;
         const bonus = (typeof this.maxEnemiesBonus === 'number') ? this.maxEnemiesBonus : 0;
         const effectiveMax = baseMax + Math.max(0, bonus);
-        if (this.enemies.length > effectiveMax) {
+        // ✅ 權威伺服器模式：敵人列表由伺服器下發，同步上不應由客戶端自行裁切（會互打與反覆重建）
+        if (!isServerAuthoritative && this.enemies.length > effectiveMax) {
             // 按照與玩家的距離排序
             this.enemies.sort((a, b) => {
                 const distA = Utils.distance(a.x, a.y, this.player.x, this.player.y);
