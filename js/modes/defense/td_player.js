@@ -84,6 +84,8 @@ class TDPlayer {
                     src = 'assets/images/player6.gif';
                 } else if (sc.spriteImageKey === 'player7') {
                     src = 'assets/images/player7.png';
+                } else if (sc.spriteImageKey === 'player8') {
+                    src = 'assets/images/player8.png';
                 } else {
                     src = `assets/images/${sc.spriteImageKey}.gif`;
                 }
@@ -99,6 +101,8 @@ class TDPlayer {
                 src = 'assets/images/player6.gif';
             } else if (sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7')) {
                 src = 'assets/images/player7.png';
+            } else if (sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8')) {
+                src = 'assets/images/player8.png';
             }
         } catch(_) {}
         this.sprite = {
@@ -475,8 +479,10 @@ class TDPlayer {
         const isPlayer4 = sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4');
         const isPlayer5 = sc && (sc.id === 'rabi' || sc.spriteImageKey === 'player5');
         const isPlayer2 = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2');
+        const isPlayer7 = sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7');
+        const isPlayer8 = sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8');
         
-        if (!isGif && !isPlayer4 && !isPlayer5 && !isPlayer2) {
+        if (!isGif && !isPlayer4 && !isPlayer5 && !isPlayer2 && !isPlayer7 && !isPlayer8) {
             // 載入圖片：依 this.sprite.src 推導資源鍵（支援 player / player2）
             let image = null;
             if (this.sprite && this.sprite.src) {
