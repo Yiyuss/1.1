@@ -68,6 +68,61 @@ class GameState {
 
     // ✅ 用於避免重複發放（例如：鳳梨掉落物被多次回報 award_exp）
     this._awardedExpChestIds = new Set();
+
+    // ✅ 伺服器效能：敵人空間索引（避免晚局 O(n^2) 雪崩）
+    this._enemyCellSize = 64;
+    this._enemyGrid = null; // Map "i|j" -> EnemyState[]
+    this._enemyIndexById = null; // Map id -> EnemyState
+    this._enemyGridBuiltAt = 0;
+  }
+
+  _rebuildEnemySpatialIndex() {
+    const cell = this._enemyCellSize || 64;
+    const grid = new Map();
+    const idx = new Map();
+    const enemies = Array.isArray(this.enemies) ? this.enemies : [];
+    for (let k = 0; k < enemies.length; k++) {
+      const e = enemies[k];
+      if (!e || e.isDead || e.health <= 0) continue;
+      if (typeof e.x !== 'number' || typeof e.y !== 'number') continue;
+      idx.set(e.id, e);
+      const gi = Math.floor(e.x / cell);
+      const gj = Math.floor(e.y / cell);
+      const key = gi + '|' + gj;
+      let list = grid.get(key);
+      if (!list) { list = []; grid.set(key, list); }
+      list.push(e);
+    }
+    this._enemyGrid = grid;
+    this._enemyIndexById = idx;
+    this._enemyGridBuiltAt = Date.now();
+  }
+
+  _getEnemiesNearCircle(x, y, r) {
+    const enemies = Array.isArray(this.enemies) ? this.enemies : [];
+    const grid = this._enemyGrid;
+    const cell = this._enemyCellSize || 64;
+    if (!grid || typeof grid.get !== 'function' || typeof x !== 'number' || typeof y !== 'number' || typeof r !== 'number') return enemies;
+    const minI = Math.floor((x - r) / cell);
+    const maxI = Math.floor((x + r) / cell);
+    const minJ = Math.floor((y - r) / cell);
+    const maxJ = Math.floor((y + r) / cell);
+    const r2 = r * r;
+    const out = [];
+    for (let i = minI; i <= maxI; i++) {
+      for (let j = minJ; j <= maxJ; j++) {
+        const list = grid.get(i + '|' + j);
+        if (!list) continue;
+        for (let t = 0; t < list.length; t++) {
+          const e = list[t];
+          if (!e || e.isDead || e.health <= 0) continue;
+          const dx = e.x - x;
+          const dy = e.y - y;
+          if ((dx * dx + dy * dy) <= r2) out.push(e);
+        }
+      }
+    }
+    return out;
   }
 
   _isBulletSystemEnabled() {
@@ -1155,7 +1210,11 @@ class GameState {
       const idSet = (Array.isArray(input.enemyIds) && input.enemyIds.length > 0) ? new Set(input.enemyIds) : null;
 
       const r2 = radius * radius;
-      for (const enemy of this.enemies) {
+      // ✅ 晚局效能：使用空間索引查近鄰（避免全表掃描）
+      try { this._rebuildEnemySpatialIndex(); } catch (_) { }
+      const candidates = idSet ? this.enemies : this._getEnemiesNearCircle(x, y, radius);
+      for (let c = 0; c < candidates.length; c++) {
+        const enemy = candidates[c];
         if (!enemy || enemy.isDead || enemy.health <= 0) continue;
         if (idSet && !idSet.has(enemy.id)) continue;
         if (!idSet) {
@@ -1577,6 +1636,8 @@ class GameState {
   // 更新投射物
   updateProjectiles(deltaTime) {
     const deltaMul = deltaTime / 16.67;
+    // ✅ 空間索引：供 homing/碰撞快速查找
+    try { this._rebuildEnemySpatialIndex(); } catch (_) { }
 
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const proj = this.projectiles[i];
@@ -1587,21 +1648,26 @@ class GameState {
 
         // 优先追踪分配的目标
         if (proj.assignedTargetId) {
-          target = this.enemies.find(e => e.id === proj.assignedTargetId && !e.isDead && e.health > 0);
+          try {
+            if (this._enemyIndexById && typeof this._enemyIndexById.get === 'function') {
+              const cand = this._enemyIndexById.get(proj.assignedTargetId);
+              if (cand && !cand.isDead && cand.health > 0) target = cand;
+            }
+          } catch (_) { }
         }
 
         // 若分配目标不存在，寻找最近敌人
         if (!target) {
           let minDist = Infinity;
-          for (const enemy of this.enemies) {
-            if (enemy.isDead || enemy.health <= 0) continue;
+          // 只找近鄰（半徑 420px），避免晚局全表掃描
+          const candidates = this._getEnemiesNearCircle(proj.x, proj.y, 420);
+          for (let c = 0; c < candidates.length; c++) {
+            const enemy = candidates[c];
+            if (!enemy || enemy.isDead || enemy.health <= 0) continue;
             const dx = enemy.x - proj.x;
             const dy = enemy.y - proj.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < minDist) {
-              minDist = dist;
-              target = enemy;
-            }
+            if (dist < minDist) { minDist = dist; target = enemy; }
           }
         }
 
@@ -1687,8 +1753,11 @@ class GameState {
       }
 
       // 检查与敌人碰撞（服务器权威计算伤害）
-      for (const enemy of this.enemies) {
-        if (enemy.health <= 0 || enemy.isDead) continue;
+      const collR = (proj.size || 20) / 2 + 64; // 64px 內縮容差（避免漏判）
+      const candidates = this._getEnemiesNearCircle(proj.x, proj.y, collR);
+      for (let c = 0; c < candidates.length; c++) {
+        const enemy = candidates[c];
+        if (!enemy || enemy.health <= 0 || enemy.isDead) continue;
 
         const dx = proj.x - enemy.x;
         const dy = proj.y - enemy.y;
@@ -1733,6 +1802,8 @@ class GameState {
     }
     
     const now = Date.now();
+    // ✅ 空間索引：供軟排斥近鄰查詢（避免 O(n^2)）
+    try { this._rebuildEnemySpatialIndex(); } catch (_) { }
 
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
@@ -1920,8 +1991,10 @@ class GameState {
         let repulsionY = 0;
         let repulsionCount = 0;
 
-        // 只检查附近的敌人（性能优化）
-        for (const otherEnemy of this.enemies || []) {
+        // 只检查附近的敌人（使用空間索引；避免晚局全表掃描）
+        const repulsionCandidates = this._getEnemiesNearCircle(enemy.x, enemy.y, 200);
+        for (let c = 0; c < repulsionCandidates.length; c++) {
+          const otherEnemy = repulsionCandidates[c];
           if (otherEnemy === enemy || otherEnemy.isDead || otherEnemy.isDying) continue;
 
           const dx = enemy.x - otherEnemy.x;
