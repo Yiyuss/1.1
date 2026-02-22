@@ -149,6 +149,8 @@ class GameState {
 
     const now = Date.now();
     const deltaMul = (deltaTime || 16.67) / 16.67;
+    // ✅ 晚局保護：限制彈幕總量，避免 emitters 疊加後 state/碰撞雪崩
+    const MAX_SERVER_BULLETS = 900;
 
     // 1) 更新發射器（同源 wave.js patternFn）
     for (let i = this.bulletEmitters.length - 1; i >= 0; i--) {
@@ -193,6 +195,11 @@ class GameState {
 
         e.lastEmitAt = now;
       }
+    }
+
+    // 上限裁切：保留較新的彈幕
+    if (this.bullets.length > MAX_SERVER_BULLETS) {
+      this.bullets.splice(0, this.bullets.length - MAX_SERVER_BULLETS);
     }
 
     // 2) 更新子彈 + 碰撞（單機同源：ignoreInvulnerability=true，但尊重技能無敵；閃避可生效）
@@ -2728,6 +2735,93 @@ class GameState {
     // 只在广播时，如果 sessionId 为空，返回空数组（防止旧数据泄露）
     const hasValidSession = (this.currentSessionId && typeof this.currentSessionId === 'string');
     
+    // ✅ 省流量：下發精簡 state（避免 enemies/bullets/projectiles 量大時 JSON/parse 雪崩）
+    const hasSession = hasValidSession;
+    const enemiesSlim = hasSession
+      ? this.enemies.map(e => (e ? ({
+        id: e.id,
+        x: e.x, y: e.y,
+        type: e.type,
+        health: e.health, maxHealth: e.maxHealth,
+        speed: e.speed,
+        size: e.size,
+        width: e.width, height: e.height,
+        collisionRadius: e.collisionRadius,
+        isDead: e.isDead === true,
+        isDying: e.isDying === true,
+        deathElapsed: e.deathElapsed,
+        deathVelX: e.deathVelX,
+        deathVelY: e.deathVelY,
+        hitFlashTime: e.hitFlashTime
+      }) : null)).filter(Boolean)
+      : [];
+
+    const projectilesSlim = hasSession
+      ? this.projectiles.map(p => (p ? ({
+        id: p.id,
+        x: p.x, y: p.y,
+        angle: p.angle,
+        weaponType: p.weaponType,
+        speed: p.speed,
+        size: p.size,
+        homing: p.homing === true,
+        turnRatePerSec: p.turnRatePerSec,
+        assignedTargetId: p.assignedTargetId || null,
+        maxDistance: p.maxDistance
+      }) : null)).filter(Boolean)
+      : [];
+
+    const bossProjectilesSlim = Array.isArray(this.bossProjectiles)
+      ? this.bossProjectiles.map(p => (p ? ({
+        id: p.id,
+        kind: p.kind,
+        x: p.x, y: p.y,
+        angle: p.angle,
+        speed: p.speed,
+        damage: p.damage,
+        size: p.size,
+        homing: p.homing === true,
+        turnRate: p.turnRate,
+        width: p.width, height: p.height,
+        vx: p.vx, vy: p.vy, g: p.g
+      }) : null)).filter(Boolean)
+      : [];
+
+    const bulletsSlim = Array.isArray(this.bullets)
+      ? this.bullets.map(b => (b ? ({
+        x: b.x, y: b.y,
+        vx: b.vx, vy: b.vy,
+        life: b.life,
+        maxLife: b.maxLife,
+        size: b.size,
+        color: b.color,
+        damage: b.damage
+      }) : null)).filter(Boolean)
+      : [];
+
+    const orbsSlim = hasSession
+      ? (this.experienceOrbs || []).map(o => (o ? ({ id: o.id, x: o.x, y: o.y, value: o.value }) : null)).filter(Boolean)
+      : [];
+
+    const chestsSlim = hasSession
+      ? (this.chests || []).map(c => (c ? ({ id: c.id, x: c.x, y: c.y, kind: c.kind, createdAt: c.createdAt }) : null)).filter(Boolean)
+      : [];
+
+    const carHazardsSlim = hasSession
+      ? (this.carHazards || []).map(c => (c ? ({
+        id: c.id, x: c.x, y: c.y, vx: c.vx, vy: c.vy,
+        width: c.width, height: c.height, imageKey: c.imageKey, damage: c.damage,
+        hitPlayer: c.hitPlayer, despawnPad: c.despawnPad
+      }) : null)).filter(Boolean)
+      : [];
+
+    let hitEventsSlim = this.hitEvents;
+    // ✅ 晚局保護：hitEvents 可能爆量，避免單包過大
+    const MAX_HIT_EVENTS_BROADCAST = 200;
+    if (Array.isArray(hitEventsSlim) && hitEventsSlim.length > MAX_HIT_EVENTS_BROADCAST) {
+      hitEventsSlim = hitEventsSlim.slice(hitEventsSlim.length - MAX_HIT_EVENTS_BROADCAST);
+    }
+
     const state = {
       // ✅ 多人元素（省流量）：只下發客戶端渲染/同步真正需要的欄位
       // - 避免把 server internal/meta/weapons 等一起塞進 game-state，造成流量膨脹與前端負擔
@@ -2767,15 +2861,15 @@ class GameState {
         };
       }),
       // ⚠️ 100%重构：如果sessionId为空，返回空数组（防止旧数据泄露）
-      enemies: hasValidSession ? this.enemies : [],
-      projectiles: hasValidSession ? this.projectiles : [],
-      bossProjectiles: this.bossProjectiles || [], // ✅ 修复：始终发送BOSS投射物（即使 hasValidSession 为 false，也发送空数组）
-      bullets: this.bullets || [], // ✅ 修复：始终发送弹幕（即使 hasValidSession 为 false，也发送空数组）
-      experienceOrbs: hasValidSession ? this.experienceOrbs : [],
-      chests: hasValidSession ? this.chests : [],
+      enemies: enemiesSlim,
+      projectiles: projectilesSlim,
+      bossProjectiles: bossProjectilesSlim,
+      bullets: bulletsSlim,
+      experienceOrbs: orbsSlim,
+      chests: chestsSlim,
       obstacles: this.obstacles || [], // ✅ 修复：始终发送障碍物（即使 hasValidSession 为 false，也发送空数组）
       decorations: this.decorations || [], // ✅ 修复：始终发送装饰物（即使 hasValidSession 为 false，也发送空数组）
-      carHazards: hasValidSession ? this.carHazards : [],
+      carHazards: carHazardsSlim,
       exit: this.exit,
       wave: this.wave,
       mapId: this._getActiveMapId(), // ⚠️ 关键修复：广播地图ID，让客户端验证
@@ -2784,7 +2878,7 @@ class GameState {
       isGameOver: this.isGameOver,
       isVictory: this.isVictory,
       gameTime: this.gameTime,
-      hitEvents: this.hitEvents
+      hitEvents: hitEventsSlim
       // ✅ 流量優化：移除 sfxEvents（音效是單機元素，不需要通過伺服器發送）
       ,vfxEvents: this.vfxEvents
     };
