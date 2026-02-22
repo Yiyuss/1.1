@@ -478,6 +478,7 @@ function initPlayerSprite() {
         else if (id === 'rabi') key = 'player5';
         else if (id === 'pineapple') key = 'player6';
         else if (id === 'elondier') key = 'player7';
+        else if (id === 'baibaihong') key = 'player8';
 
         let parentImg = null;
         try {
@@ -496,6 +497,8 @@ function initPlayerSprite() {
             playerSpriteScale = 0.11; // player5.png 高 467，0.11 ≈ 51px（與其他角色接近）
         } else if (id === 'elondier') {
             playerSpriteScale = 0.18;
+        } else if (id === 'baibaihong') {
+            playerSpriteScale = 0.18 * (238 / 265); // player8 體型較寬，顯示再縮小
         } else {
             playerSpriteScale = 0.16; // player.gif / player3.gif 高 320，0.16 ≈ 51px
         }
@@ -510,17 +513,17 @@ function initPlayerSprite() {
             // 水平：以 player.x+10 為角色中心（原本矩形身體中心）
             playerSpriteOffsetX = 10 - w / 2;
             
-            if (id === 'dada' || id === 'elondier') {
+            if (id === 'dada' || id === 'elondier' || id === 'baibaihong') {
                 try {
                     const parentWin = (window.parent && window.parent !== window) ? window.parent : null;
-                    const altKey = (id === 'dada') ? 'player2-1' : 'player7-1';
+                    const altKey = (id === 'dada') ? 'player2-1' : (id === 'elondier') ? 'player7-1' : 'player8-1';
                     if (parentWin && parentWin.Game && parentWin.Game.images && parentWin.Game.images[altKey]) {
                         playerSpriteImg2 = parentWin.Game.images[altKey];
                     } else {
                         const img2 = new Image();
                         img2.onload = function(){ playerSpriteImg2 = img2; };
                         img2.onerror = function(){ playerSpriteImg2 = null; };
-                        img2.src = (id === 'dada') ? '../../../assets/images/player2-1.png' : '../../../assets/images/player7-1.png';
+                        img2.src = (id === 'dada') ? '../../../assets/images/player2-1.png' : (id === 'elondier') ? '../../../assets/images/player7-1.png' : '../../../assets/images/player8-1.png';
                     }
                 } catch(_){}
             }
@@ -542,6 +545,8 @@ function initPlayerSprite() {
             src = '../../../assets/images/player6.gif';
         } else if (id === 'elondier') {
             src = '../../../assets/images/player7.png';
+        } else if (id === 'baibaihong') {
+            src = '../../../assets/images/player8.png';
         }
         const img = new Image();
         img.onload = function(){
@@ -552,11 +557,11 @@ function initPlayerSprite() {
             playerSpriteOffsetY = 38 - h;
             playerSpriteOffsetX = 10 - w / 2;
             
-            if (id === 'dada' || id === 'elondier') {
+            if (id === 'dada' || id === 'elondier' || id === 'baibaihong') {
                 const img2 = new Image();
                 img2.onload = function(){ playerSpriteImg2 = img2; };
                 img2.onerror = function(){ playerSpriteImg2 = null; };
-                img2.src = (id === 'dada') ? '../../../assets/images/player2-1.png' : '../../../assets/images/player7-1.png';
+                img2.src = (id === 'dada') ? '../../../assets/images/player2-1.png' : (id === 'elondier') ? '../../../assets/images/player7-1.png' : '../../../assets/images/player8-1.png';
             }
         };
         img.onerror = function(){
@@ -4499,14 +4504,15 @@ function draw() {
     // 玩家本體（矩形 → 角色 GIF 立繪）
     // - 若 AdventureGifOverlay 可用且有角色圖，使用 GIF 疊加顯示。
     // - 否則回退為原本的矩形小人繪製（保持完全相容）。
-    // 只有灰妲（player2）需要根據方向動態切換圖片（參考生存模式）
+    // 灰妲（player2）、厄倫蒂兒（player7）、白白虹（player8）需根據方向動態切換圖片（參考生存模式）
     let id = (typeof window !== 'undefined' && window.ADVENTURE_SELECTED_CHARACTER_ID) ? String(window.ADVENTURE_SELECTED_CHARACTER_ID) : 'margaret';
     const isPlayer2 = (id === 'dada');
     const isPlayer7 = (id === 'elondier');
+    const isPlayer8 = (id === 'baibaihong');
     let imgToUse = playerSpriteImg;
     let imgSrc = playerSpriteImg ? playerSpriteImg.src : null;
     
-    if ((isPlayer2 || isPlayer7) && playerSpriteImg2) {
+    if ((isPlayer2 || isPlayer7 || isPlayer8) && playerSpriteImg2) {
         if (player.facingRight && playerSpriteImg2.complete) {
             imgToUse = playerSpriteImg2;
             imgSrc = playerSpriteImg2.src;
@@ -4521,6 +4527,12 @@ function draw() {
         if (isPlayer2 || isPlayer7) {
             const imgWidth = imgToUse.width || 290;
             const imgHeight = imgToUse.height || 242;
+            const aspectRatio = imgWidth / imgHeight;
+            h = Math.max(1, Math.floor(imgHeight * playerSpriteScale));
+            w = Math.max(1, Math.floor(h * aspectRatio));
+        } else if (isPlayer8) {
+            const imgWidth = imgToUse.width || 300;
+            const imgHeight = imgToUse.height || 238;
             const aspectRatio = imgWidth / imgHeight;
             h = Math.max(1, Math.floor(imgHeight * playerSpriteScale));
             w = Math.max(1, Math.floor(h * aspectRatio));
