@@ -4257,7 +4257,20 @@ async function connectWebSocket() {
 
       wsRef.onmessage = (ev) => {
         try {
-          const msg = JSON.parse(ev.data);
+          // ✅ 先節流再 parse：game-state 在晚局會非常大，避免 60Hz 大包把 JSON.parse 壓垮前端
+          const raw = ev.data;
+          const nowPre = Date.now();
+          try {
+            if (typeof raw === 'string' && (nowPre - _lastServerGameStateAt) < 33) {
+              // 只對 game-state 做早退，避免誤丟其他 game-data
+              const head = raw.slice(0, 80);
+              if (head.includes('"type":"game-state"')) {
+                return;
+              }
+            }
+          } catch (_) { }
+
+          const msg = JSON.parse(raw);
 
           if (msg.type === 'joined') {
             console.log(`[SurvivalOnline] connectWebSocket: 已加入房間`);
@@ -5375,26 +5388,49 @@ function handleServerGameState(state, timestamp) {
     // ✅ 命中事件（伺服器權威）：用於顯示傷害數字/爆擊標記（不靠本地 takeDamage）
     try {
       if (Array.isArray(state.hitEvents) && typeof DamageNumbers !== "undefined" && typeof DamageNumbers.show === "function") {
+        // ✅ 晚局保護：hitEvents 爆量時避免主執行緒雪崩（DOM/粒子/查找）
+        const MAX_HIT_EVENTS_PER_STATE = 120; // 每次 game-state 最多處理幾筆命中視覺
+        const MAX_PARTICLES_PER_STATE = 420;  // 每次 game-state 最多新增粒子數
+        const MAX_EXPLOSION_PARTICLES_TOTAL = 2500; // 全局粒子上限（避免 draw/update 長期退化）
+        let processedHitEvents = 0;
+        let particleBudget = MAX_PARTICLES_PER_STATE;
+
+        // 加速：用 updateEnemiesFromServer 的索引替代每筆 Game.enemies.find（O(n)）
+        const enemyIndex = (typeof updateEnemiesFromServer !== 'undefined' && updateEnemiesFromServer && updateEnemiesFromServer._localIndex)
+          ? updateEnemiesFromServer._localIndex
+          : null;
+
+        // 單機元素：bo 音效節流（避免命中爆量時音效播放本身成為瓶頸）
+        if (typeof handleServerGameState._lastBoAt !== 'number') handleServerGameState._lastBoAt = 0;
+        const BO_MIN_INTERVAL_MS = 80;
+
         for (const ev of state.hitEvents) {
           if (!ev) continue;
           const dmg = (typeof ev.damage === "number") ? ev.damage : 0;
           if (dmg <= 0) continue;
+          const weaponType = ev.weaponType || null;
+          const isLocalPlayer = (ev.playerUid && Game.multiplayer && Game.multiplayer.uid && ev.playerUid === Game.multiplayer.uid);
+          if (!isLocalPlayer && processedHitEvents >= MAX_HIT_EVENTS_PER_STATE) continue;
           const x = (typeof ev.x === "number") ? ev.x : 0;
           const y = (typeof ev.y === "number") ? ev.y : 0;
           const h = (typeof ev.h === "number") ? ev.h : 0;
           DamageNumbers.show(Math.round(dmg), x, y - h / 2, ev.isCrit === true, { enemyId: ev.enemyId || null });
+          processedHitEvents++;
 
           // ✅ 修復：根據武器類型創建對應的特殊視覺效果（多人元素）
-          const weaponType = ev.weaponType || null;
+          // weaponType/isLocalPlayer 已在上方算好（避免重複計算）
 
           // ✅ 修復：投射物命中敵人時的 bo 音效（單機元素）
           // 音效是單機元素，只對本地玩家播放
           // 使用 hitEvents 中的 playerUid 判斷是否是本地玩家的投射物
-          const isLocalPlayer = (ev.playerUid && Game.multiplayer && Game.multiplayer.uid && ev.playerUid === Game.multiplayer.uid);
           if (isLocalPlayer && (weaponType === 'LIGHTNING' || weaponType === 'MUFFIN_THROW' ||
             weaponType === 'HEART_TRANSMISSION' || weaponType === 'BAGUETTE_THROW' || weaponType === 'ELONDIER_CLONE_THROW') &&
             typeof AudioManager !== 'undefined') {
-            AudioManager.playSound('bo');
+            const nowBo = Date.now();
+            if (nowBo - (handleServerGameState._lastBoAt || 0) >= BO_MIN_INTERVAL_MS) {
+              handleServerGameState._lastBoAt = nowBo;
+              AudioManager.playSound('bo');
+            }
           }
 
           // ✅ 修復：所有需要粒子特效的技能（追蹤綿羊、鬆餅投擲、法棍投擲、心意傳遞、厄倫蒂兒分身投擲物）
@@ -5402,24 +5438,29 @@ function handleServerGameState(state, timestamp) {
           if (weaponType === 'LIGHTNING' || weaponType === 'MUFFIN_THROW' ||
             weaponType === 'BAGUETTE_THROW' || weaponType === 'HEART_TRANSMISSION' || weaponType === 'ELONDIER_CLONE_THROW') {
             try {
-              // ✅ 僅組隊模式：厄倫蒂兒大招分身投擲物的命中粒子砍半（減少負擔），不影響單機
-              const particleCount = (weaponType === 'ELONDIER_CLONE_THROW') ? 9 : 18; // 18 與單機一致；ELONDIER_CLONE_THROW 砍半
-              if (!Game.explosionParticles) Game.explosionParticles = [];
-              for (let i = 0; i < particleCount; i++) {
-                const ang = Math.random() * Math.PI * 2;
-                const speed = 2 + Math.random() * 4;
-                const p = {
-                  x: x + (Math.random() - 0.5) * 10,
-                  y: y + (Math.random() - 0.5) * 10,
-                  vx: Math.cos(ang) * speed,
-                  vy: Math.sin(ang) * speed,
-                  life: 520 + Math.random() * 280,
-                  maxLife: 520 + Math.random() * 280,
-                  size: 5 + Math.random() * 3,
-                  color: '#ffffff', // 白色粒子，與單機模式一致
-                  source: weaponType // 標記來源，用於繪製時的特殊處理
-                };
-                Game.explosionParticles.push(p);
+              if (particleBudget > 0) {
+                // ✅ 僅組隊模式：厄倫蒂兒大招分身投擲物的命中粒子砍半（減少負擔），不影響單機
+                const particleCount = (weaponType === 'ELONDIER_CLONE_THROW') ? 9 : 18; // 18 與單機一致；ELONDIER_CLONE_THROW 砍半
+                if (!Game.explosionParticles) Game.explosionParticles = [];
+                const remainingTotal = Math.max(0, MAX_EXPLOSION_PARTICLES_TOTAL - Game.explosionParticles.length);
+                const allow = Math.max(0, Math.min(particleCount, particleBudget, remainingTotal));
+                for (let i = 0; i < allow; i++) {
+                  const ang = Math.random() * Math.PI * 2;
+                  const speed = 2 + Math.random() * 4;
+                  const p = {
+                    x: x + (Math.random() - 0.5) * 10,
+                    y: y + (Math.random() - 0.5) * 10,
+                    vx: Math.cos(ang) * speed,
+                    vy: Math.sin(ang) * speed,
+                    life: 520 + Math.random() * 280,
+                    maxLife: 520 + Math.random() * 280,
+                    size: 5 + Math.random() * 3,
+                    color: '#ffffff', // 白色粒子，與單機模式一致
+                    source: weaponType // 標記來源，用於繪製時的特殊處理
+                  };
+                  Game.explosionParticles.push(p);
+                }
+                particleBudget -= allow;
               }
             } catch (e) {
               console.warn('[SurvivalOnline] 粒子特效創建失敗:', e);
@@ -5460,7 +5501,18 @@ function handleServerGameState(state, timestamp) {
             // 緩速效果由伺服器權威處理，客戶端只顯示視覺效果（藍色覆蓋）
             const enemyId = ev.enemyId || null;
             if (enemyId && typeof Game !== 'undefined' && Array.isArray(Game.enemies)) {
-              const enemy = Game.enemies.find(e => e && e.id === enemyId);
+              let enemy = null;
+              try {
+                if (enemyIndex && typeof enemyIndex.get === 'function') {
+                  enemy = enemyIndex.get(enemyId) || null;
+                }
+              } catch (_) { }
+              if (!enemy) {
+                // 後備：少量時才全表查找（避免晚局 hitEvents 爆量時 O(n²)）
+                if (Game.enemies.length <= 200) {
+                  enemy = Game.enemies.find(e => e && e.id === enemyId) || null;
+                }
+              }
               if (enemy && typeof enemy.applySlow === 'function') {
                 const cfg = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.FIREBALL) || {};
                 const slowMs = (typeof cfg.SLOW_DURATION_MS === 'number') ? cfg.SLOW_DURATION_MS : 1000;
