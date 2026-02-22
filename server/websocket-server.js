@@ -564,11 +564,100 @@ function gameLoop() {
         gameState._lastBroadcastAt = now;
         const result = gameState.getState();
         const state = result.state || result; // 兼容旧代码
-        broadcastToRoom(roomId, null, {
-          type: 'game-state',
-          state: state,
-          timestamp: now
-        });
+        // ✅ Interest Management：每個 client 只下發「自己附近」的世界子集，避免怪物堆疊時全量同步造成幻燈片
+        // 注意：多人權威下敵人/投射物由伺服器決定，客戶端僅顯示；遠處不下發可大幅降低 parse/同步/渲染負擔
+        const room = rooms.get(roomId);
+        if (room && state && typeof state === 'object') {
+          // 建立 uid -> playerState 映射（來自 state.players）
+          const pmap = new Map();
+          try {
+            if (Array.isArray(state.players)) {
+              for (const p of state.players) {
+                if (p && typeof p.uid === 'string') pmap.set(p.uid, p);
+              }
+            }
+          } catch (_) { }
+
+          // 世界中心作為後備（避免找不到玩家時崩潰）
+          const fallbackX = (typeof gameState.worldWidth === 'number') ? (gameState.worldWidth / 2) : 1920;
+          const fallbackY = (typeof gameState.worldHeight === 'number') ? (gameState.worldHeight / 2) : 1080;
+
+          // 以 1280x720 的半對角線 + margin 估算（世界座標）
+          const R_ENEMIES = 1400;
+          const R_PROJECTILES = 1700;
+          const R_BULLETS = 1800;
+          const R_ORBS = 1600;
+          const R_CHESTS = 2200;
+          const R_CARS = 2600;
+          const R_HIT = 1800;
+
+          const within = (x, y, cx, cy, r2) => {
+            const dx = x - cx;
+            const dy = y - cy;
+            return (dx * dx + dy * dy) <= r2;
+          };
+
+          for (const clientWs of room) {
+            try {
+              if (!clientWs || clientWs.readyState !== WebSocket.OPEN) continue;
+              const u = users.get(clientWs);
+              const uid = u && typeof u.uid === 'string' ? u.uid : null;
+              const ps = uid ? pmap.get(uid) : null;
+              const cx = (ps && typeof ps.x === 'number') ? ps.x : fallbackX;
+              const cy = (ps && typeof ps.y === 'number') ? ps.y : fallbackY;
+
+              const r2e = R_ENEMIES * R_ENEMIES;
+              const r2p = R_PROJECTILES * R_PROJECTILES;
+              const r2b = R_BULLETS * R_BULLETS;
+              const r2o = R_ORBS * R_ORBS;
+              const r2c = R_CHESTS * R_CHESTS;
+              const r2car = R_CARS * R_CARS;
+              const r2h = R_HIT * R_HIT;
+
+              const enemies = Array.isArray(state.enemies)
+                ? state.enemies.filter(e => e && typeof e.x === 'number' && typeof e.y === 'number' && within(e.x, e.y, cx, cy, r2e))
+                : [];
+              const projectiles = Array.isArray(state.projectiles)
+                ? state.projectiles.filter(p => p && typeof p.x === 'number' && typeof p.y === 'number' && within(p.x, p.y, cx, cy, r2p))
+                : [];
+              const bossProjectiles = Array.isArray(state.bossProjectiles)
+                ? state.bossProjectiles.filter(p => p && typeof p.x === 'number' && typeof p.y === 'number' && within(p.x, p.y, cx, cy, r2p))
+                : [];
+              const bullets = Array.isArray(state.bullets)
+                ? state.bullets.filter(b => b && typeof b.x === 'number' && typeof b.y === 'number' && within(b.x, b.y, cx, cy, r2b))
+                : [];
+              const experienceOrbs = Array.isArray(state.experienceOrbs)
+                ? state.experienceOrbs.filter(o => o && typeof o.x === 'number' && typeof o.y === 'number' && within(o.x, o.y, cx, cy, r2o))
+                : [];
+              const chests = Array.isArray(state.chests)
+                ? state.chests.filter(c => c && typeof c.x === 'number' && typeof c.y === 'number' && within(c.x, c.y, cx, cy, r2c))
+                : [];
+              const carHazards = Array.isArray(state.carHazards)
+                ? state.carHazards.filter(c => c && typeof c.x === 'number' && typeof c.y === 'number' && within(c.x, c.y, cx, cy, r2car))
+                : [];
+              const hitEvents = Array.isArray(state.hitEvents)
+                ? state.hitEvents.filter(ev => ev && typeof ev.x === 'number' && typeof ev.y === 'number' && within(ev.x, ev.y, cx, cy, r2h))
+                : [];
+
+              const tailored = {
+                ...state,
+                enemies,
+                projectiles,
+                bossProjectiles,
+                bullets,
+                experienceOrbs,
+                chests,
+                carHazards,
+                hitEvents
+              };
+
+              clientWs.send(JSON.stringify({ type: 'game-state', state: tailored, timestamp: now }));
+            } catch (_) { }
+          }
+        } else {
+          // 後備：房間資料缺失時仍用全量廣播
+          broadcastToRoom(roomId, null, { type: 'game-state', state: state, timestamp: now });
+        }
 
         // ✅ 修复：如果游戏结束，广播 game_over 事件（包括单人组队的情况）
         if (result.shouldBroadcastGameOver || (state.isGameOver && !gameState._gameOverEventSent)) {
