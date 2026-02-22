@@ -192,9 +192,9 @@ function handleMessage(ws, msg) {
   else if (dataType === 'vfx') cost = 0.25;
   const nextCount = limiter.count + cost;
   if (nextCount > MAX_PACKETS_PER_SEC) {
-    if (dataType === 'move' || dataType === 'vfx') {
-      return;
-    }
+    // ✅ 速率限制：超過上限一律丟棄（避免 attack/aoe_tick 在晚局把伺服器打爆）
+    // join 例外：允許用戶加入（避免被高頻舊連線影響）
+    if (type !== 'join') return;
   } else {
     limiter.count = nextCount;
   }
