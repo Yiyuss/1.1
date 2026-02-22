@@ -37,11 +37,11 @@ const gameStates = new Map();
 
 // ✅ 权威服务器：游戏循环
 // - 模拟：60Hz（保持碰撞/AI 细腻）
-// - 广播：30Hz（降低 VPS 流量与客户端负担）
+// - 广播：基準 30Hz，晚局依狀態大小自動降頻（避免 JSON/parse 雪崩）
 const GAME_TICK_INTERVAL = 16.67; // 模拟毫秒
-const BROADCAST_INTERVAL = 33.33; // 广播毫秒
+const BROADCAST_INTERVAL = 33.33; // 基準广播毫秒
 let lastGameUpdate = Date.now();
-let lastBroadcastAt = Date.now();
+// per-room broadcast time is stored on gameState._lastBroadcastAt
 
 // ✅ 安全配置：速率限制 (Rate Limiting)
 const RATE_LIMIT_WINDOW = 1000;
@@ -551,18 +551,25 @@ function gameLoop() {
       // 更新游戏状态
       gameState.update(deltaTime);
 
-      // 广播游戏状态给所有客户端（节流到 30Hz）
-      if (now - lastBroadcastAt >= BROADCAST_INTERVAL) {
+      // 广播游戏状态给所有客户端（晚局自动降频）
+      const enemyCount = Array.isArray(gameState.enemies) ? gameState.enemies.length : 0;
+      const projCount = Array.isArray(gameState.projectiles) ? gameState.projectiles.length : 0;
+      const bulletCount = Array.isArray(gameState.bullets) ? gameState.bullets.length : 0;
+      let interval = BROADCAST_INTERVAL; // base ~30Hz
+      // ✅ 晚局：数量越大越降频（优先保活不卡死）
+      if (enemyCount > 450 || bulletCount > 800 || projCount > 500) interval = 200; // ~5Hz
+      else if (enemyCount > 350 || bulletCount > 500 || projCount > 350) interval = 100; // ~10Hz
+      const lastAt = (typeof gameState._lastBroadcastAt === 'number') ? gameState._lastBroadcastAt : 0;
+      if (now - lastAt >= interval) {
+        gameState._lastBroadcastAt = now;
         const result = gameState.getState();
         const state = result.state || result; // 兼容旧代码
-        // ✅ 修复：始终发送障碍物和装饰物，确保客户端始终能看到它们（即使地图切换或新玩家加入）
-        // 注意：虽然这会增加一些流量，但确保了数据一致性，避免了"看不到障碍物"的问题
         broadcastToRoom(roomId, null, {
           type: 'game-state',
           state: state,
           timestamp: now
         });
-        
+
         // ✅ 修复：如果游戏结束，广播 game_over 事件（包括单人组队的情况）
         if (result.shouldBroadcastGameOver || (state.isGameOver && !gameState._gameOverEventSent)) {
           console.log(`[WebSocket] 广播 game_over 事件到房间 ${roomId}, shouldBroadcastGameOver=${result.shouldBroadcastGameOver}, isGameOver=${state.isGameOver}`);
@@ -580,11 +587,6 @@ function gameLoop() {
       // 可以选择清理该房间的游戏状态，或继续运行
       // 当前实现：记录错误，继续运行其他房间
     }
-  }
-
-  // 更新广播节流时间戳
-  if (now - lastBroadcastAt >= BROADCAST_INTERVAL) {
-    lastBroadcastAt = now;
   }
 
   // 60Hz 游戏循环
