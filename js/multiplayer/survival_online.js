@@ -4861,7 +4861,7 @@ function handleServerGameState(state, timestamp) {
   // ⚠️ 修复：优先检查游戏结束状态，确保游戏结束画面一定会显示
   // 必须在所有其他逻辑之前检查，避免被其他逻辑提前返回而跳过
 
-  // ⚠️ 修复：如果新游戏已开始，检查服务器是否已重置 isGameOver
+  // ⚠️ 修复：如果新游戏已开始，检查服务器是否已重置 isGameOver / isVictory
   let shouldSkipGameOver = false; // 标记是否应该跳过游戏结束处理
   if (typeof Game !== 'undefined' && Game._newGameStarted) {
     if (!state.isGameOver) {
@@ -4871,7 +4871,12 @@ function handleServerGameState(state, timestamp) {
       // 这样新游戏就可以正常触发游戏结束事件了
       Game._gameOverEventSent = false;
       Game._newGameStarted = false;
-    } else {
+    }
+    // ⚠️ 修復：單機勝利後進多人時，須等伺服器送過 isVictory = false 後才接受 isVictory = true，避免殘留觸發勝利動畫
+    if (state.isVictory === false) {
+      Game._ignoreVictoryUntilConfirmed = false;
+    }
+    if (state.isGameOver) {
       // 新游戏已开始，但服务器还在发送上一局的 isGameOver = true，忽略它
       // ⚠️ 修复：添加节流，避免频繁输出日志
       if (!_lastSkipGameOverLogTime) {
@@ -5936,12 +5941,12 @@ function handleServerGameState(state, timestamp) {
       // ⚠️ 修复：游戏结束状态检查已移到函数开头，确保优先处理
       // if (state.isGameOver) { ... } // 已移到函数开头
       if (state.isVictory) {
-        console.log('[SurvivalOnline] handleServerGameState: 检测到 state.isVictory = true');
-        // ✅ 權威伺服器模式：遊戲勝利由伺服器 state.isVictory 觸發
-        // ⚠️ 修复：不要在这里设置 _victoryEventSent，让 Game.victory() 自己设置
-        // 否则会导致 Game.victory() 内部的检查失败，直接返回而不执行后续逻辑
-        if (!Game._victoryEventSent) {
-          console.log('[SurvivalOnline] handleServerGameState: 调用 Game.victory()');
+        // ⚠️ 修復：單機勝利後進多人時，忽略殘留的 state.isVictory，直到伺服器送過 isVictory = false 後才接受
+        if (Game._ignoreVictoryUntilConfirmed) {
+          // 靜默跳過殘留的勝利狀態
+        } else if (!Game._victoryEventSent) {
+          console.log('[SurvivalOnline] handleServerGameState: 检测到 state.isVictory = true，调用 Game.victory()');
+          // ✅ 權威伺服器模式：遊戲勝利由伺服器 state.isVictory 觸發
           if (typeof Game.victory === 'function') {
             Game.victory();
           } else {
@@ -7777,6 +7782,8 @@ function tryStartSurvivalFromRoom() {
       if (typeof Game !== "undefined") {
         // ⚠️ 修复：先标记新游戏已开始，防止服务器残留的 state.isGameOver = true 立即触发游戏结束
         Game._newGameStarted = true; // 标记新游戏已开始
+        // ⚠️ 修復：單機勝利後進多人時，忽略伺服器殘留的 state.isVictory，直到收到 isVictory = false 為止
+        Game._ignoreVictoryUntilConfirmed = true;
         // ⚠️ 修复：保持 _gameOverEventSent = true，直到服务器确认 isGameOver = false
         // 这样可以防止服务器残留的 state.isGameOver = true 立即触发游戏结束
         // _gameOverEventSent 会在服务器确认 isGameOver = false 后重置（在 handleServerGameState 中）
