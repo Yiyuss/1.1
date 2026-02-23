@@ -35,6 +35,8 @@
           { key: 'npc7_portrait', src: 'assets/images/NPC7-2.png' },
           { key: 'npc8', src: 'assets/images/NPC8.png' },
           { key: 'npc8_portrait', src: 'assets/images/NPC8-2.png' },
+          { key: 'npc9', src: 'assets/images/NPC9.png' },
+          { key: 'npc9_portrait', src: 'assets/images/NPC9-2.png' },
           // 主屋室內家具（JSON 中使用的所有家具）
           { key: 'f_bed_front', src: 'js/modes/main/bed-front-273x289.png' },
           { key: 'f_big_bookcase', src: 'js/modes/main/big bookcase-245x289.png' },
@@ -546,6 +548,34 @@
             channelLink: 'https://www.youtube.com/@EarendelXDFP',
             onFinalState: () => syncYouTubeCodeButtonState('earendel')
           }
+        },
+        'baibaihong': { // 白白虹（主屋室內 NPC，床上）
+          type: 'npc_indoor',
+          imageKey: 'npc9',
+          portraitImage: 'assets/images/NPC9-2.png',
+          portraitAlt: '白白虹',
+          spriteSheetKey: 'npc_sprite',
+          triggerDistance: 110, // 兩倍（55*2），離床較遠也能觸發對話
+          targetDistance: 90,   // 兩倍（45*2）
+          dialogue: {
+            messages: [
+              '你是誰？讓我再睡一下。',
+              '......zZzZ',
+              '觀看我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
+            ],
+            finalButtons: [
+              { id: 'main-dialogue-youtube-baibaihong', text: '進入頻道', action: 'youtube' },
+              { id: 'main-dialogue-code-baibaihong', text: '領取序號', action: 'code', disabled: true },
+              { id: 'main-dialogue-exit', text: '離開', action: 'exit' }
+            ],
+            code: 'XXHACUCOXX2026',
+            youtubeUrl: 'https://youtu.be/gM1b3C4tqx0?si=jID1qqcG4PjnUsd8',
+            channelId: 'UCXyAitTabBsoRclTn_Gq-eA',
+            channelName: '白白虹 YouTube 頻道',
+            channelLink: 'https://www.youtube.com/@xxhacucoxx_Celestial',
+            onFinalState: () => syncYouTubeCodeButtonState('baibaihong')
+          }
         }
       };
       
@@ -554,7 +584,7 @@
       const YT_CODE_UNLOCK_KEY_PREFIX = 'main_youtube_code_unlocked_';
 
       function isYouTubeNpcType(npcType) {
-        return npcType === 'lilylinglan' || npcType === 'margaret' || npcType === 'dada' || npcType === 'loco' || npcType === 'abby' || npcType === 'pineapple' || npcType === 'earendel';
+        return npcType === 'lilylinglan' || npcType === 'margaret' || npcType === 'dada' || npcType === 'loco' || npcType === 'abby' || npcType === 'pineapple' || npcType === 'earendel' || npcType === 'baibaihong';
       }
 
       function getYouTubeUnlockKey(npcType) {
@@ -578,6 +608,7 @@
           case 'abby': return 'main-dialogue-code-abby';
           case 'pineapple': return 'main-dialogue-code-pineapple';
           case 'earendel': return 'main-dialogue-code-earendel';
+          case 'baibaihong': return 'main-dialogue-code-baibaihong';
           default: return null;
         }
       }
@@ -709,7 +740,7 @@
           } else if (id === 'main-dialogue-exit') {
             playButtonSound();
             closeDialogue();
-          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco' || id === 'main-dialogue-youtube-abby' || id === 'main-dialogue-youtube-pineapple' || id === 'main-dialogue-youtube-earendel') {
+          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco' || id === 'main-dialogue-youtube-abby' || id === 'main-dialogue-youtube-pineapple' || id === 'main-dialogue-youtube-earendel' || id === 'main-dialogue-youtube-baibaihong') {
             playButtonSound();
             // 點選進入頻道時，順便解鎖一次性的「領取序號」
             try {
@@ -720,7 +751,7 @@
               }
             } catch(_) {}
             showYouTubeWindow(currentDialogueNPC);
-          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco' || id === 'main-dialogue-code-abby' || id === 'main-dialogue-code-pineapple' || id === 'main-dialogue-code-earendel') {
+          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco' || id === 'main-dialogue-code-abby' || id === 'main-dialogue-code-pineapple' || id === 'main-dialogue-code-earendel' || id === 'main-dialogue-code-baibaihong') {
             // 防止重複點擊：如果序號窗口已經打開，直接返回
             if (isCodeWindowOpen) {
               return; // 已經有窗口打開，不重複創建
@@ -1801,6 +1832,31 @@
             this.entities.push(npcEarendel);
             console.log(`[室內NPC] 厄倫蒂兒已放置在loveseat前方 (${npcX}, ${npcY})，原始比例 290x242 -> ${NPC_W}x${NPC_H}`);
           }
+
+          // [室內NPC] 白白虹 - 放在床上（與白白虹玩家同縮放；用 drawAfterOffset 保證畫在床上面，可微調座標）
+          const bedItem = layoutData.furniture.find(item => item.key === 'bed-front-273x289');
+          if (bedItem) {
+            const SRC_W = 300;
+            const SRC_H = 238;
+            const refHeight = 265;
+            const NPC_H = Math.floor(60 * 0.85 * (SRC_H / refHeight));
+            const NPC_W = Math.max(1, Math.floor(NPC_H * (SRC_W / SRC_H)));
+            // 微調座標：床 bedItem.x=433, bedItem.y=48, bedItem.w=112, bedItem.h=119；改這兩個常數即可手動調整位置
+            const BAIBAIHONG_OFFSET_X = -2;   // 往右為正、往左為負
+            const BAIBAIHONG_OFFSET_Y = -17;  // 往上為負、往下為正（目前往上移約 38px）
+            const npcX = bedItem.x + (bedItem.w / 2) - (NPC_W / 2) + BAIBAIHONG_OFFSET_X;
+            const npcY = bedItem.y + (bedItem.h / 2) - (NPC_H / 2) + BAIBAIHONG_OFFSET_Y;
+            let npcBaibaihong = new Entity('npc_indoor', npcX, npcY, NPC_W, NPC_H);
+            npcBaibaihong.solid = false;
+            npcBaibaihong.domId = 'main-npc-indoor-baibaihong';
+            npcBaibaihong.layerId = 'npc-indoor';
+            npcBaibaihong.spriteSheet = null;
+            npcBaibaihong.spriteFrame = 0;
+            npcBaibaihong.npcType = 'baibaihong';
+            npcBaibaihong.drawAfterOffset = 100; // 排序時加 100，確保畫在床（y+h=167）上面
+            this.entities.push(npcBaibaihong);
+            console.log(`[室內NPC] 白白虹已放置在床上 (${npcX}, ${npcY})，與玩家同縮放 ${NPC_W}x${NPC_H}`);
+          }
         }
       };
 
@@ -2480,9 +2536,9 @@
           playerActualHeight = Math.floor(PLAYER_H * 0.85);
         }
         
-        // 完全按照 rpg_map.html 的簡單排序邏輯
+        // 完全按照 rpg_map.html 的簡單排序邏輯（支援 drawAfterOffset：讓實體強制畫在較上層，如床上的 NPC）
         let list = [...MapSystem.entities, { type:'player', x:player.x, y:player.y, width:PLAYER_W, height:playerActualHeight }];
-        list.sort((a,b) => (a.y + a.height) - (b.y + b.height));
+        list.sort((a,b) => ((a.y + a.height) + (a.drawAfterOffset || 0)) - ((b.y + b.height) + (b.drawAfterOffset || 0)));
         let playerLayerIndex = 0;
         for (let i = 0; i < list.length; i++) {
           if (list[i].type === 'player') {
