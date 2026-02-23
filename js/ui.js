@@ -2392,7 +2392,11 @@ const UI = {
         this._currentUpgradeOptions = options;
         this._renderUpgradeOptions(options);
         // 顯示選單（使用 .hidden 切換，與既有邏輯一致）
-        if (this.levelUpMenu) this.levelUpMenu.classList.remove('hidden');
+        if (this.levelUpMenu) {
+            this.levelUpMenu.classList.remove('hidden');
+            // 組隊模式：升級視窗層級高於 ESC 技能頁（#skills-menu z-index: 120），避免同時按 ESC 時被蓋住
+            if (isMultiplayer) this.levelUpMenu.style.zIndex = '130';
+        }
         
         // 空白鍵/Enter 確認；上下方向鍵導航高亮
         this._levelUpKeyHandler = (e) => {
@@ -2467,8 +2471,14 @@ const UI = {
             this._pendingOptionIndex = null;
             this._heldOptionIndex = null;
         } catch (_) {}
-        if (this.levelUpMenu) this.levelUpMenu.classList.add('hidden');
-        
+        if (this.levelUpMenu) {
+            this.levelUpMenu.classList.add('hidden');
+            // 組隊模式：關閉時還原 z-index，下次顯示再由 showLevelUpMenu 設定
+            if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                this.levelUpMenu.style.zIndex = '';
+            }
+        }
+
         // ✅ 组队模式：检查队列，如果有待处理的升级，自动显示下一个
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         if (isMultiplayer && this._pendingLevelUps && this._pendingLevelUps.length > 0) {
