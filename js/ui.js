@@ -306,8 +306,9 @@ const UI = {
                 }
             }
             
-            // ✅ 单机模式：正常清理逻辑（不受影响）
-            if (isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && !Game.multiplayer.enabled) {
+            // ✅ 單機模式：正常清理邏輯（含純單機與「有房但未啟用」）
+            // ⚠️ 修復：純單機勝利返回選單時也要執行延遲 Game.reset()，避免 _victoryEventSent/exit 等殘留污染後續進入多人模式
+            if (isSurvivalMode && typeof Game !== 'undefined' && (!Game.multiplayer || !Game.multiplayer.enabled)) {
                 // ⚠️ 单机模式：正常清理逻辑
                 try {
                     // ⚠️ 修复：先清理玩家和武器，确保游戏循环不会继续运行
