@@ -49,6 +49,7 @@ const RedeemCodeSystem = {
         'MARGARETNORTH2025': 10000,  // 永久有效 瑪麗序號
         'LINGLAN2025': 10000,        // 永久有效 鈴蘭序號
         'PINEAPPLE2026': 10000,      // 永久有效 鳳梨序號
+        'XXHACUCOXX2026': 10000,     // 永久有效 白白序號
         'RABI2025': 10000            // 永久有效 艾比序號
         // 在此處新增更多序號：
         // 'NEWCODE2025': 5000,  // 永久有效
