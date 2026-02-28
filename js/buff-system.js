@@ -364,7 +364,7 @@ const BuffSystem = {
             // 先清除技能倍率（確保沒有殘留值）
             player._heartConnectionRegenMultiplier = 1.0;
             if (player.weapons && Array.isArray(player.weapons)) {
-                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE'));
+                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE' || w.type === 'RAINBOW_RESONANCE'));
                 if (regenSkillWeapon) {
                     // 確保 config 存在（如果沒有，從 CONFIG.WEAPONS 獲取）
                     const config = regenSkillWeapon.config || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[regenSkillWeapon.type]) ? CONFIG.WEAPONS[regenSkillWeapon.type] : null;
@@ -480,11 +480,11 @@ const BuffSystem = {
                 player.dodgeTalentRate = this._getTierEffect('dodge_enhance', dodgeLv, 'dodgeRate', 0) || 0;
             }
             
-            // 心意相通/腎上腺素技能：檢查玩家是否擁有該技能並應用回血速度提升
+            // 心意相通/腎上腺素/虹光共鳴技能：檢查玩家是否擁有該技能並應用回血速度提升
             // 先清除技能倍率（確保沒有殘留值）
             player._heartConnectionRegenMultiplier = 1.0;
             if (player.weapons && Array.isArray(player.weapons)) {
-                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE'));
+                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE' || w.type === 'RAINBOW_RESONANCE'));
                 if (regenSkillWeapon) {
                     // 確保 config 存在（如果沒有，從 CONFIG.WEAPONS 獲取）
                     const config = regenSkillWeapon.config || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[regenSkillWeapon.type]) ? CONFIG.WEAPONS[regenSkillWeapon.type] : null;
