@@ -419,7 +419,7 @@ function setupCharacterSelection() {
         if (skillsBox) {
             skillsBox.innerHTML = '';
             const descText = ch.description || '';
-            const m = descText.match(/專屬技能：(.+?)(?:，|。|$)/);
+            const m = descText.match(/專屬技能：(.+?)(?:[，。\n]|$)/);
             let names = [];
             if (m && m[1]) {
                 names = m[1].split(/[、，\s]+/).map(s => s.trim()).filter(Boolean);
