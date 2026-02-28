@@ -16,6 +16,8 @@ class OrbitBall extends Entity {
             this.weaponType = 'HEART_COMPANION';
         } else if (imageKey === 'pineapple') {
             this.weaponType = 'PINEAPPLE_ORBIT';
+        } else if (imageKey === 'gabriel') {
+            this.weaponType = 'GABRIEL_ORBIT';
         } else if (imageKey === 'stellar_orbit') {
             this.weaponType = 'STELLAR_ORBIT';
         } else {
@@ -108,7 +110,7 @@ class OrbitBall extends Entity {
         }
 
         // 根據武器類型選擇傷害模式
-        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION' || this.weaponType === 'STELLAR_ORBIT') {
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'GABRIEL_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION' || this.weaponType === 'STELLAR_ORBIT') {
             // 雞腿庇佑、綿羊護體、旋轉鬆餅和心意相隨：單次碰撞傷害模式（避免持續傷害導致BOSS被秒殺）
             const currentTime = Date.now();
             let candidates = Game.enemies || [];
@@ -227,12 +229,14 @@ class OrbitBall extends Entity {
 
         // 視覺：拖尾繪製（輕量、僅顯示）
         if (this.trail && this.trail.length) {
-            // 處理圖片鍵映射：heart 對應 A34
+            // 處理圖片鍵映射：heart 對應 A34；gabriel 對應 A56（80x80）
             let actualImageKey = this.imageKey;
             if (this.imageKey === 'heart') {
                 actualImageKey = 'A34';
             } else if (this.imageKey === 'pineapple') {
                 actualImageKey = 'A45';
+            } else if (this.imageKey === 'gabriel') {
+                actualImageKey = 'A56';
             } else if (this.imageKey === 'stellar_orbit') {
                 actualImageKey = 'A51';
             }
@@ -252,6 +256,9 @@ class OrbitBall extends Entity {
                         const renderH = s;
                         const renderW = Math.max(1, Math.floor(renderH * aspect));
                         ctx.drawImage(trailImg, t.x - renderW / 2, t.y - renderH / 2, renderW, renderH);
+                    } else if (this.weaponType === 'GABRIEL_ORBIT') {
+                        // A56.png（80x80）：正方形，與綿羊護體一致
+                        ctx.drawImage(trailImg, t.x - s / 2, t.y - s / 2, s, s);
                     } else if (this.weaponType === 'STELLAR_ORBIT') {
                         const iw = trailImg.naturalWidth || trailImg.width || 100;
                         const ih = trailImg.naturalHeight || trailImg.height || 98;
@@ -272,18 +279,23 @@ class OrbitBall extends Entity {
             ctx.globalAlpha = 1;
         }
 
-        // 處理圖片鍵映射：heart 對應 A34
+        // 處理圖片鍵映射：heart 對應 A34；gabriel 對應 A56（80x80）
         let actualImageKey = this.imageKey;
         if (this.imageKey === 'heart') {
             actualImageKey = 'A34';
         } else if (this.imageKey === 'pineapple') {
             actualImageKey = 'A45';
+        } else if (this.imageKey === 'gabriel') {
+            actualImageKey = 'A56';
         } else if (this.imageKey === 'stellar_orbit') {
             actualImageKey = 'A51';
         }
         const img = (Game.images && Game.images[actualImageKey]) ? Game.images[actualImageKey] : null;
         if (img && img.complete && (img.naturalWidth > 0 || img.width > 0)) {
-            if (this.weaponType === 'PINEAPPLE_ORBIT') {
+            if (this.weaponType === 'GABRIEL_ORBIT') {
+                // A56.png（80x80）：正方形
+                ctx.drawImage(img, this.x - size / 2, this.y - size / 2, size, size);
+            } else if (this.weaponType === 'PINEAPPLE_ORBIT') {
                 // A45.png（53x100）：保持寬高比，使用高度為基準
                 const iw = img.naturalWidth || img.width || 53;
                 const ih = img.naturalHeight || img.height || 100;
@@ -299,6 +311,7 @@ class OrbitBall extends Entity {
                 const renderW = Math.max(1, Math.floor(renderH * aspect));
                 ctx.drawImage(img, this.x - renderW / 2, this.y - renderH / 2, renderW, renderH);
             } else {
+                // ORBIT、CHICKEN_BLESSING、ROTATING_MUFFIN、GABRIEL_ORBIT 等：正方形繪製
                 ctx.drawImage(img, this.x - size / 2, this.y - size / 2, size, size);
             }
         } else {
