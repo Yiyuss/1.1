@@ -1726,6 +1726,7 @@ const Game = {
                     projectile.weaponType === 'ROTATING_MUFFIN' ||
                     projectile.weaponType === 'HEART_COMPANION' ||
                     projectile.weaponType === 'PINEAPPLE_ORBIT' ||
+                    projectile.weaponType === 'GABRIEL_ORBIT' ||
                     projectile.weaponType === 'LASER' ||
                     projectile.weaponType === 'RADIANT_GLORY' ||
                     projectile.weaponType === 'BIG_ICE_BALL' ||
@@ -2096,6 +2097,7 @@ const Game = {
                         projectile.weaponType === 'ROTATING_MUFFIN' ||
                         projectile.weaponType === 'HEART_COMPANION' ||
                         projectile.weaponType === 'PINEAPPLE_ORBIT' ||
+                        projectile.weaponType === 'GABRIEL_ORBIT' ||
                         projectile.weaponType === 'LASER' ||
                         projectile.weaponType === 'RADIANT_GLORY' ||
                         projectile.weaponType === 'BIG_ICE_BALL' ||
