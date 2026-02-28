@@ -67,6 +67,7 @@ const CONFIG = {
             BAGUETTE_THROW: 'assets/images/A42.png',
             PINEAPPLE_ORBIT: 'assets/images/A44.png',
             GABRIEL_ORBIT: 'assets/images/A57.png',
+            RAINBOW_RESONANCE: 'assets/images/A58.png',
             ADRENALINE: 'assets/images/A46.png',
             PINEAPPLE_SUPPLEMENT: 'assets/images/A47.png',
             SUMMON_AI: 'assets/images/AI.png',
@@ -391,6 +392,25 @@ const CONFIG = {
         // 新武器：腎上腺素（鳳梨不咬舌專屬技能；邏輯與心意相通相同）
         ADRENALINE: {
             NAME: "腎上腺素",
+            DAMAGE: 0, // 被動技能，不造成傷害
+            COOLDOWN: 0, // 被動技能，無冷卻
+            REGEN_SPEED_BOOST_PER_LEVEL: 0.30, // 每級+30%回血速度
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "回血速度+30%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+60%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+90%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+120%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+150%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+180%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+210%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+240%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+270%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+300%" }
+            ]
+        },
+        // 新武器：虹光共鳴（白白虹專屬技能；邏輯與心意相通相同）
+        RAINBOW_RESONANCE: {
+            NAME: "虹光共鳴",
             DAMAGE: 0, // 被動技能，不造成傷害
             COOLDOWN: 0, // 被動技能，無冷卻
             REGEN_SPEED_BOOST_PER_LEVEL: 0.30, // 每級+30%回血速度
@@ -1230,7 +1250,7 @@ const CONFIG = {
             hpBonus: -50,
             speedMultiplier: 1.0,
             critChanceBonusPct: 0.15,
-            description: `角色介紹：怕生的天才社畜工程師，追尋未知信號而來。\n專屬技能：加百列\n專屬大招：暫無`,
+            description: `角色介紹：怕生的天才社畜工程師，追尋未知信號而來。\n專屬技能：加百列、虹光共鳴\n專屬大招：暫無`,
             // 選角預覽圖（下方角色介紹用）：使用 player8-2.png（與其他角色邏輯相同：player7-2、player6-2 等）
             avatarImageKey: 'player8-2',
             // 所有模式的 HUD 左上角頭像：使用 player8-2.png
@@ -1239,7 +1259,7 @@ const CONFIG = {
             levelUpBgKey: 'player8-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: ['GABRIEL_ORBIT'],
+            exclusiveWeapons: ['GABRIEL_ORBIT', 'RAINBOW_RESONANCE'],
             unlockCost: 10000
         }
     ],
