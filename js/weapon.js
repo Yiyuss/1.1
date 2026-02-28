@@ -405,6 +405,38 @@
                     return;
                 }
 
+                // 特殊技能：加百列（白白虹專屬；與綿羊護體邏輯相同，旋球外觀 A56.png 80x80）
+                if (this.type === 'GABRIEL_ORBIT') {
+                    const count = this.projectileCount;
+                    let angularSpeed = this.config.ANGULAR_SPEED;
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                    if (!isMultiplayer) {
+                        const speedMultiplier = 1.0 + (this.level - 1) / 9;
+                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
+                    }
+                    for (let i = 0; i < count; i++) {
+                        const angle = (i / count) * Math.PI * 2;
+                        const baseRadius = this.config.ORBIT_RADIUS;
+                        const perLevel = this.config.ORBIT_RADIUS_PER_LEVEL || 0;
+                        const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+                        const baseSize = this.config.PROJECTILE_SIZE;
+                        const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
+                        const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
+                        const orb = new OrbitBall(
+                            this.player,
+                            angle,
+                            dynamicRadius,
+                            this._computeFinalDamage(levelMul),
+                            dynamicSize,
+                            this.config.DURATION,
+                            angularSpeed,
+                            'gabriel'
+                        );
+                        Game.addProjectile(orb);
+                    }
+                    return;
+                }
+
                 // 特殊技能：守護領域（常駐場域）
                 if (this.type === 'AURA_FIELD') {
                     const baseRadius = this.config.FIELD_RADIUS || 60;
@@ -1320,6 +1352,9 @@
                                 break;
                             case 'ROTATING_MUFFIN':
                                 // 可選：為旋轉鬆餅加入音效
+                                break;
+                            case 'GABRIEL_ORBIT':
+                                // 可選：為加百列加入音效（與綿羊護體一致）
                                 break;
                         }
                     }
