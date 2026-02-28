@@ -66,6 +66,7 @@ const CONFIG = {
             INNATE_TEMPERAMENT: 'assets/images/A55.png',
             BAGUETTE_THROW: 'assets/images/A42.png',
             PINEAPPLE_ORBIT: 'assets/images/A44.png',
+            GABRIEL_ORBIT: 'assets/images/A57.png',
             ADRENALINE: 'assets/images/A46.png',
             PINEAPPLE_SUPPLEMENT: 'assets/images/A47.png',
             SUMMON_AI: 'assets/images/AI.png',
@@ -328,6 +329,26 @@ const CONFIG = {
                 { COUNT: 3, DESCRIPTION: "生成3個鳳梨環繞環繞3秒" },
                 { COUNT: 4, DESCRIPTION: "生成4個鳳梨環繞環繞3秒" },
                 { COUNT: 5, DESCRIPTION: "生成5個鳳梨環繞環繞3秒" }
+            ]
+        },
+        // 新武器：加百列（白白虹專屬技能；邏輯/傷害/特效與綿羊護體相同，旋球外觀 A56.png 80x80，技能圖 A57.png）
+        GABRIEL_ORBIT: {
+            NAME: "加百列",
+            DAMAGE: 12,
+            COOLDOWN: 4000,
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 20,
+            PROJECTILE_SIZE_PER_LEVEL: 6,
+            ORBIT_RADIUS: 60,
+            ORBIT_RADIUS_PER_LEVEL: 15,
+            DURATION: 3000,
+            ANGULAR_SPEED: 3.683,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "生成1個加百列環繞3秒" },
+                { COUNT: 2, DESCRIPTION: "生成2個加百列環繞3秒" },
+                { COUNT: 3, DESCRIPTION: "生成3個加百列環繞3秒" },
+                { COUNT: 4, DESCRIPTION: "生成4個加百列環繞3秒" },
+                { COUNT: 5, DESCRIPTION: "生成5個加百列環繞3秒" }
             ]
         },
         HEART_COMPANION: {
@@ -1209,7 +1230,7 @@ const CONFIG = {
             hpBonus: -50,
             speedMultiplier: 1.0,
             critChanceBonusPct: 0.15,
-            description: `角色介紹：怕生的天才社畜工程師，追尋未知信號而來。\n專屬技能：暫無\n專屬大招：暫無`,
+            description: `角色介紹：怕生的天才社畜工程師，追尋未知信號而來。\n專屬技能：加百列\n專屬大招：暫無`,
             // 選角預覽圖（下方角色介紹用）：使用 player8-2.png（與其他角色邏輯相同：player7-2、player6-2 等）
             avatarImageKey: 'player8-2',
             // 所有模式的 HUD 左上角頭像：使用 player8-2.png
@@ -1218,7 +1239,7 @@ const CONFIG = {
             levelUpBgKey: 'player8-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: [],
+            exclusiveWeapons: ['GABRIEL_ORBIT'],
             unlockCost: 10000
         }
     ],
