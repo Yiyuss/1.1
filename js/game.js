@@ -1180,7 +1180,8 @@ const Game = {
                 projectile.weaponType === 'STARFALL' ||
                 projectile.weaponType === 'STARFALL_MOON' ||
                 projectile.weaponType === 'INTERSECTION_CAR' ||
-                projectile.weaponType === 'FBI'
+                projectile.weaponType === 'FBI' ||
+                projectile.weaponType === 'WHITE_NIGHT_BEAM'
             ) {
                 // 延後到前景層（敵人之上）再繪製
                 continue;
@@ -1330,7 +1331,8 @@ const Game = {
                 projectile.weaponType === 'STARFALL' ||
                 projectile.weaponType === 'STARFALL_MOON' ||
                 projectile.weaponType === 'INTERSECTION_CAR' ||
-                projectile.weaponType === 'FBI'
+                projectile.weaponType === 'FBI' ||
+                projectile.weaponType === 'WHITE_NIGHT_BEAM'
             ) {
                 try {
                     projectile.draw(this.ctx);
@@ -2016,6 +2018,12 @@ const Game = {
                         projectileData.fallDurationMs = projectile.fallDurationMs || 250;
                         projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300;
                     }
+                        // 組隊模式：白夜光束（WhiteNightBeamEffect）
+                        if (projectile.weaponType === "WHITE_NIGHT_BEAM") {
+                            projectileData.damage = projectile.damage || 0;
+                            projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.WHITE_NIGHT_BEAM ? CONFIG.WEAPONS.WHITE_NIGHT_BEAM.FIELD_RADIUS : 150);
+                            projectileData.level = projectile.level || 1;
+                        }
 
                         // 廣播投射物生成事件（讓遠程玩家也能看到）
                         window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
@@ -2117,6 +2125,7 @@ const Game = {
                         projectile.weaponType === 'JUDGMENT' ||
                         projectile.weaponType === 'DIVINE_JUDGMENT' ||
                         projectile.weaponType === 'EXPLOSION' ||
+                        projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
                         // ✅ 修復：SUMMON_AI（召喚AI）是持續效果，需要廣播給其他玩家
                         projectile.weaponType === 'SUMMON_AI' ||
                         isAICompanion ||
@@ -2145,6 +2154,7 @@ const Game = {
                             projectile.constructor.name === 'JudgmentEffect' ||
                             projectile.constructor.name === 'DivineJudgmentEffect' ||
                             projectile.constructor.name === 'ExplosionEffect' ||
+                            projectile.constructor.name === 'WhiteNightBeamEffect' ||
                             // ✅ 修復：AICompanion（召喚AI）是持續效果，需要廣播給其他玩家
                             projectile.constructor.name === 'AICompanion'
                         )) ||
@@ -2289,6 +2299,12 @@ const Game = {
                         projectileData.swordImageHeight = projectile.swordImageHeight || 29;
                         projectileData.fallDurationMs = projectile.fallDurationMs || 250;
                         projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300;
+                    }
+                    // 組隊模式：白夜光束（WhiteNightBeamEffect），添加額外屬性
+                    if (projectile.weaponType === "WHITE_NIGHT_BEAM") {
+                        projectileData.damage = projectile.damage || 0;
+                        projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.WHITE_NIGHT_BEAM ? CONFIG.WEAPONS.WHITE_NIGHT_BEAM.FIELD_RADIUS : 150);
+                        projectileData.level = projectile.level || 1;
                     }
 
                     // 如果是爆炸效果（ExplosionEffect），添加額外屬性
