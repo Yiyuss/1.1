@@ -286,8 +286,9 @@ class CarHazard extends Entity {
             let sy = (this.y - camY) * scaleY;
             const left = sx - this.width / 2, right = sx + this.width / 2, top = sy - this.height / 2, bottom = sy + this.height / 2;
             if (right < -margin || bottom < -margin || left > vw + margin || top > vh + margin) {
-                if (this.weaponType === 'FBI' && this._gifOverlayId && typeof GifOverlay !== 'undefined' && GifOverlay.hide) {
-                    GifOverlay.hide(this._gifOverlayId);
+                const overlayId = (this.weaponType === 'FBI' && (this.id != null ? 'fbi-car-' + String(this.id) : this._gifOverlayId));
+                if (overlayId && typeof GifOverlay !== 'undefined' && GifOverlay.hide) {
+                    GifOverlay.hide(overlayId);
                 }
                 return;
             }
@@ -296,6 +297,8 @@ class CarHazard extends Entity {
         if (this.weaponType === 'FBI') {
             const screenX = this.x - camX;
             const screenY = this.y - camY;
+            // 一車一 overlay：組隊用 server id，單機用 constructor 的 _gifOverlayId
+            const overlayId = this.id != null ? ('fbi-car-' + String(this.id)) : this._gifOverlayId;
             // 一律用 GIF 的 URL：優先 Game.images，否則用直接路徑，確保是 .gif 動態檔
             let gifSrc = '';
             const img = (typeof Game !== 'undefined' && Game.images) ? Game.images[this.imageKey] : null;
@@ -308,8 +311,8 @@ class CarHazard extends Entity {
             if (!gifSrc) {
                 gifSrc = 'assets/images/FBI.gif';
             }
-            if (this._gifOverlayId && typeof GifOverlay !== 'undefined' && GifOverlay.showOrUpdate) {
-                GifOverlay.showOrUpdate(this._gifOverlayId, gifSrc, screenX, screenY, { width: this.width, height: this.height }, false);
+            if (overlayId && typeof GifOverlay !== 'undefined' && GifOverlay.showOrUpdate) {
+                GifOverlay.showOrUpdate(overlayId, gifSrc, screenX, screenY, { width: this.width, height: this.height }, false);
             }
             ctx.save();
             ctx.restore();
@@ -328,8 +331,9 @@ class CarHazard extends Entity {
     }
 
     destroy() {
-        if (this.weaponType === 'FBI' && this._gifOverlayId && typeof GifOverlay !== 'undefined' && GifOverlay.hide) {
-            GifOverlay.hide(this._gifOverlayId);
+        const overlayId = (this.weaponType === 'FBI' && (this.id != null ? 'fbi-car-' + String(this.id) : this._gifOverlayId));
+        if (overlayId && typeof GifOverlay !== 'undefined' && GifOverlay.hide) {
+            GifOverlay.hide(overlayId);
         }
     }
 }
