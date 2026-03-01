@@ -5661,6 +5661,14 @@ function handleServerGameState(state, timestamp) {
               }
             } catch (_) { }
           }
+          // ✅ FBI 技能：車輛生成時播放 FBI 音效（僅組隊模式）
+          else if (v.type === 'fbi_spawn') {
+            try {
+              if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+                AudioManager.playSound('FBI');
+              }
+            } catch (_) { }
+          }
           // ✅ 修复：处理BOSS投射物爆炸事件（音效+特效+相机震动）
           else if (v.type === 'screen_effect' && v.data && v.data.type === 'boss_projectile_explosion') {
             const eventData = v.data;
@@ -5755,11 +5763,14 @@ function handleServerGameState(state, timestamp) {
                 console.log(`[SurvivalOnline] car_hit事件: eventPlayerUid=${eventPlayerUid}, localPlayerUid=${localPlayerUid}, isLocalPlayer=${isLocalPlayer}`);
               }
 
-              // 音效是单机元素，只对本地玩家播放
+              // 音效：路口車撞擊播放 bo；FBI 車撞擊無聲
               if (isLocalPlayer) {
                 if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
-                  AudioManager.playSound('bo');
-                  if (SURVIVAL_ONLINE_DEBUG) {
+                  const isFBI = (eventData.weaponType === 'FBI');
+                  if (!isFBI) {
+                    AudioManager.playSound('bo');
+                  }
+                  if (SURVIVAL_ONLINE_DEBUG && !isFBI) {
                     console.log(`[SurvivalOnline] ✅ 播放车辆撞击音效: playerUid=${eventPlayerUid}`);
                   }
                 } else if (SURVIVAL_ONLINE_DEBUG) {
@@ -5777,8 +5788,8 @@ function handleServerGameState(state, timestamp) {
                     Game.screenFlash = { active: true, duration: 140, intensity: 0.28 };
                   }
                 }
-                // ✅ 修复：相机震动是单机元素，只对本地玩家触发
-                if (isLocalPlayer) {
+                // ✅ 修复：相机震动是单机元素，只对本地玩家触发；FBI 車不震動
+                if (isLocalPlayer && eventData.weaponType !== 'FBI') {
                   if (typeof Game !== 'undefined') {
                     if (!Game.cameraShake) {
                       Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
@@ -5793,11 +5804,11 @@ function handleServerGameState(state, timestamp) {
                     }
                   }
                 }
-                // 爆炸粒子：需要同步
+                // 爆炸粒子：需要同步；FBI 簡化 5 倍
                 if (typeof Game !== 'undefined') {
                   if (!Game.explosionParticles) Game.explosionParticles = [];
-                  const count = 18;
-                  for (let i = 0; i < count; i++) {
+                  const particleCount = (eventData.weaponType === 'FBI') ? Math.max(1, Math.floor(18 * 0.2)) : 18;
+                  for (let i = 0; i < particleCount; i++) {
                     const ang = Math.random() * Math.PI * 2;
                     const spd = 2.5 + Math.random() * 5.5;
                     const particle = {
@@ -5843,7 +5854,7 @@ function handleServerGameState(state, timestamp) {
         if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
           for (let i = Game.projectiles.length - 1; i >= 0; i--) {
             const proj = Game.projectiles[i];
-            if (proj && (proj.weaponType === 'INTERSECTION_CAR' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
+            if (proj && (proj.weaponType === 'INTERSECTION_CAR' || proj.weaponType === 'FBI' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
               try {
                 if (typeof proj.destroy === 'function') {
                   proj.destroy();
@@ -6572,8 +6583,9 @@ function updateCarHazardsFromServer(carHazards) {
   // 移除服务器不存在的车辆（从projectiles数组中移除）
   for (let i = Game.projectiles.length - 1; i >= 0; i--) {
     const proj = Game.projectiles[i];
-    if (proj && (proj.weaponType === 'INTERSECTION_CAR' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
+    if (proj && (proj.weaponType === 'INTERSECTION_CAR' || proj.weaponType === 'FBI' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
       if (!serverCarIds.has(proj.id)) {
+        try { if (typeof proj.destroy === 'function') proj.destroy(); } catch (_) {}
         Game.projectiles.splice(i, 1);
       }
     }
@@ -6581,19 +6593,24 @@ function updateCarHazardsFromServer(carHazards) {
 
   // 更新或创建车辆
   for (const carState of carHazards) {
-    let car = Game.projectiles.find(p => p.id === carState.id && (p.weaponType === 'INTERSECTION_CAR' || (p.constructor && p.constructor.name === 'CarHazard')));
+    let car = Game.projectiles.find(p => p && p.id === carState.id && (p.weaponType === 'INTERSECTION_CAR' || p.weaponType === 'FBI' || (p.constructor && p.constructor.name === 'CarHazard')));
     if (!car) {
       // 创建新车辆（仅视觉，伤害由服务器计算）
+      const isFBI = (carState.weaponType === 'FBI');
       car = new CarHazardCtor({
         x: carState.x || 0,
         y: carState.y || 0,
         vx: carState.vx || 0,
         vy: carState.vy || 0,
-        width: carState.width || 200,
-        height: carState.height || 100,
-        imageKey: carState.imageKey || 'car',
-        damage: carState.damage || 100,
-        despawnPad: carState.despawnPad || 400
+        width: carState.width || (isFBI ? 320 : 200),
+        height: carState.height || (isFBI ? 180 : 100),
+        imageKey: carState.imageKey || (isFBI ? 'FBI' : 'car'),
+        damage: carState.damage || (isFBI ? 10 : 100),
+        despawnPad: carState.despawnPad || 400,
+        weaponType: isFBI ? 'FBI' : 'INTERSECTION_CAR',
+        noShake: isFBI,
+        particleScale: isFBI ? 0.2 : 1,
+        hitSoundKey: 'bo'
       });
       car.id = carState.id;
       car._isVisualOnly = true; // 仅视觉，伤害由服务器计算
@@ -7834,11 +7851,11 @@ function tryStartSurvivalFromRoom() {
         // 重置生成标记，让新地图可以重新生成
         Game._obstaclesAndDecorationsSpawned = false;
 
-        // 清理车辆（路口地图特定）
+        // 清理车辆（路口地图 + FBI 技能）
         if (Array.isArray(Game.projectiles)) {
           for (let i = Game.projectiles.length - 1; i >= 0; i--) {
             const proj = Game.projectiles[i];
-            if (proj && (proj.weaponType === 'INTERSECTION_CAR' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
+            if (proj && (proj.weaponType === 'INTERSECTION_CAR' || proj.weaponType === 'FBI' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
               try {
                 if (typeof proj.destroy === 'function') {
                   proj.destroy();
