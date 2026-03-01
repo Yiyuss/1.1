@@ -2079,10 +2079,10 @@ const Runtime = (() => {
                     targetPlayer,
                     eventData.damage || 15,
                     eventData.radius || 150,
-                    eventData.level || 1
+                    eventData.level || 1,
+                    { _isVisualOnly: true }
                   );
                   effect.id = projectileId;
-                  effect._isVisualOnly = true;
                   effect._remotePlayerUid = eventData.playerUid;
                   effect._createdAt = Date.now();
                   Game.projectiles.push(effect);
@@ -5673,14 +5673,39 @@ function handleServerGameState(state, timestamp) {
             }
           } else if (weaponType === 'WHITE_NIGHT_BEAM') {
             // 組隊模式：白夜光束命中特效由 hitEvents 補齊（與 EXPLOSION 同結構）
+            // 根因：權威模式下 projectile_spawn 被禁止廣播，隊員從未收到 spawn，故無 effect；
+            // 必須在收到第一個 hit 時「從 hit 建立 effect」並加入 Game.projectiles，隊員才能看到 A61 動畫。
             if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles) && typeof WhiteNightBeamEffect !== 'undefined') {
               const nowBeam = Date.now();
-              const beamEffect = Game.projectiles.find(p =>
+              let beamEffect = Game.projectiles.find(p =>
                 p && p.constructor && p.constructor.name === 'WhiteNightBeamEffect' &&
                 p.weaponType === 'WHITE_NIGHT_BEAM' && p._isVisualOnly && !p.markedForDeletion &&
                 p._remotePlayerUid === (ev.playerUid || null) &&
                 (nowBeam - (p.startTime || p._createdAt || 0)) < 2000
               );
+              if (!beamEffect && ev.playerUid) {
+                let targetPlayer = null;
+                const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                  const remotePlayer = rt.RemotePlayerManager.get(ev.playerUid);
+                  if (remotePlayer) targetPlayer = remotePlayer;
+                  else if (ev.playerUid === (Game.multiplayer && Game.multiplayer.uid)) targetPlayer = Game.player;
+                } else if (ev.playerUid === (Game.multiplayer && Game.multiplayer.uid)) targetPlayer = Game.player;
+                if (!targetPlayer && typeof x === 'number' && typeof y === 'number') {
+                  targetPlayer = { x: x, y: y };
+                }
+                if (targetPlayer) {
+                  const effect = new WhiteNightBeamEffect(targetPlayer, 15, 150, 1, { _isVisualOnly: true });
+                  effect.id = 'white_beam_' + (ev.playerUid || '') + '_' + nowBeam;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = ev.playerUid || null;
+                  effect._createdAt = nowBeam;
+                  effect.startTime = nowBeam;
+                  if (!effect.hitEnemies) effect.hitEnemies = [];
+                  Game.projectiles.push(effect);
+                  beamEffect = effect;
+                }
+              }
               if (beamEffect && Array.isArray(beamEffect.hitEnemies)) {
                 const enemyId = ev.enemyId || null;
                 const existingHit = beamEffect.hitEnemies.find(h => h.enemyId === enemyId);
