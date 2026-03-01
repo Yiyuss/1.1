@@ -1760,6 +1760,8 @@ const Game = {
                     projectile.weaponType === 'JUDGMENT' ||
                     projectile.weaponType === 'DIVINE_JUDGMENT' ||
                     projectile.weaponType === 'EXPLOSION' ||
+                    // ✅ 白夜光束：一次性範圍傷害，需保留本地 effect 以跑 update/清理 overlay，否則 #skill-effects-layer 殘留累積
+                    projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
                     // ✅ 修復：SUMMON_AI（召喚AI）是持續效果，需要廣播給其他玩家
                     projectile.weaponType === 'SUMMON_AI' ||
                     // ✅ 厄倫蒂兒大招分身：持續效果（需廣播讓其他玩家可見；傷害由分身投擲物的標準 attack input 處理）
@@ -1790,6 +1792,8 @@ const Game = {
                         projectile.constructor.name === 'JudgmentEffect' ||
                         projectile.constructor.name === 'DivineJudgmentEffect' ||
                         projectile.constructor.name === 'ExplosionEffect' ||
+                        // ✅ 白夜光束：需走「push + 廣播」路徑，本地才能跑 update 並 _destroyHitOverlays
+                        projectile.constructor.name === 'WhiteNightBeamEffect' ||
                         // ✅ 修復：AICompanion（召喚AI）是持續效果，需要廣播給其他玩家
                         projectile.constructor.name === 'AICompanion' ||
                         projectile.constructor.name === 'ElondierUltimateClone'
