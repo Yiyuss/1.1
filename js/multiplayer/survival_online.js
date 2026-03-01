@@ -2084,6 +2084,7 @@ const Runtime = (() => {
                   effect.id = projectileId;
                   effect._isVisualOnly = true;
                   effect._remotePlayerUid = eventData.playerUid;
+                  effect._createdAt = Date.now();
                   Game.projectiles.push(effect);
                 }
               } else if ((weaponType === "DEATHLINE_WARRIOR" || weaponType === "DEATHLINE_SUPERMAN") && typeof DeathlineWarriorEffect !== "undefined") {
@@ -5667,6 +5668,34 @@ function handleServerGameState(state, timestamp) {
                   anim.onfinish = () => {
                     if (el && el.parentNode) el.parentNode.removeChild(el);
                   };
+                }
+              }
+            }
+          } else if (weaponType === 'WHITE_NIGHT_BEAM') {
+            // 組隊模式：白夜光束命中特效由 hitEvents 補齊（與 EXPLOSION 同結構）
+            if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles) && typeof WhiteNightBeamEffect !== 'undefined') {
+              const nowBeam = Date.now();
+              const beamEffect = Game.projectiles.find(p =>
+                p && p.constructor && p.constructor.name === 'WhiteNightBeamEffect' &&
+                p.weaponType === 'WHITE_NIGHT_BEAM' && p._isVisualOnly && !p.markedForDeletion &&
+                p._remotePlayerUid === (ev.playerUid || null) &&
+                (nowBeam - (p.startTime || p._createdAt || 0)) < 2000
+              );
+              if (beamEffect && Array.isArray(beamEffect.hitEnemies)) {
+                const enemyId = ev.enemyId || null;
+                const existingHit = beamEffect.hitEnemies.find(h => h.enemyId === enemyId);
+                if (!existingHit) {
+                  beamEffect.hitEnemies.push({
+                    enemy: null,
+                    x: x,
+                    y: y,
+                    enemyId: enemyId,
+                    startTime: Date.now()
+                  });
+                }
+                if (!beamEffect._hitOverlaysCreated && typeof beamEffect._createHitOverlays === 'function') {
+                  beamEffect._createHitOverlays();
+                  beamEffect._hitOverlaysCreated = true;
                 }
               }
             }
