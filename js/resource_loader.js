@@ -330,6 +330,7 @@ const ResourceLoader = {
             { name: 'A53', src: 'assets/images/A53.png' },
             { name: 'A54', src: 'assets/images/A54.png' },
             { name: 'A48', src: 'assets/images/A48.png' },
+            { name: 'A59', src: 'assets/images/A59.png' },
             { name: 'AI', src: 'assets/images/AI.png' },
             { name: 'AI2', src: 'assets/images/AI2.png' },
             { name: 'AI3', src: 'assets/images/AI3.png' },
@@ -339,6 +340,8 @@ const ResourceLoader = {
             { name: 'ICE3', src: 'assets/images/ICE3.png' },
             { name: 'knife', src: 'assets/images/knife.gif' },
             { name: 'knife2', src: 'assets/images/knife2.gif' },
+            { name: 'FBI', src: 'assets/images/FBI.gif' },
+            { name: 'FBI2', src: 'assets/images/FBI2.gif' },
             { name: 'Explosion', src: 'assets/images/Explosion.png' },
             { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
             { name: 'field', src: 'assets/images/field.png' },
@@ -429,7 +432,8 @@ const ResourceLoader = {
             { name: 'bo', src: 'assets/audio/bo.mp3' },
             { name: 'boss_cooldown', src: 'assets/audio/BOSS.mp3' },
             { name: 'playerN2', src: 'assets/audio/playerN2.mp3' },
-            { name: 'car', src: 'assets/audio/car.mp3' }
+            { name: 'car', src: 'assets/audio/car.mp3' },
+            { name: 'FBI', src: 'assets/audio/FBI.mp3' }
         ];
     },
 
@@ -452,6 +456,14 @@ const ResourceLoader = {
 // 預加載所有資源並進入選角介面
 async function preloadAllResources() {
     try {
+        if (typeof Game === 'undefined') {
+            console.error('[ResourceLoader] Game 未定義，無法預載資源。請重新整理頁面 (F5) 並檢查主控台是否有 game.js 的語法錯誤。');
+            if (typeof document !== 'undefined') {
+                const statusEl = document.getElementById('loading-status');
+                if (statusEl) statusEl.textContent = 'Game 未載入，請重新整理頁面 (F5)';
+            }
+            return;
+        }
         // 初始化Game.images和AudioManager（如果尚未初始化）
         if (!Game.images) Game.images = {};
         if (!AudioManager.sounds) AudioManager.sounds = {};
