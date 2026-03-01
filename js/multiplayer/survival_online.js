@@ -2600,6 +2600,10 @@ const Runtime = (() => {
                 car._isVisualOnly = true; // 標記為僅視覺（隊員端不進行傷害計算）
                 Game.projectiles.push(car);
               } else if (typeof Projectile !== "undefined") {
+                // 白夜光束無玩家中心視覺，不建立通用 Projectile（避免畫出白球）
+                if (weaponType === 'WHITE_NIGHT_BEAM') {
+                  // 僅視覺應由 WhiteNightBeamEffect 處理；若未載入則不建立任何投射物
+                } else {
                 // 普通投射物
                 try {
                   // ✅ 修復：確保 size 有合理的默認值（如果為 0 或未定義，使用武器配置的默認值）
@@ -2634,6 +2638,7 @@ const Runtime = (() => {
                   }
                 } catch (e) {
                   console.error(`[SurvivalOnline] ❌ 創建遠程投射物失敗:`, e, `weaponType=${weaponType}`);
+                }
                 }
               } else {
                 console.warn(`[SurvivalOnline] ⚠️ Projectile 类未定义，无法创建远程投射物: weaponType=${weaponType}`);
