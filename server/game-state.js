@@ -1242,7 +1242,8 @@ class GameState {
             h: enemy.size || 32,
             damage: hit.amount,
             isCrit: hit.isCrit,
-            weaponType: input.weaponType || null
+            weaponType: input.weaponType || null,
+            playerUid: uid || null
           });
         } catch (_) { }
       }
