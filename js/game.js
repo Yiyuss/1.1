@@ -1179,7 +1179,8 @@ const Game = {
                 projectile.weaponType === 'DIVINE_JUDGMENT' ||
                 projectile.weaponType === 'STARFALL' ||
                 projectile.weaponType === 'STARFALL_MOON' ||
-                projectile.weaponType === 'INTERSECTION_CAR'
+                projectile.weaponType === 'INTERSECTION_CAR' ||
+                projectile.weaponType === 'FBI'
             ) {
                 // 延後到前景層（敵人之上）再繪製
                 continue;
@@ -1187,12 +1188,9 @@ const Game = {
             try {
                 projectile.draw(this.ctx);
             } catch (e) {
-                // ⚠️ 修复：如果投射物已被清理或 draw 方法失败，跳过绘制
                 console.warn('[Game] drawEntities: projectile.draw 失败:', e);
             }
         }
-
-        // （移至前景）BOSS 火彈投射物原本在敵人之前繪製，改為敵人之上
 
         // （移至前景）爆炸粒子原本在敵人之前繪製，改為敵人之上
 
@@ -1331,7 +1329,8 @@ const Game = {
                 projectile.weaponType === 'DIVINE_JUDGMENT' ||
                 projectile.weaponType === 'STARFALL' ||
                 projectile.weaponType === 'STARFALL_MOON' ||
-                projectile.weaponType === 'INTERSECTION_CAR'
+                projectile.weaponType === 'INTERSECTION_CAR' ||
+                projectile.weaponType === 'FBI'
             ) {
                 try {
                     projectile.draw(this.ctx);
@@ -1489,7 +1488,7 @@ const Game = {
                 this.ctx.fillText(playerName, this.player.x, nameY);
                 this.ctx.restore();
             }
-        } catch (_) { }
+        } catch (_) {}
     },
 
     // 繪製背景
@@ -2068,8 +2067,8 @@ const Game = {
                 const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
                     (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
 
-                // 檢查是否為環境物體（如路口車輛）
-                const isEnvironmentHazard = (projectile.weaponType === "INTERSECTION_CAR") ||
+                // 檢查是否為環境物體（如路口車輛、FBI 技能車）
+                const isEnvironmentHazard = (projectile.weaponType === "INTERSECTION_CAR" || projectile.weaponType === "FBI") ||
                     (projectile.constructor && projectile.constructor.name === 'CarHazard');
 
                 // ✅ 舊多人模式：廣播投射物給其他玩家（僅視覺，不影響傷害計算）
@@ -2410,8 +2409,8 @@ const Game = {
                         projectileData.offsetY = projectile.offsetY || 0;
                     }
 
-                    // 如果是路口車輛（CarHazard），添加額外屬性
-                    if (projectile.weaponType === "INTERSECTION_CAR" || (projectile.constructor && projectile.constructor.name === 'CarHazard')) {
+                    // 如果是路口車輛或 FBI 車（CarHazard），添加額外屬性
+                    if (projectile.weaponType === "INTERSECTION_CAR" || projectile.weaponType === "FBI" || (projectile.constructor && projectile.constructor.name === 'CarHazard')) {
                         projectileData.vx = projectile.vx || 0;
                         projectileData.vy = projectile.vy || 0;
                         projectileData.width = projectile.width || 0;
@@ -2582,6 +2581,98 @@ const Game = {
                 imageKey: imageKey,
                 damage,
                 despawnPad: 400
+            });
+            this.addProjectile(car);
+        }
+    },
+
+    /**
+     * FBI 技能：從地圖左右兩側隨機出現 1～3 台車（邏輯與路口車輛相同，外觀 FBI.gif / FBI2.gif 320x180，傷害 20，無震動，粒子簡化 5 倍，音效 FBI.mp3）
+     */
+    spawnFBICars: function (count, damage) {
+        if (typeof CarHazard === 'undefined') return;
+        const worldW = this.worldWidth || (CONFIG && CONFIG.CANVAS_WIDTH) || 1920;
+        const worldH = this.worldHeight || (CONFIG && CONFIG.CANVAS_HEIGHT) || 1080;
+        const carSpeed = 15;
+        const w = 320;
+        const h = 180;
+        const used = [];
+        const minSepY = 180;
+
+        const pickSpawn = (side) => {
+            let x, y, vx, vy;
+            if (side === 'left') {
+                x = -w / 2;
+                y = Utils.randomInt(0, worldH);
+                vx = carSpeed;
+                vy = 0;
+            } else {
+                x = worldW + w / 2;
+                y = Utils.randomInt(0, worldH);
+                vx = -carSpeed;
+                vy = 0;
+            }
+            return { x, y, vx, vy, side };
+        };
+
+        try {
+            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                AudioManager.playSound('FBI');
+            }
+        } catch (_) {}
+
+        const n = Math.max(1, Math.min(3, count));
+        const sides = [];
+        if (n === 1) {
+            sides.push(Utils.randomInt(0, 1) === 0 ? 'left' : 'right');
+        } else {
+            sides.push('left');
+            sides.push('right');
+            for (let i = 2; i < n; i++) {
+                sides.push(Utils.randomInt(0, 1) === 0 ? 'left' : 'right');
+            }
+            for (let i = sides.length - 1; i > 0; i--) {
+                const j = Utils.randomInt(0, i);
+                const tmp = sides[i];
+                sides[i] = sides[j];
+                sides[j] = tmp;
+            }
+        }
+
+        for (let i = 0; i < n; i++) {
+            const side = sides[i] || (Utils.randomInt(0, 1) === 0 ? 'left' : 'right');
+            let spawn = null;
+            for (let tries = 0; tries < 60; tries++) {
+                const cand = pickSpawn(side);
+                let ok = true;
+                for (const p of used) {
+                    if (p.side === cand.side && Math.abs(cand.y - p.y) < minSepY) {
+                        ok = false;
+                        break;
+                    }
+                }
+                if (ok) {
+                    spawn = cand;
+                    break;
+                }
+            }
+            if (!spawn) spawn = pickSpawn(side);
+            used.push({ side: spawn.side, y: spawn.y });
+
+            const imageKey = spawn.vx >= 0 ? 'FBI' : 'FBI2';
+            const car = new CarHazard({
+                x: spawn.x,
+                y: spawn.y,
+                vx: spawn.vx,
+                vy: spawn.vy,
+                width: w,
+                height: h,
+                imageKey: imageKey,
+                damage: (typeof damage === 'number') ? damage : 10,
+                despawnPad: 400,
+                weaponType: 'FBI',
+                noShake: true,
+                particleScale: 0.2
             });
             this.addProjectile(car);
         }
@@ -3030,23 +3121,10 @@ const Game = {
         if (Array.isArray(this.projectiles)) {
             for (let i = this.projectiles.length - 1; i >= 0; i--) {
                 const proj = this.projectiles[i];
-                if (proj && (proj.weaponType === 'INTERSECTION_CAR' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
+                if (proj && (proj.weaponType === 'INTERSECTION_CAR' || proj.weaponType === 'FBI' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
                     try {
                         if (typeof proj.destroy === 'function') {
                             proj.destroy();
-                        }
-
-                        // 厄倫蒂兒大招分身：提供 cloneIndex/offset/duration，避免遠程端重疊與殘留
-                        if (projectile.weaponType === "ELONDIER_ULTIMATE_CLONE") {
-                            projectileData.cloneIndex = (typeof projectile.cloneIndex === 'number') ? projectile.cloneIndex : 0;
-                            projectileData.offsetX = (typeof projectile.offsetX === 'number') ? projectile.offsetX : 0;
-                            projectileData.offsetY = (typeof projectile.offsetY === 'number') ? projectile.offsetY : 0;
-                            const dur = (typeof projectile.durationMs === 'number' && projectile.durationMs > 0)
-                                ? projectile.durationMs
-                                : (typeof projectile.endTime === 'number' && projectile.endTime > 0)
-                                    ? Math.max(0, projectile.endTime - Date.now())
-                                    : (CONFIG && CONFIG.ULTIMATE ? CONFIG.ULTIMATE.DURATION_MS : 8000);
-                            projectileData.durationMs = dur;
                         }
                     } catch (_) { }
                     this.projectiles.splice(i, 1);
