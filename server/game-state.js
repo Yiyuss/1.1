@@ -2873,6 +2873,23 @@ class GameState {
       this.vfxEvents.push({ type: 'fbi_spawn', timestamp: Date.now() });
     } catch (_) {}
 
+    // 限制場上 FBI 車總數，避免多人連發時拖一整排
+    const MAX_FBI_CARS = 12;
+    const fbiCars = this.carHazards.filter(c => c && c.weaponType === 'FBI');
+    if (fbiCars.length >= MAX_FBI_CARS) {
+      const toRemove = fbiCars.length - (MAX_FBI_CARS - count);
+      if (toRemove > 0) {
+        let removed = 0;
+        for (let i = 0; i < this.carHazards.length && removed < toRemove; i++) {
+          if (this.carHazards[i] && this.carHazards[i].weaponType === 'FBI') {
+            this.carHazards.splice(i, 1);
+            removed++;
+            i--;
+          }
+        }
+      }
+    }
+
     const used = [];
     const minSepY = 180;
     const pickSpawn = (side) => {
