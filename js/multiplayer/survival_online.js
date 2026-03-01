@@ -6577,10 +6577,12 @@ function updateCarHazardsFromServer(carHazards) {
   const CarHazardCtor = _getGlobalCtor("CarHazard");
   if (!CarHazardCtor) return;
 
-  // 创建车辆ID映射
-  const serverCarIds = new Set(carHazards.map(c => c.id));
+  // 只以「有 id」的車輛建 Set，避免 undefined 導致清除邏輯錯誤
+  const serverCarIds = new Set(
+    carHazards.map(c => c && c.id).filter(id => id != null && id !== '')
+  );
 
-  // 移除服务器不存在的车辆（从projectiles数组中移除）
+  // 移除伺服器未送出的車輛（與路口車一致：以 server 為準）
   for (let i = Game.projectiles.length - 1; i >= 0; i--) {
     const proj = Game.projectiles[i];
     if (proj && (proj.weaponType === 'INTERSECTION_CAR' || proj.weaponType === 'FBI' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
@@ -6591,11 +6593,11 @@ function updateCarHazardsFromServer(carHazards) {
     }
   }
 
-  // 更新或创建车辆
+  // 更新或建立車輛（每台只會有一份，用 id 對應）
   for (const carState of carHazards) {
+    if (!carState || carState.id == null || carState.id === '') continue;
     let car = Game.projectiles.find(p => p && p.id === carState.id && (p.weaponType === 'INTERSECTION_CAR' || p.weaponType === 'FBI' || (p.constructor && p.constructor.name === 'CarHazard')));
     if (!car) {
-      // 创建新车辆（仅视觉，伤害由服务器计算）
       const isFBI = (carState.weaponType === 'FBI');
       car = new CarHazardCtor({
         x: carState.x || 0,
@@ -6613,13 +6615,13 @@ function updateCarHazardsFromServer(carHazards) {
         hitSoundKey: 'bo'
       });
       car.id = carState.id;
-      car._isVisualOnly = true; // 仅视觉，伤害由服务器计算
+      car._isVisualOnly = true;
       Game.projectiles.push(car);
     }
     if (car) {
-      // ✅ 網路插值：車輛用目標位置 + 速度，避免瞬移
-      if (typeof carState.x === 'number') car._netTargetX = carState.x;
-      if (typeof carState.y === 'number') car._netTargetY = carState.y;
+      // 組隊時以伺服器位置為準，避免累積／拖影成一條線
+      if (typeof carState.x === 'number') car.x = carState.x;
+      if (typeof carState.y === 'number') car.y = carState.y;
       if (typeof carState.vx === 'number') car.vx = carState.vx;
       if (typeof carState.vy === 'number') car.vy = carState.vy;
       car.hitPlayer = carState.hitPlayer || false;
