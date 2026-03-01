@@ -451,7 +451,7 @@ const CONFIG = {
         // 白夜光束（白白虹專屬）：玩家為中心瞬時範圍傷害，範圍與恆星領域相同，傷害與冷卻與星隕相同
         WHITE_NIGHT_BEAM: {
             NAME: "白夜光束",
-            DAMAGE: 20, 
+            DAMAGE: 15, // 與星隕相同
             COOLDOWN: 2400, // 與星隕相同（2.4秒）
             FIELD_RADIUS: 150,
             FIELD_RADIUS_PER_LEVEL: 20,
