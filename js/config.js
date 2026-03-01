@@ -69,6 +69,7 @@ const CONFIG = {
             GABRIEL_ORBIT: 'assets/images/A57.png',
             RAINBOW_RESONANCE: 'assets/images/A58.png',
             FBI: 'assets/images/A59.png',
+            WHITE_NIGHT_BEAM: 'assets/images/A60.png',
             ADRENALINE: 'assets/images/A46.png',
             PINEAPPLE_SUPPLEMENT: 'assets/images/A47.png',
             SUMMON_AI: 'assets/images/AI.png',
@@ -445,6 +446,26 @@ const CONFIG = {
                 { COUNT: 2, DESCRIPTION: "冷卻2.3秒：召喚2台警車" },
                 { COUNT: 2, DESCRIPTION: "冷卻1.9秒：召喚2台警車" },
                 { COUNT: 3, DESCRIPTION: "冷卻1.5秒：召喚3台警車" }
+            ]
+        },
+        // 白夜光束（白白虹專屬）：玩家為中心瞬時範圍傷害，範圍與恆星領域相同，傷害與冷卻與星隕相同
+        WHITE_NIGHT_BEAM: {
+            NAME: "白夜光束",
+            DAMAGE: 20, 
+            COOLDOWN: 2400, // 與星隕相同（2.4秒）
+            FIELD_RADIUS: 150,
+            FIELD_RADIUS_PER_LEVEL: 20,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "範圍內敵人受到1次傷害（範圍150）" },
+                { COUNT: 1, DESCRIPTION: "範圍+20px" },
+                { COUNT: 1, DESCRIPTION: "範圍+40px" },
+                { COUNT: 1, DESCRIPTION: "範圍+60px" },
+                { COUNT: 1, DESCRIPTION: "範圍+80px" },
+                { COUNT: 1, DESCRIPTION: "範圍+100px" },
+                { COUNT: 1, DESCRIPTION: "範圍+120px" },
+                { COUNT: 1, DESCRIPTION: "範圍+140px" },
+                { COUNT: 1, DESCRIPTION: "範圍+160px" },
+                { COUNT: 1, DESCRIPTION: "範圍+180px" }
             ]
         },
         HEART_TRANSMISSION: {
@@ -1270,7 +1291,7 @@ const CONFIG = {
             hpBonus: -50,
             speedMultiplier: 1.0,
             critChanceBonusPct: 0.15,
-            description: `角色介紹：怕生的天才社畜工程師，追尋未知信號而來。\n專屬技能：加百列、虹光共鳴、FBI\n專屬大招：暫無`,
+            description: `角色介紹：怕生的天才社畜工程師，追尋未知信號而來。\n專屬技能：加百列、虹光共鳴、FBI、白夜光束\n專屬大招：暫無`,
             // 選角預覽圖（下方角色介紹用）：使用 player8-2.png（與其他角色邏輯相同：player7-2、player6-2 等）
             avatarImageKey: 'player8-2',
             // 所有模式的 HUD 左上角頭像：使用 player8-2.png
@@ -1279,7 +1300,7 @@ const CONFIG = {
             levelUpBgKey: 'player8-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: ['GABRIEL_ORBIT', 'RAINBOW_RESONANCE', 'FBI'],
+            exclusiveWeapons: ['GABRIEL_ORBIT', 'RAINBOW_RESONANCE', 'FBI', 'WHITE_NIGHT_BEAM'],
             unlockCost: 10000
         }
     ],
