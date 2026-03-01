@@ -569,6 +569,12 @@ const Game = {
                         projectile.destroy();
                     } catch (_) { }
                 }
+                // 白夜光束：移除前強制清理命中覆蓋層 DOM，避免組隊模式殘留「一坨光」
+                if (projectile.weaponType === 'WHITE_NIGHT_BEAM' && typeof projectile._destroyHitOverlays === 'function') {
+                    try {
+                        projectile._destroyHitOverlays();
+                    } catch (_) { }
+                }
                 this.projectiles.splice(i, 1);
             }
         }
