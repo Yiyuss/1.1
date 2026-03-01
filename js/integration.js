@@ -1,5 +1,10 @@
 // 整合文件 - 確保新模塊與原有系統的兼容性
 document.addEventListener('DOMContentLoaded', function() {
+    // 若 Game 未定義（例如 game.js 載入失敗或語法錯誤），不執行依賴 Game 的邏輯，避免整頁崩潰
+    if (typeof Game === 'undefined') {
+        console.error('[integration.js] Game 未定義，請檢查 game.js 是否正確載入（或是否有語法錯誤）。');
+        return;
+    }
     // 初始化事件系統
     if (typeof EventSystem !== 'undefined') {
         EventSystem.init();
