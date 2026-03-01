@@ -1502,7 +1502,8 @@ const Runtime = (() => {
               const isOneTimeEffect = (
                 weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' ||
                 weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' ||
-                weaponType === 'INVINCIBLE' // ✅ 修復：無敵技能是一次性效果，每次施放都創建新的（像斬擊一樣）
+                weaponType === 'INVINCIBLE' || // ✅ 修復：無敵技能是一次性效果，每次施放都創建新的（像斬擊一樣）
+                weaponType === 'WHITE_NIGHT_BEAM' // 白夜光束：一次性範圍傷害，僅視覺同步
               );
               if (!isOneTimeEffect) {
                 // 對於非一次性效果，檢查ID
@@ -2058,6 +2059,31 @@ const Runtime = (() => {
                   effect._remotePlayerUid = eventData.playerUid;
                   // ✅ 修復：初始化 hitEnemies 數組，以便在 hitEvents 中收集命中敵人
                   if (!effect.hitEnemies) effect.hitEnemies = [];
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "WHITE_NIGHT_BEAM" && typeof WhiteNightBeamEffect !== "undefined") {
+                // 白夜光束（白白虹專屬）：僅組隊模式視覺同步，傷害由伺服器 aoe_tick 權威結算
+                const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                if (!isMultiplayer) return;
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                    const remotePlayer = rt.RemotePlayerManager.get(eventData.playerUid);
+                    if (remotePlayer) targetPlayer = remotePlayer;
+                    else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) targetPlayer = Game.player;
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) targetPlayer = Game.player;
+                }
+                if (targetPlayer) {
+                  const effect = new WhiteNightBeamEffect(
+                    targetPlayer,
+                    eventData.damage || 15,
+                    eventData.radius || 150,
+                    eventData.level || 1
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
                   Game.projectiles.push(effect);
                 }
               } else if ((weaponType === "DEATHLINE_WARRIOR" || weaponType === "DEATHLINE_SUPERMAN") && typeof DeathlineWarriorEffect !== "undefined") {
@@ -6342,6 +6368,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'DEATHLINE_WARRIOR' || weaponType === 'DEATHLINE_SUPERMAN' ||
       weaponType === 'JUDGMENT' || weaponType === 'DIVINE_JUDGMENT' || weaponType === 'EXPLOSION' ||
       weaponType === 'STARFALL' || weaponType === 'STARFALL_MOON' ||
+      weaponType === 'WHITE_NIGHT_BEAM' ||
       // ✅ 厄倫蒂兒大招分身：持續效果由 projectile_spawn 事件同步（本地分身也不在 state.projectiles）
       // - 本地分身必須保留，才能繼續發射 ELONDIER_CLONE_THROW（傷害走伺服器權威 attack input）
       weaponType === 'ELONDIER_ULTIMATE_CLONE' ||
@@ -6351,6 +6378,7 @@ function updateProjectilesFromServer(projectiles) {
       constructorName === 'OrbitBall' || constructorName === 'RadiantGloryEffect' || constructorName === 'ShockwaveEffect' ||
       constructorName === 'IceFieldEffect' || constructorName === 'YoungDadaGloryEffect' || constructorName === 'FrenzyYoungDadaGloryEffect' ||
       constructorName === 'DeathlineWarriorEffect' || constructorName === 'JudgmentEffect' || constructorName === 'DivineJudgmentEffect' ||
+      constructorName === 'WhiteNightBeamEffect' ||
       constructorName === 'ExplosionEffect' || constructorName === 'StarfallEffect' || constructorName === 'StarfallMoon' ||
       constructorName === 'ElondierUltimateClone' ||
       // 檢查是否有 _remotePlayerUid（通過事件創建的標記）
