@@ -37,7 +37,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // 初始化音效系統
     AudioManager.init();
     
-    // 初始化遊戲（但不開始）
+    // 初始化遊戲（但不開始）- 若 Game 未定義則跳過，避免整頁崩潰
+    if (typeof Game === 'undefined') {
+        console.error('[main.js] Game 未定義，無法初始化遊戲。請檢查 game.js 是否正確載入。');
+        return;
+    }
     Game.init();
     // 預設暫停，但不靜音，以保留選單音樂與音效
     Game.pause(false);
@@ -142,6 +146,10 @@ function createDefaultVideo(videoId, text) {
 // - 若你新增的是「UI 圖示」(技能卡/成就卡)：通常直接用 `<img src="assets/...">`，不需要加到這裡。
 // - 若你新增的是「Canvas/特效要用 Game.images[key]」：請加到 `ResourceLoader.getImageList()`（而不是改這裡），避免兩套清單越來越難維護。
 function createDefaultImages() {
+    if (typeof Game === 'undefined') {
+        console.warn('[main.js] createDefaultImages: Game 未定義，略過');
+        return;
+    }
     // 初始化遊戲圖片對象
     Game.images = {};
     
