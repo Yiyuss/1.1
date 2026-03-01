@@ -13,6 +13,10 @@ class CarHazard extends Entity {
      * @param {string} opts.imageKey Game.images key
      * @param {number} [opts.damage=100]
      * @param {number} opts.despawnPad 額外超出邊界多少就刪除（像素）
+     * @param {string} [opts.weaponType='INTERSECTION_CAR'] 用於渲染與邏輯區分（如 FBI）
+     * @param {boolean} [opts.noShake=false] 為 true 時不觸發相機震動（FBI 技能）
+     * @param {number} [opts.particleScale=1] 粒子數量倍率（FBI 簡化 5 倍則為 0.2）
+     * @param {string} [opts.hitSoundKey='bo'] 命中時播放的音效鍵（撞擊統一使用 bo；FBI 車亦用 bo，並依 weaponType 做次數平衡）
      */
     constructor(opts) {
         super(opts.x, opts.y, opts.width, opts.height);
@@ -22,7 +26,13 @@ class CarHazard extends Entity {
         this.damage = (typeof opts.damage === 'number') ? opts.damage : 100;
         this.despawnPad = (typeof opts.despawnPad === 'number') ? opts.despawnPad : 200;
         this.hitPlayer = false; // 每台車只打一次
-        this.weaponType = 'INTERSECTION_CAR'; // 用於渲染層級控制
+        this.weaponType = (opts.weaponType && typeof opts.weaponType === 'string') ? opts.weaponType : 'INTERSECTION_CAR';
+        this.noShake = opts.noShake === true;
+        this.particleScale = (typeof opts.particleScale === 'number' && opts.particleScale > 0) ? opts.particleScale : 1;
+        this.hitSoundKey = (opts.hitSoundKey && typeof opts.hitSoundKey === 'string') ? opts.hitSoundKey : 'bo';
+        if (this.weaponType === 'FBI') {
+            this._gifOverlayId = 'fbi-car-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
+        }
     }
 
     update(deltaTime) {
@@ -50,9 +60,57 @@ class CarHazard extends Entity {
         // - **多人元素（伺服器權威）**：碰撞扣血/死亡判定（避免雙重扣血、避免不同端結果不一致）
         // - **單機元素（本地）**：本檔案的碰撞扣血邏輯（僅單機/非權威多人可用）
         const isServerAuthoritative = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-        // 玩家碰撞：只觸發一次傷害
-        // 組隊模式：過去會檢查所有玩家（本地玩家 + 遠程玩家）以求公平；但在權威多人下必須關閉，改由伺服器統一判定。
-        if (!isServerAuthoritative && !this.hitPlayer) {
+        // FBI 技能車：對「怪」造成傷害，不撞玩家
+        if (this.weaponType === 'FBI') {
+            if (!isServerAuthoritative && typeof Game !== 'undefined' && Array.isArray(Game.enemies)) {
+                if (!this.hitEnemyIds) this.hitEnemyIds = new Set();
+                const rectX = this.x - this.width / 2;
+                const rectY = this.y - this.height / 2;
+                for (const enemy of Game.enemies) {
+                    if (!enemy || enemy.isDead || enemy.markedForDeletion) continue;
+                    if (this.hitEnemyIds.has(enemy.id)) continue;
+                    const cr = (enemy.collisionRadius != null) ? enemy.collisionRadius : 16;
+                    if (typeof Utils !== 'undefined' && Utils.circleRectCollision && Utils.circleRectCollision(enemy.x, enemy.y, cr, rectX, rectY, this.width, this.height)) {
+                        this.hitEnemyIds.add(enemy.id);
+                        try {
+                            if (typeof enemy.takeDamage === 'function') {
+                                enemy.takeDamage(this.damage, { weaponType: 'FBI' });
+                            }
+                        } catch (_) {}
+                        try {
+                            if (typeof DamageNumbers !== 'undefined' && DamageNumbers.show) {
+                                DamageNumbers.show(Math.round(this.damage), enemy.x, enemy.y - (enemy.height || 0) / 2, false, { enemyId: enemy.id });
+                            }
+                        } catch (_) {}
+                        try {
+                            if (typeof Game !== 'undefined') {
+                                if (!Game.explosionParticles) Game.explosionParticles = [];
+                                const cx = enemy.x;
+                                const cy = enemy.y;
+                                const count = Math.max(1, Math.floor(18 * (this.particleScale || 1)));
+                                for (let i = 0; i < count; i++) {
+                                    const ang = Math.random() * Math.PI * 2;
+                                    const spd = 2.5 + Math.random() * 5.5;
+                                    const particle = {
+                                        x: cx + (Math.random() - 0.5) * 8,
+                                        y: cy + (Math.random() - 0.5) * 8,
+                                        vx: Math.cos(ang) * spd,
+                                        vy: Math.sin(ang) * spd,
+                                        life: 320 + Math.random() * 220,
+                                        maxLife: 320 + Math.random() * 220,
+                                        size: 5 + Math.random() * 4,
+                                        color: (i % 3 === 0) ? '#ffffff' : '#ff6666',
+                                        source: 'CAR_HIT'
+                                    };
+                                    Game.explosionParticles.push(particle);
+                                }
+                            }
+                        } catch (_) {}
+                    }
+                }
+            }
+        } else if (!isServerAuthoritative && !this.hitPlayer) {
+            // 路口地圖車輛：對玩家造成傷害（只觸發一次）
             // 收集所有需要檢查的玩家
             const allPlayers = [];
             const localPlayer = (typeof Game !== 'undefined') ? Game.player : null;
@@ -106,10 +164,10 @@ class CarHazard extends Entity {
                         }
                     } catch (_) {}
 
-                    // 命中音效（bo.mp3）- 僅本地玩家觸發音效
+                    // 命中音效：路口車使用 bo；FBI 車撞擊無聲
                     try {
-                        if (player === localPlayer && typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
-                            AudioManager.playSound('bo');
+                        if (player === localPlayer && typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function' && this.weaponType !== 'FBI') {
+                            AudioManager.playSound(this.hitSoundKey || 'bo');
                         }
                     } catch (_) {}
 
@@ -120,20 +178,22 @@ class CarHazard extends Entity {
                             // 螢幕白閃：僅本地玩家觸發
                             if (player === localPlayer) {
                                 Game.screenFlash = { active: true, duration: 140, intensity: 0.28 };
-                                // ✅ 修复：添加相机震动（与BOSS投射物一致）
-                                if (!Game.cameraShake) {
-                                    Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+                                // ✅ 修复：添加相机震动（与BOSS投射物一致）；FBI 技能不震動
+                                if (!this.noShake) {
+                                    if (!Game.cameraShake) {
+                                        Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+                                    }
+                                    Game.cameraShake.active = true;
+                                    Game.cameraShake.intensity = 8; // 与BOSS投射物一致
+                                    Game.cameraShake.duration = 200; // 200毫秒
                                 }
-                                Game.cameraShake.active = true;
-                                Game.cameraShake.intensity = 8; // 与BOSS投射物一致
-                                Game.cameraShake.duration = 200; // 200毫秒
                             }
                             
-                            // 爆炸粒子：需要同步
+                            // 爆炸粒子：需要同步；FBI 簡化 5 倍（particleScale 0.2）
                             if (!Game.explosionParticles) Game.explosionParticles = [];
                             const cx = (player && player.x != null) ? player.x : this.x;
                             const cy = (player && player.y != null) ? player.y : this.y;
-                            const count = 18;
+                            const count = Math.max(1, Math.floor(18 * (this.particleScale || 1)));
                             for (let i = 0; i < count; i++) {
                                 const ang = Math.random() * Math.PI * 2;
                                 const spd = 2.5 + Math.random() * 5.5;
@@ -222,7 +282,23 @@ class CarHazard extends Entity {
             let sx = (this.x - camX) * scaleX;
             let sy = (this.y - camY) * scaleY;
             const left = sx - this.width / 2, right = sx + this.width / 2, top = sy - this.height / 2, bottom = sy + this.height / 2;
-            if (right < -margin || bottom < -margin || left > vw + margin || top > vh + margin) return;
+            if (right < -margin || bottom < -margin || left > vw + margin || top > vh + margin) {
+                if (this.weaponType === 'FBI' && this._gifOverlayId && typeof GifOverlay !== 'undefined' && GifOverlay.hide) {
+                    GifOverlay.hide(this._gifOverlayId);
+                }
+                return;
+            }
+        }
+        // FBI 車：用 GifOverlay 顯示 GIF 動畫（Canvas drawImage 只會顯示第一幀）
+        if (this.weaponType === 'FBI' && this._gifOverlayId && typeof GifOverlay !== 'undefined' && GifOverlay.showOrUpdate) {
+            const img = (typeof Game !== 'undefined' && Game.images) ? Game.images[this.imageKey] : null;
+            const src = (img && (img.src || img.currentSrc)) ? (img.src || img.currentSrc) : '';
+            const screenX = this.x - camX;
+            const screenY = this.y - camY;
+            GifOverlay.showOrUpdate(this._gifOverlayId, src, screenX, screenY, { width: this.width, height: this.height }, false);
+            ctx.save();
+            ctx.restore();
+            return;
         }
         const img = (typeof Game !== 'undefined' && Game.images) ? Game.images[this.imageKey] : null;
         ctx.save();
@@ -234,6 +310,12 @@ class CarHazard extends Entity {
             ctx.fillRect(this.x - this.width / 2, this.y - this.height / 2, this.width, this.height);
         }
         ctx.restore();
+    }
+
+    destroy() {
+        if (this.weaponType === 'FBI' && this._gifOverlayId && typeof GifOverlay !== 'undefined' && GifOverlay.hide) {
+            GifOverlay.hide(this._gifOverlayId);
+        }
     }
 }
 
