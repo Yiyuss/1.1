@@ -292,13 +292,25 @@ class CarHazard extends Entity {
                 return;
             }
         }
-        // FBI 車：用 GifOverlay 顯示 GIF 動畫（Canvas drawImage 只會顯示第一幀）
-        if (this.weaponType === 'FBI' && this._gifOverlayId && typeof GifOverlay !== 'undefined' && GifOverlay.showOrUpdate) {
-            const img = (typeof Game !== 'undefined' && Game.images) ? Game.images[this.imageKey] : null;
-            const src = (img && (img.src || img.currentSrc)) ? (img.src || img.currentSrc) : '';
+        // FBI 車：只用 GifOverlay 顯示 GIF 動畫（絕不用 Canvas，否則會變靜態圖或拖一整排）
+        if (this.weaponType === 'FBI') {
             const screenX = this.x - camX;
             const screenY = this.y - camY;
-            GifOverlay.showOrUpdate(this._gifOverlayId, src, screenX, screenY, { width: this.width, height: this.height }, false);
+            // 一律用 GIF 的 URL：優先 Game.images，否則用直接路徑，確保是 .gif 動態檔
+            let gifSrc = '';
+            const img = (typeof Game !== 'undefined' && Game.images) ? Game.images[this.imageKey] : null;
+            if (img && (img.src || img.currentSrc)) {
+                gifSrc = img.src || img.currentSrc;
+            }
+            if (!gifSrc && this.imageKey === 'FBI2') {
+                gifSrc = 'assets/images/FBI2.gif';
+            }
+            if (!gifSrc) {
+                gifSrc = 'assets/images/FBI.gif';
+            }
+            if (this._gifOverlayId && typeof GifOverlay !== 'undefined' && GifOverlay.showOrUpdate) {
+                GifOverlay.showOrUpdate(this._gifOverlayId, gifSrc, screenX, screenY, { width: this.width, height: this.height }, false);
+            }
             ctx.save();
             ctx.restore();
             return;
