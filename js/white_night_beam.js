@@ -187,27 +187,29 @@
             const frameDuration = this.hitFrameDuration || (500 / 11);
             for (const hit of this.hitEnemies) {
                 if (!hit || !hit.domEl) continue;
-                // 固定使用命中當下的座標，不跟隨敵人移動（避免小怪移動/擊退時特效亂跳）
-                const ex = hit.x != null ? hit.x : (hit.enemy && !hit.enemy.markedForDeletion ? hit.enemy.x : 0);
-                const ey = hit.y != null ? hit.y : (hit.enemy && !hit.enemy.markedForDeletion ? hit.enemy.y : 0);
-                let sx = (ex - camX) * scaleX;
-                let sy = (ey - camY) * scaleY;
-                if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) continue;
-                const leftPx = Math.round(sx);
-                const topPx = Math.round(sy);
-                hit.domEl.style.left = leftPx + 'px';
-                hit.domEl.style.top = topPx + 'px';
-                if (hit.domEl.getContext && img && img.complete) {
-                    const elapsed = now - (hit.startTime || now);
-                    const frameIndex = Math.min(this.totalFrames - 1, Math.floor(elapsed / frameDuration));
-                    const col = frameIndex % this.framesPerRow;
-                    const row = Math.floor(frameIndex / this.framesPerRow);
-                    const ctx = hit.domEl.getContext('2d');
-                    if (ctx) {
-                        ctx.clearRect(0, 0, hit.domEl.width, hit.domEl.height);
-                        ctx.drawImage(img, col * this.frameWidth, row * this.frameHeight, this.frameWidth, this.frameHeight, 0, 0, hit.domEl.width, hit.domEl.height);
+                try {
+                    // 固定使用命中當下的座標，不跟隨敵人移動（避免小怪移動/擊退時特效亂跳）
+                    const ex = hit.x != null ? hit.x : (hit.enemy && !hit.enemy.markedForDeletion ? hit.enemy.x : 0);
+                    const ey = hit.y != null ? hit.y : (hit.enemy && !hit.enemy.markedForDeletion ? hit.enemy.y : 0);
+                    let sx = (ex - camX) * scaleX;
+                    let sy = (ey - camY) * scaleY;
+                    if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) continue;
+                    const leftPx = Math.round(sx);
+                    const topPx = Math.round(sy);
+                    hit.domEl.style.left = leftPx + 'px';
+                    hit.domEl.style.top = topPx + 'px';
+                    if (hit.domEl.getContext && img && img.complete) {
+                        const elapsed = now - (hit.startTime || now);
+                        const frameIndex = Math.min(this.totalFrames - 1, Math.floor(elapsed / frameDuration));
+                        const col = frameIndex % this.framesPerRow;
+                        const row = Math.floor(frameIndex / this.framesPerRow);
+                        const ctx = hit.domEl.getContext('2d');
+                        if (ctx) {
+                            ctx.clearRect(0, 0, hit.domEl.width, hit.domEl.height);
+                            ctx.drawImage(img, col * this.frameWidth, row * this.frameHeight, this.frameWidth, this.frameHeight, 0, 0, hit.domEl.width, hit.domEl.height);
+                        }
                     }
-                }
+                } catch (_) { }
             }
             this._lastHitDomUpdateAt = now;
         }
@@ -224,32 +226,40 @@
 
         update(deltaTime) {
             if (this._isVisualOnly && this._remotePlayerUid) {
-                const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
-                if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
-                    const remotePlayer = rt.RemotePlayerManager.get(this._remotePlayerUid);
-                    if (remotePlayer) {
-                        this.player = remotePlayer;
-                        this.x = remotePlayer.x;
-                        this.y = remotePlayer.y;
-                    } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid) && typeof Game !== 'undefined' && Game.player) {
-                        this.player = Game.player;
-                        this.x = Game.player.x;
-                        this.y = Game.player.y;
+                try {
+                    const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                    if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                        const remotePlayer = rt.RemotePlayerManager.get(this._remotePlayerUid);
+                        if (remotePlayer) {
+                            this.player = remotePlayer;
+                            this.x = remotePlayer.x;
+                            this.y = remotePlayer.y;
+                        } else if (this._remotePlayerUid === (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.uid) && typeof Game !== 'undefined' && Game.player) {
+                            this.player = Game.player;
+                            this.x = Game.player.x;
+                            this.y = Game.player.y;
+                        } else {
+                            this.markedForDeletion = true;
+                            this._destroyHitOverlays();
+                            return;
+                        }
                     } else {
                         this.markedForDeletion = true;
+                        this._destroyHitOverlays();
                         return;
                     }
-                } else {
+                    // 組隊僅視覺：仍要跑時間與清理、更新命中特效位置與幀（與 ExplosionEffect 一致）
+                    const elapsed = Date.now() - this.startTime;
+                    if (elapsed >= this.durationMs) {
+                        this.markedForDeletion = true;
+                        this._destroyHitOverlays();
+                    } else {
+                        this._updateHitOverlayPositions();
+                    }
+                } catch (e) {
+                    // 避免 update 拋錯導致 effect 永不移除、DOM 殘留成「一坨光」
                     this.markedForDeletion = true;
-                    return;
-                }
-                // 組隊僅視覺：仍要跑時間與清理、更新命中特效位置與幀（與 ExplosionEffect 一致）
-                const elapsed = Date.now() - this.startTime;
-                if (elapsed >= this.durationMs) {
-                    this.markedForDeletion = true;
-                    this._destroyHitOverlays();
-                } else {
-                    this._updateHitOverlayPositions();
+                    try { this._destroyHitOverlays(); } catch (_) { }
                 }
                 return;
             }
