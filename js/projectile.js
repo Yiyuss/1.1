@@ -395,7 +395,13 @@ class Projectile extends Entity {
     
     draw(ctx) {
         ctx.save();
-        
+
+        // 白夜光束無玩家中心視覺，不繪製（避免組隊模式落入此類時畫出白球）
+        if (this.weaponType === 'WHITE_NIGHT_BEAM') {
+            ctx.restore();
+            return;
+        }
+
         let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
         try {
             vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
