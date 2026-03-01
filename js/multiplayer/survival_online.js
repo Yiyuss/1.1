@@ -6577,16 +6577,17 @@ function updateCarHazardsFromServer(carHazards) {
   const CarHazardCtor = _getGlobalCtor("CarHazard");
   if (!CarHazardCtor) return;
 
-  // 只以「有 id」的車輛建 Set，避免 undefined 導致清除邏輯錯誤
+  // 只以「有 id」的車輛建 Set（字串比對，避免 number/string 不一致導致誤刪或留殘影）
   const serverCarIds = new Set(
-    carHazards.map(c => c && c.id).filter(id => id != null && id !== '')
+    carHazards.map(c => c && c.id != null ? String(c.id) : null).filter(id => id != null && id !== '')
   );
 
   // 移除伺服器未送出的車輛（與路口車一致：以 server 為準）
   for (let i = Game.projectiles.length - 1; i >= 0; i--) {
     const proj = Game.projectiles[i];
     if (proj && (proj.weaponType === 'INTERSECTION_CAR' || proj.weaponType === 'FBI' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
-      if (!serverCarIds.has(proj.id)) {
+      const projIdStr = proj.id != null ? String(proj.id) : null;
+      if (!projIdStr || !serverCarIds.has(projIdStr)) {
         try { if (typeof proj.destroy === 'function') proj.destroy(); } catch (_) {}
         Game.projectiles.splice(i, 1);
       }
@@ -6596,7 +6597,8 @@ function updateCarHazardsFromServer(carHazards) {
   // 更新或建立車輛（每台只會有一份，用 id 對應）
   for (const carState of carHazards) {
     if (!carState || carState.id == null || carState.id === '') continue;
-    let car = Game.projectiles.find(p => p && p.id === carState.id && (p.weaponType === 'INTERSECTION_CAR' || p.weaponType === 'FBI' || (p.constructor && p.constructor.name === 'CarHazard')));
+    const stateIdStr = String(carState.id);
+    let car = Game.projectiles.find(p => p && (p.weaponType === 'INTERSECTION_CAR' || p.weaponType === 'FBI' || (p.constructor && p.constructor.name === 'CarHazard')) && String(p.id) === stateIdStr);
     if (!car) {
       const isFBI = (carState.weaponType === 'FBI');
       car = new CarHazardCtor({
@@ -6616,6 +6618,8 @@ function updateCarHazardsFromServer(carHazards) {
       });
       car.id = carState.id;
       car._isVisualOnly = true;
+      // 組隊 FBI 車：用伺服器 id 當 GifOverlay id，一車一 overlay，不會多台共用一个 DOM 或重複建立
+      if (isFBI) car._gifOverlayId = 'fbi-car-' + stateIdStr;
       Game.projectiles.push(car);
     }
     if (car) {
