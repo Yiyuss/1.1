@@ -5672,10 +5672,10 @@ function handleServerGameState(state, timestamp) {
               }
             }
           } else if (weaponType === 'WHITE_NIGHT_BEAM') {
-            // 組隊模式：白夜光束命中特效由 hitEvents 補齊（與 EXPLOSION 同結構）
-            // 根因：權威模式下 projectile_spawn 被禁止廣播，隊員從未收到 spawn，故無 effect；
-            // 必須在收到第一個 hit 時「從 hit 建立 effect」並加入 Game.projectiles，隊員才能看到 A61 動畫。
-            if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles) && typeof WhiteNightBeamEffect !== 'undefined') {
+            // 施放者端已在 _applyDamage 中自行建立 hitEnemies + overlay，不需要從 hitEvents 重複建立
+            // 僅遠端玩家的白夜光束才需在此建立 effect + overlay（與 EXPLOSION 的 !damageApplied 模式對齊）
+            const isLocalPlayerBeam = (ev.playerUid && Game.multiplayer && Game.multiplayer.uid && ev.playerUid === Game.multiplayer.uid);
+            if (!isLocalPlayerBeam && typeof Game !== 'undefined' && Array.isArray(Game.projectiles) && typeof WhiteNightBeamEffect !== 'undefined') {
               const nowBeam = Date.now();
               let beamEffect = Game.projectiles.find(p =>
                 p && p.constructor && p.constructor.name === 'WhiteNightBeamEffect' &&
