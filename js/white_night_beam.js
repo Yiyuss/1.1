@@ -243,7 +243,17 @@
                     this.markedForDeletion = true;
                     return;
                 }
-            } else if (this.player) {
+                // 組隊僅視覺：仍要跑時間與清理、更新命中特效位置與幀（與 ExplosionEffect 一致）
+                const elapsed = Date.now() - this.startTime;
+                if (elapsed >= this.durationMs) {
+                    this.markedForDeletion = true;
+                    this._destroyHitOverlays();
+                } else {
+                    this._updateHitOverlayPositions();
+                }
+                return;
+            }
+            if (this.player) {
                 this.x = this.player.x;
                 this.y = this.player.y;
             }
