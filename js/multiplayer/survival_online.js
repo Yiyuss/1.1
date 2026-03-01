@@ -5717,11 +5717,12 @@ function handleServerGameState(state, timestamp) {
                     enemyId: enemyId,
                     startTime: Date.now()
                   });
+                  // 每次新增 hit 都要補 overlay（只會為尚未有 domEl 的 hit 建立，避免只顯示一個其餘一坨光/殘留）
+                  if (typeof beamEffect._createHitOverlays === 'function') {
+                    beamEffect._createHitOverlays();
+                  }
                 }
-                if (!beamEffect._hitOverlaysCreated && typeof beamEffect._createHitOverlays === 'function') {
-                  beamEffect._createHitOverlays();
-                  beamEffect._hitOverlaysCreated = true;
-                }
+                if (!beamEffect._hitOverlaysCreated) beamEffect._hitOverlaysCreated = true;
               }
             }
           }
@@ -6460,6 +6461,9 @@ function updateProjectilesFromServer(projectiles) {
         // ✅ 特殊視覺效果：若已標記刪除或超時，允許移除（避免累積）
         try {
           if (proj && (proj.markedForDeletion || (proj._isVisualOnly && proj._createdAt && (now - proj._createdAt > VISUAL_EFFECT_HARD_MAX_AGE)))) {
+            if (proj.weaponType === 'WHITE_NIGHT_BEAM' && typeof proj._destroyHitOverlays === 'function') {
+              try { proj._destroyHitOverlays(); } catch (_) { }
+            }
             Game.projectiles.splice(i, 1);
           }
         } catch (_) { }
@@ -6472,6 +6476,9 @@ function updateProjectilesFromServer(projectiles) {
         // ✅ 特殊視覺效果：若已標記刪除或超時，允許移除（避免累積）
         try {
           if (proj && (proj.markedForDeletion || (proj._isVisualOnly && proj._createdAt && (now - proj._createdAt > VISUAL_EFFECT_HARD_MAX_AGE)))) {
+            if (proj.weaponType === 'WHITE_NIGHT_BEAM' && typeof proj._destroyHitOverlays === 'function') {
+              try { proj._destroyHitOverlays(); } catch (_) { }
+            }
             Game.projectiles.splice(i, 1);
           }
         } catch (_) { }
