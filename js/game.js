@@ -596,6 +596,9 @@ const Game = {
                             if (typeof p.destroy === 'function') {
                                 p.destroy();
                             }
+                            if (p.weaponType === 'WHITE_NIGHT_BEAM' && typeof p._destroyHitOverlays === 'function') {
+                                try { p._destroyHitOverlays(); } catch (_) { }
+                            }
                             // 保守清理：若 destroy 未處理 DOM，這裡補一刀
                             if (p.el && p.el.parentNode) {
                                 p.el.parentNode.removeChild(p.el);
@@ -618,6 +621,9 @@ const Game = {
                         if (!p._createdAt) p._createdAt = now;
                         if (now - p._createdAt > VISUAL_EFFECT_HARD_MAX_AGE) {
                             try { if (typeof p.destroy === 'function') p.destroy(); } catch (_) { }
+                            if (p.weaponType === 'WHITE_NIGHT_BEAM' && typeof p._destroyHitOverlays === 'function') {
+                                try { p._destroyHitOverlays(); } catch (_) { }
+                            }
                             try {
                                 if (p.el && p.el.parentNode) p.el.parentNode.removeChild(p.el);
                                 p.el = null;
