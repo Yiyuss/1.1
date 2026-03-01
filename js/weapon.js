@@ -48,7 +48,11 @@
                 }
 
                 // 檢查是否可以發射（兩次更新都檢查，但只在第一次累積時間）
-                if (this.cooldownAccumulator >= this.config.COOLDOWN) {
+                // FBI：LV1 冷卻 5 秒～LV10 冷卻 1.5 秒線性縮減
+                const effectiveCooldown = (this.type === 'FBI' && this.config.COOLDOWN_LV10 != null)
+                    ? Math.max(1500, 5000 - (5000 - (this.config.COOLDOWN_LV10 || 1500)) * (this.level - 1) / 9)
+                    : this.config.COOLDOWN;
+                if (this.cooldownAccumulator >= effectiveCooldown) {
                     this.fire();
                     this.cooldownAccumulator = 0; // 重置累積時間
                 }
@@ -59,6 +63,28 @@
                 const levelMul = (typeof DamageSystem !== 'undefined')
                     ? DamageSystem.levelMultiplier(this.level)
                     : (1 + 0.05 * Math.max(0, this.level - 1));
+                // 特殊技能：FBI（從左右兩側隨機出現車子，組隊時由伺服器生成）
+                if (this.type === 'FBI') {
+                    const count = this.level < 5 ? 1 : this.level < 10 ? 2 : 3;
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                    if (isMultiplayer && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                        const dmg = this._computeFinalDamage(1);
+                        window.SurvivalOnlineRuntime.sendToNet({
+                            type: 'attack',
+                            weaponType: 'FBI',
+                            fbiCount: count,
+                            level: this.level,
+                            finalDamage: dmg,
+                            timestamp: Date.now()
+                        });
+                        return;
+                    }
+                    if (typeof Game !== 'undefined' && typeof Game.spawnFBICars === 'function') {
+                        const dmg = this._computeFinalDamage(1);
+                        Game.spawnFBICars(count, dmg);
+                    }
+                    return;
+                }
                 // 特殊技能：無敵（不造成傷害，給予玩家短暫無敵並顯示護盾特效）
                 if (this.type === 'INVINCIBLE') {
                     const seconds = 2.0 + 0.2 * Math.max(0, this.level - 1);
