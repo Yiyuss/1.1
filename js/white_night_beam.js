@@ -10,7 +10,7 @@
     const FIELD_RADIUS_PER_LEVEL = (typeof beamCfg.FIELD_RADIUS_PER_LEVEL === 'number') ? beamCfg.FIELD_RADIUS_PER_LEVEL : 20;
 
     class WhiteNightBeamEffect extends Entity {
-        constructor(player, damage, radius, level) {
+        constructor(player, damage, radius, level, options) {
             super(player.x, player.y, 256, 256);
             this.player = player;
             this.damage = Math.max(0, damage || 15);
@@ -19,6 +19,7 @@
             this.weaponType = 'WHITE_NIGHT_BEAM';
             this.startTime = Date.now();
             this.durationMs = 500;
+            this._isVisualOnly = !!(options && options._isVisualOnly);
             this.frameWidth = 128;
             this.frameHeight = 128;
             this.framesPerRow = 5;
@@ -45,7 +46,7 @@
 
             this.x = this.player.x;
             this.y = this.player.y;
-            this._applyDamage();
+            if (!this._isVisualOnly) this._applyDamage();
         }
 
         _applyDamage() {
@@ -157,6 +158,7 @@
             for (let i = 0; i < cap; i++) {
                 const hit = this.hitEnemies[i];
                 if (!hit) continue;
+                if (hit.domEl && layer.contains(hit.domEl)) continue;
                 const el = this._hitPool.length ? this._hitPool.pop() : document.createElement('canvas');
                 el.width = sizePx;
                 el.height = sizePx;
