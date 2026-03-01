@@ -68,6 +68,7 @@ const CONFIG = {
             PINEAPPLE_ORBIT: 'assets/images/A44.png',
             GABRIEL_ORBIT: 'assets/images/A57.png',
             RAINBOW_RESONANCE: 'assets/images/A58.png',
+            FBI: 'assets/images/A59.png',
             ADRENALINE: 'assets/images/A46.png',
             PINEAPPLE_SUPPLEMENT: 'assets/images/A47.png',
             SUMMON_AI: 'assets/images/AI.png',
@@ -425,6 +426,25 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "回血速度+240%" },
                 { COUNT: 1, DESCRIPTION: "回血速度+270%" },
                 { COUNT: 1, DESCRIPTION: "回血速度+300%" }
+            ]
+        },
+        // 新武器：FBI（白白虹專屬；從左右兩側隨機出現車子，邏輯與路口車輛相同，傷害10，LV1冷卻5秒～LV10冷卻1.5秒，LV5兩台/LV10三台）
+        FBI: {
+            NAME: "FBI",
+            DAMAGE: 10,
+            COOLDOWN: 5000, // LV1 冷卻 5 秒
+            COOLDOWN_LV10: 1500, // LV10 冷卻 1.5 秒（線性縮減）
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "冷卻5秒：隨機1台車" },
+                { COUNT: 1, DESCRIPTION: "冷卻4.6秒：隨機1台車" },
+                { COUNT: 1, DESCRIPTION: "冷卻4.2秒：隨機1台車" },
+                { COUNT: 1, DESCRIPTION: "冷卻3.9秒：隨機1台車" },
+                { COUNT: 2, DESCRIPTION: "冷卻3.5秒：隨機2台車" },
+                { COUNT: 2, DESCRIPTION: "冷卻3.1秒：隨機2台車" },
+                { COUNT: 2, DESCRIPTION: "冷卻2.7秒：隨機2台車" },
+                { COUNT: 2, DESCRIPTION: "冷卻2.3秒：隨機2台車" },
+                { COUNT: 2, DESCRIPTION: "冷卻1.9秒：隨機2台車" },
+                { COUNT: 3, DESCRIPTION: "冷卻1.5秒：隨機3台車" }
             ]
         },
         HEART_TRANSMISSION: {
@@ -1250,7 +1270,7 @@ const CONFIG = {
             hpBonus: -50,
             speedMultiplier: 1.0,
             critChanceBonusPct: 0.15,
-            description: `角色介紹：怕生的天才社畜工程師，追尋未知信號而來。\n專屬技能：加百列、虹光共鳴\n專屬大招：暫無`,
+            description: `角色介紹：怕生的天才社畜工程師，追尋未知信號而來。\n專屬技能：加百列、虹光共鳴、FBI\n專屬大招：暫無`,
             // 選角預覽圖（下方角色介紹用）：使用 player8-2.png（與其他角色邏輯相同：player7-2、player6-2 等）
             avatarImageKey: 'player8-2',
             // 所有模式的 HUD 左上角頭像：使用 player8-2.png
@@ -1259,7 +1279,7 @@ const CONFIG = {
             levelUpBgKey: 'player8-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: ['GABRIEL_ORBIT', 'RAINBOW_RESONANCE'],
+            exclusiveWeapons: ['GABRIEL_ORBIT', 'RAINBOW_RESONANCE', 'FBI'],
             unlockCost: 10000
         }
     ],
