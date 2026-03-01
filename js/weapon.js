@@ -85,6 +85,22 @@
                     }
                     return;
                 }
+                // 白夜光束（白白虹專屬）：玩家為中心瞬時範圍傷害，範圍同恆星領域，傷害與冷卻同星隕
+                if (this.type === 'WHITE_NIGHT_BEAM') {
+                    const cfg = this.config || {};
+                    const baseRadius = (cfg.FIELD_RADIUS != null) ? cfg.FIELD_RADIUS : 150;
+                    const perLevel = (cfg.FIELD_RADIUS_PER_LEVEL != null) ? cfg.FIELD_RADIUS_PER_LEVEL : 20;
+                    const radius = baseRadius + perLevel * (this.level - 1);
+                    const dmg = this._computeFinalDamage(1);
+                    if (typeof Game !== 'undefined' && typeof WhiteNightBeamEffect !== 'undefined') {
+                        if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+                            AudioManager.playSound('ICE'); // 每次施放只播一次
+                        }
+                        const effect = new WhiteNightBeamEffect(this.player, dmg, radius, this.level);
+                        Game.addProjectile(effect);
+                    }
+                    return;
+                }
                 // 特殊技能：無敵（不造成傷害，給予玩家短暫無敵並顯示護盾特效）
                 if (this.type === 'INVINCIBLE') {
                     const seconds = 2.0 + 0.2 * Math.max(0, this.level - 1);
