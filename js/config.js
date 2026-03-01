@@ -435,16 +435,16 @@ const CONFIG = {
             COOLDOWN: 5000, // LV1 冷卻 5 秒
             COOLDOWN_LV10: 1500, // LV10 冷卻 1.5 秒（線性縮減）
             LEVELS: [
-                { COUNT: 1, DESCRIPTION: "冷卻5秒：隨機1台車" },
-                { COUNT: 1, DESCRIPTION: "冷卻4.6秒：隨機1台車" },
-                { COUNT: 1, DESCRIPTION: "冷卻4.2秒：隨機1台車" },
-                { COUNT: 1, DESCRIPTION: "冷卻3.9秒：隨機1台車" },
-                { COUNT: 2, DESCRIPTION: "冷卻3.5秒：隨機2台車" },
-                { COUNT: 2, DESCRIPTION: "冷卻3.1秒：隨機2台車" },
-                { COUNT: 2, DESCRIPTION: "冷卻2.7秒：隨機2台車" },
-                { COUNT: 2, DESCRIPTION: "冷卻2.3秒：隨機2台車" },
-                { COUNT: 2, DESCRIPTION: "冷卻1.9秒：隨機2台車" },
-                { COUNT: 3, DESCRIPTION: "冷卻1.5秒：隨機3台車" }
+                { COUNT: 1, DESCRIPTION: "冷卻5秒：召喚1台警車" },
+                { COUNT: 1, DESCRIPTION: "冷卻4.6秒：召喚1台警車" },
+                { COUNT: 1, DESCRIPTION: "冷卻4.2秒：召喚1台警車" },
+                { COUNT: 1, DESCRIPTION: "冷卻3.9秒：召喚1台警車" },
+                { COUNT: 2, DESCRIPTION: "冷卻3.5秒：召喚2台警車" },
+                { COUNT: 2, DESCRIPTION: "冷卻3.1秒：召喚2台警車" },
+                { COUNT: 2, DESCRIPTION: "冷卻2.7秒：召喚2台警車" },
+                { COUNT: 2, DESCRIPTION: "冷卻2.3秒：召喚2台警車" },
+                { COUNT: 2, DESCRIPTION: "冷卻1.9秒：召喚2台警車" },
+                { COUNT: 3, DESCRIPTION: "冷卻1.5秒：召喚3台警車" }
             ]
         },
         HEART_TRANSMISSION: {
