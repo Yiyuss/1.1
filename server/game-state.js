@@ -959,9 +959,14 @@ class GameState {
         break;
 
       case 'attack':
+        // ✅ FBI 技能：由伺服器生成 FBI 車並加入 carHazards（與路口車輛同邏輯，權威結算）
+        try {
+          if (input.weaponType === 'FBI') {
+            this.spawnFBICars(uid, input);
+            return;
+          }
+        } catch (_) {}
         // 服务器创建投射物
-        // ⚠️ 修复：移除频繁的日志，避免洗掉其他重要报告
-        // console.log(`[GameState.handleInput] ✅ 收到攻擊輸入: uid=${uid}, weaponType=${input.weaponType || 'UNKNOWN'}, x=${input.x}, y=${input.y}`);
         try { player.lastAttackAt = Date.now(); } catch (_) { }
         this.createProjectile(uid, input);
         break;
@@ -2635,7 +2640,40 @@ class GameState {
       car.y += car.vy * deltaMul;
 
       // 检查与玩家碰撞（服务器权威计算伤害）
-      if (!car.hitPlayer) {
+      // FBI 技能車：對敵人造成傷害，不撞玩家
+      if (car.weaponType === 'FBI') {
+        if (!car.hitEnemyIds) car.hitEnemyIds = new Set();
+        const rectX = car.x - car.width / 2;
+        const rectY = car.y - car.height / 2;
+        const ownerUid = car.ownerUid || null;
+        for (let e = 0; e < this.enemies.length; e++) {
+          const enemy = this.enemies[e];
+          if (!enemy || enemy.isDead || enemy.health <= 0) continue;
+          if (car.hitEnemyIds.has(enemy.id)) continue;
+          const closestX = Math.max(rectX, Math.min(enemy.x, rectX + car.width));
+          const closestY = Math.max(rectY, Math.min(enemy.y, rectY + car.height));
+          const dx = enemy.x - closestX;
+          const dy = enemy.y - closestY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const cr = (typeof enemy.collisionRadius === 'number') ? enemy.collisionRadius : 16;
+          if (dist < cr) {
+            car.hitEnemyIds.add(enemy.id);
+            this.damageEnemy(enemy, Math.round(car.damage || 10), { sourceUid: ownerUid });
+            try {
+              this.hitEvents.push({
+                enemyId: enemy.id,
+                x: enemy.x,
+                y: enemy.y,
+                h: enemy.size || 32,
+                damage: Math.round(car.damage || 10),
+                isCrit: false,
+                weaponType: 'FBI',
+                playerUid: ownerUid
+              });
+            } catch (_) {}
+          }
+        }
+      } else if (!car.hitPlayer) {
         for (const player of this.players.values()) {
           if (player.isDead) continue;
 
@@ -2660,7 +2698,7 @@ class GameState {
             car.hitPlayer = true;
 
             // ✅ 修复：广播车辆撞击事件（音效+特效+相机震动是多人元素，需要同步）
-            // 音效和相机震动是单机元素，但特效（爆炸粒子、屏幕白闪）需要同步
+            // FBI 車：不震動，由 client 依 weaponType 判斷
             try {
               this.vfxEvents.push({
                 type: 'car_hit',
@@ -2669,8 +2707,9 @@ class GameState {
                   x: player.x || car.x,
                   y: player.y || car.y,
                   timestamp: Date.now(),
-                  // ✅ 修复：添加相机震动（单机元素，只对被撞的玩家生效）
-                  cameraShake: {
+                  weaponType: car.weaponType || null,
+                  // ✅ 修复：添加相机震动（单机元素，只对被撞的玩家生效）；FBI 時不傳
+                  cameraShake: (car.weaponType === 'FBI') ? undefined : {
                     active: true,
                     intensity: 8, // 与BOSS投射物一致
                     duration: 200 // 200毫秒
@@ -2817,6 +2856,96 @@ class GameState {
     }
   }
 
+  // ✅ FBI 技能：玩家施放時由伺服器生成 FBI 車（與路口車輛同邏輯，權威結算）
+  spawnFBICars(uid, input) {
+    const player = this.players.get(uid);
+    if (!player || player.isDead) return;
+    const worldWidth = this.worldWidth || 1920;
+    const worldHeight = this.worldHeight || 1080;
+    const carSpeed = 15;
+    const damage = (typeof input.finalDamage === 'number') ? input.finalDamage : 10;
+    const width = 320;
+    const height = 180;
+    const level = (typeof input.level === 'number') ? Math.max(1, Math.min(10, input.level)) : 1;
+    const count = (typeof input.fbiCount === 'number') ? Math.max(1, Math.min(3, input.fbiCount)) : (level < 5 ? 1 : level < 10 ? 2 : 3);
+
+    try {
+      this.vfxEvents.push({ type: 'fbi_spawn', timestamp: Date.now() });
+    } catch (_) {}
+
+    const used = [];
+    const minSepY = 180;
+    const pickSpawn = (side) => {
+      let x, y, vx, vy;
+      if (side === 'left') {
+        x = -width / 2;
+        y = Math.random() * worldHeight;
+        vx = carSpeed;
+        vy = 0;
+      } else {
+        x = worldWidth + width / 2;
+        y = Math.random() * worldHeight;
+        vx = -carSpeed;
+        vy = 0;
+      }
+      return { x, y, vx, vy, side };
+    };
+
+    const sides = [];
+    if (count === 1) {
+      sides.push(Math.random() < 0.5 ? 'left' : 'right');
+    } else {
+      sides.push('left');
+      sides.push('right');
+      for (let i = 2; i < count; i++) {
+        sides.push(Math.random() < 0.5 ? 'left' : 'right');
+      }
+      for (let i = sides.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = sides[i];
+        sides[i] = sides[j];
+        sides[j] = tmp;
+      }
+    }
+
+    for (let i = 0; i < count; i++) {
+      const side = sides[i] || (Math.random() < 0.5 ? 'left' : 'right');
+      let spawn = null;
+      for (let tries = 0; tries < 60; tries++) {
+        const cand = pickSpawn(side);
+        let ok = true;
+        for (const p of used) {
+          if (p.side === cand.side && Math.abs(cand.y - p.y) < minSepY) {
+            ok = false;
+            break;
+          }
+        }
+        if (ok) {
+          spawn = cand;
+          break;
+        }
+      }
+      if (!spawn) spawn = pickSpawn(side);
+      used.push({ side: spawn.side, y: spawn.y });
+      const imageKey = spawn.vx >= 0 ? 'FBI' : 'FBI2';
+      this.carHazards.push({
+        id: `fbi_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+        x: spawn.x,
+        y: spawn.y,
+        vx: spawn.vx,
+        vy: spawn.vy,
+        width,
+        height,
+        imageKey,
+        damage,
+        hitPlayer: false,
+        despawnPad: 400,
+        weaponType: 'FBI',
+        ownerUid: uid || null
+      });
+    }
+  }
+
   // 获取完整游戏状态（用于广播）
   getState() {
     // ⚠️ 100%重构：如果sessionId为空，返回空数组（防止旧数据泄露）
@@ -2902,7 +3031,7 @@ class GameState {
       ? (this.carHazards || []).map(c => (c ? ({
         id: c.id, x: c.x, y: c.y, vx: c.vx, vy: c.vy,
         width: c.width, height: c.height, imageKey: c.imageKey, damage: c.damage,
-        hitPlayer: c.hitPlayer, despawnPad: c.despawnPad
+        hitPlayer: c.hitPlayer, despawnPad: c.despawnPad, weaponType: c.weaponType || null
       }) : null)).filter(Boolean)
       : [];
 
