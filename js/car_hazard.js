@@ -37,8 +37,11 @@ class CarHazard extends Entity {
 
     update(deltaTime) {
         const deltaMul = deltaTime / 16.67;
-        this.x += this.vx * deltaMul;
-        this.y += this.vy * deltaMul;
+        // 組隊時車輛位置只由 updateCarHazardsFromServer 同步，不在此處用速度累加，避免拖影／連成一條
+        if (!this._isVisualOnly) {
+            this.x += this.vx * deltaMul;
+            this.y += this.vy * deltaMul;
+        }
 
         // 僅視覺效果：不進行碰撞檢測和傷害計算，但仍需檢查出界刪除
         if (this._isVisualOnly) {
