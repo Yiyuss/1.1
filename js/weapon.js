@@ -790,6 +790,7 @@
                 }
 
                 // 特殊技能：死線戰士（瞬移至不同敵人進行傷害，總共3次傷害，1.2秒內完成）
+                if (this.type === 'DEATHLINE_WARRIOR' && Game._deathlineToggle && Game._deathlineToggle['DEATHLINE_WARRIOR'] === false) return;
                 if (this.type === 'DEATHLINE_WARRIOR') {
                     const cfg = this.config;
                     const detectRadius = cfg.DETECT_RADIUS || 600;
@@ -817,6 +818,7 @@
                 }
 
                 // 融合技能：死線超人（應援棒LV10+死線戰士LV10，瞬移6次，範圍傷害150，特效100%大小）
+                if (this.type === 'DEATHLINE_SUPERMAN' && Game._deathlineToggle && Game._deathlineToggle['DEATHLINE_SUPERMAN'] === false) return;
                 if (this.type === 'DEATHLINE_SUPERMAN') {
                     const cfg = this.config;
                     const detectRadius = cfg.DETECT_RADIUS || 600;
