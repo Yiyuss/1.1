@@ -377,6 +377,21 @@ function handleGameData(ws, roomId, uid, data) {
     return;
   }
 
+  // ✅ 白白虹專屬大招：回滿血 + 無敵（伺服器權威），並廣播給所有客戶端顯示 A64 特效
+  if (gameState && data.type === 'baibaihong_exclusive_ultimate') {
+    gameState.handleInput(uid, data);
+    broadcastToRoom(actualRoomId, null, {
+      type: 'game-data',
+      fromUid: uid,
+      data: {
+        t: 'baibaihong_exclusive_ultimate',
+        playerUid: uid,
+        duration: (typeof data.duration === 'number') ? data.duration : 15000
+      }
+    });
+    return;
+  }
+
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
   if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate' || data.type === 'aoe_tick' || data.type === 'player-meta')) {
     // ⚠️ 調試：確認收到輸入
