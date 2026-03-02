@@ -1065,26 +1065,35 @@ class Player extends Entity {
             
             if (!this._isRemotePlayer && isSurvivalMode && typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled &&
                 typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
-                // ✅ 多人元素：發送大招動畫狀態到伺服器（讓其他客戶端能看到變身效果）
-                // 注意：大招功能本身是單機元素，會在本地執行 activateUltimate()
-                // 但大招動畫（isUltimateActive、ultimateImageKey、體型變化）是多人元素，需要同步
-                const charUltimate = (Game.selectedCharacter && CONFIG.CHARACTER_ULTIMATES && CONFIG.CHARACTER_ULTIMATES[Game.selectedCharacter.id]) 
-                    ? CONFIG.CHARACTER_ULTIMATES[Game.selectedCharacter.id] 
-                    : null;
-                const ultimateImageKey = (charUltimate && charUltimate.IMAGE_KEY) 
-                    ? charUltimate.IMAGE_KEY 
-                    : CONFIG.ULTIMATE.IMAGE_KEY;
-                const sizeMultiplier = (charUltimate && typeof charUltimate.PLAYER_SIZE_MULTIPLIER === 'number')
-                    ? charUltimate.PLAYER_SIZE_MULTIPLIER
-                    : CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER;
-                
-                window.SurvivalOnlineRuntime.sendToNet({
-                    type: 'use_ultimate',
-                    timestamp: Date.now(),
-                    ultimateImageKey: ultimateImageKey,
-                    durationMs: CONFIG.ULTIMATE.DURATION_MS,
-                    sizeMultiplier: sizeMultiplier
-                });
+                const charId = (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
+                if (charId === 'baibaihong') {
+                    // 白白虹專屬大招：發送專用類型，由伺服器回滿血/無敵並廣播 A64 特效
+                    const bbCfg = (CONFIG.CHARACTER_ULTIMATES && CONFIG.CHARACTER_ULTIMATES.baibaihong) ? CONFIG.CHARACTER_ULTIMATES.baibaihong : {};
+                    const duration = (typeof bbCfg.EXCLUSIVE_ULTIMATE_INVINCIBILITY_MS === 'number') ? bbCfg.EXCLUSIVE_ULTIMATE_INVINCIBILITY_MS : 15000;
+                    window.SurvivalOnlineRuntime.sendToNet({
+                        type: 'baibaihong_exclusive_ultimate',
+                        timestamp: Date.now(),
+                        duration: duration
+                    });
+                } else {
+                    // ✅ 多人元素：發送大招動畫狀態到伺服器（讓其他客戶端能看到變身效果）
+                    const charUltimate = (Game.selectedCharacter && CONFIG.CHARACTER_ULTIMATES && CONFIG.CHARACTER_ULTIMATES[Game.selectedCharacter.id])
+                        ? CONFIG.CHARACTER_ULTIMATES[Game.selectedCharacter.id]
+                        : null;
+                    const ultimateImageKey = (charUltimate && charUltimate.IMAGE_KEY)
+                        ? charUltimate.IMAGE_KEY
+                        : CONFIG.ULTIMATE.IMAGE_KEY;
+                    const sizeMultiplier = (charUltimate && typeof charUltimate.PLAYER_SIZE_MULTIPLIER === 'number')
+                        ? charUltimate.PLAYER_SIZE_MULTIPLIER
+                        : CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER;
+                    window.SurvivalOnlineRuntime.sendToNet({
+                        type: 'use_ultimate',
+                        timestamp: Date.now(),
+                        ultimateImageKey: ultimateImageKey,
+                        durationMs: CONFIG.ULTIMATE.DURATION_MS,
+                        sizeMultiplier: sizeMultiplier
+                    });
+                }
             }
         } catch (_) { }
         this.activateUltimate();
@@ -1150,6 +1159,12 @@ class Player extends Entity {
                     Game.cameraShake.duration = 200;
                 } catch (_) { }
             } catch (_) { }
+            return;
+        }
+
+        // 白白虹（baibaihong）：專屬大招 — 回滿血 + 5 秒無敵 + A64 特效，不變身
+        if (characterId === 'baibaihong') {
+            this._activateBaibaihongExclusiveUltimate();
             return;
         }
 
@@ -1290,6 +1305,38 @@ class Player extends Entity {
         } catch (_) {}
 
         // 維護備註：厄倫蒂兒的大招屬於「非變身型」，已在上方分支 return，不會走到這裡
+    }
+
+    // 白白虹專屬大招（按Q）：回滿血 + 5 秒無敵（與無敵技能效果相同）+ A64 特效
+    _activateBaibaihongExclusiveUltimate() {
+        const cfg = (CONFIG.CHARACTER_ULTIMATES && CONFIG.CHARACTER_ULTIMATES.baibaihong) ? CONFIG.CHARACTER_ULTIMATES.baibaihong : {};
+        const invMs = (typeof cfg.EXCLUSIVE_ULTIMATE_INVINCIBILITY_MS === 'number') ? cfg.EXCLUSIVE_ULTIMATE_INVINCIBILITY_MS : 15000;
+        const effectMs = (typeof cfg.EXCLUSIVE_ULTIMATE_EFFECT_DURATION_MS === 'number') ? cfg.EXCLUSIVE_ULTIMATE_EFFECT_DURATION_MS : 15000;
+        const fadeMs = (typeof cfg.EXCLUSIVE_ULTIMATE_FADE_MS === 'number') ? cfg.EXCLUSIVE_ULTIMATE_FADE_MS : 1000;
+
+        this.energy = 0;
+        if (typeof UI !== 'undefined' && typeof UI.updateEnergyBar === 'function') {
+            UI.updateEnergyBar(this.energy, this.maxEnergy);
+        }
+
+        this.health = this.maxHealth;
+        if (typeof UI !== 'undefined' && typeof UI.updateHealthBar === 'function') {
+            UI.updateHealthBar(this.health, this.maxHealth);
+        }
+
+        this.applyInvincibility(invMs);
+
+        // 音效：白白虹大招施放瞬間（LA.mp3，與唱歌技能同源）
+        try {
+            if (!this._isRemotePlayer && typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                AudioManager.playSound('sing_cast');
+            }
+        } catch (_) {}
+
+        if (!this._isRemotePlayer && typeof BaibaihongExclusiveUltimateEffect !== 'undefined' && typeof Game !== 'undefined' && typeof Game.addProjectile === 'function') {
+            const effect = new BaibaihongExclusiveUltimateEffect(this, effectMs, fadeMs);
+            Game.addProjectile(effect);
+        }
     }
 
     // 鳳梨大絕：噴出 5 顆大鳳梨，玩家碰觸獲得固定經驗
