@@ -159,7 +159,7 @@
             const hitImg = (Game && Game.images) ? Game.images['A62'] : null;
             if (!hitImg || !hitImg.complete || !(hitImg.naturalWidth > 0)) return;
             const cap = Math.min(50, this.hitEnemies.length);
-            const sizePx = 200;
+            const sizePx = 280;
             for (let i = 0; i < cap; i++) {
                 const hit = this.hitEnemies[i];
                 if (!hit) continue;
