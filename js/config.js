@@ -1138,6 +1138,13 @@ const CONFIG = {
             // 艾比大绝：不变身，直接施放全地图爆炸
             IS_EXPLOSION_ULTIMATE: true, // 标记为爆炸大绝
             AUDIO_KEY: 'Explosion' // 使用Explosion.mp3音效
+        },
+        'baibaihong': {
+            // 白白虹專屬大招（按Q）：回滿血 + 15秒無敵 + A64 特效，不變身
+            IS_EXCLUSIVE_HEAL_ULTIMATE: true,
+            EXCLUSIVE_ULTIMATE_INVINCIBILITY_MS: 15000,
+            EXCLUSIVE_ULTIMATE_EFFECT_DURATION_MS: 15000,
+            EXCLUSIVE_ULTIMATE_FADE_MS: 1000
         }
         // 'lilylinglan': 第三位角色大招暫未製作
     },
