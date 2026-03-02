@@ -1787,6 +1787,7 @@ const Game = {
                         projectile.constructor.name === 'SlashEffect' ||
                         projectile.constructor.name === 'InvincibleEffect' ||
                         projectile.constructor.name === 'SingEffect' ||
+                        projectile.constructor.name === 'BaibaihongExclusiveUltimateEffect' ||
                         // ✅ 修復：YoungDadaGloryEffect、FrenzyYoungDadaGloryEffect、DeathlineWarriorEffect、JudgmentEffect、DivineJudgmentEffect、ExplosionEffect 是特殊視覺效果
                         projectile.constructor.name === 'YoungDadaGloryEffect' ||
                         projectile.constructor.name === 'FrenzyYoungDadaGloryEffect' ||
@@ -2174,6 +2175,7 @@ const Game = {
                             projectile.constructor.name === 'SlashEffect' ||
                             projectile.constructor.name === 'InvincibleEffect' ||
                             projectile.constructor.name === 'SingEffect' ||
+                            projectile.constructor.name === 'BaibaihongExclusiveUltimateEffect' ||
                             // ✅ 修復：YoungDadaGloryEffect、FrenzyYoungDadaGloryEffect、DeathlineWarriorEffect、JudgmentEffect、DivineJudgmentEffect、ExplosionEffect 是特殊視覺效果
                             projectile.constructor.name === 'YoungDadaGloryEffect' ||
                             projectile.constructor.name === 'FrenzyYoungDadaGloryEffect' ||
