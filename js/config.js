@@ -70,6 +70,7 @@ const CONFIG = {
             RAINBOW_RESONANCE: 'assets/images/A58.png',
             FBI: 'assets/images/A59.png',
             WHITE_NIGHT_BEAM: 'assets/images/A60.png',
+            WHITE_RAINBOW_BEAM: 'assets/images/A63.png',
             ADRENALINE: 'assets/images/A46.png',
             PINEAPPLE_SUPPLEMENT: 'assets/images/A47.png',
             SUMMON_AI: 'assets/images/AI.png',
@@ -466,6 +467,30 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "範圍+140px" },
                 { COUNT: 1, DESCRIPTION: "範圍+160px" },
                 { COUNT: 1, DESCRIPTION: "範圍+180px" }
+            ]
+        },
+        // 合成技能：白虹光束（雷射LV10 + 白夜光束LV10）
+        // - 傷害/冷卻/特效邏輯與白夜光束相同，但打3下（間隔0.2秒），特效僅第1次
+        // - LV1範圍相當於白夜光束LV10（330px），每升1級基礎攻擊+2，最高LV10
+        WHITE_RAINBOW_BEAM: {
+            NAME: "白虹光束",
+            DAMAGE: 30,
+            DAMAGE_PER_LEVEL: 2,
+            COOLDOWN: 2400,
+            FIELD_RADIUS: 330,
+            HIT_COUNT: 3,
+            HIT_INTERVAL_MS: 200,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "範圍內敵人受到3次傷害（間隔0.2秒，範圍330）" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+2" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+4" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+6" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+8" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+10" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+12" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+14" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+16" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+18" }
             ]
         },
         HEART_TRANSMISSION: {
