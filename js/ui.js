@@ -548,10 +548,32 @@ const UI = {
             const cfg = CONFIG.WEAPONS[info.type];
             const name = cfg ? cfg.NAME : info.type;
             const div = document.createElement('div');
-            div.className = 'skill-item';
+            const isDeathline = (info.type === 'DEATHLINE_WARRIOR' || info.type === 'DEATHLINE_SUPERMAN');
+            div.className = isDeathline ? 'skill-item has-toggle' : 'skill-item';
             const skillIcons = (CONFIG && CONFIG.UI && CONFIG.UI.SKILL_ICONS) ? CONFIG.UI.SKILL_ICONS : {};
             const iconSrc = skillIcons[info.type] || 'assets/images/A1.png';
             div.innerHTML = `<div class="skill-icon"><img src="${iconSrc}" alt="${name}"></div><div class="skill-name">${name}</div><div class="skill-level">Lv.${info.level}</div>`;
+            if (isDeathline) {
+                if (!Game._deathlineToggle) Game._deathlineToggle = {};
+                if (Game._deathlineToggle[info.type] === undefined) Game._deathlineToggle[info.type] = true;
+                const isOn = Game._deathlineToggle[info.type];
+                const toggle = document.createElement('div');
+                toggle.className = 'skill-toggle' + (isOn ? ' active' : '');
+                toggle.innerHTML = `<span class="skill-toggle-label">${isOn ? 'ON' : 'OFF'}</span><div class="skill-toggle-switch"></div>`;
+                const wType = info.type;
+                toggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    if (!Game._deathlineToggle) Game._deathlineToggle = {};
+                    Game._deathlineToggle[wType] = !Game._deathlineToggle[wType];
+                    const nowOn = Game._deathlineToggle[wType];
+                    this.className = 'skill-toggle' + (nowOn ? ' active' : '');
+                    this.querySelector('.skill-toggle-label').textContent = nowOn ? 'ON' : 'OFF';
+                    if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                        try { AudioManager.playSound('click'); } catch (_) {}
+                    }
+                });
+                div.appendChild(toggle);
+            }
             this.skillsList.appendChild(div);
         });
         // 若沒有任何武器
