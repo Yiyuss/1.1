@@ -981,6 +981,18 @@ class GameState {
         this.handleUltimate(uid, input);
         break;
 
+      case 'baibaihong_exclusive_ultimate':
+        // 白白虹專屬大招：回滿血 + 5 秒技能無敵（與無敵技能效果相同）
+        try {
+          if (!player || player.isDead) break;
+          if (player.energy < (player.maxEnergy || 100)) break;
+          player.energy = 0;
+          player.health = player.maxHealth || player.health;
+          const invMs = (input && typeof input.duration === 'number') ? input.duration : 15000;
+          player.skillInvulnerableUntil = Date.now() + invMs;
+        } catch (_) {}
+        break;
+
       case 'resurrect':
         // ✅ 切腫瘤：禁止客戶端 input 直接復活（避免繞過救援機制）
         // 權威多人復活只允許由 updateResurrections() 的救援成功路徑觸發。
