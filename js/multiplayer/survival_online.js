@@ -1503,7 +1503,8 @@ const Runtime = (() => {
                 weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' ||
                 weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' ||
                 weaponType === 'INVINCIBLE' || // ✅ 修復：無敵技能是一次性效果，每次施放都創建新的（像斬擊一樣）
-                weaponType === 'WHITE_NIGHT_BEAM' // 白夜光束：一次性範圍傷害，僅視覺同步
+                weaponType === 'WHITE_NIGHT_BEAM' || // 白夜光束：一次性範圍傷害，僅視覺同步
+                weaponType === 'WHITE_RAINBOW_BEAM' // 白虹光束：一次性範圍傷害×3，僅視覺同步
               );
               if (!isOneTimeEffect) {
                 // 對於非一次性效果，檢查ID
@@ -2087,6 +2088,32 @@ const Runtime = (() => {
                   effect._createdAt = Date.now();
                   Game.projectiles.push(effect);
                 }
+              } else if (weaponType === "WHITE_RAINBOW_BEAM" && typeof WhiteRainbowBeamEffect !== "undefined") {
+                // 白虹光束（合成技能）：僅組隊模式視覺同步，傷害由伺服器 aoe_tick 權威結算
+                const isMultiplayerWRB = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                if (!isMultiplayerWRB) return;
+                let targetPlayerWRB = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && typeof rt.RemotePlayerManager !== 'undefined' && typeof rt.RemotePlayerManager.get === 'function') {
+                    const remotePlayer = rt.RemotePlayerManager.get(eventData.playerUid);
+                    if (remotePlayer) targetPlayerWRB = remotePlayer;
+                    else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) targetPlayerWRB = Game.player;
+                  } else if (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) targetPlayerWRB = Game.player;
+                }
+                if (targetPlayerWRB) {
+                  const effect = new WhiteRainbowBeamEffect(
+                    targetPlayerWRB,
+                    eventData.damage || 15,
+                    eventData.radius || 330,
+                    eventData.level || 1,
+                    { _isVisualOnly: true }
+                  );
+                  effect.id = projectileId;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  effect._createdAt = Date.now();
+                  Game.projectiles.push(effect);
+                }
               } else if ((weaponType === "DEATHLINE_WARRIOR" || weaponType === "DEATHLINE_SUPERMAN") && typeof DeathlineWarriorEffect !== "undefined") {
                 // 死線戰士/死線超人：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
@@ -2601,9 +2628,9 @@ const Runtime = (() => {
                 car._isVisualOnly = true; // 標記為僅視覺（隊員端不進行傷害計算）
                 Game.projectiles.push(car);
               } else if (typeof Projectile !== "undefined") {
-                // 白夜光束無玩家中心視覺，不建立通用 Projectile（避免畫出白球）
-                if (weaponType === 'WHITE_NIGHT_BEAM') {
-                  // 僅視覺應由 WhiteNightBeamEffect 處理；若未載入則不建立任何投射物
+                // 白夜光束/白虹光束無玩家中心視覺，不建立通用 Projectile（避免畫出白球）
+                if (weaponType === 'WHITE_NIGHT_BEAM' || weaponType === 'WHITE_RAINBOW_BEAM') {
+                  // 僅視覺應由對應 Effect 處理；若未載入則不建立任何投射物
                 } else {
                 // 普通投射物
                 try {
@@ -5671,15 +5698,17 @@ function handleServerGameState(state, timestamp) {
                 }
               }
             }
-          } else if (weaponType === 'WHITE_NIGHT_BEAM') {
+          } else if (weaponType === 'WHITE_NIGHT_BEAM' || weaponType === 'WHITE_RAINBOW_BEAM') {
             // 施放者端已在 _applyDamage 中自行建立 hitEnemies + overlay，不需要從 hitEvents 重複建立
-            // 僅遠端玩家的白夜光束才需在此建立 effect + overlay（與 EXPLOSION 的 !damageApplied 模式對齊）
+            // 僅遠端玩家才需在此建立 effect + overlay（與 EXPLOSION 的 !damageApplied 模式對齊）
             const isLocalPlayerBeam = (ev.playerUid && Game.multiplayer && Game.multiplayer.uid && ev.playerUid === Game.multiplayer.uid);
-            if (!isLocalPlayerBeam && typeof Game !== 'undefined' && Array.isArray(Game.projectiles) && typeof WhiteNightBeamEffect !== 'undefined') {
+            const EffectCtor = (weaponType === 'WHITE_RAINBOW_BEAM') ? (typeof WhiteRainbowBeamEffect !== 'undefined' ? WhiteRainbowBeamEffect : null) : (typeof WhiteNightBeamEffect !== 'undefined' ? WhiteNightBeamEffect : null);
+            const defaultRadius = (weaponType === 'WHITE_RAINBOW_BEAM') ? 330 : 150;
+            if (!isLocalPlayerBeam && typeof Game !== 'undefined' && Array.isArray(Game.projectiles) && EffectCtor) {
               const nowBeam = Date.now();
               let beamEffect = Game.projectiles.find(p =>
-                p && p.constructor && p.constructor.name === 'WhiteNightBeamEffect' &&
-                p.weaponType === 'WHITE_NIGHT_BEAM' && p._isVisualOnly && !p.markedForDeletion &&
+                p && p.constructor && p.constructor === EffectCtor &&
+                p.weaponType === weaponType && p._isVisualOnly && !p.markedForDeletion &&
                 p._remotePlayerUid === (ev.playerUid || null) &&
                 (nowBeam - (p.startTime || p._createdAt || 0)) < 2000
               );
@@ -5695,8 +5724,8 @@ function handleServerGameState(state, timestamp) {
                   targetPlayer = { x: x, y: y };
                 }
                 if (targetPlayer) {
-                  const effect = new WhiteNightBeamEffect(targetPlayer, 15, 150, 1, { _isVisualOnly: true });
-                  effect.id = 'white_beam_' + (ev.playerUid || '') + '_' + nowBeam;
+                  const effect = new EffectCtor(targetPlayer, 15, defaultRadius, 1, { _isVisualOnly: true });
+                  effect.id = 'beam_' + weaponType + '_' + (ev.playerUid || '') + '_' + nowBeam;
                   effect._isVisualOnly = true;
                   effect._remotePlayerUid = ev.playerUid || null;
                   effect._createdAt = nowBeam;
@@ -5717,7 +5746,6 @@ function handleServerGameState(state, timestamp) {
                     enemyId: enemyId,
                     startTime: Date.now()
                   });
-                  // 每次新增 hit 都要補 overlay（只會為尚未有 domEl 的 hit 建立，避免只顯示一個其餘一坨光/殘留）
                   if (typeof beamEffect._createHitOverlays === 'function') {
                     beamEffect._createHitOverlays();
                   }
@@ -6428,7 +6456,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'DEATHLINE_WARRIOR' || weaponType === 'DEATHLINE_SUPERMAN' ||
       weaponType === 'JUDGMENT' || weaponType === 'DIVINE_JUDGMENT' || weaponType === 'EXPLOSION' ||
       weaponType === 'STARFALL' || weaponType === 'STARFALL_MOON' ||
-      weaponType === 'WHITE_NIGHT_BEAM' ||
+      weaponType === 'WHITE_NIGHT_BEAM' || weaponType === 'WHITE_RAINBOW_BEAM' ||
       // ✅ 厄倫蒂兒大招分身：持續效果由 projectile_spawn 事件同步（本地分身也不在 state.projectiles）
       // - 本地分身必須保留，才能繼續發射 ELONDIER_CLONE_THROW（傷害走伺服器權威 attack input）
       weaponType === 'ELONDIER_ULTIMATE_CLONE' ||
@@ -6438,7 +6466,7 @@ function updateProjectilesFromServer(projectiles) {
       constructorName === 'OrbitBall' || constructorName === 'RadiantGloryEffect' || constructorName === 'ShockwaveEffect' ||
       constructorName === 'IceFieldEffect' || constructorName === 'YoungDadaGloryEffect' || constructorName === 'FrenzyYoungDadaGloryEffect' ||
       constructorName === 'DeathlineWarriorEffect' || constructorName === 'JudgmentEffect' || constructorName === 'DivineJudgmentEffect' ||
-      constructorName === 'WhiteNightBeamEffect' ||
+      constructorName === 'WhiteNightBeamEffect' || constructorName === 'WhiteRainbowBeamEffect' ||
       constructorName === 'ExplosionEffect' || constructorName === 'StarfallEffect' || constructorName === 'StarfallMoon' ||
       constructorName === 'ElondierUltimateClone' ||
       // 檢查是否有 _remotePlayerUid（通過事件創建的標記）
@@ -6461,7 +6489,7 @@ function updateProjectilesFromServer(projectiles) {
         // ✅ 特殊視覺效果：若已標記刪除或超時，允許移除（避免累積）
         try {
           if (proj && (proj.markedForDeletion || (proj._isVisualOnly && proj._createdAt && (now - proj._createdAt > VISUAL_EFFECT_HARD_MAX_AGE)))) {
-            if (proj.weaponType === 'WHITE_NIGHT_BEAM' && typeof proj._destroyHitOverlays === 'function') {
+            if ((proj.weaponType === 'WHITE_NIGHT_BEAM' || proj.weaponType === 'WHITE_RAINBOW_BEAM') && typeof proj._destroyHitOverlays === 'function') {
               try { proj._destroyHitOverlays(); } catch (_) { }
             }
             Game.projectiles.splice(i, 1);
@@ -6476,7 +6504,7 @@ function updateProjectilesFromServer(projectiles) {
         // ✅ 特殊視覺效果：若已標記刪除或超時，允許移除（避免累積）
         try {
           if (proj && (proj.markedForDeletion || (proj._isVisualOnly && proj._createdAt && (now - proj._createdAt > VISUAL_EFFECT_HARD_MAX_AGE)))) {
-            if (proj.weaponType === 'WHITE_NIGHT_BEAM' && typeof proj._destroyHitOverlays === 'function') {
+            if ((proj.weaponType === 'WHITE_NIGHT_BEAM' || proj.weaponType === 'WHITE_RAINBOW_BEAM') && typeof proj._destroyHitOverlays === 'function') {
               try { proj._destroyHitOverlays(); } catch (_) { }
             }
             Game.projectiles.splice(i, 1);
