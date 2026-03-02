@@ -101,6 +101,20 @@
                     }
                     return;
                 }
+                // 白虹光束（合成技能：雷射LV10 + 白夜光束LV10）：3次瞬時範圍傷害，間隔0.2秒
+                if (this.type === 'WHITE_RAINBOW_BEAM') {
+                    const cfg = this.config || {};
+                    const radius = (cfg.FIELD_RADIUS != null) ? cfg.FIELD_RADIUS : 330;
+                    const dmg = this._computeFinalDamage(1);
+                    if (typeof Game !== 'undefined' && typeof WhiteRainbowBeamEffect !== 'undefined') {
+                        if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+                            AudioManager.playSound('level_up2');
+                        }
+                        const effect = new WhiteRainbowBeamEffect(this.player, dmg, radius, this.level);
+                        Game.addProjectile(effect);
+                    }
+                    return;
+                }
                 // 特殊技能：無敵（不造成傷害，給予玩家短暫無敵並顯示護盾特效）
                 if (this.type === 'INVINCIBLE') {
                     const seconds = 2.0 + 0.2 * Math.max(0, this.level - 1);
@@ -1528,6 +1542,10 @@
             const divineJudgmentExtra = (this.type === 'DIVINE_JUDGMENT' && this.config && this.config.DAMAGE_PER_LEVEL)
                 ? (this.config.DAMAGE_PER_LEVEL * Math.max(0, this.level - 1))
                 : 0;
+            // 白虹光束：每級+2基礎攻擊
+            const whiteRainbowBeamExtra = (this.type === 'WHITE_RAINBOW_BEAM' && this.config && this.config.DAMAGE_PER_LEVEL)
+                ? (this.config.DAMAGE_PER_LEVEL * Math.max(0, this.level - 1))
+                : 0;
             const specFlat = (this.player && this.player.damageSpecializationFlat) ? this.player.damageSpecializationFlat : 0;
             const talentPct = (this.player && this.player.damageTalentBaseBonusPct) ? this.player.damageTalentBaseBonusPct : 0;
             const attrPct = (this.player && this.player.damageAttributeBonusPct) ? this.player.damageAttributeBonusPct : 0; // 升級屬性加成（每級+10%）
@@ -1616,7 +1634,7 @@
 
             const lvPct = Math.max(0, (levelMul || 1) - 1);
             const percentSum = lvPct + talentPct + attrPct;
-            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + innateTemperamentExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat + gabrielOrbitFlat;
+            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + innateTemperamentExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + whiteRainbowBeamExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat + gabrielOrbitFlat;
             const value = baseFlat * (1 + percentSum);
             return value;
         };
