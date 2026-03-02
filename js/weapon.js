@@ -104,7 +104,9 @@
                 // 白虹光束（合成技能：雷射LV10 + 白夜光束LV10）：3次瞬時範圍傷害，間隔0.2秒
                 if (this.type === 'WHITE_RAINBOW_BEAM') {
                     const cfg = this.config || {};
-                    const radius = (cfg.FIELD_RADIUS != null) ? cfg.FIELD_RADIUS : 330;
+                    const baseRadius = (cfg.FIELD_RADIUS != null) ? cfg.FIELD_RADIUS : 330;
+                    const perLevel = (cfg.FIELD_RADIUS_PER_LEVEL != null) ? cfg.FIELD_RADIUS_PER_LEVEL : 10;
+                    const radius = baseRadius + perLevel * (this.level - 1);
                     const dmg = this._computeFinalDamage(1);
                     if (typeof Game !== 'undefined' && typeof WhiteRainbowBeamEffect !== 'undefined') {
                         if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
