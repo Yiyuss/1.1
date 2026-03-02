@@ -4404,6 +4404,25 @@ async function connectWebSocket() {
             } else if (data.t === "vfx") {
               // ✅ 多人元素（視覺特效）：VFX 事件（WS 轉發）— 所有人都看得到
               _applyVfxEvent(data.eventType, data.eventData);
+            } else if (data.t === "baibaihong_exclusive_ultimate") {
+              // ✅ 白白虹專屬大招：僅組隊模式顯示 A64 特效（回滿血/無敵由伺服器權威，本地僅視覺）
+              if (typeof BaibaihongExclusiveUltimateEffect !== "undefined" && typeof Game !== "undefined") {
+                const playerUid = (data.playerUid && typeof data.playerUid === "string") ? data.playerUid : senderUid;
+                let targetPlayer = null;
+                if (playerUid && typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager && typeof window.SurvivalOnlineRuntime.RemotePlayerManager.get === "function") {
+                  targetPlayer = window.SurvivalOnlineRuntime.RemotePlayerManager.get(playerUid);
+                }
+                if (!targetPlayer && playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                  targetPlayer = Game.player;
+                }
+                if (targetPlayer) {
+                  const duration = (typeof data.duration === "number") ? data.duration : 15000;
+                  const effect = new BaibaihongExclusiveUltimateEffect(targetPlayer, duration, 1000);
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = playerUid;
+                  Game.projectiles.push(effect);
+                }
+              }
             }
           } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
             // 用戶加入/離開通知（可選）
@@ -6462,7 +6481,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'ELONDIER_ULTIMATE_CLONE' ||
       // 通過構造函數名稱檢查
       constructorName === 'LaserBeam' || constructorName === 'ChainLightningEffect' || constructorName === 'FrenzyLightningEffect' ||
-      constructorName === 'SlashEffect' || constructorName === 'InvincibleEffect' || constructorName === 'SingEffect' || constructorName === 'AuraField' || constructorName === 'StellarField' || constructorName === 'InnateTemperamentField' || constructorName === 'GravityWaveField' ||
+      constructorName === 'SlashEffect' || constructorName === 'InvincibleEffect' || constructorName === 'SingEffect' || constructorName === 'BaibaihongExclusiveUltimateEffect' || constructorName === 'AuraField' || constructorName === 'StellarField' || constructorName === 'InnateTemperamentField' || constructorName === 'GravityWaveField' ||
       constructorName === 'OrbitBall' || constructorName === 'RadiantGloryEffect' || constructorName === 'ShockwaveEffect' ||
       constructorName === 'IceFieldEffect' || constructorName === 'YoungDadaGloryEffect' || constructorName === 'FrenzyYoungDadaGloryEffect' ||
       constructorName === 'DeathlineWarriorEffect' || constructorName === 'JudgmentEffect' || constructorName === 'DivineJudgmentEffect' ||
