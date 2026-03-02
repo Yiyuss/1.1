@@ -91,6 +91,13 @@ const Achievements = (function(){
       icon: 'assets/images/A47.png',
       reward: '解鎖「鳳梨補品」技能。'
     },
+    BAIBAIHONG_CITY_CLEAR: {
+      id: 'BAIBAIHONG_CITY_CLEAR',
+      name: '白白虹的勝利',
+      desc: '使用白白虹角色通關廁所。',
+      icon: 'assets/images/A63.png',
+      reward: '解鎖「白虹光束」技能。'
+    },
     DEFENSE_LV1_CLEAR: {
       id: 'DEFENSE_LV1_CLEAR',
       name: '煉金坊守護者',
@@ -113,7 +120,8 @@ const Achievements = (function(){
     RADIANT_GLORY: ['CHALLENGE_GALAXY_CLEAR'],
     DIVINE_JUDGMENT: ['RABI_CITY_CLEAR'],
     INNATE_TEMPERAMENT: ['ELONDIER_CITY_CLEAR'],
-    PINEAPPLE_SUPPLEMENT: ['PINEAPPLE_CITY_CLEAR']
+    PINEAPPLE_SUPPLEMENT: ['PINEAPPLE_CITY_CLEAR'],
+    WHITE_RAINBOW_BEAM: ['BAIBAIHONG_CITY_CLEAR']
     // 未來：在此加入新融合技能的成就解鎖需求，例如：
     // OTHER_FUSION_SKILL: ['SOME_ACHIEVEMENT', 'ANOTHER_ACHIEVEMENT']
   };
@@ -170,8 +178,7 @@ const Achievements = (function(){
     _cacheTimestamp = Date.now();
     // 記錄於當次遊戲
     if (!sessionUnlocked.includes(id)) sessionUnlocked.push(id);
-    // 可選：提示音效/文字（不更動既有 UI 流程）
-    try { if (typeof UI !== 'undefined' && UI._playClick) UI._playClick(); } catch(_) {}
+    // 成就解鎖音效：不在結算當下播，僅在回到遊戲介面跳出彈窗時播放（見 ui.js _returnToStartFrom）
     return true;
   }
 
