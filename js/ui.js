@@ -440,7 +440,16 @@ const UI = {
                             : (typeof Achievements.getSessionUnlocked === 'function' ? Achievements.getSessionUnlocked() : []);
                         if (ids && ids.length) {
                             this.showAchievementsUnlockModal(ids);
-                            try { if (AudioManager && AudioManager.playSound) AudioManager.playSound('achievements'); } catch (_) {}
+                            try {
+                                const am = (typeof window !== 'undefined' && window.AudioManager) ? window.AudioManager : (typeof AudioManager !== 'undefined' ? AudioManager : null);
+                                if (am && typeof am.playSound === 'function') {
+                                    const wasMuted = am.isMuted;
+                                    if (wasMuted) am.isMuted = false;
+                                    am.playSound('achievements');
+                                    if (wasMuted) am.isMuted = true;
+                                    this._achievementSoundPlayedForModal = true;
+                                }
+                            } catch (_) {}
                         }
                     }
                 } catch (_) {}
@@ -499,7 +508,16 @@ const UI = {
                     : (typeof Achievements.getSessionUnlocked === 'function' ? Achievements.getSessionUnlocked() : []);
                 if (ids && ids.length) {
                     this.showAchievementsUnlockModal(ids);
-                    try { if (AudioManager && AudioManager.playSound) AudioManager.playSound('achievements'); } catch (_) {}
+                    try {
+                        const am = (typeof window !== 'undefined' && window.AudioManager) ? window.AudioManager : (typeof AudioManager !== 'undefined' ? AudioManager : null);
+                        if (am && typeof am.playSound === 'function') {
+                            const wasMuted = am.isMuted;
+                            if (wasMuted) am.isMuted = false;
+                            am.playSound('achievements');
+                            if (wasMuted) am.isMuted = true;
+                            this._achievementSoundPlayedForModal = true;
+                        }
+                    } catch (_) {}
                 }
             }
         } catch (_) {}
@@ -698,6 +716,7 @@ const UI = {
         const hasRadiantGlory = sourceWeaponsInfo.some(w => w.type === 'RADIANT_GLORY');
         const hasDeathlineSuperman = sourceWeaponsInfo.some(w => w.type === 'DEATHLINE_SUPERMAN');
         const hasPineappleSupplement = sourceWeaponsInfo.some(w => w.type === 'PINEAPPLE_SUPPLEMENT');
+        const hasWhiteRainbowBeam = sourceWeaponsInfo.some(w => w.type === 'WHITE_RAINBOW_BEAM');
         // 檢查召喚AI LV2：如果已合成召喚AI LV2，則隱藏連鎖閃電的升級選項
         const hasSummonAILv2 = sourceWeaponsInfo.some(w => w.type === 'SUMMON_AI' && typeof w.level === 'number' && w.level >= 2);
         // 檢查召喚AI LV1升級到LV2的條件（需要連鎖閃電LV10）
@@ -727,6 +746,7 @@ const UI = {
                     (hasDeathlineSuperman && (info.type === 'DAGGER' || info.type === 'DEATHLINE_WARRIOR')) ||
                     (hasRadiantGlory && (info.type === 'CHAIN_LIGHTNING' || info.type === 'LASER')) ||
                     (hasPineappleSupplement && (info.type === 'DAGGER' || info.type === 'ADRENALINE')) ||
+                    (hasWhiteRainbowBeam && (info.type === 'LASER' || info.type === 'WHITE_NIGHT_BEAM')) ||
                     (hasSummonAILv2 && info.type === 'CHAIN_LIGHTNING')) continue;
             // 召喚AI特殊處理：只有滿足合成條件（連鎖閃電LV10）才能升級到LV2
             if (info.type === 'SUMMON_AI' && info.level === 1 && !canUpgradeSummonAIToLv2) {
@@ -769,6 +789,7 @@ const UI = {
                 (hasDeathlineSuperman && (weaponType === 'DAGGER' || weaponType === 'DEATHLINE_WARRIOR')) ||
                 (hasRadiantGlory && (weaponType === 'CHAIN_LIGHTNING' || weaponType === 'LASER')) ||
                 (hasPineappleSupplement && (weaponType === 'DAGGER' || weaponType === 'ADRENALINE')) ||
+                (hasWhiteRainbowBeam && (weaponType === 'LASER' || weaponType === 'WHITE_NIGHT_BEAM')) ||
                 (hasSummonAILv2ForNew && weaponType === 'CHAIN_LIGHTNING')) continue;
             // 召喚AI技能：需要成就解鎖（星雲征服者）
             if (weaponType === 'SUMMON_AI') {
@@ -1111,6 +1132,30 @@ const UI = {
                         name: cfgRG.NAME,
                         level: 1,
                         description: cfgRG.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：白虹光束（需成就解鎖 + 同時持有且等級達標的 雷射(LASER) 與 白夜光束(WHITE_NIGHT_BEAM)）
+        try {
+            const hasWhiteRainbowBeamFusion = playerWeaponTypes.includes('WHITE_RAINBOW_BEAM');
+            const laserWRB = sourceWeaponsInfo.find(w => w.type === 'LASER');
+            const whiteNightBeamWRB = sourceWeaponsInfo.find(w => w.type === 'WHITE_NIGHT_BEAM');
+            const fusionUnlockedWRB = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('WHITE_RAINBOW_BEAM')); } catch(_) { return false; }
+            })();
+            const laserWRBLevel = (laserWRB && typeof laserWRB.level === 'number') ? laserWRB.level : 0;
+            const whiteNightBeamWRBLevel = (whiteNightBeamWRB && typeof whiteNightBeamWRB.level === 'number') ? whiteNightBeamWRB.level : 0;
+            const fusionReadyWRB = (!!laserWRB && !!whiteNightBeamWRB && laserWRBLevel >= 10 && whiteNightBeamWRBLevel >= 10);
+            if (!hasWhiteRainbowBeamFusion && fusionReadyWRB && fusionUnlockedWRB) {
+                const cfgWRB = CONFIG.WEAPONS['WHITE_RAINBOW_BEAM'];
+                if (cfgWRB && Array.isArray(cfgWRB.LEVELS) && cfgWRB.LEVELS.length > 0) {
+                    options.push({
+                        type: 'WHITE_RAINBOW_BEAM',
+                        name: cfgWRB.NAME,
+                        level: 1,
+                        description: cfgWRB.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -1642,6 +1687,43 @@ const UI = {
                     player.upgradeWeapon('PINEAPPLE_SUPPLEMENT');
                 } else {
                     player.addWeapon('PINEAPPLE_SUPPLEMENT');
+                }
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        // 融合：白虹光束（移除 雷射(LASER)/白夜光束(WHITE_NIGHT_BEAM)，加入或升級 WHITE_RAINBOW_BEAM）
+        if (weaponType === 'WHITE_RAINBOW_BEAM') {
+            try {
+                if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+                    for (const p of Game.projectiles) {
+                        if (p && (p.weaponType === 'LASER' || p.weaponType === 'WHITE_NIGHT_BEAM') && p.player === player && !p.markedForDeletion) {
+                            if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
+                        }
+                    }
+                }
+            } catch(_) {}
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'LASER' && info.type !== 'WHITE_NIGHT_BEAM');
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'WHITE_RAINBOW_BEAM');
+                const cfgWRB = CONFIG.WEAPONS['WHITE_RAINBOW_BEAM'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgWRB && curLv < cfgWRB.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'WHITE_RAINBOW_BEAM', level: 1 });
+                }
+            } else {
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'LASER' && w.type !== 'WHITE_NIGHT_BEAM');
+                const existingWRB = player.weapons.find(w => w.type === 'WHITE_RAINBOW_BEAM');
+                if (existingWRB) {
+                    player.upgradeWeapon('WHITE_RAINBOW_BEAM');
+                } else {
+                    player.addWeapon('WHITE_RAINBOW_BEAM');
                 }
             }
             try { this.updateSkillsList(); } catch (_) {}
@@ -2906,9 +2988,19 @@ UI.showAchievementsUnlockModal = function(ids) {
             });
             overlay.classList.remove('hidden');
             overlay.setAttribute('aria-hidden', 'false');
-            // 點擊外層關閉（不打斷既有操作）
+            this._achievementSoundPlayedForModal = false;
+            // 點擊外層關閉；若顯示時音效被瀏覽器阻擋（非使用者手勢），關閉時補播一次
             const onClose = (e) => {
                 if (e.target === overlay) {
+                    if (!this._achievementSoundPlayedForModal) {
+                        const am = (typeof window !== 'undefined' && window.AudioManager) ? window.AudioManager : (typeof AudioManager !== 'undefined' ? AudioManager : null);
+                        if (am && typeof am.playSound === 'function') {
+                            const wasMuted = am.isMuted;
+                            if (wasMuted) am.isMuted = false;
+                            try { am.playSound('achievements'); } catch (_) {}
+                            if (wasMuted) am.isMuted = true;
+                        }
+                    }
                     overlay.classList.add('hidden');
                     overlay.setAttribute('aria-hidden', 'true');
                     overlay.removeEventListener('click', onClose);
