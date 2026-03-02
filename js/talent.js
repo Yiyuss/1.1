@@ -116,6 +116,12 @@ const TalentSystem = {
             name: '星體軌跡強化',
             description: '升級可強化星體軌跡的基礎攻擊。',
             cost: 10000
+        },
+        // 新增：加百列強化（強化加百列的基礎攻擊）
+        gabriel_orbit_boost: {
+            name: '加百列強化',
+            description: '升級可強化加百列的基礎攻擊。',
+            cost: 10000
         }
     },
 
@@ -327,6 +333,17 @@ const TalentSystem = {
         },
         // 新增：星體軌跡強化（+5/+10/+15/+20/+25/+30）
         stellar_orbit_boost: {
+            levels: [
+                { flat: 5, cost: 10000 },
+                { flat: 10, cost: 20000 },
+                { flat: 15, cost: 30000 },
+                { flat: 20, cost: 40000 },
+                { flat: 25, cost: 50000 },
+                { flat: 30, cost: 60000 }
+            ]
+        },
+        // 新增：加百列強化（+5/+10/+15/+20/+25/+30）
+        gabriel_orbit_boost: {
             levels: [
                 { flat: 5, cost: 10000 },
                 { flat: 10, cost: 20000 },
@@ -792,6 +809,9 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'stellar_orbit_boost') {
             const flat = eff.flat || 0;
             return `星體軌跡基礎攻擊+${flat}`;
+        } else if (id === 'gabriel_orbit_boost') {
+            const flat = eff.flat || 0;
+            return `加百列基礎攻擊+${flat}`;
         }
         return base;
     };
