@@ -569,8 +569,8 @@ const Game = {
                         projectile.destroy();
                     } catch (_) { }
                 }
-                // 白夜光束：移除前強制清理命中覆蓋層 DOM，避免組隊模式殘留「一坨光」
-                if (projectile.weaponType === 'WHITE_NIGHT_BEAM' && typeof projectile._destroyHitOverlays === 'function') {
+                // 白夜光束/白虹光束：移除前強制清理命中覆蓋層 DOM，避免組隊模式殘留「一坨光」
+                if ((projectile.weaponType === 'WHITE_NIGHT_BEAM' || projectile.weaponType === 'WHITE_RAINBOW_BEAM') && typeof projectile._destroyHitOverlays === 'function') {
                     try {
                         projectile._destroyHitOverlays();
                     } catch (_) { }
@@ -596,7 +596,7 @@ const Game = {
                             if (typeof p.destroy === 'function') {
                                 p.destroy();
                             }
-                            if (p.weaponType === 'WHITE_NIGHT_BEAM' && typeof p._destroyHitOverlays === 'function') {
+                            if ((p.weaponType === 'WHITE_NIGHT_BEAM' || p.weaponType === 'WHITE_RAINBOW_BEAM') && typeof p._destroyHitOverlays === 'function') {
                                 try { p._destroyHitOverlays(); } catch (_) { }
                             }
                             // 保守清理：若 destroy 未處理 DOM，這裡補一刀
@@ -621,7 +621,7 @@ const Game = {
                         if (!p._createdAt) p._createdAt = now;
                         if (now - p._createdAt > VISUAL_EFFECT_HARD_MAX_AGE) {
                             try { if (typeof p.destroy === 'function') p.destroy(); } catch (_) { }
-                            if (p.weaponType === 'WHITE_NIGHT_BEAM' && typeof p._destroyHitOverlays === 'function') {
+                            if ((p.weaponType === 'WHITE_NIGHT_BEAM' || p.weaponType === 'WHITE_RAINBOW_BEAM') && typeof p._destroyHitOverlays === 'function') {
                                 try { p._destroyHitOverlays(); } catch (_) { }
                             }
                             try {
@@ -1193,7 +1193,8 @@ const Game = {
                 projectile.weaponType === 'STARFALL_MOON' ||
                 projectile.weaponType === 'INTERSECTION_CAR' ||
                 projectile.weaponType === 'FBI' ||
-                projectile.weaponType === 'WHITE_NIGHT_BEAM'
+                projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
+                projectile.weaponType === 'WHITE_RAINBOW_BEAM'
             ) {
                 // 延後到前景層（敵人之上）再繪製
                 continue;
@@ -1344,12 +1345,12 @@ const Game = {
                 projectile.weaponType === 'STARFALL_MOON' ||
                 projectile.weaponType === 'INTERSECTION_CAR' ||
                 projectile.weaponType === 'FBI' ||
-                projectile.weaponType === 'WHITE_NIGHT_BEAM'
+                projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
+                projectile.weaponType === 'WHITE_RAINBOW_BEAM'
             ) {
                 try {
                     projectile.draw(this.ctx);
                 } catch (e) {
-                    // ⚠️ 修复：如果投射物已被清理或 draw 方法失败，跳过绘制
                     console.warn('[Game] drawEntities: foreground projectile.draw 失败:', e);
                 }
             }
@@ -1760,8 +1761,9 @@ const Game = {
                     projectile.weaponType === 'JUDGMENT' ||
                     projectile.weaponType === 'DIVINE_JUDGMENT' ||
                     projectile.weaponType === 'EXPLOSION' ||
-                    // ✅ 白夜光束：一次性範圍傷害，需保留本地 effect 以跑 update/清理 overlay，否則 #skill-effects-layer 殘留累積
+                    // ✅ 白夜光束/白虹光束：一次性範圍傷害，需保留本地 effect 以跑 update/清理 overlay
                     projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
+                    projectile.weaponType === 'WHITE_RAINBOW_BEAM' ||
                     // ✅ 修復：SUMMON_AI（召喚AI）是持續效果，需要廣播給其他玩家
                     projectile.weaponType === 'SUMMON_AI' ||
                     // ✅ 厄倫蒂兒大招分身：持續效果（需廣播讓其他玩家可見；傷害由分身投擲物的標準 attack input 處理）
@@ -1794,6 +1796,7 @@ const Game = {
                         projectile.constructor.name === 'ExplosionEffect' ||
                         // ✅ 白夜光束：需走「push + 廣播」路徑，本地才能跑 update 並 _destroyHitOverlays
                         projectile.constructor.name === 'WhiteNightBeamEffect' ||
+                        projectile.constructor.name === 'WhiteRainbowBeamEffect' ||
                         // ✅ 修復：AICompanion（召喚AI）是持續效果，需要廣播給其他玩家
                         projectile.constructor.name === 'AICompanion' ||
                         projectile.constructor.name === 'ElondierUltimateClone'
@@ -2041,6 +2044,13 @@ const Game = {
                             projectileData.level = projectile.level || 1;
                         }
 
+                        // 組隊模式：白虹光束（WhiteRainbowBeamEffect）
+                        if (projectile.weaponType === "WHITE_RAINBOW_BEAM") {
+                            projectileData.damage = projectile.damage || 0;
+                            projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.WHITE_RAINBOW_BEAM ? CONFIG.WEAPONS.WHITE_RAINBOW_BEAM.FIELD_RADIUS : 330);
+                            projectileData.level = projectile.level || 1;
+                        }
+
                         // 廣播投射物生成事件（讓遠程玩家也能看到）
                         window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
                     }
@@ -2142,6 +2152,7 @@ const Game = {
                         projectile.weaponType === 'DIVINE_JUDGMENT' ||
                         projectile.weaponType === 'EXPLOSION' ||
                         projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
+                        projectile.weaponType === 'WHITE_RAINBOW_BEAM' ||
                         // ✅ 修復：SUMMON_AI（召喚AI）是持續效果，需要廣播給其他玩家
                         projectile.weaponType === 'SUMMON_AI' ||
                         isAICompanion ||
@@ -2171,6 +2182,7 @@ const Game = {
                             projectile.constructor.name === 'DivineJudgmentEffect' ||
                             projectile.constructor.name === 'ExplosionEffect' ||
                             projectile.constructor.name === 'WhiteNightBeamEffect' ||
+                            projectile.constructor.name === 'WhiteRainbowBeamEffect' ||
                             // ✅ 修復：AICompanion（召喚AI）是持續效果，需要廣播給其他玩家
                             projectile.constructor.name === 'AICompanion'
                         )) ||
@@ -2320,6 +2332,13 @@ const Game = {
                     if (projectile.weaponType === "WHITE_NIGHT_BEAM") {
                         projectileData.damage = projectile.damage || 0;
                         projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.WHITE_NIGHT_BEAM ? CONFIG.WEAPONS.WHITE_NIGHT_BEAM.FIELD_RADIUS : 150);
+                        projectileData.level = projectile.level || 1;
+                    }
+
+                    // 組隊模式：白虹光束（WhiteRainbowBeamEffect），添加額外屬性
+                    if (projectile.weaponType === "WHITE_RAINBOW_BEAM") {
+                        projectileData.damage = projectile.damage || 0;
+                        projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.WHITE_RAINBOW_BEAM ? CONFIG.WEAPONS.WHITE_RAINBOW_BEAM.FIELD_RADIUS : 330);
                         projectileData.level = projectile.level || 1;
                     }
 
@@ -3107,6 +3126,10 @@ const Game = {
                 }
                 if (charId === 'pineapple' && mapId === 'city') {
                     Achievements.unlock('PINEAPPLE_CITY_CLEAR');
+                }
+                // 白白虹通關廁所：解鎖白虹光束成就
+                if (charId === 'baibaihong' && mapId === 'city') {
+                    Achievements.unlock('BAIBAIHONG_CITY_CLEAR');
                 }
                 // 灰妲通關草原：解鎖幼妲天使成就
                 if (charId === 'dada' && mapId === 'forest') {
