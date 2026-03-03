@@ -1636,9 +1636,12 @@
                 }
             }
 
+            // 覺醒力量加成（+300 基礎攻擊，僅生存模式）
+            const awakeningAttackFlat = (this.player && this.player.awakeningAttackFlat) ? this.player.awakeningAttackFlat : 0;
+
             const lvPct = Math.max(0, (levelMul || 1) - 1);
             const percentSum = lvPct + talentPct + attrPct;
-            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + innateTemperamentExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + whiteRainbowBeamExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat + gabrielOrbitFlat;
+            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + innateTemperamentExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + whiteRainbowBeamExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat + gabrielOrbitFlat + awakeningAttackFlat;
             const value = baseFlat * (1 + percentSum);
             return value;
         };
