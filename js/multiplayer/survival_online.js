@@ -2816,6 +2816,24 @@ const Runtime = (() => {
             if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
               window.SurvivalOnlineUI.openLobbyScreen();
             }
+            // 觸發成就（組隊模式勝利）
+            try {
+              if (typeof Achievements !== 'undefined' && Achievements.unlock) {
+                Achievements.unlock('FIRST_CLEAR');
+                const diffId = (typeof Game !== 'undefined' && Game.selectedDifficultyId) ? Game.selectedDifficultyId : 'EASY';
+                if (diffId === 'HARD') Achievements.unlock('HARD_CLEAR');
+                const charId = (typeof Game !== 'undefined' && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
+                const mapId = (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
+                if (charId === 'rokurost' && mapId === 'city') Achievements.unlock('ROKUROST_CITY_CLEAR');
+                if (charId === 'dada' && mapId === 'city') Achievements.unlock('DADA_CITY_CLEAR');
+                if (charId === 'rabi' && mapId === 'city') Achievements.unlock('RABI_CITY_CLEAR');
+                if (charId === 'elondier' && mapId === 'city') Achievements.unlock('ELONDIER_CITY_CLEAR');
+                if (charId === 'pineapple' && mapId === 'city') Achievements.unlock('PINEAPPLE_CITY_CLEAR');
+                if (charId === 'baibaihong' && mapId === 'city') Achievements.unlock('BAIBAIHONG_CITY_CLEAR');
+                if (charId === 'dada' && mapId === 'forest') Achievements.unlock('DADA_FOREST_CLEAR');
+                if (mapId === 'intersection') Achievements.unlock('INTERSECTION_CLEAR');
+              }
+            } catch (_) {}
             // 顯示勝利畫面
             if (typeof UI !== 'undefined' && typeof UI.showVictoryScreen === 'function') {
               UI.showVictoryScreen();
