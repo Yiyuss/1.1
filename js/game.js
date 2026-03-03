@@ -3137,6 +3137,10 @@ const Game = {
                 if (charId === 'dada' && mapId === 'forest') {
                     Achievements.unlock('DADA_FOREST_CLEAR');
                 }
+                // 任一角色通關路口地圖：解鎖覺醒之路成就
+                if (mapId === 'intersection') {
+                    Achievements.unlock('INTERSECTION_CLEAR');
+                }
             }
         } catch (_) { }
         UI.showVictoryScreen();
