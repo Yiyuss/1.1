@@ -1512,8 +1512,8 @@ const Game = {
         const bgKey = (this.backgroundKey) || (this.selectedMap && this.selectedMap.backgroundKey) || 'background';
         const imgObj = (this.images || Game.images || {})[bgKey];
         if (imgObj && imgObj.complete) {
-            // 第4張地圖（花園）與第5張地圖（路口）：直接使用3840x2160圖片，不使用九宮格
-            if (this.selectedMap && (this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection')) {
+            // 第4張地圖（花園）、第5張地圖（路口）、第6張地圖（支部）：直接使用3840x2160圖片，不使用九宮格
+            if (this.selectedMap && (this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection' || this.selectedMap.id === 'branch')) {
                 // 直接在世界座標(0,0)繪製完整圖片（座標系已平移）
                 this.ctx.drawImage(imgObj, 0, 0);
             } else {
@@ -2919,7 +2919,7 @@ const Game = {
             let toRemove = this.enemies.length - effectiveMax;
             for (let i = 0; i < this.enemies.length && toRemove > 0;) {
                 const e = this.enemies[i];
-                if (e && (e.type === 'BOSS' || e.type === 'ELF_BOSS' || e.type === 'HUMAN_BOSS' || e.type === 'MINI_BOSS' || e.type === 'ELF_MINI_BOSS' || e.type === 'HUMAN_MINI_BOSS')) {
+                if (e && (e.type === 'BOSS' || e.type === 'ELF_BOSS' || e.type === 'HUMAN_BOSS' || e.type === 'UNKNOWN_BOSS' || e.type === 'MINI_BOSS' || e.type === 'ELF_MINI_BOSS' || e.type === 'HUMAN_MINI_BOSS' || e.type === 'UNKNOWN_MINI_BOSS')) {
                     i++; // 跳過BOSS類型
                 } else {
                     this.enemies.splice(i, 1);
@@ -3544,7 +3544,7 @@ const Game = {
         // 根据地图类型设定世界大小
         // 4K模式（花園、路口）：固定為 3840x2160
         // 720P九宮格模式（廁所、草原、宇宙）：根據 CONFIG 計算 (1280*3, 720*3)
-        if (this.selectedMap && (this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection')) {
+        if (this.selectedMap && (this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection' || this.selectedMap.id === 'branch')) {
             this.worldWidth = 3840;
             this.worldHeight = 2160;
             console.log(`[Game] 设置世界大小 (4K模式): ${this.worldWidth}x${this.worldHeight}`);
@@ -3974,7 +3974,7 @@ const Game = {
         // 第二、第三、第四、第五張地圖（forest、desert、garden、intersection）不生成裝飾物，僅保留 S1/S2 障礙物。
         // 注意：不更改任何顯示文字與其他地圖行為；維持第一張地圖邏輯。
         // 第四張地圖（garden）的 S10-S16 裝飾物邏輯保留在註釋中，供未來其他地圖使用。
-        if (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert' || this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection')) {
+        if (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert' || this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection' || this.selectedMap.id === 'branch')) {
             return; // 跳過裝飾生成
         }
 
