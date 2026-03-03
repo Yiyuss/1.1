@@ -73,7 +73,8 @@ body {
     z-index: 10;
 }
 
-/* 提升第三張地圖專用難度視窗層級，避免被底層畫面覆蓋 */
+/* 提升難度視窗層級，使其覆蓋在地圖選擇畫面之上（而非選角畫面） */
+#difficulty-select-screen,
 #desert-difficulty-select-screen {
     z-index: 20;
 }
