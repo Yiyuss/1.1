@@ -1345,6 +1345,7 @@ const CONFIG = {
         { id: 'desert', name: 'LV3.宇宙', backgroundKey: 'background1-3' },
         { id: 'garden', name: 'LV4.花園', backgroundKey: 'background8' },
         { id: 'intersection', name: 'LV5.路口', backgroundKey: 'background12' },
+        { id: 'branch', name: 'LV6.支部', backgroundKey: 'background13' },
         { id: 'challenge-1', name: 'LV1.銀河系', backgroundKey: 'background4' },
         { id: 'challenge-2', name: 'LV2.星雲', backgroundKey: 'background5' },
         { id: 'challenge-3', name: 'LV3.星軌', backgroundKey: 'background6' },
@@ -1670,6 +1671,86 @@ const CONFIG = {
         },
 
         // ========================================================================
+        // 第6張地圖：支部 (branch) - 未知系列
+        // 邏輯與花園地圖相同（障礙物/裝飾/尺寸）；難度僅困難/修羅
+        // 小怪基礎傷害 100；小BOSS 150、火焰彈 200；大BOSS 200、火焰彈 250
+        // 雪碧圖：unknown(2行4列6幀 750x720)、unknown_mini_boss(2行4列6幀 279x320)、unknownboss(1行4列4幀 223x320)
+        // ========================================================================
+        UNKNOWN1: {
+            NAME: "未知1",
+            HEALTH: 60,
+            DAMAGE: 100,
+            SPEED: 1,
+            SIZE: 50,
+            EXPERIENCE: 8,
+            COLLISION_RADIUS: 16
+        },
+        UNKNOWN2: {
+            NAME: "未知2",
+            HEALTH: 50,
+            DAMAGE: 100,
+            SPEED: 1.5,
+            SIZE: 50,
+            WIDTH: 38,   // 50*(123/160) 比例 123x160
+            HEIGHT: 50,
+            EXPERIENCE: 10,
+            COLLISION_RADIUS: 16
+        },
+        UNKNOWN3: {
+            NAME: "未知3",
+            HEALTH: 45,
+            DAMAGE: 100,
+            SPEED: 2,
+            SIZE: 50,
+            WIDTH: 35,   // 50*(212/300) 比例 212x300
+            HEIGHT: 50,
+            EXPERIENCE: 12,
+            COLLISION_RADIUS: 16
+        },
+        UNKNOWN_MINI_BOSS: {
+            NAME: "未知信號A",
+            HEALTH: 600,
+            DAMAGE: 150,
+            SPEED: 0.8,
+            SIZE: 160,
+            WIDTH: 140,  // 279x320 以高度160縮放
+            HEIGHT: 160,
+            EXPERIENCE: 100,
+            COLLISION_RADIUS: 80,
+            RANGED_ATTACK: {
+                ENABLED: true,
+                RANGE: 250,
+                COOLDOWN: 3500,
+                PROJECTILE_DAMAGE: 200,
+                PROJECTILE_SPEED: 5,
+                PROJECTILE_SIZE: 18,
+                HOMING: true,
+                TURN_RATE: 2.0
+            }
+        },
+        UNKNOWN_BOSS: {
+            NAME: "未知信號S",
+            HEALTH: 5000,
+            DAMAGE: 200,
+            SPEED: 0.7,
+            SIZE: 300,
+            WIDTH: 209,  // 223x320 以高度300縮放
+            HEIGHT: 300,
+            EXPERIENCE: 500,
+            COLLISION_RADIUS: 150,
+            RANGED_ATTACK: {
+                ENABLED: true,
+                RANGE: 500,
+                COOLDOWN: 2500,
+                PROJECTILE_DAMAGE: 250,
+                PROJECTILE_SPEED: 6,
+                PROJECTILE_SIZE: 24,
+                HOMING: true,
+                TURN_RATE: 2.5
+            }
+        },
+
+        // ========================================================================
         // BOSS類敵人（通用）
         // 放在所有地圖段落之後，讓 CONFIG.ENEMIES 可依地圖順序往下閱讀
         // ========================================================================
@@ -1841,6 +1922,17 @@ const CONFIG = {
                     baseHealth: 80,
                     maxHealthWave30: 18000
                 }
+            },
+            // 第六張地圖：支部 (branch) - 僅困難/修羅，與宇宙難度選擇一致
+            branch: {
+                HARD: {
+                    baseHealth: 3000,
+                    maxHealthWave30: 500000
+                },
+                ASURA: {
+                    baseHealth: 4000,
+                    maxHealthWave30: 650000
+                }
             }
         },
 
@@ -1912,6 +2004,17 @@ const CONFIG = {
                     startWave1: 5000,
                     endWave30: 300000
                 }
+            },
+            // 第六張地圖：支部 (branch)
+            branch: {
+                HARD: {
+                    startWave1: 50000,
+                    endWave30: 1000000
+                },
+                ASURA: {
+                    startWave1: 70000,
+                    endWave30: 1700000
+                }
             }
         },
 
@@ -1971,6 +2074,15 @@ const CONFIG = {
                 // 1~30波 HARD：大BOSS 800000（實際只在第20波生成）
                 HARD: {
                     wave20: 800000
+                }
+            },
+            // 第六張地圖：支部 (branch)
+            branch: {
+                HARD: {
+                    wave20: 3500000
+                },
+                ASURA: {
+                    wave20: 5000000
                 }
             }
         }
