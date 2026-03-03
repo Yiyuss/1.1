@@ -122,6 +122,13 @@ const TalentSystem = {
             name: '加百列強化',
             description: '升級可強化加百列的基礎攻擊。',
             cost: 10000
+        },
+        // 覺醒強化（獨特性天賦，需要覺醒之路成就解鎖）
+        awakening_enhance: {
+            name: '覺醒強化',
+            description: '解鎖覺醒系統，獲得強大的覺醒能力。',
+            cost: 0,
+            isAwakening: true
         }
     },
 
@@ -352,6 +359,24 @@ const TalentSystem = {
                 { flat: 25, cost: 50000 },
                 { flat: 30, cost: 60000 }
             ]
+        },
+        // 覺醒強化（獨特性，單級，解鎖後開啟覺醒系統）
+        awakening_enhance: {
+            levels: [{ cost: 0 }],
+            isAwakening: true
+        },
+        // 覺醒子系統（隱藏天賦，由覺醒視窗管理，僅生存模式生效）
+        awakening_hp: {
+            levels: [{ cost: 200000, hp: 3000 }],
+            isAwakening: true, hidden: true
+        },
+        awakening_regen: {
+            levels: [{ cost: 150000, regenBoost: 10.0 }],
+            isAwakening: true, hidden: true
+        },
+        awakening_attack: {
+            levels: [{ cost: 100000, attackFlat: 300 }],
+            isAwakening: true, hidden: true
         }
     },
     
@@ -401,6 +426,17 @@ const TalentSystem = {
     // 處理天賦卡點擊
     handleTalentCardClick: function(e) {
         const card = e.currentTarget;
+        const talentId = card.dataset.talentId;
+
+        // 覺醒強化特殊處理：已解鎖時直接開啟覺醒視窗
+        if (talentId === 'awakening_enhance') {
+            const lv = TalentSystem.getTalentLevel('awakening_enhance');
+            if (lv > 0) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                TalentSystem.showAwakeningWindow();
+                return;
+            }
+        }
         
         // 移除其他卡片的active狀態
         document.querySelectorAll('#talent-select-screen .char-card.active').forEach(el => {
@@ -419,7 +455,31 @@ const TalentSystem = {
     // 處理天賦卡雙擊
     handleTalentCardDblClick: function(e) {
         const card = e.currentTarget;
-        
+        const talentId = card.dataset.talentId;
+
+        // 覺醒強化特殊處理
+        if (talentId === 'awakening_enhance') {
+            const lv = TalentSystem.getTalentLevel('awakening_enhance');
+            if (lv > 0) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                TalentSystem.showAwakeningWindow();
+                return;
+            }
+            // 未解鎖：檢查成就
+            if (typeof Achievements === 'undefined' || !Achievements.isUnlocked || !Achievements.isUnlocked('INTERSECTION_CLEAR')) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                const descEl = document.getElementById('talent-preview-desc');
+                if (descEl) descEl.textContent = '需要先達成「覺醒之路」成就才能解鎖。';
+                return;
+            }
+            // 有成就：解鎖覺醒強化（免費）
+            TalentSystem.setTalentLevel('awakening_enhance', 1);
+            TalentSystem.updateTalentCardAppearance('awakening_enhance');
+            try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+            TalentSystem.showAwakeningWindow();
+            return;
+        }
+
         // 如果已解鎖，不需要確認
         if (!card.classList.contains('locked')) return;
         
@@ -563,8 +623,39 @@ const TalentSystem = {
         const card = document.querySelector(`#talent-select-screen .char-card[data-talent-id="${talentId}"]`);
         const cfg = this.tieredTalents[talentId];
         if (!card || !cfg) return;
+        // 隱藏型天賦（覺醒子系統）不顯示在天賦格
+        if (cfg.hidden) return;
         const lv = this.getTalentLevel(talentId);
         const max = cfg.levels.length;
+
+        // 覺醒強化特殊處理：只有 未解鎖/已解鎖 兩種狀態
+        if (talentId === 'awakening_enhance') {
+            this._updateAwakeningBadge(card, lv);
+            const img = card.querySelector('img');
+            if (!img) return;
+            img.classList.remove('grayscale');
+            img.style.filter = '';
+            img.style.boxShadow = '';
+            img.style.transition = 'box-shadow 240ms ease, filter 240ms ease';
+            if (img._talentAnim) { try { img._talentAnim.cancel(); } catch(_){} img._talentAnim = null; }
+            if (lv <= 0) {
+                img.classList.add('grayscale');
+                card.classList.add('locked');
+            } else {
+                card.classList.remove('locked');
+                img.style.filter = 'saturate(1.25) brightness(1.05)';
+                img.style.boxShadow = '0 0 10px rgba(255,0,255,0.85), 0 0 22px rgba(255,255,0,0.75), 0 0 34px rgba(255,255,255,0.65)';
+                try {
+                    img._talentAnim = img.animate([
+                        { boxShadow: '0 0 6px rgba(255,255,255,0.4), 0 0 14px rgba(0,255,255,0.4)', filter: 'saturate(1.25) brightness(1.0)' },
+                        { boxShadow: '0 0 12px rgba(255,0,255,0.85), 0 0 24px rgba(255,255,0,0.8), 0 0 36px rgba(255,255,255,0.75)', filter: 'saturate(1.35) brightness(1.1)' },
+                        { boxShadow: '0 0 6px rgba(255,255,255,0.4), 0 0 14px rgba(0,255,255,0.4)', filter: 'saturate(1.25) brightness(1.0)' }
+                    ], { duration: 1200, iterations: Infinity, easing: 'ease-in-out' });
+                } catch(_){}
+            }
+            return;
+        }
+
         // 注入LV徽章（僅UI，不更動數據）
         if (TalentSystem._updateLevelBadge) {
           TalentSystem._updateLevelBadge(card, lv, max);
@@ -649,6 +740,144 @@ const TalentSystem = {
             legacy.forEach(id => { if (!result.includes(id)) result.push(id); });
         } catch(e) {}
         return result;
+    },
+
+    // ===== 覺醒系統 =====
+    _awakeningSlots: [
+        { id: 'awakening_hp', name: '生命覺醒', icon: 'assets/images/A68.jpg', cost: 200000,
+          desc: '生存模式增加 3000 HP（平加在公式上）。', effectDesc: 'HP +3000' },
+        { id: 'awakening_regen', name: '回復覺醒', icon: 'assets/images/A67.jpg', cost: 150000,
+          desc: '生存模式增加 1000% 回血速度（平加在公式上）。', effectDesc: '回血速度 +1000%' },
+        { id: 'awakening_attack', name: '力量覺醒', icon: 'assets/images/A66.jpg', cost: 100000,
+          desc: '生存模式增加 300 基礎攻擊（平加在公式上）。', effectDesc: '基礎攻擊 +300' }
+    ],
+    _awakeningWindowOpen: false,
+
+    showAwakeningWindow: function() {
+        const overlay = document.getElementById('awakening-overlay');
+        if (!overlay) return;
+        this._awakeningWindowOpen = true;
+        this._refreshAwakeningSlots();
+        overlay.classList.remove('hidden');
+        overlay.setAttribute('aria-hidden', 'false');
+    },
+
+    hideAwakeningWindow: function() {
+        const overlay = document.getElementById('awakening-overlay');
+        if (!overlay) return;
+        this._awakeningWindowOpen = false;
+        overlay.classList.add('hidden');
+        overlay.setAttribute('aria-hidden', 'true');
+        // 清除覺醒描述
+        const descEl = document.getElementById('awakening-desc-text');
+        if (descEl) descEl.textContent = '點選覺醒格子查看詳細說明。';
+    },
+
+    _refreshAwakeningSlots: function() {
+        this._awakeningSlots.forEach(slot => {
+            const btn = document.querySelector('#awakening-overlay .awakening-slot[data-awakening-id="' + slot.id + '"]');
+            if (!btn) return;
+            const lv = this.getTalentLevel(slot.id);
+            const img = btn.querySelector('img');
+            const statusEl = btn.querySelector('.awakening-slot-status');
+            if (lv > 0) {
+                if (img) { img.classList.remove('grayscale'); img.style.filter = ''; }
+                if (statusEl) { statusEl.textContent = '已解鎖'; statusEl.style.color = '#4cff4c'; }
+                btn.classList.remove('locked');
+                btn.classList.add('awakened');
+                // LV6 彩色特效
+                if (img) {
+                    img.style.filter = 'saturate(1.25) brightness(1.05)';
+                    img.style.boxShadow = '0 0 10px rgba(255,0,255,0.85), 0 0 22px rgba(255,255,0,0.75), 0 0 34px rgba(255,255,255,0.65)';
+                    try {
+                        if (img._awakeningAnim) img._awakeningAnim.cancel();
+                        img._awakeningAnim = img.animate([
+                            { boxShadow: '0 0 6px rgba(255,255,255,0.4), 0 0 14px rgba(0,255,255,0.4)', filter: 'saturate(1.25) brightness(1.0)' },
+                            { boxShadow: '0 0 12px rgba(255,0,255,0.85), 0 0 24px rgba(255,255,0,0.8), 0 0 36px rgba(255,255,255,0.75)', filter: 'saturate(1.35) brightness(1.1)' },
+                            { boxShadow: '0 0 6px rgba(255,255,255,0.4), 0 0 14px rgba(0,255,255,0.4)', filter: 'saturate(1.25) brightness(1.0)' }
+                        ], { duration: 1200, iterations: Infinity, easing: 'ease-in-out' });
+                    } catch(_){}
+                }
+            } else {
+                if (img) { img.classList.add('grayscale'); img.style.filter = ''; img.style.boxShadow = ''; }
+                if (statusEl) { statusEl.textContent = '未解鎖'; statusEl.style.color = '#aaa'; }
+                btn.classList.add('locked');
+                btn.classList.remove('awakened');
+            }
+        });
+    },
+
+    _handleAwakeningSlotClick: function(slotId) {
+        const slot = this._awakeningSlots.find(s => s.id === slotId);
+        if (!slot) return;
+        try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click2'); } catch(_){}
+        const lv = this.getTalentLevel(slotId);
+        const descEl = document.getElementById('awakening-desc-text');
+        if (!descEl) return;
+        if (lv > 0) {
+            descEl.innerHTML = '<strong>' + slot.name + '</strong>（已解鎖）<br>' + slot.desc;
+        } else {
+            descEl.innerHTML = '<strong>' + slot.name + '</strong><br>' + slot.desc + '<br>解鎖費用：<span style="color:#ffd700;">' + slot.cost.toLocaleString() + ' 金幣</span>';
+        }
+        // 標記選中
+        document.querySelectorAll('#awakening-overlay .awakening-slot.active').forEach(el => el.classList.remove('active'));
+        const btn = document.querySelector('#awakening-overlay .awakening-slot[data-awakening-id="' + slotId + '"]');
+        if (btn) btn.classList.add('active');
+    },
+
+    _handleAwakeningSlotDblClick: function(slotId) {
+        const slot = this._awakeningSlots.find(s => s.id === slotId);
+        if (!slot) return;
+        const lv = this.getTalentLevel(slotId);
+        if (lv > 0) return; // 已解鎖
+        // 金幣檢查
+        if (typeof Game === 'undefined' || Game.coins < slot.cost) {
+            try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+            const descEl = document.getElementById('awakening-desc-text');
+            if (descEl) descEl.innerHTML = '<strong>' + slot.name + '</strong><br><span style="color:#ff6b6b;">金幣不足！需要 ' + slot.cost.toLocaleString() + ' 金幣。</span>';
+            return;
+        }
+        // 扣款
+        Game.coins -= slot.cost;
+        Game.saveCoins();
+        try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+        if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) UI.updateCoinsDisplay(Game.coins);
+        // 解鎖
+        this.setTalentLevel(slotId, 1);
+        this._refreshAwakeningSlots();
+        // 更新描述
+        const descEl = document.getElementById('awakening-desc-text');
+        if (descEl) descEl.innerHTML = '<strong>' + slot.name + '</strong>（已解鎖）<br>' + slot.desc;
+        // 應用效果
+        if (Game.player) this.applyTalentEffects(Game.player);
+        if (typeof UI !== 'undefined' && UI.updateTalentsList) UI.updateTalentsList();
+    },
+
+    initAwakeningWindow: function() {
+        const overlay = document.getElementById('awakening-overlay');
+        if (!overlay) return;
+        // 返回按鈕
+        const closeBtn = document.getElementById('awakening-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                this.hideAwakeningWindow();
+            });
+        }
+        // 覺醒格子事件
+        this._awakeningSlots.forEach(slot => {
+            const btn = overlay.querySelector('.awakening-slot[data-awakening-id="' + slot.id + '"]');
+            if (!btn) return;
+            btn.addEventListener('click', () => this._handleAwakeningSlotClick(slot.id));
+            btn.addEventListener('dblclick', () => this._handleAwakeningSlotDblClick(slot.id));
+        });
+        // 點擊外側關閉
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                this.hideAwakeningWindow();
+            }
+        });
     }
 };
 
@@ -812,6 +1041,14 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'gabriel_orbit_boost') {
             const flat = eff.flat || 0;
             return `加百列基礎攻擊+${flat}`;
+        } else if (id === 'awakening_enhance') {
+            return lv > 0 ? '覺醒系統已解鎖，點擊進入覺醒強化。' : '需要「覺醒之路」成就來解鎖覺醒系統。';
+        } else if (id === 'awakening_hp') {
+            return lv > 0 ? '生存模式 HP+3000（已解鎖）' : '生存模式 HP+3000';
+        } else if (id === 'awakening_regen') {
+            return lv > 0 ? '生存模式回血速度+1000%（已解鎖）' : '生存模式回血速度+1000%';
+        } else if (id === 'awakening_attack') {
+            return lv > 0 ? '生存模式基礎攻擊+300（已解鎖）' : '生存模式基礎攻擊+300';
         }
         return base;
     };
@@ -979,6 +1216,49 @@ if (!TalentSystem._updateLevelBadge) {
         card.classList.remove('lv-max');
       }
     } catch(_) {}
+  };
+}
+
+// 覺醒強化專用徽章：顯示「未解鎖」/「已解鎖」+ 獨特性標籤
+if (!TalentSystem._updateAwakeningBadge) {
+  TalentSystem._updateAwakeningBadge = function(card, lv) {
+    try {
+      // 狀態徽章（左上角）
+      let badge = card.querySelector('.talent-level-badge');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'talent-level-badge';
+        card.appendChild(badge);
+      }
+      badge.textContent = lv > 0 ? '已解鎖' : '未解鎖';
+      badge.className = 'talent-level-badge';
+      const bs = badge.style;
+      bs.position = 'absolute'; bs.top = '8px'; bs.left = '8px';
+      bs.padding = '2px 6px'; bs.border = '2px solid #fff'; bs.borderRadius = '6px';
+      bs.color = '#fff'; bs.background = lv > 0 ? 'rgba(76,255,76,0.4)' : 'rgba(0,0,0,0.35)';
+      bs.fontWeight = '800'; bs.fontSize = '11px'; bs.lineHeight = '1';
+      bs.zIndex = '99'; bs.pointerEvents = 'none';
+      bs.textShadow = '0 1px 2px rgba(0,0,0,0.9)';
+      bs.boxShadow = lv > 0 ? '0 0 10px rgba(255,215,0,0.8)' : 'none';
+      // 獨特性標籤（右上角）
+      let uniqueTag = card.querySelector('.talent-unique-tag');
+      if (!uniqueTag) {
+        uniqueTag = document.createElement('span');
+        uniqueTag.className = 'talent-unique-tag';
+        uniqueTag.textContent = '獨特性';
+        card.appendChild(uniqueTag);
+      }
+      const us = uniqueTag.style;
+      us.position = 'absolute'; us.top = '8px'; us.right = '8px';
+      us.padding = '2px 6px'; us.border = '1px solid rgba(255,215,0,0.7)';
+      us.borderRadius = '4px'; us.color = '#ffd700';
+      us.background = 'rgba(0,0,0,0.5)'; us.fontWeight = '700';
+      us.fontSize = '10px'; us.lineHeight = '1'; us.zIndex = '99';
+      us.pointerEvents = 'none'; us.textShadow = '0 0 4px rgba(255,215,0,0.5)';
+      const compPos = getComputedStyle(card).position;
+      if (compPos === 'static') { card.style.position = 'relative'; card._hadPositionInjected = true; }
+      if (lv > 0) { card.classList.add('lv-max'); } else { card.classList.remove('lv-max'); }
+    } catch(_){}
   };
 }
 
