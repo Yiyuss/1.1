@@ -744,9 +744,9 @@ const TalentSystem = {
 
     // ===== 覺醒系統 =====
     _awakeningSlots: [
-        { id: 'awakening_hp', name: '生命覺醒', icon: 'assets/images/A68.jpg', cost: 200000,
+        { id: 'awakening_hp', name: '生命覺醒', icon: 'assets/images/A68.png', cost: 200000,
           desc: '生存模式增加 3000 HP（平加在公式上）。', effectDesc: 'HP +3000' },
-        { id: 'awakening_regen', name: '回復覺醒', icon: 'assets/images/A67.jpg', cost: 150000,
+        { id: 'awakening_regen', name: '回復覺醒', icon: 'assets/images/A67.png', cost: 150000,
           desc: '生存模式增加 1000% 回血速度（平加在公式上）。', effectDesc: '回血速度 +1000%' },
         { id: 'awakening_attack', name: '力量覺醒', icon: 'assets/images/A66.jpg', cost: 100000,
           desc: '生存模式增加 300 基礎攻擊（平加在公式上）。', effectDesc: '基礎攻擊 +300' }
@@ -1240,7 +1240,7 @@ if (!TalentSystem._updateAwakeningBadge) {
       bs.zIndex = '99'; bs.pointerEvents = 'none';
       bs.textShadow = '0 1px 2px rgba(0,0,0,0.9)';
       bs.boxShadow = lv > 0 ? '0 0 10px rgba(255,215,0,0.8)' : 'none';
-      // 獨特性標籤（右上角）
+      // 獨特性標籤（右下角）
       let uniqueTag = card.querySelector('.talent-unique-tag');
       if (!uniqueTag) {
         uniqueTag = document.createElement('span');
@@ -1249,7 +1249,7 @@ if (!TalentSystem._updateAwakeningBadge) {
         card.appendChild(uniqueTag);
       }
       const us = uniqueTag.style;
-      us.position = 'absolute'; us.top = '8px'; us.right = '8px';
+      us.position = 'absolute'; us.bottom = '8px'; us.right = '8px';
       us.padding = '2px 6px'; us.border = '1px solid rgba(255,215,0,0.7)';
       us.borderRadius = '4px'; us.color = '#ffd700';
       us.background = 'rgba(0,0,0,0.5)'; us.fontWeight = '700';
