@@ -167,6 +167,10 @@ const BuffSystem = {
         // 新增：基礎攻擊力上升（每級+2，單純加法，不影響公式百分比）
         if (player.attackPowerUpgradeLevel == null) player.attackPowerUpgradeLevel = 0;
         if (player.attackPowerUpgradeFlat == null) player.attackPowerUpgradeFlat = 0;
+        // 覺醒系統屬性（僅生存模式生效）
+        if (player.awakeningAttackFlat == null) player.awakeningAttackFlat = 0;
+        if (player.awakeningHpFlat == null) player.awakeningHpFlat = 0;
+        if (player.awakeningRegenBoost == null) player.awakeningRegenBoost = 0;
         
         // 初始化所有buff為未激活狀態
         for (const buffId in this.buffTypes) {
@@ -219,8 +223,9 @@ const BuffSystem = {
             const baseMax = (player && typeof player.baseMaxHealth === 'number')
                 ? player.baseMaxHealth
                 : ((CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.MAX_HEALTH) ? CONFIG.PLAYER.MAX_HEALTH : 200);
+            const awakeningHpFlat = player.awakeningHpFlat || 0;
             const oldMaxHealth = player.maxHealth || baseMax;
-            player.maxHealth = baseMax + hpTalentFlat + hpUpgradeFlat;
+            player.maxHealth = baseMax + hpTalentFlat + hpUpgradeFlat + awakeningHpFlat;
             // ✅ 修復：當 maxHealth 增加時，按比例調整當前血量，避免生命值加乘被取消
             if (player.maxHealth > oldMaxHealth) {
                 // 最大血量增加：按比例增加当前血量
@@ -300,6 +305,9 @@ const BuffSystem = {
         player.dodgeTalentRate = 0;
         player.healthRegenSpeedMultiplier = 1.0;
         player._heartConnectionRegenMultiplier = 1.0;
+        player.awakeningAttackFlat = 0;
+        player.awakeningHpFlat = 0;
+        player.awakeningRegenBoost = 0;
     },
     
     // 從天賦系統應用buff（使用本地天賦系統）
@@ -365,6 +373,17 @@ const BuffSystem = {
                 player.dodgeTalentRate = 0;
             }
             
+            // 覺醒系統效果（僅生存模式，平加在公式上）
+            const awakeningHpLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('awakening_hp') : 0;
+            player.awakeningHpFlat = awakeningHpLv > 0 ? 3000 : 0;
+            const awakeningAttackLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('awakening_attack') : 0;
+            player.awakeningAttackFlat = awakeningAttackLv > 0 ? 300 : 0;
+            const awakeningRegenLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('awakening_regen') : 0;
+            player.awakeningRegenBoost = awakeningRegenLv > 0 ? 10.0 : 0;
+
             // ✅ 修復：統一由 applyAttributeUpgrades 處理生命值（包括天賦和局內升級）
             // 這樣可以確保生命值只被計算一次，不會被重置
             this.applyAttributeUpgrades(player);
@@ -389,18 +408,19 @@ const BuffSystem = {
             // 觸發回血強化buff更新（會自動與天賦和心意相通加算）
             const oldMultiplier = player.healthRegenSpeedMultiplier || 1.0;
             if (regenLv > 0) {
-                // 回血強化已經在上面應用過了，這裡只需要確保心意相通疊加
                 const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 1.0) 
                     ? player._heartConnectionRegenMultiplier 
                     : 1.0;
-                // 與天賦疊加（加算）
                 player.healthRegenSpeedMultiplier = (player.healthRegenSpeedMultiplier || 1.0) + (heartConnectionMul - 1.0);
             } else {
-                // 如果沒有天賦，檢查是否有心意相通
                 const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 1.0) 
                     ? player._heartConnectionRegenMultiplier 
                     : 1.0;
                 player.healthRegenSpeedMultiplier = heartConnectionMul;
+            }
+            // 覺醒回復加成（平加在公式上，+1000% = +10.0）
+            if (player.awakeningRegenBoost > 0) {
+                player.healthRegenSpeedMultiplier = (player.healthRegenSpeedMultiplier || 1.0) + player.awakeningRegenBoost;
             }
             // 當回血速度倍率改變時，重置回血累積器，避免瞬間回滿血
             if (oldMultiplier !== player.healthRegenSpeedMultiplier && player.healthRegenAccumulator != null) {
@@ -438,9 +458,14 @@ const BuffSystem = {
                 }.bind(TalentSystem);
             }
             
-            // ✅ 修復：移除單獨的生命值處理，統一由 applyAttributeUpgrades 處理（包括天賦和局內升級）
-            // 這樣可以確保心意相通升級時生命值加乘不會丟失
-            // 生命值處理將在 applyAttributeUpgrades 中統一處理（Line 514）
+            // 覺醒系統效果（組隊模式遠程玩家，從 talentLevels 讀取）
+            const awakeningHpLvRemote = parseInt(talentLevels.awakening_hp || 0, 10) || 0;
+            player.awakeningHpFlat = awakeningHpLvRemote > 0 ? 3000 : 0;
+            const awakeningAttackLvRemote = parseInt(talentLevels.awakening_attack || 0, 10) || 0;
+            player.awakeningAttackFlat = awakeningAttackLvRemote > 0 ? 300 : 0;
+            const awakeningRegenLvRemote = parseInt(talentLevels.awakening_regen || 0, 10) || 0;
+            player.awakeningRegenBoost = awakeningRegenLvRemote > 0 ? 10.0 : 0;
+
             if (defLv > 0) {
                 const reduction = this._getTierEffect('defense_boost', defLv, 'reduction', 0) || 0;
                 player.damageReductionFlat = reduction;
@@ -509,18 +534,19 @@ const BuffSystem = {
             // 觸發回血強化buff更新（會自動與天賦和心意相通加算）
             const oldMultiplier = player.healthRegenSpeedMultiplier || 1.0;
             if (regenLv > 0) {
-                // 回血強化已經在上面應用過了，這裡只需要確保心意相通疊加
                 const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 1.0) 
                     ? player._heartConnectionRegenMultiplier 
                     : 1.0;
-                // 與天賦疊加（加算）
                 player.healthRegenSpeedMultiplier = (player.healthRegenSpeedMultiplier || 1.0) + (heartConnectionMul - 1.0);
             } else {
-                // 如果沒有天賦，檢查是否有心意相通
                 const heartConnectionMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 1.0) 
                     ? player._heartConnectionRegenMultiplier 
                     : 1.0;
                 player.healthRegenSpeedMultiplier = heartConnectionMul;
+            }
+            // 覺醒回復加成（平加在公式上）
+            if (player.awakeningRegenBoost > 0) {
+                player.healthRegenSpeedMultiplier = (player.healthRegenSpeedMultiplier || 1.0) + player.awakeningRegenBoost;
             }
             // 當回血速度倍率改變時，重置回血累積器，避免瞬間回滿血
             if (oldMultiplier !== player.healthRegenSpeedMultiplier && player.healthRegenAccumulator != null) {
