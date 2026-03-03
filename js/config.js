@@ -1690,9 +1690,11 @@ const CONFIG = {
             HEALTH: 50,
             DAMAGE: 100,
             SPEED: 1.5,
-            SIZE: 50,
-            WIDTH: 38,   // 50*(123/160) 比例 123x160
-            HEIGHT: 50,
+            // 高度改為 75（比未知1 大 50%）
+            // 如果要再微調：改 HEIGHT，然後把 WIDTH 改成 Math.round(HEIGHT * 123 / 160)，SIZE 可跟 HEIGHT 接近
+            SIZE: 75,
+            WIDTH: 58,   // 75*(123/160) ≈ 58，比例 123x160
+            HEIGHT: 75,
             EXPERIENCE: 10,
             COLLISION_RADIUS: 16
         },
@@ -1701,9 +1703,11 @@ const CONFIG = {
             HEALTH: 45,
             DAMAGE: 100,
             SPEED: 2,
-            SIZE: 50,
-            WIDTH: 35,   // 50*(212/300) 比例 212x300
-            HEIGHT: 50,
+            // 高度改為 90（比未知1 大 80%）
+            // 如果要再微調：改 HEIGHT，然後把 WIDTH 改成 Math.round(HEIGHT * 212 / 300)，SIZE 可跟 HEIGHT 接近
+            SIZE: 90,
+            WIDTH: 64,   // 90*(212/300) ≈ 64，比例 212x300
+            HEIGHT: 90,
             EXPERIENCE: 12,
             COLLISION_RADIUS: 16
         },
