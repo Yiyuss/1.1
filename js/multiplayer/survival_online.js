@@ -6299,6 +6299,16 @@ function _survivalOnlineDisposeEnemyBeforeRemove(enemy) {
     }
   } catch (_) { }
 
+  // 2.5) 支部雪碧敵人紅/藍閃 tint 快取釋放（與性能優化計畫「清空前資源釋放」一致，避免晚局殘留）
+  try {
+    if (enemy.type === 'UNKNOWN1' || enemy.type === 'UNKNOWN_MINI_BOSS' || enemy.type === 'UNKNOWN_BOSS') {
+      enemy._spriteTintRed = null;
+      enemy._spriteTintBlue = null;
+      enemy._spriteTintRedFrame = null;
+      enemy._spriteTintBlueFrame = null;
+    }
+  } catch (_) { }
+
   // 3) 按既有生命週期做標記（避免其他系統依賴 markedForDeletion）
   try {
     if (typeof enemy.destroy === 'function') enemy.destroy();
