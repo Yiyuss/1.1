@@ -896,6 +896,8 @@ function setupMapAndDifficultySelection() {
                 mapDescEl.textContent = '美麗的花園中，花精靈們守護著這片淨土。';
             } else if (cfg && (cfg.id === 'intersection' || cfg.name === '路口' || cfg.name === 'LV5.路口')) {
                 mapDescEl.textContent = '繁忙的路口，人群正在聚集。';
+            } else if (cfg && (cfg.id === 'branch' || cfg.name === '支部' || cfg.name === 'LV6.支部')) {
+                mapDescEl.textContent = '支部據點中，未知信號潛伏於此。';
             } else if (cfg && (cfg.id === 'challenge-1' || (typeof cfg.name === 'string' && cfg.name.includes('銀河系')))) {
                 // 銀河系地圖介紹
                 mapDescEl.textContent = '未知信號所具現化的能量體「森森鈴蘭」。';
@@ -1171,9 +1173,8 @@ function setupMapAndDifficultySelection() {
             return;
         }
 
-        // 顯示正確的難度視窗；第三張地圖改為與其他地圖一致，隱藏地圖視窗以避免上下文混淆
-        if (selectedMapCfg && selectedMapCfg.id === 'desert' && desertDiffScreen) {
-            // 宇宙地圖：僅困難/修羅；預設困難，避免沿用上一輪的 ASURA
+        // 顯示正確的難度視窗；宇宙/支部地圖僅困難/修羅
+        if (selectedMapCfg && (selectedMapCfg.id === 'desert' || selectedMapCfg.id === 'branch') && desertDiffScreen) {
             selectedDiffId = 'HARD';
             Game.selectedDifficultyId = 'HARD';
             hide(mapScreen);
@@ -1322,6 +1323,8 @@ function setupMapAndDifficultySelection() {
                     track = 'game_music2';
                 } else if (Game.selectedMap && Game.selectedMap.id === 'intersection') {
                     track = 'intersection_music';
+                } else if (Game.selectedMap && Game.selectedMap.id === 'branch') {
+                    track = (useId === 'ASURA') ? 'shura_music' : 'game_music3';
                 } else if (useId === 'ASURA') {
                     track = 'shura_music';
                 }
