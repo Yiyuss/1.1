@@ -6316,7 +6316,8 @@ function updateEnemiesFromServer(enemies) {
   const isBossType = (t) => (
     t === 'MINI_BOSS' || t === 'BOSS' ||
     t === 'ELF_MINI_BOSS' || t === 'ELF_BOSS' ||
-    t === 'HUMAN_MINI_BOSS' || t === 'HUMAN_BOSS'
+    t === 'HUMAN_MINI_BOSS' || t === 'HUMAN_BOSS' ||
+    t === 'UNKNOWN_MINI_BOSS' || t === 'UNKNOWN_BOSS'
   );
 
   // 创建敌人ID映射
@@ -7609,7 +7610,7 @@ function _fillMapOptions() {
   if (!sel) return;
   sel.innerHTML = "";
   const maps = (typeof CONFIG !== "undefined" && Array.isArray(CONFIG.MAPS)) ? CONFIG.MAPS : [];
-  const survivalMaps = maps.filter((m) => m && typeof m.id === "string" && ["city", "forest", "desert", "garden", "intersection"].includes(m.id));
+  const survivalMaps = maps.filter((m) => m && typeof m.id === "string" && ["city", "forest", "desert", "garden", "intersection", "branch"].includes(m.id));
   for (const m of survivalMaps) {
     const opt = document.createElement("option");
     opt.value = m.id;
@@ -7630,37 +7631,43 @@ function _updateDifficultyOptions() {
   // 清空現有選項
   selDiff.innerHTML = "";
 
-  // 添加簡單和困難（所有地圖都有）
-  const easyOpt = document.createElement("option");
-  easyOpt.value = "EASY";
-  easyOpt.textContent = "簡單";
-  selDiff.appendChild(easyOpt);
+  // 宇宙與支部地圖僅困難/修羅；其餘地圖為簡單+困難（可選修羅僅宇宙/支部）
+  const hardOnlyMap = (mapId === "desert" || mapId === "branch");
+  if (!hardOnlyMap) {
+    const easyOpt = document.createElement("option");
+    easyOpt.value = "EASY";
+    easyOpt.textContent = "簡單";
+    selDiff.appendChild(easyOpt);
+  }
 
   const hardOpt = document.createElement("option");
   hardOpt.value = "HARD";
   hardOpt.textContent = "困難";
   selDiff.appendChild(hardOpt);
 
-  // 僅宇宙地圖添加修羅難度
-  if (mapId === "desert") {
+  if (mapId === "desert" || mapId === "branch") {
     const asuraOpt = document.createElement("option");
     asuraOpt.value = "ASURA";
     asuraOpt.textContent = "修羅";
     selDiff.appendChild(asuraOpt);
   }
 
-  // 如果當前選擇的是修羅難度，但地圖不是宇宙，則切換到困難
-  if (currentDiff === "ASURA" && mapId !== "desert") {
+  // 若當前選擇修羅但地圖不支援，則切換到困難；若為宇宙/支部且選了簡單則改為困難
+  if (currentDiff === "ASURA" && mapId !== "desert" && mapId !== "branch") {
     selDiff.value = "HARD";
     // 同步更新房間設置
     if (_isHost && _activeRoomId) {
       hostUpdateSettings({ diffId: "HARD" }).catch(() => { });
     }
   } else if (currentDiff && ["EASY", "HARD", "ASURA"].includes(currentDiff)) {
-    // 保持當前選擇（如果有效）
-    selDiff.value = currentDiff;
+    // 宇宙/支部不允許 EASY，若當前為 EASY 則改為 HARD
+    if ((mapId === "desert" || mapId === "branch") && currentDiff === "EASY") {
+      selDiff.value = "HARD";
+      if (_isHost && _activeRoomId) hostUpdateSettings({ diffId: "HARD" }).catch(() => { });
+    } else {
+      selDiff.value = currentDiff;
+    }
   } else {
-    // 預設選擇困難
     selDiff.value = "HARD";
   }
 }
@@ -7675,9 +7682,9 @@ function _syncHostSelectsFromRoom() {
       _updateDifficultyOptions();
     }
     if (selDiff && _roomState.diffId) {
-      // 驗證難度是否有效（非宇宙地圖不能選修羅）
+      // 驗證難度是否有效（非宇宙/支部地圖不能選修羅）
       const mapId = selMap ? selMap.value : null;
-      if (_roomState.diffId === "ASURA" && mapId !== "desert") {
+      if (_roomState.diffId === "ASURA" && mapId !== "desert" && mapId !== "branch") {
         // 如果房間設置了修羅但地圖不是宇宙，強制改為困難
         selDiff.value = "HARD";
         if (_isHost && _activeRoomId) {
