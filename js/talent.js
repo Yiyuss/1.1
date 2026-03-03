@@ -785,18 +785,11 @@ const TalentSystem = {
                 if (statusEl) { statusEl.textContent = '已解鎖'; statusEl.style.color = '#4cff4c'; }
                 btn.classList.remove('locked');
                 btn.classList.add('awakened');
-                // LV6 彩色特效
+                // 已解鎖：單純發光（無閃爍動畫）
                 if (img) {
-                    img.style.filter = 'saturate(1.25) brightness(1.05)';
-                    img.style.boxShadow = '0 0 10px rgba(255,0,255,0.85), 0 0 22px rgba(255,255,0,0.75), 0 0 34px rgba(255,255,255,0.65)';
-                    try {
-                        if (img._awakeningAnim) img._awakeningAnim.cancel();
-                        img._awakeningAnim = img.animate([
-                            { boxShadow: '0 0 6px rgba(255,255,255,0.4), 0 0 14px rgba(0,255,255,0.4)', filter: 'saturate(1.25) brightness(1.0)' },
-                            { boxShadow: '0 0 12px rgba(255,0,255,0.85), 0 0 24px rgba(255,255,0,0.8), 0 0 36px rgba(255,255,255,0.75)', filter: 'saturate(1.35) brightness(1.1)' },
-                            { boxShadow: '0 0 6px rgba(255,255,255,0.4), 0 0 14px rgba(0,255,255,0.4)', filter: 'saturate(1.25) brightness(1.0)' }
-                        ], { duration: 1200, iterations: Infinity, easing: 'ease-in-out' });
-                    } catch(_){}
+                    try { if (img._awakeningAnim) img._awakeningAnim.cancel(); img._awakeningAnim = null; } catch(_){}
+                    img.style.filter = 'saturate(1.2) brightness(1.05)';
+                    img.style.boxShadow = '0 0 12px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 255, 255, 0.35)';
                 }
             } else {
                 if (img) { img.classList.add('grayscale'); img.style.filter = ''; img.style.boxShadow = ''; }
