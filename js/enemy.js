@@ -29,7 +29,9 @@
                 try {
                     // 普通小怪：根據地圖與難度配置調整血量
                     if (this.type !== 'MINI_BOSS' && this.type !== 'ELF_MINI_BOSS' && this.type !== 'HUMAN_MINI_BOSS' &&
-                        this.type !== 'BOSS' && this.type !== 'ELF_BOSS' && this.type !== 'HUMAN_BOSS') {
+                        this.type !== 'UNKNOWN_MINI_BOSS' &&
+                        this.type !== 'BOSS' && this.type !== 'ELF_BOSS' && this.type !== 'HUMAN_BOSS' &&
+                        this.type !== 'UNKNOWN_BOSS') {
                         const enemyHealthConfig = (((tuning.ENEMY_HEALTH || {})[mapId] || {})[diffId]) || null;
                         if (enemyHealthConfig) {
                             // 計算基礎血量（原始基礎值 + 地圖加成）
@@ -58,7 +60,7 @@
                         }
                     }
                     // 小BOSS：根據地圖與難度配置調整血量
-                    else if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS') {
+                    else if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' || this.type === 'UNKNOWN_MINI_BOSS') {
                         const miniBossConfig = (((tuning.MINI_BOSS || {})[mapId] || {})[diffId]) || null;
                         if (miniBossConfig && miniBossConfig.startWave1 && miniBossConfig.endWave30) {
                             const start = miniBossConfig.startWave1;
@@ -85,7 +87,7 @@
                         }
                     }
                     // 大BOSS：根據地圖與難度配置調整血量（僅第20波）
-                    else if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') {
+                    else if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS') {
                         const bossConfig = (((tuning.BOSS || {})[mapId] || {})[diffId]) || null;
                         // 大BOSS僅第20波出現，直接指定目標血量（原為第30波，已縮短為20波）
                         const bossWave = (CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 20;
@@ -166,36 +168,42 @@
                 }
 
                 // 視覺與邏輯尺寸同步：MINI_BOSS 與 BOSS 使用非正方形大小（並建立 alpha 碰撞多邊形）
-                if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS') {
+                if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' || this.type === 'UNKNOWN_MINI_BOSS') {
                     if (this.type === 'ELF_MINI_BOSS') {
                         // 花護衛：200x194，按比例縮放
                         this.width = 200; this.height = 194;
                     } else if (this.type === 'HUMAN_MINI_BOSS') {
                         // 混混：169x200，按比例縮放（預設高度 160）
                         this.width = 135; this.height = 160;
+                    } else if (this.type === 'UNKNOWN_MINI_BOSS') {
+                        // 未知信號A：279x320，按比例縮放為高度160
+                        this.width = 140; this.height = 160;
                     } else {
                         this.width = 123; this.height = 160;
                     }
-                    const imgName = (this.type === 'ELF_MINI_BOSS') ? 'elf_mini_boss' : ((this.type === 'HUMAN_MINI_BOSS') ? 'human_mini_boss' : 'mini_boss');
+                    const imgName = (this.type === 'ELF_MINI_BOSS') ? 'elf_mini_boss' : ((this.type === 'HUMAN_MINI_BOSS') ? 'human_mini_boss' : (this.type === 'UNKNOWN_MINI_BOSS') ? 'unknown_mini_boss' : 'mini_boss');
                     const img = Game && Game.images ? Game.images[imgName] : null;
-                    if (img && img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
+                    if (img && img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon && this.type !== 'UNKNOWN_MINI_BOSS') {
                         const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, 32, 72, 2);
                         if (poly && poly.length >= 3) this.setCollisionPolygon(poly);
                     }
                 }
-                if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') {
+                if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS') {
                     if (this.type === 'ELF_BOSS') {
                         // 花女王：400x382，按比例縮放
                         this.width = 400; this.height = 382;
                     } else if (this.type === 'HUMAN_BOSS') {
                         // 資本家：300x325，按比例縮放（預設高度 300）
                         this.width = 277; this.height = 300;
+                    } else if (this.type === 'UNKNOWN_BOSS') {
+                        // 未知信號S：223x320，按比例縮放為高度300
+                        this.width = 209; this.height = 300;
                     } else {
                         this.width = 212; this.height = 300;
                     }
-                    const imgName = (this.type === 'ELF_BOSS') ? 'elfboss' : ((this.type === 'HUMAN_BOSS') ? 'humanboss' : 'boss');
+                    const imgName = (this.type === 'ELF_BOSS') ? 'elfboss' : ((this.type === 'HUMAN_BOSS') ? 'humanboss' : (this.type === 'UNKNOWN_BOSS') ? 'unknownboss' : 'boss');
                     const img = Game && Game.images ? Game.images[imgName] : null;
-                    if (img && img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
+                    if (img && img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon && this.type !== 'UNKNOWN_BOSS') {
                         const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, 36, 80, 2);
                         if (poly && poly.length >= 3) this.setCollisionPolygon(poly);
                     }
@@ -259,6 +267,73 @@
                     };
                     this._spriteAnimation.imageLoading = true;
                     img.src = this._spriteAnimation.spriteSrc;
+                }
+                // 支部地圖：UNKNOWN1 / UNKNOWN_MINI_BOSS / UNKNOWN_BOSS 雪碧圖動畫（幀數對應圖片數量）
+                if (this.type === 'UNKNOWN1') {
+                    // unknown.png：2行4列共6張 → totalFrames=6
+                    this._spriteAnimation = {
+                        spriteSheet: null,
+                        spriteSheetLoaded: false,
+                        frameWidth: 750,
+                        frameHeight: 720,
+                        framesPerRow: 4,
+                        framesPerCol: 2,
+                        totalFrames: 6,
+                        currentFrame: 0,
+                        frameDuration: 240, // 放慢至少 3 倍（原 80）
+                        animAccumulator: 0,
+                        spriteSrc: 'assets/images/unknown.png',
+                        imageLoading: false
+                    };
+                    const imgU = new Image();
+                    imgU.onload = () => { if (this._spriteAnimation) { this._spriteAnimation.spriteSheet = imgU; this._spriteAnimation.spriteSheetLoaded = true; } };
+                    imgU.onerror = () => { if (this._spriteAnimation) this._spriteAnimation.spriteSheetLoaded = false; };
+                    this._spriteAnimation.imageLoading = true;
+                    imgU.src = this._spriteAnimation.spriteSrc;
+                }
+                if (this.type === 'UNKNOWN_MINI_BOSS') {
+                    // unknown_mini_boss.png：2行4列共6張 → totalFrames=6
+                    this._spriteAnimation = {
+                        spriteSheet: null,
+                        spriteSheetLoaded: false,
+                        frameWidth: 279,
+                        frameHeight: 320,
+                        framesPerRow: 4,
+                        framesPerCol: 2,
+                        totalFrames: 6,
+                        currentFrame: 0,
+                        frameDuration: 150, // 放慢至少 3 倍（原 50）
+                        animAccumulator: 0,
+                        spriteSrc: 'assets/images/unknown_mini_boss.png',
+                        imageLoading: false
+                    };
+                    const imgM = new Image();
+                    imgM.onload = () => { if (this._spriteAnimation) { this._spriteAnimation.spriteSheet = imgM; this._spriteAnimation.spriteSheetLoaded = true; } };
+                    imgM.onerror = () => { if (this._spriteAnimation) this._spriteAnimation.spriteSheetLoaded = false; };
+                    this._spriteAnimation.imageLoading = true;
+                    imgM.src = this._spriteAnimation.spriteSrc;
+                }
+                if (this.type === 'UNKNOWN_BOSS') {
+                    // unknownboss.png：1行4列共4張 → totalFrames=4
+                    this._spriteAnimation = {
+                        spriteSheet: null,
+                        spriteSheetLoaded: false,
+                        frameWidth: 223,
+                        frameHeight: 320,
+                        framesPerRow: 4,
+                        framesPerCol: 1,
+                        totalFrames: 4,
+                        currentFrame: 0,
+                        frameDuration: 240, // 放慢至少 3 倍（原 80）
+                        animAccumulator: 0,
+                        spriteSrc: 'assets/images/unknownboss.png',
+                        imageLoading: false
+                    };
+                    const imgB = new Image();
+                    imgB.onload = () => { if (this._spriteAnimation) { this._spriteAnimation.spriteSheet = imgB; this._spriteAnimation.spriteSheetLoaded = true; } };
+                    imgB.onerror = () => { if (this._spriteAnimation) this._spriteAnimation.spriteSheetLoaded = false; };
+                    this._spriteAnimation.imageLoading = true;
+                    imgB.src = this._spriteAnimation.spriteSrc;
                 }
             }
 
@@ -332,12 +407,14 @@
                     if (this.type === 'MINI_BOSS') imageName = 'mini_boss';
                     else if (this.type === 'ELF_MINI_BOSS') imageName = 'elf_mini_boss';
                     else if (this.type === 'HUMAN_MINI_BOSS') imageName = 'human_mini_boss';
+                    else if (this.type === 'UNKNOWN_MINI_BOSS') imageName = 'unknown_mini_boss';
                     else if (this.type === 'BOSS') imageName = 'boss';
                     else if (this.type === 'ELF_BOSS') imageName = 'elfboss';
                     else if (this.type === 'HUMAN_BOSS') imageName = 'humanboss';
+                    else if (this.type === 'UNKNOWN_BOSS') imageName = 'unknownboss';
                     if (imageName && Game && Game.images && Game.images[imageName]) {
                         const img = Game.images[imageName];
-                        if (img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon) {
+                        if (img.complete && img.naturalWidth > 0 && Utils.generateAlphaMaskPolygon && this.type !== 'UNKNOWN_MINI_BOSS' && this.type !== 'UNKNOWN_BOSS') {
                             const params = (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') ? [36, 80, 2] : [32, 72, 2];
                             const poly = Utils.generateAlphaMaskPolygon(img, this.width, this.height, ...params);
                             if (poly && poly.length >= 3) this.setCollisionPolygon(poly);
@@ -459,13 +536,15 @@
                 // 注意：這些變數會在下面的邊界處理部分再次使用，所以提前定義
                 const isGardenLargeEnemyForRepulsion = (Game.selectedMap && Game.selectedMap.id === 'garden') &&
                     (this.type === 'ELF_MINI_BOSS' || this.type === 'ELF_BOSS');
-                const isLargeEnemyForRepulsion = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' ||
-                    this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS');
+                const isBranchLargeEnemyForRepulsion = (Game.selectedMap && Game.selectedMap.id === 'branch') &&
+                    (this.type === 'UNKNOWN_MINI_BOSS' || this.type === 'UNKNOWN_BOSS');
+                const isLargeEnemyForRepulsion = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' || this.type === 'UNKNOWN_MINI_BOSS' ||
+                    this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS');
 
                 // 互斥強度：大體積敵人需要更強的推力，避免被小敵人卡住
                 let repulsionStrength = 0.15; // 默認互斥強度
-                if (isGardenLargeEnemyForRepulsion) {
-                    repulsionStrength = 0.35; // 花園大體積敵人：更強推力
+                if (isGardenLargeEnemyForRepulsion || isBranchLargeEnemyForRepulsion) {
+                    repulsionStrength = 0.35; // 花園/支部大體積敵人：更強推力
                 } else if (isLargeEnemyForRepulsion) {
                     repulsionStrength = 0.25; // 其他大體積敵人：中等推力
                 }
@@ -533,18 +612,20 @@
                 // ========================================================================
                 // 針對花園地圖大體積敵人的邊界處理優化
                 // ========================================================================
-                // 判斷是否為花園地圖的大體積敵人
+                // 判斷是否為花園/支部地圖的大體積敵人
                 const isGardenLargeEnemy = (Game.selectedMap && Game.selectedMap.id === 'garden') &&
                     (this.type === 'ELF_MINI_BOSS' || this.type === 'ELF_BOSS');
-                const isLargeEnemy = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' ||
-                    this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS');
+                const isBranchLargeEnemy = (Game.selectedMap && Game.selectedMap.id === 'branch') &&
+                    (this.type === 'UNKNOWN_MINI_BOSS' || this.type === 'UNKNOWN_BOSS');
+                const isLargeEnemy = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' || this.type === 'UNKNOWN_MINI_BOSS' ||
+                    this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS');
 
                 // 根據敵人體積動態調整邊界推入距離
                 // 花園地圖的大體積敵人需要更大的推入距離，避免卡在邊界
                 let borderPush = 8; // 默認推入距離
-                if (isGardenLargeEnemy) {
-                    // 花護衛（200x194）和花女王（400x382）需要更大的推入距離
-                    borderPush = Math.max(this.width, this.height) * 0.15; // 使用尺寸的15%作為推入距離
+                if (isGardenLargeEnemy || isBranchLargeEnemy) {
+                    // 花護衛/花女王 或 未知信號A/S：需要更大的推入距離
+                    borderPush = Math.max(this.width, this.height) * 0.15;
                     borderPush = Math.max(borderPush, 30); // 最小30像素
                 } else if (isLargeEnemy) {
                     // 其他大體積敵人
@@ -584,7 +665,7 @@
 
                         // 根據敵人體積動態調整邊界檢測範圍
                         let borderMargin = 15; // 默認邊界檢測範圍
-                        if (isGardenLargeEnemy) {
+                        if (isGardenLargeEnemy || isBranchLargeEnemy) {
                             borderMargin = Math.max(this.width, this.height) * 0.2; // 使用尺寸的20%作為檢測範圍
                             borderMargin = Math.max(borderMargin, 40); // 最小40像素
                         } else if (isLargeEnemy) {
@@ -596,14 +677,14 @@
                             this.y <= minY + borderMargin || this.y >= maxY - borderMargin);
 
                         // 根據敵人體積調整移動距離判定閾值
-                        const moveThreshold = isGardenLargeEnemy ? 5.0 : (isLargeEnemy ? 3.0 : 2.0);
+                        const moveThreshold = (isGardenLargeEnemy || isBranchLargeEnemy) ? 5.0 : (isLargeEnemy ? 3.0 : 2.0);
 
                         if (nearBorder && movedDist < moveThreshold) {
                             this.stuckCounter = (this.stuckCounter || 0) + 1;
 
                             // 如果連續卡住，採用更強力的脫離機制
                             // 大體積敵人需要更強的推力
-                            const stuckThreshold = isGardenLargeEnemy ? 1 : 2; // 花園大體積敵人更快觸發脫離機制
+                            const stuckThreshold = (isGardenLargeEnemy || isBranchLargeEnemy) ? 1 : 2; // 花園/支部大體積敵人更快觸發脫離機制
                             if (this.stuckCounter >= stuckThreshold) {
                                 const centerX = (Game.worldWidth || Game.canvas.width) / 2;
                                 const centerY = (Game.worldHeight || Game.canvas.height) / 2;
@@ -615,15 +696,15 @@
 
                                 // 根據敵人體積調整推力強度
                                 let nudgeMultiplier = 1.5; // 默認推力倍數
-                                if (isGardenLargeEnemy) {
-                                    nudgeMultiplier = 3.0; // 花園大體積敵人使用3倍推力
+                                if (isGardenLargeEnemy || isBranchLargeEnemy) {
+                                    nudgeMultiplier = 3.0; // 花園/支部大體積敵人使用3倍推力
                                 } else if (isLargeEnemy) {
                                     nudgeMultiplier = 2.0; // 其他大體積敵人使用2倍推力
                                 }
                                 const nudge = (this.baseSpeed || this.speed) * (deltaMul) * nudgeMultiplier;
 
                                 // 使用更大的邊界緩衝區，避免推回邊界
-                                const pushBuffer = isGardenLargeEnemy ? borderMargin * 1.5 : borderMargin;
+                                const pushBuffer = (isGardenLargeEnemy || isBranchLargeEnemy) ? borderMargin * 1.5 : borderMargin;
                                 this.x = Utils.clamp(this.x + Math.cos(adjustedAngle) * nudge, minX + pushBuffer, maxX - pushBuffer);
                                 this.y = Utils.clamp(this.y + Math.sin(adjustedAngle) * nudge, minY + pushBuffer, maxY - pushBuffer);
 
@@ -771,6 +852,19 @@
                     } catch (e) {
                         // 忽略錯誤
                     }
+                }
+                // 支部地圖：UNKNOWN1 / UNKNOWN_MINI_BOSS / UNKNOWN_BOSS 雪碧圖幀更新
+                if ((this.type === 'UNKNOWN1' || this.type === 'UNKNOWN_MINI_BOSS' || this.type === 'UNKNOWN_BOSS') && !this.isDying && this._spriteAnimation) {
+                    try {
+                        const isGamePaused = (typeof Game !== 'undefined' && Game.isPaused) || false;
+                        if (!isGamePaused) {
+                            this._spriteAnimation.animAccumulator += deltaTime;
+                            while (this._spriteAnimation.animAccumulator >= this._spriteAnimation.frameDuration) {
+                                this._spriteAnimation.currentFrame = (this._spriteAnimation.currentFrame + 1) % this._spriteAnimation.totalFrames;
+                                this._spriteAnimation.animAccumulator -= this._spriteAnimation.frameDuration;
+                            }
+                        }
+                    } catch (e) {}
                 }
             }
 
@@ -949,6 +1043,26 @@
                         imageName = 'humanboss';
                         color = '#f00';
                         break;
+                    case 'UNKNOWN1':
+                        imageName = 'unknown';
+                        color = '#606';
+                        break;
+                    case 'UNKNOWN2':
+                        imageName = 'unknown2';
+                        color = '#606';
+                        break;
+                    case 'UNKNOWN3':
+                        imageName = 'unknown3';
+                        color = '#606';
+                        break;
+                    case 'UNKNOWN_MINI_BOSS':
+                        imageName = 'unknown_mini_boss';
+                        color = '#f80';
+                        break;
+                    case 'UNKNOWN_BOSS':
+                        imageName = 'unknownboss';
+                        color = '#f00';
+                        break;
                     default:
                         imageName = 'zombie';
                         color = '#0a0';
@@ -986,10 +1100,37 @@
                 const enemyConfig = (CONFIG && CONFIG.ENEMIES) ? CONFIG.ENEMIES[this.type] : null;
 
                 // 繪製敵人 - 優先使用圖片
-                if (Game.images && Game.images[imageName]) {
+                if (this.type === 'UNKNOWN1' || this.type === 'UNKNOWN_MINI_BOSS' || this.type === 'UNKNOWN_BOSS') {
+                    if (this._spriteAnimation && this._spriteAnimation.spriteSheetLoaded && this._spriteAnimation.spriteSheet && !this.isDying) {
+                        const sa = this._spriteAnimation;
+                        const frameIndex = Math.max(0, Math.min(sa.currentFrame, sa.totalFrames - 1)); // 幀數對應圖片數量，不越界
+                        const col = frameIndex % sa.framesPerRow;
+                        const row = Math.floor(frameIndex / sa.framesPerRow);
+                        const sx = col * sa.frameWidth;
+                        const sy = row * sa.frameHeight;
+                        if (this.type === 'UNKNOWN1') {
+                            drawW = 50; drawH = 50;
+                        } else {
+                            drawW = this.width; drawH = this.height;
+                        }
+                        ctx.imageSmoothingEnabled = false;
+                        ctx.drawImage(sa.spriteSheet, sx, sy, sa.frameWidth, sa.frameHeight, this.x - drawW / 2, this.y - drawH / 2, drawW, drawH);
+                    } else if (Game.images && Game.images[imageName]) {
+                        drawW = (this.type === 'UNKNOWN1') ? 50 : this.width;
+                        drawH = (this.type === 'UNKNOWN1') ? 50 : this.height;
+                        ctx.drawImage(Game.images[imageName], this.x - drawW / 2, this.y - drawH / 2, drawW, drawH);
+                    } else {
+                        drawW = Math.max(this.width || 50, this.height || 50);
+                        drawH = drawW;
+                        ctx.fillStyle = color;
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, drawW / 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                } else if (Game.images && Game.images[imageName]) {
                     // 迷你頭目與頭目使用邏輯尺寸（非正方形）；一般敵人若提供 width/height 也以該尺寸渲染
-                    if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' ||
-                        this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' ||
+                    if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' || this.type === 'UNKNOWN_MINI_BOSS' ||
+                        this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS' ||
                         (enemyConfig && typeof enemyConfig.WIDTH === 'number' && typeof enemyConfig.HEIGHT === 'number')) {
                         drawW = this.width; drawH = this.height;
                         ctx.drawImage(
@@ -1016,7 +1157,6 @@
                 }
 
                 // 私有：建立並快取貼圖顏色遮罩（使用PNG alpha裁切）
-                // 避免代碼膨脹：僅在需要覆蓋時初次生成，並依 image+尺寸 快取於實例
                 const ensureTint = (imgName, w, h) => {
                     const key = `${imgName}|${w}x${h}`;
                     if (this._tintKey === key && this._tintRed && this._tintBlue) return;
@@ -1039,70 +1179,118 @@
                     this._tintBlue = make('#3399ff');
                 };
 
-                // 減速藍色覆蓋（持續顯示於減速期間），沿PNG透明度裁切；若無圖或尚未載入則回退原邏輯
-                // 注意：藍閃優先於紅閃，若同時有緩速和受傷，只顯示藍閃
+                // 支部雪碧圖：用「當前幀」產生紅/藍 tint，依實際圖片形狀、不破圖；依幀快取
+                const ensureSpriteFrameTint = (color) => {
+                    const sa = this._spriteAnimation;
+                    if (!sa || !sa.spriteSheetLoaded || !sa.spriteSheet) return null;
+                    const frameIndex = Math.max(0, Math.min(sa.currentFrame, sa.totalFrames - 1));
+                    const cacheKey = (color === '#ff0000') ? '_spriteTintRed' : '_spriteTintBlue';
+                    const frameKey = (color === '#ff0000') ? '_spriteTintRedFrame' : '_spriteTintBlueFrame';
+                    if (this[cacheKey] && this[frameKey] === frameIndex) return this[cacheKey];
+                    const col = frameIndex % sa.framesPerRow;
+                    const row = Math.floor(frameIndex / sa.framesPerRow);
+                    const sx = col * sa.frameWidth;
+                    const sy = row * sa.frameHeight;
+                    const c = document.createElement('canvas');
+                    c.width = drawW;
+                    c.height = drawH;
+                    const cctx = c.getContext('2d');
+                    cctx.imageSmoothingEnabled = false;
+                    cctx.clearRect(0, 0, drawW, drawH);
+                    cctx.drawImage(sa.spriteSheet, sx, sy, sa.frameWidth, sa.frameHeight, 0, 0, drawW, drawH);
+                    cctx.globalCompositeOperation = 'source-in';
+                    cctx.fillStyle = color;
+                    cctx.fillRect(0, 0, drawW, drawH);
+                    cctx.globalCompositeOperation = 'source-over';
+                    this[cacheKey] = c;
+                    this[frameKey] = frameIndex;
+                    return c;
+                };
+
+                // 減速藍色覆蓋（持續顯示於減速期間），沿PNG透明度裁切
+                // 支部雪碧圖：用當前幀產生藍色 tint，依實際圖片形狀、不破圖
                 if (this.isSlowed) {
                     const alpha = 0.3;
-                    ensureTint(imageName, drawW, drawH);
-                    if (this._tintBlue) {
-                        ctx.save();
-                        ctx.globalAlpha = alpha;
-                        ctx.drawImage(this._tintBlue, this.x - drawW / 2, this.y - drawH / 2, drawW, drawH);
-                        ctx.restore();
+                    const isUnknownSprite = (this.type === 'UNKNOWN1' || this.type === 'UNKNOWN_MINI_BOSS' || this.type === 'UNKNOWN_BOSS');
+                    if (isUnknownSprite) {
+                        const tint = ensureSpriteFrameTint.call(this, '#3399ff');
+                        if (tint) {
+                            ctx.save();
+                            ctx.globalAlpha = alpha;
+                            ctx.drawImage(tint, this.x - drawW / 2, this.y - drawH / 2, drawW, drawH);
+                            ctx.restore();
+                        }
                     } else {
-                        ctx.save();
-                        ctx.globalAlpha = alpha;
-                        ctx.fillStyle = '#3399ff';
-                        ctx.beginPath();
-                        let poly = null;
-                        if (typeof this.hasCollisionPolygon === 'function' && this.hasCollisionPolygon() && typeof this.getWorldPolygon === 'function') {
-                            poly = this.getWorldPolygon();
-                        }
-                        if (poly && Array.isArray(poly) && poly.length >= 3) {
-                            ctx.moveTo(poly[0][0], poly[0][1]);
-                            for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
-                            ctx.closePath();
+                        ensureTint(imageName, drawW, drawH);
+                        if (this._tintBlue) {
+                            ctx.save();
+                            ctx.globalAlpha = alpha;
+                            ctx.drawImage(this._tintBlue, this.x - drawW / 2, this.y - drawH / 2, drawW, drawH);
+                            ctx.restore();
                         } else {
-                            // 回退以圓形遮罩，避免矩形誤覆蓋到透明背景
-                            ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2, 0, Math.PI * 2);
+                            ctx.save();
+                            ctx.globalAlpha = alpha;
+                            ctx.fillStyle = '#3399ff';
+                            ctx.beginPath();
+                            let poly = null;
+                            if (typeof this.hasCollisionPolygon === 'function' && this.hasCollisionPolygon() && typeof this.getWorldPolygon === 'function') {
+                                poly = this.getWorldPolygon();
+                            }
+                            if (poly && Array.isArray(poly) && poly.length >= 3) {
+                                ctx.moveTo(poly[0][0], poly[0][1]);
+                                for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
+                                ctx.closePath();
+                            } else {
+                                ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2, 0, Math.PI * 2);
+                            }
+                            ctx.fill();
+                            ctx.strokeStyle = '#66ccff';
+                            ctx.lineWidth = 2;
+                            ctx.stroke();
+                            ctx.restore();
                         }
-                        ctx.fill();
-                        ctx.strokeStyle = '#66ccff';
-                        ctx.lineWidth = 2;
-                        ctx.stroke();
-                        ctx.restore();
                     }
                 }
 
-                // 受傷紅色覆蓋閃爍（死亡期間停用），沿PNG透明度裁切；若無圖或尚未載入則回退原邏輯
-                // 注意：若同時有緩速效果，則不顯示紅閃（藍閃優先）
+                // 受傷紅色覆蓋閃爍（死亡期間停用），沿PNG透明度裁切
+                // 支部雪碧圖：用當前幀產生紅色 tint，依實際圖片形狀、不破圖
                 if (!this.isDying && this.hitFlashTime > 0 && !this.isSlowed) {
                     const alpha = 0.35;
-                    ensureTint(imageName, drawW, drawH);
-                    if (this._tintRed) {
-                        ctx.save();
-                        ctx.globalAlpha = alpha;
-                        ctx.drawImage(this._tintRed, this.x - drawW / 2, this.y - drawH / 2, drawW, drawH);
-                        ctx.restore();
+                    const isUnknownSprite = (this.type === 'UNKNOWN1' || this.type === 'UNKNOWN_MINI_BOSS' || this.type === 'UNKNOWN_BOSS');
+                    if (isUnknownSprite) {
+                        const tint = ensureSpriteFrameTint.call(this, '#ff0000');
+                        if (tint) {
+                            ctx.save();
+                            ctx.globalAlpha = alpha;
+                            ctx.drawImage(tint, this.x - drawW / 2, this.y - drawH / 2, drawW, drawH);
+                            ctx.restore();
+                        }
                     } else {
-                        ctx.save();
-                        ctx.globalAlpha = alpha;
-                        ctx.fillStyle = '#ff0000';
-                        ctx.beginPath();
-                        let poly = null;
-                        if (typeof this.hasCollisionPolygon === 'function' && this.hasCollisionPolygon() && typeof this.getWorldPolygon === 'function') {
-                            poly = this.getWorldPolygon();
-                        }
-                        if (poly && Array.isArray(poly) && poly.length >= 3) {
-                            ctx.moveTo(poly[0][0], poly[0][1]);
-                            for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
-                            ctx.closePath();
+                        ensureTint(imageName, drawW, drawH);
+                        if (this._tintRed) {
+                            ctx.save();
+                            ctx.globalAlpha = alpha;
+                            ctx.drawImage(this._tintRed, this.x - drawW / 2, this.y - drawH / 2, drawW, drawH);
+                            ctx.restore();
                         } else {
-                            // 回退以圓形遮罩，避免矩形誤覆蓋到透明背景
-                            ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2, 0, Math.PI * 2);
+                            ctx.save();
+                            ctx.globalAlpha = alpha;
+                            ctx.fillStyle = '#ff0000';
+                            ctx.beginPath();
+                            let poly = null;
+                            if (typeof this.hasCollisionPolygon === 'function' && this.hasCollisionPolygon() && typeof this.getWorldPolygon === 'function') {
+                                poly = this.getWorldPolygon();
+                            }
+                            if (poly && Array.isArray(poly) && poly.length >= 3) {
+                                ctx.moveTo(poly[0][0], poly[0][1]);
+                                for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i][0], poly[i][1]);
+                                ctx.closePath();
+                            } else {
+                                ctx.arc(this.x, this.y, Math.max(this.width, this.height) / 2, 0, Math.PI * 2);
+                            }
+                            ctx.fill();
+                            ctx.restore();
                         }
-                        ctx.fill();
-                        ctx.restore();
                     }
                 }
 
@@ -1456,8 +1644,8 @@
                 }
                 if (typeof Game !== 'undefined' && typeof Game.addCoins === 'function') {
                     let coinGain = 2;
-                    if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS') coinGain = 50;
-                    else if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') coinGain = 500;
+                    if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' || this.type === 'UNKNOWN_MINI_BOSS') coinGain = 50;
+                    else if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS') coinGain = 500;
                     Game.addCoins(coinGain);
                 }
                 // ✅ 權威伺服器模式：多人進行中時，BOSS 死亡後的出口生成和勝利判定由伺服器統一權威
