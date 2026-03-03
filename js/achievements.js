@@ -104,6 +104,13 @@ const Achievements = (function(){
       desc: '通關防禦模式的LV1地圖。',
       icon: 'assets/images/test11.png',
       reward: '解鎖主堡的2個自動化技能。'
+    },
+    INTERSECTION_CLEAR: {
+      id: 'INTERSECTION_CLEAR',
+      name: '覺醒之路',
+      desc: '通關任一難度路口地圖。',
+      icon: 'assets/images/A65.jpg',
+      reward: '解鎖天賦「覺醒強化」。'
     }
   };
 
