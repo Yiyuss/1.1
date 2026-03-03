@@ -163,6 +163,12 @@ const WaveSystem = {
                 else if (enemyType === 'SKELETON') enemyType = 'HUMAN2';
                 else if (enemyType === 'GHOST') enemyType = 'HUMAN3';
             }
+            // 第六張地圖（branch）將普通敵人替換為未知系列
+            else if (Game.selectedMap && Game.selectedMap.id === 'branch') {
+                if (enemyType === 'ZOMBIE') enemyType = 'UNKNOWN1';
+                else if (enemyType === 'SKELETON') enemyType = 'UNKNOWN2';
+                else if (enemyType === 'GHOST') enemyType = 'UNKNOWN3';
+            }
             // 在世界邊緣生成敵人（加入內縮與分散避免重疊）
             const worldW = (Game.worldWidth || Game.canvas.width);
             const worldH = (Game.worldHeight || Game.canvas.height);
@@ -172,6 +178,8 @@ const WaveSystem = {
             let inner = rad + 12; // 默認內縮距離
             const isGardenLargeEnemy = (Game.selectedMap && Game.selectedMap.id === 'garden') &&
                 (enemyType === 'ELF_MINI_BOSS' || enemyType === 'ELF_BOSS');
+            const isBranchLargeEnemy = (Game.selectedMap && Game.selectedMap.id === 'branch') &&
+                (enemyType === 'UNKNOWN_MINI_BOSS' || enemyType === 'UNKNOWN_BOSS');
             if (isGardenLargeEnemy) {
                 // 花園大體積敵人需要更大的內縮距離
                 // 使用敵人實際尺寸的一半作為內縮距離，確保不會卡在邊界
@@ -186,6 +194,19 @@ const WaveSystem = {
                         enemyWidth = 400; enemyHeight = 382;
                     }
                     inner = Math.max(enemyWidth, enemyHeight) / 2 + 30; // 使用最大尺寸的一半 + 30像素緩衝
+                }
+            }
+            if (isBranchLargeEnemy) {
+                const enemyConfig = CONFIG.ENEMIES[enemyType];
+                if (enemyConfig) {
+                    let enemyWidth = enemyConfig.WIDTH || enemyConfig.SIZE || rad * 2;
+                    let enemyHeight = enemyConfig.HEIGHT || enemyConfig.SIZE || rad * 2;
+                    if (enemyType === 'UNKNOWN_MINI_BOSS') {
+                        enemyWidth = 140; enemyHeight = 160;
+                    } else if (enemyType === 'UNKNOWN_BOSS') {
+                        enemyWidth = 209; enemyHeight = 300;
+                    }
+                    inner = Math.max(enemyWidth, enemyHeight) / 2 + 30;
                 }
             }
             const rawPos = Utils.getRandomEdgePositionInWorld(worldW, worldH);
@@ -242,8 +263,8 @@ const WaveSystem = {
         }
         this.lastMiniBossWave = this.currentWave;
         this.lastMiniBossTime = Date.now();
-        // 第二、第三、第四張地圖（forest、desert、garden）：每波生成 2 隻小BOSS；其餘維持 1 隻。
-        const count = (Game.selectedMap && (Game.selectedMap.id === 'forest' || Game.selectedMap.id === 'desert' || Game.selectedMap.id === 'garden' || Game.selectedMap.id === 'intersection')) ? 2 : 1;
+        // 第二、第三、第四、第五、第六張地圖（forest、desert、garden、intersection、branch）：每波生成 2 隻小BOSS；其餘維持 1 隻。
+        const count = (Game.selectedMap && (Game.selectedMap.id === 'forest' || Game.selectedMap.id === 'desert' || Game.selectedMap.id === 'garden' || Game.selectedMap.id === 'intersection' || Game.selectedMap.id === 'branch')) ? 2 : 1;
         for (let idx = 0; idx < count; idx++) {
             // 在世界邊緣生成小BOSS（加入內縮與分散避免重疊）
             const worldW = (Game.worldWidth || Game.canvas.width);
@@ -253,6 +274,7 @@ const WaveSystem = {
             let miniBossType = 'MINI_BOSS';
             if (Game.selectedMap && Game.selectedMap.id === 'garden') miniBossType = 'ELF_MINI_BOSS';
             else if (Game.selectedMap && Game.selectedMap.id === 'intersection') miniBossType = 'HUMAN_MINI_BOSS';
+            else if (Game.selectedMap && Game.selectedMap.id === 'branch') miniBossType = 'UNKNOWN_MINI_BOSS';
             const rad = (CONFIG.ENEMIES[miniBossType] && CONFIG.ENEMIES[miniBossType].COLLISION_RADIUS) ? CONFIG.ENEMIES[miniBossType].COLLISION_RADIUS : 32;
 
             // 針對花園地圖花護衛增加內縮距離，避免一開始就卡在邊界
@@ -263,6 +285,8 @@ const WaveSystem = {
             } else if (Game.selectedMap && Game.selectedMap.id === 'intersection' && miniBossType === 'HUMAN_MINI_BOSS') {
                 // 混混：依實際尺寸內縮，避免邊界卡住
                 inner = 80 + 30; // 使用160的一半 + 30像素緩衝
+            } else if (Game.selectedMap && Game.selectedMap.id === 'branch' && miniBossType === 'UNKNOWN_MINI_BOSS') {
+                inner = 80 + 30; // 與花園/路口大體積小BOSS一致
             }
             const rawPos = Utils.getRandomEdgePositionInWorld(worldW, worldH);
             let sx = rawPos.x;
@@ -358,6 +382,7 @@ const WaveSystem = {
         let bossType = 'BOSS';
         if (Game.selectedMap && Game.selectedMap.id === 'garden') bossType = 'ELF_BOSS';
         else if (Game.selectedMap && Game.selectedMap.id === 'intersection') bossType = 'HUMAN_BOSS';
+        else if (Game.selectedMap && Game.selectedMap.id === 'branch') bossType = 'UNKNOWN_BOSS';
         // 在世界中央生成大BOSS
         const boss = new Enemy(
             (Game.worldWidth || CONFIG.CANVAS_WIDTH) / 2,
