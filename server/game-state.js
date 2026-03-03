@@ -810,8 +810,8 @@ class GameState {
     const diffId = this._getActiveDiffId();
     const totalWaves = this._getTotalWaves(config);
 
-    const isMini = (type === 'MINI_BOSS' || type === 'ELF_MINI_BOSS' || type === 'HUMAN_MINI_BOSS');
-    const isBoss = (type === 'BOSS' || type === 'ELF_BOSS' || type === 'HUMAN_BOSS');
+    const isMini = (type === 'MINI_BOSS' || type === 'ELF_MINI_BOSS' || type === 'HUMAN_MINI_BOSS' || type === 'UNKNOWN_MINI_BOSS');
+    const isBoss = (type === 'BOSS' || type === 'ELF_BOSS' || type === 'HUMAN_BOSS' || type === 'UNKNOWN_BOSS');
 
     const baseHealthCfg = enemyConfig && typeof enemyConfig.HEALTH === 'number' ? enemyConfig.HEALTH : 100;
 
@@ -1106,14 +1106,14 @@ class GameState {
 
     // 金幣共享
     let coinGain = 2;
-    if (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS') coinGain = 50;
-    else if (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS') coinGain = 500;
+    if (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' || enemy.type === 'UNKNOWN_MINI_BOSS') coinGain = 50;
+    else if (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS' || enemy.type === 'UNKNOWN_BOSS') coinGain = 500;
     this.awardCoinsToAllPlayers(coinGain);
 
     // 宝箱
     if (
-      enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' ||
-      enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS'
+      enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' || enemy.type === 'UNKNOWN_MINI_BOSS' ||
+      enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS' || enemy.type === 'UNKNOWN_BOSS'
     ) {
       this.addChest({
         id: `chest_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
@@ -1127,7 +1127,7 @@ class GameState {
     try {
       const bossWave = (this.config && this.config.WAVES && this.config.WAVES.BOSS_WAVE) ? this.config.WAVES.BOSS_WAVE : 20;
       if (
-        (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS') &&
+        (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS' || enemy.type === 'UNKNOWN_BOSS') &&
         this.wave === bossWave
       ) {
         this.isVictory = true;
@@ -2002,17 +2002,20 @@ class GameState {
         // 判断是否为花园大体积敌人
         const isGardenLargeEnemyForRepulsion = (this.selectedMap && this.selectedMap.id === 'garden') &&
           (enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'ELF_BOSS');
+        // 判断是否为支部大体积敌人
+        const isBranchLargeEnemyForRepulsion = (this.selectedMap && this.selectedMap.id === 'branch') &&
+          (enemy.type === 'UNKNOWN_MINI_BOSS' || enemy.type === 'UNKNOWN_BOSS');
         // 判断是否为大体积敌人
-        const isLargeEnemyForRepulsion = (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' ||
-          enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS');
+        const isLargeEnemyForRepulsion = (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' || enemy.type === 'UNKNOWN_MINI_BOSS' ||
+          enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS' || enemy.type === 'UNKNOWN_BOSS');
 
         const shouldDoRepulsion = (!crowdMode) || isLargeEnemyForRepulsion;
         const MAX_REPULSION_NEIGHBORS = crowdMode ? 6 : 16;
 
         // 互斥强度：大体积敌人需要更强的推力，避免被小敌人卡住
         let repulsionStrength = 0.15; // 默认互斥强度
-        if (isGardenLargeEnemyForRepulsion) {
-          repulsionStrength = 0.35; // 花园大体积敌人：更强推力
+        if (isGardenLargeEnemyForRepulsion || isBranchLargeEnemyForRepulsion) {
+          repulsionStrength = 0.35; // 花园/支部大体积敌人：更强推力
         } else if (isLargeEnemyForRepulsion) {
           repulsionStrength = 0.25; // 其他大体积敌人：中等推力
         }
@@ -2234,6 +2237,12 @@ class GameState {
           else if (enemyType === 'SKELETON') enemyType = 'HUMAN2';
           else if (enemyType === 'GHOST') enemyType = 'HUMAN3';
         }
+        // 第六张地图（branch）将普通敌人替换为未知系列
+        else if (this.selectedMap.id === 'branch') {
+          if (enemyType === 'ZOMBIE') enemyType = 'UNKNOWN1';
+          else if (enemyType === 'SKELETON') enemyType = 'UNKNOWN2';
+          else if (enemyType === 'GHOST') enemyType = 'UNKNOWN3';
+        }
       }
       
       const enemyConfig = config.ENEMIES[enemyType] || { SIZE: 32, HEALTH: 100, SPEED: 2 };
@@ -2297,15 +2306,14 @@ class GameState {
       if (this.selectedMap.id === 'forest') type = 'MINI_BOSS'; // 森林沿用
       else if (this.selectedMap.id === 'garden') type = 'ELF_MINI_BOSS';
       else if (this.selectedMap.id === 'intersection') type = 'HUMAN_MINI_BOSS';
-      // 其他地图逻辑...
+      else if (this.selectedMap.id === 'branch') type = 'UNKNOWN_MINI_BOSS';
     }
 
     const enemyConfig = config.ENEMIES[type] || config.ENEMIES['MINI_BOSS'];
     if (!enemyConfig) return;
 
-    // ✅ 修复：与单机一致 - 第二、第三、第四张地图（forest、desert、garden）：每波生成 2 只小BOSS；其余维持 1 只
-    // 参考：js/wave.js Line 245-246
-    const count = (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert' || this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection')) ? 2 : 1;
+    // ✅ 修复：与单机一致 - 第二、第三、第四、第五、第六张地图：每波生成 2 只小BOSS；其余维持 1 只
+    const count = (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert' || this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection' || this.selectedMap.id === 'branch')) ? 2 : 1;
 
     for (let idx = 0; idx < count; idx++) {
       // ✅ 與單機一致：從世界邊緣生成（每次生成時重新選擇位置，避免重疊）
@@ -2374,6 +2382,7 @@ class GameState {
     if (this.selectedMap) {
       if (this.selectedMap.id === 'garden') type = 'ELF_BOSS';
       else if (this.selectedMap.id === 'intersection') type = 'HUMAN_BOSS';
+      else if (this.selectedMap.id === 'branch') type = 'UNKNOWN_BOSS';
     }
 
     const enemyConfig = config.ENEMIES[type] || config.ENEMIES['BOSS'];
