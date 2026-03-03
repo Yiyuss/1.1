@@ -683,7 +683,7 @@ const TalentSystem = {
         }
 
         // 等級對應效果：
-        // lv=0: 灰階；lv=1: 取消灰階；lv=2: 適度發光；lv>=3: 增強閃光（WAAPI）
+        // lv=0: 灰階；lv=1: 取消灰階；lv=2: 適度發光；lv>=3: 單純發光（不閃爍，減輕效能）
         if (lv <= 0) {
             img.classList.add('grayscale');
         } else if (lv === 1) {
@@ -691,18 +691,9 @@ const TalentSystem = {
         } else if (lv === 2) {
             img.style.filter = 'saturate(1.15)';
             img.style.boxShadow = '0 0 8px rgba(0,255,255,0.75), 0 0 16px rgba(0,128,255,0.6)';
-        } else { // lv >= 3
+        } else { // lv >= 3（LV6）：單純發光，無閃爍動畫
             img.style.filter = 'saturate(1.25) brightness(1.05)';
-            img.style.boxShadow = '0 0 10px rgba(255,0,255,0.85), 0 0 22px rgba(255,255,0,0.75), 0 0 34px rgba(255,255,255,0.65)';
-            try {
-                img._talentAnim = img.animate([
-                    { 'box-shadow': '0 0 6px rgba(255,255,255,0.4), 0 0 14px rgba(0,255,255,0.4)', filter: 'saturate(1.25) brightness(1.0)' },
-                    { 'box-shadow': '0 0 12px rgba(255,0,255,0.85), 0 0 24px rgba(255,255,0,0.8), 0 0 36px rgba(255,255,255,0.75)', filter: 'saturate(1.35) brightness(1.1)' },
-                    { 'box-shadow': '0 0 6px rgba(255,255,255,0.4), 0 0 14px rgba(0,255,255,0.4)', filter: 'saturate(1.25) brightness(1.0)' }
-                ], { duration: 1200, iterations: Infinity, easing: 'ease-in-out' });
-            } catch (_) {
-                // 若瀏覽器不支持 WAAPI，保留靜態強光效果即可
-            }
+            img.style.boxShadow = '0 0 12px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 255, 255, 0.35)';
         }
     },
     
@@ -1291,12 +1282,14 @@ function updateTalentCardAppearance(card, level){
     card.classList.remove('locked');
     card.classList.add('selectable');
   } else {
-    // >=3 最高級：加入同步閃爍
+    // >=3 最高級：單純發光（不閃爍，減輕效能）；唯獨覺醒強化在 TalentSystem.updateTalentCardAppearance 內維持閃爍
     card.classList.remove('locked');
     card.classList.add('selectable');
     if (img) {
+      TalentSystem._flickerSync.unregister(img);
       img.classList.remove('grayscale');
-      TalentSystem._flickerSync.register(img);
+      img.style.filter = 'saturate(1.25) brightness(1.05)';
+      img.style.boxShadow = '0 0 12px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 255, 255, 0.35)';
     }
   }
   // 注入LV徽章（共用，僅UI，最大值動態）
