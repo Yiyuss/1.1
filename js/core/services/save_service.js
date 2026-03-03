@@ -47,6 +47,8 @@
       chars.push('margaret');
       writeJSON('unlocked_characters', chars);
     }
+    // 6) 覺醒資料（存於 talent_levels 內，無需額外鍵；此處僅確保完整性）
+    // awakening_enhance / awakening_hp / awakening_regen / awakening_attack 均為 talent_levels 的子鍵
     // 注意：不增刪其他鍵名，不覆蓋有效資料。
   }
 
