@@ -356,6 +356,15 @@ const BuffSystem = {
                 player.damageSpecializationFlat = 0;
             }
             
+            // 應用迴避強化（dodge_enhance）— 生存／挑戰等模式與組隊本地玩家由此套用
+            const dodgeLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('dodge_enhance') : 0;
+            if (dodgeLv > 0) {
+                player.dodgeTalentRate = this._getTierEffect('dodge_enhance', dodgeLv, 'dodgeRate', 0) || 0;
+            } else {
+                player.dodgeTalentRate = 0;
+            }
+            
             // ✅ 修復：統一由 applyAttributeUpgrades 處理生命值（包括天賦和局內升級）
             // 這樣可以確保生命值只被計算一次，不會被重置
             this.applyAttributeUpgrades(player);
