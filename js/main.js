@@ -1174,15 +1174,12 @@ function setupMapAndDifficultySelection() {
         }
 
         // 顯示正確的難度視窗；宇宙/支部地圖僅困難/修羅
+        // 難度視窗以覆蓋層形式疊在地圖選擇畫面上方（不隱藏 mapScreen）
         if (selectedMapCfg && (selectedMapCfg.id === 'desert' || selectedMapCfg.id === 'branch') && desertDiffScreen) {
             selectedDiffId = 'HARD';
             Game.selectedDifficultyId = 'HARD';
-            hide(mapScreen);
             show(desertDiffScreen);
         } else {
-            // 其他地圖的難度視窗為獨立層，隱藏地圖畫面
-            hide(mapScreen);
-            // 其他地圖：維持簡單/困難；預設簡單
             selectedDiffId = 'EASY';
             Game.selectedDifficultyId = 'EASY';
             show(diffScreen);
@@ -1384,18 +1381,15 @@ function setupMapAndDifficultySelection() {
 
     if (diffBack) {
         diffBack.addEventListener('click', () => {
-            // 返回地圖：僅在覆蓋層之間切換；確保關閉宇宙難度視窗殘留
+            // 返回地圖：難度視窗為覆蓋層，僅需隱藏自身；mapScreen 始終保持可見
             hide(diffScreen);
             if (desertDiffScreen) hide(desertDiffScreen);
-            show(mapScreen);
         });
     }
     if (diffBackDesert) {
         diffBackDesert.addEventListener('click', () => {
             hide(desertDiffScreen);
-            // 防禦性隱藏一般難度視窗，避免交疊殘留
             hide(diffScreen);
-            show(mapScreen);
         });
     }
 }
@@ -2125,12 +2119,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 return;
             }
-            if (isVisible(mapScreen)) {
-                const backBtn = document.getElementById('map-cancel');
-                if (backBtn) backBtn.click();
-                e.preventDefault();
-                return;
-            }
+            // 難度視窗覆蓋在地圖視窗上方，須先檢查難度再檢查地圖
             if (isVisible(diffScreen)) {
                 const backBtn = document.getElementById('diff-back');
                 if (backBtn) backBtn.click();
@@ -2140,6 +2129,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const desertDiffScreen = document.getElementById('desert-difficulty-select-screen');
             if (isVisible(desertDiffScreen)) {
                 const backBtn = document.getElementById('diff-back-desert') || document.getElementById('diff-back');
+                if (backBtn) backBtn.click();
+                e.preventDefault();
+                return;
+            }
+            if (isVisible(mapScreen)) {
+                const backBtn = document.getElementById('map-cancel');
                 if (backBtn) backBtn.click();
                 e.preventDefault();
                 return;
