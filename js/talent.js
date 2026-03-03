@@ -367,15 +367,15 @@ const TalentSystem = {
         },
         // 覺醒子系統（隱藏天賦，由覺醒視窗管理，僅生存模式生效）
         awakening_hp: {
-            levels: [{ cost: 200000, hp: 3000 }],
+            levels: [{ cost: 300000, hp: 3000 }],
             isAwakening: true, hidden: true
         },
         awakening_regen: {
-            levels: [{ cost: 150000, regenBoost: 10.0 }],
+            levels: [{ cost: 250000, regenBoost: 10.0 }],
             isAwakening: true, hidden: true
         },
         awakening_attack: {
-            levels: [{ cost: 100000, attackFlat: 300 }],
+            levels: [{ cost: 200000, attackFlat: 300 }],
             isAwakening: true, hidden: true
         }
     },
@@ -735,11 +735,11 @@ const TalentSystem = {
 
     // ===== 覺醒系統 =====
     _awakeningSlots: [
-        { id: 'awakening_hp', name: '生命覺醒', icon: 'assets/images/A68.png', cost: 200000,
+        { id: 'awakening_hp', name: '生命覺醒', icon: 'assets/images/A68.png', cost: 300000,
           desc: '生存模式增加 3000 HP（平加在公式上）。', effectDesc: 'HP +3000' },
-        { id: 'awakening_regen', name: '回復覺醒', icon: 'assets/images/A67.png', cost: 150000,
+        { id: 'awakening_regen', name: '回復覺醒', icon: 'assets/images/A67.png', cost: 250000,
           desc: '生存模式增加 1000% 回血速度（平加在公式上）。', effectDesc: '回血速度 +1000%' },
-        { id: 'awakening_attack', name: '力量覺醒', icon: 'assets/images/A66.jpg', cost: 100000,
+        { id: 'awakening_attack', name: '力量覺醒', icon: 'assets/images/A66.jpg', cost: 200000,
           desc: '生存模式增加 300 基礎攻擊（平加在公式上）。', effectDesc: '基礎攻擊 +300' }
     ],
     _awakeningWindowOpen: false,
