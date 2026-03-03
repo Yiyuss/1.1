@@ -1644,9 +1644,24 @@
                     Game.spawnChest(this.x, this.y);
                 }
                 if (typeof Game !== 'undefined' && typeof Game.addCoins === 'function') {
-                    let coinGain = 2;
-                    if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' || this.type === 'UNKNOWN_MINI_BOSS') coinGain = 50;
-                    else if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS') coinGain = 500;
+                    // 金幣掉落：1~5 地圖維持 2 / 50 / 500；第 6 張支部地圖改為 10 / 500 / 1000
+                    const mapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
+                    const isMiniBoss = (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' || this.type === 'UNKNOWN_MINI_BOSS');
+                    const isBoss = (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS');
+
+                    let coinGain;
+                    if (mapId === 'branch') {
+                        // 第 6 張支部地圖：10 / 10 / 10 / 500 / 1000
+                        if (isBoss) coinGain = 1000;
+                        else if (isMiniBoss) coinGain = 500;
+                        else coinGain = 10;
+                    } else {
+                        // 第 1~5 張地圖：2 / 2 / 2 / 50 / 500（原本設定，保持不變）
+                        if (isBoss) coinGain = 500;
+                        else if (isMiniBoss) coinGain = 50;
+                        else coinGain = 2;
+                    }
+
                     Game.addCoins(coinGain);
                 }
                 // ✅ 權威伺服器模式：多人進行中時，BOSS 死亡後的出口生成和勝利判定由伺服器統一權威
