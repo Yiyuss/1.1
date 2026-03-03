@@ -1766,13 +1766,22 @@
 
             // 新增：套用暫時減速效果（藍色並降速）
             applySlow(durationMs, speedFactor) {
-                // speedFactor：0~1（0=完全定住，1=不減速）
-                // 注意：不可用 `speedFactor || 0.5`，因為 0 會被當成 falsy，導致無法做到 100% 緩速
                 const raw = (typeof speedFactor === 'number') ? speedFactor : 0.5;
                 const factor = Math.max(0, Math.min(1, raw));
                 this.isSlowed = true;
                 this.slowEndTime = Date.now() + (durationMs || 1000);
                 this.speed = this.baseSpeed * factor;
+            }
+
+            // 釋放支部雪碧紅/藍閃 tint 快取（與性能優化計畫「清空前資源釋放」一致）
+            destroy() {
+                if (this.type === 'UNKNOWN1' || this.type === 'UNKNOWN_MINI_BOSS' || this.type === 'UNKNOWN_BOSS') {
+                    this._spriteTintRed = null;
+                    this._spriteTintBlue = null;
+                    this._spriteTintRedFrame = null;
+                    this._spriteTintBlueFrame = null;
+                }
+                super.destroy();
             }
         }
         // 将类暴露到全局作用域
