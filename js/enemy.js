@@ -1101,9 +1101,10 @@
 
                 // 繪製敵人 - 優先使用圖片
                 if (this.type === 'UNKNOWN1' || this.type === 'UNKNOWN_MINI_BOSS' || this.type === 'UNKNOWN_BOSS') {
-                    if (this._spriteAnimation && this._spriteAnimation.spriteSheetLoaded && this._spriteAnimation.spriteSheet && !this.isDying) {
+                    if (this._spriteAnimation && this._spriteAnimation.spriteSheetLoaded && this._spriteAnimation.spriteSheet) {
                         const sa = this._spriteAnimation;
-                        const frameIndex = Math.max(0, Math.min(sa.currentFrame, sa.totalFrames - 1)); // 幀數對應圖片數量，不越界
+                        // 死亡淡出時鎖定第 0 幀，避免整張雪碧圖被當成單張繪製產生殘影
+                        const frameIndex = this.isDying ? 0 : Math.max(0, Math.min(sa.currentFrame, sa.totalFrames - 1));
                         const col = frameIndex % sa.framesPerRow;
                         const row = Math.floor(frameIndex / sa.framesPerRow);
                         const sx = col * sa.frameWidth;
