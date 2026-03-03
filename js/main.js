@@ -1437,30 +1437,46 @@ function setupTalentScreenToggle() {
 
     // 初始化天賦狀態
     TalentSystem.init();
+    // 初始化覺醒系統視窗
+    if (typeof TalentSystem.initAwakeningWindow === 'function') {
+        TalentSystem.initAwakeningWindow();
+    }
 
     // 註冊天賦畫面的空白鍵處理器到 KeyboardRouter
     KeyboardRouter.register('talent-select', 'Space', (e) => {
+        // 覺醒視窗開啟時，空白鍵不觸發天賦解鎖
+        if (TalentSystem._awakeningWindowOpen) return;
         e.preventDefault();
         const confirmDialog = document.getElementById('talent-confirm');
         if (!confirmDialog || confirmDialog.classList.contains('hidden')) return;
         
         const activeCard = document.querySelector('#talent-select-screen .char-card.active');
         if (activeCard) {
+            // 覺醒強化特殊處理：空白鍵觸發解鎖流程
+            if (activeCard.dataset.talentId === 'awakening_enhance') {
+                activeCard.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+                TalentSystem.hideTalentConfirm();
+                return;
+            }
             TalentSystem.unlockTalent(activeCard.dataset.talentId);
         }
         TalentSystem.hideTalentConfirm();
     });
     
-    // ESC：返回至選角（優先關閉天賦確認彈窗）
+    // ESC：返回至選角（優先關閉覺醒視窗，再關閉天賦確認彈窗）
     KeyboardRouter.register('talent-select', 'Escape', (e) => {
         e.preventDefault();
+        // 優先關閉覺醒視窗
+        if (TalentSystem._awakeningWindowOpen) {
+            try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+            TalentSystem.hideAwakeningWindow();
+            return;
+        }
         const confirmDialog = document.getElementById('talent-confirm');
         if (confirmDialog && !confirmDialog.classList.contains('hidden')) {
-            // 若彈窗開啟，先關閉彈窗，維持既有文案與流程
             TalentSystem.hideTalentConfirm();
             return;
         }
-        // 走既有返回按鈕邏輯，避免改動文案/流程
         const backBtn = document.getElementById('talent-back');
         if (backBtn) backBtn.click();
     });
