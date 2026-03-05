@@ -1354,6 +1354,33 @@
                     this.fireProjectile(player);
                     this.lastRangedAttackTime = currentTime;
                 }
+
+                // 支部地圖小BOSS/大BOSS：雷射技能（與玩家雷射LV1同邏輯/特效/冷卻，漸層紅、0.5秒、50傷害、只對玩家）
+                const isBranchBoss = (Game.selectedMap && Game.selectedMap.id === 'branch') &&
+                    (this.type === 'UNKNOWN_MINI_BOSS' || this.type === 'UNKNOWN_BOSS');
+                if (isBranchBoss && player && typeof LaserBeam !== 'undefined') {
+                    try {
+                        if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled && this._netSimulated) {
+                            return; // 多人權威：客戶端不生成，由伺服器同步
+                        }
+                        const laserCd = 5000; // 與玩家雷射 LV1 冷卻相同
+                        if (!this.lastBossLaserTime) this.lastBossLaserTime = 0;
+                        if (distance <= (this.rangedAttack.RANGE || 250) && currentTime - this.lastBossLaserTime >= laserCd) {
+                            const angle = Utils.angle(this.x, this.y, player.x, player.y);
+                            const beam = new LaserBeam(
+                                this, angle, 50, 8, 500, 120,
+                                { _isBossLaser: true, _source: this }
+                            );
+                            if (typeof Game !== 'undefined' && Game.addProjectile) {
+                                Game.addProjectile(beam);
+                            }
+                            this.lastBossLaserTime = currentTime;
+                            if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+                                AudioManager.playSound('laser_shoot');
+                            }
+                        }
+                    } catch (_) {}
+                }
             }
 
             // 新增：發射火彈投射物
