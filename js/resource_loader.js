@@ -429,6 +429,7 @@ const ResourceLoader = {
             { name: 'fireball_shoot', src: 'assets/audio/fireball_shoot.mp3' },
             { name: 'lightning_shoot', src: 'assets/audio/lightning_shoot.mp3' },
             { name: 'laser_shoot', src: 'assets/audio/laser_shoot.mp3' },
+            { name: 'challenge_laser', src: 'assets/audio/challenge_laser.mp3' },
             { name: 'zaps', src: 'assets/audio/zaps.mp3' },
             { name: 'ICE', src: 'assets/audio/ICE.mp3' },
             { name: 'ice2', src: 'assets/audio/ICE2.mp3' },
