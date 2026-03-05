@@ -3056,6 +3056,12 @@ const Game = {
             console.warn('[Game] gameOver: 清理游戏状态失败:', e);
         }
 
+        // ⚠️ 修復：清除升級選單與隊列，避免進入新地圖時殘留上一局技能進度
+        try {
+            if (typeof UI !== 'undefined' && typeof UI.clearLevelUpStateOnGameEnd === 'function') {
+                UI.clearLevelUpStateOnGameEnd();
+            }
+        } catch (_) {}
         // ⚠️ 修复：先显示游戏结束画面，然后再处理组队模式的房间大厅逻辑
         // 确保游戏结束画面一定会显示，不会被房间大厅覆盖
         console.log('[Game] gameOver: 调用 UI.showGameOverScreen()');
@@ -3126,6 +3132,12 @@ const Game = {
             console.warn('[Game] victory: 清理游戏状态失败:', e);
         }
 
+        // ⚠️ 修復：清除升級選單與隊列，避免進入新地圖時殘留上一局技能進度
+        try {
+            if (typeof UI !== 'undefined' && typeof UI.clearLevelUpStateOnGameEnd === 'function') {
+                UI.clearLevelUpStateOnGameEnd();
+            }
+        } catch (_) {}
         // ✅ 正常結束：組隊模式下回到房間，單機模式下正常返回開始畫面
         try {
             // 確保只在生存模式下執行組隊邏輯
@@ -3208,6 +3220,12 @@ const Game = {
 
     // 重置遊戲
     reset: function () {
+        // ⚠️ 修復：清除升級選單與隊列，避免進入新地圖時殘留上一局技能進度
+        try {
+            if (typeof UI !== 'undefined' && typeof UI.clearLevelUpStateOnGameEnd === 'function') {
+                UI.clearLevelUpStateOnGameEnd();
+            }
+        } catch (_) {}
         // 先清理所有投射物的 DOM 元素（避免視覺污染）
         try {
             // 清理守護領域和引力波等使用 DOM 的投射物
