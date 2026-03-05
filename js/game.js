@@ -3468,12 +3468,10 @@ const Game = {
         this.maxEnemiesBonus = (maxB > 0) ? Utils.randomInt(minB, maxB) : 0;
 
         // 根據難度控制彈幕系統開關：僅在修羅（ASURA）開啟
-        // ⚠️ 修复：在多人模式下，不要根据难度设置 BulletSystem.enabled
-        // 因为服务器会控制弹幕的生成，客户端只需要渲染
-        // updateBulletsFromServer 会设置 BulletSystem.enabled = true
+        // 單機：僅 ASURA 時啟用；組隊：ASURA 時也啟用（客戶端只渲染，伺服器權威生成）
         try {
             const isMultiplayer = (this.multiplayer && this.multiplayer.enabled);
-            if (!isMultiplayer && typeof BulletSystem !== 'undefined' && typeof BulletSystem.setEnabled === 'function') {
+            if (typeof BulletSystem !== 'undefined' && typeof BulletSystem.setEnabled === 'function') {
                 BulletSystem.setEnabled(diffId === 'ASURA');
             }
         } catch (e) {
