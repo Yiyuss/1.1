@@ -5484,6 +5484,11 @@ function handleServerGameState(state, timestamp) {
       updateBossProjectilesFromServer(state.bossProjectiles);
     }
 
+    // ✅ B：支部地圖小BOSS/大BOSS 雷射（伺服器權威；客戶端只顯示）
+    if (Array.isArray(state.bossLasers)) {
+      updateBossLasersFromServer(state.bossLasers);
+    }
+
     // ✅ B：修羅彈幕（伺服器權威；客戶端只渲染）
     if (Array.isArray(state.bullets)) {
       updateBulletsFromServer(state.bullets);
@@ -6703,6 +6708,69 @@ function updateBossProjectilesFromServer(bossProjectiles) {
         if (typeof st.g === 'number') p.g = st.g;
       }
       p._isVisualOnly = true;
+    }
+  }
+}
+
+// ✅ 支部地圖小BOSS/大BOSS 雷射（伺服器權威；客戶端只顯示視覺）
+function updateBossLasersFromServer(bossLasers) {
+  if (typeof Game === 'undefined' || !Game.multiplayer || !Game.multiplayer.enabled) return;
+  if (!Array.isArray(Game.projectiles)) Game.projectiles = [];
+
+  const serverIds = new Set();
+  for (let i = 0; i < bossLasers.length; i++) {
+    const bl = bossLasers[i];
+    if (bl && bl.id) serverIds.add(bl.id);
+  }
+
+  // 移除伺服器已不存在的雷射
+  for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+    const p = Game.projectiles[i];
+    if (p && p.weaponType === 'BOSS_LASER' && p._bossLaserId && !serverIds.has(p._bossLaserId)) {
+      p.markedForDeletion = true;
+      Game.projectiles.splice(i, 1);
+    }
+  }
+
+  const now = Date.now();
+  for (const st of bossLasers) {
+    if (!st || !st.id) continue;
+    const elapsed = now - (st.startTime || now);
+    if (elapsed >= (st.duration || 500)) continue; // 已過期，不創建
+
+    let beam = Game.projectiles.find(p => p && p.weaponType === 'BOSS_LASER' && p._bossLaserId === st.id);
+    if (!beam && typeof LaserBeam !== 'undefined') {
+      const fakeSource = { x: st.startX || 0, y: st.startY || 0 };
+      beam = new LaserBeam(
+        fakeSource,
+        st.angle || 0,
+        50,
+        st.width || 8,
+        st.duration || 500,
+        120,
+        {
+          _isBossLaser: true,
+          _source: fakeSource,
+          _fixedEndpoints: true,
+          _isVisualOnly: true,
+          startX: st.startX,
+          startY: st.startY,
+          endX: st.endX,
+          endY: st.endY
+        }
+      );
+      beam.weaponType = 'BOSS_LASER';
+      beam._bossLaserId = st.id;
+      beam.startTime = st.startTime || now;
+      Game.projectiles.push(beam);
+    }
+    if (beam) {
+      beam.startX = st.startX;
+      beam.startY = st.startY;
+      beam.endX = st.endX;
+      beam.endY = st.endY;
+      const elapsed2 = now - (beam.startTime || now);
+      if (elapsed2 >= (beam.duration || 500)) beam.markedForDeletion = true;
     }
   }
 }
