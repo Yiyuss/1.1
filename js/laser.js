@@ -196,11 +196,12 @@ class LaserBeam extends Entity {
             if (this.tickAccumulator >= this.tickIntervalMs) {
                 const half = this.width / 2;
                 const playerRadius = 16;
+                const detectionRange = half * 6 + playerRadius; // 偵測範圍 6 倍
                 const players = this._getBossLaserTargetPlayers();
                 for (const p of players) {
                     if (!p || p._isDead || (p.health !== undefined && p.health <= 0)) continue;
                     const d = this.pointSegmentDistance(p.x, p.y, this.startX, this.startY, this.endX, this.endY);
-                    if (d <= half + playerRadius) {
+                    if (d <= detectionRange) {
                         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                         if (!isMultiplayer && typeof p.takeDamage === 'function') {
                             p.takeDamage(this.damage, { source: 'boss_laser' });
