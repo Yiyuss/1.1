@@ -638,6 +638,14 @@ function gameLoop() {
               const bossProjectiles = Array.isArray(state.bossProjectiles)
                 ? state.bossProjectiles.filter(p => p && typeof p.x === 'number' && typeof p.y === 'number' && within(p.x, p.y, cx, cy, r2p))
                 : [];
+              const bossLasers = Array.isArray(state.bossLasers)
+                ? state.bossLasers.filter(bl => {
+                    if (!bl || typeof bl.startX !== 'number' || typeof bl.startY !== 'number') return false;
+                    const midX = (bl.startX + (bl.endX || bl.startX)) / 2;
+                    const midY = (bl.startY + (bl.endY || bl.startY)) / 2;
+                    return within(midX, midY, cx, cy, r2p);
+                  })
+                : [];
               const bullets = Array.isArray(state.bullets)
                 ? state.bullets.filter(b => b && typeof b.x === 'number' && typeof b.y === 'number' && within(b.x, b.y, cx, cy, r2b))
                 : [];
@@ -659,6 +667,7 @@ function gameLoop() {
                 enemies,
                 projectiles,
                 bossProjectiles,
+                bossLasers,
                 bullets,
                 experienceOrbs,
                 chests,
