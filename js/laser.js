@@ -1,9 +1,12 @@
 // 雷射光束：從玩家位置朝最近敵人方向，延伸至世界邊界，持續造成傷害
+// 支援 BOSS 雷射模式（_isBossLaser）：來源為 boss，只對玩家造成傷害，漸層紅色，0.5 秒
 class LaserBeam extends Entity {
-    constructor(player, angle, damage, widthPx, durationMs, tickIntervalMs) {
+    constructor(player, angle, damage, widthPx, durationMs, tickIntervalMs, options) {
         // 使用極細的碰撞包圍盒，不依賴圓形碰撞；實際碰撞用線段距離計算
-        super(player.x, player.y, 1, 1);
+        const source = (options && options._isBossLaser && options._source) ? options._source : player;
+        super(source.x, source.y, 1, 1);
         this.player = player;
+        this._source = source; // 實際發射源（玩家或 boss）
         this.angle = angle;
         this.damage = damage;
         this.width = widthPx; // 畫面線寬（像素）
@@ -12,19 +15,29 @@ class LaserBeam extends Entity {
         this.tickAccumulator = 0;
         this.startTime = Date.now();
         this.weaponType = 'LASER';
-        // 預先計算端點
-        const pts = this.computeEndpoints();
-        this.startX = pts.startX;
-        this.startY = pts.startY;
-        this.endX = pts.endX;
-        this.endY = pts.endY;
+        this._isBossLaser = !!(options && options._isBossLaser);
+        this._fixedEndpoints = !!(options && options._fixedEndpoints);
+        // 預先計算端點（或使用伺服器提供的固定端點）
+        if (this._fixedEndpoints && options && typeof options.startX === 'number' && typeof options.startY === 'number' && typeof options.endX === 'number' && typeof options.endY === 'number') {
+            this.startX = options.startX;
+            this.startY = options.startY;
+            this.endX = options.endX;
+            this.endY = options.endY;
+        } else {
+            const pts = this.computeEndpoints();
+            this.startX = pts.startX;
+            this.startY = pts.startY;
+            this.endX = pts.endX;
+            this.endY = pts.endY;
+        }
         // 視覺用脈動相位（不影響碰撞與傷害）
         this.pulsePhase = 0;
     }
 
     computeEndpoints() {
-        const sx = this.player.x;
-        const sy = this.player.y;
+        const src = this._source || this.player;
+        const sx = src.x;
+        const sy = src.y;
         const dx = Math.cos(this.angle);
         const dy = Math.sin(this.angle);
         const worldW = Game.worldWidth || Game.canvas.width;
@@ -62,6 +75,25 @@ class LaserBeam extends Entity {
         const ex = sx + dx * closestT;
         const ey = sy + dy * closestT;
         return { startX: sx, startY: sy, endX: ex, endY: ey };
+    }
+
+    // BOSS 雷射目標：本地玩家 + 遠程玩家（與 enemy.js updateRangedAttack 同源）
+    _getBossLaserTargetPlayers() {
+        const list = [];
+        try {
+            if (typeof Game !== 'undefined' && Game.player && !Game.player._isDead) {
+                list.push(Game.player);
+            }
+            if (typeof Game !== 'undefined' && Game.multiplayer && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                if (typeof rm.getAllPlayers === 'function') {
+                    for (const rp of rm.getAllPlayers() || []) {
+                        if (rp && !rp.markedForDeletion && !rp._isDead) list.push(rp);
+                    }
+                }
+            }
+        } catch (_) {}
+        return list;
     }
 
     // 點到線段距離（世界座標），用於碰撞近似
@@ -148,12 +180,41 @@ class LaserBeam extends Entity {
             }
         }
         
-        // 追隨玩家位置（方向固定），重新計算端點
-        const pts = this.computeEndpoints();
-        this.startX = pts.startX;
-        this.startY = pts.startY;
-        this.endX = pts.endX;
-        this.endY = pts.endY;
+        // 追隨來源位置（玩家或 boss），重新計算端點（固定端點模式不重算）
+        if (!this._fixedEndpoints) {
+            const pts = this.computeEndpoints();
+            this.startX = pts.startX;
+            this.startY = pts.startY;
+            this.endX = pts.endX;
+            this.endY = pts.endY;
+        }
+
+        // BOSS 雷射：對玩家造成傷害（單機本地結算；多人由伺服器權威）
+        if (this._isBossLaser) {
+            this.pulsePhase += deltaTime;
+            this.tickAccumulator += deltaTime;
+            if (this.tickAccumulator >= this.tickIntervalMs) {
+                const half = this.width / 2;
+                const playerRadius = 16;
+                const players = this._getBossLaserTargetPlayers();
+                for (const p of players) {
+                    if (!p || p._isDead || (p.health !== undefined && p.health <= 0)) continue;
+                    const d = this.pointSegmentDistance(p.x, p.y, this.startX, this.startY, this.endX, this.endY);
+                    if (d <= half + playerRadius) {
+                        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                        if (!isMultiplayer && typeof p.takeDamage === 'function') {
+                            p.takeDamage(this.damage, { source: 'boss_laser' });
+                            if (typeof DamageNumbers !== 'undefined') {
+                                DamageNumbers.show(this.damage, p.x, p.y - 20, false, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle) });
+                            }
+                        }
+                    }
+                }
+                this.tickAccumulator = 0;
+            }
+            if (Date.now() - this.startTime >= this.duration) this.destroy();
+            return;
+        }
 
         // 僅視覺雷射：不進行碰撞檢測和傷害計算
         if (this._isVisualOnly) {
@@ -365,11 +426,22 @@ class LaserBeam extends Entity {
         const drawWidth = this.width;
         const flickerAlpha = 0.85 + 0.15 * Math.sin(t * 12);
 
-        // 使用線性漸層作為核心
+        const isBossLaser = !!this._isBossLaser;
+        const nx = -Math.sin(this.angle);
+        const ny = Math.cos(this.angle);
+        const edgeOffset = 2.0;
+
+        // 使用線性漸層作為核心（BOSS 雷射：漸層紅色；玩家雷射：青白）
         const core = ctx.createLinearGradient(this.startX, this.startY, this.endX, this.endY);
-        core.addColorStop(0, '#0ff');
-        core.addColorStop(0.5, '#fff');
-        core.addColorStop(1, '#0ff');
+        if (isBossLaser) {
+            core.addColorStop(0, '#f00');
+            core.addColorStop(0.5, '#fff');
+            core.addColorStop(1, '#f00');
+        } else {
+            core.addColorStop(0, '#0ff');
+            core.addColorStop(0.5, '#fff');
+            core.addColorStop(1, '#0ff');
+        }
         ctx.globalCompositeOperation = 'source-over';
         ctx.strokeStyle = core;
         ctx.globalAlpha = flickerAlpha;
@@ -379,20 +451,27 @@ class LaserBeam extends Entity {
         ctx.lineTo(this.endX, this.endY);
         ctx.stroke();
 
-        // 顏色邊緣-雙重散射，營造震撼但無縮放
-        const nx = -Math.sin(this.angle);
-        const ny = Math.cos(this.angle);
-        const edgeOffset = 2.0;
+        // 顏色邊緣-雙重散射（BOSS 雷射：紅系；玩家雷射：青紫）
         ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = 0.32;
-        ctx.strokeStyle = 'rgba(0,255,255,0.7)';
+        if (isBossLaser) {
+            ctx.globalAlpha = 0.32;
+            ctx.strokeStyle = 'rgba(255,80,80,0.7)';
+        } else {
+            ctx.globalAlpha = 0.32;
+            ctx.strokeStyle = 'rgba(0,255,255,0.7)';
+        }
         ctx.lineWidth = drawWidth * 1.1;
         ctx.beginPath();
         ctx.moveTo(this.startX + nx * edgeOffset, this.startY + ny * edgeOffset);
         ctx.lineTo(this.endX + nx * edgeOffset, this.endY + ny * edgeOffset);
         ctx.stroke();
-        ctx.globalAlpha = 0.26;
-        ctx.strokeStyle = 'rgba(255,0,255,0.6)';
+        if (isBossLaser) {
+            ctx.globalAlpha = 0.26;
+            ctx.strokeStyle = 'rgba(255,0,0,0.6)';
+        } else {
+            ctx.globalAlpha = 0.26;
+            ctx.strokeStyle = 'rgba(255,0,255,0.6)';
+        }
         ctx.lineWidth = drawWidth * 1.1;
         ctx.beginPath();
         ctx.moveTo(this.startX - nx * edgeOffset, this.startY - ny * edgeOffset);
@@ -401,17 +480,25 @@ class LaserBeam extends Entity {
 
         // 疊加光暈層（疊加模式）
         ctx.globalCompositeOperation = 'lighter';
-        // 內層光暈
-        ctx.strokeStyle = '#bff';
-        ctx.globalAlpha = 0.28;
+        if (isBossLaser) {
+            ctx.strokeStyle = '#fbb';
+            ctx.globalAlpha = 0.28;
+        } else {
+            ctx.strokeStyle = '#bff';
+            ctx.globalAlpha = 0.28;
+        }
         ctx.lineWidth = drawWidth * 1.35;
         ctx.beginPath();
         ctx.moveTo(this.startX, this.startY);
         ctx.lineTo(this.endX, this.endY);
         ctx.stroke();
-        // 外層光暈
-        ctx.strokeStyle = '#9ff';
-        ctx.globalAlpha = 0.18;
+        if (isBossLaser) {
+            ctx.strokeStyle = '#f99';
+            ctx.globalAlpha = 0.18;
+        } else {
+            ctx.strokeStyle = '#9ff';
+            ctx.globalAlpha = 0.18;
+        }
         ctx.lineWidth = drawWidth * 1.9;
         ctx.beginPath();
         ctx.moveTo(this.startX, this.startY);
@@ -422,9 +509,15 @@ class LaserBeam extends Entity {
         const radius = Math.max(6, drawWidth * 0.6);
         const drawGlow = (x, y) => {
             const rg = ctx.createRadialGradient(x, y, 0, x, y, radius);
-            rg.addColorStop(0, 'rgba(255,255,255,0.9)');
-            rg.addColorStop(0.3, 'rgba(0,255,255,0.6)');
-            rg.addColorStop(1, 'rgba(0,255,255,0)');
+            if (isBossLaser) {
+                rg.addColorStop(0, 'rgba(255,255,255,0.9)');
+                rg.addColorStop(0.3, 'rgba(255,0,0,0.6)');
+                rg.addColorStop(1, 'rgba(255,0,0,0)');
+            } else {
+                rg.addColorStop(0, 'rgba(255,255,255,0.9)');
+                rg.addColorStop(0.3, 'rgba(0,255,255,0.6)');
+                rg.addColorStop(1, 'rgba(0,255,255,0)');
+            }
             ctx.fillStyle = rg;
             ctx.globalAlpha = 1.0;
             ctx.beginPath();
