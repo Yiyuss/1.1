@@ -27,6 +27,10 @@
         if (params && params.selectedDifficultyId) {
           Game.selectedDifficultyId = params.selectedDifficultyId;
         }
+        // ✅ 修羅 BGM 修復：組隊模式下確保 map/diff 來自 params，避免 BGM 選錯
+        if (params && params.selectedMap) {
+          Game.selectedMap = params.selectedMap;
+        }
       } catch(_){ }
       let track = 'game_music';
       try {
@@ -97,6 +101,9 @@
         } else {
           const useId = Game.selectedDifficultyId || 'EASY';
           track = (useId === 'ASURA') ? 'shura_music' : 'game_music';
+          if (Game.selectedMap && Game.selectedMap.id === 'desert') {
+            console.log('[SurvivalMode] 宇宙地圖，使用', track === 'shura_music' ? 'shura_music' : 'game_music');
+          }
         }
       } catch(_){ }
       try {
