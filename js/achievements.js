@@ -111,6 +111,13 @@ const Achievements = (function(){
       desc: '通關任一難度路口地圖。',
       icon: 'assets/images/A65.jpg',
       reward: '解鎖天賦「覺醒強化」。'
+    },
+    EXCLUSIVE_PATH: {
+      id: 'EXCLUSIVE_PATH',
+      name: '專屬之路',
+      desc: '通關任一難度草原地圖。',
+      icon: 'assets/images/A69.png',
+      reward: '解鎖天賦「專屬強化」。'
     }
   };
 
