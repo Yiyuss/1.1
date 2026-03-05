@@ -27,6 +27,8 @@ const Game = {
     decorations: [],
     lastUpdateTime: 0,
     gameTime: 0,
+    // 單機生存模式：ESC/升級暫停起始時間（用於修正波次與大招剩餘時間）
+    _pauseStartedAt: 0,
     isPaused: false,
     isGameOver: false,
     boss: null,
@@ -2944,6 +2946,10 @@ const Game = {
     // 例如升級選單或技能頁暫停時，傳入false保留BGM與音效。
     pause: function (muteAudio = true) {
         this.isPaused = true;
+        // 記錄第一次進入暫停的時間點（避免重複覆蓋）
+        if (!this._pauseStartedAt) {
+            this._pauseStartedAt = Date.now();
+        }
         if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) {
             if (muteAudio) AudioManager.setMuted(true);
         }
@@ -2951,10 +2957,64 @@ const Game = {
 
     // 恢復遊戲
     resume: function () {
+        // 計算此次暫停持續時間（僅單機生存模式會用到）
+        let pausedDuration = 0;
+        let isSinglePlayerSurvival = false;
+        try {
+            // 判斷是否為生存模式（舊流程 activeId 可能為 null，視為生存）
+            let activeId = null;
+            try {
+                activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                    ? GameModeManager.getCurrent()
+                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                        ? ModeManager.getActiveModeId()
+                        : null);
+            } catch (_) { }
+            const isSurvivalMode = (activeId === 'survival' || activeId === null);
+            const isMultiplayerEnabled = !!(this.multiplayer && this.multiplayer.enabled);
+            isSinglePlayerSurvival = isSurvivalMode && !isMultiplayerEnabled;
+
+            if (this._pauseStartedAt && isSinglePlayerSurvival) {
+                const now = Date.now();
+                pausedDuration = Math.max(0, now - this._pauseStartedAt);
+            }
+        } catch (_) {
+            pausedDuration = 0;
+        }
+
+        // 清除暫停起始時間標記
+        this._pauseStartedAt = 0;
+
         this.isPaused = false;
         // 重置時間，避免大幅度時間跳躍（修復ESC暫停BUG）
         // 這樣恢復時第一次更新的deltaTime會很小，不會導致技能冷卻時間異常
         this.lastUpdateTime = Date.now();
+
+        // 單機生存模式下：修正波次與大招剩餘時間，讓它們不會在暫停期間流逝
+        if (pausedDuration > 0 && isSinglePlayerSurvival) {
+            try {
+                if (typeof WaveSystem !== 'undefined' && WaveSystem) {
+                    if (typeof WaveSystem.waveStartTime === 'number' && WaveSystem.waveStartTime > 0) {
+                        WaveSystem.waveStartTime += pausedDuration;
+                    }
+                    if (typeof WaveSystem.lastEnemySpawnTime === 'number' && WaveSystem.lastEnemySpawnTime > 0) {
+                        WaveSystem.lastEnemySpawnTime += pausedDuration;
+                    }
+                    if (typeof WaveSystem.lastMiniBossTime === 'number' && WaveSystem.lastMiniBossTime > 0) {
+                        WaveSystem.lastMiniBossTime += pausedDuration;
+                    }
+                }
+            } catch (_) { }
+
+            try {
+                if (this.player && this.player.isUltimateActive &&
+                    typeof this.player.ultimateEndTime === 'number' &&
+                    this.player.ultimateEndTime > 0) {
+                    this.player.ultimateEndTime += pausedDuration;
+                }
+            } catch (_) { }
+        }
+
         if (typeof AudioManager !== 'undefined' && AudioManager.setMuted) {
             // 若升級選單仍打開則保持靜音
             const levelMenu = document.getElementById('level-up-menu');
