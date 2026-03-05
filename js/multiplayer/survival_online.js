@@ -4273,7 +4273,11 @@ async function connectWebSocket() {
         characterId: (typeof Game !== 'undefined' && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : 'pineapple',
         nickname: (typeof getPlayerNickname === 'function') ? getPlayerNickname() : '玩家',
         // ✅ 發送初始 maxHealth（如果已計算）
-        maxHealth: initialMaxHealth
+        maxHealth: initialMaxHealth,
+        // ✅ 組隊修羅彈幕：join 時即帶上難度/地圖，確保伺服器立即有正確 diffId（彈幕系統依此啟用）
+        // 優先使用房間狀態（室長選擇），確保宇宙地圖(desert)+修羅等正確
+        diffId: (_roomState && typeof _roomState.diffId === 'string') ? _roomState.diffId : ((typeof Game !== 'undefined' && Game.selectedDifficultyId) ? Game.selectedDifficultyId : 'EASY'),
+        mapId: (_roomState && typeof _roomState.mapId === 'string') ? _roomState.mapId : ((typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null)
       }));
 
       // ✅ 权威服务器：发送CONFIG数据到服务器（用于敌人生成）
@@ -4296,8 +4300,8 @@ async function connectWebSocket() {
             _sendViaWebSocket({
               type: 'config',
               config: configData,
-              diffId: (typeof Game !== 'undefined' && Game.selectedDifficultyId) ? Game.selectedDifficultyId : 'EASY',
-              mapId: (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null
+              diffId: (_roomState && typeof _roomState.diffId === 'string') ? _roomState.diffId : ((typeof Game !== 'undefined' && Game.selectedDifficultyId) ? Game.selectedDifficultyId : 'EASY'),
+              mapId: (_roomState && typeof _roomState.mapId === 'string') ? _roomState.mapId : ((typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null)
             });
           }
         }, 100); // 延迟100ms确保连接已建立
@@ -6763,6 +6767,12 @@ function updateBossLasersFromServer(bossLasers) {
       beam._bossLaserId = st.id;
       beam.startTime = st.startTime || now;
       Game.projectiles.push(beam);
+      // 組隊模式：雷射由伺服器生成，客戶端僅顯示；在此播放音效（與單機一致）
+      try {
+        if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
+          AudioManager.playSound('challenge_laser');
+        }
+      } catch (_) { }
     }
     if (beam) {
       beam.startX = st.startX;
