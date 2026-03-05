@@ -9,6 +9,7 @@ class GameState {
     this.enemies = []; // EnemyState[]
     this.projectiles = []; // ProjectileState[]
     this.bossProjectiles = []; // BossProjectileState[] (BOSS火彈 / HUMAN2瓶子) - 伺服器權威
+    this.bossLasers = []; // BossLaserState[] (支部地圖小BOSS/大BOSS 雷射) - 伺服器權威
     this.bullets = []; // BulletState[] (ASURA 彈幕) - 伺服器權威
     this.bulletEmitters = []; // BulletEmitterState[] - 伺服器權威
     this.experienceOrbs = []; // ExperienceOrbState[]
@@ -305,6 +306,91 @@ class GameState {
     } catch (_) { return false; }
   }
 
+  // 支部地圖小BOSS/大BOSS 雷射：與玩家雷射LV1同邏輯，漸層紅、0.5秒、50傷害、只對玩家
+  _spawnBossLaser(enemy, targetPlayer) {
+    if (!enemy || !targetPlayer) return;
+    const mapId = this.mapId || (this.selectedMap && this.selectedMap.id);
+    if (mapId !== 'branch') return;
+    const t = enemy.type;
+    if (t !== 'UNKNOWN_MINI_BOSS' && t !== 'UNKNOWN_BOSS') return;
+
+    const sx = enemy.x;
+    const sy = enemy.y;
+    const dx = targetPlayer.x - sx;
+    const dy = targetPlayer.y - sy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const ndx = dist > 0 ? dx / dist : 1;
+    const ndy = dist > 0 ? dy / dist : 0;
+
+    const pts = this._computeBossLaserEndpoints(sx, sy, ndx, ndy);
+    const id = `bl_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    this.bossLasers.push({
+      id,
+      startX: pts.startX,
+      startY: pts.startY,
+      endX: pts.endX,
+      endY: pts.endY,
+      angle: Math.atan2(ndy, ndx),
+      damage: 50,
+      width: 8,
+      duration: 500,
+      tickInterval: 120,
+      startTime: Date.now(),
+      lastTickAt: Date.now()
+    });
+  }
+
+  _computeBossLaserEndpoints(sx, sy, dx, dy) {
+    const worldW = this.worldWidth || 1920;
+    const worldH = this.worldHeight || 1080;
+    const edgeCandidates = [];
+    if (dx > 0) edgeCandidates.push((worldW - sx) / dx);
+    else if (dx < 0) edgeCandidates.push((0 - sx) / dx);
+    if (dy > 0) edgeCandidates.push((worldH - sy) / dy);
+    else if (dy < 0) edgeCandidates.push((0 - sy) / dy);
+    const positiveEdges = edgeCandidates.filter(t => t > 0);
+    let closestT = positiveEdges.length ? Math.min(...positiveEdges) : 0;
+
+    for (const obs of this.obstacles || []) {
+      const halfW = (obs.width || 32) / 2;
+      const halfH = (obs.height || 32) / 2;
+      const left = obs.x - halfW;
+      const right = obs.x + halfW;
+      const top = obs.y - halfH;
+      const bottom = obs.y + halfH;
+      const tHit = this._rayAABB(sx, sy, dx, dy, left, top, right, bottom);
+      if (tHit !== Infinity && tHit > 0 && tHit < closestT) closestT = tHit;
+    }
+
+    const ex = sx + dx * closestT;
+    const ey = sy + dy * closestT;
+    return { startX: sx, startY: sy, endX: ex, endY: ey };
+  }
+
+  _rayAABB(sx, sy, dx, dy, left, top, right, bottom) {
+    let tmin = -Infinity;
+    let tmax = Infinity;
+    if (dx === 0) {
+      if (sx < left || sx > right) return Infinity;
+    } else {
+      const tx1 = (left - sx) / dx;
+      const tx2 = (right - sx) / dx;
+      tmin = Math.max(tmin, Math.min(tx1, tx2));
+      tmax = Math.min(tmax, Math.max(tx1, tx2));
+    }
+    if (dy === 0) {
+      if (sy < top || sy > bottom) return Infinity;
+    } else {
+      const ty1 = (top - sy) / dy;
+      const ty2 = (bottom - sy) / dy;
+      tmin = Math.max(tmin, Math.min(ty1, ty2));
+      tmax = Math.min(tmax, Math.max(ty1, ty2));
+    }
+    if (tmax < tmin) return Infinity;
+    const tHit = tmin >= 0 ? tmin : (tmax >= 0 ? 0 : Infinity);
+    return tHit >= 0 ? tHit : Infinity;
+  }
+
   _spawnBossProjectile(enemy, targetPlayer, deltaTime) {
     if (!enemy || !targetPlayer) return;
     const ra = enemy.rangedAttack;
@@ -367,6 +453,45 @@ class GameState {
         lifeTime: 5000
       });
     } catch (_) { }
+  }
+
+  updateBossLasers(deltaTime) {
+    if (!this.bossLasers || !this.bossLasers.length) return;
+    const now = Date.now();
+
+    for (let i = this.bossLasers.length - 1; i >= 0; i--) {
+      const bl = this.bossLasers[i];
+      if (!bl) { this.bossLasers.splice(i, 1); continue; }
+      if (now - bl.startTime >= bl.duration) {
+        this.bossLasers.splice(i, 1);
+        continue;
+      }
+      if (now - bl.lastTickAt >= bl.tickInterval) {
+        const half = (bl.width || 8) / 2;
+        const playerRadius = 16;
+        const vx = bl.endX - bl.startX;
+        const vy = bl.endY - bl.startY;
+        const len2 = vx * vx + vy * vy;
+
+        for (const player of this.players.values()) {
+          if (!player || player.isDead || player.health <= 0) continue;
+          let dist;
+          if (len2 === 0) {
+            dist = Math.sqrt((player.x - bl.startX) ** 2 + (player.y - bl.startY) ** 2);
+          } else {
+            let t = ((player.x - bl.startX) * vx + (player.y - bl.startY) * vy) / len2;
+            t = Math.max(0, Math.min(1, t));
+            const projX = bl.startX + t * vx;
+            const projY = bl.startY + t * vy;
+            dist = Math.sqrt((player.x - projX) ** 2 + (player.y - projY) ** 2);
+          }
+          if (dist <= half + playerRadius) {
+            this._applyDamageToPlayer(player, bl.damage || 50, { ignoreInvulnerability: true, ignoreDodge: false });
+          }
+        }
+        bl.lastTickAt = now;
+      }
+    }
   }
 
   updateBossProjectiles(deltaTime) {
@@ -664,6 +789,7 @@ class GameState {
     this.enemies = [];
     this.projectiles = [];
     this.bossProjectiles = [];
+    this.bossLasers = [];
     this.bullets = [];
     this.bulletEmitters = [];
     this.experienceOrbs = [];
@@ -1462,6 +1588,9 @@ class GameState {
     // ✅ 伺服器權威：BOSS/HUMAN2 遠程投射物（火彈/瓶子）
     this.updateBossProjectiles(deltaTime);
 
+    // ✅ 伺服器權威：支部地圖小BOSS/大BOSS 雷射
+    this.updateBossLasers(deltaTime);
+
     // ✅ 伺服器權威：修羅彈幕（ASURA）
     this.updateBullets(deltaTime);
 
@@ -2128,6 +2257,15 @@ class GameState {
             if (cd > 0 && now - enemy.lastRangedAttackAt >= cd) {
               this._spawnBossProjectile(enemy, nearestPlayer, deltaTime);
               enemy.lastRangedAttackAt = now;
+            }
+          }
+          // 支部地圖小BOSS/大BOSS：雷射技能（與玩家雷射LV1同冷卻 5000ms）
+          const isBranchBoss = (this.mapId === 'branch') && (enemy.type === 'UNKNOWN_MINI_BOSS' || enemy.type === 'UNKNOWN_BOSS');
+          if (isBranchBoss && nearestPlayer && nearestDist <= (enemy.rangedAttack && enemy.rangedAttack.RANGE || 250)) {
+            if (!enemy.lastBossLaserAt) enemy.lastBossLaserAt = 0;
+            if (now - enemy.lastBossLaserAt >= 5000) {
+              this._spawnBossLaser(enemy, nearestPlayer);
+              enemy.lastBossLaserAt = now;
             }
           }
         } catch (_) { }
@@ -3046,6 +3184,20 @@ class GameState {
       }) : null)).filter(Boolean)
       : [];
 
+    const bossLasersSlim = Array.isArray(this.bossLasers)
+      ? this.bossLasers.map(bl => (bl ? ({
+        id: bl.id,
+        startX: bl.startX,
+        startY: bl.startY,
+        endX: bl.endX,
+        endY: bl.endY,
+        angle: bl.angle,
+        width: bl.width,
+        startTime: bl.startTime,
+        duration: bl.duration
+      }) : null)).filter(Boolean)
+      : [];
+
     const bulletsSlim = Array.isArray(this.bullets)
       ? this.bullets.map(b => (b ? ({
         x: b.x, y: b.y,
@@ -3123,6 +3275,7 @@ class GameState {
       enemies: enemiesSlim,
       projectiles: projectilesSlim,
       bossProjectiles: bossProjectilesSlim,
+      bossLasers: bossLasersSlim,
       bullets: bulletsSlim,
       experienceOrbs: orbsSlim,
       chests: chestsSlim,
