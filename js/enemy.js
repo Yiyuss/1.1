@@ -1364,11 +1364,12 @@
                             return; // 多人權威：客戶端不生成，由伺服器同步
                         }
                         const laserCd = 5000; // 與玩家雷射 LV1 冷卻相同
+                        const bossLaserTriggerRange = 600; // 玩家進入 600 像素內才發射雷射
                         if (!this.lastBossLaserTime) this.lastBossLaserTime = 0;
-                        if (distance <= (this.rangedAttack.RANGE || 250) && currentTime - this.lastBossLaserTime >= laserCd) {
+                        if (distance <= bossLaserTriggerRange && currentTime - this.lastBossLaserTime >= laserCd) {
                             const angle = Utils.angle(this.x, this.y, player.x, player.y);
                             const beam = new LaserBeam(
-                                this, angle, 50, 8, 500, 120,
+                                this, angle, 50, 16, 1000, 120,
                                 { _isBossLaser: true, _source: this }
                             );
                             if (typeof Game !== 'undefined' && Game.addProjectile) {
@@ -1376,7 +1377,7 @@
                             }
                             this.lastBossLaserTime = currentTime;
                             if (typeof AudioManager !== 'undefined' && AudioManager.playSound) {
-                                AudioManager.playSound('laser_shoot');
+                                AudioManager.playSound('challenge_laser');
                             }
                         }
                     } catch (_) {}
