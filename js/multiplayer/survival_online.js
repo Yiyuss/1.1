@@ -2831,6 +2831,8 @@ const Runtime = (() => {
                 if (charId === 'pineapple' && mapId === 'city') Achievements.unlock('PINEAPPLE_CITY_CLEAR');
                 if (charId === 'baibaihong' && mapId === 'city') Achievements.unlock('BAIBAIHONG_CITY_CLEAR');
                 if (charId === 'dada' && mapId === 'forest') Achievements.unlock('DADA_FOREST_CLEAR');
+                // 任一角色通關草原地圖：解鎖專屬之路成就
+                if (mapId === 'forest') Achievements.unlock('EXCLUSIVE_PATH');
                 if (mapId === 'intersection') Achievements.unlock('INTERSECTION_CLEAR');
               }
             } catch (_) {}
