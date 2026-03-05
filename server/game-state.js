@@ -332,8 +332,8 @@ class GameState {
       endY: pts.endY,
       angle: Math.atan2(ndy, ndx),
       damage: 50,
-      width: 8,
-      duration: 500,
+      width: 16,
+      duration: 1000,
       tickInterval: 120,
       startTime: Date.now(),
       lastTickAt: Date.now()
@@ -467,8 +467,9 @@ class GameState {
         continue;
       }
       if (now - bl.lastTickAt >= bl.tickInterval) {
-        const half = (bl.width || 8) / 2;
+        const half = (bl.width || 16) / 2;
         const playerRadius = 16;
+        const detectionRange = half * 6 + playerRadius; // 偵測範圍 6 倍
         const vx = bl.endX - bl.startX;
         const vy = bl.endY - bl.startY;
         const len2 = vx * vx + vy * vy;
@@ -485,7 +486,7 @@ class GameState {
             const projY = bl.startY + t * vy;
             dist = Math.sqrt((player.x - projX) ** 2 + (player.y - projY) ** 2);
           }
-          if (dist <= half + playerRadius) {
+          if (dist <= detectionRange) {
             this._applyDamageToPlayer(player, bl.damage || 50, { ignoreInvulnerability: true, ignoreDodge: false });
           }
         }
@@ -2261,7 +2262,8 @@ class GameState {
           }
           // 支部地圖小BOSS/大BOSS：雷射技能（與玩家雷射LV1同冷卻 5000ms）
           const isBranchBoss = (this.mapId === 'branch') && (enemy.type === 'UNKNOWN_MINI_BOSS' || enemy.type === 'UNKNOWN_BOSS');
-          if (isBranchBoss && nearestPlayer && nearestDist <= (enemy.rangedAttack && enemy.rangedAttack.RANGE || 250)) {
+          const bossLaserTriggerRange = 600; // 玩家進入 600 像素內才發射雷射
+          if (isBranchBoss && nearestPlayer && nearestDist <= bossLaserTriggerRange) {
             if (!enemy.lastBossLaserAt) enemy.lastBossLaserAt = 0;
             if (now - enemy.lastBossLaserAt >= 5000) {
               this._spawnBossLaser(enemy, nearestPlayer);
