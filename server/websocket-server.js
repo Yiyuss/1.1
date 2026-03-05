@@ -237,6 +237,12 @@ function handleJoin(ws, msg) {
 
   const gameState = gameStates.get(roomId);
 
+  // ✅ 組隊修羅彈幕：join 時即套用難度/地圖，確保彈幕系統與 TUNING 正確
+  try {
+    if (typeof msg.diffId === 'string') gameState.diffId = msg.diffId;
+    if (typeof msg.mapId === 'string') gameState.mapId = msg.mapId;
+  } catch (_) { }
+
   // ✅ 权威服务器：添加玩家到游戏状态
   const characterId = (msg && typeof msg.characterId === 'string') ? msg.characterId : 'pineapple';
   const nickname = (msg && typeof msg.nickname === 'string') ? msg.nickname : '玩家';
