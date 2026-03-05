@@ -123,6 +123,13 @@ const TalentSystem = {
             description: '升級可強化加百列的基礎攻擊。',
             cost: 10000
         },
+        // 專屬強化（獨特性天賦，需要專屬之路成就解鎖）
+        exclusive_enhance: {
+            name: '專屬強化',
+            description: '解鎖專屬系統，強化角色專屬技能。',
+            cost: 0,
+            isExclusive: true
+        },
         // 覺醒強化（獨特性天賦，需要覺醒之路成就解鎖）
         awakening_enhance: {
             name: '覺醒強化',
@@ -360,6 +367,11 @@ const TalentSystem = {
                 { flat: 30, cost: 60000 }
             ]
         },
+        // 專屬強化（獨特性，單級，解鎖後開啟專屬系統）
+        exclusive_enhance: {
+            levels: [{ cost: 0 }],
+            isExclusive: true
+        },
         // 覺醒強化（獨特性，單級，解鎖後開啟覺醒系統）
         awakening_enhance: {
             levels: [{ cost: 0 }],
@@ -437,6 +449,15 @@ const TalentSystem = {
                 return;
             }
         }
+        // 專屬強化特殊處理：已解鎖時直接開啟專屬系統視窗
+        if (talentId === 'exclusive_enhance') {
+            const lv = TalentSystem.getTalentLevel('exclusive_enhance');
+            if (lv > 0) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                TalentSystem.showExclusiveWindow();
+                return;
+            }
+        }
         
         // 移除其他卡片的active狀態
         document.querySelectorAll('#talent-select-screen .char-card.active').forEach(el => {
@@ -477,6 +498,28 @@ const TalentSystem = {
             TalentSystem.updateTalentCardAppearance('awakening_enhance');
             try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
             TalentSystem.showAwakeningWindow();
+            return;
+        }
+        // 專屬強化特殊處理
+        if (talentId === 'exclusive_enhance') {
+            const lv = TalentSystem.getTalentLevel('exclusive_enhance');
+            if (lv > 0) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                TalentSystem.showExclusiveWindow();
+                return;
+            }
+            // 未解鎖：檢查成就
+            if (typeof Achievements === 'undefined' || !Achievements.isUnlocked || !Achievements.isUnlocked('EXCLUSIVE_PATH')) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                const descEl = document.getElementById('talent-preview-desc');
+                if (descEl) descEl.textContent = '需要先達成「專屬之路」成就才能解鎖。';
+                return;
+            }
+            // 有成就：解鎖專屬強化（免費）
+            TalentSystem.setTalentLevel('exclusive_enhance', 1);
+            TalentSystem.updateTalentCardAppearance('exclusive_enhance');
+            try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+            TalentSystem.showExclusiveWindow();
             return;
         }
 
@@ -628,8 +671,8 @@ const TalentSystem = {
         const lv = this.getTalentLevel(talentId);
         const max = cfg.levels.length;
 
-        // 覺醒強化特殊處理：只有 未解鎖/已解鎖 兩種狀態
-        if (talentId === 'awakening_enhance') {
+        // 覺醒 / 專屬強化特殊處理：只有 未解鎖/已解鎖 兩種狀態
+        if (talentId === 'awakening_enhance' || talentId === 'exclusive_enhance') {
             this._updateAwakeningBadge(card, lv);
             const img = card.querySelector('img');
             if (!img) return;
@@ -862,6 +905,141 @@ const TalentSystem = {
                 this.hideAwakeningWindow();
             }
         });
+    },
+
+    // ===== 專屬系統 =====
+    _exclusiveSlots: [
+        { id: 'sheep_guard_boost', name: '綿羊護體強化', icon: 'assets/images/test14.png' },
+        { id: 'heart_companion_boost', name: '心意相隨強化', icon: 'assets/images/A34.png' },
+        { id: 'rotating_muffin_boost', name: '旋轉鬆餅強化', icon: 'assets/images/A31.png' },
+        { id: 'pineapple_orbit_boost', name: '鳳梨環繞強化', icon: 'assets/images/A44.png' },
+        { id: 'chicken_blessing_boost', name: '雞腿庇佑強化', icon: 'assets/images/test13.png' },
+        { id: 'stellar_orbit_boost', name: '星體軌跡強化', icon: 'assets/images/A50.png' },
+        { id: 'gabriel_orbit_boost', name: '加百列強化', icon: 'assets/images/A57.png' }
+    ],
+    _exclusiveWindowOpen: false,
+
+    showExclusiveWindow: function() {
+        const overlay = document.getElementById('exclusive-overlay');
+        if (!overlay) return;
+        this._exclusiveWindowOpen = true;
+        this._refreshExclusiveSlots();
+        overlay.classList.remove('hidden');
+        overlay.setAttribute('aria-hidden', 'false');
+    },
+
+    hideExclusiveWindow: function() {
+        const overlay = document.getElementById('exclusive-overlay');
+        if (!overlay) return;
+        this._exclusiveWindowOpen = false;
+        overlay.classList.add('hidden');
+        overlay.setAttribute('aria-hidden', 'true');
+        const descEl = document.getElementById('exclusive-desc-text');
+        if (descEl) descEl.textContent = '點選專屬格子查看詳細說明。';
+    },
+
+    _refreshExclusiveSlots: function() {
+        const overlay = document.getElementById('exclusive-overlay');
+        if (!overlay) return;
+        this._exclusiveSlots.forEach(slot => {
+            const btn = overlay.querySelector('.exclusive-slot[data-exclusive-id="' + slot.id + '"]');
+            if (!btn) return;
+            const lv = this.getTalentLevel(slot.id);
+            const cfg = this.tieredTalents[slot.id];
+            const max = (cfg && Array.isArray(cfg.levels)) ? cfg.levels.length : 6;
+            const img = btn.querySelector('img');
+            const statusEl = btn.querySelector('.exclusive-slot-status');
+            if (lv > 0) {
+                if (img) { img.classList.remove('grayscale'); img.style.filter = ''; }
+                if (statusEl) { statusEl.textContent = 'LV ' + lv + ' / ' + max; statusEl.style.color = '#4cff4c'; }
+                btn.classList.remove('locked');
+            } else {
+                if (img) { img.classList.add('grayscale'); img.style.filter = ''; img.style.boxShadow = ''; }
+                if (statusEl) { statusEl.textContent = '未解鎖'; statusEl.style.color = '#aaa'; }
+                btn.classList.add('locked');
+            }
+        });
+    },
+
+    _handleExclusiveSlotClick: function(slotId) {
+        const slot = this._exclusiveSlots.find(s => s.id === slotId);
+        if (!slot) return;
+        try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click2'); } catch(_){}
+        const lv = this.getTalentLevel(slotId);
+        const cfg = this.tieredTalents[slotId];
+        const max = (cfg && Array.isArray(cfg.levels)) ? cfg.levels.length : 6;
+        const nextCost = this.getNextLevelCost ? this.getNextLevelCost(slotId) : null;
+        const descEl = document.getElementById('exclusive-desc-text');
+        if (!descEl) return;
+        const effectDesc = (typeof this.getHighestTierDescription === 'function')
+            ? this.getHighestTierDescription(slotId)
+            : (this.talents[slotId] && this.talents[slotId].description) || '';
+        let html = '<strong>' + slot.name + '</strong><br>' + effectDesc +
+            '<br>當前等級：LV ' + lv + ' / ' + max;
+        if (lv >= max) {
+            html += '（已滿級）';
+        } else if (nextCost) {
+            html += '<br>下一級費用：<span style="color:#ffd700;">' + nextCost.toLocaleString() + ' 金幣</span>';
+        }
+        descEl.innerHTML = html;
+        // 標記選中
+        document.querySelectorAll('#exclusive-overlay .exclusive-slot.active').forEach(el => el.classList.remove('active'));
+        const btn = document.querySelector('#exclusive-overlay .exclusive-slot[data-exclusive-id="' + slotId + '"]');
+        if (btn) btn.classList.add('active');
+    },
+
+    _handleExclusiveSlotDblClick: function(slotId) {
+        const slot = this._exclusiveSlots.find(s => s.id === slotId);
+        if (!slot) return;
+        const cfg = this.tieredTalents[slotId];
+        const max = (cfg && Array.isArray(cfg.levels)) ? cfg.levels.length : 6;
+        const lv = this.getTalentLevel(slotId);
+        if (lv >= max) return; // 已滿級
+        const nextCost = this.getNextLevelCost ? this.getNextLevelCost(slotId) : null;
+        if (!nextCost) return;
+        if (typeof Game === 'undefined' || Game.coins < nextCost) {
+            try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+            const descEl = document.getElementById('exclusive-desc-text');
+            if (descEl) descEl.innerHTML = '<strong>' + slot.name + '</strong><br><span style="color:#ff6b6b;">金幣不足！需要 ' + nextCost.toLocaleString() + ' 金幣。</span>';
+            return;
+        }
+        // 扣款
+        Game.coins -= nextCost;
+        Game.saveCoins();
+        try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+        if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) UI.updateCoinsDisplay(Game.coins);
+        // 升級
+        this.setTalentLevel(slotId, lv + 1);
+        this._refreshExclusiveSlots();
+        // 更新描述
+        this._handleExclusiveSlotClick(slotId);
+        // 應用效果
+        if (Game.player) this.applyTalentEffects(Game.player);
+        if (typeof UI !== 'undefined' && UI.updateTalentsList) UI.updateTalentsList();
+    },
+
+    initExclusiveWindow: function() {
+        const overlay = document.getElementById('exclusive-overlay');
+        if (!overlay) return;
+        const closeBtn = document.getElementById('exclusive-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                this.hideExclusiveWindow();
+            });
+        }
+        this._exclusiveSlots.forEach(slot => {
+            const btn = overlay.querySelector('.exclusive-slot[data-exclusive-id="' + slot.id + '"]');
+            if (!btn) return;
+            btn.addEventListener('click', () => this._handleExclusiveSlotClick(slot.id));
+            btn.addEventListener('dblclick', () => this._handleExclusiveSlotDblClick(slot.id));
+        });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                this.hideExclusiveWindow();
+            }
+        });
     }
 };
 
@@ -1025,6 +1203,8 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'gabriel_orbit_boost') {
             const flat = eff.flat || 0;
             return `加百列基礎攻擊+${flat}`;
+        } else if (id === 'exclusive_enhance') {
+            return lv > 0 ? '專屬系統已解鎖，點擊進入專屬強化。' : '需要「專屬之路」成就來解鎖專屬系統。';
         } else if (id === 'awakening_enhance') {
             return lv > 0 ? '覺醒系統已解鎖，點擊進入覺醒強化。' : '需要「覺醒之路」成就來解鎖覺醒系統。';
         } else if (id === 'awakening_hp') {
@@ -1054,6 +1234,39 @@ if (!TalentSystem.migrateLegacyTalentData) {
                 }
             }
             if ((levels.hp_boost || 0) < hpLv) levels.hp_boost = hpLv;
+
+            // 專屬強化舊資料遷移：
+            // 若玩家已升級任一專屬強化天賦（綿羊護體/心意相隨/旋轉鬆餅/鳳梨環繞/雞腿庇佑/星體軌跡/加百列），
+            // 即使尚未達成「專屬之路」成就，也自動視為已解鎖專屬強化（exclusive_enhance）。
+            try {
+                const exclusiveIds = [
+                    'chicken_blessing_boost',
+                    'sheep_guard_boost',
+                    'heart_companion_boost',
+                    'rotating_muffin_boost',
+                    'pineapple_orbit_boost',
+                    'stellar_orbit_boost',
+                    'gabriel_orbit_boost'
+                ];
+                let hasExclusiveProgress = false;
+                if (Array.isArray(legacy)) {
+                    if (legacy.some(id => exclusiveIds.includes(id))) {
+                        hasExclusiveProgress = true;
+                    }
+                }
+                if (!hasExclusiveProgress) {
+                    for (const id of exclusiveIds) {
+                        if ((levels[id] || 0) > 0) {
+                            hasExclusiveProgress = true;
+                            break;
+                        }
+                    }
+                }
+                if (hasExclusiveProgress && !(levels.exclusive_enhance > 0)) {
+                    levels.exclusive_enhance = 1;
+                }
+            } catch (_) {}
+
             localStorage.setItem('talent_levels', JSON.stringify(levels));
         } catch (e) {
             console.warn('遷移舊版天賦資料失敗', e);
