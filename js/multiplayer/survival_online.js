@@ -6736,7 +6736,7 @@ function updateBossLasersFromServer(bossLasers) {
   for (const st of bossLasers) {
     if (!st || !st.id) continue;
     const elapsed = now - (st.startTime || now);
-    if (elapsed >= (st.duration || 500)) continue; // 已過期，不創建
+    if (elapsed >= (st.duration || 1000)) continue; // 已過期，不創建
 
     let beam = Game.projectiles.find(p => p && p.weaponType === 'BOSS_LASER' && p._bossLaserId === st.id);
     if (!beam && typeof LaserBeam !== 'undefined') {
@@ -6745,8 +6745,8 @@ function updateBossLasersFromServer(bossLasers) {
         fakeSource,
         st.angle || 0,
         50,
-        st.width || 8,
-        st.duration || 500,
+        st.width || 16,
+        st.duration || 1000,
         120,
         {
           _isBossLaser: true,
@@ -6770,7 +6770,7 @@ function updateBossLasersFromServer(bossLasers) {
       beam.endX = st.endX;
       beam.endY = st.endY;
       const elapsed2 = now - (beam.startTime || now);
-      if (elapsed2 >= (beam.duration || 500)) beam.markedForDeletion = true;
+      if (elapsed2 >= (beam.duration || 1000)) beam.markedForDeletion = true;
     }
   }
 }
