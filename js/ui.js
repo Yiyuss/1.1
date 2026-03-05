@@ -2559,6 +2559,34 @@ const UI = {
         
 
     },
+    /**
+     * 遊戲結束時強制清除升級選單狀態（勝利/失敗/重置時呼叫）
+     * 避免進入新地圖時升級介面殘留上一局的技能進度
+     */
+    clearLevelUpStateOnGameEnd: function() {
+        try {
+            if (this._pendingLevelUps) this._pendingLevelUps = [];
+            if (this._levelUpKeyHandler) {
+                document.removeEventListener('keydown', this._levelUpKeyHandler);
+                this._levelUpKeyHandler = null;
+            }
+            if (this._pendingOptionEl) {
+                try { this._pendingOptionEl.classList.remove('uop-pending'); } catch (_) {}
+            }
+            this._pendingOptionEl = null;
+            this._pendingOptionType = null;
+            this._pendingOptionIndex = null;
+            this._heldOptionIndex = null;
+            if (this.levelUpMenu) {
+                this.levelUpMenu.classList.add('hidden');
+                if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+                    this.levelUpMenu.style.zIndex = '';
+                }
+            }
+            if (this.upgradeOptions) this.upgradeOptions.innerHTML = '';
+        } catch (_) {}
+    },
+
     // 隱藏升級選單
     hideLevelUpMenu: function() {
         // 清理選擇暫存與鍵盤事件
