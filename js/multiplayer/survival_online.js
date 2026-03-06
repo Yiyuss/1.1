@@ -3911,10 +3911,18 @@ async function hostUpdateSettings({ mapId, diffId }) {
 async function hostStartGame() {
   if (!_activeRoomId || !_isHost) return;
   // M1：寫入 sessionId + 倒數設定，讓隊員做一致的「開局」流程
+  // ✅ 根本修復：明確傳遞 mapId/diffId，避免 Firestore 合併或快取導致修羅 BGM/彈幕遺失
+  const selMap = _qs("survival-online-host-map");
+  const selDiff = _qs("survival-online-host-diff");
+  const mapId = (selMap && selMap.value) ? selMap.value : (_roomState && _roomState.mapId) || "city";
+  const diffId = (selDiff && selDiff.value) ? selDiff.value : (_roomState && _roomState.diffId) || "EASY";
+
   const sessionId = _randSessionId();
   await updateDoc(roomDocRef(_activeRoomId), {
     status: "starting",
     sessionId,
+    mapId,
+    diffId,
     startDelayMs: START_COUNTDOWN_MS,
     startAt: serverTimestamp(),
     updatedAt: serverTimestamp()
@@ -3925,6 +3933,8 @@ async function hostStartGame() {
     _roomState.updatedAt = Date.now();
     _roomState._lastUpdateMs = Date.now();
     _roomState.status = "starting";
+    _roomState.mapId = mapId;
+    _roomState.diffId = diffId;
   }
 }
 
@@ -7963,12 +7973,21 @@ function tryStartSurvivalFromRoom() {
   } catch (_) { }
   if (_startTimer) return;
 
-  // 套用 host 的 map/diff（室長優先權）
+  // 套用 host 的 map/diff（室長優先權）— 根本修復：確保修羅 BGM/彈幕有正確來源
   try {
     if (typeof Game !== "undefined") {
-      Game.selectedDifficultyId = _roomState.diffId || Game.selectedDifficultyId;
       const maps = (typeof CONFIG !== "undefined" && Array.isArray(CONFIG.MAPS)) ? CONFIG.MAPS : [];
-      const mapCfg = maps.find((m) => m && m.id === _roomState.mapId);
+      // 優先從房間狀態；室長可從下拉框補齊（hostStartGame 已寫入）
+      let diffId = _roomState.diffId;
+      let mapId = _roomState.mapId;
+      if (_isHost) {
+        const selMap = _qs("survival-online-host-map");
+        const selDiff = _qs("survival-online-host-diff");
+        if (selMap && selMap.value) mapId = selMap.value;
+        if (selDiff && selDiff.value) diffId = selDiff.value;
+      }
+      Game.selectedDifficultyId = diffId || Game.selectedDifficultyId;
+      const mapCfg = maps.find((m) => m && m.id === mapId);
       if (mapCfg) Game.selectedMap = mapCfg;
     }
   } catch (_) { }
@@ -8230,10 +8249,15 @@ function tryStartSurvivalFromRoom() {
       console.log(`[SurvivalOnline] startGame: 设置 sessionId=${sessionId} 到 Game.multiplayer`);
     }
 
+    // ✅ 根本修復：map/diff 必須來自房間狀態（室長下拉框已寫入 hostStartGame），確保修羅 BGM/彈幕正確
+    const maps = (typeof CONFIG !== "undefined" && Array.isArray(CONFIG.MAPS)) ? CONFIG.MAPS : [];
+    const finalMapId = (_roomState && _roomState.mapId) || "city";
+    const finalDiffId = (_roomState && _roomState.diffId) || "EASY";
+    const finalMapCfg = maps.find((m) => m && m.id === finalMapId) || (typeof Game !== "undefined" ? Game.selectedMap : null);
     startSurvivalNow({
-      selectedDifficultyId: _roomState.diffId || _pendingStartParams.selectedDifficultyId,
+      selectedDifficultyId: finalDiffId,
       selectedCharacter: selectedCharacter,
-      selectedMap: (typeof Game !== "undefined" ? Game.selectedMap : _pendingStartParams.selectedMap),
+      selectedMap: finalMapCfg,
       sessionId: sessionId
     });
   };
