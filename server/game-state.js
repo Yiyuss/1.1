@@ -1668,8 +1668,10 @@ class GameState {
       this.bossSpawned = true;
     }
 
-    // 更新波次（同樣需要 CONFIG 才同源）
-    if (this.config) this.updateWave(now);
+    // 更新波次
+    // 根因：波次推進被「設定存在」綁死——設定缺失時單機會拋錯跳幀、組隊不呼叫 updateWave，導致永遠卡第一波。
+    // 修正：波次只依「經過時間」推進，設定僅覆寫預設；無設定時用預設 60s（見下 waveDuration），仍須呼叫 updateWave。
+    this.updateWave(now);
 
     // 检查游戏结束条件
     this.checkGameOver();
