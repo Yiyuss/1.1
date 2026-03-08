@@ -48,8 +48,16 @@ const WaveSystem = {
         // 這樣可以確保所有客戶端在同一時間生成相同的敵人
         const currentTime = Date.now();
         // 進波判定：使用同步的波次開始時間
-        const waveElapsedTime = currentTime - this.waveStartTime;
-        if (waveElapsedTime >= CONFIG.WAVES.DURATION) {
+        // 根因：波次推進被「設定存在」綁死——CONFIG 未就緒時讀取拋錯、整幀被 catch 跳過，波次從不推進。修正：用預設 60s、處理時間異常，仍依時間推進。
+        let waveElapsedTime = currentTime - this.waveStartTime;
+        const waveDuration = (typeof CONFIG !== 'undefined' && CONFIG.WAVES && typeof CONFIG.WAVES.DURATION === 'number')
+            ? CONFIG.WAVES.DURATION
+            : 60000;
+        if (waveElapsedTime < 0) {
+            this.waveStartTime = currentTime;
+            waveElapsedTime = 0;
+        }
+        if (waveElapsedTime >= waveDuration) {
             this.nextWave();
         }
 
@@ -65,7 +73,8 @@ const WaveSystem = {
         // }
 
         // 生成大BOSS（單機）
-        if (this.currentWave === CONFIG.WAVES.BOSS_WAVE && Game.boss === null && Game.exit === null) {
+        const bossWave = (typeof CONFIG !== 'undefined' && CONFIG.WAVES && typeof CONFIG.WAVES.BOSS_WAVE === 'number') ? CONFIG.WAVES.BOSS_WAVE : 20;
+        if (this.currentWave === bossWave && Game.boss === null && Game.exit === null) {
             this.spawnBoss();
         }
     },
@@ -79,12 +88,13 @@ const WaveSystem = {
         this.waveStartTime = Date.now();
 
         // 增加敵人生成速率（套用難度間隔倍率，預設 EASY）
-        const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.EASY) || {});
+        const diff = (Game.difficulty || (typeof CONFIG !== 'undefined' && CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.EASY) || {});
         const mult = diff.spawnIntervalMultiplier || 1;
-        this.enemySpawnRate = Math.max(
-            (CONFIG.WAVES.ENEMY_SPAWN_RATE.INITIAL - (this.currentWave - 1) * CONFIG.WAVES.ENEMY_SPAWN_RATE.DECREASE_PER_WAVE) * mult,
-            CONFIG.WAVES.ENEMY_SPAWN_RATE.MINIMUM
-        );
+        const rateCfg = (typeof CONFIG !== 'undefined' && CONFIG.WAVES && CONFIG.WAVES.ENEMY_SPAWN_RATE) ? CONFIG.WAVES.ENEMY_SPAWN_RATE : { INITIAL: 2000, DECREASE_PER_WAVE: 100, MINIMUM: 300 };
+        const initial = typeof rateCfg.INITIAL === 'number' ? rateCfg.INITIAL : 2000;
+        const dec = typeof rateCfg.DECREASE_PER_WAVE === 'number' ? rateCfg.DECREASE_PER_WAVE : 100;
+        const min = typeof rateCfg.MINIMUM === 'number' ? rateCfg.MINIMUM : 300;
+        this.enemySpawnRate = Math.max(min, (initial - (this.currentWave - 1) * dec) * mult);
 
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
