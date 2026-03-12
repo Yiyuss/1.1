@@ -1895,6 +1895,8 @@
         imgKey = 'player7';
       } else if (sc && sc.id === 'baibaihong') {
         imgKey = 'player8';
+      } else if (sc && sc.id === 'cygnus') {
+        imgKey = 'player9';
       }
         
         // 特殊處理：player2 / player7 / player8 根據移動方向切換圖片（左圖/右圖）
@@ -2532,7 +2534,7 @@
         if (sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2')) {
           // player2 縮小到 85%
           playerActualHeight = Math.floor(PLAYER_H * 0.85);
-        } else if (sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7') || (sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8'))) {
+        } else if (sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7') || (sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8')) || (sc && (sc.id === 'cygnus' || sc.spriteImageKey === 'player9'))) {
           playerActualHeight = Math.floor(PLAYER_H * 0.85);
         }
         
@@ -2619,6 +2621,12 @@
               const refHeight = 265;
               renderHeight = Math.floor(PLAYER_H * 0.85 * (imgHeight / refHeight));
               renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+            } else if (sc && (sc.id === 'cygnus' || sc.spriteImageKey === 'player9')) {
+              const imgWidth = currentPlayerImg.naturalWidth || currentPlayerImg.width || 290;
+              const imgHeight = currentPlayerImg.naturalHeight || currentPlayerImg.height || 242;
+              const aspectRatio = imgWidth / imgHeight;
+              renderHeight = Math.floor(PLAYER_H * 0.85);
+              renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
             }
             
             // 使用 MainGifOverlay 顯示（支援 GIF 動畫）
@@ -2627,7 +2635,7 @@
             let renderX = player.x - camX;
             let renderY = player.y - camY;
             
-            if (sc && ((sc.id === 'dada' || sc.spriteImageKey === 'player2') || (sc.id === 'elondier' || sc.spriteImageKey === 'player7') || (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8'))) {
+            if (sc && ((sc.id === 'dada' || sc.spriteImageKey === 'player2') || (sc.id === 'elondier' || sc.spriteImageKey === 'player7') || (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8') || (sc.id === 'cygnus' || sc.spriteImageKey === 'player9'))) {
               // player2 / player7 / player8 縮小後，渲染寬度可能與 PLAYER_W 不同
               // 為了保持碰撞檢測一致，需要調整渲染位置
               // 確保角色的視覺中心對齊 player.x + PLAYER_W/2
@@ -2680,7 +2688,7 @@
               } else {
               // 後備方案：僅在 MainGifOverlay 不可用時才使用 Canvas 繪製（會導致畫質降低，應避免）
               // 正常情況下應使用 MainGifOverlay 以保持最佳畫質
-              const adjustedPx = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2' || sc.id === 'elondier' || sc.spriteImageKey === 'player7' || sc.id === 'baibaihong' || sc.spriteImageKey === 'player8') 
+              const adjustedPx = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2' || sc.id === 'elondier' || sc.spriteImageKey === 'player7' || sc.id === 'baibaihong' || sc.spriteImageKey === 'player8' || sc.id === 'cygnus' || sc.spriteImageKey === 'player9') 
                 ? Math.round(px + (PLAYER_W - renderWidth) / 2)
                 : px;
               ctx2d.drawImage(currentPlayerImg, adjustedPx, py, renderWidth, renderHeight);
