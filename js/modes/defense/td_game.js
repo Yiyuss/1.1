@@ -790,8 +790,9 @@ class TDGame {
                 const isPlayer6 = sc && (sc.id === 'pineapple' || sc.spriteImageKey === 'player6');
                 const isPlayer7 = sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7');
                 const isPlayer8 = sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8');
+                const isPlayer9 = sc && (sc.id === 'cygnus' || sc.spriteImageKey === 'player9');
                 
-                if ((playerIsGif || isPlayer4 || isPlayer5 || isPlayer2 || isPlayer6 || isPlayer7 || isPlayer8) && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
+                if ((playerIsGif || isPlayer4 || isPlayer5 || isPlayer2 || isPlayer6 || isPlayer7 || isPlayer8 || isPlayer9) && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
                     const screenX = this.player.x - this.camera.x;
                     const screenY = this.player.y - this.camera.y;
                     
@@ -824,6 +825,14 @@ class TDGame {
                             playerSrc = player8ImgObj.src;
                         } else {
                             playerSrc = this.player.facingRight ? 'assets/images/player8-1.png' : 'assets/images/player8.png';
+                        }
+                    }
+                    if (isPlayer9) {
+                        const player9ImgObj = (Game.images && Game.images['player9']) ? Game.images['player9'] : null;
+                        if (player9ImgObj && player9ImgObj.src) {
+                            playerSrc = player9ImgObj.src;
+                        } else {
+                            playerSrc = 'assets/images/player9.png';
                         }
                     }
                     
@@ -902,6 +911,18 @@ class TDGame {
                             const aspectRatio = imgWidth / imgHeight;
                             const refHeight = 265;
                             const renderHeight = Math.max(1, Math.floor(this.player.size * (imgHeight / refHeight)));
+                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
+                        } else {
+                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
+                        }
+                    } else if (isPlayer9) {
+                        const imgObj = (Game.images && Game.images['player9']) ? Game.images['player9'] : null;
+                        if (imgObj && imgObj.complete) {
+                            const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
+                            const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
+                            const aspectRatio = imgWidth / imgHeight;
+                            const renderHeight = this.player.size;
                             const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                             window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
                         } else {
