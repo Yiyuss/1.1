@@ -450,6 +450,14 @@ class Player extends Entity {
                     const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
                     const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                     window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
+                } else if (imgKey === 'player9' && imgObj.complete) {
+                    // player9.png 保持原比例（290x242），熙歌Cygnus
+                    const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
+                    const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
+                    const aspectRatio = imgWidth / imgHeight;
+                    const renderHeight = Math.max(1, Math.floor(baseSize * visualScale));
+                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                    window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, { width: renderWidth, height: renderHeight });
                 } else if ((imgKey === 'player8' || imgKey === 'player8-1') && imgObj.complete) {
                     // player8.png / player8-1.png 保持原比例（300x238），體型較寬故顯示再縮小：參考高度略大於 player7
                     const imgWidth = imgObj.naturalWidth || imgObj.width || 300;
