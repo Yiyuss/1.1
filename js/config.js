@@ -1335,6 +1335,23 @@ const CONFIG = {
             disabledWeapons: [],
             exclusiveWeapons: ['GABRIEL_ORBIT', 'RAINBOW_RESONANCE', 'FBI', 'WHITE_NIGHT_BEAM'],
             unlockCost: 10000
+        },
+        {
+            id: 'cygnus',
+            name: '熙歌Cygnus',
+            hpMultiplier: 1.0,
+            hpBonus: 0,
+            speedMultiplier: 1.0,
+            dodgeChanceBonusPct: 0.10,
+            description: `角色介紹：好奇心旺盛的黑洞，可以吞噬一切！\n專屬技能：暫無\n專屬大招：暫無`,
+            avatarImageKey: 'player9-2',
+            hudImageKey: 'player9-2',
+            spriteImageKey: 'player9',
+            levelUpBgKey: 'player9-2',
+            canUseUltimate: true,
+            disabledWeapons: [],
+            exclusiveWeapons: [],
+            unlockCost: 10000
         }
     ],
 
