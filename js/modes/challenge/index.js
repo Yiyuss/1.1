@@ -681,6 +681,19 @@ function safePlayShura(ctx) {
               } else {
                 window.ChallengeGifOverlay.showOrUpdate('challenge-player', player8Src, player.x, player.y, actorSize);
               }
+            } else if (sc && (sc.id === 'cygnus' || sc.spriteImageKey === 'player9')) {
+              const imgObj = (Game.images && Game.images['player9']) ? Game.images['player9'] : null;
+              const player9Src = (imgObj && imgObj.src) ? imgObj.src : actorSrc;
+              if (imgObj && imgObj.complete) {
+                const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
+                const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
+                const aspectRatio = imgWidth / imgHeight;
+                const renderHeight = actorSize;
+                const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', player9Src, player.x, player.y, { width: renderWidth, height: renderHeight });
+              } else {
+                window.ChallengeGifOverlay.showOrUpdate('challenge-player', player9Src, player.x, player.y, actorSize);
+              }
             } else if ((!sc || sc.id === 'margaret' || sc.spriteImageKey === 'player') || /player\.gif$/i.test(actorSrc)) {
               // player.gif 保持原比例（1:1），使用模式原有的尺寸計算
               const imgObj = (Game.images && Game.images['player']) ? Game.images['player'] : null;
