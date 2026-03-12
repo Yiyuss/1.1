@@ -479,6 +479,7 @@ function initPlayerSprite() {
         else if (id === 'pineapple') key = 'player6';
         else if (id === 'elondier') key = 'player7';
         else if (id === 'baibaihong') key = 'player8';
+        else if (id === 'cygnus') key = 'player9';
 
         let parentImg = null;
         try {
@@ -499,6 +500,8 @@ function initPlayerSprite() {
             playerSpriteScale = 0.18;
         } else if (id === 'baibaihong') {
             playerSpriteScale = 0.18 * (238 / 265); // player8 體型較寬，顯示再縮小
+        } else if (id === 'cygnus') {
+            playerSpriteScale = 0.18; // player9.png 290x242，與 player7 相同
         } else {
             playerSpriteScale = 0.16; // player.gif / player3.gif 高 320，0.16 ≈ 51px
         }
@@ -547,6 +550,8 @@ function initPlayerSprite() {
             src = '../../../assets/images/player7.png';
         } else if (id === 'baibaihong') {
             src = '../../../assets/images/player8.png';
+        } else if (id === 'cygnus') {
+            src = '../../../assets/images/player9.png';
         }
         const img = new Image();
         img.onload = function(){
@@ -4509,6 +4514,7 @@ function draw() {
     const isPlayer2 = (id === 'dada');
     const isPlayer7 = (id === 'elondier');
     const isPlayer8 = (id === 'baibaihong');
+    const isPlayer9 = (id === 'cygnus');
     let imgToUse = playerSpriteImg;
     let imgSrc = playerSpriteImg ? playerSpriteImg.src : null;
     
@@ -4521,10 +4527,11 @@ function draw() {
             imgSrc = playerSpriteImg.src;
         }
     }
+    // 熙歌Cygnus（player9）無方向切換，使用單一圖片
     
     if (playerSpriteReady && imgToUse && typeof AdventureGifOverlay !== 'undefined' && typeof AdventureGifOverlay.showOrUpdate === 'function') {
         let w, h;
-        if (isPlayer2 || isPlayer7) {
+        if (isPlayer2 || isPlayer7 || isPlayer9) {
             const imgWidth = imgToUse.width || 290;
             const imgHeight = imgToUse.height || 242;
             const aspectRatio = imgWidth / imgHeight;
