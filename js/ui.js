@@ -2379,7 +2379,9 @@ const UI = {
             'player6-2': 'assets/images/player6-2.png',
             'player7-2': 'assets/images/player7-2.png',
             // 白白虹：使用 player8-2.png
-            'player8-2': 'assets/images/player8-2.png'
+            'player8-2': 'assets/images/player8-2.png',
+            // 熙歌Cygnus：使用 player9-2.png
+            'player9-2': 'assets/images/player9-2.png'
         };
         const url = map[key] || map['player'];
         bgEl.style.backgroundImage = `url('${url}')`;
