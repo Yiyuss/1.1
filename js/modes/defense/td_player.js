@@ -86,6 +86,8 @@ class TDPlayer {
                     src = 'assets/images/player7.png';
                 } else if (sc.spriteImageKey === 'player8') {
                     src = 'assets/images/player8.png';
+                } else if (sc.spriteImageKey === 'player9') {
+                    src = 'assets/images/player9.png';
                 } else {
                     src = `assets/images/${sc.spriteImageKey}.gif`;
                 }
@@ -103,6 +105,8 @@ class TDPlayer {
                 src = 'assets/images/player7.png';
             } else if (sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8')) {
                 src = 'assets/images/player8.png';
+            } else if (sc && (sc.id === 'cygnus' || sc.spriteImageKey === 'player9')) {
+                src = 'assets/images/player9.png';
             }
         } catch(_) {}
         this.sprite = {
@@ -481,8 +485,9 @@ class TDPlayer {
         const isPlayer2 = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2');
         const isPlayer7 = sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7');
         const isPlayer8 = sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8');
+        const isPlayer9 = sc && (sc.id === 'cygnus' || sc.spriteImageKey === 'player9');
         
-        if (!isGif && !isPlayer4 && !isPlayer5 && !isPlayer2 && !isPlayer7 && !isPlayer8) {
+        if (!isGif && !isPlayer4 && !isPlayer5 && !isPlayer2 && !isPlayer7 && !isPlayer8 && !isPlayer9) {
             // 載入圖片：依 this.sprite.src 推導資源鍵（支援 player / player2）
             let image = null;
             if (this.sprite && this.sprite.src) {
