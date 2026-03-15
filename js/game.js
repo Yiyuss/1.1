@@ -1731,6 +1731,7 @@ const Game = {
 
                 const isPersistentEffect = (
                     projectile.weaponType === 'AURA_FIELD' ||
+                    projectile.weaponType === 'CYGNUS_ULTIMATE_FIELD' ||
                     projectile.weaponType === 'STELLAR_FIELD' ||
                     projectile.weaponType === 'INNATE_TEMPERAMENT' ||
                     projectile.weaponType === 'STARFALL' ||
@@ -1773,6 +1774,7 @@ const Game = {
                     isAICompanion ||
                     (projectile.constructor && (
                         projectile.constructor.name === 'AuraField' ||
+                        projectile.constructor.name === 'CygnusUltimateField' ||
                         projectile.constructor.name === 'StellarField' ||
                         projectile.constructor.name === 'InnateTemperamentField' ||
                         projectile.constructor.name === 'GravityWaveField' ||
@@ -1996,6 +1998,11 @@ const Game = {
                             // 但為了與單機一致，我們只在首次創建時廣播，之後的更新不廣播（避免重複創建）
                             // 這裡的廣播邏輯由去重機制處理（在 survival_online.js 中檢查是否已存在）
                         }
+                        if (projectile.weaponType === "CYGNUS_ULTIMATE_FIELD") {
+                            projectileData.damage = projectile.tickDamage || projectile.damage || 0;
+                            projectileData.radius = projectile.radius || 150;
+                            projectileData.visualScale = projectile.visualScale || 1.95;
+                        }
                         // 組隊模式：恆星領域（與守護領域同為常駐場域，僅廣播視覺與緩速參數）
                         if (projectile.weaponType === "STELLAR_FIELD") {
                             projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.STELLAR_FIELD ? CONFIG.WEAPONS.STELLAR_FIELD.FIELD_RADIUS : 100);
@@ -2122,6 +2129,7 @@ const Game = {
                     const isPersistentEffect = (
                         // 武器類型檢查
                         projectile.weaponType === 'AURA_FIELD' ||
+                        projectile.weaponType === 'CYGNUS_ULTIMATE_FIELD' ||
                         projectile.weaponType === 'STELLAR_FIELD' ||
                         projectile.weaponType === 'INNATE_TEMPERAMENT' ||
                         projectile.weaponType === 'STARFALL' ||
@@ -2386,6 +2394,12 @@ const Game = {
                         projectileData.damage = projectile.tickDamage || projectile.damage || 0; // ✅ 传递持续伤害值
                         projectileData.radius = projectile.radius || 60; // ✅ 與單機一致：使用 CONFIG.AURA_FIELD.FIELD_RADIUS（60）
                         projectileData.visualScale = projectile.visualScale || 1.95; // ✅ 與單機一致：使用 CONFIG.AURA_FIELD.VISUAL_SCALE（1.95）
+                    }
+                    // 熙歌專屬大招場域（CygnusUltimateField）
+                    if (projectile.weaponType === "CYGNUS_ULTIMATE_FIELD") {
+                        projectileData.damage = projectile.tickDamage || projectile.damage || 0;
+                        projectileData.radius = projectile.radius || 150;
+                        projectileData.visualScale = projectile.visualScale || 1.95;
                     }
                     // 組隊模式：如果是恆星領域（StellarField），添加額外屬性（與守護領域同結構）
                     if (projectile.weaponType === "STELLAR_FIELD") {
