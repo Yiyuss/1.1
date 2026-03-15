@@ -514,6 +514,23 @@
                     return;
                 }
 
+                // 熙歌專屬大招場域（與守護領域 LV10 相同邏輯，特效圖 A70.png）
+                if (this.type === 'CYGNUS_ULTIMATE_FIELD') {
+                    const baseRadius = this.config.FIELD_RADIUS || 150;
+                    const perLevel = this.config.FIELD_RADIUS_PER_LEVEL || 0;
+                    const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+                    const dmg = this._computeFinalDamage(levelMul);
+                    if (!this._auraEntity || this._auraEntity.markedForDeletion) {
+                        this._auraEntity = new CygnusUltimateField(this.player, dynamicRadius, dmg);
+                        Game.addProjectile(this._auraEntity);
+                    } else {
+                        this._auraEntity.radius = dynamicRadius;
+                        this._auraEntity.damage = dmg;
+                        this._auraEntity.tickDamage = Math.max(0, Math.round(dmg));
+                    }
+                    return;
+                }
+
                 // 特殊技能：恆星領域（厄倫蒂兒專屬，常駐場域，僅緩速不造成傷害）
                 if (this.type === 'STELLAR_FIELD') {
                     const baseRadius = this.config.FIELD_RADIUS || 150;
