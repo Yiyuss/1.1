@@ -355,9 +355,16 @@ class Player extends Entity {
         }
         
         // 使用角色特定的大招圖片鍵（若存在），否則使用預設
-        const ultimateImgKey = (this.isUltimateActive && this._ultimateImageKey && Game.images && Game.images[this._ultimateImageKey])
+        // 熙歌等角色：KEEP_ORIGINAL_SPRITE 時大招期間維持原本圖，僅體型放大
+        let charUltimateCfg = null;
+        try {
+            const cid = this._isRemotePlayer && this._remoteCharacter ? this._remoteCharacter.id : (Game.selectedCharacter ? Game.selectedCharacter.id : null);
+            charUltimateCfg = (cid && CONFIG.CHARACTER_ULTIMATES && CONFIG.CHARACTER_ULTIMATES[cid]) ? CONFIG.CHARACTER_ULTIMATES[cid] : null;
+        } catch (_) {}
+        const keepOriginal = (charUltimateCfg && charUltimateCfg.KEEP_ORIGINAL_SPRITE === true);
+        const ultimateImgKey = (this.isUltimateActive && !keepOriginal && this._ultimateImageKey && Game.images && Game.images[this._ultimateImageKey])
             ? this._ultimateImageKey
-            : (this.isUltimateActive && Game.images && Game.images[CONFIG.ULTIMATE.IMAGE_KEY])
+            : (this.isUltimateActive && !keepOriginal && Game.images && Game.images[CONFIG.ULTIMATE.IMAGE_KEY])
                 ? CONFIG.ULTIMATE.IMAGE_KEY
                 : null;
         const imgKey = ultimateImgKey || baseKey;
@@ -1502,7 +1509,7 @@ class Player extends Entity {
             try {
                 if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
                     for (const p of Game.projectiles) {
-                        if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD' || p.weaponType === 'GRAVITY_WAVE') && p.player === this && !p.markedForDeletion) {
+                        if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD' || p.weaponType === 'GRAVITY_WAVE' || p.weaponType === 'CYGNUS_ULTIMATE_FIELD') && p.player === this && !p.markedForDeletion) {
                             if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
                         }
                     }
