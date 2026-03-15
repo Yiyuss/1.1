@@ -2211,16 +2211,10 @@ const Runtime = (() => {
                   }
                 }
                 if (targetPlayer) {
-                  // 熙歌大招：先清除該玩家的守護領域，避免疊加顯示
-                  try {
-                    if (Array.isArray(Game.projectiles)) {
-                      for (const p of Game.projectiles) {
-                        if (p && p.weaponType === 'AURA_FIELD' && p.player === targetPlayer && !p.markedForDeletion) {
-                          if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
-                        }
-                      }
-                    }
-                  } catch (_) {}
+                  // 熙歌大招：先清除該玩家的守護領域（projectile_spawn 可能先於 state 到達）
+                  if (typeof Player !== 'undefined' && Player.clearPlayerProjectiles) {
+                    Player.clearPlayerProjectiles(targetPlayer, ['AURA_FIELD']);
+                  }
                   const effect = new CygnusUltimateField(
                     targetPlayer,
                     eventData.radius || 150,
@@ -6218,29 +6212,25 @@ function updateRemotePlayerFromServer(playerState) {
     if (typeof playerState.isUltimateActive === 'boolean') {
       const wasUlt = remotePlayer.isUltimateActive;
       remotePlayer.isUltimateActive = playerState.isUltimateActive;
-      // 遠程玩家開大時：清除其舊主動技能投射物，避免與大招技能疊加
-      if (!wasUlt && playerState.isUltimateActive && Array.isArray(Game.projectiles)) {
-        try {
-          for (const p of Game.projectiles) {
-            if (p && p.player === remotePlayer && !p.markedForDeletion && p.weaponType) {
-              if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
-            }
-          }
-        } catch (_) {}
+      // 遠程玩家開大時：清除其舊主動技能投射物（排除大招投射物，因 projectile_spawn 可能先於 state 到達）
+      if (!wasUlt && playerState.isUltimateActive) {
+        if (typeof Player !== 'undefined' && Player.clearPlayerProjectiles) {
+          const charId = (remotePlayer._remoteCharacter && remotePlayer._remoteCharacter.id) ? remotePlayer._remoteCharacter.id : null;
+          const cfg = (charId && CONFIG.CHARACTER_ULTIMATES && CONFIG.CHARACTER_ULTIMATES[charId]) ? CONFIG.CHARACTER_ULTIMATES[charId] : null;
+          const ultTypes = (cfg && cfg.ULTIMATE_WEAPONS) ? cfg.ULTIMATE_WEAPONS : CONFIG.ULTIMATE.ULTIMATE_WEAPONS;
+          const ultArr = Array.isArray(ultTypes) ? ultTypes : [];
+          Player.clearPlayerProjectiles(remotePlayer, null, ultArr);
+        }
+        if (remotePlayer.invulnerabilitySource === 'INVINCIBLE') {
+          remotePlayer.isInvulnerable = false;
+          remotePlayer.invulnerabilityTime = 0;
+          remotePlayer.invulnerabilitySource = null;
+        }
       }
       // 遠程玩家大招結束時：清除其大招技能投射物（瑪格麗特/灰妲/洛可洛斯特/熙歌 的大招武器類型）
-      if (wasUlt && !playerState.isUltimateActive && Array.isArray(Game.projectiles)) {
-        try {
-          const allUltTypes = new Set([
-            'AURA_FIELD', 'CYGNUS_ULTIMATE_FIELD', 'ORBIT', 'STELLAR_ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING',
-            'SLASH', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'UNCONTROLLABLE_BEAST'
-          ]);
-          for (const p of Game.projectiles) {
-            if (p && p.player === remotePlayer && !p.markedForDeletion && p.weaponType && allUltTypes.has(p.weaponType)) {
-              if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
-            }
-          }
-        } catch (_) {}
+      if (wasUlt && !playerState.isUltimateActive && typeof Player !== 'undefined' && Player.clearPlayerProjectiles) {
+        const allUltTypes = ['AURA_FIELD', 'CYGNUS_ULTIMATE_FIELD', 'ORBIT', 'STELLAR_ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'FRENZY_LIGHTNING', 'SLASH', 'FRENZY_SLASH', 'INVINCIBLE', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'UNCONTROLLABLE_BEAST', 'STELLAR_FIELD', 'GRAVITY_WAVE', 'INNATE_TEMPERAMENT'];
+        Player.clearPlayerProjectiles(remotePlayer, allUltTypes);
       }
     }
     if (typeof playerState.ultimateImageKey === 'string' && playerState.ultimateImageKey) {
