@@ -40,6 +40,7 @@ const CONFIG = {
             ORBIT: 'assets/images/A7.png',
             STELLAR_ORBIT: 'assets/images/A50.png',
             AURA_FIELD: 'assets/images/A13.png',
+            CYGNUS_ULTIMATE_FIELD: 'assets/images/A13.png', // 圖示沿用守護領域（場域特效用 A70.png）
             INVINCIBLE: 'assets/images/A14.png',
             GRAVITY_WAVE: 'assets/images/A27.png',
             CHICKEN_BLESSING: 'assets/images/A19.png',
@@ -149,6 +150,19 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "範圍+140px、緩速+40%" },
                 { COUNT: 1, DESCRIPTION: "範圍+160px、緩速+45%" },
                 { COUNT: 1, DESCRIPTION: "範圍+180px、緩速+50%" }
+            ]
+        },
+        // 熙歌專屬大招場域（僅大招時使用）：與守護領域 LV10 相同傷害邏輯，特效圖 A70.png
+        CYGNUS_ULTIMATE_FIELD: {
+            NAME: "熙歌領域",
+            DAMAGE: 12, // 與守護領域 LV10 相同（3 + 9）
+            COOLDOWN: 1000,
+            PROJECTILE_SPEED: 0,
+            FIELD_RADIUS: 150, // 與守護領域 LV10 相同（60 + 10*9）
+            FIELD_RADIUS_PER_LEVEL: 0,
+            VISUAL_SCALE: 1.95, // 與守護領域相同
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "熙歌專屬大招場域" }
             ]
         },
         SING: {
@@ -1145,6 +1159,12 @@ const CONFIG = {
             EXCLUSIVE_ULTIMATE_INVINCIBILITY_MS: 15000,
             EXCLUSIVE_ULTIMATE_EFFECT_DURATION_MS: 15000,
             EXCLUSIVE_ULTIMATE_FADE_MS: 1000
+        },
+        'cygnus': {
+            // 熙歌專屬大招（按Q）：原本體積變大（不換圖）+ 守護領域 LV10 同款持續傷害場域，特效圖 A70.png
+            KEEP_ORIGINAL_SPRITE: true, // 大招期間維持原本角色圖，僅體型放大（不套用變身圖）
+            ULTIMATE_WEAPONS: ['CYGNUS_ULTIMATE_FIELD'],
+            PLAYER_SIZE_MULTIPLIER: 3.5 // 與灰妲相同，大絕期間體型放大倍率
         }
         // 'lilylinglan': 第三位角色大招暫未製作
     },
@@ -1343,7 +1363,7 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10,
-            description: `角色介紹：好奇心旺盛的黑洞，可以吞噬一切！\n專屬技能：暫無\n專屬大招：暫無`,
+            description: `角色介紹：好奇心旺盛的黑洞，可以吞噬一切！\n專屬技能：暫無`,
             avatarImageKey: 'player9-2',
             hudImageKey: 'player9-2',
             spriteImageKey: 'player9',
