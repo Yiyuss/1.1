@@ -353,6 +353,7 @@ const ResourceLoader = {
             { name: 'Explosion', src: 'assets/images/Explosion.png' },
             { name: 'exp_orb', src: 'assets/images/exp_orb.png' },
             { name: 'field', src: 'assets/images/field.png' },
+            { name: 'cygnus-field', src: 'assets/images/A70.png' },
             { name: 'field2', src: 'assets/images/field2.png' },
             { name: 'star', src: 'assets/images/star.png' },
             { name: 'star2', src: 'assets/images/star2.png' },
