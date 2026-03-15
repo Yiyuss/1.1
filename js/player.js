@@ -479,13 +479,13 @@ class Player extends Entity {
                     const renderSize = Math.max(1, Math.floor(baseSize * visualScale));
                     window.GifOverlay.showOrUpdate(overlayId, imgObj.src, screenX, screenY, renderSize);
                 }
-                // 第二位角色大絕期間：將玩家GIF置於守護領域之上（z-index 5 > 4）
+                // 第二位角色（灰妲）大絕期間：將玩家GIF置於守護領域之上（z-index 5 > 4）
                 // 注意：遠程玩家使用不同的ID，需要根據overlayId來獲取元素
                 if (this.isUltimateActive && this._ultimateImageKey === 'playerN2') {
                     try {
                         const playerGifEl = document.getElementById(`gif-overlay-${overlayId}`);
                         if (playerGifEl) {
-                            playerGifEl.style.zIndex = '5'; // 高於守護領域的 z-index 4
+                            playerGifEl.style.zIndex = '5'; // 高於 aura-effects-layer 的 z-index 4
                         }
                     } catch (_) {}
                 } else {
@@ -1095,9 +1095,12 @@ class Player extends Entity {
                     const charUltimate = (Game.selectedCharacter && CONFIG.CHARACTER_ULTIMATES && CONFIG.CHARACTER_ULTIMATES[Game.selectedCharacter.id])
                         ? CONFIG.CHARACTER_ULTIMATES[Game.selectedCharacter.id]
                         : null;
-                    const ultimateImageKey = (charUltimate && charUltimate.IMAGE_KEY)
-                        ? charUltimate.IMAGE_KEY
-                        : CONFIG.ULTIMATE.IMAGE_KEY;
+                    // 熙歌 KEEP_ORIGINAL_SPRITE：發送 spriteImageKey 讓遠程顯示正確（維持原圖）
+                    const ultimateImageKey = (charUltimate && charUltimate.KEEP_ORIGINAL_SPRITE && Game.selectedCharacter && Game.selectedCharacter.spriteImageKey)
+                        ? Game.selectedCharacter.spriteImageKey
+                        : ((charUltimate && charUltimate.IMAGE_KEY)
+                            ? charUltimate.IMAGE_KEY
+                            : CONFIG.ULTIMATE.IMAGE_KEY);
                     const sizeMultiplier = (charUltimate && typeof charUltimate.PLAYER_SIZE_MULTIPLIER === 'number')
                         ? charUltimate.PLAYER_SIZE_MULTIPLIER
                         : CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER;
