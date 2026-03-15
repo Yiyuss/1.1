@@ -62,9 +62,13 @@ const WaveSystem = {
         }
 
         // 生成普通敵人（單機）
+        // ✅ 根因修復：僅在「實際有生成」時重置冷卻；若因上限被擋，不重置，避免輕怪太快時出現 300ms 空窗期只生小BOSS/大BOSS
         if (currentTime - this.lastEnemySpawnTime >= this.enemySpawnRate) {
+            const lenBefore = Game.enemies.length;
             this.spawnEnemy();
-            this.lastEnemySpawnTime = currentTime;
+            if (Game.enemies.length > lenBefore) {
+                this.lastEnemySpawnTime = currentTime;
+            }
         }
         // 移除：時間間隔生成小BOSS，改為每波一次由 nextWave 觸發
         // if (currentTime - this.lastMiniBossTime >= CONFIG.WAVES.MINI_BOSS_INTERVAL) {
