@@ -196,4 +196,12 @@ class InvincibleEffect extends Entity {
     draw(ctx) {
         // DOM 視覺已涵蓋；Canvas 無需繪製
     }
+
+    destroy() {
+        try {
+            if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
+            this.el = null;
+        } catch (_) {}
+        this.markedForDeletion = true;
+    }
 }
