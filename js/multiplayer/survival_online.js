@@ -2964,75 +2964,19 @@ const Runtime = (() => {
           // 但大招動畫（isUltimateActive、ultimateImageKey、體型變化）是多人元素，需要同步
           if (typeof myState.isUltimateActive === "boolean") {
             const wasUltimateActive = player.isUltimateActive;
-            player.isUltimateActive = myState.isUltimateActive;
+            const isNowUltimateActive = myState.isUltimateActive;
 
-            // ✅ 單機元素：如果伺服器通知大招結束，本地執行 deactivateUltimate（恢復武器、屬性等）
-            // 但只執行功能恢復，不執行視覺恢復（視覺由伺服器同步）
-            if (wasUltimateActive && !myState.isUltimateActive && typeof player.deactivateUltimate === 'function') {
-              // ✅ 修復：調用完整的 deactivateUltimate，但跳過體型恢復（體型由伺服器同步）
+            // ✅ 單機元素：如果伺服器通知大招結束，必須在設定 isUltimateActive 之前呼叫 deactivateUltimate
+            // 否則 deactivateUltimate 會因 isUltimateActive 已為 false 而提早 return，導致武器/技能無法正確恢復
+            if (wasUltimateActive && !isNowUltimateActive && typeof player.deactivateUltimate === 'function') {
               try {
-                // 臨時標記，讓 deactivateUltimate 知道不要恢復體型
-                const wasRemotePlayer = player._isRemotePlayer;
-                const skipSizeRestore = true;
-
-                // 調用完整的 deactivateUltimate（會清理守護領域、能量等）
-                // 但需要確保體型恢復被跳過（因為由伺服器同步）
-                const backup = player._ultimateBackup;
-                if (backup && backup.weapons) {
-                  // 恢復武器（等級以該技能 LEVELS 長度為上限）
-                  const WeaponCtor = _getGlobalCtor("Weapon");
-                  if (WeaponCtor) {
-                    player.weapons = backup.weapons.map(info => {
-                      const w = new WeaponCtor(player, info.type);
-                      const maxLv = w.config.LEVELS.length;
-                      w.level = Math.min(info.level, maxLv);
-                      w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
-                      return w;
-                    });
-                  }
-                }
-
-                // 恢復額外防禦
-                if (player._ultimateExtraDefense > 0) {
-                  const currentDefense = player.baseDefense || 1;
-                  player.baseDefense = Math.max(1, currentDefense - player._ultimateExtraDefense);
-                }
-                player._ultimateExtraDefense = 0;
-
-                // ✅ 修復：清理守護領域等持續效果（與單機模式一致）
-                if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
-                  for (const p of Game.projectiles) {
-                    if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD' || p.weaponType === 'CYGNUS_ULTIMATE_FIELD') && p.player === player && !p.markedForDeletion) {
-                      if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
-                    }
-                  }
-                }
-
-                // ✅ 修復：清理能量（與單機模式一致）
-                player.energy = 0;
-                if (typeof UI !== 'undefined' && typeof UI.updateEnergyBar === 'function') {
-                  UI.updateEnergyBar(player.energy, player.maxEnergy);
-                }
-
-                // ✅ 修復：清理第二位角色大絕結束時的GIF z-index（與單機模式一致）
-                const wasDadaUltimate = (player._ultimateImageKey === 'playerN2');
-                if (wasDadaUltimate) {
-                  try {
-                    const playerGifEl = document.getElementById('gif-overlay-player');
-                    if (playerGifEl) {
-                      playerGifEl.style.zIndex = '3'; // 恢復預設值
-                    }
-                  } catch (_) { }
-                }
-
-                // 清理備份和狀態
-                player._ultimateBackup = null;
-                player.ultimateEndTime = 0;
-                player._ultimateImageKey = null;
+                player.deactivateUltimate(); // 完整恢復：武器、額外防禦、洛可HP、場域清理、BGM、z-index 等（與單機一致）
               } catch (e) {
-                console.warn('[SurvivalOnline] 大招結束清理失敗:', e);
+                console.warn('[SurvivalOnline] 大招結束 deactivateUltimate 失敗:', e);
               }
             }
+
+            player.isUltimateActive = isNowUltimateActive;
           }
           if (typeof myState.ultimateImageKey === "string" && myState.ultimateImageKey) {
             player._ultimateImageKey = myState.ultimateImageKey;
@@ -5413,69 +5357,17 @@ function handleServerGameState(state, timestamp) {
                   }
                 }
 
-                Game.player.isUltimateActive = isNowUltimateActive;
-
-                // ✅ 單機元素：如果伺服器通知大招結束，本地執行 deactivateUltimate（恢復武器、屬性等）
-                // 但只執行功能恢復，不執行視覺恢復（視覺由伺服器同步）
+                // ✅ 單機元素：如果伺服器通知大招結束，必須在設定 isUltimateActive 之前呼叫 deactivateUltimate
+                // 否則 deactivateUltimate 會因 isUltimateActive 已為 false 而提早 return，導致武器/技能無法正確恢復
                 if (wasUltimateActive && !isNowUltimateActive && typeof Game.player.deactivateUltimate === 'function') {
-                  // ✅ 修復：調用完整的清理邏輯，確保與單機模式一致
                   try {
-                    const backup = Game.player._ultimateBackup;
-                    if (backup && backup.weapons) {
-                      // 恢復武器（等級以該技能 LEVELS 長度為上限）
-                      const WeaponCtor = _getGlobalCtor("Weapon");
-                      if (WeaponCtor) {
-                        Game.player.weapons = backup.weapons.map(info => {
-                          const w = new WeaponCtor(Game.player, info.type);
-                          const maxLv = w.config.LEVELS.length;
-                          w.level = Math.min(info.level, maxLv);
-                          w.projectileCount = w.config.LEVELS[w.level - 1].COUNT;
-                          return w;
-                        });
-                      }
-                    }
-
-                    // 恢復額外防禦
-                    if (Game.player._ultimateExtraDefense > 0) {
-                      const currentDefense = Game.player.baseDefense || 1;
-                      Game.player.baseDefense = Math.max(1, currentDefense - Game.player._ultimateExtraDefense);
-                    }
-                    Game.player._ultimateExtraDefense = 0;
-
-                    // ✅ 修復：清理守護領域等持續效果（與單機模式一致）
-                    if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
-                      for (const p of Game.projectiles) {
-                        if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD' || p.weaponType === 'CYGNUS_ULTIMATE_FIELD') && p.player === Game.player && !p.markedForDeletion) {
-                          if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
-                        }
-                      }
-                    }
-
-                    // ✅ 修復：清理能量（與單機模式一致）
-                    Game.player.energy = 0;
-                    if (typeof UI !== 'undefined' && typeof UI.updateEnergyBar === 'function') {
-                      UI.updateEnergyBar(Game.player.energy, Game.player.maxEnergy);
-                    }
-
-                    // ✅ 修復：清理第二位角色大絕結束時的GIF z-index（與單機模式一致）
-                    const wasDadaUltimate = (Game.player._ultimateImageKey === 'playerN2');
-                    if (wasDadaUltimate) {
-                      try {
-                        const playerGifEl = document.getElementById('gif-overlay-player');
-                        if (playerGifEl) {
-                          playerGifEl.style.zIndex = '3'; // 恢復預設值
-                        }
-                      } catch (_) { }
-                    }
-
-                    // 清理備份和狀態
-                    Game.player._ultimateBackup = null;
-                    Game.player.ultimateEndTime = 0;
-                    Game.player._ultimateImageKey = null;
+                    Game.player.deactivateUltimate(); // 完整恢復：武器、額外防禦、洛可HP、場域清理、BGM、z-index 等（與單機一致）
                   } catch (e) {
-                    console.warn('[SurvivalOnline] 大招結束清理失敗:', e);
+                    console.warn('[SurvivalOnline] 大招結束 deactivateUltimate 失敗:', e);
                   }
                 }
+
+                Game.player.isUltimateActive = isNowUltimateActive;
               }
               if (typeof playerState.ultimateImageKey === "string" && playerState.ultimateImageKey) {
                 Game.player._ultimateImageKey = playerState.ultimateImageKey;
