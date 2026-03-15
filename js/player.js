@@ -97,6 +97,32 @@ class Player extends Entity {
         // 保底至少比 softcap 時更高，且至少 1
         return Math.max(1, Math.floor(value));
     }
+
+    /**
+     * 清除玩家名下的投射物／技能特效（含 DOM 移除）
+     * 瑪格麗特、灰妲、洛可洛斯特、熙歌 大招切換時統一使用，避免無敵／守護領域／斬擊等殘留
+     * @param {Player} targetPlayer - 目標玩家
+     * @param {Set|string[]|null} weaponTypesFilter - null=清除全部；Set/Array=僅清除指定 weaponType
+     * @param {Set|string[]|null} excludeTypes - 排除的 weaponType（不清除）；用於遠程開大時保留已到達的大招投射物
+     */
+    static clearPlayerProjectiles(targetPlayer, weaponTypesFilter, excludeTypes) {
+        if (!targetPlayer || typeof Game === 'undefined' || !Array.isArray(Game.projectiles)) return;
+        const filterSet = (weaponTypesFilter == null) ? null : new Set(Array.isArray(weaponTypesFilter) ? weaponTypesFilter : [weaponTypesFilter]);
+        const excludeSet = (excludeTypes == null) ? null : new Set(Array.isArray(excludeTypes) ? excludeTypes : [excludeTypes]);
+        try {
+            for (const p of Game.projectiles) {
+                if (!p || p.markedForDeletion || p.player !== targetPlayer) continue;
+                if (excludeSet && p.weaponType && excludeSet.has(p.weaponType)) continue;
+                if (filterSet !== null && (!p.weaponType || !filterSet.has(p.weaponType))) continue;
+                try {
+                    if (typeof p._destroyDom === 'function') p._destroyDom();
+                    if (p.el && p.el.parentNode) { p.el.parentNode.removeChild(p.el); p.el = null; }
+                    if (typeof p._destroyHitOverlays === 'function') p._destroyHitOverlays();
+                } catch (_) {}
+                if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
+            }
+        } catch (_) {}
+    }
     
     update(deltaTime) {
         // 組隊模式：死亡時不更新移動和武器
@@ -1236,20 +1262,15 @@ class Player extends Entity {
         this.height = Math.floor(this.height * sizeMultiplier);
         this.collisionRadius = Math.max(this.width, this.height) / 2;
         
-        // 大招切換：清除備份武器的所有主動技能投射物（無敵、守護領域、斬擊、唱歌、雷射、環繞球等）
-        // 瑪格麗特、灰妲、洛可洛斯特、熙歌 開大時，原技能暫時消失，改為大招技能
-        try {
-            if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
-                const backupTypes = new Set(this._ultimateBackup.weapons.map(w => w.type));
-                for (const p of Game.projectiles) {
-                    if (p && p.player === this && !p.markedForDeletion && p.weaponType) {
-                        if (backupTypes.has(p.weaponType)) {
-                            if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
-                        }
-                    }
-                }
-            }
-        } catch (_) {}
+        // 大招切換：清除該玩家名下「所有」主動技能投射物（無敵、守護領域、斬擊、唱歌、雷射、環繞球等）
+        // 瑪格麗特、灰妲、洛可洛斯特、熙歌 開大時，原技能暫時消失，改為大招技能（參考瑪格麗特完整流程）
+        Player.clearPlayerProjectiles(this, null);
+        // 清除無敵技能的狀態（視覺已移除，狀態也需同步）
+        if (this.invulnerabilitySource === 'INVINCIBLE') {
+            this.isInvulnerable = false;
+            this.invulnerabilityTime = 0;
+            this.invulnerabilitySource = null;
+        }
         
         // 儲存大招武器類型，供 deactivateUltimate 清除大招投射物
         this._ultimateWeaponTypes = (ultimateWeapons && Array.isArray(ultimateWeapons)) ? [...ultimateWeapons] : [];
@@ -1528,16 +1549,8 @@ class Player extends Entity {
         // 瑪格麗特、灰妲、洛可洛斯特、熙歌 大招結束，大招技能消失，恢復原主動技能（含變身中累積的等級）
         const isMultiplayerMode2 = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         if (!isMultiplayerMode2 || !this._isRemotePlayer) {
-            try {
-                if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
-                    const ultimateTypes = (this._ultimateWeaponTypes && Array.isArray(this._ultimateWeaponTypes)) ? new Set(this._ultimateWeaponTypes) : new Set(['AURA_FIELD', 'STELLAR_FIELD', 'GRAVITY_WAVE', 'CYGNUS_ULTIMATE_FIELD']);
-                    for (const p of Game.projectiles) {
-                        if (p && p.weaponType && p.player === this && !p.markedForDeletion && ultimateTypes.has(p.weaponType)) {
-                            if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
-                        }
-                    }
-                }
-            } catch (_) {}
+            const ultTypes = (this._ultimateWeaponTypes && Array.isArray(this._ultimateWeaponTypes)) ? this._ultimateWeaponTypes : ['AURA_FIELD', 'STELLAR_FIELD', 'GRAVITY_WAVE', 'CYGNUS_ULTIMATE_FIELD'];
+            Player.clearPlayerProjectiles(this, ultTypes);
         }
         
         // 能量歸零
