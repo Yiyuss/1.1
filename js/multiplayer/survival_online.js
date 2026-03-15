@@ -1461,7 +1461,7 @@ const Runtime = (() => {
             // ✅ 修復：INVINCIBLE 是一次性效果（持續幾秒後消失，然後又持續幾秒後消失，很像是變長的斬擊）
             // 守護領域是永久常駐，無敵是持續幾秒後消失，所以無敵應該像斬擊一樣，每次施放都創建新的效果
             const isPersistentEffect = (
-              weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'INNATE_TEMPERAMENT' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' ||
+              weaponType === 'AURA_FIELD' || weaponType === 'CYGNUS_ULTIMATE_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'INNATE_TEMPERAMENT' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' ||
               weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' || weaponType === 'HEART_COMPANION' ||
               weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'GABRIEL_ORBIT' || weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC' ||
               // ✅ 厄倫蒂兒大招分身：需要同步生成（純視覺；投擲傷害走伺服器權威 attack input）
@@ -2191,6 +2191,32 @@ const Runtime = (() => {
                   });
                   effect.id = projectileId;
                   // 不标记为_isVisualOnly，让每个玩家的神界裁决都能独立计算伤害
+                  effect._remotePlayerUid = eventData.playerUid;
+                  if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
+                  Game.projectiles.push(effect);
+                }
+              } else if (weaponType === "CYGNUS_ULTIMATE_FIELD" && typeof CygnusUltimateField !== "undefined") {
+                // 熙歌專屬大招場域：需要找到對應的玩家（與守護領域同結構）
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) targetPlayer = remotePlayer;
+                    }
+                  }
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                if (targetPlayer) {
+                  const effect = new CygnusUltimateField(
+                    targetPlayer,
+                    eventData.radius || 150,
+                    eventData.damage || 0
+                  );
+                  effect.id = projectileId;
                   effect._remotePlayerUid = eventData.playerUid;
                   if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
                   Game.projectiles.push(effect);
@@ -2976,7 +3002,7 @@ const Runtime = (() => {
                 // ✅ 修復：清理守護領域等持續效果（與單機模式一致）
                 if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
                   for (const p of Game.projectiles) {
-                    if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD') && p.player === player && !p.markedForDeletion) {
+                    if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD' || p.weaponType === 'CYGNUS_ULTIMATE_FIELD') && p.player === player && !p.markedForDeletion) {
                       if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
                     }
                   }
@@ -5419,7 +5445,7 @@ function handleServerGameState(state, timestamp) {
                     // ✅ 修復：清理守護領域等持續效果（與單機模式一致）
                     if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
                       for (const p of Game.projectiles) {
-                        if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD') && p.player === Game.player && !p.markedForDeletion) {
+                        if (p && (p.weaponType === 'AURA_FIELD' || p.weaponType === 'STELLAR_FIELD' || p.weaponType === 'CYGNUS_ULTIMATE_FIELD') && p.player === Game.player && !p.markedForDeletion) {
                           if (typeof p.destroy === 'function') p.destroy(); else p.markedForDeletion = true;
                         }
                       }
@@ -6516,7 +6542,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' ||
       weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' || weaponType === 'INVINCIBLE' || weaponType === 'SING' ||
       // 持續視覺效果（通過事件廣播的）
-      weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'INNATE_TEMPERAMENT' || weaponType === 'GRAVITY_WAVE' ||
+      weaponType === 'AURA_FIELD' || weaponType === 'CYGNUS_ULTIMATE_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'INNATE_TEMPERAMENT' || weaponType === 'GRAVITY_WAVE' ||
       weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' || weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' ||
       weaponType === 'HEART_COMPANION' || weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'GABRIEL_ORBIT' ||
       weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC' ||
