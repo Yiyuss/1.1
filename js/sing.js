@@ -219,4 +219,12 @@ class SingEffect extends Entity {
     draw(ctx) {
         // 本特效改為 DOM 顯示 LA.gif，不再在 Canvas 上繪製
     }
+
+    destroy() {
+        try {
+            if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
+            this.el = null;
+        } catch (_) {}
+        this.markedForDeletion = true;
+    }
 }
