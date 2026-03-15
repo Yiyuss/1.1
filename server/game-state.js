@@ -2296,9 +2296,8 @@ class GameState {
       return;
     }
 
-    this.lastEnemySpawnTime = now;
-    // ⚠️ 修复：移除频繁的日志
-    // console.log(`[GameState.spawnEnemies] 準備生成敵人: config=${!!config}, enemies.length=${this.enemies.length}`);
+    // ✅ 根因修復（與單機 wave.js 一致）：僅在「實際有生成」時重置冷卻，避免輕怪太快時只生 BOSS
+    const lenBefore = this.enemies.length;
 
     // 如果没有CONFIG，使用简化逻辑
     if (!config || !config.WAVES || !config.ENEMIES) {
@@ -2327,19 +2326,20 @@ class GameState {
           damage: 10 // ✅ 修复：确保敌人有伤害值
         });
       }
+      if (this.enemies.length > lenBefore) this.lastEnemySpawnTime = now;
       return;
     }
 
     // 完整版：使用CONFIG数据（需要从客户端同步CONFIG）
     const maxEnemies = (config.OPTIMIZATION && config.OPTIMIZATION.MAX_ENEMIES) || 100;
-    if (this.enemies.length >= maxEnemies) return;
+    if (this.enemies.length >= maxEnemies) return; // 未生成，不重置 lastEnemySpawnTime
 
     // 获取可用的敌人类型
     const availableTypes = (config.WAVES.ENEMY_TYPES || [])
       .filter(entry => entry.WAVE <= this.wave)
       .map(entry => entry.TYPE);
 
-    if (availableTypes.length === 0) return;
+    if (availableTypes.length === 0) return; // 未生成，不重置 lastEnemySpawnTime
 
     // 计算生成数量
     const sc = (config.WAVES && config.WAVES.SPAWN_COUNT) ? config.WAVES.SPAWN_COUNT : {};
@@ -2422,6 +2422,7 @@ class GameState {
         lastRangedAttackAt: 0
       });
     }
+    if (this.enemies.length > lenBefore) this.lastEnemySpawnTime = now;
   }
 
   // 生成经验球
