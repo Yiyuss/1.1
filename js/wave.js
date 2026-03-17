@@ -63,9 +63,18 @@ const WaveSystem = {
 
         // 生成普通敵人（單機）
         // ✅ 根因修復：僅在「實際有生成」時重置冷卻；若因上限被擋，不重置，避免輕怪太快時出現 300ms 空窗期只生小BOSS/大BOSS
-        if (currentTime - this.lastEnemySpawnTime >= this.enemySpawnRate) {
-            const lenBefore = Game.enemies.length;
-            this.spawnEnemy();
+        // ✅ 額外防護1：時鐘回撥（系統時間校正/NTP）導致 currentTime < lastEnemySpawnTime 時，重置以恢復生成
+        if (currentTime < this.lastEnemySpawnTime) {
+            this.lastEnemySpawnTime = currentTime - this.enemySpawnRate;
+        }
+        // ✅ 額外防護2：場上無小怪時，每幀嘗試生成（繞過冷卻），避免連續通關後因任何邊界情況卡死
+        const enemies = (Game && Array.isArray(Game.enemies)) ? Game.enemies : [];
+        const smallEnemyCount = enemies.filter(e => e && !/^(MINI_BOSS|ELF_MINI_BOSS|HUMAN_MINI_BOSS|UNKNOWN_MINI_BOSS|BOSS|ELF_BOSS|HUMAN_BOSS|UNKNOWN_BOSS)$/.test(e.type || '')).length;
+        const timeOk = (currentTime - this.lastEnemySpawnTime) >= this.enemySpawnRate;
+        const shouldTry = timeOk || (smallEnemyCount === 0); // 無小怪時每幀嘗試，避免卡死
+        if (shouldTry) {
+            const lenBefore = enemies.length;
+            try { this.spawnEnemy(); } catch (e) { console.warn('[WaveSystem] spawnEnemy 拋錯，下一幀重試:', e); }
             if (Game.enemies.length > lenBefore) {
                 this.lastEnemySpawnTime = currentTime;
             }
@@ -122,16 +131,19 @@ const WaveSystem = {
             console.error('[WaveSystem] Enemy 类未定义！请检查脚本加载顺序。');
             return; // 跳过生成，避免错误
         }
+        // ✅ 防護：CONFIG 未就緒時不崩潰，直接返回（下一幀重試）
+        if (typeof CONFIG === 'undefined' || !CONFIG.OPTIMIZATION || !CONFIG.WAVES || !CONFIG.ENEMIES) {
+            return;
+        }
         // 檢查是否達到最大敵人數量（套用困難加成）
-        const effectiveMax = CONFIG.OPTIMIZATION.MAX_ENEMIES + Math.max(0, (Game.maxEnemiesBonus || 0));
+        const effectiveMax = (CONFIG.OPTIMIZATION.MAX_ENEMIES || 550) + Math.max(0, (Game.maxEnemiesBonus || 0));
         if (Game.enemies.length >= effectiveMax) {
             return;
         }
 
         // 獲取可用的敵人類型
-        const availableTypes = CONFIG.WAVES.ENEMY_TYPES
-            .filter(entry => entry.WAVE <= this.currentWave)
-            .map(entry => entry.TYPE);
+        const enemyTypes = (CONFIG.WAVES.ENEMY_TYPES || []).filter(entry => entry && entry.WAVE <= this.currentWave);
+        const availableTypes = enemyTypes.map(entry => entry.TYPE).filter(Boolean);
 
         if (availableTypes.length === 0) {
             return;
@@ -139,9 +151,10 @@ const WaveSystem = {
 
         // 計算本次生成數量隨波次增加並套用難度倍率
         // 調整：取消「第5波後的額外生成加成」，讓所有地圖行為與花園一致（永遠使用前期加成）
-        const base = CONFIG.WAVES.SPAWN_COUNT.INITIAL;
-        const earlyInc = CONFIG.WAVES.SPAWN_COUNT.INCREASE_PER_WAVE;
-        const earlyMax = CONFIG.WAVES.SPAWN_COUNT.MAXIMUM;
+        const sc = CONFIG.WAVES.SPAWN_COUNT || {};
+        const base = sc.INITIAL ?? 3;
+        const earlyInc = sc.INCREASE_PER_WAVE ?? 0.9;
+        const earlyMax = sc.MAXIMUM ?? 12;
         const inc = earlyInc;
         const max = earlyMax;
         const countBase = Math.min(Math.floor(base + (this.currentWave - 1) * inc), max);
