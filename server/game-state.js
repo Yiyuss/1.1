@@ -2287,12 +2287,15 @@ class GameState {
       // console.log(`[GameState.spawnEnemies] 初始化 lastEnemySpawnTime=${now}, enemySpawnRate=${this.enemySpawnRate}`);
     }
     
+    // ✅ 時鐘回撥防護：系統時間校正時恢復生成
+    if (now < this.lastEnemySpawnTime) {
+      this.lastEnemySpawnTime = now - this.enemySpawnRate;
+    }
     const timeSinceLastSpawn = now - this.lastEnemySpawnTime;
-    if (timeSinceLastSpawn < this.enemySpawnRate) {
-      // ⚠️ 修复：移除频繁的日志
-      // if (this.enemies.length === 0 && timeSinceLastSpawn > 1000) {
-      //   console.log(`[GameState.spawnEnemies] 等待生成敵人: timeSinceLastSpawn=${timeSinceLastSpawn}ms, enemySpawnRate=${this.enemySpawnRate}ms, enemies.length=${this.enemies.length}`);
-      // }
+    const smallEnemyCount = this.enemies.filter(e => e && !/^(MINI_BOSS|ELF_MINI_BOSS|HUMAN_MINI_BOSS|UNKNOWN_MINI_BOSS|BOSS|ELF_BOSS|HUMAN_BOSS|UNKNOWN_BOSS)$/.test(e.type || '')).length;
+    const timeOk = timeSinceLastSpawn >= this.enemySpawnRate;
+    const emergencySpawn = smallEnemyCount === 0; // 無小怪時每 tick 嘗試
+    if (!timeOk && !emergencySpawn) {
       return;
     }
 
