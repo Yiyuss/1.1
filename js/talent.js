@@ -406,6 +406,14 @@ const TalentSystem = {
         awakening_attack: {
             levels: [{ cost: 200000, attackFlat: 300 }],
             isAwakening: true, hidden: true
+        },
+        awakening_crit_damage: {
+            levels: [{ cost: 300000, critDamageBonusPct: 0.5 }],
+            isAwakening: true, hidden: true
+        },
+        awakening_cooldown: {
+            levels: [{ cost: 350000, cooldownReductionPct: 0.15 }],
+            isAwakening: true, hidden: true
         }
     },
     
@@ -800,7 +808,11 @@ const TalentSystem = {
         { id: 'awakening_regen', name: '回復覺醒', icon: 'assets/images/A67.png', cost: 250000,
           desc: '生存模式增加 1000% 回血速度（平加在公式上）。', effectDesc: '回血速度 +1000%' },
         { id: 'awakening_attack', name: '力量覺醒', icon: 'assets/images/A66.jpg', cost: 200000,
-          desc: '生存模式增加 300 基礎攻擊（平加在公式上）。', effectDesc: '基礎攻擊 +300' }
+          desc: '生存模式增加 300 基礎攻擊（平加在公式上）。', effectDesc: '基礎攻擊 +300' },
+        { id: 'awakening_crit_damage', name: '爆傷覺醒', icon: 'assets/images/A73.png', cost: 300000,
+          desc: '生存模式爆擊傷害倍數 +0.5（1.75x → 2.25x）。', effectDesc: '爆擊傷害 +0.5x' },
+        { id: 'awakening_cooldown', name: '冷卻覺醒', icon: 'assets/images/A74.png', cost: 350000,
+          desc: '生存模式武器冷卻縮減 15%（上限50%）。', effectDesc: '冷卻 -15%（上限50%）' }
     ],
     _awakeningWindowOpen: false,
 
@@ -1234,6 +1246,10 @@ if (!TalentSystem.getHighestTierDescription) {
             return lv > 0 ? '生存模式回血速度+1000%（已解鎖）' : '生存模式回血速度+1000%';
         } else if (id === 'awakening_attack') {
             return lv > 0 ? '生存模式基礎攻擊+300（已解鎖）' : '生存模式基礎攻擊+300';
+        } else if (id === 'awakening_crit_damage') {
+            return lv > 0 ? '生存模式爆擊傷害+0.5x（已解鎖）' : '生存模式爆擊傷害+0.5x';
+        } else if (id === 'awakening_cooldown') {
+            return lv > 0 ? '生存模式冷卻縮減15%（上限50%）（已解鎖）' : '生存模式冷卻縮減15%（上限50%）';
         }
         return base;
     };
