@@ -191,7 +191,7 @@ class Projectile extends Entity {
                     const result = DamageSystem.computeHit(
                         this.damage,
                         enemy,
-                        { weaponType: this.weaponType, critChanceBonusPct: (this.critChanceBonusPct || 0) }
+                        { weaponType: this.weaponType, critChanceBonusPct: (this.critChanceBonusPct || 0), critMultiplierBonusPct: (this.critMultiplierBonusPct || 0) }
                     );
                     finalDamage = result.amount;
                     isCrit = result.isCrit;
