@@ -624,7 +624,7 @@ const UI = {
         try {
             // 以階梯系統為主：只顯示每個天賦的最高階描述
             // 新增 pickup_range_boost、damage_boost 兩項：維持同樣渲染流程
-            const ids = ['hp_boost','defense_boost','speed_boost','pickup_range_boost','damage_boost','damage_specialization','crit_enhance','regen_speed_boost','experience_boost','levelup_action_charges','dodge_enhance','chicken_blessing_boost','sheep_guard_boost','heart_companion_boost','rotating_muffin_boost','pineapple_orbit_boost','stellar_orbit_boost','gabriel_orbit_boost','wedding_call_orbit_boost','gravity_wave_boost','ai_boost','awakening_hp','awakening_regen','awakening_attack'];
+            const ids = ['hp_boost','defense_boost','speed_boost','pickup_range_boost','damage_boost','damage_specialization','crit_enhance','regen_speed_boost','experience_boost','levelup_action_charges','dodge_enhance','chicken_blessing_boost','sheep_guard_boost','heart_companion_boost','rotating_muffin_boost','pineapple_orbit_boost','stellar_orbit_boost','gabriel_orbit_boost','wedding_call_orbit_boost','gravity_wave_boost','ai_boost','awakening_hp','awakening_regen','awakening_attack','awakening_crit_damage','awakening_cooldown'];
             const items = [];
             ids.forEach(id => {
                 const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) ? TalentSystem.getTalentLevel(id) : 0;
