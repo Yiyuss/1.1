@@ -205,6 +205,7 @@ class ElondierUltimateClone extends Entity {
                 );
                 projectile.player = this.player; // ✅ 讓 bo 音效/本地判定與 HEART_TRANSMISSION 一致
                 projectile.critChanceBonusPct = ((this.player && this.player.critChanceBonusPct) || 0); // ✅ LV10 HEART_TRANSMISSION 同源
+                projectile.critMultiplierBonusPct = ((this.player && this.player.awakeningCritDamageBonusPct) || 0);
                 projectile.homing = true;
                 projectile.turnRatePerSec = 6.0; // LV10 HEART_TRANSMISSION
                 if (target) projectile.assignedTargetId = target.id;
