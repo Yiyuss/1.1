@@ -97,7 +97,7 @@ class ShockwaveEffect extends Entity {
                 if (typeof DamageSystem !== 'undefined') {
                     const result = DamageSystem.computeHit(this.damage, enemy, {
                         weaponType: this.weaponType,
-                        critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                        critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                     });
                     finalDamage = result.amount;
                     isCrit = result.isCrit;
@@ -145,7 +145,7 @@ class ShockwaveEffect extends Entity {
                             enemyIds: [enemy.id],
                             damage: finalDamage,
                             allowCrit: true,
-                            critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
+                            critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
                             timestamp: Date.now()
                         });
                     }
