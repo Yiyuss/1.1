@@ -161,7 +161,7 @@ class DeathlineWarriorEffect extends Entity {
         if (typeof DamageSystem !== 'undefined' && target) {
             const result = DamageSystem.computeHit(this.damage, target, {
                 weaponType: this.weaponType,
-                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
             });
             baseDamage = result.amount;
         }
@@ -179,7 +179,7 @@ class DeathlineWarriorEffect extends Entity {
                     radius: this.aoeRadius > 0 ? this.aoeRadius : 60, 
                     damage: baseDamage,
                     allowCrit: true,
-                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
+                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
                     timestamp: Date.now()
                 });
             }
@@ -202,7 +202,7 @@ class DeathlineWarriorEffect extends Entity {
                 if (typeof DamageSystem !== 'undefined') {
                     const result = DamageSystem.computeHit(this.damage, enemy, {
                         weaponType: this.weaponType,
-                        critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                        critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                     });
                     finalDamage = result.amount;
                     isCrit = result.isCrit;
@@ -233,7 +233,7 @@ class DeathlineWarriorEffect extends Entity {
             if (typeof DamageSystem !== 'undefined') {
                 const result = DamageSystem.computeHit(this.damage, target, {
                     weaponType: this.weaponType,
-                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                 });
                 finalDamage = result.amount;
                 isCrit = result.isCrit;
