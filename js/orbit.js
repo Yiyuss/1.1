@@ -18,6 +18,8 @@ class OrbitBall extends Entity {
             this.weaponType = 'PINEAPPLE_ORBIT';
         } else if (imageKey === 'gabriel') {
             this.weaponType = 'GABRIEL_ORBIT';
+        } else if (imageKey === 'wedding_call') {
+            this.weaponType = 'WEDDING_CALL_ORBIT';
         } else if (imageKey === 'stellar_orbit') {
             this.weaponType = 'STELLAR_ORBIT';
         } else {
@@ -110,7 +112,7 @@ class OrbitBall extends Entity {
         }
 
         // 根據武器類型選擇傷害模式
-        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'GABRIEL_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION' || this.weaponType === 'STELLAR_ORBIT') {
+        if (this.weaponType === 'CHICKEN_BLESSING' || this.weaponType === 'ORBIT' || this.weaponType === 'PINEAPPLE_ORBIT' || this.weaponType === 'GABRIEL_ORBIT' || this.weaponType === 'WEDDING_CALL_ORBIT' || this.weaponType === 'ROTATING_MUFFIN' || this.weaponType === 'HEART_COMPANION' || this.weaponType === 'STELLAR_ORBIT') {
             // 雞腿庇佑、綿羊護體、旋轉鬆餅和心意相隨：單次碰撞傷害模式（避免持續傷害導致BOSS被秒殺）
             const currentTime = Date.now();
             let candidates = Game.enemies || [];
@@ -237,6 +239,8 @@ class OrbitBall extends Entity {
                 actualImageKey = 'A45';
             } else if (this.imageKey === 'gabriel') {
                 actualImageKey = 'A56';
+            } else if (this.imageKey === 'wedding_call') {
+                actualImageKey = 'A71';
             } else if (this.imageKey === 'stellar_orbit') {
                 actualImageKey = 'A51';
             }
@@ -258,6 +262,9 @@ class OrbitBall extends Entity {
                         ctx.drawImage(trailImg, t.x - renderW / 2, t.y - renderH / 2, renderW, renderH);
                     } else if (this.weaponType === 'GABRIEL_ORBIT') {
                         // A56.png（80x80）：正方形，與綿羊護體一致
+                        ctx.drawImage(trailImg, t.x - s / 2, t.y - s / 2, s, s);
+                    } else if (this.weaponType === 'WEDDING_CALL_ORBIT') {
+                        // A71.png（200x200）：正方形
                         ctx.drawImage(trailImg, t.x - s / 2, t.y - s / 2, s, s);
                     } else if (this.weaponType === 'STELLAR_ORBIT') {
                         const iw = trailImg.naturalWidth || trailImg.width || 100;
@@ -287,6 +294,8 @@ class OrbitBall extends Entity {
             actualImageKey = 'A45';
         } else if (this.imageKey === 'gabriel') {
             actualImageKey = 'A56';
+        } else if (this.imageKey === 'wedding_call') {
+            actualImageKey = 'A71';
         } else if (this.imageKey === 'stellar_orbit') {
             actualImageKey = 'A51';
         }
@@ -294,6 +303,9 @@ class OrbitBall extends Entity {
         if (img && img.complete && (img.naturalWidth > 0 || img.width > 0)) {
             if (this.weaponType === 'GABRIEL_ORBIT') {
                 // A56.png（80x80）：正方形
+                ctx.drawImage(img, this.x - size / 2, this.y - size / 2, size, size);
+            } else if (this.weaponType === 'WEDDING_CALL_ORBIT') {
+                // A71.png（200x200）：正方形
                 ctx.drawImage(img, this.x - size / 2, this.y - size / 2, size, size);
             } else if (this.weaponType === 'PINEAPPLE_ORBIT') {
                 // A45.png（53x100）：保持寬高比，使用高度為基準
