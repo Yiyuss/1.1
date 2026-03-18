@@ -495,6 +495,38 @@
                     return;
                 }
 
+                // 特殊技能：婚叫（熙歌專屬；與綿羊護體邏輯相同，旋球外觀 A71.png 200x200）
+                if (this.type === 'WEDDING_CALL_ORBIT') {
+                    const count = this.projectileCount;
+                    let angularSpeed = this.config.ANGULAR_SPEED;
+                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+                    if (!isMultiplayer) {
+                        const speedMultiplier = 1.0 + (this.level - 1) / 9;
+                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
+                    }
+                    for (let i = 0; i < count; i++) {
+                        const angle = (i / count) * Math.PI * 2;
+                        const baseRadius = this.config.ORBIT_RADIUS;
+                        const perLevel = this.config.ORBIT_RADIUS_PER_LEVEL || 0;
+                        const dynamicRadius = baseRadius + perLevel * (this.level - 1);
+                        const baseSize = this.config.PROJECTILE_SIZE;
+                        const sizePerLevel = this.config.PROJECTILE_SIZE_PER_LEVEL || 0;
+                        const dynamicSize = baseSize + sizePerLevel * (this.level - 1);
+                        const orb = new OrbitBall(
+                            this.player,
+                            angle,
+                            dynamicRadius,
+                            this._computeFinalDamage(levelMul),
+                            dynamicSize,
+                            this.config.DURATION,
+                            angularSpeed,
+                            'wedding_call'
+                        );
+                        Game.addProjectile(orb);
+                    }
+                    return;
+                }
+
                 // 特殊技能：守護領域（常駐場域）
                 if (this.type === 'AURA_FIELD') {
                     const baseRadius = this.config.FIELD_RADIUS || 60;
@@ -1433,6 +1465,9 @@
                             case 'GABRIEL_ORBIT':
                                 // 可選：為加百列加入音效（與綿羊護體一致）
                                 break;
+                            case 'WEDDING_CALL_ORBIT':
+                                // 可選：為婚叫加入音效（與綿羊護體一致）
+                                break;
                         }
                     }
 
@@ -1653,12 +1688,23 @@
                 }
             }
 
+            let weddingCallOrbitFlat = 0;
+            if (this.type === 'WEDDING_CALL_ORBIT' && typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) {
+                const weddingCallOrbitBoostLevel = TalentSystem.getTalentLevel('wedding_call_orbit_boost') || 0;
+                if (weddingCallOrbitBoostLevel > 0 && TalentSystem.tieredTalents && TalentSystem.tieredTalents.wedding_call_orbit_boost) {
+                    const effect = TalentSystem.tieredTalents.wedding_call_orbit_boost.levels[weddingCallOrbitBoostLevel - 1];
+                    if (effect && typeof effect.flat === 'number') {
+                        weddingCallOrbitFlat = effect.flat;
+                    }
+                }
+            }
+
             // 覺醒力量加成（+300 基礎攻擊，僅生存模式）
             const awakeningAttackFlat = (this.player && this.player.awakeningAttackFlat) ? this.player.awakeningAttackFlat : 0;
 
             const lvPct = Math.max(0, (levelMul || 1) - 1);
             const percentSum = lvPct + talentPct + attrPct;
-            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + innateTemperamentExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + whiteRainbowBeamExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat + gabrielOrbitFlat + awakeningAttackFlat;
+            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + innateTemperamentExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + whiteRainbowBeamExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat + gabrielOrbitFlat + weddingCallOrbitFlat + awakeningAttackFlat;
             const value = baseFlat * (1 + percentSum);
             return value;
         };
