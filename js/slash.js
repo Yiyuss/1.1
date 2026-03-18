@@ -90,7 +90,7 @@ class SlashEffect extends Entity {
                 if (typeof DamageSystem !== 'undefined') {
                     const result = DamageSystem.computeHit(this.damage, enemy, {
                         weaponType: this.weaponType,
-                        critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                        critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                     });
                     finalDamage = result.amount;
                     isCrit = result.isCrit;
@@ -129,7 +129,7 @@ class SlashEffect extends Entity {
                             radius: 10, // 與多人通用 AOE tick 同源：最小半徑至少 10
                             damage: finalDamage,
                             allowCrit: true,
-                            critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
+                            critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
                             timestamp: Date.now()
                         });
                     }
