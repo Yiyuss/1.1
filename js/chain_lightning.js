@@ -231,7 +231,7 @@ class ChainLightningEffect extends Entity {
                     let isCrit = false;
                     let lifestealAmount = 0;
                     if (typeof DamageSystem !== 'undefined') {
-                        const result = DamageSystem.computeHit(this.damage, target, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
+                        const result = DamageSystem.computeHit(this.damage, target, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0) });
                         finalDamage = result.amount;
                         isCrit = result.isCrit;
                         lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
@@ -717,7 +717,7 @@ class FrenzyLightningEffect extends Entity {
                     let isCrit = false;
                     let lifestealAmount = 0;
                     if (typeof DamageSystem !== 'undefined') {
-                        const result = DamageSystem.computeHit(this.damage, target, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0) });
+                        const result = DamageSystem.computeHit(this.damage, target, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0) });
                         finalDamage = result.amount;
                         isCrit = result.isCrit;
                         lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
