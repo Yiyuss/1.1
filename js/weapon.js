@@ -49,9 +49,11 @@
 
                 // 檢查是否可以發射（兩次更新都檢查，但只在第一次累積時間）
                 // FBI：LV1 冷卻 5 秒～LV10 冷卻 1.5 秒線性縮減
-                const effectiveCooldown = (this.type === 'FBI' && this.config.COOLDOWN_LV10 != null)
+                let baseCooldown = (this.type === 'FBI' && this.config.COOLDOWN_LV10 != null)
                     ? Math.max(1500, 5000 - (5000 - (this.config.COOLDOWN_LV10 || 1500)) * (this.level - 1) / 9)
                     : this.config.COOLDOWN;
+                const reductionPct = (this.player && typeof this.player.awakeningCooldownReductionPct === 'number') ? this.player.awakeningCooldownReductionPct : 0;
+                const effectiveCooldown = baseCooldown * Math.max(0.5, 1 - Math.min(0.5, reductionPct));
                 if (this.cooldownAccumulator >= effectiveCooldown) {
                     this.fire();
                     this.cooldownAccumulator = 0; // 重置累積時間
@@ -1435,6 +1437,7 @@
                     projectile.player = this.player; // 設置玩家引用
                     // 新增：把玩家的爆擊加成帶到投射物，避免在計算時拿不到玩家
                     projectile.critChanceBonusPct = ((this.player && this.player.critChanceBonusPct) || 0);
+                    projectile.critMultiplierBonusPct = ((this.player && this.player.awakeningCritDamageBonusPct) || 0);
 
                     // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
                     // 觸發音效（每次發射只播放一次即可）
