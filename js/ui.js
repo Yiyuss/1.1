@@ -2445,16 +2445,13 @@ const UI = {
         // 組隊模式下，不暫停遊戲（避免所有玩家等待）
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         
-        // ✅ 组队模式：如果当前有升级菜单显示，将此次升级加入队列
-        // ⚠️ 关键：需要区分经验升级和宝箱升级，使用不同的标记
-        if (isMultiplayer && this.levelUpMenu && !this.levelUpMenu.classList.contains('hidden')) {
-            // 菜单正在显示，将此次升级加入队列
-            // ⚠️ 修复：无法区分是经验升级还是宝箱升级，所以使用通用标记
-            // 但需要在 hideLevelUpMenu 中智能处理
+        // ✅ 單機與組隊：若升級選單已顯示，將此次升級加入隊列（修復重疊寶箱只升1次的問題）
+        // 單機：兩個寶箱重疊時，第二個會覆蓋第一個的選單；改為隊列後兩次都能升
+        if (this.levelUpMenu && !this.levelUpMenu.classList.contains('hidden')) {
             if (this._pendingLevelUps) {
-                this._pendingLevelUps.push('pending'); // 使用字符串标记，便于区分
+                this._pendingLevelUps.push('pending');
             }
-            return; // 不显示新菜单，等待当前菜单关闭后再显示
+            return;
         }
         
         // ✅ 修复：如果队列中有待处理的升级，且菜单已关闭，应该先处理队列
@@ -2613,9 +2610,9 @@ const UI = {
             }
         }
 
-        // ✅ 组队模式：检查队列，如果有待处理的升级，自动显示下一个
+        // ✅ 單機與組隊：檢查隊列，若有待處理升級則顯示下一個（修復重疊寶箱只升1次）
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-        if (isMultiplayer && this._pendingLevelUps && this._pendingLevelUps.length > 0) {
+        if (this._pendingLevelUps && this._pendingLevelUps.length > 0) {
             // ⚠️ 关键修复：不在这里移除标记，而是在处理完后再移除
             // 延迟一帧，确保菜单完全关闭后再显示下一个
             setTimeout(() => {
@@ -2663,10 +2660,10 @@ const UI = {
                     }
                 }
             }, 50);
-            return; // 组队模式下不恢复游戏（因为游戏没有暂停）
+            return; // 不恢復遊戲，即將顯示下一個升級選單
         }
         
-        // 恢復遊戲（僅單機模式）
+        // 恢復遊戲（僅單機模式，隊列為空時）
         if (!isMultiplayer && typeof Game !== 'undefined' && Game.resume) {
             Game.resume();
         }
