@@ -3235,6 +3235,7 @@ const Runtime = (() => {
           invulnerabilityDurationMs: invulnMs,
           skillInvulnerableUntil,
           critChanceBonusPct: Math.max(0, critChanceBonusPct), // ✅ 新增：爆擊率同步
+          critMultiplierBonusPct: Math.max(0, (typeof p.awakeningCritDamageBonusPct === 'number' ? p.awakeningCritDamageBonusPct : 0)), // ✅ 爆傷覺醒同步
           lifesteal,
           maxHealth: (typeof p.maxHealth === 'number' && p.maxHealth > 0) ? Math.floor(p.maxHealth) : null, // ✅ 新增：maxHealth 同步（多人元素，影響復活）
           // ⚠️ 修復：同步回血速度倍率（基礎回血、天賦回血、武器技能回血等）
