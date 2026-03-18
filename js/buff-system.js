@@ -171,6 +171,8 @@ const BuffSystem = {
         if (player.awakeningAttackFlat == null) player.awakeningAttackFlat = 0;
         if (player.awakeningHpFlat == null) player.awakeningHpFlat = 0;
         if (player.awakeningRegenBoost == null) player.awakeningRegenBoost = 0;
+        if (player.awakeningCritDamageBonusPct == null) player.awakeningCritDamageBonusPct = 0;
+        if (player.awakeningCooldownReductionPct == null) player.awakeningCooldownReductionPct = 0;
         
         // 初始化所有buff為未激活狀態
         for (const buffId in this.buffTypes) {
@@ -308,6 +310,8 @@ const BuffSystem = {
         player.awakeningAttackFlat = 0;
         player.awakeningHpFlat = 0;
         player.awakeningRegenBoost = 0;
+        player.awakeningCritDamageBonusPct = 0;
+        player.awakeningCooldownReductionPct = 0;
     },
     
     // 從天賦系統應用buff（使用本地天賦系統）
@@ -383,6 +387,12 @@ const BuffSystem = {
             const awakeningRegenLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                 ? TalentSystem.getTalentLevel('awakening_regen') : 0;
             player.awakeningRegenBoost = awakeningRegenLv > 0 ? 10.0 : 0;
+            const awakeningCritDamageLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('awakening_crit_damage') : 0;
+            player.awakeningCritDamageBonusPct = awakeningCritDamageLv > 0 ? 0.5 : 0;
+            const awakeningCooldownLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('awakening_cooldown') : 0;
+            player.awakeningCooldownReductionPct = awakeningCooldownLv > 0 ? 0.15 : 0;
 
             // ✅ 修復：統一由 applyAttributeUpgrades 處理生命值（包括天賦和局內升級）
             // 這樣可以確保生命值只被計算一次，不會被重置
@@ -465,6 +475,10 @@ const BuffSystem = {
             player.awakeningAttackFlat = awakeningAttackLvRemote > 0 ? 300 : 0;
             const awakeningRegenLvRemote = parseInt(talentLevels.awakening_regen || 0, 10) || 0;
             player.awakeningRegenBoost = awakeningRegenLvRemote > 0 ? 10.0 : 0;
+            const awakeningCritDamageLvRemote = parseInt(talentLevels.awakening_crit_damage || 0, 10) || 0;
+            player.awakeningCritDamageBonusPct = awakeningCritDamageLvRemote > 0 ? 0.5 : 0;
+            const awakeningCooldownLvRemote = parseInt(talentLevels.awakening_cooldown || 0, 10) || 0;
+            player.awakeningCooldownReductionPct = awakeningCooldownLvRemote > 0 ? 0.15 : 0;
 
             if (defLv > 0) {
                 const reduction = this._getTierEffect('defense_boost', defLv, 'reduction', 0) || 0;
