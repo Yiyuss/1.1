@@ -1017,10 +1017,17 @@ class GameState {
     }
     const overrideCrit = (inputMeta && typeof inputMeta.critChancePctOverride === 'number') ? inputMeta.critChancePctOverride : null;
     const critChance = overrideCrit != null ? overrideCrit : (0.10 + bonusCrit);
+    let critMultiplierBonus = 0;
+    if (player && player.meta && typeof player.meta.critMultiplierBonusPct === 'number') {
+      critMultiplierBonus = player.meta.critMultiplierBonusPct;
+    } else if (inputMeta && typeof inputMeta.critMultiplierBonusPct === 'number') {
+      critMultiplierBonus = inputMeta.critMultiplierBonusPct;
+    }
+    const effectiveCritMultiplier = 1.75 + critMultiplierBonus;
     let isCrit = false;
     if (allowCrit && Math.random() < Math.max(0, Math.min(1, critChance))) {
       isCrit = true;
-      amount = Math.max(1, Math.round(amount * 1.75));
+      amount = Math.max(1, Math.round(amount * Math.max(1.0, effectiveCritMultiplier)));
     }
     return { amount, isCrit };
   }
@@ -1135,6 +1142,7 @@ class GameState {
           if (typeof input.skillInvulnerableUntil === 'number') player.skillInvulnerableUntil = Math.max(0, Math.floor(input.skillInvulnerableUntil));
           // ✅ 新增：爆擊率同步（天賦 + 升級 + 角色基礎）
           if (typeof input.critChanceBonusPct === 'number') player.meta.critChanceBonusPct = Math.max(0, input.critChanceBonusPct);
+          if (typeof input.critMultiplierBonusPct === 'number') player.meta.critMultiplierBonusPct = Math.max(0, Math.min(1, input.critMultiplierBonusPct));
           // ✅ 新增：maxHealth 同步（多人元素，影響復活時的血量）
           if (typeof input.maxHealth === 'number' && input.maxHealth > 0) {
             player.maxHealth = Math.max(100, Math.floor(input.maxHealth)); // 最小值 100，避免異常值
