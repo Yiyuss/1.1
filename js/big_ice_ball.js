@@ -249,7 +249,7 @@ class IceFieldEffect extends Entity {
                             enemy,
                             {
                                 weaponType: this.weaponType,
-                                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                             }
                         );
                         finalDamage = result.amount;
@@ -298,7 +298,7 @@ class IceFieldEffect extends Entity {
                                 enemyIds: [enemy.id],
                                 damage: finalDamage,
                                 allowCrit: true,
-                                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                             });
                         }
                     }
