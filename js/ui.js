@@ -624,7 +624,7 @@ const UI = {
         try {
             // 以階梯系統為主：只顯示每個天賦的最高階描述
             // 新增 pickup_range_boost、damage_boost 兩項：維持同樣渲染流程
-            const ids = ['hp_boost','defense_boost','speed_boost','pickup_range_boost','damage_boost','damage_specialization','crit_enhance','regen_speed_boost','experience_boost','levelup_action_charges','dodge_enhance','chicken_blessing_boost','sheep_guard_boost','heart_companion_boost','rotating_muffin_boost','pineapple_orbit_boost','stellar_orbit_boost','gabriel_orbit_boost','gravity_wave_boost','ai_boost','awakening_hp','awakening_regen','awakening_attack'];
+            const ids = ['hp_boost','defense_boost','speed_boost','pickup_range_boost','damage_boost','damage_specialization','crit_enhance','regen_speed_boost','experience_boost','levelup_action_charges','dodge_enhance','chicken_blessing_boost','sheep_guard_boost','heart_companion_boost','rotating_muffin_boost','pineapple_orbit_boost','stellar_orbit_boost','gabriel_orbit_boost','wedding_call_orbit_boost','gravity_wave_boost','ai_boost','awakening_hp','awakening_regen','awakening_attack'];
             const items = [];
             ids.forEach(id => {
                 const lv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel) ? TalentSystem.getTalentLevel(id) : 0;
@@ -785,7 +785,7 @@ const UI = {
         }
 
         // 新武器選項（基於來源狀態判定）
-        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'STELLAR_ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'STELLAR_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'SIXTH_SENSE', 'PON', 'STARFALL', 'BAGUETTE_THROW', 'PINEAPPLE_ORBIT', 'GABRIEL_ORBIT', 'ADRENALINE', 'RAINBOW_RESONANCE', 'FBI', 'WHITE_NIGHT_BEAM', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST', 'HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION', 'JUDGMENT', 'SUMMON_AI'];
+        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'STELLAR_ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'STELLAR_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'SIXTH_SENSE', 'PON', 'STARFALL', 'BAGUETTE_THROW', 'PINEAPPLE_ORBIT', 'GABRIEL_ORBIT', 'WEDDING_CALL_ORBIT', 'ADRENALINE', 'RAINBOW_RESONANCE', 'FBI', 'WHITE_NIGHT_BEAM', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST', 'HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION', 'JUDGMENT', 'SUMMON_AI'];
         // 檢查角色專屬技能（使用上面已定義的 exclusiveWeapons 和 allExclusiveWeapons）
         const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
         // 使用上面已定義的 hasDeathlineSuperman 和 hasRadiantGlory（避免重複定義）
