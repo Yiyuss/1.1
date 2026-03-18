@@ -40,9 +40,11 @@
       const bonusCrit = options && typeof options.critChanceBonusPct === 'number' ? options.critChanceBonusPct : 0;
       const overrideCrit = options && typeof options.critChancePctOverride === 'number' ? options.critChancePctOverride : null;
       const critChance = overrideCrit != null ? overrideCrit : (this.critChanceBase + bonusCrit);
+      const critMultiplierBonus = options && typeof options.critMultiplierBonusPct === 'number' ? options.critMultiplierBonusPct : 0;
+      const effectiveCritMultiplier = this.critMultiplier + critMultiplierBonus;
       if (allowCrit && Math.random() < Math.max(0, Math.min(1, critChance))) {
         isCrit = true;
-        final *= this.critMultiplier;
+        final *= Math.max(1.0, effectiveCritMultiplier);
       }
 
       // 避免浮點誤差造成顯示奇怪；對外保留整數
