@@ -68,6 +68,7 @@ const CONFIG = {
             BAGUETTE_THROW: 'assets/images/A42.png',
             PINEAPPLE_ORBIT: 'assets/images/A44.png',
             GABRIEL_ORBIT: 'assets/images/A57.png',
+            WEDDING_CALL_ORBIT: 'assets/images/A72.png',
             RAINBOW_RESONANCE: 'assets/images/A58.png',
             FBI: 'assets/images/A59.png',
             WHITE_NIGHT_BEAM: 'assets/images/A60.png',
@@ -367,6 +368,26 @@ const CONFIG = {
                 { COUNT: 3, DESCRIPTION: "生成3個加百列環繞3秒" },
                 { COUNT: 4, DESCRIPTION: "生成4個加百列環繞3秒" },
                 { COUNT: 5, DESCRIPTION: "生成5個加百列環繞3秒" }
+            ]
+        },
+        // 新武器：婚叫（熙歌專屬技能；邏輯/傷害/特效與綿羊護體相同，旋球外觀 A71.png 200x200，技能圖 A72.png）
+        WEDDING_CALL_ORBIT: {
+            NAME: "婚叫",
+            DAMAGE: 12,
+            COOLDOWN: 4000,
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 20,
+            PROJECTILE_SIZE_PER_LEVEL: 6,
+            ORBIT_RADIUS: 60,
+            ORBIT_RADIUS_PER_LEVEL: 15,
+            DURATION: 3000,
+            ANGULAR_SPEED: 3.683,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "生成1個婚叫環繞3秒" },
+                { COUNT: 2, DESCRIPTION: "生成2個婚叫環繞3秒" },
+                { COUNT: 3, DESCRIPTION: "生成3個婚叫環繞3秒" },
+                { COUNT: 4, DESCRIPTION: "生成4個婚叫環繞3秒" },
+                { COUNT: 5, DESCRIPTION: "生成5個婚叫環繞3秒" }
             ]
         },
         HEART_COMPANION: {
@@ -1363,14 +1384,14 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10,
-            description: `角色介紹：好奇心旺盛的黑洞，可以吞噬一切！\n專屬技能：暫無`,
+            description: `角色介紹：好奇心旺盛的黑洞，可以吞噬一切！\n專屬技能：婚叫`,
             avatarImageKey: 'player9-2',
             hudImageKey: 'player9-2',
             spriteImageKey: 'player9',
             levelUpBgKey: 'player9-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: [],
+            exclusiveWeapons: ['WEDDING_CALL_ORBIT'],
             unlockCost: 10000
         }
     ],
