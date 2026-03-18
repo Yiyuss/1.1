@@ -186,7 +186,7 @@ class StarfallEffect extends Entity {
             if (firstEnemy) {
                 const result = DamageSystem.computeHit(this.damage, firstEnemy, {
                     weaponType: this.weaponType,
-                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                 });
                 baseDamage = result.amount;
             }
@@ -203,7 +203,7 @@ class StarfallEffect extends Entity {
                     radius: this.aoeRadius,
                     damage: baseDamage,
                     allowCrit: true,
-                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
+                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
                     timestamp: Date.now()
                 });
             }
@@ -225,7 +225,7 @@ class StarfallEffect extends Entity {
                 if (typeof DamageSystem !== 'undefined') {
                     const result = DamageSystem.computeHit(this.damage, enemy, {
                         weaponType: this.weaponType,
-                        critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0)
+                        critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                     });
                     finalDamage = result.amount;
                     isCrit = result.isCrit;
