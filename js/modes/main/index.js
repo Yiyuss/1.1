@@ -37,6 +37,8 @@
           { key: 'npc8_portrait', src: 'assets/images/NPC8-2.png' },
           { key: 'npc9', src: 'assets/images/NPC9.png' },
           { key: 'npc9_portrait', src: 'assets/images/NPC9-2.png' },
+          { key: 'npc10', src: 'assets/images/NPC10.png' },
+          { key: 'npc10_portrait', src: 'assets/images/NPC10-2.png' },
           // 主屋室內家具（JSON 中使用的所有家具）
           { key: 'f_bed_front', src: 'js/modes/main/bed-front-273x289.png' },
           { key: 'f_big_bookcase', src: 'js/modes/main/big bookcase-245x289.png' },
@@ -576,6 +578,34 @@
             channelLink: 'https://www.youtube.com/@xxhacucoxx_Celestial',
             onFinalState: () => syncYouTubeCodeButtonState('baibaihong')
           }
+        },
+        'cygnus': { // 熙歌Cygnus（戶外NPC，05.png建築右側）
+          type: 'npc',
+          imageKey: 'npc10',
+          portraitImage: 'assets/images/NPC10-2.png',
+          portraitAlt: '熙歌Cygnus',
+          spriteSheetKey: 'npc_sprite',
+          triggerDistance: 55,
+          targetDistance: 45,
+          dialogue: {
+            messages: [
+              '沒有我不能吞噬的東西！',
+              '黑洞可以吞噬一切！（除了基餃）',
+              '觀看我的YouTube頻道，作為感謝會給您一些序號獎勵，是完全免費的！',
+              '除此之外若參加遊戲內的限時活動，也可以獲得相同的序號獎勵！'
+            ],
+            finalButtons: [
+              { id: 'main-dialogue-youtube-cygnus', text: '進入頻道', action: 'youtube' },
+              { id: 'main-dialogue-code-cygnus', text: '領取序號', action: 'code', disabled: true },
+              { id: 'main-dialogue-exit', text: '離開', action: 'exit' }
+            ],
+            code: 'CYGNUS2026',
+            youtubeUrl: 'https://www.youtube.com/watch?v=MubrnFuuWjc',
+            channelId: 'UCIf6cffSRZqS7TUXbUAK_hw',
+            channelName: '熙歌Cygnus YouTube 頻道',
+            channelLink: 'https://www.youtube.com/@CygnusXDFP',
+            onFinalState: () => syncYouTubeCodeButtonState('cygnus')
+          }
         }
       };
       
@@ -584,7 +614,7 @@
       const YT_CODE_UNLOCK_KEY_PREFIX = 'main_youtube_code_unlocked_';
 
       function isYouTubeNpcType(npcType) {
-        return npcType === 'lilylinglan' || npcType === 'margaret' || npcType === 'dada' || npcType === 'loco' || npcType === 'abby' || npcType === 'pineapple' || npcType === 'earendel' || npcType === 'baibaihong';
+        return npcType === 'lilylinglan' || npcType === 'margaret' || npcType === 'dada' || npcType === 'loco' || npcType === 'abby' || npcType === 'pineapple' || npcType === 'earendel' || npcType === 'baibaihong' || npcType === 'cygnus';
       }
 
       function getYouTubeUnlockKey(npcType) {
@@ -609,6 +639,7 @@
           case 'pineapple': return 'main-dialogue-code-pineapple';
           case 'earendel': return 'main-dialogue-code-earendel';
           case 'baibaihong': return 'main-dialogue-code-baibaihong';
+          case 'cygnus': return 'main-dialogue-code-cygnus';
           default: return null;
         }
       }
@@ -740,7 +771,7 @@
           } else if (id === 'main-dialogue-exit') {
             playButtonSound();
             closeDialogue();
-          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco' || id === 'main-dialogue-youtube-abby' || id === 'main-dialogue-youtube-pineapple' || id === 'main-dialogue-youtube-earendel' || id === 'main-dialogue-youtube-baibaihong') {
+          } else if (id === 'main-dialogue-youtube' || id === 'main-dialogue-youtube-margaret' || id === 'main-dialogue-youtube-dada' || id === 'main-dialogue-youtube-loco' || id === 'main-dialogue-youtube-abby' || id === 'main-dialogue-youtube-pineapple' || id === 'main-dialogue-youtube-earendel' || id === 'main-dialogue-youtube-baibaihong' || id === 'main-dialogue-youtube-cygnus') {
             playButtonSound();
             // 點選進入頻道時，順便解鎖一次性的「領取序號」
             try {
@@ -751,7 +782,7 @@
               }
             } catch(_) {}
             showYouTubeWindow(currentDialogueNPC);
-          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco' || id === 'main-dialogue-code-abby' || id === 'main-dialogue-code-pineapple' || id === 'main-dialogue-code-earendel' || id === 'main-dialogue-code-baibaihong') {
+          } else if (id === 'main-dialogue-code' || id === 'main-dialogue-code-yiyu' || id === 'main-dialogue-code-margaret' || id === 'main-dialogue-code-dada' || id === 'main-dialogue-code-loco' || id === 'main-dialogue-code-abby' || id === 'main-dialogue-code-pineapple' || id === 'main-dialogue-code-earendel' || id === 'main-dialogue-code-baibaihong' || id === 'main-dialogue-code-cygnus') {
             // 防止重複點擊：如果序號窗口已經打開，直接返回
             if (isCodeWindowOpen) {
               return; // 已經有窗口打開，不重複創建
@@ -1361,7 +1392,33 @@
             npcPineapple.npcType = 'pineapple';
             this.entities.push(npcPineapple);
           }
-          if (h2Img) this.addImageHouse(CENTER_X + 1000, CENTER_Y - 500, h2Img, 266, 300, 'indoor_B', 'house-B');
+          if (h2Img) {
+            const house2X = CENTER_X + 1000;
+            const house2Y = CENTER_Y - 500;
+            const house2W = 266;
+            const house2H = 300;
+            this.addImageHouse(house2X, house2Y, h2Img, house2W, house2H, 'indoor_B', 'house-B');
+            // [NPC] 熙歌Cygnus - 放在05.png建築右側
+            // 圖片比例 290x242，縮放到高度60（與其他戶外NPC一致）
+            // 可微調：X_OFFSET（建築右側間距）、Y_OFFSET（垂直對齊偏移）
+            const SRC_W_CYGNUS = 290;
+            const SRC_H_CYGNUS = 242;
+            const NPC_H_CYGNUS = 60;
+            const NPC_W_CYGNUS = Math.round(SRC_W_CYGNUS * (NPC_H_CYGNUS / SRC_H_CYGNUS));
+            const X_OFFSET = 10;   // 可微調：建築右側間距
+            const Y_OFFSET = 115;  // 可微調：垂直對齊偏移（參考鳳梨 +115）
+            const npcX_cygnus = house2X + house2W + X_OFFSET;
+            const npcY_cygnus = house2Y + (house2H / 2) - NPC_H_CYGNUS / 2 + Y_OFFSET;
+            let npcCygnus = new Entity('npc', npcX_cygnus, npcY_cygnus, NPC_W_CYGNUS, NPC_H_CYGNUS);
+            npcCygnus.solid = false;
+            npcCygnus.domId = 'main-npc-cygnus';
+            npcCygnus.layerId = 'npc';
+            npcCygnus.spriteSheet = null;
+            npcCygnus.spriteFrame = 0;
+            npcCygnus.npcType = 'cygnus';
+            this.entities.push(npcCygnus);
+            console.log(`[戶外NPC] 熙歌Cygnus已放置在05.png建築右側 (${npcX_cygnus}, ${npcY_cygnus})`);
+          }
           if (h3Img) this.addImageHouse(CENTER_X - 600, CENTER_Y + 500, h3Img, 300, 190, 'indoor_C', 'house-C');
           if (h4Img) {
             const house4X = CENTER_X + 600;
