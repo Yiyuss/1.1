@@ -123,6 +123,12 @@ const TalentSystem = {
             description: '升級可強化加百列的基礎攻擊。',
             cost: 10000
         },
+        // 新增：婚叫強化（強化婚叫的基礎攻擊）
+        wedding_call_orbit_boost: {
+            name: '婚叫強化',
+            description: '升級可強化婚叫的基礎攻擊。',
+            cost: 10000
+        },
         // 專屬強化（獨特性天賦，需要專屬之路成就解鎖）
         exclusive_enhance: {
             name: '專屬強化',
@@ -358,6 +364,17 @@ const TalentSystem = {
         },
         // 新增：加百列強化（+5/+10/+15/+20/+25/+30）
         gabriel_orbit_boost: {
+            levels: [
+                { flat: 5, cost: 10000 },
+                { flat: 10, cost: 20000 },
+                { flat: 15, cost: 30000 },
+                { flat: 20, cost: 40000 },
+                { flat: 25, cost: 50000 },
+                { flat: 30, cost: 60000 }
+            ]
+        },
+        // 新增：婚叫強化（+5/+10/+15/+20/+25/+30）
+        wedding_call_orbit_boost: {
             levels: [
                 { flat: 5, cost: 10000 },
                 { flat: 10, cost: 20000 },
@@ -915,7 +932,8 @@ const TalentSystem = {
         { id: 'pineapple_orbit_boost', name: '鳳梨環繞強化', icon: 'assets/images/A44.png' },
         { id: 'chicken_blessing_boost', name: '雞腿庇佑強化', icon: 'assets/images/test13.png' },
         { id: 'stellar_orbit_boost', name: '星體軌跡強化', icon: 'assets/images/A50.png' },
-        { id: 'gabriel_orbit_boost', name: '加百列強化', icon: 'assets/images/A57.png' }
+        { id: 'gabriel_orbit_boost', name: '加百列強化', icon: 'assets/images/A57.png' },
+        { id: 'wedding_call_orbit_boost', name: '婚叫強化', icon: 'assets/images/A72.png' }
     ],
     _exclusiveWindowOpen: false,
 
@@ -1203,6 +1221,9 @@ if (!TalentSystem.getHighestTierDescription) {
         } else if (id === 'gabriel_orbit_boost') {
             const flat = eff.flat || 0;
             return `加百列基礎攻擊+${flat}`;
+        } else if (id === 'wedding_call_orbit_boost') {
+            const flat = eff.flat || 0;
+            return `婚叫基礎攻擊+${flat}`;
         } else if (id === 'exclusive_enhance') {
             return lv > 0 ? '專屬系統已解鎖，點擊進入專屬強化。' : '需要「專屬之路」成就來解鎖專屬系統。';
         } else if (id === 'awakening_enhance') {
@@ -1246,7 +1267,8 @@ if (!TalentSystem.migrateLegacyTalentData) {
                     'rotating_muffin_boost',
                     'pineapple_orbit_boost',
                     'stellar_orbit_boost',
-                    'gabriel_orbit_boost'
+                    'gabriel_orbit_boost',
+                    'wedding_call_orbit_boost'
                 ];
                 let hasExclusiveProgress = false;
                 if (Array.isArray(legacy)) {
