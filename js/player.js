@@ -195,8 +195,9 @@ class Player extends Entity {
             this._resolveObstacleOverlap();
         }
         
-        // 能量自然恢復（每秒+1，封頂100）
-        this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegenRate * (deltaTime / 1000));
+        // 能量自然恢復（每秒+1，封頂100；覺醒能量：+100% 恢復速度）
+        const energyMul = 1.0 + (this.awakeningEnergyRegenBoost || 0);
+        this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegenRate * energyMul * (deltaTime / 1000));
         UI.updateEnergyBar(this.energy, this.maxEnergy);
 
         // 生命自然恢復：每5秒+1（上限100）
