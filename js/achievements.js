@@ -125,6 +125,13 @@ const Achievements = (function(){
       desc: '通關任一難度草原地圖。',
       icon: 'assets/images/A69.png',
       reward: '解鎖天賦「專屬強化」。'
+    },
+    ASSIST_PATH: {
+      id: 'ASSIST_PATH',
+      name: '輔助之路',
+      desc: '通關任一難度宇宙地圖。',
+      icon: 'assets/images/A83.png',
+      reward: '解鎖天賦「輔助強化」。'
     }
   };
 
