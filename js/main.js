@@ -1439,6 +1439,9 @@ function setupTalentScreenToggle() {
     if (typeof TalentSystem.initExclusiveWindow === 'function') {
         TalentSystem.initExclusiveWindow();
     }
+    if (typeof TalentSystem.initAssistWindow === 'function') {
+        TalentSystem.initAssistWindow();
+    }
 
     // 註冊天賦畫面的空白鍵處理器到 KeyboardRouter
     KeyboardRouter.register('talent-select', 'Space', (e) => {
@@ -1462,13 +1465,19 @@ function setupTalentScreenToggle() {
         TalentSystem.hideTalentConfirm();
     });
     
-    // ESC：返回至選角（優先關閉專屬/覺醒視窗，再關閉天賦確認彈窗）
+    // ESC：返回至選角（優先關閉專屬/輔助/覺醒視窗，再關閉天賦確認彈窗）
     KeyboardRouter.register('talent-select', 'Escape', (e) => {
         e.preventDefault();
         // 優先關閉專屬視窗
         if (TalentSystem._exclusiveWindowOpen) {
             try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
             TalentSystem.hideExclusiveWindow();
+            return;
+        }
+        // 其次關閉輔助視窗
+        if (TalentSystem._assistWindowOpen) {
+            try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+            TalentSystem.hideAssistWindow();
             return;
         }
         // 其次關閉覺醒視窗
