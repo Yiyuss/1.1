@@ -2348,6 +2348,33 @@ const Runtime = (() => {
                   if (typeof eventData.visualScale === "number") effect.visualScale = eventData.visualScale;
                   Game.projectiles.push(effect);
                 }
+              } else if (weaponType === "GRAVITY_COLLAPSE" && typeof GravityCollapseProjectile !== "undefined") {
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) targetPlayer = remotePlayer;
+                    }
+                  }
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                if (targetPlayer && eventData.angle !== undefined) {
+                  const effect = new GravityCollapseProjectile(
+                    eventData.x || targetPlayer.x,
+                    eventData.y || targetPlayer.y,
+                    eventData.angle,
+                    eventData.weaponLevel || 1,
+                    targetPlayer
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(effect);
+                }
               } else if ((weaponType === "BIG_ICE_BALL" || weaponType === "FRENZY_ICE_BALL") && typeof IceBallProjectile !== "undefined") {
                 // 大冰球：需要找到對應的玩家（使用完整的 Player 對象）
                 let targetPlayer = null;
@@ -2903,6 +2930,7 @@ const Runtime = (() => {
                 if (charId === 'elondier' && mapId === 'city') Achievements.unlock('ELONDIER_CITY_CLEAR');
                 if (charId === 'pineapple' && mapId === 'city') Achievements.unlock('PINEAPPLE_CITY_CLEAR');
                 if (charId === 'baibaihong' && mapId === 'city') Achievements.unlock('BAIBAIHONG_CITY_CLEAR');
+                if (charId === 'cygnus' && mapId === 'city') Achievements.unlock('CYGNUS_CITY_CLEAR');
                 if (charId === 'dada' && mapId === 'forest') Achievements.unlock('DADA_FOREST_CLEAR');
                 // 任一角色通關草原地圖：解鎖專屬之路成就
                 if (mapId === 'forest') Achievements.unlock('EXCLUSIVE_PATH');
@@ -6507,7 +6535,7 @@ function updateProjectilesFromServer(projectiles) {
       weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' || weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' ||
       weaponType === 'HEART_COMPANION' || weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'GABRIEL_ORBIT' || weaponType === 'WEDDING_CALL_ORBIT' ||
       weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC' ||
-      weaponType === 'BIG_ICE_BALL' || weaponType === 'FRENZY_ICE_BALL' ||
+      weaponType === 'BIG_ICE_BALL' || weaponType === 'FRENZY_ICE_BALL' || weaponType === 'GRAVITY_COLLAPSE' ||
       weaponType === 'YOUNG_DADA_GLORY' || weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
       weaponType === 'DEATHLINE_WARRIOR' || weaponType === 'DEATHLINE_SUPERMAN' ||
       weaponType === 'JUDGMENT' || weaponType === 'DIVINE_JUDGMENT' || weaponType === 'EXPLOSION' ||
