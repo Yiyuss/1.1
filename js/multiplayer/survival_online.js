@@ -2585,6 +2585,48 @@ const Runtime = (() => {
                   effect.offsetY = (typeof eventData.offsetY === "number") ? eventData.offsetY : -250; // 與單機一致
                   Game.projectiles.push(effect);
                 }
+              } else if (weaponType === "DEVOURING_POWER" && typeof DevouringPowerEffect !== "undefined") {
+                // 吞噬之力（熙歌專屬）：效果與音效同唱歌、幼妲光輝，需要找到對應的玩家
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
+                    const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
+                    if (typeof rm.get === "function") {
+                      const remotePlayer = rm.get(eventData.playerUid);
+                      if (remotePlayer) targetPlayer = remotePlayer;
+                    }
+                  }
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+
+                if (targetPlayer) {
+                  // 先清理同玩家的舊吞噬之力效果（與 SING 一致）
+                  if (eventData.playerUid && Array.isArray(Game.projectiles)) {
+                    try {
+                      const isLocalPlayer = (eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid));
+                      for (let i = Game.projectiles.length - 1; i >= 0; i--) {
+                        const proj = Game.projectiles[i];
+                        if (proj && proj.weaponType === "DEVOURING_POWER") {
+                          const isRemotePlayerEffect = (proj._isVisualOnly && proj._remotePlayerUid === eventData.playerUid);
+                          const isLocalPlayerEffect = (isLocalPlayer && proj.player === Game.player && !proj._isVisualOnly);
+                          if (isRemotePlayerEffect || isLocalPlayerEffect) {
+                            proj.markedForDeletion = true;
+                            Game.projectiles.splice(i, 1);
+                          }
+                        }
+                      }
+                    } catch (_) { }
+                  }
+                  const effect = new DevouringPowerEffect(targetPlayer, eventData.duration || 2000);
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  effect.offsetY = (typeof eventData.offsetY === "number") ? eventData.offsetY : 0;
+                  effect.renderSize = (typeof eventData.renderSize === "number") ? eventData.renderSize : 200;
+                  Game.projectiles.push(effect);
+                }
               } else if (weaponType === "INVINCIBLE" && typeof InvincibleEffect !== "undefined") {
                 // 無敵：需要找到對應的玩家（使用完整的 Player 對象，以便正確更新位置）
                 // ✅ 修復：無敵技能是一次性效果（持續幾秒後消失，然後又持續幾秒後消失，很像是變長的斬擊）
@@ -5164,7 +5206,7 @@ function handleServerGameState(state, timestamp) {
 
               // ⚠️ 修复：只有在非新 session 时才更新 health（新 session 已经在上面强制同步了）
               // ✅ 修复：补血/回血是单机元素，如果客户端血量高于服务器同步的血量（表示客户端刚补血/回血），保留客户端血量
-              // 这样可以防止服务器状态覆盖客户端的补血（YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、MIND_MAGIC）和被动技能回血
+              // 这样可以防止服务器状态覆盖客户端的补血（YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEVOURING_POWER、MIND_MAGIC）和被动技能回血
               // ⚠️ 修复：但如果服务器在扣血（newHealth < prevHealth），必须同步服务器血量（服务器权威）
               if (!isNewSession) {
                 // 判断服务器是否在扣血（服务器权威）
@@ -6459,7 +6501,7 @@ function updateProjectilesFromServer(projectiles) {
     return (
       // 一次性視覺效果（每次 fire() 都創建新的）
       weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' ||
-      weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' || weaponType === 'INVINCIBLE' || weaponType === 'SING' ||
+      weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' || weaponType === 'INVINCIBLE' || weaponType === 'SING' || weaponType === 'DEVOURING_POWER' ||
       // 持續視覺效果（通過事件廣播的）
       weaponType === 'AURA_FIELD' || weaponType === 'CYGNUS_ULTIMATE_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'INNATE_TEMPERAMENT' || weaponType === 'GRAVITY_WAVE' ||
       weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' || weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' ||
