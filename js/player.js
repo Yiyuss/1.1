@@ -190,6 +190,11 @@ class Player extends Entity {
             this.y = Utils.clamp(this.y, minY, Math.max(minY, maxY));
         }
         
+        // ✅ 修復：變身大招期間若與障礙物重疊，每幀推出，避免卡住（單機與組隊皆適用）
+        if (!this._isRemotePlayer && this.isUltimateActive) {
+            this._resolveObstacleOverlap();
+        }
+        
         // 能量自然恢復（每秒+1，封頂100）
         this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegenRate * (deltaTime / 1000));
         UI.updateEnergyBar(this.energy, this.maxEnergy);
@@ -1086,6 +1091,40 @@ class Player extends Entity {
         }
     }
 
+    /**
+     * 將玩家從與障礙物的重疊中推出，避免變身大招體型變大後卡住。
+     * 單機與組隊模式皆適用（僅本地玩家呼叫，遠程玩家位置由同步處理）。
+     */
+    _resolveObstacleOverlap() {
+        const obstacles = (typeof Game !== 'undefined' && Game.obstacles) ? Game.obstacles : [];
+        if (obstacles.length === 0) return;
+        const r = this.collisionRadius || 16;
+        const worldW = (typeof Game !== 'undefined' && Game.worldWidth) ? Game.worldWidth : (typeof CONFIG !== 'undefined' && CONFIG.CANVAS_WIDTH) ? CONFIG.CANVAS_WIDTH : 800;
+        const worldH = (typeof Game !== 'undefined' && Game.worldHeight) ? Game.worldHeight : (typeof CONFIG !== 'undefined' && CONFIG.CANVAS_HEIGHT) ? CONFIG.CANVAS_HEIGHT : 600;
+        const margin = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER && typeof CONFIG.PLAYER.BORDER_MARGIN === 'number') ? CONFIG.PLAYER.BORDER_MARGIN : 0;
+        const minX = this.width / 2 + margin;
+        const maxX = Math.max(minX, worldW - this.width / 2 - margin);
+        const minY = this.height / 2 + margin;
+        const maxY = Math.max(minY, worldH - this.height / 2 - margin);
+        let maxIter = 12;
+        while (maxIter-- > 0) {
+            let resolved = false;
+            for (const obs of obstacles) {
+                if (!Utils.circleRectCollision(this.x, this.y, r, obs.x, obs.y, obs.width, obs.height)) continue;
+                const res = Utils.circleRectResolve(this.x, this.y, r, obs.x, obs.y, obs.width, obs.height);
+                if (res.dx !== 0 || res.dy !== 0) {
+                    this.x += res.dx;
+                    this.y += res.dy;
+                    this.x = Utils.clamp(this.x, minX, maxX);
+                    this.y = Utils.clamp(this.y, minY, maxY);
+                    resolved = true;
+                    break;
+                }
+            }
+            if (!resolved) break;
+        }
+    }
+
     // 嘗試啟動大招
     tryActivateUltimate() {
         if (this.isUltimateActive) return;
@@ -1261,6 +1300,9 @@ class Player extends Entity {
         this.width = Math.floor(this.width * sizeMultiplier);
         this.height = Math.floor(this.height * sizeMultiplier);
         this.collisionRadius = Math.max(this.width, this.height) / 2;
+        
+        // ✅ 修復：變身體型變大後若與障礙物重疊，立即推出，避免卡住無法移動
+        this._resolveObstacleOverlap();
         
         // 大招切換：清除該玩家名下「所有」主動技能投射物（無敵、守護領域、斬擊、唱歌、雷射、環繞球等）
         // 瑪格麗特、灰妲、洛可洛斯特、熙歌 開大時，原技能暫時消失，改為大招技能（參考瑪格麗特完整流程）
