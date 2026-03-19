@@ -142,6 +142,13 @@ const TalentSystem = {
             description: '解鎖覺醒系統，獲得強大的覺醒能力。',
             cost: 0,
             isAwakening: true
+        },
+        // 輔助強化（獨特性天賦，需要輔助之路成就解鎖）
+        assist_enhance: {
+            name: '輔助強化',
+            description: '解鎖輔助系統，進階輔助技能（替換原本技能）。',
+            cost: 0,
+            isAssist: true
         }
     },
 
@@ -418,6 +425,16 @@ const TalentSystem = {
         awakening_energy: {
             levels: [{ cost: 350000, energyRegenBoost: 1.0 }],
             isAwakening: true, hidden: true
+        },
+        // 輔助強化（獨特性，單級，解鎖後開啟輔助系統）
+        assist_enhance: {
+            levels: [{ cost: 0 }],
+            isAssist: true
+        },
+        // 輔助子系統（隱藏天賦，由輔助視窗管理，僅生存模式生效）
+        sing_advanced: {
+            levels: [{ cost: 100000 }],
+            isAssist: true, hidden: true
         }
     },
     
@@ -487,6 +504,15 @@ const TalentSystem = {
                 return;
             }
         }
+        // 輔助強化特殊處理：已解鎖時直接開啟輔助系統視窗
+        if (talentId === 'assist_enhance') {
+            const lv = TalentSystem.getTalentLevel('assist_enhance');
+            if (lv > 0) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                TalentSystem.showAssistWindow();
+                return;
+            }
+        }
         
         // 移除其他卡片的active狀態
         document.querySelectorAll('#talent-select-screen .char-card.active').forEach(el => {
@@ -549,6 +575,28 @@ const TalentSystem = {
             TalentSystem.updateTalentCardAppearance('exclusive_enhance');
             try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
             TalentSystem.showExclusiveWindow();
+            return;
+        }
+        // 輔助強化特殊處理
+        if (talentId === 'assist_enhance') {
+            const lv = TalentSystem.getTalentLevel('assist_enhance');
+            if (lv > 0) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                TalentSystem.showAssistWindow();
+                return;
+            }
+            // 未解鎖：檢查成就
+            if (typeof Achievements === 'undefined' || !Achievements.isUnlocked || !Achievements.isUnlocked('ASSIST_PATH')) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                const descEl = document.getElementById('talent-preview-desc');
+                if (descEl) descEl.textContent = '需要先達成「輔助之路」成就才能解鎖。';
+                return;
+            }
+            // 有成就：解鎖輔助強化（免費）
+            TalentSystem.setTalentLevel('assist_enhance', 1);
+            TalentSystem.updateTalentCardAppearance('assist_enhance');
+            try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+            TalentSystem.showAssistWindow();
             return;
         }
 
@@ -700,8 +748,8 @@ const TalentSystem = {
         const lv = this.getTalentLevel(talentId);
         const max = cfg.levels.length;
 
-        // 覺醒 / 專屬強化特殊處理：只有 未解鎖/已解鎖 兩種狀態
-        if (talentId === 'awakening_enhance' || talentId === 'exclusive_enhance') {
+        // 覺醒 / 專屬 / 輔助強化特殊處理：只有 未解鎖/已解鎖 兩種狀態
+        if (talentId === 'awakening_enhance' || talentId === 'exclusive_enhance' || talentId === 'assist_enhance') {
             this._updateAwakeningBadge(card, lv);
             const img = card.querySelector('img');
             if (!img) return;
@@ -1076,6 +1124,127 @@ const TalentSystem = {
                 this.hideExclusiveWindow();
             }
         });
+    },
+
+    // ===== 輔助系統 =====
+    _assistSlots: [
+        { id: 'sing_advanced', name: '唱歌進階', icon: 'assets/images/A1.png', cost: 100000,
+          desc: '唱歌技能的補血量改為%數：補10HP→補10%HP。', effectDesc: '補血改為%數' }
+    ],
+    _assistWindowOpen: false,
+
+    showAssistWindow: function() {
+        const overlay = document.getElementById('assist-overlay');
+        if (!overlay) return;
+        this._assistWindowOpen = true;
+        this._refreshAssistSlots();
+        overlay.classList.remove('hidden');
+        overlay.setAttribute('aria-hidden', 'false');
+    },
+
+    hideAssistWindow: function() {
+        const overlay = document.getElementById('assist-overlay');
+        if (!overlay) return;
+        this._assistWindowOpen = false;
+        overlay.classList.add('hidden');
+        overlay.setAttribute('aria-hidden', 'true');
+        const descEl = document.getElementById('assist-desc-text');
+        if (descEl) descEl.textContent = '點選輔助格子查看詳細說明。';
+    },
+
+    _refreshAssistSlots: function() {
+        this._assistSlots.forEach(slot => {
+            const btn = document.querySelector('#assist-overlay .assist-slot[data-assist-id="' + slot.id + '"]');
+            if (!btn) return;
+            const lv = this.getTalentLevel(slot.id);
+            const img = btn.querySelector('img');
+            const statusEl = btn.querySelector('.assist-slot-status');
+            if (lv > 0) {
+                if (img) { img.classList.remove('grayscale'); img.style.filter = ''; }
+                if (statusEl) { statusEl.textContent = '已替換'; statusEl.style.color = '#4cff4c'; }
+                btn.classList.remove('locked');
+                btn.classList.add('awakened');
+                if (img) {
+                    try { if (img._assistAnim) img._assistAnim.cancel(); img._assistAnim = null; } catch(_){}
+                    img.style.filter = 'saturate(1.2) brightness(1.05)';
+                    img.style.boxShadow = '0 0 12px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 255, 255, 0.35)';
+                }
+            } else {
+                if (img) { img.classList.add('grayscale'); img.style.filter = ''; img.style.boxShadow = ''; }
+                if (statusEl) { statusEl.textContent = '未替換'; statusEl.style.color = '#aaa'; }
+                btn.classList.add('locked');
+                btn.classList.remove('awakened');
+            }
+        });
+    },
+
+    _handleAssistSlotClick: function(slotId) {
+        const slot = this._assistSlots.find(s => s.id === slotId);
+        if (!slot) return;
+        try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click2'); } catch(_){}
+        const lv = this.getTalentLevel(slotId);
+        const descEl = document.getElementById('assist-desc-text');
+        if (!descEl) return;
+        if (lv > 0) {
+            descEl.innerHTML = '<strong>' + slot.name + '</strong>（已替換）<br>' + slot.desc;
+        } else {
+            const cost = (slot.cost != null) ? slot.cost : 0;
+            descEl.innerHTML = '<strong>' + slot.name + '</strong><br>' + slot.desc +
+                (cost > 0 ? '<br>替換費用：<span style="color:#ffd700;">' + cost.toLocaleString() + ' 金幣</span>' : '<br>雙擊替換（免費）');
+        }
+        document.querySelectorAll('#assist-overlay .assist-slot.active').forEach(el => el.classList.remove('active'));
+        const btn = document.querySelector('#assist-overlay .assist-slot[data-assist-id="' + slotId + '"]');
+        if (btn) btn.classList.add('active');
+    },
+
+    _handleAssistSlotDblClick: function(slotId) {
+        const slot = this._assistSlots.find(s => s.id === slotId);
+        if (!slot) return;
+        const lv = this.getTalentLevel(slotId);
+        if (lv > 0) return; // 已替換
+        const cost = (slot.cost != null) ? slot.cost : 0;
+        if (cost > 0) {
+            if (typeof Game === 'undefined' || Game.coins < cost) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                const descEl = document.getElementById('assist-desc-text');
+                if (descEl) descEl.innerHTML = '<strong>' + slot.name + '</strong><br><span style="color:#ff6b6b;">金幣不足！需要 ' + cost.toLocaleString() + ' 金幣。</span>';
+                return;
+            }
+            Game.coins -= cost;
+            Game.saveCoins();
+            if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) UI.updateCoinsDisplay(Game.coins);
+        }
+        try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+        this.setTalentLevel(slotId, 1);
+        this._refreshAssistSlots();
+        const descEl = document.getElementById('assist-desc-text');
+        if (descEl) descEl.innerHTML = '<strong>' + slot.name + '</strong>（已替換）<br>' + slot.desc;
+        if (Game.player) this.applyTalentEffects(Game.player);
+        if (typeof UI !== 'undefined' && UI.updateTalentsList) UI.updateTalentsList();
+    },
+
+    initAssistWindow: function() {
+        const overlay = document.getElementById('assist-overlay');
+        if (!overlay) return;
+        const closeBtn = document.getElementById('assist-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                this.hideAssistWindow();
+            });
+        }
+        this._assistSlots.forEach(slot => {
+            const btn = overlay.querySelector('.assist-slot[data-assist-id="' + slot.id + '"]');
+            if (!btn) return;
+            btn.addEventListener('click', () => this._handleAssistSlotClick(slot.id));
+            btn.addEventListener('dblclick', () => this._handleAssistSlotDblClick(slot.id));
+        });
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                try { if (typeof AudioManager !== 'undefined') AudioManager.playSound('button_click'); } catch(_){}
+                this.hideAssistWindow();
+            }
+        });
     }
 };
 
@@ -1246,6 +1415,10 @@ if (!TalentSystem.getHighestTierDescription) {
             return lv > 0 ? '專屬系統已解鎖，點擊進入專屬強化。' : '需要「專屬之路」成就來解鎖專屬系統。';
         } else if (id === 'awakening_enhance') {
             return lv > 0 ? '覺醒系統已解鎖，點擊進入覺醒強化。' : '需要「覺醒之路」成就來解鎖覺醒系統。';
+        } else if (id === 'assist_enhance') {
+            return lv > 0 ? '輔助系統已解鎖，點擊進入輔助強化。' : '需先達成「輔助之路」成就才能解鎖。';
+        } else if (id === 'sing_advanced') {
+            return lv > 0 ? '唱歌補血改為%數：補10HP→補10%HP。' : '雙擊替換：唱歌補血改為%數。';
         } else if (id === 'awakening_hp') {
             return lv > 0 ? '生存模式 HP+3000（已解鎖）' : '生存模式 HP+3000';
         } else if (id === 'awakening_regen') {
