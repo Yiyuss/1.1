@@ -756,6 +756,26 @@
                     return;
                 }
 
+                // 融合技能：重力塌縮（斬擊LV10+黑洞粒子LV10，成就解鎖）
+                if (this.type === 'GRAVITY_COLLAPSE') {
+                    const nearestEnemy = this.findNearestEnemy();
+                    const angle = nearestEnemy
+                        ? Utils.angle(this.player.x, this.player.y, nearestEnemy.x, nearestEnemy.y)
+                        : 0;
+                    const projectile = new GravityCollapseProjectile(
+                        this.player.x,
+                        this.player.y,
+                        angle,
+                        this.level,
+                        this.player
+                    );
+                    Game.addProjectile(projectile);
+                    if (this.player && !this.player._isRemotePlayer && typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+                        AudioManager.playSound('gravity_collapse');
+                    }
+                    return;
+                }
+
                 // 特殊技能：雷射
                 if (this.type === 'LASER') {
                     // 朝最近敵人方向；若無敵人則向右
@@ -1600,6 +1620,10 @@
             const frenzyIceBallExtra = (this.type === 'FRENZY_ICE_BALL')
                 ? (1 * Math.max(1, this.level))
                 : 0;
+            // 重力塌縮：每等 +1 基礎傷害（LV1=2, LV2=3, ..., LV10=11）
+            const gravityCollapseExtra = (this.type === 'GRAVITY_COLLAPSE')
+                ? (1 * Math.max(0, this.level - 1))
+                : 0;
             // 引力波：每等 +1 基礎傷害（LV10 累計 +10）
             const gravityWaveExtra = (this.type === 'GRAVITY_WAVE')
                 ? (1 * Math.max(1, this.level))
@@ -1730,7 +1754,7 @@
 
             const lvPct = Math.max(0, (levelMul || 1) - 1);
             const percentSum = lvPct + talentPct + attrPct;
-            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityWaveExtra + innateTemperamentExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + whiteRainbowBeamExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat + gabrielOrbitFlat + weddingCallOrbitFlat + awakeningAttackFlat;
+            const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityCollapseExtra + gravityWaveExtra + innateTemperamentExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + whiteRainbowBeamExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat + gabrielOrbitFlat + weddingCallOrbitFlat + awakeningAttackFlat;
             const value = baseFlat * (1 + percentSum);
             return value;
         };
