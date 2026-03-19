@@ -178,6 +178,20 @@
                     }
                     return;
                 }
+                // 特殊技能：吞噬之力（熙歌專屬，效果與音效同唱歌、幼妲光輝）
+                if (this.type === 'DEVOURING_POWER') {
+                    const heal = this.level;
+                    this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                    if (typeof UI !== 'undefined') {
+                        UI.updateHealthBar(this.player.health, this.player.maxHealth);
+                    }
+                    const effect = new DevouringPowerEffect(this.player, this.config.DURATION || 2000);
+                    Game.addProjectile(effect);
+                    if (this.player && !this.player._isRemotePlayer && typeof AudioManager !== 'undefined') {
+                        AudioManager.playSound('sing_cast'); // 與唱歌、幼妲光輝相同音效
+                    }
+                    return;
+                }
                 // 特殊技能：召喚AI（一次性召喚，持續到遊戲結束）
                 if (this.type === 'SUMMON_AI') {
                     // 檢查是否已經召喚過AI（避免重複召喚）
