@@ -345,6 +345,10 @@ const ResourceLoader = {
             { name: 'A77', src: 'assets/images/A77.png' },
             { name: 'A78', src: 'assets/images/A78.png' },
             { name: 'A79', src: 'assets/images/A79.png' },
+            { name: 'A80', src: 'assets/images/A80.png' },
+            { name: 'A81start', src: 'assets/images/A81start.png' },
+            { name: 'A81loop', src: 'assets/images/A81loop.png' },
+            { name: 'A81end', src: 'assets/images/A81end.png' },
             { name: 'AI', src: 'assets/images/AI.png' },
             { name: 'AI2', src: 'assets/images/AI2.png' },
             { name: 'AI3', src: 'assets/images/AI3.png' },
@@ -455,7 +459,8 @@ const ResourceLoader = {
             { name: 'boss_cooldown', src: 'assets/audio/BOSS.mp3' },
             { name: 'playerN2', src: 'assets/audio/playerN2.mp3' },
             { name: 'car', src: 'assets/audio/car.mp3' },
-            { name: 'FBI', src: 'assets/audio/FBI.mp3' }
+            { name: 'FBI', src: 'assets/audio/FBI.mp3' },
+            { name: 'gravity_collapse', src: 'assets/audio/A.mp3' }
         ];
     },
 
