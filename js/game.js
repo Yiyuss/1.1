@@ -4328,6 +4328,11 @@ const Game = {
      */
     addCoins: function (amount) {
         const inc = Math.max(0, Math.floor(amount || 0));
+        // 森森鈴蘭為作弊角色：生存模式下不獲得金幣
+        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function') ? GameModeManager.getCurrent() : null;
+        const isSurvivalMode = (activeId === 'survival' || activeId === null);
+        const charId = (this.selectedCharacter && this.selectedCharacter.id) ? this.selectedCharacter.id : null;
+        if (isSurvivalMode && charId === 'lilylinglan') return;
         // ✅ MMORPG 架構：多人模式下共享金幣，所有玩家都獲得相同數量的金幣
         // 金幣通過狀態同步（tick 函數）同步給其他玩家
         this.coins = (this.coins || 0) + inc;
