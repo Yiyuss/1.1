@@ -71,6 +71,7 @@ const CONFIG = {
             WEDDING_CALL_ORBIT: 'assets/images/A72.png',
             RAINBOW_RESONANCE: 'assets/images/A58.png',
             DARK_MATTER: 'assets/images/A75.png',
+            BLACK_HOLE_PARTICLE: 'assets/images/A76.png',
             FBI: 'assets/images/A59.png',
             WHITE_NIGHT_BEAM: 'assets/images/A60.png',
             WHITE_RAINBOW_BEAM: 'assets/images/A63.png',
@@ -250,6 +251,32 @@ const CONFIG = {
                 { COUNT: 8, DESCRIPTION: "每2秒發射8隻紳士綿羊" },
                 { COUNT: 9, DESCRIPTION: "每2秒發射9隻紳士綿羊" },
                 { COUNT: 10, DESCRIPTION: "每2秒發射10隻紳士綿羊" }
+            ]
+        },
+        // 新武器：黑洞粒子（熙歌專屬技能；投射方式與紳士綿羊相同，穿透不消失、無緩速、投射物A77雪碧圖8x8共60幀100x100）
+        BLACK_HOLE_PARTICLE: {
+            NAME: "黑洞粒子",
+            DAMAGE: 20, // 與紳士綿羊相同
+            COOLDOWN: 2000, // 與紳士綿羊相同
+            PROJECTILE_SPEED: 6, // 與紳士綿羊相同
+            PROJECTILE_SIZE: 64, // LV1 起 64px，等級越高體積越大
+            PROJECTILE_SIZE_PER_LEVEL: 4, // 每升1級體積+4
+            PIERCE: true, // 穿透：碰到怪不消失，一路穿過
+            SPRITE_ROWS: 8,
+            SPRITE_COLS: 8,
+            SPRITE_FRAME_COUNT: 60,
+            SPRITE_FRAME_SIZE: 100,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每2秒發射1個黑洞粒子" },
+                { COUNT: 2, DESCRIPTION: "每2秒發射2個黑洞粒子" },
+                { COUNT: 3, DESCRIPTION: "每2秒發射3個黑洞粒子" },
+                { COUNT: 4, DESCRIPTION: "每2秒發射4個黑洞粒子" },
+                { COUNT: 5, DESCRIPTION: "每2秒發射5個黑洞粒子" },
+                { COUNT: 6, DESCRIPTION: "每2秒發射6個黑洞粒子" },
+                { COUNT: 7, DESCRIPTION: "每2秒發射7個黑洞粒子" },
+                { COUNT: 8, DESCRIPTION: "每2秒發射8個黑洞粒子" },
+                { COUNT: 9, DESCRIPTION: "每2秒發射9個黑洞粒子" },
+                { COUNT: 10, DESCRIPTION: "每2秒發射10個黑洞粒子" }
             ]
         },
         LIGHTNING: {
@@ -1404,14 +1431,14 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10,
-            description: `角色介紹：好奇心旺盛的黑洞，可以吞噬一切！\n專屬技能：婚叫、暗物質`,
+            description: `角色介紹：好奇心旺盛的黑洞，可以吞噬一切！\n專屬技能：婚叫、暗物質、黑洞粒子`,
             avatarImageKey: 'player9-2',
             hudImageKey: 'player9-2',
             spriteImageKey: 'player9',
             levelUpBgKey: 'player9-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: ['WEDDING_CALL_ORBIT', 'DARK_MATTER'],
+            exclusiveWeapons: ['WEDDING_CALL_ORBIT', 'DARK_MATTER', 'BLACK_HOLE_PARTICLE'],
             unlockCost: 10000
         }
     ],
