@@ -157,6 +157,11 @@ class Projectile extends Entity {
         } catch (_) {}
         for (const enemy of _candidates) {
             if (this.isColliding(enemy)) {
+                // 黑洞粒子（BLACK_HOLE_PARTICLE）穿透：同一敵人只傷害一次，不銷毀投射物
+                if (this.pierce && this._hitEnemyIds) {
+                    if (this._hitEnemyIds[enemy.id]) continue;
+                    this._hitEnemyIds[enemy.id] = true;
+                }
                 // ✅ 權威伺服器模式：投射物傷害由伺服器權威處理
                 // 單機模式：直接造成傷害並顯示傷害數字
                 // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器 hitEvents 處理
@@ -228,10 +233,10 @@ class Projectile extends Entity {
                 }
                 // 多人模式：傷害由伺服器權威處理，伺服器透過 hitEvents 返回傷害數字
                 
-                // 紳士綿羊（FIREBALL）命中未被消滅的敵人時施加暫時減速（使用設定值）
+                // 紳士綿羊（FIREBALL）命中未被消滅的敵人時施加暫時減速（使用設定值）；黑洞粒子無緩速
                 let slowMs = null;
                 let slowFactor = null;
-                if (this.weaponType === 'FIREBALL' && enemy.health > 0 && typeof enemy.applySlow === 'function') {
+                if (this.weaponType === 'FIREBALL' && !this.pierce && enemy.health > 0 && typeof enemy.applySlow === 'function') {
                     const cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.FIREBALL) || {};
                     slowMs = (typeof cfg.SLOW_DURATION_MS === 'number') ? cfg.SLOW_DURATION_MS : 1000;
                     slowFactor = (typeof cfg.SLOW_FACTOR === 'number') ? cfg.SLOW_FACTOR : 0.5;
@@ -241,8 +246,8 @@ class Projectile extends Entity {
                 // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再發送 enemy_damage
                 // 減速效果由伺服器權威處理，客戶端只顯示視覺效果
 
-                // 紳士綿羊（FIREBALL）命中時觸發小範圍擴散傷害（不爆擊）
-                if (this.weaponType === 'FIREBALL' && typeof Game !== 'undefined' && Array.isArray(Game.enemies)) {
+                // 紳士綿羊（FIREBALL）命中時觸發小範圍擴散傷害（不爆擊）；黑洞粒子無擴散
+                if (this.weaponType === 'FIREBALL' && !this.pierce && typeof Game !== 'undefined' && Array.isArray(Game.enemies)) {
                     try {
                         const cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.FIREBALL) || {};
                         const mul = (typeof cfg.SPLASH_RADIUS_MULTIPLIER === 'number') ? cfg.SPLASH_RADIUS_MULTIPLIER : 2.6;
@@ -285,6 +290,10 @@ class Projectile extends Entity {
                     } catch (_) {}
                 }
 
+                // 穿透投射物（黑洞粒子）：不銷毀，繼續飛行
+                if (this.pierce) {
+                    break; // 跳出此碰撞循環，不執行 destroy
+                }
                 // 維護註解：追蹤綿羊（LIGHTNING）命中時的爆炸特效與音效
                 // 依賴與安全性：
                 // - 使用 Game.explosionParticles 現有更新/繪製管線，不新增新型別。
@@ -421,6 +430,33 @@ class Projectile extends Entity {
         let sy = (this.y - camY) * scaleY;
         if (canvas && (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin)) { ctx.restore(); return; }
         
+        // ✅ 根據角度旋轉投射物（讓投射物朝向正確方向）
+        // 雪碧圖設計朝左的投射物（黑洞粒子、紳士綿羊）需加 π，否則頭部會朝內
+        const rotOffset = (this.weaponType === 'BLACK_HOLE_PARTICLE' || this.weaponType === 'FIREBALL') ? Math.PI : 0;
+        ctx.translate(this.x, this.y);
+        ctx.rotate((this.angle || 0) + rotOffset);
+        
+        // 黑洞粒子（BLACK_HOLE_PARTICLE）：A77雪碧圖 8x8 共60幀 100x100
+        if (this.weaponType === 'BLACK_HOLE_PARTICLE') {
+            const spriteSheet = (Game && Game.images && Game.images['A77']) ? Game.images['A77'] : null;
+            const size = Math.max(64, this.size || this.width || this.height || 64);
+            if (spriteSheet && spriteSheet.complete && spriteSheet.naturalWidth > 0) {
+                const rows = 8, cols = 8, frameCount = 60, frameSize = 100;
+                const frameDuration = 33; // 50ms → 33ms，動畫速度加快約 50%
+                const elapsed = Date.now() - (this._spawnTime || 0);
+                const frameIndex = Math.min(frameCount - 1, Math.floor(elapsed / frameDuration) % frameCount);
+                const row = Math.floor(frameIndex / cols);
+                const col = frameIndex % cols;
+                ctx.drawImage(spriteSheet, col * frameSize, row * frameSize, frameSize, frameSize, -size / 2, -size / 2, size, size);
+            } else {
+                ctx.fillStyle = '#1a0a2e';
+                ctx.beginPath();
+                ctx.arc(0, 0, size / 2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+            return;
+        }
         // 優先使用圖片繪製（1:1比例）
         let imageName = null;
         switch(this.weaponType) {
@@ -446,10 +482,6 @@ class Projectile extends Entity {
                 imageName = 'A51';
                 break;
         }
-        
-        // ✅ 根據角度旋轉投射物（讓投射物朝向正確方向）
-        ctx.translate(this.x, this.y);
-        ctx.rotate(this.angle || 0);
         
         if (imageName && Game.images && Game.images[imageName]) {
             const size = Math.max(this.width, this.height);
@@ -482,11 +514,12 @@ class Projectile extends Entity {
             ctx.fill();
         }
         
-        // 繪製尾跡效果（避免蓋在圖片上：LIGHTNING/法棍投擲/紳士綿羊(FIREBALL)/應援棒(DAGGER)/鬆餅投擲(MUFFIN_THROW)/心意傳遞(HEART_TRANSMISSION)不畫尾跡）
+        // 繪製尾跡效果（避免蓋在圖片上：LIGHTNING/法棍投擲/紳士綿羊(FIREBALL)/黑洞粒子/應援棒(DAGGER)/鬆餅投擲(MUFFIN_THROW)/心意傳遞(HEART_TRANSMISSION)不畫尾跡）
         const shouldDrawTail = !(
             this.weaponType === 'LIGHTNING' ||
             this.weaponType === 'BAGUETTE_THROW' ||
             this.weaponType === 'FIREBALL' ||
+            this.weaponType === 'BLACK_HOLE_PARTICLE' ||
             this.weaponType === 'DAGGER' ||
             this.weaponType === 'MUFFIN_THROW' ||
             this.weaponType === 'HEART_TRANSMISSION' ||
