@@ -1197,7 +1197,8 @@ const Game = {
                 projectile.weaponType === 'FBI' ||
                 projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
                 projectile.weaponType === 'WHITE_RAINBOW_BEAM' ||
-                projectile.weaponType === 'BLACK_HOLE_PARTICLE' // 圖層在怪物上方
+                projectile.weaponType === 'BLACK_HOLE_PARTICLE' || // 圖層在怪物上方
+                projectile.weaponType === 'GRAVITY_COLLAPSE' // 圖層在怪物上方
             ) {
                 // 延後到前景層（敵人之上）再繪製
                 continue;
@@ -1350,7 +1351,8 @@ const Game = {
                 projectile.weaponType === 'FBI' ||
                 projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
                 projectile.weaponType === 'WHITE_RAINBOW_BEAM' ||
-                projectile.weaponType === 'BLACK_HOLE_PARTICLE'
+                projectile.weaponType === 'BLACK_HOLE_PARTICLE' ||
+                projectile.weaponType === 'GRAVITY_COLLAPSE'
             ) {
                 try {
                     projectile.draw(this.ctx);
@@ -1751,6 +1753,7 @@ const Game = {
                     projectile.weaponType === 'RADIANT_GLORY' ||
                     projectile.weaponType === 'BIG_ICE_BALL' ||
                     projectile.weaponType === 'FRENZY_ICE_BALL' ||
+                    projectile.weaponType === 'GRAVITY_COLLAPSE' ||
                     projectile.weaponType === 'MIND_MAGIC' ||
                     // ✅ 修復：CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH、INVINCIBLE、SING 是特殊視覺效果，不應發送到伺服器作為標準投射物
                     projectile.weaponType === 'CHAIN_LIGHTNING' ||
@@ -2151,6 +2154,7 @@ const Game = {
                         projectile.weaponType === 'RADIANT_GLORY' ||
                         projectile.weaponType === 'BIG_ICE_BALL' ||
                         projectile.weaponType === 'FRENZY_ICE_BALL' ||
+                        projectile.weaponType === 'GRAVITY_COLLAPSE' ||
                         projectile.weaponType === 'MIND_MAGIC' ||
                         // ✅ 修復：CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH、INVINCIBLE、SING 是特殊視覺效果，不應發送到伺服器作為標準投射物
                         projectile.weaponType === 'CHAIN_LIGHTNING' ||
@@ -2436,6 +2440,14 @@ const Game = {
                         projectileData.flightTimeMs = projectile.flightTimeMs || 1000;
                         projectileData.weaponLevel = projectile.weaponLevel || 1;
                         projectileData.isFrenzyIceBall = (projectile.weaponType === "FRENZY_ICE_BALL");
+                    }
+
+                    // 如果是重力塌縮（GravityCollapseProjectile），添加額外屬性
+                    if (projectile.weaponType === "GRAVITY_COLLAPSE") {
+                        projectileData.angle = projectile.angle || 0;
+                        projectileData.weaponLevel = projectile.weaponLevel || 1;
+                        projectileData.duration = projectile.durationMs || 3000;
+                        projectileData.radius = projectile.radius || 304;
                     }
 
                     // 如果是幼妲光輝（YoungDadaGloryEffect），添加額外屬性
@@ -3229,6 +3241,10 @@ const Game = {
                 // 白白虹通關廁所：解鎖白虹光束成就
                 if (charId === 'baibaihong' && mapId === 'city') {
                     Achievements.unlock('BAIBAIHONG_CITY_CLEAR');
+                }
+                // 熙歌通關廁所：解鎖重力塌縮成就
+                if (charId === 'cygnus' && mapId === 'city') {
+                    Achievements.unlock('CYGNUS_CITY_CLEAR');
                 }
                 // 灰妲通關草原：解鎖幼妲天使成就
                 if (charId === 'dada' && mapId === 'forest') {
