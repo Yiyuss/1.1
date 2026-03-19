@@ -203,6 +203,16 @@ const Input = {
     getMovementDirection: function() {
         const direction = { x: 0, y: 0 };
         
+        // ✅ 修復：當玩家按下 WASD/方向鍵時，立即取消滑鼠目標，避免「點擊障礙物後卡住、WASD 失效」的問題
+        // 根因：點擊障礙物方向時，玩家被碰撞阻擋無法到達目標，distance 永遠 >= 5，isMouseMoving 恆為 true，
+        //       每幀都回傳滑鼠方向並提前 return，導致 WASD 從未被檢查。
+        const hasKeyboardInput = this.isKeyDown('ArrowUp') || this.isKeyDown('ArrowDown') || this.isKeyDown('ArrowLeft') || this.isKeyDown('ArrowRight') ||
+            this.isKeyDown('w') || this.isKeyDown('W') || this.isKeyDown('s') || this.isKeyDown('S') || this.isKeyDown('a') || this.isKeyDown('A') || this.isKeyDown('d') || this.isKeyDown('D');
+        if (hasKeyboardInput && this.isMouseMoving && this.mouseTarget) {
+            this.isMouseMoving = false;
+            this.mouseTarget = null;
+        }
+        
         // 處理滑鼠移動
         if (this.isMouseMoving && this.mouseTarget) {
             // 計算玩家到目標點的向量
