@@ -73,6 +73,7 @@ const CONFIG = {
             DARK_MATTER: 'assets/images/A75.png',
             BLACK_HOLE_PARTICLE: 'assets/images/A76.png',
             DEVOURING_POWER: 'assets/images/A78.png',
+            GRAVITY_COLLAPSE: 'assets/images/A80.png',
             FBI: 'assets/images/A59.png',
             WHITE_NIGHT_BEAM: 'assets/images/A60.png',
             WHITE_RAINBOW_BEAM: 'assets/images/A63.png',
@@ -1125,6 +1126,36 @@ const CONFIG = {
                 { COUNT: 8, DESCRIPTION: "每2.4秒降下8顆星隕" },
                 { COUNT: 9, DESCRIPTION: "每2.4秒降下9顆星隕" },
                 { COUNT: 10, DESCRIPTION: "每2.4秒降下10顆星隕" }
+            ]
+        },
+        // 融合技能：重力塌縮（斬擊LV10+黑洞粒子LV10，成就解鎖）
+        GRAVITY_COLLAPSE: {
+            NAME: "重力塌縮",
+            DAMAGE: 2, // 基礎傷害（與大波球LV10相同），每升1級+1
+            COOLDOWN: 5000, // 與大波球LV10相同
+            MAX_RANGE: 500, // 射程500像素
+            DURATION: 3000, // 持續3秒
+            // 範圍：大波球LV10的156 * 1.5 * 1.3 = 304（再擴增30%）
+            FIELD_RADIUS: 304,
+            SLOW_FACTOR: 0.5, // 與大波球LV10相同
+            SLOW_DURATION_MS: 1000,
+            TICK_INTERVAL_MS: 120,
+            // 雪碧圖：A81start(1x8), A81loop(1x5), A81end(1x6)，每張128x128
+            SPRITE_START_FRAMES: 8,
+            SPRITE_LOOP_FRAMES: 5,
+            SPRITE_END_FRAMES: 6,
+            SPRITE_FRAME_SIZE: 128,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每5秒射出重力球，範圍304px，緩速+持續傷害，基礎攻擊+1" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+2" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+3" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+4" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+5" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+6" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+7" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+8" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+9" },
+                { COUNT: 1, DESCRIPTION: "基礎攻擊+10" }
             ]
         },
         // 融合技能：狂熱大波（持有並滿級 應援棒(DAGGER) 與 大波球(BIG_ICE_BALL) 後可獲得）
