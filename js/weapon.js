@@ -150,7 +150,16 @@
                 }
                 // 特殊技能：唱歌（不造成傷害，恢復HP並產生音符特效）
                 if (this.type === 'SING') {
-                    const heal = this.level;
+                    let heal;
+                    const singAdvancedLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                        ? TalentSystem.getTalentLevel('sing_advanced') : 0;
+                    if (singAdvancedLv > 0) {
+                        // 唱歌進階：補血改為%數，LV1~LV10 對應 +1%~+10%
+                        const pct = this.level / 100;
+                        heal = Math.max(1, Math.floor((this.player.maxHealth || 200) * pct));
+                    } else {
+                        heal = this.level;
+                    }
                     this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
                     if (typeof UI !== 'undefined') {
                         UI.updateHealthBar(this.player.health, this.player.maxHealth);
