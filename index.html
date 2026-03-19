@@ -1252,6 +1252,10 @@
             <img src="assets/images/A69.png" alt="專屬強化" class="grayscale" />
             <div class="char-name">專屬強化</div>
           </button>
+          <button class="char-card selectable locked" data-talent-id="assist_enhance">
+            <img src="assets/images/A83.png" alt="輔助強化" class="grayscale" />
+            <div class="char-name">輔助強化</div>
+          </button>
           <button class="char-card selectable locked" data-talent-id="awakening_enhance">
             <img src="assets/images/A65.jpg" alt="覺醒強化" class="grayscale" />
             <div class="char-name">覺醒強化</div>
@@ -1421,6 +1425,35 @@
         </div>
         <div style="text-align:center;">
           <button id="exclusive-close" class="ghost" style="padding:8px 28px;font-size:14px;">返回</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 輔助系統視窗（覆蓋式，與覺醒系統相同排版） -->
+    <div id="assist-overlay" class="hidden" aria-hidden="true"
+      style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;">
+      <div style="width:min(520px,94vw);max-height:90vh;overflow-y:auto;padding:24px 20px;background:linear-gradient(135deg,rgba(20,20,40,0.97),rgba(30,15,50,0.97));border:2px solid rgba(255,215,0,0.35);border-radius:16px;box-shadow:0 12px 24px rgba(0,0,0,0.6);">
+        <h2 style="text-align:center;color:#ffd700;margin:0 0 6px;font-size:22px;text-shadow:0 0 12px rgba(255,215,0,0.4);">輔助系統</h2>
+        <p style="text-align:center;color:rgba(255,255,255,0.6);font-size:13px;margin:0 0 16px;">解鎖輔助系統，進階輔助技能（替換原本技能）。</p>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+          <button class="assist-slot locked" data-assist-id="sing_advanced"
+            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
+            <img src="assets/images/A1.png" alt="唱歌進階" class="grayscale"
+              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
+            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">唱歌進階</div>
+            <div class="assist-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未替換</div>
+          </button>
+          <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">空格</div>
+          <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">空格</div>
+          <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">空格</div>
+          <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">空格</div>
+          <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">空格</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px 16px;margin-bottom:16px;min-height:60px;">
+          <p id="assist-desc-text" style="color:rgba(255,255,255,0.8);font-size:13px;line-height:1.6;margin:0;">點選輔助格子查看詳細說明。</p>
+        </div>
+        <div style="text-align:center;">
+          <button id="assist-close" class="ghost" style="padding:8px 28px;font-size:14px;">返回</button>
         </div>
       </div>
     </div>
