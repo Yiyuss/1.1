@@ -114,7 +114,7 @@ const BuffSystem = {
                 const mul = BuffSystem._getTierEffect('regen_speed_boost', lv, 'multiplier', 1.0) || 1.0;
                 // 將倍率轉換為加成百分比（例如 2.30 → +130%）
                 const talentBoost = mul - 1.0;
-                // 與心意相通/腎上腺素技能疊加（加算，不是乘算）
+                // 與心意相通/腎上腺素/虹光共鳴/暗物質技能疊加（加算，不是乘算）
                 // 確保技能倍率存在且有效（如果沒有該技能，應該是 1.0）
                 const skillMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 0)
                     ? player._heartConnectionRegenMultiplier 
@@ -129,7 +129,7 @@ const BuffSystem = {
                 }
             },
             remove: function(player) {
-                // 移除時，如果還有心意相通/腎上腺素，保留技能倍率
+                // 移除時，如果還有心意相通/腎上腺素/虹光共鳴/暗物質，保留技能倍率
                 const skillMul = (player._heartConnectionRegenMultiplier != null && player._heartConnectionRegenMultiplier > 0)
                     ? player._heartConnectionRegenMultiplier 
                     : 1.0;
@@ -398,11 +398,11 @@ const BuffSystem = {
             // 這樣可以確保生命值只被計算一次，不會被重置
             this.applyAttributeUpgrades(player);
             
-            // 處理心意相通/腎上腺素技能的回血速度提升
+            // 處理心意相通/腎上腺素/虹光共鳴/暗物質技能的回血速度提升
             // 先清除技能倍率（確保沒有殘留值）
             player._heartConnectionRegenMultiplier = 1.0;
             if (player.weapons && Array.isArray(player.weapons)) {
-                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE' || w.type === 'RAINBOW_RESONANCE'));
+                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE' || w.type === 'RAINBOW_RESONANCE' || w.type === 'DARK_MATTER'));
                 if (regenSkillWeapon) {
                     // 確保 config 存在（如果沒有，從 CONFIG.WEAPONS 獲取）
                     const config = regenSkillWeapon.config || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[regenSkillWeapon.type]) ? CONFIG.WEAPONS[regenSkillWeapon.type] : null;
@@ -528,18 +528,18 @@ const BuffSystem = {
                 player.dodgeTalentRate = this._getTierEffect('dodge_enhance', dodgeLv, 'dodgeRate', 0) || 0;
             }
             
-            // 心意相通/腎上腺素/虹光共鳴技能：檢查玩家是否擁有該技能並應用回血速度提升
+            // 心意相通/腎上腺素/虹光共鳴/暗物質技能：檢查玩家是否擁有該技能並應用回血速度提升
             // 先清除技能倍率（確保沒有殘留值）
             player._heartConnectionRegenMultiplier = 1.0;
             if (player.weapons && Array.isArray(player.weapons)) {
-                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE' || w.type === 'RAINBOW_RESONANCE'));
+                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE' || w.type === 'RAINBOW_RESONANCE' || w.type === 'DARK_MATTER'));
                 if (regenSkillWeapon) {
                     // 確保 config 存在（如果沒有，從 CONFIG.WEAPONS 獲取）
                     const config = regenSkillWeapon.config || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[regenSkillWeapon.type]) ? CONFIG.WEAPONS[regenSkillWeapon.type] : null;
                     if (config) {
-                        const boostPerLevel = config.REGEN_SPEED_BOOST_PER_LEVEL || 0.20;
+                        const boostPerLevel = config.REGEN_SPEED_BOOST_PER_LEVEL || 0.30;
                         const level = regenSkillWeapon.level || 1;
-                        // 計算技能倍率（例如 LV10: 1.0 + 0.20 * 10 = 3.0）
+                        // 計算技能倍率（例如 LV10: 1.0 + 0.30 * 10 = 4.0）
                         const totalBoost = 1.0 + (boostPerLevel * level);
                         player._heartConnectionRegenMultiplier = totalBoost;
                     }
