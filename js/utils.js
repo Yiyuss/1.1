@@ -174,6 +174,44 @@ const Utils = {
         return (dx * dx + dy * dy) <= r * r;
     },
 
+    /**
+     * 圓形與 AABB 重疊解析：回傳需加在圓心上的位移 (dx, dy)，使圓不再與矩形重疊。
+     * 用於變身大招體型變大後，將玩家推出障礙物，避免卡住。
+     * @returns {{ dx: number, dy: number }}
+     */
+    circleRectResolve: function (cx, cy, r, rx, ry, rw, rh) {
+        const halfW = rw / 2;
+        const halfH = rh / 2;
+        const left = rx - halfW;
+        const right = rx + halfW;
+        const top = ry - halfH;
+        const bottom = ry + halfH;
+        const closestX = Utils.clamp(cx, left, right);
+        const closestY = Utils.clamp(cy, top, bottom);
+        const dx = cx - closestX;
+        const dy = cy - closestY;
+        const distSq = dx * dx + dy * dy;
+        if (distSq >= r * r) return { dx: 0, dy: 0 };
+        const dist = Math.sqrt(distSq);
+        if (dist < 1e-6) {
+            // 圓心在矩形內：朝最近邊緣推出
+            const overlapLeft = r - (cx - left);
+            const overlapRight = r - (right - cx);
+            const overlapTop = r - (cy - top);
+            const overlapBottom = r - (bottom - cy);
+            const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+            if (minOverlap <= 0) return { dx: 0, dy: 0 };
+            if (minOverlap === overlapLeft) return { dx: -overlapLeft, dy: 0 };
+            if (minOverlap === overlapRight) return { dx: overlapRight, dy: 0 };
+            if (minOverlap === overlapTop) return { dx: 0, dy: -overlapTop };
+            return { dx: 0, dy: overlapBottom };
+        }
+        const penetration = r - dist;
+        const nx = dx / dist;
+        const ny = dy / dist;
+        return { dx: nx * penetration, dy: ny * penetration };
+    },
+
     // 射線與AABB相交（傳回最小正t，如無交集回Infinity）
     rayAABBIntersection: function (sx, sy, dx, dy, left, top, right, bottom) {
         // 以slab方法計算
