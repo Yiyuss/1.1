@@ -3267,6 +3267,10 @@ const Game = {
                 if (mapId === 'intersection') {
                     Achievements.unlock('INTERSECTION_CLEAR');
                 }
+                // 任一角色通關宇宙地圖：解鎖輔助之路成就
+                if (mapId === 'desert') {
+                    Achievements.unlock('ASSIST_PATH');
+                }
             }
         } catch (_) { }
         UI.showVictoryScreen();
