@@ -2936,6 +2936,7 @@ const Runtime = (() => {
                 // 任一角色通關草原地圖：解鎖專屬之路成就
                 if (mapId === 'forest') Achievements.unlock('EXCLUSIVE_PATH');
                 if (mapId === 'intersection') Achievements.unlock('INTERSECTION_CLEAR');
+                if (mapId === 'desert') Achievements.unlock('ASSIST_PATH');
               }
             } catch (_) {}
             // 顯示勝利畫面
