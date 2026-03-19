@@ -1261,6 +1261,31 @@ const UI = {
             }
         } catch (_) {}
 
+        // 森森鈴蘭為作弊角色：可直接取得五個融合技能（無需前置武器與成就），並僅顯示 allowedUpgradeTypes 內的選項
+        if (ch && ch.id === 'lilylinglan' && Array.isArray(ch.allowedUpgradeTypes)) {
+            const cheatFusions = [
+                { type: 'MIND_MAGIC', cfg: CONFIG.WEAPONS['MIND_MAGIC'] },
+                { type: 'GRAVITY_WAVE', cfg: CONFIG.WEAPONS['GRAVITY_WAVE'] },
+                { type: 'FRENZY_LIGHTNING', cfg: CONFIG.WEAPONS['FRENZY_LIGHTNING'] },
+                { type: 'FRENZY_SLASH', cfg: CONFIG.WEAPONS['FRENZY_SLASH'] },
+                { type: 'RADIANT_GLORY', cfg: CONFIG.WEAPONS['RADIANT_GLORY'] }
+            ];
+            for (const { type, cfg } of cheatFusions) {
+                const alreadyInOptions = options.some(o => o.type === type);
+                if (!playerWeaponTypes.includes(type) && !alreadyInOptions && cfg && Array.isArray(cfg.LEVELS) && cfg.LEVELS.length > 0) {
+                    options.push({ type, name: cfg.NAME, level: 1, description: cfg.LEVELS[0].DESCRIPTION });
+                }
+            }
+        }
+
+        // 森森鈴蘭為作弊角色：僅顯示 allowedUpgradeTypes 內的選項，其他角色不受影響
+        if (ch && ch.id === 'lilylinglan' && Array.isArray(ch.allowedUpgradeTypes)) {
+            const allowedSet = new Set(ch.allowedUpgradeTypes);
+            for (let i = options.length - 1; i >= 0; i--) {
+                if (!allowedSet.has(options[i].type)) options.splice(i, 1);
+            }
+        }
+
         // 每次升級隨機挑選4個（不足4則返回全部）
         const shuffled = Utils.shuffleArray(options);
         return shuffled.slice(0, 4);
