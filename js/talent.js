@@ -1034,7 +1034,16 @@ const TalentSystem = {
             const img = btn.querySelector('img');
             const statusEl = btn.querySelector('.exclusive-slot-status');
             if (lv > 0) {
-                if (img) { img.classList.remove('grayscale'); img.style.filter = ''; }
+                if (img) {
+                    img.classList.remove('grayscale');
+                    img.style.filter = '';
+                    img.style.boxShadow = '';
+                    if (lv >= max) {
+                        // LV6：比照覺醒系統視窗內的單純發光（無閃爍動畫）
+                        img.style.filter = 'saturate(1.2) brightness(1.05)';
+                        img.style.boxShadow = '0 0 12px rgba(255, 215, 0, 0.6), 0 0 20px rgba(255, 255, 255, 0.35)';
+                    }
+                }
                 if (statusEl) { statusEl.textContent = 'LV ' + lv + ' / ' + max; statusEl.style.color = '#4cff4c'; }
                 btn.classList.remove('locked');
             } else {
