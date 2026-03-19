@@ -72,6 +72,7 @@ const CONFIG = {
             RAINBOW_RESONANCE: 'assets/images/A58.png',
             DARK_MATTER: 'assets/images/A75.png',
             BLACK_HOLE_PARTICLE: 'assets/images/A76.png',
+            DEVOURING_POWER: 'assets/images/A78.png',
             FBI: 'assets/images/A59.png',
             WHITE_NIGHT_BEAM: 'assets/images/A60.png',
             WHITE_RAINBOW_BEAM: 'assets/images/A63.png',
@@ -186,6 +187,27 @@ const CONFIG = {
                 { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復8HP" },
                 { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復9HP" },
                 { COUNT: 1, DESCRIPTION: "每5秒施放一次唱歌，恢復10HP" }
+            ]
+        },
+        // 熙歌專屬：吞噬之力（效果與音效同唱歌、幼妲光輝，特效 A79 雪碧圖 1x12 共12幀 128x128）
+        DEVOURING_POWER: {
+            NAME: "吞噬之力",
+            DAMAGE: 0,
+            COOLDOWN: 5000,
+            PROJECTILE_SPEED: 0,
+            PROJECTILE_SIZE: 0,
+            DURATION: 2000,
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次吞噬之力，恢復1HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次吞噬之力，恢復2HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次吞噬之力，恢復3HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次吞噬之力，恢復4HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次吞噬之力，恢復5HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次吞噬之力，恢復6HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次吞噬之力，恢復7HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次吞噬之力，恢復8HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次吞噬之力，恢復9HP" },
+                { COUNT: 1, DESCRIPTION: "每5秒施放一次吞噬之力，恢復10HP" }
             ]
         },
         YOUNG_DADA_GLORY: {
@@ -1431,14 +1453,14 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10,
-            description: `角色介紹：好奇心旺盛的黑洞，可以吞噬一切！\n專屬技能：婚叫、暗物質、黑洞粒子`,
+            description: `角色介紹：好奇心旺盛的黑洞，可以吞噬一切！\n專屬技能：婚叫、暗物質、黑洞粒子、吞噬之力`,
             avatarImageKey: 'player9-2',
             hudImageKey: 'player9-2',
             spriteImageKey: 'player9',
             levelUpBgKey: 'player9-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: ['WEDDING_CALL_ORBIT', 'DARK_MATTER', 'BLACK_HOLE_PARTICLE'],
+            exclusiveWeapons: ['WEDDING_CALL_ORBIT', 'DARK_MATTER', 'BLACK_HOLE_PARTICLE', 'DEVOURING_POWER'],
             unlockCost: 10000
         }
     ],
