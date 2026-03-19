@@ -98,6 +98,13 @@ const Achievements = (function(){
       icon: 'assets/images/A63.png',
       reward: '解鎖「白虹光束」技能。'
     },
+    CYGNUS_CITY_CLEAR: {
+      id: 'CYGNUS_CITY_CLEAR',
+      name: '熙歌的勝利',
+      desc: '使用熙歌角色通關廁所。',
+      icon: 'assets/images/A80.png',
+      reward: '解鎖「重力塌縮」技能。'
+    },
     DEFENSE_LV1_CLEAR: {
       id: 'DEFENSE_LV1_CLEAR',
       name: '煉金坊守護者',
@@ -118,13 +125,6 @@ const Achievements = (function(){
       desc: '通關任一難度草原地圖。',
       icon: 'assets/images/A69.png',
       reward: '解鎖天賦「專屬強化」。'
-    },
-    CYGNUS_CITY_CLEAR: {
-      id: 'CYGNUS_CITY_CLEAR',
-      name: '熙歌的勝利',
-      desc: '使用熙歌角色通關廁所。',
-      icon: 'assets/images/A80.png',
-      reward: '解鎖「重力塌縮」技能。'
     }
   };
 
