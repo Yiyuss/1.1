@@ -340,6 +340,7 @@ const ResourceLoader = {
             { name: 'A62', src: 'assets/images/A62.png' },
             { name: 'A63', src: 'assets/images/A63.png' },
             { name: 'A64', src: 'assets/images/A64.png' },
+            { name: 'A75', src: 'assets/images/A75.png' },
             { name: 'AI', src: 'assets/images/AI.png' },
             { name: 'AI2', src: 'assets/images/AI2.png' },
             { name: 'AI3', src: 'assets/images/AI3.png' },
