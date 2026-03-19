@@ -435,6 +435,10 @@ const TalentSystem = {
         sing_advanced: {
             levels: [{ cost: 100000 }],
             isAssist: true, hidden: true
+        },
+        young_dada_glory_advanced: {
+            levels: [{ cost: 100000 }],
+            isAssist: true, hidden: true
         }
     },
     
@@ -1138,7 +1142,9 @@ const TalentSystem = {
     // ===== 輔助系統 =====
     _assistSlots: [
         { id: 'sing_advanced', name: '唱歌進階', icon: 'assets/images/A1.png', cost: 100000,
-          desc: '唱歌技能的補血量改為%數：補10HP→補10%HP。', effectDesc: '補血改為%數' }
+          desc: '唱歌技能的補血量改為%數：補10HP→補10%HP。', effectDesc: '補血改為%數' },
+        { id: 'young_dada_glory_advanced', name: '幼妲光輝進階', icon: 'assets/images/A20.png', cost: 100000,
+          desc: '幼妲光輝技能的補血量改為%數：補10HP→補10%HP。', effectDesc: '補血改為%數' }
     ],
     _assistWindowOpen: false,
 
@@ -1428,6 +1434,8 @@ if (!TalentSystem.getHighestTierDescription) {
             return lv > 0 ? '輔助系統已解鎖，點擊進入輔助強化。' : '需先達成「輔助之路」成就才能解鎖。';
         } else if (id === 'sing_advanced') {
             return lv > 0 ? '唱歌補血改為%數：補10HP→補10%HP。' : '雙擊替換：唱歌補血改為%數。';
+        } else if (id === 'young_dada_glory_advanced') {
+            return lv > 0 ? '幼妲光輝補血改為%數：補10HP→補10%HP。' : '雙擊替換：幼妲光輝補血改為%數。';
         } else if (id === 'awakening_hp') {
             return lv > 0 ? '生存模式 HP+3000（已解鎖）' : '生存模式 HP+3000';
         } else if (id === 'awakening_regen') {
