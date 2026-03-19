@@ -442,7 +442,7 @@ class Projectile extends Entity {
             const size = Math.max(64, this.size || this.width || this.height || 64);
             if (spriteSheet && spriteSheet.complete && spriteSheet.naturalWidth > 0) {
                 const rows = 8, cols = 8, frameCount = 60, frameSize = 100;
-                const frameDuration = 33; // 50ms → 33ms，動畫速度加快約 50%
+                const frameDuration = 20; // 50ms → 20ms
                 const elapsed = Date.now() - (this._spawnTime || 0);
                 const frameIndex = Math.min(frameCount - 1, Math.floor(elapsed / frameDuration) % frameCount);
                 const row = Math.floor(frameIndex / cols);
