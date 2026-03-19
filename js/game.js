@@ -1196,7 +1196,8 @@ const Game = {
                 projectile.weaponType === 'INTERSECTION_CAR' ||
                 projectile.weaponType === 'FBI' ||
                 projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
-                projectile.weaponType === 'WHITE_RAINBOW_BEAM'
+                projectile.weaponType === 'WHITE_RAINBOW_BEAM' ||
+                projectile.weaponType === 'BLACK_HOLE_PARTICLE' // 圖層在怪物上方
             ) {
                 // 延後到前景層（敵人之上）再繪製
                 continue;
@@ -1327,7 +1328,7 @@ const Game = {
             }
         }
 
-        // 前景層：連鎖閃電/狂熱雷擊/斬擊效果（電弧與火花/GIF）以及幼妲光輝/幼妲天使聖光特效/死線戰士特效/死線超人特效/裁決/神界裁決特效/路口車輛
+        // 前景層：連鎖閃電/狂熱雷擊/斬擊效果（電弧與火花/GIF）以及幼妲光輝/幼妲天使聖光特效/死線戰士特效/死線超人特效/裁決/神界裁決特效/路口車輛/黑洞粒子
         for (const projectile of this.projectiles) {
             // ⚠️ 修复：添加 null 检查，防止在清理过程中尝试绘制已被清理的投射物
             if (!projectile || typeof projectile.draw !== 'function') {
@@ -1348,7 +1349,8 @@ const Game = {
                 projectile.weaponType === 'INTERSECTION_CAR' ||
                 projectile.weaponType === 'FBI' ||
                 projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
-                projectile.weaponType === 'WHITE_RAINBOW_BEAM'
+                projectile.weaponType === 'WHITE_RAINBOW_BEAM' ||
+                projectile.weaponType === 'BLACK_HOLE_PARTICLE'
             ) {
                 try {
                     projectile.draw(this.ctx);
@@ -1836,6 +1838,7 @@ const Game = {
                         turnRatePerSec: projectile.turnRatePerSec || 0,
                         assignedTargetId: projectile.assignedTargetId || null,
                         maxDistance: projectile.maxDistance || 1000,
+                        pierce: projectile.pierce || false, // 黑洞粒子：穿透不消失
                         // ✅ 與單機同源：把玩家爆擊加成帶到伺服器，伺服器才能算出「真的有爆擊/傷害浮動」
                         allowCrit: true,
                         critChanceBonusPct: (this.player && typeof this.player.critChanceBonusPct === 'number') ? this.player.critChanceBonusPct : 0,
