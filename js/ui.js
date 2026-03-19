@@ -739,6 +739,7 @@ const UI = {
         const hasDeathlineSuperman = sourceWeaponsInfo.some(w => w.type === 'DEATHLINE_SUPERMAN');
         const hasPineappleSupplement = sourceWeaponsInfo.some(w => w.type === 'PINEAPPLE_SUPPLEMENT');
         const hasWhiteRainbowBeam = sourceWeaponsInfo.some(w => w.type === 'WHITE_RAINBOW_BEAM');
+        const hasGravityCollapse = sourceWeaponsInfo.some(w => w.type === 'GRAVITY_COLLAPSE');
         // 檢查召喚AI LV2：如果已合成召喚AI LV2，則隱藏連鎖閃電的升級選項
         const hasSummonAILv2 = sourceWeaponsInfo.some(w => w.type === 'SUMMON_AI' && typeof w.level === 'number' && w.level >= 2);
         // 檢查召喚AI LV1升級到LV2的條件（需要連鎖閃電LV10）
@@ -769,6 +770,7 @@ const UI = {
                     (hasRadiantGlory && (info.type === 'CHAIN_LIGHTNING' || info.type === 'LASER')) ||
                     (hasPineappleSupplement && (info.type === 'DAGGER' || info.type === 'ADRENALINE')) ||
                     (hasWhiteRainbowBeam && (info.type === 'LASER' || info.type === 'WHITE_NIGHT_BEAM')) ||
+                    (hasGravityCollapse && (info.type === 'SLASH' || info.type === 'BLACK_HOLE_PARTICLE')) ||
                     (hasSummonAILv2 && info.type === 'CHAIN_LIGHTNING')) continue;
             // 召喚AI特殊處理：只有滿足合成條件（連鎖閃電LV10）才能升級到LV2
             if (info.type === 'SUMMON_AI' && info.level === 1 && !canUpgradeSummonAIToLv2) {
@@ -812,6 +814,7 @@ const UI = {
                 (hasRadiantGlory && (weaponType === 'CHAIN_LIGHTNING' || weaponType === 'LASER')) ||
                 (hasPineappleSupplement && (weaponType === 'DAGGER' || weaponType === 'ADRENALINE')) ||
                 (hasWhiteRainbowBeam && (weaponType === 'LASER' || weaponType === 'WHITE_NIGHT_BEAM')) ||
+                (hasGravityCollapse && (weaponType === 'SLASH' || weaponType === 'BLACK_HOLE_PARTICLE')) ||
                 (hasSummonAILv2ForNew && weaponType === 'CHAIN_LIGHTNING')) continue;
             // 召喚AI技能：需要成就解鎖（星雲征服者）
             if (weaponType === 'SUMMON_AI') {
@@ -1178,6 +1181,30 @@ const UI = {
                         name: cfgWRB.NAME,
                         level: 1,
                         description: cfgWRB.LEVELS[0].DESCRIPTION
+                    });
+                }
+            }
+        } catch (_) {}
+
+        // 融合武器選項：重力塌縮（需成就解鎖 + 同時持有且等級達標的 斬擊(SLASH) 與 黑洞粒子(BLACK_HOLE_PARTICLE)）
+        try {
+            const hasGravityCollapseFusion = playerWeaponTypes.includes('GRAVITY_COLLAPSE');
+            const slashGC = sourceWeaponsInfo.find(w => w.type === 'SLASH');
+            const blackHoleParticle = sourceWeaponsInfo.find(w => w.type === 'BLACK_HOLE_PARTICLE');
+            const fusionUnlockedGC = (function(){
+                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('GRAVITY_COLLAPSE')); } catch(_) { return false; }
+            })();
+            const slashGCLevel = (slashGC && typeof slashGC.level === 'number') ? slashGC.level : 0;
+            const blackHoleParticleLevel = (blackHoleParticle && typeof blackHoleParticle.level === 'number') ? blackHoleParticle.level : 0;
+            const fusionReadyGC = (!!slashGC && !!blackHoleParticle && slashGCLevel >= 10 && blackHoleParticleLevel >= 10);
+            if (!hasGravityCollapseFusion && fusionReadyGC && fusionUnlockedGC) {
+                const cfgGC = CONFIG.WEAPONS['GRAVITY_COLLAPSE'];
+                if (cfgGC && Array.isArray(cfgGC.LEVELS) && cfgGC.LEVELS.length > 0) {
+                    options.push({
+                        type: 'GRAVITY_COLLAPSE',
+                        name: cfgGC.NAME,
+                        level: 1,
+                        description: cfgGC.LEVELS[0].DESCRIPTION
                     });
                 }
             }
@@ -1746,6 +1773,34 @@ const UI = {
                     player.upgradeWeapon('WHITE_RAINBOW_BEAM');
                 } else {
                     player.addWeapon('WHITE_RAINBOW_BEAM');
+                }
+            }
+            try { this.updateSkillsList(); } catch (_) {}
+            this._playClick();
+            this.hideLevelUpMenu();
+            return;
+        }
+
+        // 融合：重力塌縮（移除 斬擊(SLASH)/黑洞粒子(BLACK_HOLE_PARTICLE)，加入或升級 GRAVITY_COLLAPSE）
+        if (weaponType === 'GRAVITY_COLLAPSE') {
+            if (player.isUltimateActive && player._ultimateBackup) {
+                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+                player._ultimateBackup.weapons = list.filter(info => info.type !== 'SLASH' && info.type !== 'BLACK_HOLE_PARTICLE');
+                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'GRAVITY_COLLAPSE');
+                const cfgGC = CONFIG.WEAPONS['GRAVITY_COLLAPSE'];
+                if (idx >= 0) {
+                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                    if (cfgGC && curLv < cfgGC.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+                } else {
+                    player._ultimateBackup.weapons.push({ type: 'GRAVITY_COLLAPSE', level: 1 });
+                }
+            } else {
+                player.weapons = (player.weapons || []).filter(w => w.type !== 'SLASH' && w.type !== 'BLACK_HOLE_PARTICLE');
+                const existingGC = player.weapons.find(w => w.type === 'GRAVITY_COLLAPSE');
+                if (existingGC) {
+                    player.upgradeWeapon('GRAVITY_COLLAPSE');
+                } else {
+                    player.addWeapon('GRAVITY_COLLAPSE');
                 }
             }
             try { this.updateSkillsList(); } catch (_) {}
