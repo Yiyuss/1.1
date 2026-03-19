@@ -173,6 +173,7 @@ const BuffSystem = {
         if (player.awakeningRegenBoost == null) player.awakeningRegenBoost = 0;
         if (player.awakeningCritDamageBonusPct == null) player.awakeningCritDamageBonusPct = 0;
         if (player.awakeningCooldownReductionPct == null) player.awakeningCooldownReductionPct = 0;
+        if (player.awakeningEnergyRegenBoost == null) player.awakeningEnergyRegenBoost = 0;
         
         // 初始化所有buff為未激活狀態
         for (const buffId in this.buffTypes) {
@@ -312,6 +313,7 @@ const BuffSystem = {
         player.awakeningRegenBoost = 0;
         player.awakeningCritDamageBonusPct = 0;
         player.awakeningCooldownReductionPct = 0;
+        player.awakeningEnergyRegenBoost = 0;
     },
     
     // 從天賦系統應用buff（使用本地天賦系統）
@@ -393,6 +395,9 @@ const BuffSystem = {
             const awakeningCooldownLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
                 ? TalentSystem.getTalentLevel('awakening_cooldown') : 0;
             player.awakeningCooldownReductionPct = awakeningCooldownLv > 0 ? 0.15 : 0;
+            const awakeningEnergyLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                ? TalentSystem.getTalentLevel('awakening_energy') : 0;
+            player.awakeningEnergyRegenBoost = awakeningEnergyLv > 0 ? 1.0 : 0;
 
             // ✅ 修復：統一由 applyAttributeUpgrades 處理生命值（包括天賦和局內升級）
             // 這樣可以確保生命值只被計算一次，不會被重置
@@ -479,6 +484,8 @@ const BuffSystem = {
             player.awakeningCritDamageBonusPct = awakeningCritDamageLvRemote > 0 ? 0.5 : 0;
             const awakeningCooldownLvRemote = parseInt(talentLevels.awakening_cooldown || 0, 10) || 0;
             player.awakeningCooldownReductionPct = awakeningCooldownLvRemote > 0 ? 0.15 : 0;
+            const awakeningEnergyLvRemote = parseInt(talentLevels.awakening_energy || 0, 10) || 0;
+            player.awakeningEnergyRegenBoost = awakeningEnergyLvRemote > 0 ? 1.0 : 0;
 
             if (defLv > 0) {
                 const reduction = this._getTierEffect('defense_boost', defLv, 'reduction', 0) || 0;
