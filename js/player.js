@@ -1068,8 +1068,8 @@ class Player extends Entity {
             this.weapons.push(newWeapon);
         }
         
-        // 如果添加的是心意相通/腎上腺素/虹光共鳴技能，需要重新應用buff以更新回血速度
-        if ((weaponType === 'HEART_CONNECTION' || weaponType === 'ADRENALINE' || weaponType === 'RAINBOW_RESONANCE') && typeof BuffSystem !== 'undefined' && typeof BuffSystem.applyBuffsFromTalents === 'function') {
+        // 如果添加的是心意相通/腎上腺素/虹光共鳴/暗物質技能，需要重新應用buff以更新回血速度
+        if ((weaponType === 'HEART_CONNECTION' || weaponType === 'ADRENALINE' || weaponType === 'RAINBOW_RESONANCE' || weaponType === 'DARK_MATTER') && typeof BuffSystem !== 'undefined' && typeof BuffSystem.applyBuffsFromTalents === 'function') {
             BuffSystem.applyBuffsFromTalents(this);
         }
     }
@@ -1079,8 +1079,8 @@ class Player extends Entity {
         const weapon = this.weapons.find(w => w.type === weaponType);
         if (weapon) {
             weapon.levelUp();
-            // 如果升級的是心意相通/腎上腺素/虹光共鳴技能，需要重新應用buff以更新回血速度
-            if ((weaponType === 'HEART_CONNECTION' || weaponType === 'ADRENALINE' || weaponType === 'RAINBOW_RESONANCE') && typeof BuffSystem !== 'undefined' && typeof BuffSystem.applyBuffsFromTalents === 'function') {
+            // 如果升級的是心意相通/腎上腺素/虹光共鳴/暗物質技能，需要重新應用buff以更新回血速度
+            if ((weaponType === 'HEART_CONNECTION' || weaponType === 'ADRENALINE' || weaponType === 'RAINBOW_RESONANCE' || weaponType === 'DARK_MATTER') && typeof BuffSystem !== 'undefined' && typeof BuffSystem.applyBuffsFromTalents === 'function') {
                 BuffSystem.applyBuffsFromTalents(this);
             }
         }
