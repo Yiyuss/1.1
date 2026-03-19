@@ -6568,6 +6568,11 @@ function updateProjectilesFromServer(projectiles) {
       if (typeof projState.maxDistance === 'number' && projState.maxDistance > 0) {
         proj.maxDistance = projState.maxDistance;
       }
+      // 黑洞粒子（BLACK_HOLE_PARTICLE）：穿透投射物，A77雪碧圖動畫用
+      if (projState.weaponType === 'BLACK_HOLE_PARTICLE' && projState.pierce) {
+        proj.pierce = true;
+        proj._spawnTime = (typeof projState.createdAt === 'number') ? projState.createdAt : Date.now();
+      }
       // 保險：多人權威投射物一定是視覺投射物
       proj._isVisualOnly = true;
       if (typeof proj.x !== 'number' && typeof proj._netTargetX === 'number') proj.x = proj._netTargetX;
