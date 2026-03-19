@@ -414,6 +414,10 @@ const TalentSystem = {
         awakening_cooldown: {
             levels: [{ cost: 350000, cooldownReductionPct: 0.15 }],
             isAwakening: true, hidden: true
+        },
+        awakening_energy: {
+            levels: [{ cost: 350000, energyRegenBoost: 1.0 }],
+            isAwakening: true, hidden: true
         }
     },
     
@@ -812,7 +816,9 @@ const TalentSystem = {
         { id: 'awakening_crit_damage', name: '爆傷覺醒', icon: 'assets/images/A73.png', cost: 300000,
           desc: '生存模式爆擊傷害倍數 +0.5（1.75x → 2.25x）。', effectDesc: '爆擊傷害 +0.5x' },
         { id: 'awakening_cooldown', name: '冷卻覺醒', icon: 'assets/images/A74.png', cost: 350000,
-          desc: '生存模式武器冷卻縮減 15%（上限50%）。', effectDesc: '冷卻 -15%（上限50%）' }
+          desc: '生存模式武器冷卻縮減 15%（上限50%）。', effectDesc: '冷卻 -15%（上限50%）' },
+        { id: 'awakening_energy', name: '能量覺醒', icon: 'assets/images/A82.png', cost: 350000,
+          desc: '生存模式大招能量（按 Q）恢復速度 +100%。', effectDesc: '能量恢復速度 +100%' }
     ],
     _awakeningWindowOpen: false,
 
@@ -1250,6 +1256,8 @@ if (!TalentSystem.getHighestTierDescription) {
             return lv > 0 ? '生存模式爆擊傷害+0.5x（已解鎖）' : '生存模式爆擊傷害+0.5x';
         } else if (id === 'awakening_cooldown') {
             return lv > 0 ? '生存模式冷卻縮減15%（上限50%）（已解鎖）' : '生存模式冷卻縮減15%（上限50%）';
+        } else if (id === 'awakening_energy') {
+            return lv > 0 ? '生存模式大招能量恢復速度+100%（已解鎖）' : '生存模式大招能量恢復速度+100%';
         }
         return base;
     };
