@@ -1762,7 +1762,8 @@ const Game = {
                     projectile.weaponType === 'FRENZY_SLASH' ||
                     projectile.weaponType === 'INVINCIBLE' ||
                     projectile.weaponType === 'SING' ||
-                    // ✅ 修復：YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEVOURING_POWER、DEATHLINE_WARRIOR、DEATHLINE_SUPERMAN、JUDGMENT、DIVINE_JUDGMENT、EXPLOSION 是特殊視覺效果
+                    projectile.weaponType === 'DEVOURING_POWER' ||
+                    // ✅ 修復：YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEATHLINE_WARRIOR、DEATHLINE_SUPERMAN、JUDGMENT、DIVINE_JUDGMENT、EXPLOSION 是特殊視覺效果
                 projectile.weaponType === 'YOUNG_DADA_GLORY' ||
                 projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
                 projectile.weaponType === 'DEATHLINE_WARRIOR' ||
@@ -1797,6 +1798,7 @@ const Game = {
                         projectile.constructor.name === 'SlashEffect' ||
                         projectile.constructor.name === 'InvincibleEffect' ||
                         projectile.constructor.name === 'SingEffect' ||
+                        projectile.constructor.name === 'DevouringPowerEffect' ||
                         projectile.constructor.name === 'BaibaihongExclusiveUltimateEffect' ||
                         // ✅ 修復：YoungDadaGloryEffect、FrenzyYoungDadaGloryEffect、DeathlineWarriorEffect、JudgmentEffect、DivineJudgmentEffect、ExplosionEffect 是特殊視覺效果
                         projectile.constructor.name === 'YoungDadaGloryEffect' ||
@@ -2066,6 +2068,13 @@ const Game = {
                             projectileData.damage = projectile.damage || 0;
                             projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.WHITE_RAINBOW_BEAM ? CONFIG.WEAPONS.WHITE_RAINBOW_BEAM.FIELD_RADIUS : 330);
                             projectileData.level = projectile.level || 1;
+                        }
+
+                        // 組隊模式：吞噬之力（DevouringPowerEffect），添加額外屬性
+                        if (projectile.weaponType === "DEVOURING_POWER") {
+                            projectileData.duration = projectile.duration || 2000;
+                            projectileData.offsetY = projectile.offsetY || 0;
+                            projectileData.renderSize = projectile.renderSize || 200;
                         }
 
                         // 廣播投射物生成事件（讓遠程玩家也能看到）
