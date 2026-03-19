@@ -1438,6 +1438,12 @@
                     // 新增：把玩家的爆擊加成帶到投射物，避免在計算時拿不到玩家
                     projectile.critChanceBonusPct = ((this.player && this.player.critChanceBonusPct) || 0);
                     projectile.critMultiplierBonusPct = ((this.player && this.player.awakeningCritDamageBonusPct) || 0);
+                    // 黑洞粒子（熙歌專屬）：穿透投射物，碰到怪不消失；A77雪碧圖動畫用
+                    if (this.type === 'BLACK_HOLE_PARTICLE' && this.config.PIERCE) {
+                        projectile.pierce = true;
+                        projectile._hitEnemyIds = projectile._hitEnemyIds || {};
+                        projectile._spawnTime = Date.now();
+                    }
 
                     // ✅ 修復：音效是單機元素，只在本地玩家創建效果時播放
                     // 觸發音效（每次發射只播放一次即可）
@@ -1449,6 +1455,9 @@
                                 break;
                             case 'FIREBALL':
                                 AudioManager.playSound('fireball_shoot');
+                                break;
+                            case 'BLACK_HOLE_PARTICLE':
+                                AudioManager.playSound('lightning_shoot');
                                 break;
                             case 'LIGHTNING':
                                 // 閃電在專用邏輯中已播放
