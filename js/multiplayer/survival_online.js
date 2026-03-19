@@ -1503,6 +1503,7 @@ const Runtime = (() => {
                 weaponType === 'SLASH' || weaponType === 'FRENZY_SLASH' ||
                 weaponType === 'LASER' || weaponType === 'CHAIN_LIGHTNING' || weaponType === 'FRENZY_LIGHTNING' ||
                 weaponType === 'INVINCIBLE' || // ✅ 修復：無敵技能是一次性效果，每次施放都創建新的（像斬擊一樣）
+                weaponType === 'DEVOURING_POWER' || // 吞噬之力：一次性效果，每次施放都創建新的（與唱歌、無敵一致）
                 weaponType === 'WHITE_NIGHT_BEAM' || // 白夜光束：一次性範圍傷害，僅視覺同步
                 weaponType === 'WHITE_RAINBOW_BEAM' // 白虹光束：一次性範圍傷害×3，僅視覺同步
               );
