@@ -174,7 +174,15 @@
                 }
                 // 特殊技能：幼妲光輝（不造成傷害，恢復HP並產生聖光特效）
                 if (this.type === 'YOUNG_DADA_GLORY') {
-                    const heal = this.level;
+                    let heal;
+                    const ydgAdvancedLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                        ? TalentSystem.getTalentLevel('young_dada_glory_advanced') : 0;
+                    if (ydgAdvancedLv > 0) {
+                        const pct = this.level / 100;
+                        heal = Math.max(1, Math.floor((this.player.maxHealth || 200) * pct));
+                    } else {
+                        heal = this.level;
+                    }
                     this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
                     if (typeof UI !== 'undefined') {
                         UI.updateHealthBar(this.player.health, this.player.maxHealth);
