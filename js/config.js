@@ -70,6 +70,7 @@ const CONFIG = {
             GABRIEL_ORBIT: 'assets/images/A57.png',
             WEDDING_CALL_ORBIT: 'assets/images/A72.png',
             RAINBOW_RESONANCE: 'assets/images/A58.png',
+            DARK_MATTER: 'assets/images/A75.png',
             FBI: 'assets/images/A59.png',
             WHITE_NIGHT_BEAM: 'assets/images/A60.png',
             WHITE_RAINBOW_BEAM: 'assets/images/A63.png',
@@ -449,6 +450,25 @@ const CONFIG = {
         // 新武器：虹光共鳴（白白虹專屬技能；邏輯與心意相通相同）
         RAINBOW_RESONANCE: {
             NAME: "虹光共鳴",
+            DAMAGE: 0, // 被動技能，不造成傷害
+            COOLDOWN: 0, // 被動技能，無冷卻
+            REGEN_SPEED_BOOST_PER_LEVEL: 0.30, // 每級+30%回血速度
+            LEVELS: [
+                { COUNT: 1, DESCRIPTION: "回血速度+30%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+60%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+90%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+120%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+150%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+180%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+210%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+240%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+270%" },
+                { COUNT: 1, DESCRIPTION: "回血速度+300%" }
+            ]
+        },
+        // 新武器：暗物質（熙歌專屬技能；邏輯與心意相通相同）
+        DARK_MATTER: {
+            NAME: "暗物質",
             DAMAGE: 0, // 被動技能，不造成傷害
             COOLDOWN: 0, // 被動技能，無冷卻
             REGEN_SPEED_BOOST_PER_LEVEL: 0.30, // 每級+30%回血速度
@@ -1384,14 +1404,14 @@ const CONFIG = {
             hpBonus: 0,
             speedMultiplier: 1.0,
             dodgeChanceBonusPct: 0.10,
-            description: `角色介紹：好奇心旺盛的黑洞，可以吞噬一切！\n專屬技能：婚叫`,
+            description: `角色介紹：好奇心旺盛的黑洞，可以吞噬一切！\n專屬技能：婚叫、暗物質`,
             avatarImageKey: 'player9-2',
             hudImageKey: 'player9-2',
             spriteImageKey: 'player9',
             levelUpBgKey: 'player9-2',
             canUseUltimate: true,
             disabledWeapons: [],
-            exclusiveWeapons: ['WEDDING_CALL_ORBIT'],
+            exclusiveWeapons: ['WEDDING_CALL_ORBIT', 'DARK_MATTER'],
             unlockCost: 10000
         }
     ],
