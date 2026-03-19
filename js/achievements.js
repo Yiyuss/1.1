@@ -118,6 +118,13 @@ const Achievements = (function(){
       desc: '通關任一難度草原地圖。',
       icon: 'assets/images/A69.png',
       reward: '解鎖天賦「專屬強化」。'
+    },
+    CYGNUS_CITY_CLEAR: {
+      id: 'CYGNUS_CITY_CLEAR',
+      name: '熙歌的勝利',
+      desc: '使用熙歌角色通關廁所。',
+      icon: 'assets/images/A80.png',
+      reward: '解鎖「重力塌縮」技能。'
     }
   };
 
@@ -135,7 +142,8 @@ const Achievements = (function(){
     DIVINE_JUDGMENT: ['RABI_CITY_CLEAR'],
     INNATE_TEMPERAMENT: ['ELONDIER_CITY_CLEAR'],
     PINEAPPLE_SUPPLEMENT: ['PINEAPPLE_CITY_CLEAR'],
-    WHITE_RAINBOW_BEAM: ['BAIBAIHONG_CITY_CLEAR']
+    WHITE_RAINBOW_BEAM: ['BAIBAIHONG_CITY_CLEAR'],
+    GRAVITY_COLLAPSE: ['CYGNUS_CITY_CLEAR']
     // 未來：在此加入新融合技能的成就解鎖需求，例如：
     // OTHER_FUSION_SKILL: ['SOME_ACHIEVEMENT', 'ANOTHER_ACHIEVEMENT']
   };
