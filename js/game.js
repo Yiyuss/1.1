@@ -1759,10 +1759,10 @@ const Game = {
                     projectile.weaponType === 'FRENZY_SLASH' ||
                     projectile.weaponType === 'INVINCIBLE' ||
                     projectile.weaponType === 'SING' ||
-                    // ✅ 修復：YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEATHLINE_WARRIOR、DEATHLINE_SUPERMAN、JUDGMENT、DIVINE_JUDGMENT、EXPLOSION 是特殊視覺效果
-                    projectile.weaponType === 'YOUNG_DADA_GLORY' ||
-                    projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
-                    projectile.weaponType === 'DEATHLINE_WARRIOR' ||
+                    // ✅ 修復：YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEVOURING_POWER、DEATHLINE_WARRIOR、DEATHLINE_SUPERMAN、JUDGMENT、DIVINE_JUDGMENT、EXPLOSION 是特殊視覺效果
+                projectile.weaponType === 'YOUNG_DADA_GLORY' ||
+                projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
+                projectile.weaponType === 'DEATHLINE_WARRIOR' ||
                     projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
                     projectile.weaponType === 'JUDGMENT' ||
                     projectile.weaponType === 'DIVINE_JUDGMENT' ||
@@ -1860,16 +1860,16 @@ const Game = {
                 }
 
                 // 持續效果/其他：保留本地視覺，並廣播給其他玩家（讓遠程玩家也能看到）
-                // ✅ 修復：組隊模式下，SING是一次性效果，需要先清理本地玩家之前創建的效果，避免疊加
-                // ⚠️ 重要：參考無敵技能的修復方式，清理所有同玩家的SING效果（包括_isVisualOnly），確保完全清理
+                // ✅ 修復：組隊模式下，SING、DEVOURING_POWER 是一次性效果，需要先清理本地玩家之前創建的效果，避免疊加
+                // ⚠️ 重要：參考無敵技能的修復方式，清理所有同玩家的效果（包括_isVisualOnly），確保完全清理
                 if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled &&
-                    projectile.weaponType === "SING" && projectile.player === this.player) {
+                    (projectile.weaponType === "SING" || projectile.weaponType === "DEVOURING_POWER") && projectile.player === this.player) {
                     // ✅ 修復：清理本地玩家之前創建的所有SING效果（包括_isVisualOnly），避免疊加和白色巨大球體
                     const playerUid = (this.multiplayer && this.multiplayer.uid) ? this.multiplayer.uid : null;
                     for (let i = this.projectiles.length - 1; i >= 0; i--) {
                         const proj = this.projectiles[i];
-                        if (proj && proj.weaponType === "SING") {
-                            // ✅ 修復：清理所有同玩家的SING效果（本地玩家創建的效果或遠程玩家創建的視覺效果）
+                        if (proj && proj.weaponType === projectile.weaponType) {
+                            // ✅ 修復：清理所有同玩家同類型的效果（SING/DEVOURING_POWER 一次性效果避免疊加）
                             const isLocalPlayerEffect = (proj.player === this.player && !proj._isVisualOnly);
                             const isRemotePlayerEffect = (proj._isVisualOnly && proj._remotePlayerUid === playerUid);
                             if (isLocalPlayerEffect || isRemotePlayerEffect) {
@@ -2474,6 +2474,12 @@ const Game = {
                         projectileData.duration = projectile.duration || 2000;
                         projectileData.size = projectile.size || 500;
                         projectileData.offsetY = projectile.offsetY || -250;
+                    }
+                    // 如果是吞噬之力（DevouringPowerEffect），添加額外屬性
+                    if (projectile.weaponType === "DEVOURING_POWER") {
+                        projectileData.duration = projectile.duration || 2000;
+                        projectileData.offsetY = projectile.offsetY || 0;
+                        projectileData.renderSize = projectile.renderSize || 200;
                     }
 
                     // 如果是無敵（InvincibleEffect），添加額外屬性
