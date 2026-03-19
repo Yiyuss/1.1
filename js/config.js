@@ -1364,6 +1364,8 @@ const CONFIG = {
             disabledWeapons: [],
             // 專屬技能：施工中
             exclusiveWeapons: [],
+            // 作弊角色：僅顯示以下升級選項，其他一律不出現
+            allowedUpgradeTypes: ['MIND_MAGIC', 'GRAVITY_WAVE', 'FRENZY_LIGHTNING', 'FRENZY_SLASH', 'RADIANT_GLORY', 'ATTR_ATTACK', 'ATTR_ATTACK_POWER', 'ATTR_CRIT', 'ATTR_HEALTH', 'ATTR_DEFENSE'],
             // 解鎖價格（遊戲金幣）：100萬金幣
             unlockCost: 1000000
         },
