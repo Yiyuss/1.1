@@ -1449,7 +1449,9 @@ class GameState {
       critChancePctOverride: (typeof input.critChancePctOverride === 'number') ? input.critChancePctOverride : null,
       maxDistance: maxDistance,
       distance: 0, // 已飞行距离
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      pierce: input.pierce === true, // 黑洞粒子：穿透不消失
+      hitEnemyIds: input.pierce ? {} : null // 穿透時記錄已命中敵人，避免重複傷害
     };
 
     this.projectiles.push(projectile);
@@ -1927,6 +1929,11 @@ class GameState {
         const collisionRadius = (proj.size || 20) / 2 + (enemy.size || 32) / 2;
 
         if (dist < collisionRadius) {
+          // 穿透投射物（黑洞粒子）：同一敵人只傷害一次
+          if (proj.pierce && proj.hitEnemyIds) {
+            if (proj.hitEnemyIds[enemy.id]) continue;
+            proj.hitEnemyIds[enemy.id] = true;
+          }
           // ✅ 服务器计算伤害（浮動/爆擊）+ 统一结算（掉落/出出口）
           // ✅ 使用 player.meta.critChanceBonusPct（持續同步的爆擊率）
           const projPlayer = this.players.get(proj.playerUid);
@@ -1947,10 +1954,11 @@ class GameState {
             });
           } catch (_) { }
 
-          // 移除投射物（当前不支持穿透，碰撞后立即移除）
-          // TODO: 如果需要支持穿透，可以添加 pierce 属性
-          this.projectiles.splice(i, 1);
-          break;
+          // 穿透投射物不移除，繼續飛行；非穿透則碰撞後移除
+          if (!proj.pierce) {
+            this.projectiles.splice(i, 1);
+            break;
+          }
         }
       }
     }
@@ -3180,7 +3188,9 @@ class GameState {
         homing: p.homing === true,
         turnRatePerSec: p.turnRatePerSec,
         assignedTargetId: p.assignedTargetId || null,
-        maxDistance: p.maxDistance
+        maxDistance: p.maxDistance,
+        pierce: p.pierce === true,
+        createdAt: p.createdAt || null
       }) : null)).filter(Boolean)
       : [];
 
