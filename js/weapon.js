@@ -197,7 +197,15 @@
                 }
                 // 特殊技能：吞噬之力（熙歌專屬，效果與音效同唱歌、幼妲光輝）
                 if (this.type === 'DEVOURING_POWER') {
-                    const heal = this.level;
+                    let heal;
+                    const dpAdvancedLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                        ? TalentSystem.getTalentLevel('devouring_power_advanced') : 0;
+                    if (dpAdvancedLv > 0) {
+                        const pct = this.level / 100;
+                        heal = Math.max(1, Math.floor((this.player.maxHealth || 200) * pct));
+                    } else {
+                        heal = this.level;
+                    }
                     this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
                     if (typeof UI !== 'undefined') {
                         UI.updateHealthBar(this.player.health, this.player.maxHealth);
