@@ -3519,7 +3519,16 @@ const Runtime = (() => {
     _sendViaWebSocket(obj);
   }
 
-  return { setEnabled, isEnabled, onStateMessage, onEventMessage, onSnapshotMessage, onFullSnapshotMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers, broadcastEvent: broadcastEventFromRuntime, sendToNet };
+  // 下一幀 tick 立即送 player-meta（縮短白白虹大招與舊 meta 封包之間的競態窗口）
+  function requestImmediatePlayerMeta() {
+    try {
+      if (typeof tick === "function") {
+        tick._lastMetaAt = 0;
+      }
+    } catch (_) { }
+  }
+
+  return { setEnabled, isEnabled, onStateMessage, onEventMessage, onSnapshotMessage, onFullSnapshotMessage, tick, getRemotePlayers, updateRemotePlayers, clearRemotePlayers, broadcastEvent: broadcastEventFromRuntime, sendToNet, requestImmediatePlayerMeta };
 })();
 
 // M2：全局事件廣播函數（供其他模組調用）
@@ -8770,6 +8779,7 @@ window.SurvivalOnlineRuntime = {
   // 但 sendToNet 實際在 Runtime 內；若不在這裡暴露，攻擊/大招/復活等封包會「完全送不出去」
   // 導致 BootLine 永遠 pr=0（看不到任何攻擊）。
   sendToNet: Runtime.sendToNet,
+  requestImmediatePlayerMeta: Runtime.requestImmediatePlayerMeta,
   broadcastEvent: Runtime.broadcastEvent,
   getMembersState: getMembersState,
   getHudPlayers: getHudPlayers,
