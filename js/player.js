@@ -1,3 +1,41 @@
+/**
+ * 玩家扣血除錯日誌（預設關閉）
+ * 啟用擇一：① 網址 ?damageLog=1 ② 主控台 window.MT_DAMAGE_LOG = true ③ localStorage.setItem('mt_damageLog','1') 後重新整理
+ * 選用：?damageLogStack=1 或 window.MT_DAMAGE_LOG_STACK = true 會附加簡短堆疊
+ * 最近紀錄：window.__MT_DAMAGE_LOG_BUFFER__（最多 40 筆，供複製回報）
+ */
+function mtIsPlayerDamageLogEnabled() {
+    try {
+        if (typeof window !== 'undefined') {
+            if (window.MT_DAMAGE_LOG === true || window.MT_DAMAGE_LOG === 1) return true;
+            if (window.localStorage && window.localStorage.getItem('mt_damageLog') === '1') return true;
+            const s = window.location && window.location.search;
+            if (s && /(?:^|[?&])damageLog=1(?:&|$)/.test(s)) return true;
+        }
+    } catch (_) { }
+    return false;
+}
+
+function mtPlayerDamageLogWantStack() {
+    try {
+        if (typeof window !== 'undefined') {
+            if (window.MT_DAMAGE_LOG_STACK === true || window.MT_DAMAGE_LOG_STACK === 1) return true;
+            const s = window.location && window.location.search;
+            if (s && /(?:^|[?&])damageLogStack=1(?:&|$)/.test(s)) return true;
+        }
+    } catch (_) { }
+    return false;
+}
+
+function mtPushPlayerDamageLogEntry(entry) {
+    try {
+        if (typeof window === 'undefined') return;
+        if (!window.__MT_DAMAGE_LOG_BUFFER__) window.__MT_DAMAGE_LOG_BUFFER__ = [];
+        window.__MT_DAMAGE_LOG_BUFFER__.push(entry);
+        while (window.__MT_DAMAGE_LOG_BUFFER__.length > 40) window.__MT_DAMAGE_LOG_BUFFER__.shift();
+    } catch (_) { }
+}
+
 // 玩家類
 class Player extends Entity {
     constructor(x, y) {
@@ -693,7 +731,57 @@ class Player extends Entity {
         const talentDef = this.damageReductionFlat || 0;
         const reduction = baseDef + talentDef;
         const effective = Math.max(0, amount - reduction);
-        
+
+        if (effective > 0 && mtIsPlayerDamageLogEnabled()) {
+            const prevHealth = this.health;
+            let wave = null;
+            try {
+                if (typeof WaveSystem !== 'undefined' && typeof WaveSystem.currentWave === 'number') wave = WaveSystem.currentWave;
+            } catch (_) { }
+            let diffId = null;
+            try {
+                if (typeof Game !== 'undefined' && Game.difficulty && Game.difficulty.id) diffId = Game.difficulty.id;
+            } catch (_) { }
+            const entry = {
+                iso: new Date().toISOString(),
+                rawAmount: amount,
+                effective,
+                defenseReduction: reduction,
+                options: {
+                    source: options && options.source,
+                    weaponType: options && options.weaponType,
+                    ignoreInvulnerability: !!(options && options.ignoreInvulnerability),
+                    ignoreDodge: !!(options && options.ignoreDodge)
+                },
+                invulnAtApply: {
+                    isInvulnerable: !!this.isInvulnerable,
+                    source: this.invulnerabilitySource,
+                    timeMs: this.invulnerabilityTime,
+                    durationMs: this.invulnerabilityDuration
+                },
+                hp: { before: prevHealth, after: prevHealth - effective, max: this.maxHealth },
+                context: {
+                    mapId: (typeof Game !== 'undefined' && Game.selectedMap) ? Game.selectedMap.id : null,
+                    characterId: (typeof Game !== 'undefined' && Game.selectedCharacter) ? Game.selectedCharacter.id : null,
+                    wave,
+                    diffId,
+                    multiplayer: !!(typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled)
+                }
+            };
+            if (mtPlayerDamageLogWantStack()) {
+                try {
+                    const st = (new Error()).stack;
+                    entry.callerStack = st ? String(st).split('\n').slice(1, 8).join('\n') : null;
+                } catch (_) { entry.callerStack = null; }
+            }
+            try {
+                console.warn('[馬桶坐坐 扣血紀錄] 請複製下列 JSON 回報開發者 →', JSON.stringify(entry));
+            } catch (_) {
+                console.warn('[馬桶坐坐 扣血紀錄]', entry);
+            }
+            mtPushPlayerDamageLogEntry(entry);
+        }
+
         this.health -= effective;
         if (this.health <= 0) {
             this.health = 0;
