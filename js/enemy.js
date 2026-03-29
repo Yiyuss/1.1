@@ -1667,8 +1667,8 @@
 
                 // 生成經驗寶石與獎勵等（維持事件順序與文字/數值不變）
                 Game.spawnExperienceOrb(this.x, this.y, this.experienceValue);
-                if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' ||
-                    this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS') {
+                if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' || this.type === 'UNKNOWN_MINI_BOSS' ||
+                    this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS') {
                     Game.spawnChest(this.x, this.y);
                 }
                 if (typeof Game !== 'undefined' && typeof Game.addCoins === 'function') {
@@ -1695,7 +1695,7 @@
                 // ✅ 權威伺服器模式：多人進行中時，BOSS 死亡後的出口生成和勝利判定由伺服器統一權威
                 // 避免客戶端廣播 game_victory 造成互打與循環
                 const isServerAuthoritative = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                if (!isServerAuthoritative && (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS')) {
+                if (!isServerAuthoritative && (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS')) {
                     // 單機模式：客戶端處理 BOSS 死亡邏輯
                     // 第20波BOSS死亡時，生成出口而不是立即獲勝
                     const currentWave = (typeof WaveSystem !== 'undefined' && WaveSystem.currentWave) ? WaveSystem.currentWave : 0;
