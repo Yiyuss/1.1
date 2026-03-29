@@ -1116,14 +1116,16 @@ class GameState {
         break;
 
       case 'baibaihong_exclusive_ultimate':
-        // 白白虹專屬大招：回滿血 + 5 秒技能無敵（與無敵技能效果相同）
+        // 白白虹專屬大招：回滿血 + 技能無敵（與無敵技能同源；伺服器權威 Until）
         try {
           if (!player || player.isDead) break;
           if (player.energy < (player.maxEnergy || 100)) break;
           player.energy = 0;
           player.health = player.maxHealth || player.health;
           const invMs = (input && typeof input.duration === 'number') ? input.duration : 15000;
-          player.skillInvulnerableUntil = Date.now() + invMs;
+          const until = Date.now() + invMs;
+          // 與重複封包 / 競態相容：只延長不縮短
+          player.skillInvulnerableUntil = Math.max(player.skillInvulnerableUntil || 0, until);
         } catch (_) {}
         break;
 
@@ -1139,7 +1141,18 @@ class GameState {
           if (typeof input.dodgeRate === 'number') player.meta.dodgeRate = Math.max(0, Math.min(1, input.dodgeRate));
           if (typeof input.damageReductionFlat === 'number') player.meta.damageReductionFlat = Math.max(0, Math.floor(input.damageReductionFlat));
           if (typeof input.invulnerabilityDurationMs === 'number') player.meta.invulnerabilityDurationMs = Math.max(0, Math.floor(input.invulnerabilityDurationMs));
-          if (typeof input.skillInvulnerableUntil === 'number') player.skillInvulnerableUntil = Math.max(0, Math.floor(input.skillInvulnerableUntil));
+          // skillInvulnerableUntil：技能無敵絕對時間戳（與單機 invulnerabilitySource==='INVINCIBLE' 同源）
+          // ⚠️ 修復：延遲到達的 player-meta 若帶 0，不得覆寫伺服器上仍有效的無敵（例如白白虹大招剛設好 Until，舊封包把 Until 清掉 → 支部 BOSS 雷射等仍會扣血）
+          if (typeof input.skillInvulnerableUntil === 'number') {
+            const now = Date.now();
+            const incoming = Math.max(0, Math.floor(input.skillInvulnerableUntil));
+            const serverUntil = player.skillInvulnerableUntil || 0;
+            if (incoming > now) {
+              player.skillInvulnerableUntil = Math.max(serverUntil, incoming);
+            } else if (!(serverUntil > now)) {
+              player.skillInvulnerableUntil = 0;
+            }
+          }
           // ✅ 新增：爆擊率同步（天賦 + 升級 + 角色基礎）
           if (typeof input.critChanceBonusPct === 'number') player.meta.critChanceBonusPct = Math.max(0, input.critChanceBonusPct);
           if (typeof input.critMultiplierBonusPct === 'number') player.meta.critMultiplierBonusPct = Math.max(0, Math.min(1, input.critMultiplierBonusPct));
