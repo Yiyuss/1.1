@@ -1156,6 +1156,9 @@ class Player extends Entity {
                         timestamp: Date.now(),
                         duration: duration
                     });
+                    if (typeof window.SurvivalOnlineRuntime.requestImmediatePlayerMeta === 'function') {
+                        window.SurvivalOnlineRuntime.requestImmediatePlayerMeta();
+                    }
                 } else {
                     // ✅ 多人元素：發送大招動畫狀態到伺服器（讓其他客戶端能看到變身效果）
                     const charUltimate = (Game.selectedCharacter && CONFIG.CHARACTER_ULTIMATES && CONFIG.CHARACTER_ULTIMATES[Game.selectedCharacter.id])
