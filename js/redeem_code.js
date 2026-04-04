@@ -123,32 +123,14 @@ const RedeemCodeSystem = {
         // 轉為大寫進行比較（序號不區分大小寫）
         const upperCode = trimmedCode.toUpperCase();
         
-        // 調試：輸出序號配置和輸入的序號（僅開發時使用）
-        if (typeof console !== 'undefined' && console.log) {
-            console.log('[RedeemCodeSystem] 輸入序號:', trimmedCode, '轉換後:', upperCode);
-            console.log('[RedeemCodeSystem] 可用序號列表:', Object.keys(this.REDEEM_CODES).map(k => k.toUpperCase()));
-            console.log('[RedeemCodeSystem] 已使用序號列表:', this.getUsedCodes());
-        }
-        
         // 檢查序號是否存在（將配置中的鍵名也轉為大寫進行比較，確保大小寫不敏感）
         const codeKeys = Object.keys(this.REDEEM_CODES);
         const upperCodeKeys = codeKeys.map(k => k.toUpperCase());
         const codeIndex = upperCodeKeys.indexOf(upperCode);
         
         if (codeIndex === -1) {
-            // 提供更詳細的錯誤信息，幫助調試
-            const similarCodes = upperCodeKeys.filter(k => k.includes(upperCode) || upperCode.includes(k));
-            let errorMsg = '序號不存在';
-            if (similarCodes.length > 0) {
-                errorMsg += `。相似的序號：${similarCodes.join(', ')}`;
-            }
-            console.warn('[RedeemCodeSystem] 序號不存在:', {
-                input: trimmedCode,
-                upper: upperCode,
-                available: upperCodeKeys,
-                similar: similarCodes
-            });
-            return { success: false, message: errorMsg };
+            console.warn('[RedeemCodeSystem] 序號不存在:', trimmedCode);
+            return { success: false, message: '序號不存在' };
         }
         
         // 使用原始鍵名獲取配置（因為配置中的鍵名可能不是大寫）
