@@ -14,6 +14,19 @@ const BuffSystem = {
             return fallback;
         }
     },
+    // 與 game.js 一致：生存模式為 survival，或舊流程未掛載模式時 activeId 為 null 視為生存
+    _isSurvivalModeContext: function() {
+        try {
+            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
+                ? GameModeManager.getCurrent()
+                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
+                    ? ModeManager.getActiveModeId()
+                    : null);
+            return (activeId === 'survival' || activeId === null);
+        } catch (_) {
+            return false;
+        }
+    },
     // 所有可用的buff類型及其效果
     buffTypes: {
         // 生命強化 - 增加最大生命值（階梯）
@@ -379,25 +392,27 @@ const BuffSystem = {
                 player.dodgeTalentRate = 0;
             }
             
-            // 覺醒系統效果（僅生存模式，平加在公式上）
-            const awakeningHpLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
-                ? TalentSystem.getTalentLevel('awakening_hp') : 0;
-            player.awakeningHpFlat = awakeningHpLv > 0 ? 3000 : 0;
-            const awakeningAttackLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
-                ? TalentSystem.getTalentLevel('awakening_attack') : 0;
-            player.awakeningAttackFlat = awakeningAttackLv > 0 ? 300 : 0;
-            const awakeningRegenLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
-                ? TalentSystem.getTalentLevel('awakening_regen') : 0;
-            player.awakeningRegenBoost = awakeningRegenLv > 0 ? 10.0 : 0;
-            const awakeningCritDamageLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
-                ? TalentSystem.getTalentLevel('awakening_crit_damage') : 0;
-            player.awakeningCritDamageBonusPct = awakeningCritDamageLv > 0 ? 0.5 : 0;
-            const awakeningCooldownLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
-                ? TalentSystem.getTalentLevel('awakening_cooldown') : 0;
-            player.awakeningCooldownReductionPct = awakeningCooldownLv > 0 ? 0.15 : 0;
-            const awakeningEnergyLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
-                ? TalentSystem.getTalentLevel('awakening_energy') : 0;
-            player.awakeningEnergyRegenBoost = awakeningEnergyLv > 0 ? 1.0 : 0;
+            // 覺醒系統效果（僅生存模式，平加在公式上；挑戰／主線／關卡／塔防等維持 0）
+            if (this._isSurvivalModeContext()) {
+                const awakeningHpLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                    ? TalentSystem.getTalentLevel('awakening_hp') : 0;
+                player.awakeningHpFlat = awakeningHpLv > 0 ? 3000 : 0;
+                const awakeningAttackLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                    ? TalentSystem.getTalentLevel('awakening_attack') : 0;
+                player.awakeningAttackFlat = awakeningAttackLv > 0 ? 300 : 0;
+                const awakeningRegenLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                    ? TalentSystem.getTalentLevel('awakening_regen') : 0;
+                player.awakeningRegenBoost = awakeningRegenLv > 0 ? 10.0 : 0;
+                const awakeningCritDamageLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                    ? TalentSystem.getTalentLevel('awakening_crit_damage') : 0;
+                player.awakeningCritDamageBonusPct = awakeningCritDamageLv > 0 ? 0.5 : 0;
+                const awakeningCooldownLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                    ? TalentSystem.getTalentLevel('awakening_cooldown') : 0;
+                player.awakeningCooldownReductionPct = awakeningCooldownLv > 0 ? 0.15 : 0;
+                const awakeningEnergyLv = (typeof TalentSystem !== 'undefined' && TalentSystem.getTalentLevel)
+                    ? TalentSystem.getTalentLevel('awakening_energy') : 0;
+                player.awakeningEnergyRegenBoost = awakeningEnergyLv > 0 ? 1.0 : 0;
+            }
 
             // ✅ 修復：統一由 applyAttributeUpgrades 處理生命值（包括天賦和局內升級）
             // 這樣可以確保生命值只被計算一次，不會被重置
@@ -473,19 +488,21 @@ const BuffSystem = {
                 }.bind(TalentSystem);
             }
             
-            // 覺醒系統效果（組隊模式遠程玩家，從 talentLevels 讀取）
-            const awakeningHpLvRemote = parseInt(talentLevels.awakening_hp || 0, 10) || 0;
-            player.awakeningHpFlat = awakeningHpLvRemote > 0 ? 3000 : 0;
-            const awakeningAttackLvRemote = parseInt(talentLevels.awakening_attack || 0, 10) || 0;
-            player.awakeningAttackFlat = awakeningAttackLvRemote > 0 ? 300 : 0;
-            const awakeningRegenLvRemote = parseInt(talentLevels.awakening_regen || 0, 10) || 0;
-            player.awakeningRegenBoost = awakeningRegenLvRemote > 0 ? 10.0 : 0;
-            const awakeningCritDamageLvRemote = parseInt(talentLevels.awakening_crit_damage || 0, 10) || 0;
-            player.awakeningCritDamageBonusPct = awakeningCritDamageLvRemote > 0 ? 0.5 : 0;
-            const awakeningCooldownLvRemote = parseInt(talentLevels.awakening_cooldown || 0, 10) || 0;
-            player.awakeningCooldownReductionPct = awakeningCooldownLvRemote > 0 ? 0.15 : 0;
-            const awakeningEnergyLvRemote = parseInt(talentLevels.awakening_energy || 0, 10) || 0;
-            player.awakeningEnergyRegenBoost = awakeningEnergyLvRemote > 0 ? 1.0 : 0;
+            // 覺醒系統效果（組隊遠程玩家；僅生存模式套用，與本地玩家一致）
+            if (this._isSurvivalModeContext()) {
+                const awakeningHpLvRemote = parseInt(talentLevels.awakening_hp || 0, 10) || 0;
+                player.awakeningHpFlat = awakeningHpLvRemote > 0 ? 3000 : 0;
+                const awakeningAttackLvRemote = parseInt(talentLevels.awakening_attack || 0, 10) || 0;
+                player.awakeningAttackFlat = awakeningAttackLvRemote > 0 ? 300 : 0;
+                const awakeningRegenLvRemote = parseInt(talentLevels.awakening_regen || 0, 10) || 0;
+                player.awakeningRegenBoost = awakeningRegenLvRemote > 0 ? 10.0 : 0;
+                const awakeningCritDamageLvRemote = parseInt(talentLevels.awakening_crit_damage || 0, 10) || 0;
+                player.awakeningCritDamageBonusPct = awakeningCritDamageLvRemote > 0 ? 0.5 : 0;
+                const awakeningCooldownLvRemote = parseInt(talentLevels.awakening_cooldown || 0, 10) || 0;
+                player.awakeningCooldownReductionPct = awakeningCooldownLvRemote > 0 ? 0.15 : 0;
+                const awakeningEnergyLvRemote = parseInt(talentLevels.awakening_energy || 0, 10) || 0;
+                player.awakeningEnergyRegenBoost = awakeningEnergyLvRemote > 0 ? 1.0 : 0;
+            }
 
             if (defLv > 0) {
                 const reduction = this._getTierEffect('defense_boost', defLv, 'reduction', 0) || 0;
