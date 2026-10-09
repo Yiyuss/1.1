@@ -31,97 +31,20 @@
               <!-- 左視窗底圖（依紅框位置），半透明不影響操作 -->
               <div class="content-illustration" aria-hidden="true"></div>
               <div id="content-body" class="content"></div>
-              <!-- 序號輸入疊蓋視窗（移入左側視窗內） -->
-              <div id="redeem-code-overlay" class="modal hidden">
-                <div class="modal-card">
-                  <h2>序號兌換</h2>
-                  <div class="redeem-code-form">
-                    <label for="redeem-code-input">輸入序號：</label>
-                    <input type="text" id="redeem-code-input" placeholder="請輸入序號" maxlength="50">
-                    <div id="redeem-code-message" class="redeem-code-message"></div>
-                  </div>
-                  <div class="modal-actions">
-                    <button id="redeem-code-submit" class="ghost">兌換</button>
-                    <button id="redeem-code-close" class="ghost">關閉</button>
-                  </div>
-                </div>
-              </div>
+              <!-- 序號兌換殼由 PROMPT_MODALS 生成 -->
+              <div id="redeem-code-host"></div>
             </div>
 
 
             <!-- 隱藏模板：保留原始文案，作為切換來源 -->
             <div class="info-templates hidden" aria-hidden="true">
-              <div id="tpl-gameplay">
-                <h2>遊戲玩法</h2>
-                <div class="content">
-                  <ul class="list">
-                    <li><span class="badge">建議</span> PC 電腦遊玩，使用 1080p 解析度。</li>
-                    <li><span class="badge">移動</span> 滑鼠點擊移動，或使用 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> /
-                      <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd>。</li>
-                    <li><span class="badge">暫停</span> 按 <kbd>ESC</kbd> 開啟詳細選單。</li>
-                    <li><span class="badge">技能</span> 能量達到 100 時，按 <kbd>Q</kbd> 施放大招。</li>
-                    <li><span class="badge">手機</span> 手機介面自動匹配，目前不支援大招。</li>
-                    <li><span class="badge">回報</span> BUG 回報：<a href="https://x.com/Yi_yuss" target="blank"
-                        rel="noopener">https://x.com/Yi_yuss</a></li>
-                  </ul>
-                </div>
-              </div>
-              <div id="tpl-announce">
-                <h2>遊戲公告</h2>
-                <div class="content">
-                  <ul class="list">
-                    <li><span class="badge">福利</span> 每回報一條有效BUG，可領取1~10萬金幣序號，<a href="https://discord.gg/rdKVtjh5kG"
-                        target="blank" rel="noopener">點我回報</a></li>
-                    <li><span class="badge">徵稿</span> 歡迎有興趣的繪師一起參與二創，本作不涉及任何營利。</li>
-                    <li><span class="badge">版本</span> 將在V1.2版加入更多的角色、技能、天賦、地圖，以及嘗試角色像素動態化。</li>
-                    <li><span class="badge">託管</span> 使用 GitHub 免費空間，常常會非常卡，下午通常會好一點。</li>
-                    <li><span class="badge">存檔</span> 遊戲提供自動存檔，若主動清除瀏覽器資料，存檔會丟失，可善用手動備份。</li>
-                  </ul>
-                </div>
-              </div>
-              <div id="tpl-regarding">
-                <h2>Regarding</h2>
-                <div class="content">
-                  <ul class="list">
-                    <li><span class="badge">聲明</span> 遊戲為非官方之個人二次創作，僅供展示與娛樂，無任何商業用途。</li>
-                    <li><span class="badge">角色</span> <a
-                        href="https://www.youtube.com/@%E7%91%AA%E6%A0%BC%E9%BA%97%E7%89%B9margaretnorth" target="blank"
-                        rel="noopener">瑪格麗特</a>、<a
-                        href="https://www.youtube.com/@%E6%A3%AE%E6%A3%AE%E9%88%B4%E8%98%ADLilyLinglan" target="blank"
-                        rel="noopener">森森鈴蘭</a>、
-                      <a href="https://www.youtube.com/@ReLiveDaDa" target="blank" rel="noopener">灰妲</a>、<a
-                        href="https://www.youtube.com/@Locolost65" target="blank" rel="noopener">洛可洛斯特</a>、<a
-                        href="https://www.youtube.com/@%E8%89%BE%E6%AF%94Rabi" target="blank" rel="noopener">艾比</a>、<a
-                        href="https://www.youtube.com/channel/UCOuJKc5wDEZmPEx3z6xfvbg" target="blank"
-                        rel="noopener">鳳梨不咬舌</a>、<a href="https://www.youtube.com/@EarendelXDFP" target="blank"
-                        rel="noopener">厄倫蒂兒</a>、<a href="https://www.youtube.com/@xxhacucoxx_Celestial" target="blank"
-                        rel="noopener">白白虹</a>、<a href="https://www.youtube.com/@CygnusXDFP" target="blank"
-                        rel="noopener">熙歌</a>
-                    </li>
-
-                    <li><span class="badge">繪師</span> <a href="https://x.com/Linye274" target="blank" rel="noopener">凜夜
-                        (像素人物)</a>、<a href="https://x.com/mellow9114" target="blank" rel="noopener">米歐 (像素建築)</a>、<a
-                        href="https://x.com/SlimeHeavy" target="blank" rel="noopener">HeavyMetalSlime (3D人物)</a> 感謝提供素材。
-
-                    <li><span class="badge">設定</span> 遊戲劇情皆為虛構，與任何VTuber之官方作品、立場或企劃皆無關聯。</li>
-
-                    <li><span class="badge">尊重</span> 若任何權利人有疑慮，請與我聯繫，我將立即配合修改或下架。</li>
-                    <li><span class="badge">聯絡</span> <a href="https://x.com/Yi_yuss" target="blank"
-                        rel="noopener">https://x.com/Yi_yuss</a></li>
-                  </ul>
-                </div>
-              </div>
+              <div id="tpl-gameplay"></div>
+              <div id="tpl-announce"></div>
+              <div id="tpl-regarding"></div>
             </div>
           </div>
           <div class="start-menu">
             <div class="start-illustration" aria-hidden="true"></div>
-            <button id="start-button" class="menu-btn primary">開始遊戲</button>
-            <button id="achievements-button" class="menu-btn ghost">成就系統</button>
-            <button class="menu-btn ghost" data-target="gameplay">遊戲玩法</button>
-            <button class="menu-btn ghost" data-target="announce">遊戲公告</button>
-            <button class="menu-btn ghost" data-target="regarding">Regarding</button>
-            <button class="menu-btn ghost" data-target="redeem-code">序號輸入</button>
-            <button id="backup-button" class="menu-btn ghost">手動備份</button>
           </div>
 
           <!-- 音量疊蓋視窗已移至左側 content-window 內 -->
@@ -178,43 +101,8 @@
           提示：本畫面分為「主體遊戲」與「冒險模式」兩組引繼碼，請依照需要選擇對應區塊操作。
         </div>
         <div class="map-grid" style="display:block;">
-          <div class="content" style="margin-bottom:12px;">
-            <h2 style="margin:0 0 6px;">主體遊戲引繼碼（生存 / 天賦 / 成就）</h2>
-            <p>說明：基於目前主體遊戲存檔（金幣、天賦、成就、解鎖角色）生成安全碼，不包含冒險模式世界。</p>
-            <button id="backup-generate" class="primary">生成引繼碼</button>
-            <div style="margin-top:8px;">
-              <label for="backup-code-output">主體遊戲引繼碼</label>
-              <input id="backup-code-output" type="text" readonly placeholder="點擊生成後顯示" style="width:100%;">
-              <button id="backup-copy" class="ghost" style="margin-top:6px;">複製</button>
-            </div>
-          </div>
-          <div class="content" style="margin-top:16px;">
-            <h2 style="margin:0 0 6px;">主體遊戲引繼碼輸入</h2>
-            <p>說明：貼上於其他裝置生成的「主體遊戲引繼碼」以還原主體存檔（不影響冒險模式）。</p>
-            <label for="backup-code-input">主體遊戲引繼碼</label>
-            <input id="backup-code-input" type="text" placeholder="請貼上引繼碼" style="width:100%;">
-            <button id="backup-apply" class="primary" style="margin-top:6px;">套用引繼碼</button>
-          </div>
-          <div class="content" style="margin-top:16px;">
-            <h2 style="margin:0 0 6px;">冒險模式引繼碼（異世界存檔）</h2>
-            <p>說明：此區塊只會備份 / 還原冒險模式中的「異世界」存檔，不會影響主體遊戲金幣、天賦或成就。</p>
-            <div style="margin-bottom:12px;">
-              <button id="adventure-backup-generate" class="primary">生成冒險模式引繼碼</button>
-              <div style="margin-top:8px;">
-                <label for="adventure-backup-code-output">冒險模式引繼碼</label>
-                <input id="adventure-backup-code-output" type="text" readonly placeholder="先在冒險模式遊玩並自動存檔後，再點此生成"
-                  style="width:100%;">
-                <button id="adventure-backup-copy" class="ghost" style="margin-top:6px;">複製</button>
-              </div>
-            </div>
-            <div>
-              <h2 style="margin:0 0 6px;">冒險模式引繼碼輸入</h2>
-              <p style="margin:0 0 4px;">貼上在其他裝置生成的「冒險模式引繼碼」，只會覆蓋異世界的世界存檔。</p>
-              <label for="adventure-backup-code-input">冒險模式引繼碼</label>
-              <input id="adventure-backup-code-input" type="text" placeholder="請貼上冒險模式引繼碼" style="width:100%;">
-              <button id="adventure-backup-apply" class="primary" style="margin-top:6px;">套用冒險模式引繼碼</button>
-            </div>
-          </div>
+          <!-- 引繼碼表單由 BACKUP_SECTIONS 生成。主體與冒險版面不合一。 -->
+          <div id="backup-sections-host" style="display:contents;"></div>
           <div class="content" style="margin-top:16px;">
             <h2 style="margin:0 0 6px;">教學與注意事項</h2>
             <ul style="padding-left:18px; line-height:1.6;">
@@ -266,55 +154,7 @@
         <h1 class="char-title">選擇VTuber角色</h1>
         <p class="char-subtitle">提示：選取角色後按空白鍵或雙擊確認。</p>
 
-        <div class="char-grid">
-          <button class="char-card selectable" data-char-id="margaret">
-            <img src="assets/images/player1-3.png" alt="瑪格麗特·諾爾絲">
-            <div class="char-name">瑪格麗特·諾爾絲</div>
-          </button>
-          <!-- 第二位角色：灰妲DaDa（未解鎖時灰階顯示，可花費金幣解鎖） -->
-          <button class="char-card selectable locked" data-char-id="dada">
-            <img src="assets/images/player2-3.png" alt="灰妲DaDa">
-            <div class="char-name">灰妲DaDa</div>
-          </button>
-          <!-- 第四位角色：洛可洛斯特（未解鎖時灰階顯示，可花費1萬金幣解鎖） -->
-          <button class="char-card selectable locked" data-char-id="rokurost">
-            <img src="assets/images/player4-3.png" alt="洛可洛斯特">
-            <div class="char-name">洛可洛斯特</div>
-          </button>
-          <!-- 第五位角色：艾比Rabi（未解鎖時灰階顯示，可花費1萬金幣解鎖） -->
-          <button class="char-card selectable locked" data-char-id="rabi">
-            <img src="assets/images/player5-3.png" alt="艾比Rabi">
-            <div class="char-name">艾比Rabi</div>
-          </button>
-          <!-- 第六位角色：鳳梨不咬舌（未解鎖時灰階顯示，可花費1萬金幣解鎖） -->
-          <button class="char-card selectable locked" data-char-id="pineapple">
-            <img src="assets/images/player6-3.png" alt="鳳梨不咬舌">
-            <div class="char-name">鳳梨不咬舌</div>
-          </button>
-          <button class="char-card selectable locked" data-char-id="elondier">
-            <img src="assets/images/player7-3.png" alt="厄倫蒂兒">
-            <div class="char-name">厄倫蒂兒</div>
-          </button>
-          <!-- 白白虹（未解鎖時灰階顯示，可花費1萬金幣解鎖） -->
-          <button class="char-card selectable locked" data-char-id="baibaihong">
-            <img src="assets/images/player8-3.png" alt="白白虹">
-            <div class="char-name">白白虹</div>
-          </button>
-          <!-- 熙歌Cygnus（未解鎖時灰階顯示，可花費1萬金幣解鎖） -->
-          <button class="char-card selectable locked" data-char-id="cygnus">
-            <img src="assets/images/player9-3.png" alt="熙歌Cygnus">
-            <div class="char-name">熙歌Cygnus</div>
-          </button>
-          <div class="char-slot empty"></div>
-          <div class="char-slot empty"></div>
-          <div class="char-slot empty"></div>
-          <!-- 第三位角色：森森鈴蘭（未解鎖時灰階顯示，可花費100萬金幣解鎖）- 最終角色，放在最後一格 -->
-          <button class="char-card selectable locked" data-char-id="lilylinglan">
-            <img src="assets/images/player3-3.png" alt="森森鈴蘭">
-            <div class="char-name">森森鈴蘭</div>
-          </button>
-
-        </div>
+        <div class="char-grid"></div>
 
         <div class="char-preview" id="char-preview" aria-live="polite">
           <div class="char-preview-image">
@@ -328,17 +168,8 @@
           </div>
         </div>
 
-        <!-- 角色解鎖確認對話框 -->
-        <div id="character-confirm" class="hidden">
-          <div class="talent-dialog">
-            <div class="talent-dialog-title" id="character-confirm-title">解鎖角色</div>
-            <div class="talent-dialog-desc" id="character-confirm-desc">使用0金幣解鎖該角色？</div>
-            <div class="talent-dialog-actions">
-              <button id="character-confirm-ok" class="primary">確認</button>
-              <button id="character-confirm-cancel" class="ghost">取消</button>
-            </div>
-          </div>
-        </div>
+        <!-- 角色解鎖確認由 CONFIRM_DIALOGS 生成 -->
+        <div id="character-confirm-host"></div>
       </div>
     </div>
 
@@ -348,217 +179,16 @@
 
         <!-- 左右分欄布局：左側模式、右側地圖格與下方介紹 -->
         <div class="map-layout">
-          <!-- 左：模式欄，目前僅生存模式 -->
+          <!-- 左：模式欄。鈕由 CONFIG.MODE_SELECT_BUTTONS 生成，順序凍結。 -->
           <div class="map-menu">
             <div class="menu-title-image" aria-hidden="true">
               <img src="assets/images/start3.png" alt="模式標題" />
             </div>
-            <button id="mode-survival" class="mode-btn primary" aria-label="生存模式">生存模式</button>
-            <button id="mode-challenge" class="mode-btn" aria-label="挑戰模式">挑戰模式</button>
-            <button id="mode-stage" class="mode-btn" aria-label="闖關模式">闖關模式</button>
-            <button id="mode-defense" class="mode-btn" aria-label="防禦模式">防禦模式</button>
-            <button id="mode-main" class="mode-btn" aria-label="主線模式">主線模式</button>
-            <button id="mode-adventure" class="mode-btn" aria-label="冒險模式">冒險模式</button>
-            <button id="mode-3d" class="mode-btn" aria-label="3D模式">3D模式</button>
           </div>
 
           <!-- 右：地圖格與下方介紹 -->
           <div class="map-main">
-            <div class="map-grid" id="grid-survival">
-              <button class="map-card selectable" data-map-id="city">
-                <img src="assets/images/background.jpg" alt="廁所LV.1">
-                <div class="map-name">LV1.廁所</div>
-              </button>
-              <button class="map-card selectable" data-map-id="forest">
-                <img src="assets/images/background1-2.png" alt="草原LV.2">
-                <div class="map-name">LV2.草原</div>
-              </button>
-              <button class="map-card selectable" data-map-id="desert">
-                <img src="assets/images/background1-3.png" alt="宇宙LV.3">
-                <div class="map-name">LV3.宇宙</div>
-              </button>
-              <button class="map-card selectable" data-map-id="garden">
-                <img src="assets/images/background8.png" alt="花園LV.4">
-                <div class="map-name">LV4.花園</div>
-              </button>
-              <button class="map-card selectable" data-map-id="intersection">
-                <img src="assets/images/background12.jpg" alt="路口LV.5">
-                <div class="map-name">LV5.路口</div>
-              </button>
-              <button class="map-card selectable" data-map-id="branch">
-                <img src="assets/images/background13.jpg" alt="支部LV.6">
-                <div class="map-name">LV6.支部</div>
-              </button>
-            
-            </div>
-
-            <!-- 挑戰模式：-->
-            <div class="map-grid hidden" id="grid-challenge">
-              <button class="map-card selectable" data-map-id="challenge-1">
-                <img src="assets/images/background4.png" alt="LV1.銀河系">
-                <div class="map-name">LV1.銀河系</div>
-              </button>
-              <button class="map-card selectable" data-map-id="challenge-2">
-                <img src="assets/images/background5.jpg" alt="LV2.星雲">
-                <div class="map-name">LV2.星雲</div>
-              </button>
-              <button class="map-card selectable" data-map-id="challenge-3">
-                <img src="assets/images/background6.jpg" alt="LV3.星軌">
-                <div class="map-name">LV3.星軌</div>
-              </button>
-              <button class="map-card selectable" data-map-id="challenge-4">
-                <img src="assets/images/background7.jpg" alt="LV4.黑洞">
-                <div class="map-name">LV4.黑洞</div>
-              </button>
-              <button class="map-card disabled" data-map-id="challenge-5">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="challenge-6">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-            </div>
-
-            <!-- 闖關模式：-->
-            <div class="map-grid hidden" id="grid-stage">
-              <button class="map-card selectable" data-map-id="challenge-1">
-                <img src="assets/images/background4.png" alt="LV1.銀河系">
-                <div class="map-name">(施工中)</div>
-              </button>
-              <button class="map-card disabled" data-map-id="stage-2">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="stage-3">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="stage-4">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="stage-5">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="stage-6">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-            </div>
-
-            <!-- 防禦模式：-->
-            <div class="map-grid hidden" id="grid-defense">
-              <button class="map-card selectable" data-map-id="defense-1">
-                <img src="assets/images/background1-2.png" alt="糖果煉金坊">
-                <div class="map-name">LV1.魔法糖果煉金坊</div>
-              </button>
-              <button class="map-card disabled" data-map-id="defense-2">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="defense-3">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="defense-4">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="defense-5">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="defense-6">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-            </div>
-
-            <!-- 主線模式：解鎖首張「冒險村莊」 -->
-            <div class="map-grid hidden" id="grid-main">
-              <button class="map-card selectable" data-map-id="main-test">
-                <img src="assets/images/background10.jpg" alt="冒險村莊">
-                <div class="map-name">冒險村莊</div>
-              </button>
-              <button class="map-card disabled" data-map-id="main-2">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="main-3">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="main-4">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="main-5">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="main-6">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-            </div>
-
-            <!-- 冒險模式：單張地圖「異世界」（獨立存檔） -->
-            <div class="map-grid hidden" id="grid-adventure">
-              <button class="map-card selectable" data-map-id="adventure-isekai">
-                <img src="assets/images/background9.jpg" alt="異世界">
-                <div class="map-name">異世界</div>
-              </button>
-              <button class="map-card disabled" data-map-id="adventure-2">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="adventure-3">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="adventure-4">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="adventure-5">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="adventure-6">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-            </div>
-
-            <!-- 3D模式：DEMO城市 -->
-            <div class="map-grid hidden" id="grid-3d">
-              <button class="map-card selectable" data-map-id="3d-demo-city">
-                <img src="assets/images/background11.jpg" alt="DEMO城市">
-                <div class="map-name">DEMO城市</div>
-              </button>
-              <button class="map-card disabled" data-map-id="3d-2">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="3d-3">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="3d-4">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="3d-5">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-              <button class="map-card disabled" data-map-id="3d-6">
-                <img src="assets/images/background3.jpg" alt="尚未開放">
-                <div class="map-name">尚未開放</div>
-              </button>
-            </div>
+            <!-- 選圖格容器由 MAP_SELECT_GRIDS 生成。生存格預設顯示。 -->
 
             <!-- 下方資訊區：左側 GM.png、右側介紹文字 -->
             <div class="map-info">
@@ -575,71 +205,11 @@
       </div>
     </div>
 
-    <!-- 3D模式密碼輸入疊蓋視窗（放在map-select-screen外面，確保能覆蓋整個屏幕） -->
-    <div id="password-overlay" class="modal hidden"
-      style="position: fixed; z-index: 10000; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;">
-      <div class="modal-card"
-        style="width: min(420px, 92vw); padding: 16px; background: var(--panel-bg); border: var(--border-soft); border-radius: 12px; box-shadow: var(--shadow-lg); backdrop-filter: blur(var(--blur-6));">
-        <h2>輸入密碼</h2>
-        <div class="redeem-code-form">
-          <label for="password-input">請輸入密碼以進入DEMO城市：</label>
-          <input type="password" id="password-input" placeholder="請輸入密碼" maxlength="50">
-          <div id="password-message" class="redeem-code-message"></div>
-        </div>
-        <div class="modal-actions">
-          <button id="password-submit" class="ghost">確認</button>
-          <button id="password-close" class="ghost">取消</button>
-        </div>
-      </div>
-    </div>
+    <!-- 3D 密碼殼由 PROMPT_MODALS 生成。樣式與序號窗不合一。 -->
+    <div id="password-host"></div>
 
-    <!-- 難度選擇介面 -->
-    <div id="difficulty-select-screen" class="screen hidden">
-      <div class="select-card">
-        <h1 class="select-title">選擇難度</h1>
-        <div class="diff-grid">
-          <button class="diff-card selectable" data-diff-id="EASY">
-            <span class="diff-label">簡單</span>
-            <div class="diff-intro">世界陷入了奇異的詛咒——<BR>所有 VTuber
-              都被神秘的「信號」控制，只要靠近她們的歌聲，就會忍不住想「坐下」。<BR><BR>你，唯一仍保持理智的玩家，必須在滿地馬桶迷宮中生存下來！</div>
-          </button>
-          <button class="diff-card selectable" data-diff-id="HARD">
-            <span class="diff-label">困難</span>
-            <div class="diff-intro">
-              不斷傳來的詭異聲響，你以為只是廁所鬧鬼？<BR>來自深淵的「未知信號」<BR>都是在引導你走向那個終極馬桶！<BR><BR>在這裡，水花會奪命、歌聲會迷惑、<BR>每一秒的遲疑，都是墜入「坐下」的開始。
-            </div>
-          </button>
-        </div>
-        <div class="select-actions">
-          <button id="diff-back" class="ghost">返回</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 第三張地圖專用：難度選擇介面（困難 / 修羅） -->
-    <div id="desert-difficulty-select-screen" class="screen hidden">
-      <div class="select-card">
-        <h1 class="select-title">選擇難度</h1>
-        <div class="diff-grid">
-          <!-- 左：困難（樣式同原本） -->
-          <button class="diff-card selectable" data-diff-id="HARD">
-            <span class="diff-label">困難</span>
-            <div class="diff-intro">
-              不斷傳來的詭異聲響，你以為只是廁所鬧鬼？<br>來自深淵的「未知信號」<br>都是在引導你走向那個終極馬桶！<br><br>在這裡，水花會奪命、歌聲會迷惑、<br>每一秒的遲疑，都是墜入「坐下」的開始。
-            </div>
-          </button>
-          <!-- 右：修羅（金色底色與指定介紹文案） -->
-          <button class="diff-card selectable" data-diff-id="ASURA">
-            <span class="diff-label">修羅</span>
-            <div class="diff-intro">
-              這不是為了生存，而是為了證明。<br>每一個「信號」都將襲來、<br>每一秒的遲疑都是坐下。<br><br>若你能在此地存活，你將不再是玩家，<br>——而是「信號」的支配者！</div>
-          </button>
-        </div>
-        <div class="select-actions">
-          <button id="diff-back-desert" class="ghost">返回</button>
-        </div>
-      </div>
-    </div>
+    <!-- 難度畫面殼由 DIFFICULTY_SCREENS 生成。兩套畫面不合一。 -->
+    <div id="difficulty-screen-host"></div>
 
     <!-- 生存模式：單人 / 組隊選擇（僅生存模式使用；不影響其他模式） -->
     <div id="survival-online-select-screen" class="screen hidden">
@@ -676,6 +246,7 @@
         <h1 class="select-title">組隊大廳</h1>
         <div class="map-desc" style="margin-bottom:12px;">
           房間上限：5人。室長可開始遊戲、調整地圖/難度，所有玩家可選擇角色。<br>
+          組隊每多 1 人（超過單人），場上怪物最大生命 +30%（2人 130%、3人 160%，以此類推）。<br>
           <span id="survival-online-status" style="color: rgba(255,255,255,0.85);">尚未連線</span>
         </div>
 
@@ -704,11 +275,7 @@
             </div>
             <div style="flex:1; min-width:220px;">
               <label style="display:block; margin-bottom:4px;">難度（室長）</label>
-              <select id="survival-online-host-diff" style="width:100%;">
-                <option value="EASY">簡單</option>
-                <option value="HARD">困難</option>
-                <option value="ASURA">修羅</option>
-              </select>
+              <select id="survival-online-host-diff" style="width:100%;"></select>
             </div>
           </div>
           <div style="margin-top:10px;">
@@ -832,350 +399,13 @@
           </div>
           <div id="skills-list" class="skills-list" aria-live="polite"></div>
         </div>
-        <!-- 挑戰模式專用 HUD（獨立容器，避免污染生存模式） -->
-        <div id="challenge-ui"
-          style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none;">
-          <!-- 左上：頭像、HP、EXP、能量 -->
-          <div id="challenge-left"
-            style="position:absolute; top:10px; left:10px; display:flex; gap:10px; align-items:flex-start;">
-            <img id="challenge-avatar" alt="avatar"
-              style="width:80px; height:auto; aspect-ratio:452/480; object-fit:contain; image-rendering:pixelated; border:2px solid #fff; border-radius:6px;" />
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <div class="cbar-row">
-                <span class="cbar-label">生命</span>
-                <div id="challenge-health-bar" class="cbar">
-                  <div id="challenge-health-fill" class="cbar-fill" style="background:#ff4d4f;"></div>
-                </div>
-                <span id="challenge-health-text" class="cbar-text">0/0</span>
-              </div>
-              <div class="cbar-row">
-                <span class="cbar-label">經驗</span>
-                <div id="challenge-exp-bar" class="cbar">
-                  <div id="challenge-exp-fill" class="cbar-fill" style="background:#52c41a;"></div>
-                </div>
-                <span id="challenge-exp-text" class="cbar-text">0/0</span>
-              </div>
-              <div class="cbar-row">
-                <span class="cbar-label">能量</span>
-                <div id="challenge-energy-bar" class="cbar">
-                  <div id="challenge-energy-fill" class="cbar-fill" style="background:#40a9ff;"></div>
-                </div>
-                <span id="challenge-energy-text" class="cbar-text">0/0</span>
-              </div>
-            </div>
-          </div>
-          <!-- 右上：時間、金幣 -->
-          <div id="challenge-right"
-            style="position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
-            <div id="challenge-timer"
-              style="font-size:1.4rem; font-weight:bold; color:#fff; text-shadow:0 0 6px rgba(0,0,0,0.6);">00:00</div>
-            <div id="challenge-coins"
-              style="display:flex; align-items:center; gap:6px; color:#ffd700; font-weight:bold; text-shadow:0 0 5px rgba(255,215,0,0.6);">
-              <img id="challenge-coins-icon" src="assets/images/money.png" alt="金幣" style="width:24px; height:24px;" />
-              <span id="challenge-coins-text">0</span>
-            </div>
-          </div>
-          <!-- 右下：操作提示圖例 -->
-          <div id="challenge-legend"
-            style="position:absolute; right:12px; bottom:12px; color:#ffffff; font-size:1.0rem; font-weight:600; text-shadow:0 0 6px rgba(0,0,0,0.6); pointer-events:none;">
-            Z=攻擊&nbsp;&nbsp;X=衝刺
-          </div>
-        </div>
-
-        <!-- 挑戰模式 ESC 菜單（僅視覺採用生存樣式，避免邏輯污染） -->
-        <div id="challenge-menu" class="hidden">
-          <div class="skills-title">技能與音量</div>
-          <div class="skills-hint">按 ESC 關閉</div>
-          <div class="skills-volume">
-            <div class="volume-row">
-              <label for="challenge-music-volume">音樂</label>
-              <input type="range" id="challenge-music-volume" min="0" max="1" step="0.01" value="0.5">
-              <span id="challenge-music-volume-text">50%</span>
-            </div>
-            <div class="volume-row">
-              <label for="challenge-sound-volume">音效</label>
-              <input type="range" id="challenge-sound-volume" min="0" max="1" step="0.01" value="0.7">
-              <span id="challenge-sound-volume-text">70%</span>
-            </div>
-          </div>
-          <div class="talents-section">
-            <h3 class="talents-title">目前天賦</h3>
-            <ul id="challenge-talents-list" class="talents-list" style="list-style:none; padding:0; margin:0;"></ul>
-          </div>
-        </div>
-
-        <!-- 闖關模式專用 HUD（獨立容器） -->
-        <div id="stage-ui"
-          style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none;">
-          <!-- 左上：頭像、HP、EXP、能量 -->
-          <div id="stage-left"
-            style="position:absolute; top:10px; left:10px; display:flex; gap:10px; align-items:flex-start;">
-            <img id="stage-avatar" alt="avatar"
-              style="width:80px; height:auto; aspect-ratio:452/480; object-fit:contain; image-rendering:pixelated; border:2px solid #fff; border-radius:6px;" />
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <div class="cbar-row">
-                <span class="cbar-label">生命</span>
-                <div id="stage-health-bar" class="cbar">
-                  <div id="stage-health-fill" class="cbar-fill" style="background:#ff4d4f;"></div>
-                </div>
-                <span id="stage-health-text" class="cbar-text">0/0</span>
-              </div>
-              <div class="cbar-row">
-                <span class="cbar-label">經驗</span>
-                <div id="stage-exp-bar" class="cbar">
-                  <div id="stage-exp-fill" class="cbar-fill" style="background:#52c41a;"></div>
-                </div>
-                <span id="stage-exp-text" class="cbar-text">0/0</span>
-              </div>
-              <div class="cbar-row">
-                <span class="cbar-label">能量</span>
-                <div id="stage-energy-bar" class="cbar">
-                  <div id="stage-energy-fill" class="cbar-fill" style="background:#40a9ff;"></div>
-                </div>
-                <span id="stage-energy-text" class="cbar-text">0/0</span>
-              </div>
-            </div>
-          </div>
-          <!-- 右上：時間、金幣 -->
-          <div id="stage-right"
-            style="position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
-            <div id="stage-timer"
-              style="font-size:1.4rem; font-weight:bold; color:#fff; text-shadow:0 0 6px rgba(0,0,0,0.6);">00:00</div>
-            <div id="stage-coins"
-              style="display:flex; align-items:center; gap:6px; color:#ffd700; font-weight:bold; text-shadow:0 0 5px rgba(255,215,0,0.6);">
-              <img id="stage-coins-icon" src="assets/images/money.png" alt="金幣" style="width:24px; height:24px;" />
-              <span id="stage-coins-text">0</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 闖關模式 ESC 菜單（複製挑戰樣式） -->
-        <div id="stage-menu" class="hidden">
-          <div class="skills-title">技能與音量</div>
-          <div class="skills-hint">按 ESC 關閉</div>
-          <div class="skills-volume">
-            <div class="volume-row">
-              <label for="stage-music-volume">音樂</label>
-              <input type="range" id="stage-music-volume" min="0" max="1" step="0.01" value="0.5">
-              <span id="stage-music-volume-text">50%</span>
-            </div>
-            <div class="volume-row">
-              <label for="stage-sound-volume">音效</label>
-              <input type="range" id="stage-sound-volume" min="0" max="1" step="0.01" value="0.7">
-              <span id="stage-sound-volume-text">70%</span>
-            </div>
-          </div>
-          <div class="talents-section">
-            <h3 class="talents-title">目前天賦</h3>
-            <ul id="stage-talents-list" class="talents-list" style="list-style:none; padding:0; margin:0;"></ul>
-          </div>
-        </div>
-
-        <!-- 防禦模式專用 HUD（獨立容器） -->
-        <div id="defense-ui"
-          style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:3; pointer-events:none;">
-          <!-- 左上：頭像、HP、EXP、能量 -->
-          <div id="defense-left"
-            style="position:absolute; top:10px; left:10px; display:flex; gap:10px; align-items:flex-start;">
-            <img id="defense-avatar" alt="avatar"
-              style="width:80px; height:auto; aspect-ratio:452/480; object-fit:contain; image-rendering:pixelated; border:2px solid #fff; border-radius:6px;" />
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <div class="cbar-row">
-                <span class="cbar-label">生命</span>
-                <div id="defense-health-bar" class="cbar">
-                  <div id="defense-health-fill" class="cbar-fill" style="background:#ff4d4f;"></div>
-                </div>
-                <span id="defense-health-text" class="cbar-text">0/0</span>
-              </div>
-              <div class="cbar-row">
-                <span class="cbar-label">經驗</span>
-                <div id="defense-exp-bar" class="cbar">
-                  <div id="defense-exp-fill" class="cbar-fill" style="background:#52c41a;"></div>
-                </div>
-                <span id="defense-exp-text" class="cbar-text">0/0</span>
-              </div>
-              <div class="cbar-row">
-                <span class="cbar-label">能量</span>
-                <div id="defense-energy-bar" class="cbar">
-                  <div id="defense-energy-fill" class="cbar-fill" style="background:#40a9ff;"></div>
-                </div>
-                <span id="defense-energy-text" class="cbar-text">0/0</span>
-              </div>
-            </div>
-          </div>
-          <!-- 右上：時間、金幣 -->
-          <div id="defense-right"
-            style="position:absolute; top:10px; right:10px; display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
-            <div id="defense-timer"
-              style="font-size:1.4rem; font-weight:bold; color:#fff; text-shadow:0 0 6px rgba(0,0,0,0.6);">00:00</div>
-            <div id="defense-coins"
-              style="display:flex; align-items:center; gap:6px; color:#ffd700; font-weight:bold; text-shadow:0 0 5px rgba(255,215,0,0.6);">
-              <img id="defense-coins-icon" src="assets/images/money.png" alt="金幣" style="width:24px; height:24px;" />
-              <span id="defense-coins-text">0</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 防禦模式 ESC 菜單（複製挑戰樣式） -->
-        <div id="defense-menu" class="hidden">
-          <div class="skills-title">技能與音量</div>
-          <div class="skills-hint">按 ESC 關閉</div>
-          <div class="skills-volume">
-            <div class="volume-row">
-              <label for="defense-music-volume">音樂</label>
-              <input type="range" id="defense-music-volume" min="0" max="1" step="0.01" value="0.5">
-              <span id="defense-music-volume-text">50%</span>
-            </div>
-            <div class="volume-row">
-              <label for="defense-sound-volume">音效</label>
-              <input type="range" id="defense-sound-volume" min="0" max="1" step="0.01" value="0.7">
-              <span id="defense-sound-volume-text">70%</span>
-            </div>
-          </div>
-          <div class="talents-section">
-            <h3 class="talents-title">目前天賦</h3>
-            <ul id="defense-talents-list" class="talents-list" style="list-style:none; padding:0; margin:0;"></ul>
-          </div>
-        </div>
+        <!-- 挑戰／闖關／防禦 HUD＋ESC 選單由 MODE_HUD_SLOTS 生成（只有挑戰有 Z/X 提示） -->
+        <div id="mode-hud-host"></div>
       </div>
     </div>
 
-    <!-- 失敗畫面 -->
-    <div id="game-over-screen" class="screen hidden">
-      <!-- 遊戲失敗影片 -->
-      <video id="game-over-video" src="assets/videos/game_over.mp4" preload="auto" playsinline></video>
-
-      <!-- 失敗結算視窗 -->
-      <div class="game-over-summary">
-        <div class="game-over-summary-content">
-          <h2>遊戲結算</h2>
-          <div class="summary-stats">
-            <div class="summary-stat">
-              <span class="stat-label">遊戲時間(秒):</span>
-              <span class="stat-value" id="game-over-time">00:00</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">最終等級:</span>
-              <span class="stat-value" id="game-over-level">0</span>
-            </div>
-
-            <div class="summary-stat">
-              <span class="stat-label">獲得金幣:</span>
-              <span class="stat-value" id="game-over-coins">0</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">最終波數:</span>
-              <span class="stat-value" id="game-over-exp">0</span>
-            </div>
-          </div>
-          <div id="game-over-achievements" class="summary-achievements" aria-live="polite" style="margin-top:12px;">
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 勝利畫面 -->
-    <div id="victory-screen" class="screen hidden">
-      <video id="victory-video" src="assets/videos/victory.mp4" preload="auto" playsinline></video>
-      <!-- 結算視窗 -->
-      <div id="victory-summary" class="victory-summary">
-        <div class="victory-summary-content">
-          <h2>遊戲勝利</h2>
-          <div class="summary-stats">
-            <div class="summary-stat">
-              <span class="stat-label">遊戲時間(秒):</span>
-              <span class="stat-value" id="summary-time">00:00</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">最終等級:</span>
-              <span class="stat-value" id="summary-level">0</span>
-            </div>
-
-            <div class="summary-stat">
-              <span class="stat-label">獲得金幣:</span>
-              <span class="stat-value" id="summary-coins">0</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">最終波數:</span>
-              <span class="stat-value" id="summary-exp">0</span>
-            </div>
-          </div>
-          <div id="victory-achievements" class="summary-achievements" aria-live="polite" style="margin-top:12px;"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 防禦模式專用結算畫面：失敗 -->
-    <div id="defense-gameover-screen" class="screen hidden">
-      <video id="defense-gameover-video" src="assets/videos/game_over.mp4" preload="auto" playsinline></video>
-      <div class="game-over-summary">
-        <div class="game-over-summary-content">
-          <h2>防禦模式結算</h2>
-          <div class="summary-stats">
-            <div class="summary-stat">
-              <span class="stat-label">遊戲時間:</span>
-              <span class="stat-value" id="defense-failure-time">00:00</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">波次進度:</span>
-              <span class="stat-value" id="defense-failure-wave">0/30</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">獲得金幣:</span>
-              <span class="stat-value" id="defense-failure-gold">0</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">擊殺數:</span>
-              <span class="stat-value" id="defense-failure-kill">0</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">建造塔數:</span>
-              <span class="stat-value" id="defense-failure-tower">0</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">主堡血量:</span>
-              <span class="stat-value" id="defense-failure-base">0/0</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 防禦模式專用結算畫面：勝利 -->
-    <div id="defense-victory-screen" class="screen hidden">
-      <video id="defense-victory-video" src="assets/videos/victory.mp4" preload="auto" playsinline></video>
-      <div class="victory-summary">
-        <div class="victory-summary-content">
-          <h2>防禦模式勝利</h2>
-          <div class="summary-stats">
-            <div class="summary-stat">
-              <span class="stat-label">遊戲時間:</span>
-              <span class="stat-value" id="defense-victory-time">00:00</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">波次進度:</span>
-              <span class="stat-value" id="defense-victory-wave">0/30</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">獲得金幣:</span>
-              <span class="stat-value" id="defense-victory-gold">0</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">擊殺數:</span>
-              <span class="stat-value" id="defense-victory-kill">0</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">建造塔數:</span>
-              <span class="stat-value" id="defense-victory-tower">0</span>
-            </div>
-            <div class="summary-stat">
-              <span class="stat-label">主堡血量:</span>
-              <span class="stat-value" id="defense-victory-base">0/0</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- 結算畫面與影片由 SUMMARY_PANELS 生成。生存與防禦不合一。 -->
+    <div id="summary-screen-host"></div>
     <!-- 天賦介面 -->
     <div id="talent-select-screen" class="screen hidden">
       <div class="char-card-wrap">
@@ -1189,80 +419,7 @@
         </button>
         <h1 class="char-title">天賦系統</h1>
         <p class="char-subtitle">提示：選取天賦按空白鍵或雙擊解鎖，最高六階。</p>
-        <div class="char-grid talent-grid">
-          <button class="char-card selectable locked" data-talent-id="hp_boost">
-            <img src="assets/images/test.png" alt="生命強化" class="grayscale" />
-            <div class="char-name">生命強化</div>
-          </button>
-          <!-- 其他 11 個格子 -->
-          <button class="char-card selectable locked" data-talent-id="defense_boost">
-            <img src="assets/images/test2.png" alt="防禦強化" class="grayscale" />
-            <div class="char-name">防禦強化</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="speed_boost">
-            <img src="assets/images/test3.png" alt="移動加速" class="grayscale" />
-            <div class="char-name">移動加速</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="pickup_range_boost">
-            <img src="assets/images/test4.png" alt="拾取範圍增加" class="grayscale" />
-            <div class="char-name">拾取範圍增加</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="damage_boost">
-            <img src="assets/images/test5.png" alt="傷害強化" class="grayscale" />
-            <div class="char-name">傷害強化</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="damage_specialization">
-            <img src="assets/images/test6.png" alt="傷害特化" class="grayscale" />
-            <div class="char-name">傷害特化</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="crit_enhance">
-            <img src="assets/images/test7.png" alt="爆擊強化" class="grayscale" />
-            <div class="char-name">爆擊強化</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="regen_speed_boost">
-            <img src="assets/images/test8.png" alt="回血強化" class="grayscale" />
-            <div class="char-name">回血強化</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="experience_boost">
-            <img src="assets/images/test10.png" alt="經驗值強化" class="grayscale" />
-            <div class="char-name">經驗值強化</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="levelup_action_charges">
-            <img src="assets/images/test9.png" alt="選項次數強化" class="grayscale" />
-            <div class="char-name">選項次數強化</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="dodge_enhance">
-            <img src="assets/images/test12.png" alt="迴避強化" class="grayscale" />
-            <div class="char-name">迴避強化</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="defense_gold_boost">
-            <img src="assets/images/test11.png" alt="消波塊增加" class="grayscale" />
-            <div class="char-name">消波塊增加</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="gravity_wave_boost">
-            <img src="assets/images/A27.png" alt="引力強化" class="grayscale" />
-            <div class="char-name">引力強化</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="ai_boost">
-            <img src="assets/images/AI.png" alt="AI強化" class="grayscale" />
-            <div class="char-name">AI強化</div>
-          </button>
-          <!-- 專屬強化入口（獨特性，解鎖後開啟專屬系統視窗） -->
-          <button class="char-card selectable locked" data-talent-id="exclusive_enhance">
-            <img src="assets/images/A69.png" alt="專屬強化" class="grayscale" />
-            <div class="char-name">專屬強化</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="assist_enhance">
-            <img src="assets/images/A83.png" alt="輔助強化" class="grayscale" />
-            <div class="char-name">輔助強化</div>
-          </button>
-          <button class="char-card selectable locked" data-talent-id="awakening_enhance">
-            <img src="assets/images/A65.jpg" alt="覺醒強化" class="grayscale" />
-            <div class="char-name">覺醒強化</div>
-          </button>
-          <div class="char-slot empty"></div>
-          <div class="char-slot empty"></div>
-        </div>
+        <div class="char-grid talent-grid"></div>
         <div class="char-preview" id="talent-preview" aria-live="polite">
           <div class="char-preview-image">
             <img id="talent-preview-img" src="assets/images/GM.png" alt="預覽" />
@@ -1274,211 +431,26 @@
           </div>
         </div>
 
-        <!-- 天賦解鎖確認彈窗 -->
-        <div id="talent-confirm" class="hidden">
-          <div class="talent-dialog">
-            <div class="talent-dialog-title" id="talent-confirm-title">解鎖天賦</div>
-            <div class="talent-dialog-desc" id="talent-confirm-desc">使用500金幣解鎖天賦？</div>
-            <div class="talent-dialog-actions">
-              <button id="talent-confirm-ok" class="primary">確認</button>
-              <button id="talent-confirm-cancel" class="ghost">取消</button>
-            </div>
-          </div>
-        </div>
+        <!-- 天賦解鎖確認由 CONFIRM_DIALOGS 生成 -->
+        <div id="talent-confirm-host"></div>
       </div>
     </div>
 
-    <!-- 覺醒系統視窗（覆蓋式，類似序號兌換） -->
-    <div id="awakening-overlay" class="hidden" aria-hidden="true"
-      style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;">
-      <div style="width:min(520px,94vw);max-height:90vh;overflow-y:auto;padding:24px 20px;background:linear-gradient(135deg,rgba(20,20,40,0.97),rgba(30,15,50,0.97));border:2px solid rgba(255,215,0,0.35);border-radius:16px;box-shadow:0 12px 24px rgba(0,0,0,0.6);">
-        <h2 style="text-align:center;color:#ffd700;margin:0 0 6px;font-size:22px;text-shadow:0 0 12px rgba(255,215,0,0.4);">覺醒系統</h2>
-        <p style="text-align:center;color:rgba(255,255,255,0.6);font-size:13px;margin:0 0 16px;">雙擊格子解鎖覺醒能力（僅限生存模式）</p>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
-          <button class="awakening-slot locked" data-awakening-id="awakening_hp"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A68.png" alt="生命覺醒" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">生命覺醒</div>
-            <div class="awakening-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="awakening-slot locked" data-awakening-id="awakening_regen"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A67.png" alt="回復覺醒" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">回復覺醒</div>
-            <div class="awakening-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="awakening-slot locked" data-awakening-id="awakening_attack"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A66.jpg" alt="力量覺醒" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">力量覺醒</div>
-            <div class="awakening-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="awakening-slot locked" data-awakening-id="awakening_crit_damage"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A73.png" alt="爆傷覺醒" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">爆傷覺醒</div>
-            <div class="awakening-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="awakening-slot locked" data-awakening-id="awakening_cooldown"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A74.png" alt="冷卻覺醒" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">冷卻覺醒</div>
-            <div class="awakening-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="awakening-slot locked" data-awakening-id="awakening_energy"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A82.png" alt="能量覺醒" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">能量覺醒</div>
-            <div class="awakening-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-        </div>
-        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px 16px;margin-bottom:16px;min-height:60px;">
-          <p id="awakening-desc-text" style="color:rgba(255,255,255,0.8);font-size:13px;line-height:1.6;margin:0;">點選覺醒格子查看詳細說明。</p>
-        </div>
-        <div style="text-align:center;">
-          <button id="awakening-close" class="ghost" style="padding:8px 28px;font-size:14px;">返回</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 專屬系統視窗（覆蓋式，模仿覺醒系統排版） -->
-    <div id="exclusive-overlay" class="hidden" aria-hidden="true"
-      style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;">
-      <div
-        style="width:min(520px,94vw);max-height:90vh;overflow-y:auto;padding:24px 20px;background:linear-gradient(135deg,rgba(20,20,40,0.97),rgba(30,15,50,0.97));border:2px solid rgba(255,215,0,0.35);border-radius:16px;box-shadow:0 12px 24px rgba(0,0,0,0.6);">
-        <h2
-          style="text-align:center;color:#ffd700;margin:0 0 6px;font-size:22px;text-shadow:0 0 12px rgba(255,215,0,0.4);">
-          專屬系統</h2>
-        <p style="text-align:center;color:rgba(255,255,255,0.6);font-size:13px;margin:0 0 16px;">
-          雙擊格子升級專屬技能（最多六階）。</p>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
-          <button class="exclusive-slot locked" data-exclusive-id="sheep_guard_boost"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/test14.png" alt="綿羊護體強化" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">綿羊護體強化</div>
-            <div class="exclusive-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="exclusive-slot locked" data-exclusive-id="heart_companion_boost"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A34.png" alt="心意相隨強化" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">心意相隨強化</div>
-            <div class="exclusive-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="exclusive-slot locked" data-exclusive-id="rotating_muffin_boost"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A31.png" alt="旋轉鬆餅強化" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">旋轉鬆餅強化</div>
-            <div class="exclusive-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="exclusive-slot locked" data-exclusive-id="pineapple_orbit_boost"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A44.png" alt="鳳梨環繞強化" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">鳳梨環繞強化</div>
-            <div class="exclusive-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="exclusive-slot locked" data-exclusive-id="chicken_blessing_boost"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/test13.png" alt="雞腿庇佑強化" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">雞腿庇佑強化</div>
-            <div class="exclusive-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="exclusive-slot locked" data-exclusive-id="stellar_orbit_boost"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A50.png" alt="星體軌跡強化" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">星體軌跡強化</div>
-            <div class="exclusive-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="exclusive-slot locked" data-exclusive-id="gabriel_orbit_boost"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A57.png" alt="加百列強化" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">加百列強化</div>
-            <div class="exclusive-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <button class="exclusive-slot locked" data-exclusive-id="wedding_call_orbit_boost"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A72.png" alt="婚叫強化" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">婚叫強化</div>
-            <div class="exclusive-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未解鎖</div>
-          </button>
-          <div
-            style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">
-            空格</div>
-        </div>
-        <div
-          style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px 16px;margin-bottom:16px;min-height:60px;">
-          <p id="exclusive-desc-text"
-            style="color:rgba(255,255,255,0.8);font-size:13px;line-height:1.6;margin:0;">點選專屬格子查看詳細說明。</p>
-        </div>
-        <div style="text-align:center;">
-          <button id="exclusive-close" class="ghost" style="padding:8px 28px;font-size:14px;">返回</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 輔助系統視窗（覆蓋式，與覺醒系統相同排版） -->
-    <div id="assist-overlay" class="hidden" aria-hidden="true"
-      style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;">
-      <div style="width:min(520px,94vw);max-height:90vh;overflow-y:auto;padding:24px 20px;background:linear-gradient(135deg,rgba(20,20,40,0.97),rgba(30,15,50,0.97));border:2px solid rgba(255,215,0,0.35);border-radius:16px;box-shadow:0 12px 24px rgba(0,0,0,0.6);">
-        <h2 style="text-align:center;color:#ffd700;margin:0 0 6px;font-size:22px;text-shadow:0 0 12px rgba(255,215,0,0.4);">輔助系統</h2>
-        <p style="text-align:center;color:rgba(255,255,255,0.6);font-size:13px;margin:0 0 16px;">解鎖輔助系統，進階輔助技能（替換原本技能）。</p>
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
-          <button class="assist-slot locked" data-assist-id="sing_advanced"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A1.png" alt="唱歌進階" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">唱歌進階</div>
-            <div class="assist-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未替換</div>
-          </button>
-          <button class="assist-slot locked" data-assist-id="young_dada_glory_advanced"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A20.png" alt="幼妲光輝進階" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">幼妲光輝進階</div>
-            <div class="assist-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未替換</div>
-          </button>
-          <button class="assist-slot locked" data-assist-id="devouring_power_advanced"
-            style="position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;">
-            <img src="assets/images/A78.png" alt="吞噬之力進階" class="grayscale"
-              style="width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;" />
-            <div style="color:#fff;font-size:12px;font-weight:700;text-align:center;">吞噬之力進階</div>
-            <div class="assist-slot-status" style="font-size:10px;margin-top:2px;color:#aaa;">未替換</div>
-          </button>
-          <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">空格</div>
-          <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">空格</div>
-          <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">空格</div>
-          <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">空格</div>
-          <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">空格</div>
-          <div style="display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;">空格</div>
-        </div>
-        <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px 16px;margin-bottom:16px;min-height:60px;">
-          <p id="assist-desc-text" style="color:rgba(255,255,255,0.8);font-size:13px;line-height:1.6;margin:0;">點選輔助格子查看詳細說明。</p>
-        </div>
-        <div style="text-align:center;">
-          <button id="assist-close" class="ghost" style="padding:8px 28px;font-size:14px;">返回</button>
-        </div>
-      </div>
-    </div>
+    <!-- 覺醒／專屬／輔助殼由 TALENT_SUBWINDOW_SLOTS 生成 -->
+    <div id="talent-subwindow-host"></div>
 
     <!-- 腳本載入 -->
     <script src="js/deterministic_random.js"></script>
     <script src="js/utils.js"></script>
     <script src="js/config.js"></script>
+    <script src="js/content/upgrade_registry.js"></script>
     <script src="js/resource_loader.js"></script>
+    <script src="js/content/character_assets.js"></script>
+    <script src="js/content/map_assets.js"></script>
+    <script src="js/content/mode_hud.js"></script>
+    <script src="js/content/summary_panels.js"></script>
     <script src="js/event-system.js"></script>
+    <script src="js/shared/hit_roll.js"></script>
     <script src="js/damage_system.js"></script>
     <script src="js/buff-system.js"></script>
     <script src="js/input.js"></script>
@@ -1509,6 +481,7 @@
     <script src="js/car_hazard.js"></script>
     <script src="js/boss_projectile.js"></script>
     <script src="js/bottle_projectile.js"></script>
+    <script src="js/shared/enemy_hp.js"></script>
     <script src="js/enemy.js?v=2026011309"
       onerror="console.error('[index.html] ❌ enemy.js 脚本加载失败！', this.src, event);"></script>
     <script src="js/experience.js?v=2026011309"
@@ -1517,9 +490,13 @@
     <script src="js/ui.js"></script>
     <!-- GIF 覆蓋層工具：確保玩家 GIF 在 Canvas 上正常動畫 -->
     <script src="js/gif_overlay.js"></script>
+    <script src="js/shared/wave_spawn.js"></script>
+    <script src="js/shared/wave_rules.js"></script>
     <script src="js/wave.js?v=2026011309"></script>
     <script src="js/talent.js"></script>
+    <script src="js/shared/damage_formula.js"></script>
     <script src="js/weapon.js?v=2026011306"></script>
+    <script src="js/shared/experience_curve.js"></script>
     <script src="js/player.js"></script>
     <script src="js/projectile.js"></script>
     <script src="js/invincible.js"></script>
@@ -1532,6 +509,7 @@
     <!-- 可選彈幕系統骨架（需在 game.js 之前載入） -->
     <script src="js/bullet-system.js"></script>
     <script src="js/achievements.js"></script>
+    <script src="js/content/draw_layers.js"></script>
     <script src="js/game.js"></script>
     <script src="js/integration.js"></script>
     <script src="js/save_code.js"></script>
@@ -1539,13 +517,12 @@
     <!-- 核心服務與模式管理（不改動 SaveCode；僅新增骨架） -->
     <script src="js/core/services/save_service.js"></script>
     <script src="js/core/services/resource_loader.js"></script>
-    <!-- 注意：ModeManager 僅保留作為『回退』用途，請勿在新模式上使用。
-             未來新增/啟動模式請一律改用 GameModeManager.register/start。 -->
+    <!-- 注意：ModeManager 只轉發 GameModeManager，請勿在此檔實作進場。 -->
     <script src="js/core/mode_manager.js"></script>
     <!-- 主用：隔離化 GameModeManager（新模式與主線模式皆走此管理器） -->
     <script src="js/core/game_mode_manager.js"></script>
-    <!-- Three.js 庫（3D模式需要） -->
-    <!-- 使用ES6模块版本的Three.js，以便GLTFLoader可以正确导入 -->
+    <script src="js/core/mode_scripts.js"></script>
+    <!-- Three.js 只在進 3D 時載；這裡只留 importmap 給動態 import -->
     <script type="importmap">
         {
           "imports": {
@@ -1554,75 +531,11 @@
           }
         }
         </script>
-    <script type="module">
-      // 导入Three.js和GLTFLoader
-      import * as THREE from 'three';
-      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-
-      // 挂载到全局，供非模块代码使用
-      window.THREE = THREE;
-      window.GLTFLoader = GLTFLoader;
-      window.GLTFLoaderReady = true;
-      console.log('[3D Mode] Three.js and GLTFLoader loaded successfully');
-      window.dispatchEvent(new CustomEvent('gltfloader-ready'));
-    </script>
     <!-- 生存模式適配層：封裝既有生存模式為 Mode 介面 -->
     <script src="js/modes/survival/index.js"></script>
-    <!-- 挑戰模式專屬 GIF 覆蓋層：獨立於生存模式，避免汙染 -->
-    <script src="js/modes/challenge/gif_overlay.js"></script>
-    <!-- 挑戰模式 UI 模組：提供 HUD 與 ESC 菜單 -->
-    <script src="js/modes/challenge/ui.js"></script>
-    <!-- 挑戰模式：專屬彈幕系統 + 樣式庫與 BOSS 控制器（在骨架 index.js 之前） -->
-    <script src="js/modes/challenge/bullet_system.js"></script>
-    <!-- 挑戰模式專用雷射美術，不影響其他模式 -->
-    <script src="js/modes/challenge/laser_art.js"></script>
-    <script src="js/modes/challenge/boss_patterns.js"></script>
-    <script src="js/modes/challenge/boss_patterns2.js"></script>
-    <script src="js/modes/challenge/boss_patterns3.js"></script>
-    <script src="js/modes/challenge/boss_patterns4.js"></script>
-    <!-- 挑戰模式專屬經驗系統：與生存模式的經驗分離 -->
-    <script src="js/modes/challenge/experience.js"></script>
-    <script src="js/modes/challenge/boss.js"></script>
-    <script src="js/modes/challenge/boss2.js"></script>
-    <script src="js/modes/challenge/boss3.js"></script>
-    <script src="js/modes/challenge/boss4.js"></script>
-    <!-- 挑戰模式骨架：接入隔離化 GameModeManager -->
-    <script src="js/modes/challenge/index.js"></script>
-    <!-- 闖關模式 UI 模組：提供 HUD 與 ESC 菜單 -->
-    <script src="js/modes/stage/ui.js"></script>
-    <!-- 闖關模式骨架：接入隔離化 GameModeManager -->
-    <script src="js/modes/stage/index.js"></script>
-    <!-- 防禦模式專用 GIF 疊加層 -->
-    <script src="js/modes/defense/td_gif_overlay.js"></script>
-    <!-- 防禦模式核心組件 -->
-    <script src="js/modes/defense/td_config.js"></script>
-    <!-- 防禦模式傷害數字系統（獨立於生存模式，避免跨模式污染） -->
-    <script src="js/modes/defense/td_damage_numbers.js"></script>
-    <script src="js/modes/defense/td_map.js"></script>
-    <script src="js/modes/defense/td_enemy.js"></script>
-    <script src="js/modes/defense/td_tower.js"></script>
-    <script src="js/modes/defense/td_player.js"></script>
-    <script src="js/modes/defense/td_game.js"></script>
-    <script src="js/modes/defense/td_ui_enhanced.js"></script>
-    <script src="js/modes/defense/td_dom_ui.js"></script>
-    <script src="js/modes/defense/td_settlement.js"></script>
-
-    <!-- 防禦模式 UI 模組：提供 HUD 與 ESC 菜單 -->
-    <script src="js/modes/defense/ui.js"></script>
-    <!-- 防禦模式骨架：接入隔離化 GameModeManager -->
-    <script src="js/modes/defense/index.js"></script>
-    <!-- 主線模式圖層配置 -->
-    <script src="js/modes/main/layer_config.js"></script>
-    <!-- 主線模式專用 GIF 疊加層 -->
-    <script src="js/modes/main/gif_overlay.js"></script>
-    <!-- 主線模式骨架：不分難度，探索 + NPC 對話 -->
-    <script src="js/modes/main/index.js"></script>
-    <!-- 冒險模式引繼碼工具（僅操作 terraria_save，不動主體 SaveCode） -->
+    <!-- 冒險引繼碼（選單就會按，不能等進冒險才載） -->
     <script src="js/modes/adventure/adventure_save_code.js"></script>
-    <!-- 冒險模式骨架：以 iframe 掛載獨立 Terraria 風格遊戲 -->
-    <script src="js/modes/adventure/index.js"></script>
-    <!-- 3D模式骨架：使用Three.js載入3D模型並實現角色控制 -->
-    <script src="js/modes/3d/index.js"></script>
+    <!-- 挑戰／闖關／防禦／主線／冒險／3D：ModeScripts 進場才載 -->
     <!-- 生存模式組隊（測試）：Firebase signaling + WebRTC relay-only；僅在生存模式流程中使用 -->
     <!-- 注意：加上版本參數避免 GitHub Pages / 瀏覽器快取舊版 JS 造成規則調試困難 -->
     <script type="module" src="js/multiplayer/survival_online.js?v=2026011304"></script>

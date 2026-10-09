@@ -41,6 +41,24 @@ class AICompanion extends Entity {
     // 設置技能等級（用於合成後更新）
     setSkillLevel(level) {
         this.summonAILevel = level || 1;
+        if (this.summonAILevel < 2) return;
+        // LV2 改打狂熱雷擊：清掉這隻 AI 尚未結束的連鎖閃電，避免殘留電擊聲
+        try {
+            if (typeof Game === 'undefined' || !Array.isArray(Game.projectiles)) return;
+            for (let i = 0; i < Game.projectiles.length; i++) {
+                const p = Game.projectiles[i];
+                if (!p || p.markedForDeletion) continue;
+                if (p.weaponType !== 'CHAIN_LIGHTNING') continue;
+                const isMine = (p.player === this) || (p._aiCompanion === this);
+                if (!isMine) continue;
+                try {
+                    if (typeof p.destroy === 'function') p.destroy();
+                    else p.markedForDeletion = true;
+                } catch (_) {
+                    p.markedForDeletion = true;
+                }
+            }
+        } catch (_) {}
     }
     
     _loadImages() {
@@ -70,11 +88,17 @@ class AICompanion extends Entity {
         } catch(_) {}
     }
     
+    // 組隊召喚不要疊成一個：單機只有一隻，沿用原來的圖。隊友各一張，不要蓋在同一張上
+    _overlayId() {
+        if (this._remotePlayerUid) return 'ai-companion-' + this._remotePlayerUid;
+        return 'ai-companion';
+    }
+
     // 清理方法（遊戲結束時調用）
     cleanup() {
         try {
             if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hide === 'function') {
-                window.GifOverlay.hide('ai-companion');
+                window.GifOverlay.hide(this._overlayId());
             }
         } catch(_) {}
     }
@@ -183,9 +207,8 @@ class AICompanion extends Entity {
             }
         }
         
-        // ✅ MMORPG架构：所有AI（本地和远程）都应该造成伤害
-        // 每个玩家的AI独立计算伤害，伤害叠加（真正的MMORPG体验）
-        {
+        // 組隊召喚不要自己再放：隊友的雷由對方送過來。這裡再放會多一道，單機只有一道
+        if (!this._remotePlayerUid) {
             // 正常模式：根據召喚AI等級決定使用哪個技能
             if (this.summonAILevel >= 2) {
                 // 召喚AI LV2：使用狂熱雷擊
@@ -266,10 +289,13 @@ class AICompanion extends Entity {
                 const attrFlat = (this.player.attackPowerUpgradeFlat != null) ? this.player.attackPowerUpgradeFlat : 0;
                 
                 // 先加固定值，再乘百分比（與玩家計算方式一致）
-                const lvPct = Math.max(0, (levelMul || 1) - 1);
-                const percentSum = lvPct + talentPct + attrPct;
+                const lvPct = (typeof DamageFormula !== 'undefined' && DamageFormula.levelPctFromMul)
+                    ? DamageFormula.levelPctFromMul(levelMul)
+                    : Math.max(0, (levelMul || 1) - 1);
                 const baseFlat = baseDamage + specFlat + attrFlat;
-                damage = baseFlat * (1 + percentSum);
+                damage = (typeof DamageFormula !== 'undefined' && DamageFormula.applyAddThenMul)
+                    ? DamageFormula.applyAddThenMul(baseFlat, [lvPct, talentPct, attrPct])
+                    : baseFlat * (1 + lvPct + talentPct + attrPct);
             } else {
                 // 如果沒有玩家引用，使用基礎計算
                 damage = baseDamage * levelMul;
@@ -362,10 +388,13 @@ class AICompanion extends Entity {
                 const attrFlat = (this.player.attackPowerUpgradeFlat != null) ? this.player.attackPowerUpgradeFlat : 0;
                 
                 // 先加固定值，再乘百分比（與玩家計算方式一致）
-                const lvPct = Math.max(0, (levelMul || 1) - 1);
-                const percentSum = lvPct + talentPct + attrPct;
+                const lvPct = (typeof DamageFormula !== 'undefined' && DamageFormula.levelPctFromMul)
+                    ? DamageFormula.levelPctFromMul(levelMul)
+                    : Math.max(0, (levelMul || 1) - 1);
                 const baseFlat = baseDamage + frenzyExtra + specFlat + attrFlat;
-                damage = baseFlat * (1 + percentSum);
+                damage = (typeof DamageFormula !== 'undefined' && DamageFormula.applyAddThenMul)
+                    ? DamageFormula.applyAddThenMul(baseFlat, [lvPct, talentPct, attrPct])
+                    : baseFlat * (1 + lvPct + talentPct + attrPct);
             } else {
                 // 如果沒有玩家引用，使用基礎計算
                 damage = (baseDamage + frenzyExtra) * levelMul;
@@ -441,7 +470,7 @@ class AICompanion extends Entity {
             // 如果遊戲結束，隱藏AI
             try {
                 if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hide === 'function') {
-                    window.GifOverlay.hide('ai-companion');
+                    window.GifOverlay.hide(this._overlayId());
                 }
             } catch(_) {}
             return;
@@ -500,7 +529,7 @@ class AICompanion extends Entity {
             
             // 使用GifOverlay顯示AI（與玩家使用相同的圖層，保持原比例）
             if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.showOrUpdate === 'function') {
-                window.GifOverlay.showOrUpdate('ai-companion', imgSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
+                window.GifOverlay.showOrUpdate(this._overlayId(), imgSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
             }
         } catch(e) {
             console.warn('AI顯示失敗:', e);

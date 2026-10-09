@@ -247,40 +247,10 @@ const ResourceLoader = {
 
     // 獲取圖片列表
     getImageList() {
-        return [
-            { name: 'player', src: 'assets/images/player.gif' },
-            { name: 'player1-2', src: 'assets/images/player1-2.png' },
-            { name: 'player2', src: 'assets/images/player2.png' },
-            { name: 'player2-1', src: 'assets/images/player2-1.png' },
-            { name: 'player2-2', src: 'assets/images/player2-2.png' },
-            { name: 'player2-3', src: 'assets/images/player2-3.png' },
-            { name: 'player3', src: 'assets/images/player3.gif' },
-            { name: 'player3-2', src: 'assets/images/player3-2.png' },
-            { name: 'player3-3', src: 'assets/images/player3-3.png' },
-            { name: 'player4', src: 'assets/images/player4.png' },
-            { name: 'player4-2', src: 'assets/images/player4-2.png' },
-            { name: 'player4-3', src: 'assets/images/player4-3.png' },
-            { name: 'player5', src: 'assets/images/player5.png' },
-            { name: 'player5-2', src: 'assets/images/player5-2.png' },
-            { name: 'player5-3', src: 'assets/images/player5-3.png' },
-            // 第六位角色：鳳梨不咬舌
-            { name: 'player6', src: 'assets/images/player6.gif' },
-            { name: 'player6-2', src: 'assets/images/player6-2.png' },
-            { name: 'player6-3', src: 'assets/images/player6-3.png' },
-            { name: 'player7', src: 'assets/images/player7.png' },
-            { name: 'player7-1', src: 'assets/images/player7-1.png' },
-            { name: 'player7-2', src: 'assets/images/player7-2.png' },
-            { name: 'player7-3', src: 'assets/images/player7-3.png' },
-            { name: 'player8', src: 'assets/images/player8.png' },
-            { name: 'player8-1', src: 'assets/images/player8-1.png' },
-            { name: 'player8-2', src: 'assets/images/player8-2.png' },
-            { name: 'player8-3', src: 'assets/images/player8-3.png' },
-            { name: 'player9', src: 'assets/images/player9.png' },
-            { name: 'player9-2', src: 'assets/images/player9-2.png' },
-            { name: 'player9-3', src: 'assets/images/player9-3.png' },
-            { name: 'playerN', src: 'assets/images/playerN.png' },
-            { name: 'playerN2', src: 'assets/images/playerN2.gif' },
-            { name: 'playerN3', src: 'assets/images/playerN3.png' },
+        const charPart = (typeof CharacterAssets !== 'undefined' && CharacterAssets.collectSurvivalPreloadCharacterEntries)
+            ? CharacterAssets.collectSurvivalPreloadCharacterEntries()
+            : [];
+        const midPart = [
             { name: 'zombie', src: 'assets/images/zombie.png' },
             { name: 'zombie2', src: 'assets/images/zombie2.png' },
             { name: 'zombie3', src: 'assets/images/zombie3.png' },
@@ -384,16 +354,12 @@ const ResourceLoader = {
             { name: 'S13', src: 'assets/images/S13.png' },
             { name: 'S14', src: 'assets/images/S14.png' },
             { name: 'S15', src: 'assets/images/S15.png' },
-            { name: 'S16', src: 'assets/images/S16.png' },
-            { name: 'background', src: 'assets/images/background.jpg' },
-            { name: 'background2', src: 'assets/images/background2.jpg' },
-            { name: 'background3', src: 'assets/images/background3.jpg' },
-            { name: 'background4', src: 'assets/images/background4.png' },
-            { name: 'background1-2', src: 'assets/images/background1-2.png' },
-            { name: 'background1-3', src: 'assets/images/background1-3.png' },
-            { name: 'background8', src: 'assets/images/background8.png' },
-            { name: 'background12', src: 'assets/images/background12.jpg' },
-            { name: 'background13', src: 'assets/images/background13.jpg' },
+            { name: 'S16', src: 'assets/images/S16.png' }
+        ];
+        const bgPart = (typeof MapAssets !== 'undefined' && MapAssets.collectSurvivalBackgroundEntries)
+            ? MapAssets.collectSurvivalBackgroundEntries()
+            : [];
+        return charPart.concat(midPart).concat(bgPart).concat([
             { name: 'bottle', src: 'assets/images/bottle.png' },
             { name: 'human', src: 'assets/images/human.png' },
             { name: 'human2', src: 'assets/images/human2.png' },
@@ -429,7 +395,7 @@ const ResourceLoader = {
             { name: 'car9', src: 'assets/images/car9.png' },
             { name: 'car9-2', src: 'assets/images/car9-2.png' },
             { name: 'exit', src: 'assets/images/exit.png' }
-        ];
+        ]);
     },
 
     // 獲取音效列表
@@ -473,10 +439,8 @@ const ResourceLoader = {
             { name: 'intersection_music', src: 'assets/audio/intersection.mp3' },
             { name: 'game_music3', src: 'assets/audio/game_music3.mp3' },
             { name: 'boss_music', src: 'assets/audio/boss_music.mp3' },
-            { name: 'shura_music', src: 'assets/audio/Shura.mp3' },
-            { name: 'boss2_music', src: 'assets/audio/BOSS2.mp3' },
-            { name: 'boss3_music', src: 'assets/audio/BOSS3.mp3' },
-            { name: 'boss4_music', src: 'assets/audio/BOSS4.mp3' }
+            { name: 'shura_music', src: 'assets/audio/Shura.mp3' }
+            // boss2/3/4 進挑戰才載（challenge getManifest）
         ];
     }
 };

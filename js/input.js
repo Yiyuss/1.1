@@ -32,11 +32,7 @@ const Input = {
                     // 僅生存模式可用的指令：用 ModeId 做最嚴格的隔離，避免跨模式污染
                     let activeModeId = null;
                     try {
-                        activeModeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
+                        activeModeId = Utils.getActiveModeId();
                     } catch (_) {}
                     const isSurvivalMode = (activeModeId === 'survival') || (typeof Game !== 'undefined' && Game && Game.mode === 'survival');
 
@@ -254,5 +250,12 @@ const Input = {
         }
         
         return direction;
+    },
+
+    // 失焦清掉卡住的方向：瀏覽器常常不送放開鍵，人會一直往左跑。單機和組隊同一套輸入。
+    releaseHeldKeys: function() {
+        this.keys = {};
+        this.isMouseMoving = false;
+        this.mouseTarget = null;
     }
 };

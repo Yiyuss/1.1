@@ -71,23 +71,9 @@
             const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) {}
-
-            let baseDamage = this.damage;
-            const firstEnemy = candidates.find(e => e && !e.markedForDeletion && e.health > 0);
-            if (firstEnemy && typeof DamageSystem !== 'undefined') {
-                const result = DamageSystem.computeHit(this.damage, firstEnemy, {
-                    weaponType: this.weaponType,
-                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
-                });
-                baseDamage = result.amount;
-            }
 
             if (isSurvivalMode && isMultiplayer && this.player && this.player === Game.player) {
                 if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
@@ -97,7 +83,7 @@
                         x: cx,
                         y: cy,
                         radius: r,
-                        damage: baseDamage,
+                        damage: this.damage,
                         allowCrit: true,
                         critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
                         timestamp: Date.now()

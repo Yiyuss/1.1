@@ -8,12 +8,7 @@ let _selectedMapId = 'challenge-1';   // 記錄當前選擇的地圖ID
 // 守衛：僅在挑戰模式活動且非結束畫面時才允許播放 BGM
 function shouldPlayChallengeBGM(){
   try {
-    const current = (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.getCurrent === 'function')
-      ? window.GameModeManager.getCurrent()
-      : ((typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.getActiveModeId === 'function')
-        ? window.ModeManager.getActiveModeId()
-        : null);
-    if (current !== 'challenge') return false;
+    if (Utils.getActiveModeId() !== 'challenge') return false;
     if (typeof Game !== 'undefined' && Game.isGameOver) return false;
     if (typeof UI !== 'undefined' && UI.isScreenVisible) {
       if (UI.isScreenVisible('victory-screen') || UI.isScreenVisible('game-over-screen')) return false;
@@ -93,7 +88,7 @@ function safePlayShura(ctx) {
       if (!canvas || !ctx2d) return;
       try { ctx2d.imageSmoothingEnabled = false; } catch(_){}
       // 進入挑戰模式前先清除全域 GifOverlay（生存/舞台/防禦）殘留，避免雙重玩家圖污染
-      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.clearAll === 'function') window.GifOverlay.clearAll(); } catch(_){}
+      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hideAll === 'function') window.GifOverlay.hideAll(); } catch(_){}
       try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
       // 敵人彈幕上層畫布（分層）：確保敵彈在玩家圖層之上、擦邊特效之下
       let enemyBulletCanvas = null;
@@ -266,6 +261,14 @@ function safePlayShura(ctx) {
           key = 'player4';
         } else if (sc && sc.id === 'rabi') {
           key = 'player5';
+        } else if (sc && sc.id === 'pineapple') {
+          key = 'player6';
+        } else if (sc && sc.id === 'elondier') {
+          key = 'player7';
+        } else if (sc && sc.id === 'baibaihong') {
+          key = 'player8';
+        } else if (sc && sc.id === 'cygnus') {
+          key = 'player9';
         }
         const imgObj = (Game.images && Game.images[key]) ? Game.images[key] : null;
         if (imgObj && imgObj.src) {
@@ -967,16 +970,11 @@ function safePlayShura(ctx) {
                 _victoryHandled = true;
                 // 檢查是否為銀河系關卡（challenge-1），如果是則解鎖成就
                 try {
-                  if (_selectedMapId === 'challenge-1') {
-                    if (typeof Achievements !== 'undefined' && Achievements.unlock) {
-                      Achievements.unlock('CHALLENGE_GALAXY_CLEAR');
-                    }
-                  }
-                  // 檢查是否為星雲關卡（challenge-2），如果是則解鎖成就
-                  if (_selectedMapId === 'challenge-2') {
-                    if (typeof Achievements !== 'undefined' && Achievements.unlock) {
-                      Achievements.unlock('CHALLENGE_NEBULA_CLEAR');
-                    }
+                  if (typeof Achievements !== 'undefined' && typeof Achievements.unlockChallengeClears === 'function') {
+                    Achievements.unlockChallengeClears(_selectedMapId);
+                  } else if (typeof Achievements !== 'undefined' && Achievements.unlock) {
+                    if (_selectedMapId === 'challenge-1') Achievements.unlock('CHALLENGE_GALAXY_CLEAR');
+                    if (_selectedMapId === 'challenge-2') Achievements.unlock('CHALLENGE_NEBULA_CLEAR');
                   }
                 } catch(_){}
                 // 使用挑戰模式的結算覆蓋層，避免與生存模式互相污染

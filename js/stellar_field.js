@@ -104,6 +104,27 @@ class StellarField extends Entity {
                     enemy.applySlow(200, this.slowFactor);
                 }
             }
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+            let isSurvivalMode = false;
+            try {
+                const activeId = Utils.getActiveModeId();
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                    window.SurvivalOnlineRuntime.sendToNet({
+                        type: 'aoe_tick',
+                        weaponType: 'STELLAR_FIELD',
+                        x: this.x,
+                        y: this.y,
+                        radius: Math.max(10, Math.floor(this.radius || 120)),
+                        damage: 0,
+                        slowMs: 200,
+                        slowFactor: this.slowFactor,
+                        timestamp: Date.now()
+                    });
+                }
+            }
             this.tickAccumulator -= this.tickIntervalMs;
         }
 

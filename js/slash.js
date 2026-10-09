@@ -58,9 +58,6 @@ class SlashEffect extends Entity {
     }
 
     _applyDamageOnce() {
-        // 僅視覺效果：不進行傷害計算
-        if (this._isVisualOnly) return;
-        
         if (this.appliedDamage) return;
         const enemies = (Game && Game.enemies) ? Game.enemies : [];
         const halfArc = this.arcRad / 2;
@@ -103,16 +100,13 @@ class SlashEffect extends Entity {
                 const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
                 // 單機模式：直接造成傷害並顯示傷害數字
-                if (!isSurvivalMode || !isMultiplayer) {
+                // 組隊斬擊要有濺血：遠端這份只記打中誰，用來出濺血。不要再送一次傷害
+                if (!this._isVisualOnly && (!isSurvivalMode || !isMultiplayer)) {
                     enemy.takeDamage(finalDamage);
                     if (typeof DamageNumbers !== 'undefined') {
                         DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: dy, dirY: dx, enemyId: enemy.id });
@@ -126,8 +120,11 @@ class SlashEffect extends Entity {
                             weaponType: this.weaponType || 'SLASH',
                             x: enemy.x,
                             y: enemy.y,
-                            radius: 10, // 與多人通用 AOE tick 同源：最小半徑至少 10
+                            radius: 10,
+                            enemyIds: [enemy.id],
                             damage: finalDamage,
+                            preRolled: true,
+                            isCrit: isCrit,
                             allowCrit: true,
                             critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
                             timestamp: Date.now()

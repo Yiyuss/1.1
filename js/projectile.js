@@ -168,11 +168,7 @@ class Projectile extends Entity {
                 const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
@@ -334,11 +330,7 @@ class Projectile extends Entity {
                             try {
                                 let isSurvivalMode = false;
                                 try {
-                                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                        ? GameModeManager.getCurrent()
-                                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                            ? ModeManager.getActiveModeId()
-                                            : null);
+                                    const activeId = Utils.getActiveModeId();
                                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                                 } catch (_) {}
                                 

@@ -123,11 +123,7 @@ class CarHazard extends Entity {
             try {
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
@@ -217,11 +213,7 @@ class CarHazard extends Entity {
                             try {
                                 let isSurvivalMode = false;
                                 try {
-                                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                        ? GameModeManager.getCurrent()
-                                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                            ? ModeManager.getActiveModeId()
-                                            : null);
+                                    const activeId = Utils.getActiveModeId();
                                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                                 } catch (_) {}
                                 

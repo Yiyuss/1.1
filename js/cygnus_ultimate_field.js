@@ -11,6 +11,7 @@ class CygnusUltimateField extends Entity {
         this.tickIntervalMs = 120; // 與守護領域相同
         this.tickAccumulator = 0;
         this.weaponType = 'CYGNUS_ULTIMATE_FIELD';
+        this._ownsNetTick = true;
         this.collisionRadius = radius;
 
         this.visualScale = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.CYGNUS_ULTIMATE_FIELD && CONFIG.WEAPONS.CYGNUS_ULTIMATE_FIELD.VISUAL_SCALE) || 1.95;
@@ -109,11 +110,7 @@ class CygnusUltimateField extends Entity {
                     const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                     let isSurvivalMode = false;
                     try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
+                        const activeId = Utils.getActiveModeId();
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
 
@@ -132,6 +129,8 @@ class CygnusUltimateField extends Entity {
                                 radius: 1,
                                 enemyIds: [enemy.id],
                                 damage: finalDamage,
+                                preRolled: true,
+                                isCrit: isCrit,
                                 allowCrit: true,
                                 critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                             });

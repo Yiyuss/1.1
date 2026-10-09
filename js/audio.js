@@ -20,54 +20,17 @@ const AudioManager = {
         console.log('音效系統已初始化');
     },
     
-    // 加載所有音效
+    // 加載選單必需音（點開始前就要按）。戰鬥 SE／局內 BGM 走 ResourceLoader.getSoundList／getMusicList，在載入畫面才拉。
     loadSounds: function() {
-        // 音效列表
+        // 只載點擊音。menu_music 也在這裡佔位，避免 preloadAllResources 因 music 空而再呼叫 init。
         const soundsToLoad = [
-            { name: 'enemy_death', src: 'assets/audio/enemy_death.mp3' },
-            { name: 'level_up', src: 'assets/audio/level_up.mp3' },
-            { name: 'collect_exp', src: 'assets/audio/collect_exp.mp3' },
-            { name: 'dagger_shoot', src: 'assets/audio/dagger_shoot.mp3' },
-            { name: 'knife', src: 'assets/audio/knife.mp3' },
-            { name: 'fireball_shoot', src: 'assets/audio/fireball_shoot.mp3' },
-            { name: 'lightning_shoot', src: 'assets/audio/lightning_shoot.mp3' },
-            { name: 'laser_shoot', src: 'assets/audio/laser_shoot.mp3' },
-            { name: 'challenge_laser', src: 'assets/audio/challenge_laser.mp3' },
-            { name: 'zaps', src: 'assets/audio/zaps.mp3' },
-            // 防禦模式冰凍塔專用音效（不更動既有鍵名與 SaveCode 結構）
-            { name: 'ICE', src: 'assets/audio/ICE.mp3' },
-            { name: 'ice2', src: 'assets/audio/ICE2.mp3' }, // 大波球地面特效音效
-            { name: 'invincible_activate', src: 'assets/audio/Invincible.mp3' },
-            { name: 'sing_cast', src: 'assets/audio/LA.mp3' },
             { name: 'button_click', src: 'assets/audio/button_click.mp3' },
-            { name: 'button_click2', src: 'assets/audio/button_click2.mp3' },
-            { name: 'level_up2', src: 'assets/audio/level_up2.mp3' },
-            { name: 'money', src: 'assets/audio/money.mp3' },
-            { name: 'achievements', src: 'assets/audio/achievements.mp3' },
-            { name: 'Explosion', src: 'assets/audio/Explosion.mp3' }, // 艾比大绝爆炸音效
-            { name: 'bo', src: 'assets/audio/bo.mp3' },
-            { name: 'boss_cooldown', src: 'assets/audio/BOSS.mp3' },
-            { name: 'playerN2', src: 'assets/audio/playerN2.mp3' }, // 第二位角色大絕專用音效
-            { name: 'FBI', src: 'assets/audio/FBI.mp3' }, // FBI 技能車子音效（與路口車輛時機相同）
-            { name: 'car', src: 'assets/audio/car.mp3' } // 路口地圖：車輛音效
+            { name: 'button_click2', src: 'assets/audio/button_click2.mp3' }
         ];
         
-        // 音樂列表
         const musicToLoad = [
-            { name: 'menu_music', src: 'assets/audio/menu_music.mp3' },
-            { name: 'game_music', src: 'assets/audio/game_music.mp3' },
-            { name: 'game_music2', src: 'assets/audio/game_music2.mp3' }, // 第4張地圖（花園）專用 BGM
-            { name: 'intersection_music', src: 'assets/audio/intersection.mp3' }, // 第5張地圖（路口）專用 BGM
-            { name: 'game_music3', src: 'assets/audio/game_music3.mp3' }, // 第6張地圖（支部）專用 BGM
-            { name: 'boss_music', src: 'assets/audio/boss_music.mp3' },
-            // 修羅模式專用 BGM
-            { name: 'shura_music', src: 'assets/audio/Shura.mp3' },
-            // 第二張挑戰地圖專用 BGM
-            { name: 'boss2_music', src: 'assets/audio/BOSS2.mp3' },
-            // 第三張挑戰地圖專用 BGM
-            { name: 'boss3_music', src: 'assets/audio/BOSS3.mp3' },
-            // 第四張挑戰地圖專用 BGM
-            { name: 'boss4_music', src: 'assets/audio/BOSS4.mp3' }
+            { name: 'menu_music', src: 'assets/audio/menu_music.mp3' }
+            // game_music／修羅曲等：getMusicList。challenge_laser／ICE 等：getSoundList（生存支部 BOSS 與大波球仍開局載）
         ];
         
         // 加載音效

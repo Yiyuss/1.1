@@ -51,11 +51,7 @@
             try {
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
@@ -107,7 +103,7 @@
         if (isMultiplayer) {
             // 組隊模式下，經驗球收集由伺服器權威處理
             // 客戶端只負責顯示經驗球的位置（吸附動畫等視覺效果）
-            // 音效會在 player.gainExperience() 中播放（當伺服器同步經驗時）
+            // 組隊音效只聽自己：撿取聲在球消失、且人貼著球時播，不在共用經驗數字時播
             return;
         }
         

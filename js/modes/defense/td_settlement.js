@@ -99,8 +99,9 @@
                 }
                 
                 if (isLv1Map) {
-                    // 解鎖成就
-                    if (typeof Achievements !== 'undefined' && Achievements.unlock) {
+                    if (typeof Achievements !== 'undefined' && typeof Achievements.unlockDefenseClear === 'function') {
+                        Achievements.unlockDefenseClear({ isLv1Map: true, mapId: 'defense-1' });
+                    } else if (typeof Achievements !== 'undefined' && Achievements.unlock) {
                         Achievements.unlock('DEFENSE_LV1_CLEAR');
                     }
                 }

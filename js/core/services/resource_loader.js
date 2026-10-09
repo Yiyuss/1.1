@@ -1,8 +1,6 @@
-// ResourceLoader（模式資源載入器）
+// ModeResourceLoader（模式資源載入器）
 // 職責：依模式提供的 manifest 載入其專屬資源，避免跨模式資源互吃；僅附加到既有 Game.images，不移除或覆蓋舊資源。
-// 維護備註：
-// - 目前僅支援 image/audio/json 的最小載入；音訊仍建議透過 AudioManager 管理。
-// - 與 createDefaultImages 並存：此載入器只在 ModeManager.start() 時載入宣告資源，不改變原本預載。
+// 不要掛成 window.ResourceLoader（那是預載器的名字）。
 (function(){
   const cache = {
     images: new Map(),
@@ -84,5 +82,5 @@
     await Promise.allSettled(tasks);
   }
 
-  window.ResourceLoader = { loadForMode, cache };
+  window.ModeResourceLoader = { loadForMode, cache };
 })();

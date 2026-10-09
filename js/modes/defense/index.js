@@ -1,15 +1,6 @@
 // 防禦塔TD遊戲模式 - 使用 GameModeManager
 // 完整的塔防遊戲實現，包含30波敵人、多種防禦塔、玩家角色建造系統
 
-// 添加全局錯誤處理
-window.addEventListener('error', function(e) {
-    console.error('全局錯誤捕獲:', e.error);
-    console.error('錯誤訊息:', e.message);
-    console.error('錯誤檔案:', e.filename);
-    console.error('錯誤行號:', e.lineno);
-    console.error('錯誤列號:', e.colno);
-});
-
 // -------------- 安全播放輔助 --------------
 let _needResumeGameMusic_defense = false;
 function safePlayDefense(ctx) {
@@ -33,32 +24,14 @@ function safePlayDefense(ctx) {
       const bgKey = (selectedMap && selectedMap.backgroundKey) || 'background4';
       // 目前防禦戰場使用 background4.png，美術層級交由 TDGame 繪製在世界底層
       const bgSrc = `assets/images/${bgKey}.png`;
+      const charImages = (typeof CharacterAssets !== 'undefined' && CharacterAssets.collectPlayableImageEntries)
+        ? CharacterAssets.collectPlayableImageEntries({ alias: { defense_avatar: 'player1-2' } })
+        : [{ key: 'defense_avatar', src: 'assets/images/player1-2.png' }];
       return {
         images: [
-          // 動態背景鍵，與主體 CONFIG.MAPS 保持一致
           { key: bgKey, src: bgSrc },
-          // 兼容舊代碼：保留防禦背景別名鍵
-          { key: 'defense_bg4', src: bgSrc },
-          { key: 'player', src: 'assets/images/player.gif' },
-          { key: 'player2', src: 'assets/images/player2.png' },
-          { key: 'player2-1', src: 'assets/images/player2-1.png' },
-          { key: 'player3', src: 'assets/images/player3.gif' },
-          { key: 'player3-2', src: 'assets/images/player3-2.png' },
-          { key: 'player4', src: 'assets/images/player4.png' },
-          { key: 'player4-2', src: 'assets/images/player4-2.png' },
-          { key: 'player5', src: 'assets/images/player5.png' },
-          { key: 'player5-2', src: 'assets/images/player5-2.png' },
-          { key: 'player6', src: 'assets/images/player6.gif' },
-          { key: 'player6-2', src: 'assets/images/player6-2.png' },
-          { key: 'player7', src: 'assets/images/player7.png' },
-          { key: 'player7-1', src: 'assets/images/player7-1.png' },
-          { key: 'player7-2', src: 'assets/images/player7-2.png' },
-          { key: 'player8', src: 'assets/images/player8.png' },
-          { key: 'player8-1', src: 'assets/images/player8-1.png' },
-          { key: 'player8-2', src: 'assets/images/player8-2.png' },
-          { key: 'player9', src: 'assets/images/player9.png' },
-          { key: 'player9-2', src: 'assets/images/player9-2.png' },
-          { key: 'defense_avatar', src: 'assets/images/player1-2.png' },
+          { key: 'defense_bg4', src: bgSrc }
+        ].concat(charImages).concat([
           { key: 'zombie', src: 'assets/images/zombie.png' },
           { key: 'zombie2', src: 'assets/images/zombie2.png' },
           { key: 'zombie3', src: 'assets/images/zombie3.png' },
@@ -77,7 +50,7 @@ function safePlayDefense(ctx) {
           { key: 'dagger', src: 'assets/images/dagger.png' },
           // 主堡圖片改用 Nexus.png（鍵名沿用 BOX 以相容既有程式）
           { key: 'BOX', src: 'assets/images/Nexus.png' }
-        ],
+        ]),
         audio: [ 
           { name: 'shura_music', src: 'assets/audio/Shura.mp3', loop: true },
           { name: 'game_music', src: 'assets/audio/game_music.mp3', loop: true },
@@ -97,7 +70,7 @@ function safePlayDefense(ctx) {
       try { ctx2d.imageSmoothingEnabled = false; } catch(_){}
 
       // 進入防禦模式前先清除全域 GifOverlay（生存/挑戰/主線模式）殘留，避免玩家圖污染
-      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.clearAll === 'function') window.GifOverlay.clearAll(); } catch(_){}
+      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hideAll === 'function') window.GifOverlay.hideAll(); } catch(_){}
       // 也清理挑戰模式的 GIF 圖層（以防萬一）
       try { if (typeof window.ChallengeGifOverlay !== 'undefined' && typeof window.ChallengeGifOverlay.clearAll === 'function') window.ChallengeGifOverlay.clearAll(); } catch(_){}
 
@@ -109,43 +82,6 @@ function safePlayDefense(ctx) {
       try { const gameUI = document.getElementById('game-ui'); if (gameUI) gameUI.style.display = 'none'; } catch(_){}
       try { const hud = document.getElementById('defense-ui'); if (hud) hud.style.display = ''; } catch(_){}
 
-      // 關鍵：立即開始TD遊戲，不要等待背景或其他元素
-      console.log('防禦模式進入 - 立即啟動TD遊戲系統');
-      console.log('當前TD組件狀態（進入時）:');
-      console.log('- TD_CONFIG:', typeof TD_CONFIG);
-      console.log('- TDMap:', typeof TDMap);
-      console.log('- TDPlayer:', typeof TDPlayer);
-      console.log('- TDEnemyManager:', typeof TDEnemyManager);
-      console.log('- TDTowerManager:', typeof TDTowerManager);
-      console.log('- TDGame:', typeof TDGame);
-      console.log('- TDEnhancedUI:', typeof TDEnhancedUI);
-      
-      // 強制測試TD組件可用性
-      console.log('=== 強制TD組件測試 ===');
-      if (typeof TD_CONFIG !== 'undefined') {
-        console.log('✓ TD_CONFIG 可用:', TD_CONFIG.BASE.X, TD_CONFIG.BASE.Y);
-      } else {
-        console.log('✗ TD_CONFIG 不可用');
-      }
-      
-      if (typeof TDMap !== 'undefined') {
-        console.log('✓ TDMap 可用:', TDMap.name || 'TDMap');
-      } else {
-        console.log('✗ TDMap 不可用');
-      }
-      
-      // 添加延遲檢查，確保TD腳本有時間加載
-      setTimeout(() => {
-        console.log('延遲檢查TD組件狀態（1秒後）:');
-        console.log('- TD_CONFIG:', typeof TD_CONFIG);
-        console.log('- TDMap:', typeof TDMap);
-        console.log('- TDPlayer:', typeof TDPlayer);
-        console.log('- TDEnemyManager:', typeof TDEnemyManager);
-        console.log('- TDTowerManager:', typeof TDTowerManager);
-        console.log('- TDGame:', typeof TDGame);
-        console.log('- TDEnhancedUI:', typeof TDEnhancedUI);
-      }, 1000);
-      
       // 停止所有音樂並播放防禦模式音樂（使用game_music）
       try { ctx.audio.stopAllMusic(); } catch(_){}
       safePlayDefense(ctx);
@@ -622,7 +558,6 @@ function safePlayDefense(ctx) {
       } catch(_) {}
       try { if (ctx && typeof ctx.dispose === 'function') ctx.dispose(); } catch(_){}
       // 清理所有GIF圖層（全域和防禦專用）
-      try { if (typeof window.GifOverlay !== 'undefined') window.GifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
       // 清理防禦模式傷害數字層（避免跨模式污染）
       try { if (typeof window.TDDamageNumbers !== 'undefined' && typeof window.TDDamageNumbers.clear === 'function') window.TDDamageNumbers.clear(); } catch(_){}

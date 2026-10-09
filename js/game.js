@@ -220,18 +220,12 @@ const Game = {
         // 如果遊戲未暫停，更新遊戲狀態（加入防呆，避免單幀錯誤中斷迴圈）
         try {
             if (!this.isPaused && !this.isGameOver) {
-                // 非生存模式（例如主線/挑戰）啟動時，暫停生存更新以避免互相污染
-                let activeId = null;
+                // 非生存模式（主線／挑戰／闖關／防禦／3D）不跑生存 update，避免互相污染
+                let inSurvival = true;
                 try {
-                    activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    inSurvival = Utils.isSurvivalModeContext();
                 } catch (_) { }
-                if (activeId === 'main' || activeId === 'challenge' || activeId === 'defense' || activeId === '3d') {
-                    // 在主線/挑戰/防禦/3D模式下不執行生存邏輯更新
-                } else {
+                if (inSurvival) {
                     this.update(deltaTime);
                 }
             }
@@ -239,18 +233,13 @@ const Game = {
             console.error('Game.update 發生錯誤，跳過本幀：', e);
         }
 
-        // 繪製遊戲（加入防呆）
+        // 繪製遊戲（加入防呆）：非生存也不 draw，否則會把生存 GifOverlay 蓋回闖關／挑戰
         try {
-            // 檢查當前模式，如果是3D模式則不執行draw
-            let activeId = null;
+            let inSurvival = true;
             try {
-                activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                inSurvival = Utils.isSurvivalModeContext();
             } catch (_) { }
-            if (activeId !== '3d') {
+            if (inSurvival) {
                 this.draw();
             }
         } catch (e) {
@@ -271,8 +260,11 @@ const Game = {
     update: function (deltaTime) {
         // 管理員測試快捷鍵已統一收斂到 Input（js/input.js），避免在 update 內重複輪詢造成按住連發
 
-        // 更新遊戲時間
-        this.gameTime += deltaTime;
+        // 組隊計時不回頭：時間以伺服器為準。客戶端再加，整秒會先跳再被拉回去
+        const serverClock = (this.multiplayer && this.multiplayer.enabled);
+        if (!serverClock) {
+            this.gameTime += deltaTime;
+        }
         // 正規化時間倍率，避免粒子/效果更新時發生未定義錯誤
         const deltaMul = deltaTime / 16.67;
 
@@ -303,11 +295,7 @@ const Game = {
                 let isSurvivalMode = false;
                 let isMultiplayer = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                     // ✅ 隔離：只允許「組隊 survival（enabled）」走多人路徑
                     isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
@@ -351,40 +339,13 @@ const Game = {
             this._updatePlayer(deltaTime);
         }
 
-        // 組隊模式：定期檢查是否所有玩家都死亡（僅隊長端）
-        try {
-            let isSurvivalMode = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null);
-            } catch (_) { }
-
-            // ✅ MMORPG 架構：所有玩家都能檢查遊戲失敗，不依賴隊長端
-            if (isSurvivalMode && this.multiplayer && this.player && typeof this.player._checkAllPlayersDead === 'function') {
-                // 每500ms檢查一次（避免過於頻繁）
-                if (!this._lastAllPlayersDeadCheck) this._lastAllPlayersDeadCheck = 0;
-                const now = Date.now();
-                if (now - this._lastAllPlayersDeadCheck >= 500) {
-                    this._lastAllPlayersDeadCheck = now;
-                    this.player._checkAllPlayersDead();
-                }
-            }
-        } catch (_) { }
 
         // M2：更新遠程玩家（所有端都需要更新，不只是隊長）
         try {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) { }
 
@@ -517,7 +478,7 @@ const Game = {
             try {
                 if (this.multiplayer && this.multiplayer.enabled && this.player && projectile && projectile.player === this.player) {
                     // 只處理有 tickDamage 的持續效果（Aura/Orbit/Gravity/IceField 等）
-                    if (typeof projectile.tickDamage === 'number' && typeof projectile.tickIntervalMs === 'number' && projectile.tickIntervalMs > 0) {
+                    if (!projectile._ownsNetTick && typeof projectile.tickDamage === 'number' && typeof projectile.tickIntervalMs === 'number' && projectile.tickIntervalMs > 0) {
                         if (!projectile._netTickAcc) projectile._netTickAcc = 0;
                         projectile._netTickAcc += deltaTime;
                         // radius 優先用 projectile.radius，其次 maxRadius（震波/場），最後用 size/width 推一個保守值
@@ -537,11 +498,7 @@ const Game = {
                             // ✅ 確保只在生存模式且多人模式下發送
                             let isSurvivalMode = false;
                             try {
-                                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                    ? GameModeManager.getCurrent()
-                                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                        ? ModeManager.getActiveModeId()
-                                        : null);
+                                const activeId = Utils.getActiveModeId();
                                 isSurvivalMode = (activeId === 'survival' || activeId === null);
                             } catch (_) { }
                             if (dmg > 0 && isSurvivalMode && this.multiplayer && this.multiplayer.enabled && typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
@@ -586,6 +543,11 @@ const Game = {
             const now = Date.now();
             const VISUAL_EFFECT_MAX_AGE = 30000; // 30 秒
             const VISUAL_EFFECT_HARD_MAX_AGE = 45000; // 45 秒（保守上限，避免例外路徑常駐）
+            // 組隊大招結束留技能：記下出現時間。剛回來的原技能不要被收大招清掉
+            for (let i = 0; i < this.projectiles.length; i++) {
+                const seen = this.projectiles[i];
+                if (seen && !seen._netSeenAt) seen._netSeenAt = now;
+            }
 
             for (let i = this.projectiles.length - 1; i >= 0; i--) {
                 const p = this.projectiles[i];
@@ -685,11 +647,7 @@ const Game = {
         try {
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
@@ -793,11 +751,7 @@ const Game = {
                 try {
                     let isSurvivalMode = false;
                     try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
+                        const activeId = Utils.getActiveModeId();
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) { }
 
@@ -867,11 +821,7 @@ const Game = {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) { }
 
@@ -890,11 +840,7 @@ const Game = {
                 // 添加日志以诊断（仅记录一次，避免日志过多）
                 if (!this._tickDiagnosticLogged && typeof window !== 'undefined') {
                     this._tickDiagnosticLogged = true;
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     console.log(`[Game] tick 诊断: isSurvivalMode=${isSurvivalMode}, activeId=${activeId}, hasMultiplayer=${!!this.multiplayer}, multiplayerRoomId=${this.multiplayer ? this.multiplayer.roomId : 'null'}, multiplayerSessionId=${this.multiplayer ? this.multiplayer.sessionId : 'null'}, multiplayerRole=${this.multiplayer ? this.multiplayer.role : 'null'}, hasRuntime=${!!window.SurvivalOnlineRuntime}, hasRuntimeRuntime=${!!(window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime)}, hasTick=${!!(window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.Runtime && typeof window.SurvivalOnlineRuntime.Runtime.tick === 'function')}`);
                 }
             }
@@ -924,7 +870,8 @@ const Game = {
                 this.player.update(deltaTime);
             } catch (e) {
                 console.error('[Game._updatePlayer] 更新玩家失败:', e);
-                // 如果更新失败，不设置 player 为 null，避免后续错误
+                // 移動出錯也不能把大招卡住。時間到了這裡再收一次。
+                try { if (typeof this.player._endUltimateIfTimeUp === 'function') this.player._endUltimateIfTimeUp(); } catch (_) {}
             }
         }
     },
@@ -971,11 +918,7 @@ const Game = {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) { }
 
@@ -989,9 +932,7 @@ const Game = {
     draw: function () {
         // 主線模式由其自身渲染迴圈管理（支援新舊管理器），避免互相覆蓋
         try {
-            const activeId = (typeof GameModeManager !== 'undefined' && GameModeManager.getCurrent)
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && ModeManager.getActiveModeId) ? ModeManager.getActiveModeId() : null);
+            const activeId = Utils.getActiveModeId();
             if (activeId === 'main' || activeId === 'challenge' || activeId === 'defense') {
                 return;
             }
@@ -1181,25 +1122,7 @@ const Game = {
             if (!projectile || typeof projectile.draw !== 'function') {
                 continue;
             }
-            if (
-                projectile.weaponType === 'CHAIN_LIGHTNING' ||
-                projectile.weaponType === 'FRENZY_LIGHTNING' ||
-                projectile.weaponType === 'SLASH' ||
-                projectile.weaponType === 'YOUNG_DADA_GLORY' ||
-                projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
-                projectile.weaponType === 'DEATHLINE_WARRIOR' ||
-                projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
-                projectile.weaponType === 'JUDGMENT' ||
-                projectile.weaponType === 'DIVINE_JUDGMENT' ||
-                projectile.weaponType === 'STARFALL' ||
-                projectile.weaponType === 'STARFALL_MOON' ||
-                projectile.weaponType === 'INTERSECTION_CAR' ||
-                projectile.weaponType === 'FBI' ||
-                projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
-                projectile.weaponType === 'WHITE_RAINBOW_BEAM' ||
-                projectile.weaponType === 'BLACK_HOLE_PARTICLE' || // 圖層在怪物上方
-                projectile.weaponType === 'GRAVITY_COLLAPSE' // 圖層在怪物上方
-            ) {
+            if (typeof DrawLayers !== 'undefined' && DrawLayers.isAboveEnemies(projectile.weaponType)) {
                 // 延後到前景層（敵人之上）再繪製
                 continue;
             }
@@ -1335,25 +1258,7 @@ const Game = {
             if (!projectile || typeof projectile.draw !== 'function') {
                 continue;
             }
-            if (
-                projectile.weaponType === 'CHAIN_LIGHTNING' ||
-                projectile.weaponType === 'FRENZY_LIGHTNING' ||
-                projectile.weaponType === 'SLASH' ||
-                projectile.weaponType === 'YOUNG_DADA_GLORY' ||
-                projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
-                projectile.weaponType === 'DEATHLINE_WARRIOR' ||
-                projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
-                projectile.weaponType === 'JUDGMENT' ||
-                projectile.weaponType === 'DIVINE_JUDGMENT' ||
-                projectile.weaponType === 'STARFALL' ||
-                projectile.weaponType === 'STARFALL_MOON' ||
-                projectile.weaponType === 'INTERSECTION_CAR' ||
-                projectile.weaponType === 'FBI' ||
-                projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
-                projectile.weaponType === 'WHITE_RAINBOW_BEAM' ||
-                projectile.weaponType === 'BLACK_HOLE_PARTICLE' ||
-                projectile.weaponType === 'GRAVITY_COLLAPSE'
-            ) {
+            if (typeof DrawLayers !== 'undefined' && DrawLayers.isAboveEnemies(projectile.weaponType)) {
                 try {
                     projectile.draw(this.ctx);
                 } catch (e) {
@@ -1367,11 +1272,7 @@ const Game = {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) { }
 
@@ -1456,8 +1357,9 @@ const Game = {
                     this.ctx.textAlign = 'center';
                     this.ctx.textBaseline = 'bottom';
                     this.ctx.fillStyle = 'rgba(255,255,255,0.95)';
-                    const baseSize = CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.SIZE ? CONFIG.PLAYER.SIZE : 32;
+                    const baseSize = Math.max(p.width || 0, p.height || 0) || ((CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.SIZE) ? CONFIG.PLAYER.SIZE : 32);
                     const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
+                    // 組隊變身名字要在頭上：血條跟變大的身體走。名字不要停在原本的小身體上
                     const nameY = p.y - (baseSize * visualScale / 2) - 8;
                     this.ctx.fillText(playerName, p.x, nameY);
                     this.ctx.restore();
@@ -1480,11 +1382,7 @@ const Game = {
         try {
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
@@ -1503,7 +1401,7 @@ const Game = {
                 this.ctx.textAlign = 'center';
                 this.ctx.textBaseline = 'bottom';
                 this.ctx.fillStyle = 'rgba(255,255,255,0.95)';
-                const baseSize = CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.SIZE ? CONFIG.PLAYER.SIZE : 32;
+                const baseSize = Math.max(this.player.width || 0, this.player.height || 0) || ((CONFIG && CONFIG.PLAYER && CONFIG.PLAYER.SIZE) ? CONFIG.PLAYER.SIZE : 32);
                 const visualScale = (CONFIG && CONFIG.PLAYER && typeof CONFIG.PLAYER.VISUAL_SCALE === 'number') ? CONFIG.PLAYER.VISUAL_SCALE : 1.0;
                 const nameY = this.player.y - (baseSize * visualScale / 2) - 8;
                 this.ctx.fillText(playerName, this.player.x, nameY);
@@ -1623,11 +1521,7 @@ const Game = {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) { }
 
@@ -1653,11 +1547,7 @@ const Game = {
             // ✅ 防污染：只在生存模式下發送攻擊輸入
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
@@ -1903,9 +1793,11 @@ const Game = {
                         projectile.player.player === this.player);
                     const shouldBroadcast = isDirectPlayerProjectile || isAICreatedProjectile;
 
+                    // 組隊白白虹大招一張：圖已經用專用通知送出。再送成普通子彈，隊友會多一顆白球
+                    const isBaibaihongUltPicture = projectile.constructor && projectile.constructor.name === 'BaibaihongExclusiveUltimateEffect';
                     if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled &&
                         typeof window !== 'undefined' && window.SurvivalOnlineBroadcastEvent &&
-                        shouldBroadcast) {
+                        shouldBroadcast && !isBaibaihongUltPicture) {
                         // 構建投射物數據（與舊多人模式一致）
                         const projectileId = projectile.id || `projectile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
                         if (!projectile.id) projectile.id = projectileId;
@@ -2056,6 +1948,16 @@ const Game = {
                         projectileData.fallDurationMs = projectile.fallDurationMs || 250;
                         projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300;
                     }
+                    // 組隊裁決要有好幾把劍：單機升級後劍變多。這包要帶把數，否則隊友永遠只看到一把
+                    if (projectile.weaponType === "JUDGMENT") {
+                        projectileData.swordCount = projectile.swordCount || 1;
+                        projectileData.detectRadius = projectile.detectRadius || 400;
+                        projectileData.aoeRadius = projectile.aoeRadius || 100;
+                        projectileData.swordImageWidth = projectile.swordImageWidth || 83;
+                        projectileData.swordImageHeight = projectile.swordImageHeight || 200;
+                        projectileData.fallDurationMs = projectile.fallDurationMs || 250;
+                        projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300;
+                    }
                         // 組隊模式：白夜光束（WhiteNightBeamEffect）
                         if (projectile.weaponType === "WHITE_NIGHT_BEAM") {
                             projectileData.damage = projectile.damage || 0;
@@ -2077,6 +1979,36 @@ const Game = {
                             projectileData.renderSize = projectile.renderSize || 200;
                         }
 
+                        // 組隊大波真正送出冰圈：落地的圈要標成圈，球要帶落點
+                        if (projectile.weaponType === "BIG_ICE_BALL" || projectile.weaponType === "FRENZY_ICE_BALL") {
+                            if (projectile.isGroundField) {
+                                projectileData.isIceField = true;
+                                projectileData.radius = projectile.radius;
+                                projectileData.duration = projectile.durationMs || 3000;
+                            } else {
+                                projectileData.targetX = projectile.targetX || projectile.x;
+                                projectileData.targetY = projectile.targetY || projectile.y;
+                                projectileData.flightTimeMs = projectile.flightTimeMs || 1000;
+                                projectileData.weaponLevel = projectile.weaponLevel || 1;
+                                projectileData.isFrenzyIceBall = (projectile.weaponType === "FRENZY_ICE_BALL");
+                            }
+                        }
+
+                        // 組隊無敵護盾跟等級：單機越級護盾留越久。秒數原先只寫在舊路徑，隊友的護盾會兩秒就消失
+                        if (projectile.weaponType === "INVINCIBLE") {
+                            projectileData.duration = projectile.duration || 2000;
+                            projectileData.size = projectile.size || 200;
+                            projectileData.offsetY = projectile.offsetY || 0;
+                        }
+
+                        // 組隊分身要有四隻：沒帶第幾隻，四隻會站到同一角，圖也蓋成一張
+                        if (projectile.weaponType === "ELONDIER_ULTIMATE_CLONE") {
+                            projectileData.cloneIndex = (typeof projectile.cloneIndex === "number") ? projectile.cloneIndex : 0;
+                            projectileData.offsetX = projectile.offsetX;
+                            projectileData.offsetY = projectile.offsetY;
+                            projectileData.durationMs = projectile.durationMs;
+                        }
+
                         // 廣播投射物生成事件（讓遠程玩家也能看到）
                         window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
                     }
@@ -2088,450 +2020,9 @@ const Game = {
             }
         } catch (_) { }
 
-        // 單機 / 舊多人（非 enabled）維持原行為
+        // 組隊舊畫面已刪：單機把投射物留在這台。組隊在上面送完就 return。不要再寫第二份
         this.projectiles.push(projectile);
 
-        // 組隊模式：隊長端廣播投射物給隊員端（僅視覺，不影響傷害計算）
-        try {
-            // 確保只在生存模式下執行組隊邏輯
-            let isSurvivalMode = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null);
-            } catch (_) { }
-
-            // ⚠️ 修復：第二處邏輯應該只在非 enabled 模式下執行（舊多人模式）
-            // 在 enabled 模式下，第一處邏輯已經處理完畢並 return，不會執行到這裡
-            // 這裡保留是為了向後兼容舊的多人模式（非 enabled）
-            if (isSurvivalMode && this.multiplayer && !this.multiplayer.enabled) {
-                // ✅ MMO 架構：每個玩家都廣播自己的投射物（攻擊、技能等）
-                // 判斷投射物來源：
-                // 1. 本地玩家的投射物：projectile.player === this.player
-                // 2. 遠程玩家的投射物：projectile.player && projectile.player._isRemotePlayer（不廣播，由遠程玩家自己廣播）
-                // 3. 環境物體（如 INTERSECTION_CAR）：需要廣播（但應由生成者廣播，這裡只處理本地生成的）
-                // 4. 其他情況（如環境效果）：不廣播或根據需要廣播
-                const isLocalPlayerProjectile = (projectile.player && projectile.player === this.player);
-                const isRemotePlayerProjectile = (projectile.player && projectile.player._isRemotePlayer);
-
-                // MMO 架構：只廣播本地玩家的投射物，不廣播遠程玩家的投射物（由遠程玩家自己廣播）
-                if (isRemotePlayerProjectile) {
-                    // 遠程玩家的投射物由遠程玩家自己廣播，這裡不處理
-                    return;
-                }
-
-                // 檢查是否為 AICompanion（召喚AI）
-                const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
-                    (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
-
-                // 檢查是否為環境物體（如路口車輛、FBI 技能車）
-                const isEnvironmentHazard = (projectile.weaponType === "INTERSECTION_CAR" || projectile.weaponType === "FBI") ||
-                    (projectile.constructor && projectile.constructor.name === 'CarHazard');
-
-                // ✅ 舊多人模式：廣播投射物給其他玩家（僅視覺，不影響傷害計算）
-                // ⚠️ 注意：在 enabled 模式下，這個邏輯不應該執行（由第一處邏輯處理）
-                if (isLocalPlayerProjectile && typeof window !== 'undefined' && window.SurvivalOnlineBroadcastEvent) {
-                    // 檢查是否是持續效果類（這些效果需要每個客戶端獨立計算傷害）
-                    // 持續傷害類技能列表（每個玩家的傷害獨立計算並疊加）：
-                    // - 守護領域、引力波、環繞球類（綿羊護體、雞腿庇佑、旋轉鬆餅、心意相隨、鳳梨環繞）
-                    // - 激光、光芒萬丈、大波球、狂熱大波、心靈震波
-                    // ✅ 修復：檢查是否為 AICompanion（召喚AI）
-                    const isAICompanion = (projectile.constructor && projectile.constructor.name === 'AICompanion') ||
-                        (typeof AICompanion !== 'undefined' && projectile instanceof AICompanion);
-
-                    const isPersistentEffect = (
-                        // 武器類型檢查
-                        projectile.weaponType === 'AURA_FIELD' ||
-                        projectile.weaponType === 'CYGNUS_ULTIMATE_FIELD' ||
-                        projectile.weaponType === 'STELLAR_FIELD' ||
-                        projectile.weaponType === 'INNATE_TEMPERAMENT' ||
-                        projectile.weaponType === 'STARFALL' ||
-                        projectile.weaponType === 'STARFALL_MOON' ||
-                        projectile.weaponType === 'GRAVITY_WAVE' ||
-                        projectile.weaponType === 'ORBIT' ||
-                        projectile.weaponType === 'STELLAR_ORBIT' ||
-                        projectile.weaponType === 'CHICKEN_BLESSING' ||
-                        projectile.weaponType === 'ROTATING_MUFFIN' ||
-                        projectile.weaponType === 'HEART_COMPANION' ||
-                        projectile.weaponType === 'PINEAPPLE_ORBIT' ||
-                        projectile.weaponType === 'GABRIEL_ORBIT' ||
-                        projectile.weaponType === 'WEDDING_CALL_ORBIT' ||
-                        projectile.weaponType === 'LASER' ||
-                        projectile.weaponType === 'RADIANT_GLORY' ||
-                        projectile.weaponType === 'BIG_ICE_BALL' ||
-                        projectile.weaponType === 'FRENZY_ICE_BALL' ||
-                        projectile.weaponType === 'GRAVITY_COLLAPSE' ||
-                        projectile.weaponType === 'MIND_MAGIC' ||
-                        // ✅ 修復：CHAIN_LIGHTNING、FRENZY_LIGHTNING、SLASH、INVINCIBLE、SING 是特殊視覺效果，不應發送到伺服器作為標準投射物
-                        projectile.weaponType === 'CHAIN_LIGHTNING' ||
-                        projectile.weaponType === 'FRENZY_LIGHTNING' ||
-                        projectile.weaponType === 'SLASH' ||
-                        projectile.weaponType === 'FRENZY_SLASH' ||
-                        projectile.weaponType === 'INVINCIBLE' ||
-                        projectile.weaponType === 'SING' ||
-                        // ✅ 修復：YOUNG_DADA_GLORY、FRENZY_YOUNG_DADA_GLORY、DEATHLINE_WARRIOR、DEATHLINE_SUPERMAN、JUDGMENT、DIVINE_JUDGMENT、EXPLOSION 是特殊視覺效果
-                        projectile.weaponType === 'YOUNG_DADA_GLORY' ||
-                        projectile.weaponType === 'FRENZY_YOUNG_DADA_GLORY' ||
-                        projectile.weaponType === 'DEATHLINE_WARRIOR' ||
-                        projectile.weaponType === 'DEATHLINE_SUPERMAN' ||
-                        projectile.weaponType === 'JUDGMENT' ||
-                        projectile.weaponType === 'DIVINE_JUDGMENT' ||
-                        projectile.weaponType === 'EXPLOSION' ||
-                        projectile.weaponType === 'WHITE_NIGHT_BEAM' ||
-                        projectile.weaponType === 'WHITE_RAINBOW_BEAM' ||
-                        // ✅ 修復：SUMMON_AI（召喚AI）是持續效果，需要廣播給其他玩家
-                        projectile.weaponType === 'SUMMON_AI' ||
-                        isAICompanion ||
-                        // 構造函數名稱檢查（更可靠）
-                        (projectile.constructor && (
-                            projectile.constructor.name === 'AuraField' ||
-                            projectile.constructor.name === 'InnateTemperamentField' ||
-                            projectile.constructor.name === 'GravityWaveField' ||
-                            projectile.constructor.name === 'OrbitBall' ||
-                            projectile.constructor.name === 'LaserBeam' ||
-                            projectile.constructor.name === 'RadiantGloryEffect' ||
-                            projectile.constructor.name === 'IceFieldEffect' ||
-                            projectile.constructor.name === 'ShockwaveEffect' ||
-                            projectile.constructor.name === 'StarfallEffect' ||
-                            projectile.constructor.name === 'StarfallMoon' ||
-                            // ✅ 修復：ChainLightningEffect、FrenzyLightningEffect、SlashEffect、InvincibleEffect、SingEffect 是特殊視覺效果
-                            projectile.constructor.name === 'ChainLightningEffect' ||
-                            projectile.constructor.name === 'FrenzyLightningEffect' ||
-                            projectile.constructor.name === 'SlashEffect' ||
-                            projectile.constructor.name === 'InvincibleEffect' ||
-                            projectile.constructor.name === 'SingEffect' ||
-                            projectile.constructor.name === 'BaibaihongExclusiveUltimateEffect' ||
-                            // ✅ 修復：YoungDadaGloryEffect、FrenzyYoungDadaGloryEffect、DeathlineWarriorEffect、JudgmentEffect、DivineJudgmentEffect、ExplosionEffect 是特殊視覺效果
-                            projectile.constructor.name === 'YoungDadaGloryEffect' ||
-                            projectile.constructor.name === 'FrenzyYoungDadaGloryEffect' ||
-                            projectile.constructor.name === 'DeathlineWarriorEffect' ||
-                            projectile.constructor.name === 'JudgmentEffect' ||
-                            projectile.constructor.name === 'DivineJudgmentEffect' ||
-                            projectile.constructor.name === 'ExplosionEffect' ||
-                            projectile.constructor.name === 'WhiteNightBeamEffect' ||
-                            projectile.constructor.name === 'WhiteRainbowBeamEffect' ||
-                            // ✅ 修復：AICompanion（召喚AI）是持續效果，需要廣播給其他玩家
-                            projectile.constructor.name === 'AICompanion'
-                        )) ||
-                        // 檢查是否有持續傷害屬性（tickDamage、tickIntervalMs）
-                        (typeof projectile.tickDamage !== 'undefined' && typeof projectile.tickIntervalMs !== 'undefined')
-                    );
-
-                    // 持續效果類和標準投射物都需要廣播（舊多人模式）
-                    // 但標準投射物在 enabled 模式下已經由第一處邏輯處理
-                }
-
-                if (isLocalPlayerProjectile || isRemotePlayerProjectile || isAICompanion || isEnvironmentHazard) {
-                    // 為投射物分配唯一ID（如果還沒有）
-                    if (!projectile.id) {
-                        projectile.id = `projectile_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-                    }
-
-                    // 確定玩家UID
-                    let playerUid = null;
-                    if (isLocalPlayerProjectile || (isAICompanion && projectile.player === this.player)) {
-                        playerUid = (this.multiplayer && this.multiplayer.uid) ? this.multiplayer.uid : null;
-                    } else if (isRemotePlayerProjectile && projectile.player._remoteUid) {
-                        playerUid = projectile.player._remoteUid;
-                    } else if (isAICompanion && projectile.player && projectile.player._isRemotePlayer && projectile.player._remoteUid) {
-                        playerUid = projectile.player._remoteUid;
-                    } else if (isAICompanion && projectile._remotePlayerUid) {
-                        // ✅ MMORPG架构：AICompanion有_remotePlayerUid属性（远程玩家的AI）
-                        playerUid = projectile._remotePlayerUid;
-                    } else if (projectile._remotePlayerUid) {
-                        // ✅ MMORPG架构：技能效果有_remotePlayerUid属性（远程玩家的AI创建的技能）
-                        playerUid = projectile._remotePlayerUid;
-                    }
-
-                    // 構建投射物數據
-                    // ✅ 修復：確保 size 正確獲取（投射物使用 width/height 表示大小，但也要檢查 size 屬性）
-                    let projectileSize = projectile.size;
-                    if (!projectileSize || projectileSize <= 0) {
-                        projectileSize = projectile.width || projectile.height;
-                    }
-                    if (!projectileSize || projectileSize <= 0) {
-                        // 如果還是沒有，嘗試從武器配置獲取默認值
-                        const weaponConfig = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[projectile.weaponType]) || {};
-                        projectileSize = weaponConfig.PROJECTILE_SIZE || 20;
-                    }
-                    const projectileData = {
-                        id: projectile.id,
-                        x: projectile.x || 0,
-                        y: projectile.y || 0,
-                        angle: projectile.angle || 0,
-                        weaponType: isAICompanion ? "SUMMON_AI" : (projectile.weaponType || "UNKNOWN"),
-                        speed: projectile.speed || 0,
-                        size: projectileSize, // ✅ 修復：使用正確計算的 size（包含等級加成）
-                        homing: projectile.homing || false,
-                        turnRatePerSec: projectile.turnRatePerSec || 0,
-                        playerUid: playerUid,
-                        assignedTargetId: projectile.assignedTargetId || null,
-                        maxDistance: projectile.maxDistance || 1000, // ✅ 修復：同步 maxDistance 屬性
-                        // ✅ MMORPG架构：传递伤害值，让远程玩家也能计算伤害
-                        damage: projectile.damage || 0
-                    };
-
-                    // 如果是 AICompanion，添加額外屬性
-                    if (isAICompanion) {
-                        projectileData.summonAILevel = (typeof projectile.summonAILevel === "number") ? projectile.summonAILevel : 1;
-                        projectileData.width = projectile.width || CONFIG.PLAYER.SIZE;
-                        projectileData.height = projectile.height || CONFIG.PLAYER.SIZE;
-                    }
-
-                    // 如果是環繞投射物（OrbitBall），添加額外屬性
-                    if (projectile.radius !== undefined) {
-                        projectileData.radius = projectile.radius;
-                        projectileData.angularSpeed = projectile.angularSpeed || 0;
-                        projectileData.duration = projectile.duration || 3000;
-                    }
-
-                    // 如果是雷射（LaserBeam），添加額外屬性
-                    if (projectile.width !== undefined && projectile.weaponType === "LASER") {
-                        // ✅ 修復：使用與單機一致的默認值（CONFIG.LASER）
-                        projectileData.width = projectile.width || 8; // ✅ 與單機一致：使用 CONFIG.LASER.BEAM_WIDTH_BASE（8）
-                        projectileData.duration = projectile.duration || 2000; // ✅ 與單機一致：使用 CONFIG.LASER.DURATION（2000ms）
-                        projectileData.tickInterval = projectile.tickIntervalMs || 120; // ✅ 與單機一致：使用 CONFIG.LASER.TICK_INTERVAL_MS（120ms）
-                    }
-
-                    // 如果是震波（ShockwaveEffect），添加額外屬性
-                    if (projectile.maxRadius !== undefined && projectile.weaponType === "MIND_MAGIC") {
-                        // ✅ 修復：使用與單機一致的默認值（CONFIG.MIND_MAGIC）
-                        projectileData.maxRadius = projectile.maxRadius || 220; // ✅ 與單機一致：使用 CONFIG.MIND_MAGIC.WAVE_MAX_RADIUS_BASE（220）
-                        projectileData.ringWidth = projectile.ringWidth || 18; // ✅ 與單機一致：使用 CONFIG.MIND_MAGIC.WAVE_THICKNESS（18）
-                        projectileData.duration = projectile.durationMs || 2000; // ✅ 與單機一致：使用 CONFIG.MIND_MAGIC.DURATION（2000ms）
-                        projectileData.palette = projectile.palette || null;
-                    }
-
-                    // 如果是連鎖閃電（ChainLightningEffect），添加額外屬性
-                    if (projectile.weaponType === "CHAIN_LIGHTNING") {
-                        // ✅ 修復：使用與單機一致的默認值（CONFIG.CHAIN_LIGHTNING）
-                        projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
-                        projectileData.duration = projectile.durationMs || 1000; // ✅ 與單機一致：使用 CONFIG.CHAIN_LIGHTNING.DURATION（1000ms）
-                        projectileData.maxChains = projectile.maxChains || 0;
-                        projectileData.chainRadius = projectile.chainRadius || 220; // ✅ 與單機一致：使用 CONFIG.CHAIN_LIGHTNING.CHAIN_RADIUS（220）
-                        projectileData.palette = projectile.palette || null;
-                    } else if (projectile.weaponType === "FRENZY_LIGHTNING") {
-                        // ✅ 修復：使用與單機一致的默認值（CONFIG.FRENZY_LIGHTNING）
-                        projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
-                        projectileData.duration = projectile.durationMs || 1000; // ✅ 與單機一致：使用 CONFIG.FRENZY_LIGHTNING.DURATION（1000ms）
-                        projectileData.maxChains = projectile.maxChains || 0;
-                        projectileData.chainRadius = projectile.chainRadius || 300; // ✅ 與單機一致：使用 CONFIG.FRENZY_LIGHTNING.CHAIN_RADIUS（300）
-                        projectileData.palette = projectile.palette || null;
-                        projectileData.branchCount = projectile.branchCount || 10;
-                        projectileData.chainsPerBranch = projectile.chainsPerBranch || 10;
-                    }
-
-                    // 如果是斬擊（SlashEffect），添加額外屬性
-                    if (projectile.weaponType === "SLASH") {
-                        // ✅ 修復：使用與單機一致的默認值（CONFIG.SLASH）
-                        projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
-                        projectileData.angle = projectile.angle || 0;
-                        projectileData.radius = projectile.radius || 252; // ✅ 與單機一致：使用 CONFIG.SLASH.RADIUS_BASE（252）
-                        projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : 365); // ✅ 與單機一致：使用 CONFIG.SLASH.ARC_DEG_BASE（365）
-                        projectileData.duration = projectile.durationMs || 1200; // ✅ 與單機一致：使用 CONFIG.SLASH.DURATION（1200ms）
-                        projectileData.visualScale = projectile.visualScale || 1.8; // ✅ 與單機一致：使用 CONFIG.SLASH.VISUAL_SCALE（1.8）
-                    }
-
-                    // 如果是裁決（JudgmentEffect），添加額外屬性
-                    if (projectile.weaponType === "JUDGMENT") {
-                        projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
-                        projectileData.swordCount = projectile.swordCount || 1;
-                        projectileData.detectRadius = projectile.detectRadius || 400; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.DETECT_RADIUS（400）
-                        projectileData.aoeRadius = projectile.aoeRadius || 100; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.BASE_AOE_RADIUS（100）
-                        projectileData.swordImageWidth = projectile.swordImageWidth || 83; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.SWORD_IMAGE_WIDTH（83）
-                        projectileData.swordImageHeight = projectile.swordImageHeight || 200; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.SWORD_IMAGE_HEIGHT（200）
-                        projectileData.fallDurationMs = projectile.fallDurationMs || 250; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FALL_DURATION_MS（250ms）
-                        projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300; // ✅ 與單機一致：使用 CONFIG.JUDGMENT.FADE_OUT_DURATION_MS（300ms）
-                    }
-
-                    // 如果是星隕（StarfallEffect），添加額外屬性（與裁決相同結構）
-                    if (projectile.weaponType === "STARFALL") {
-                        projectileData.damage = projectile.damage || 0;
-                        projectileData.swordCount = projectile.swordCount || 1;
-                        projectileData.detectRadius = projectile.detectRadius || 400;
-                        projectileData.aoeRadius = projectile.aoeRadius || 100;
-                        projectileData.swordImageWidth = projectile.swordImageWidth || 30;
-                        projectileData.swordImageHeight = projectile.swordImageHeight || 29;
-                        projectileData.fallDurationMs = projectile.fallDurationMs || 250;
-                        projectileData.fadeOutDurationMs = projectile.fadeOutDurationMs || 300;
-                    }
-                    // 組隊模式：白夜光束（WhiteNightBeamEffect），添加額外屬性
-                    if (projectile.weaponType === "WHITE_NIGHT_BEAM") {
-                        projectileData.damage = projectile.damage || 0;
-                        projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.WHITE_NIGHT_BEAM ? CONFIG.WEAPONS.WHITE_NIGHT_BEAM.FIELD_RADIUS : 150);
-                        projectileData.level = projectile.level || 1;
-                    }
-
-                    // 組隊模式：白虹光束（WhiteRainbowBeamEffect），添加額外屬性
-                    if (projectile.weaponType === "WHITE_RAINBOW_BEAM") {
-                        projectileData.damage = projectile.damage || 0;
-                        projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.WHITE_RAINBOW_BEAM ? CONFIG.WEAPONS.WHITE_RAINBOW_BEAM.FIELD_RADIUS : 330);
-                        projectileData.level = projectile.level || 1;
-                    }
-
-                    // 如果是爆炸效果（ExplosionEffect），添加額外屬性
-                    if (projectile.weaponType === "EXPLOSION") {
-                        // ExplosionEffect 只需要位置，已在 projectileData 中
-                    }
-
-                    // 如果是死線戰士/死線超人（DeathlineWarriorEffect），添加額外屬性
-                    if (projectile.weaponType === "DEATHLINE_WARRIOR" || projectile.weaponType === "DEATHLINE_SUPERMAN") {
-                        // ✅ 修復：使用與單機一致的默認值（CONFIG.DEATHLINE_WARRIOR / DEATHLINE_SUPERMAN）
-                        const isSuperman = (projectile.weaponType === "DEATHLINE_SUPERMAN");
-                        projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
-                        projectileData.detectRadius = projectile.detectRadius || 600; // ✅ 與單機一致：使用 CONFIG.DEATHLINE_WARRIOR.DETECT_RADIUS（600）
-                        projectileData.totalHits = projectile.totalHits || (isSuperman ? 6 : 3); // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 6，DEATHLINE_WARRIOR 為 3
-                        projectileData.totalDurationMs = projectile.totalDurationMs || 1200; // ✅ 與單機一致：使用 CONFIG.DEATHLINE_WARRIOR.TOTAL_DURATION_MS（1200ms）
-                        projectileData.minTeleportDistance = projectile.minTeleportDistance || 300; // ✅ 與單機一致：使用 CONFIG.DEATHLINE_WARRIOR.MIN_TELEPORT_DISTANCE（300）
-                        projectileData.aoeRadius = projectile.aoeRadius !== undefined ? projectile.aoeRadius : (isSuperman ? 200 : 0); // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 200，DEATHLINE_WARRIOR 為 0
-                        projectileData.displayScale = projectile.displayScale !== undefined ? projectile.displayScale : (isSuperman ? 1.0 : 0.5); // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 1.0，DEATHLINE_WARRIOR 為 0.5
-                    }
-
-                    // 如果是神裁（DivineJudgmentEffect），添加額外屬性
-                    if (projectile.weaponType === "DIVINE_JUDGMENT") {
-                        // ✅ 修復：使用與單機一致的默認值（CONFIG.DIVINE_JUDGMENT）
-                        projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
-                        projectileData.detectRadius = projectile.detectRadius || 400; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.DETECT_RADIUS_BASE（400）
-                        projectileData.aoeRadius = projectile.aoeRadius || 100; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.AOE_RADIUS_BASE（100）
-                        projectileData.fallDurationMs = projectile.fallDurationMs || 250; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.FALL_DURATION_MS（250ms）
-                        projectileData.moveDurationMs = projectile.moveDurationMs || 600; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.MOVE_DURATION_MS（600ms）
-                        projectileData.headWaitMs = projectile.headWaitMs || 100; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.HEAD_WAIT_MS（100ms）
-                        projectileData.holdOnEnemyMs = projectile.holdOnEnemyMs || 200; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.HOLD_ON_ENEMY_MS（200ms）
-                        projectileData.swordImageWidth = projectile.swordImageWidth || 83; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.SWORD_IMAGE_WIDTH（83）
-                        projectileData.swordImageHeight = projectile.swordImageHeight || 200; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.SWORD_IMAGE_HEIGHT（200）
-                        projectileData.visualScale = projectile.visualScale || 1.5;
-                        projectileData.patrolSpeedFactor = projectile.patrolSpeedFactor || 0.35; // ✅ 與單機一致：使用 CONFIG.DIVINE_JUDGMENT.PATROL_SPEED_FACTOR（0.35）
-                    }
-
-                    // 如果是光環領域（AuraField），添加額外屬性
-                    if (projectile.weaponType === "AURA_FIELD") {
-                        // ✅ 修復：使用與單機一致的默認值（CONFIG.AURA_FIELD）
-                        projectileData.damage = projectile.tickDamage || projectile.damage || 0; // ✅ 传递持续伤害值
-                        projectileData.radius = projectile.radius || 60; // ✅ 與單機一致：使用 CONFIG.AURA_FIELD.FIELD_RADIUS（60）
-                        projectileData.visualScale = projectile.visualScale || 1.95; // ✅ 與單機一致：使用 CONFIG.AURA_FIELD.VISUAL_SCALE（1.95）
-                    }
-                    // 熙歌專屬大招場域（CygnusUltimateField）
-                    if (projectile.weaponType === "CYGNUS_ULTIMATE_FIELD") {
-                        projectileData.damage = projectile.tickDamage || projectile.damage || 0;
-                        projectileData.radius = projectile.radius || 150;
-                        projectileData.visualScale = projectile.visualScale || 1.95;
-                    }
-                    // 組隊模式：如果是恆星領域（StellarField），添加額外屬性（與守護領域同結構）
-                    if (projectile.weaponType === "STELLAR_FIELD") {
-                        projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.STELLAR_FIELD ? CONFIG.WEAPONS.STELLAR_FIELD.FIELD_RADIUS : 100);
-                        projectileData.visualScale = projectile.visualScale || 1.95;
-                        projectileData.slowFactor = (typeof projectile.slowFactor === 'number') ? projectile.slowFactor : 0.95;
-                    }
-
-                    // 組隊模式：先天氣質（InnateTemperamentField），添加額外屬性
-                    if (projectile.weaponType === "INNATE_TEMPERAMENT") {
-                        projectileData.damage = projectile.tickDamage || projectile.damage || 0;
-                        projectileData.radius = projectile.radius || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.INNATE_TEMPERAMENT ? CONFIG.WEAPONS.INNATE_TEMPERAMENT.FIELD_RADIUS : 280);
-                        projectileData.visualScale = projectile.visualScale || 1.95;
-                        projectileData.slowFactor = (typeof projectile.slowFactor === 'number') ? projectile.slowFactor : 0.5;
-                    }
-
-                    // 如果是重力波（GravityWaveField），添加額外屬性
-                    if (projectile.weaponType === "GRAVITY_WAVE") {
-                        projectileData.damage = projectile.tickDamage || projectile.damage || 0; // ✅ 传递持续伤害值
-                        projectileData.radius = projectile.radius || 150;
-                        projectileData.pushMultiplier = projectile.pushMultiplier || 0;
-                        projectileData.visualScale = projectile.visualScale || 1.95;
-                    }
-
-                    // 如果是大冰球（IceBallProjectile），添加額外屬性
-                    if (projectile.weaponType === "BIG_ICE_BALL" || projectile.weaponType === "FRENZY_ICE_BALL") {
-                        projectileData.targetX = projectile.targetX || projectile.x;
-                        projectileData.targetY = projectile.targetY || projectile.y;
-                        projectileData.flightTimeMs = projectile.flightTimeMs || 1000;
-                        projectileData.weaponLevel = projectile.weaponLevel || 1;
-                        projectileData.isFrenzyIceBall = (projectile.weaponType === "FRENZY_ICE_BALL");
-                    }
-
-                    // 如果是重力塌縮（GravityCollapseProjectile），添加額外屬性
-                    if (projectile.weaponType === "GRAVITY_COLLAPSE") {
-                        projectileData.angle = projectile.angle || 0;
-                        projectileData.weaponLevel = projectile.weaponLevel || 1;
-                        projectileData.duration = projectile.durationMs || 3000;
-                        projectileData.radius = projectile.radius || 304;
-                    }
-
-                    // 如果是幼妲光輝（YoungDadaGloryEffect），添加額外屬性
-                    if (projectile.weaponType === "YOUNG_DADA_GLORY") {
-                        projectileData.duration = projectile.duration || 2000;
-                    }
-
-                    // 如果是幼妲天使（FrenzyYoungDadaGloryEffect），添加額外屬性
-                    if (projectile.weaponType === "FRENZY_YOUNG_DADA_GLORY") {
-                        projectileData.duration = projectile.duration || 3000;
-                    }
-
-                    // 如果是光芒萬丈（RadiantGloryEffect），添加額外屬性
-                    if (projectile.weaponType === "RADIANT_GLORY") {
-                        projectileData.damage = projectile.tickDamage || projectile.damage || 0; // ✅ 传递持续伤害值
-                        projectileData.width = projectile.width || 8; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.BEAM_WIDTH_BASE（8）
-                        projectileData.duration = projectile.duration || 2000; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.DURATION（2000ms）
-                        projectileData.tickInterval = projectile.tickIntervalMs || 120; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.TICK_INTERVAL_MS（120ms）
-                        projectileData.beamCount = projectile.beamCount || 10;
-                        projectileData.rotationSpeed = projectile.rotationSpeed || 1.0; // ✅ 與單機一致：使用 CONFIG.RADIANT_GLORY.ROTATION_SPEED（1.0）
-                    }
-
-                    // 如果是狂熱斬擊（FRENZY_SLASH），使用FRENZY_SLASH的處理（因為它使用SlashEffect但參數不同）
-                    if (projectile.weaponType === "FRENZY_SLASH") {
-                        // ✅ 修復：使用與單機一致的默認值（CONFIG.FRENZY_SLASH）
-                        projectileData.damage = projectile.damage || 0; // ✅ 传递伤害值
-                        projectileData.angle = projectile.angle || 0;
-                        projectileData.radius = projectile.radius || 280; // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.RADIUS_BASE（280）
-                        projectileData.arcDeg = (projectile.arcRad ? projectile.arcRad * 180 / Math.PI : 365); // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.ARC_DEG_BASE（365）
-                        projectileData.duration = projectile.durationMs || 1200; // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.DURATION（1200ms）
-                        projectileData.visualScale = projectile.visualScale || 2.0; // ✅ 與單機一致：使用 CONFIG.FRENZY_SLASH.VISUAL_SCALE（2.0）
-                    }
-
-                    // 如果是唱歌（SingEffect），添加額外屬性
-                    if (projectile.weaponType === "SING") {
-                        projectileData.duration = projectile.duration || 2000;
-                        projectileData.size = projectile.size || 500;
-                        projectileData.offsetY = projectile.offsetY || -250;
-                    }
-                    // 如果是吞噬之力（DevouringPowerEffect），添加額外屬性
-                    if (projectile.weaponType === "DEVOURING_POWER") {
-                        projectileData.duration = projectile.duration || 2000;
-                        projectileData.offsetY = projectile.offsetY || 0;
-                        projectileData.renderSize = projectile.renderSize || 200;
-                    }
-
-                    // 如果是無敵（InvincibleEffect），添加額外屬性
-                    if (projectile.weaponType === "INVINCIBLE") {
-                        projectileData.duration = projectile.duration || 2000;
-                        projectileData.size = projectile.size || 200;
-                        projectileData.offsetY = projectile.offsetY || 0;
-                    }
-
-                    // 如果是路口車輛或 FBI 車（CarHazard），添加額外屬性
-                    if (projectile.weaponType === "INTERSECTION_CAR" || projectile.weaponType === "FBI" || (projectile.constructor && projectile.constructor.name === 'CarHazard')) {
-                        projectileData.vx = projectile.vx || 0;
-                        projectileData.vy = projectile.vy || 0;
-                        projectileData.width = projectile.width || 0;
-                        projectileData.height = projectile.height || 0;
-                        projectileData.imageKey = projectile.imageKey || "car";
-                        projectileData.damage = projectile.damage || 100;
-                        projectileData.despawnPad = projectile.despawnPad || 400;
-                    }
-
-                    // ✅ 舊多人模式：廣播投射物給其他玩家（僅視覺，不影響傷害計算）
-                    // ⚠️ 注意：這段代碼只在非 enabled 模式下執行（enabled 模式下由第一處邏輯處理）
-                    if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                        console.log(`[Game] 廣播投射物生成事件: weaponType=${projectileData.weaponType}, id=${projectileData.id}, playerUid=${playerUid}`);
-                        window.SurvivalOnlineBroadcastEvent("projectile_spawn", projectileData);
-                    }
-                }
-            }
-        } catch (e) {
-            console.warn("[Game] 廣播投射物生成事件失敗:", e);
-        }
     },
 
     // 添加障礙物
@@ -2799,11 +2290,7 @@ const Game = {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
@@ -2845,11 +2332,7 @@ const Game = {
             try {
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) { }
 
@@ -2875,11 +2358,12 @@ const Game = {
             if (typeof PineappleSupplementPickup === 'undefined') return;
             const isFromServer = opts && opts.fromServer;
             if (this.multiplayer && this.multiplayer.enabled && !isFromServer) {
+                // 組隊鳳梨補品出現：誰放的誰送，不限房主
                 try {
                     if (!opts.id) {
                         opts.id = (typeof Utils !== 'undefined' && Utils.generateUUID ? Utils.generateUUID() : `pine_supp_${Date.now()}_${Math.random()}`);
                     }
-                    if (this.multiplayer.isHost && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                    if (this.multiplayer && this.multiplayer.enabled && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
                         window.SurvivalOnlineRuntime.sendToNet({
                             type: 'chest_spawn',
                             x: targetX,
@@ -2925,11 +2409,7 @@ const Game = {
         try {
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
@@ -2976,13 +2456,12 @@ const Game = {
             }
         }
 
-        // 如果投射物數量超過限制，移除最早的投射物
-        if (this.projectiles.length > CONFIG.OPTIMIZATION.MAX_PROJECTILES) {
+        // 組隊畫面不自己清：子彈和經驗球以伺服器為準。自己清會把環繞、雷射這些較早的技能一起砍掉
+        if (!isServerAuthoritative && this.projectiles.length > CONFIG.OPTIMIZATION.MAX_PROJECTILES) {
             this.projectiles.splice(0, this.projectiles.length - CONFIG.OPTIMIZATION.MAX_PROJECTILES);
         }
 
-        // 如果經驗寶石數量超過限制，移除最早的經驗寶石
-        if (this.experienceOrbs.length > CONFIG.OPTIMIZATION.MAX_EXPERIENCE_ORBS) {
+        if (!isServerAuthoritative && this.experienceOrbs.length > CONFIG.OPTIMIZATION.MAX_EXPERIENCE_ORBS) {
             this.experienceOrbs.splice(0, this.experienceOrbs.length - CONFIG.OPTIMIZATION.MAX_EXPERIENCE_ORBS);
         }
     },
@@ -3010,11 +2489,7 @@ const Game = {
             // 判斷是否為生存模式（舊流程 activeId 可能為 null，視為生存）
             let activeId = null;
             try {
-                activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                activeId = Utils.getActiveModeId();
             } catch (_) { }
             const isSurvivalMode = (activeId === 'survival' || activeId === null);
             const isMultiplayerEnabled = !!(this.multiplayer && this.multiplayer.enabled);
@@ -3124,11 +2599,7 @@ const Game = {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) { }
 
@@ -3184,93 +2655,13 @@ const Game = {
                 UI.clearLevelUpStateOnGameEnd();
             }
         } catch (_) {}
-        // ✅ 正常結束：組隊模式下回到房間，單機模式下正常返回開始畫面
         try {
-            // 確保只在生存模式下執行組隊邏輯
-            let isSurvivalMode = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
-            } catch (_) { }
-
-            // ✅ 權威伺服器模式：多人進行中時，勝利由伺服器 state.isVictory 觸發，不再走 client event 廣播
-            // 只在舊模式（非 enabled）下才廣播，enabled 模式下由伺服器權威控制
-            if (isSurvivalMode && this.multiplayer && !this.multiplayer.enabled) {
-                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("game_victory", { reason: "exit_reached" });
-                }
-                // ✅ 正常結束：更新房間狀態為 lobby（回到大廳狀態），不離開房間
-                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.updateRoomStatusToLobby === 'function') {
-                    window.SurvivalOnlineUI.updateRoomStatusToLobby().catch(() => { });
-                }
-                // 先顯示開始畫面（作為背景），然後顯示房間大廳覆蓋層
-                try {
-                    const startScreen = document.getElementById('start-screen');
-                    if (startScreen) startScreen.classList.remove('hidden');
-                } catch (_) { }
-                // 回到房間大廳（覆蓋層）
-                if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
-                    window.SurvivalOnlineUI.openLobbyScreen();
-                }
-            }
-        } catch (_) { }
-        try {
-            if (typeof Achievements !== 'undefined' && Achievements.unlock) {
-                Achievements.unlock('FIRST_CLEAR');
-                // 困難模式首勝：解鎖心靈魔法成就
-                const diffId = this.selectedDifficultyId || 'EASY';
-                if (diffId === 'HARD') {
-                    Achievements.unlock('HARD_CLEAR');
-                }
-                // 洛可洛斯特通關廁所：解鎖死線超人成就
-                const charId = (this.selectedCharacter && this.selectedCharacter.id) ? this.selectedCharacter.id : null;
-                const mapId = (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null;
-                if (charId === 'rokurost' && mapId === 'city') {
-                    Achievements.unlock('ROKUROST_CITY_CLEAR');
-                }
-                // 灰妲通關廁所：解鎖狂熱大波成就
-                if (charId === 'dada' && mapId === 'city') {
-                    Achievements.unlock('DADA_CITY_CLEAR');
-                }
-                // 艾比通關廁所：解鎖神界裁決成就
-                if (charId === 'rabi' && mapId === 'city') {
-                    Achievements.unlock('RABI_CITY_CLEAR');
-                }
-                // 厄倫蒂兒通關廁所：解鎖先天氣質成就
-                if (charId === 'elondier' && mapId === 'city') {
-                    Achievements.unlock('ELONDIER_CITY_CLEAR');
-                }
-                if (charId === 'pineapple' && mapId === 'city') {
-                    Achievements.unlock('PINEAPPLE_CITY_CLEAR');
-                }
-                // 白白虹通關廁所：解鎖白虹光束成就
-                if (charId === 'baibaihong' && mapId === 'city') {
-                    Achievements.unlock('BAIBAIHONG_CITY_CLEAR');
-                }
-                // 熙歌通關廁所：解鎖重力塌縮成就
-                if (charId === 'cygnus' && mapId === 'city') {
-                    Achievements.unlock('CYGNUS_CITY_CLEAR');
-                }
-                // 灰妲通關草原：解鎖幼妲天使成就
-                if (charId === 'dada' && mapId === 'forest') {
-                    Achievements.unlock('DADA_FOREST_CLEAR');
-                }
-                // 任一角色通關草原地圖：解鎖專屬之路成就（解鎖「專屬強化」天賦）
-                if (mapId === 'forest') {
-                    Achievements.unlock('EXCLUSIVE_PATH');
-                }
-                // 任一角色通關路口地圖：解鎖覺醒之路成就
-                if (mapId === 'intersection') {
-                    Achievements.unlock('INTERSECTION_CLEAR');
-                }
-                // 任一角色通關宇宙地圖：解鎖輔助之路成就
-                if (mapId === 'desert') {
-                    Achievements.unlock('ASSIST_PATH');
-                }
+            if (typeof Achievements !== 'undefined' && typeof Achievements.unlockSurvivalClears === 'function') {
+                Achievements.unlockSurvivalClears({
+                    diffId: this.selectedDifficultyId || 'EASY',
+                    charId: (this.selectedCharacter && this.selectedCharacter.id) ? this.selectedCharacter.id : null,
+                    mapId: (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : null
+                });
             }
         } catch (_) { }
         UI.showVictoryScreen();
@@ -3318,6 +2709,9 @@ const Game = {
         if (Array.isArray(this.projectiles)) {
             for (let i = this.projectiles.length - 1; i >= 0; i--) {
                 const proj = this.projectiles[i];
+                if (proj && proj.constructor && proj.constructor.name === 'AICompanion' && typeof proj.cleanup === 'function') {
+                    try { proj.cleanup(); } catch (_) { }
+                }
                 if (proj && (proj.weaponType === 'INTERSECTION_CAR' || proj.weaponType === 'FBI' || (proj.constructor && proj.constructor.name === 'CarHazard'))) {
                     try {
                         if (typeof proj.destroy === 'function') {
@@ -3569,11 +2963,7 @@ const Game = {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) { }
 
@@ -3689,11 +3079,7 @@ const Game = {
         try {
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
@@ -3744,11 +3130,7 @@ const Game = {
             // 確保只在生存模式下執行組隊邏輯
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null); // null 表示舊版流程，預設為生存模式
             } catch (_) { }
 
@@ -3795,11 +3177,7 @@ const Game = {
             // ✅ 防污染：只在生存模式下更新組隊HUD，其他模式（main/challenge/defense/stage/3d）不執行
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
@@ -3837,7 +3215,9 @@ const Game = {
                     playersListEl.innerHTML = '';
                     for (const p of list) {
                         if (!p || !p.uid) continue;
-                        const m = memberMap.get(p.uid) || null;
+                        // 組隊房主圖示用帳號：名單上的編號帶著這台電腦，成員表只有帳號。對不到就會把房主畫成人。
+                        const authUid = (typeof p.uid === 'string' && p.uid.indexOf(':') >= 0) ? p.uid.slice(0, p.uid.indexOf(':')) : p.uid;
+                        const m = memberMap.get(p.uid) || memberMap.get(authUid) || null;
                         const name = (p.nickname || (m && m.name) || (p.uid ? p.uid.slice(0, 6) : '未知'));
                         const role = (m && m.role) ? m.role : 'guest';
                         const hp = (typeof p.health === 'number') ? p.health : 0;
@@ -4015,11 +3395,7 @@ const Game = {
         try {
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
             if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && this.multiplayer.isHost) {
@@ -4053,33 +3429,6 @@ const Game = {
             }
         } catch (_) { }
 
-        // ✅ 舊模式：廣播障礙物生成事件
-        try {
-            let isSurvivalMode = false;
-            let isMultiplayer = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null);
-                // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
-                isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
-            } catch (_) { }
-
-            if (isSurvivalMode && isMultiplayer && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                const obstaclesData = this.obstacles.map(obs => ({
-                    x: obs.x,
-                    y: obs.y,
-                    imageKey: obs.imageKey,
-                    size: obs.size || size
-                }));
-                window.SurvivalOnlineBroadcastEvent("obstacles_spawn", { obstacles: obstaclesData });
-            }
-        } catch (e) {
-            console.warn("[Game] 廣播障礙物生成事件失敗:", e);
-        }
     }
     ,
     // 生成地圖裝飾（各1個S3–S8，隨機不重疊）
@@ -4225,11 +3574,7 @@ const Game = {
         try {
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
             if (isSurvivalMode && this.multiplayer && this.multiplayer.enabled && this.multiplayer.isHost) {
@@ -4264,34 +3609,6 @@ const Game = {
             }
         } catch (_) { }
 
-        // ✅ 舊模式：廣播地圖裝飾生成事件
-        try {
-            let isSurvivalMode = false;
-            let isMultiplayer = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null);
-                // ✅ 隔離：只允許「組隊 survival（enabled）」送多人封包
-                isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled === true);
-            } catch (_) { }
-
-            if (isSurvivalMode && isMultiplayer && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                const decorationsData = this.decorations.map(deco => ({
-                    x: deco.x,
-                    y: deco.y,
-                    width: deco.width,
-                    height: deco.height,
-                    imageKey: deco.imageKey
-                }));
-                window.SurvivalOnlineBroadcastEvent("decorations_spawn", { decorations: decorationsData });
-            }
-        } catch (e) {
-            console.warn("[Game] 廣播地圖裝飾生成事件失敗:", e);
-        }
     }
     ,
     // 金幣：載入
@@ -4343,13 +3660,16 @@ const Game = {
      * ✅ MMORPG 架構：多人模式下共享金幣，所有玩家都獲得相同數量的金幣
      * 注意：金幣通過狀態同步（tick 函數）同步給其他玩家，不需要直接給遠程玩家增加
      */
-    addCoins: function (amount) {
+    addCoins: function (amount, opts) {
         const inc = Math.max(0, Math.floor(amount || 0));
-        // 森森鈴蘭為作弊角色：生存模式下不獲得金幣
-        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function') ? GameModeManager.getCurrent() : null;
-        const isSurvivalMode = (activeId === 'survival' || activeId === null);
-        const charId = (this.selectedCharacter && this.selectedCharacter.id) ? this.selectedCharacter.id : null;
-        if (isSurvivalMode && charId === 'lilylinglan') return;
+        // 森森鈴蘭為作弊角色：生存打怪不獲得金幣。序號兌換不是打怪，開始畫面也要入帳。
+        const fromRedeem = !!(opts && opts.source === 'redeem');
+        if (!fromRedeem) {
+            const activeId = Utils.getActiveModeId();
+            const isSurvivalMode = (activeId === 'survival' || activeId === null);
+            const charId = (this.selectedCharacter && this.selectedCharacter.id) ? this.selectedCharacter.id : null;
+            if (isSurvivalMode && charId === 'lilylinglan') return;
+        }
         // ✅ MMORPG 架構：多人模式下共享金幣，所有玩家都獲得相同數量的金幣
         // 金幣通過狀態同步（tick 函數）同步給其他玩家
         this.coins = (this.coins || 0) + inc;
@@ -4361,12 +3681,15 @@ const Game = {
         // 成就：持有金幣達到 100000 時解鎖（當局記錄，勝利返回時彈窗）
         try {
             if (typeof Achievements !== 'undefined' && Achievements.unlock && Achievements.isUnlocked) {
-                if (!Achievements.isUnlocked('COIN_100K') && (this.coins || 0) >= 100000) {
-                    Achievements.unlock('COIN_100K');
-                }
-                // 成就：持有金幣達到 200000 時解鎖引力波（當局記錄，勝利/失敗返回時彈窗）
-                if (!Achievements.isUnlocked('COIN_200K') && (this.coins || 0) >= 200000) {
-                    Achievements.unlock('COIN_200K');
+                if (typeof Achievements.unlockCoinMilestones === 'function') {
+                    Achievements.unlockCoinMilestones(this.coins || 0);
+                } else {
+                    if (!Achievements.isUnlocked('COIN_100K') && (this.coins || 0) >= 100000) {
+                        Achievements.unlock('COIN_100K');
+                    }
+                    if (!Achievements.isUnlocked('COIN_200K') && (this.coins || 0) >= 200000) {
+                        Achievements.unlock('COIN_200K');
+                    }
                 }
             }
         } catch (_) { }

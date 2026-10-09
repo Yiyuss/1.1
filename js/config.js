@@ -1286,15 +1286,26 @@ const CONFIG = {
             KEEP_ORIGINAL_SPRITE: true, // 大招期間維持原本角色圖，僅體型放大（不套用變身圖）
             ULTIMATE_WEAPONS: ['CYGNUS_ULTIMATE_FIELD'],
             PLAYER_SIZE_MULTIPLIER: 3.5 // 與灰妲相同，大絕期間體型放大倍率
+        },
+        'pineapple': {
+            NO_TRANSFORM: true
+        },
+        'elondier': {
+            NO_TRANSFORM: true
+        },
+        'lilylinglan': {
+            NO_TRANSFORM: true
         }
-        // 'lilylinglan': 第三位角色大招暫未製作
+        // lilylinglan 大招尚未製作；NO_TRANSFORM 避免組隊被當成變身
     },
 
-    // 選角列表（目前 2 名角色）
+    // 選角列表（margaret / dada / lilylinglan / rokurost / rabi / pineapple / elondier / baibaihong / cygnus）
     // 維護備註：
     // - avatarImageKey   ：角色預覽用圖片鍵（選角右側大圖）
     // - hudImageKey      ：遊戲中 HUD 左上角頭像用圖片鍵
     // - spriteImageKey   ：生存模式中玩家主體使用的圖片鍵（對應 Game.images[key]）
+    // - faceRightImageKey：朝右圖（防禦／闖關等）。沒有則不載
+    // - selectCardSrc    ：選角格縮圖（playerN-3.png）。格序看 CHAR_SELECT_SLOTS
     // - levelUpBgKey     ：生存模式升級介面左側背景用圖片鍵
     // - hpBonus          ：在基礎血量 CONFIG.PLAYER.MAX_HEALTH 之上額外增加的固定血量
     // - canUseUltimate   ：是否允許使用 Q 鍵大絕（預設 true）
@@ -1311,6 +1322,7 @@ const CONFIG = {
             avatarImageKey: 'player1-2',
             hudImageKey: 'player1-2',
             spriteImageKey: 'player',
+            selectCardSrc: 'assets/images/player1-3.png',
             levelUpBgKey: 'player1-2',
             canUseUltimate: true,
             disabledWeapons: [],
@@ -1331,6 +1343,8 @@ const CONFIG = {
             hudImageKey: 'player2-2',
             // 所有模式進入時的玩家主體形象：使用 player2.png
             spriteImageKey: 'player2',
+            faceRightImageKey: 'player2-1',
+            selectCardSrc: 'assets/images/player2-3.png',
             // 生存模式升級介面左側底圖：使用 player2-2.png
             levelUpBgKey: 'player2-2',
             // 第二位角色可以使用大絕（Q），使用專屬配置
@@ -1357,6 +1371,7 @@ const CONFIG = {
             hudImageKey: 'player3-2',
             // 所有模式進入時的玩家主體形象：使用 player3.gif
             spriteImageKey: 'player3',
+            selectCardSrc: 'assets/images/player3-3.png',
             // 生存模式升級介面左側底圖：使用 player3-2.png
             levelUpBgKey: 'player3-2',
             // 第三位角色暫時不能使用大絕（Q），專屬技能還沒製作
@@ -1384,6 +1399,7 @@ const CONFIG = {
             hudImageKey: 'player4-2',
             // 所有模式進入時的玩家主體形象：使用 player4.png
             spriteImageKey: 'player4',
+            selectCardSrc: 'assets/images/player4-3.png',
             // 生存模式升級介面左側底圖：使用 player4-2.png
             levelUpBgKey: 'player4-2',
             // 第四位角色可以使用大絕（Q）
@@ -1408,6 +1424,7 @@ const CONFIG = {
             hudImageKey: 'player5-2',
             // 所有模式進入時的玩家主體形象：使用 player5.png (500X467)
             spriteImageKey: 'player5',
+            selectCardSrc: 'assets/images/player5-3.png',
             // 生存模式升級介面左側底圖：使用 player5-2.png
             levelUpBgKey: 'player5-2',
             // 第五位角色可以使用大絕（Q），但這次先不更新專屬大絕
@@ -1433,6 +1450,7 @@ const CONFIG = {
             hudImageKey: 'player6-2',
             // 所有模式進入時的玩家主體形象：使用 player6.gif（242x320）
             spriteImageKey: 'player6',
+            selectCardSrc: 'assets/images/player6-3.png',
             // 生存模式升級介面左側底圖：使用 player6-2.png
             levelUpBgKey: 'player6-2',
             // 第六位角色可以使用大絕（Q），專屬大絕/技能這次先不更新
@@ -1454,6 +1472,8 @@ const CONFIG = {
             avatarImageKey: 'player7-2',
             hudImageKey: 'player7-2',
             spriteImageKey: 'player7',
+            faceRightImageKey: 'player7-1',
+            selectCardSrc: 'assets/images/player7-3.png',
             levelUpBgKey: 'player7-2',
             canUseUltimate: true,
             disabledWeapons: [],
@@ -1473,6 +1493,8 @@ const CONFIG = {
             // 所有模式的 HUD 左上角頭像：使用 player8-2.png
             hudImageKey: 'player8-2',
             spriteImageKey: 'player8',
+            faceRightImageKey: 'player8-1',
+            selectCardSrc: 'assets/images/player8-3.png',
             levelUpBgKey: 'player8-2',
             canUseUltimate: true,
             disabledWeapons: [],
@@ -1490,6 +1512,7 @@ const CONFIG = {
             avatarImageKey: 'player9-2',
             hudImageKey: 'player9-2',
             spriteImageKey: 'player9',
+            selectCardSrc: 'assets/images/player9-3.png',
             levelUpBgKey: 'player9-2',
             canUseUltimate: true,
             disabledWeapons: [],
@@ -1498,25 +1521,271 @@ const CONFIG = {
         }
     ],
 
+    // 選角格視覺順序（含三格空位）。森森鈴蘭固定最後一格。改順序＝改按鈕位置，須操作者點名。
+    CHAR_SELECT_SLOTS: ['margaret', 'dada', 'rokurost', 'rabi', 'pineapple', 'elondier', 'baibaihong', 'cygnus', null, null, null, 'lilylinglan'],
+
+    // 序號兌換／3D 密碼殼。文案、輸入型別、按鈕凍結。兌換與密碼流程不合一。序號留在開始畫面內。
+    PROMPT_MODALS: [
+        {
+            hostId: 'redeem-code-host',
+            id: 'redeem-code-overlay',
+            title: '序號兌換',
+            label: '輸入序號：',
+            inputId: 'redeem-code-input',
+            inputType: 'text',
+            placeholder: '請輸入序號',
+            messageId: 'redeem-code-message',
+            okId: 'redeem-code-submit',
+            okLabel: '兌換',
+            cancelId: 'redeem-code-close',
+            cancelLabel: '關閉'
+        },
+        {
+            hostId: 'password-host',
+            id: 'password-overlay',
+            title: '輸入密碼',
+            label: '請輸入密碼以進入DEMO城市：',
+            inputId: 'password-input',
+            inputType: 'password',
+            placeholder: '請輸入密碼',
+            messageId: 'password-message',
+            okId: 'password-submit',
+            okLabel: '確認',
+            cancelId: 'password-close',
+            cancelLabel: '取消',
+            overlayStyle: 'position: fixed; z-index: 10000; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;',
+            cardStyle: 'width: min(420px, 92vw); padding: 16px; background: var(--panel-bg); border: var(--border-soft); border-radius: 12px; box-shadow: var(--shadow-lg); backdrop-filter: blur(var(--blur-6));'
+        }
+    ],
+
+    // 引繼碼畫面兩組表單。文案、id、版面凍結。主體是上下兩塊；冒險是同一塊裡再分生成與輸入。不改 SaveCode。
+    BACKUP_SECTIONS: [
+        {
+            layout: 'split-out',
+            contentStyle: 'margin-bottom:12px;',
+            title: '主體遊戲引繼碼（生存 / 天賦 / 成就）',
+            desc: '說明：基於目前主體遊戲存檔（金幣、天賦、成就、解鎖角色）生成安全碼，不包含冒險模式世界。',
+            genId: 'backup-generate',
+            genLabel: '生成引繼碼',
+            outLabel: '主體遊戲引繼碼',
+            outId: 'backup-code-output',
+            outPlaceholder: '點擊生成後顯示',
+            copyId: 'backup-copy'
+        },
+        {
+            layout: 'split-in',
+            contentStyle: 'margin-top:16px;',
+            title: '主體遊戲引繼碼輸入',
+            desc: '說明：貼上於其他裝置生成的「主體遊戲引繼碼」以還原主體存檔（不影響冒險模式）。',
+            inLabel: '主體遊戲引繼碼',
+            inId: 'backup-code-input',
+            inPlaceholder: '請貼上引繼碼',
+            applyId: 'backup-apply',
+            applyLabel: '套用引繼碼'
+        },
+        {
+            layout: 'nested',
+            contentStyle: 'margin-top:16px;',
+            title: '冒險模式引繼碼（異世界存檔）',
+            desc: '說明：此區塊只會備份 / 還原冒險模式中的「異世界」存檔，不會影響主體遊戲金幣、天賦或成就。',
+            genId: 'adventure-backup-generate',
+            genLabel: '生成冒險模式引繼碼',
+            outLabel: '冒險模式引繼碼',
+            outId: 'adventure-backup-code-output',
+            outPlaceholder: '先在冒險模式遊玩並自動存檔後，再點此生成',
+            copyId: 'adventure-backup-copy',
+            inTitle: '冒險模式引繼碼輸入',
+            inDesc: '貼上在其他裝置生成的「冒險模式引繼碼」，只會覆蓋異世界的世界存檔。',
+            inLabel: '冒險模式引繼碼',
+            inId: 'adventure-backup-code-input',
+            inPlaceholder: '請貼上冒險模式引繼碼',
+            applyId: 'adventure-backup-apply',
+            applyLabel: '套用冒險模式引繼碼'
+        }
+    ],
+    // 角色／天賦解鎖確認殼。標題／預設說明／確認取消凍結。解鎖邏輯不合一。
+    CONFIRM_DIALOGS: [
+        { prefix: 'character', hostId: 'character-confirm-host', title: '解鎖角色', desc: '使用0金幣解鎖該角色？' },
+        { prefix: 'talent', hostId: 'talent-confirm-host', title: '解鎖天賦', desc: '使用500金幣解鎖天賦？' }
+    ],
+
     // 新增：地圖列表（背景鍵）
     MAPS: [
-        { id: 'city', name: 'LV1.廁所', backgroundKey: 'background' },
-        { id: 'forest', name: 'LV2.草原', backgroundKey: 'background1-2' },
-        { id: 'desert', name: 'LV3.宇宙', backgroundKey: 'background1-3' },
-        { id: 'garden', name: 'LV4.花園', backgroundKey: 'background8' },
-        { id: 'intersection', name: 'LV5.路口', backgroundKey: 'background12' },
-        { id: 'branch', name: 'LV6.支部', backgroundKey: 'background13' },
-        { id: 'challenge-1', name: 'LV1.銀河系', backgroundKey: 'background4' },
-        { id: 'challenge-2', name: 'LV2.星雲', backgroundKey: 'background5' },
-        { id: 'challenge-3', name: 'LV3.星軌', backgroundKey: 'background6' },
-        { id: 'challenge-4', name: 'LV4.黑洞', backgroundKey: 'background7' },
-        { id: 'defense-1', name: 'LV1.魔法糖果煉金坊', backgroundKey: 'background1-2' },
-        // 主線模式地圖（不分難度）：測試用地圖
-        { id: 'main-test', name: '測試用地圖', backgroundKey: 'background3' },
-        // 冒險模式地圖：異世界（獨立於主體遊戲的世界）
-        { id: 'adventure-isekai', name: '異世界', backgroundKey: 'background9' },
-        // 3D模式地圖：DEMO城市
-        { id: '3d-demo-city', name: 'DEMO城市', backgroundKey: 'background11' }
+        { id: 'city', name: 'LV1.廁所', backgroundKey: 'background', selectCardSrc: 'assets/images/background.jpg', selectCardAlt: '廁所LV.1', selectDesc: '光滑平面的廁所，可使用馬桶障礙物躲避敵人。' },
+        { id: 'forest', name: 'LV2.草原', backgroundKey: 'background1-2', selectCardSrc: 'assets/images/background1-2.png', selectCardAlt: '草原LV.2', selectDesc: '綠意盎然的草原，卻出現了許多馬桶。' },
+        { id: 'desert', name: 'LV3.宇宙', backgroundKey: 'background1-3', selectCardSrc: 'assets/images/background1-3.png', selectCardAlt: '宇宙LV.3', selectDesc: '無盡的宇宙星空中，漂浮著許多馬桶。' },
+        { id: 'garden', name: 'LV4.花園', backgroundKey: 'background8', selectCardSrc: 'assets/images/background8.png', selectCardAlt: '花園LV.4', selectDesc: '美麗的花園中，花精靈們守護著這片淨土。' },
+        { id: 'intersection', name: 'LV5.路口', backgroundKey: 'background12', selectCardSrc: 'assets/images/background12.jpg', selectCardAlt: '路口LV.5', selectDesc: '繁忙的路口，人群正在聚集。' },
+        { id: 'branch', name: 'LV6.支部', backgroundKey: 'background13', selectCardSrc: 'assets/images/background13.jpg', selectCardAlt: '支部LV.6', selectDesc: '支部據點中，未知信號潛伏於此。' },
+        { id: 'challenge-1', name: 'LV1.銀河系', backgroundKey: 'background4', selectCardSrc: 'assets/images/background4.png', selectCardAlt: 'LV1.銀河系', selectDesc: '未知信號所具現化的能量體「森森鈴蘭」。' },
+        { id: 'challenge-2', name: 'LV2.星雲', backgroundKey: 'background5', selectCardSrc: 'assets/images/background5.jpg', selectCardAlt: 'LV2.星雲', selectDesc: '星雲深處的神秘存在「洛可洛斯特」，在宇宙中探索著鬆餅。' },
+        { id: 'challenge-3', name: 'LV3.星軌', backgroundKey: 'background6', selectCardSrc: 'assets/images/background6.jpg', selectCardAlt: 'LV3.星軌', selectDesc: '宇宙星軌守護者「灰妲」，操控著恆星的運行軌跡，非常愛工作。' },
+        { id: 'challenge-4', name: 'LV4.黑洞', backgroundKey: 'background7', selectCardSrc: 'assets/images/background7.jpg', selectCardAlt: 'LV4.黑洞', selectDesc: '黑洞深處的終極存在「瑪格麗特·諾爾絲」，掌控著宇宙最神秘的力量。' },
+        { id: 'defense-1', name: 'LV1.魔法糖果煉金坊', backgroundKey: 'background1-2', selectCardSrc: 'assets/images/background1-2.png', selectCardAlt: '糖果煉金坊', selectDesc: '守護魔法糖果煉金坊，抵抗未知信號的入侵！' },
+        { id: 'main-test', name: '測試用地圖', backgroundKey: 'background3', selectCardSrc: 'assets/images/background10.jpg', selectCardName: '冒險村莊', selectCardAlt: '冒險村莊', selectDesc: '在這裡，你將探索各個角落、與角色互動，並完成小任務來了解每位台V，任務劇情與獎勵皆非官方活動，僅作二次創作娛樂用途。' },
+        { id: 'adventure-isekai', name: '異世界', backgroundKey: 'background9', selectCardSrc: 'assets/images/background9.jpg', selectCardAlt: '異世界', selectDesc: '從主體遊戲前往另一個世界，請手動F2存檔，遊戲不會自動存檔。' },
+        { id: '3d-demo-city', name: 'DEMO城市', backgroundKey: 'background11', selectCardSrc: 'assets/images/background11.jpg', selectCardAlt: 'DEMO城市', selectDesc: '3D城市探索模式，使用WASD或方向鍵移動，SHIFT跑步，空白鍵跳躍。' }
+    ],
+
+    // 選圖格視覺順序（含尚未開放）。闖關第一格沿用 challenge-1 但顯示「(施工中)」。改順序＝改按鈕位置。
+    MAP_SELECT_GRIDS: {
+        'grid-survival': [{ id: 'city' }, { id: 'forest' }, { id: 'desert' }, { id: 'garden' }, { id: 'intersection' }, { id: 'branch' }],
+        'grid-challenge': [{ id: 'challenge-1' }, { id: 'challenge-2' }, { id: 'challenge-3' }, { id: 'challenge-4' }, { id: 'challenge-5', disabled: true }, { id: 'challenge-6', disabled: true }],
+        'grid-stage': [{ id: 'challenge-1', cardName: '(施工中)' }, { id: 'stage-2', disabled: true }, { id: 'stage-3', disabled: true }, { id: 'stage-4', disabled: true }, { id: 'stage-5', disabled: true }, { id: 'stage-6', disabled: true }],
+        'grid-defense': [{ id: 'defense-1' }, { id: 'defense-2', disabled: true }, { id: 'defense-3', disabled: true }, { id: 'defense-4', disabled: true }, { id: 'defense-5', disabled: true }, { id: 'defense-6', disabled: true }],
+        'grid-main': [{ id: 'main-test' }, { id: 'main-2', disabled: true }, { id: 'main-3', disabled: true }, { id: 'main-4', disabled: true }, { id: 'main-5', disabled: true }, { id: 'main-6', disabled: true }],
+        'grid-adventure': [{ id: 'adventure-isekai' }, { id: 'adventure-2', disabled: true }, { id: 'adventure-3', disabled: true }, { id: 'adventure-4', disabled: true }, { id: 'adventure-5', disabled: true }, { id: 'adventure-6', disabled: true }],
+        'grid-3d': [{ id: '3d-demo-city' }, { id: '3d-2', disabled: true }, { id: '3d-3', disabled: true }, { id: '3d-4', disabled: true }, { id: '3d-5', disabled: true }, { id: '3d-6', disabled: true }]
+    },
+
+    // 選圖左側模式鈕。順序與文案凍結（改＝改按鈕位置）。
+    MODE_SELECT_BUTTONS: [
+        { mode: 'survival', label: '生存模式', primary: true },
+        { mode: 'challenge', label: '挑戰模式' },
+        { mode: 'stage', label: '闖關模式' },
+        { mode: 'defense', label: '防禦模式' },
+        { mode: 'main', label: '主線模式' },
+        { mode: 'adventure', label: '冒險模式' },
+        { mode: '3d', label: '3D模式' }
+    ],
+
+    // 開始畫面右側鈕。順序與文案凍結（改＝改按鈕位置）。
+    START_MENU_BUTTONS: [
+        { id: 'start-button', label: '開始遊戲', primary: true },
+        { id: 'achievements-button', label: '成就系統' },
+        { target: 'gameplay', label: '遊戲玩法' },
+        { target: 'announce', label: '遊戲公告' },
+        { target: 'regarding', label: 'Regarding' },
+        { target: 'redeem-code', label: '序號輸入' },
+        { id: 'backup-button', label: '手動備份' }
+    ],
+
+    // Regarding 角色／繪師連結。顯示名與 CHARACTERS.name 可不同（熙歌／鳳梨不咬舌）。順序凍結。
+    REGARDING_CHAR_LINKS: [
+        { href: 'https://www.youtube.com/@%E7%91%AA%E6%A0%BC%E9%BA%97%E7%89%B9margaretnorth', label: '瑪格麗特' },
+        { href: 'https://www.youtube.com/@%E6%A3%AE%E6%A3%AE%E9%88%B4%E8%98%ADLilyLinglan', label: '森森鈴蘭' },
+        { href: 'https://www.youtube.com/@ReLiveDaDa', label: '灰妲' },
+        { href: 'https://www.youtube.com/@Locolost65', label: '洛可洛斯特' },
+        { href: 'https://www.youtube.com/@%E8%89%BE%E6%AF%94Rabi', label: '艾比' },
+        { href: 'https://www.youtube.com/channel/UCOuJKc5wDEZmPEx3z6xfvbg', label: '鳳梨不咬舌' },
+        { href: 'https://www.youtube.com/@EarendelXDFP', label: '厄倫蒂兒' },
+        { href: 'https://www.youtube.com/@xxhacucoxx_Celestial', label: '白白虹' },
+        { href: 'https://www.youtube.com/@CygnusXDFP', label: '熙歌' }
+    ],
+    REGARDING_ARTIST_LINKS: [
+        { href: 'https://x.com/Linye274', label: '凜夜 (像素人物)' },
+        { href: 'https://x.com/mellow9114', label: '米歐 (像素建築)' },
+        { href: 'https://x.com/SlimeHeavy', label: 'HeavyMetalSlime (3D人物)' }
+    ],
+
+    // 開始畫面左側文案。badge／字面／連結凍結。Regarding 角色／繪師仍走 REGARDING_*_LINKS。
+    START_INFO_PAGES: {
+        gameplay: {
+            title: '遊戲玩法',
+            items: [
+                { badge: '建議', html: 'PC 電腦遊玩，使用 1080p 解析度。' },
+                { badge: '移動', html: '滑鼠點擊移動，或使用 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd>。' },
+                { badge: '暫停', html: '按 <kbd>ESC</kbd> 開啟詳細選單。' },
+                { badge: '技能', html: '能量達到 100 時，按 <kbd>Q</kbd> 施放大招。' },
+                { badge: '手機', html: '手機介面自動匹配，目前不支援大招。' },
+                { badge: '回報', html: 'BUG 回報：<a href="https://x.com/Yi_yuss" target="blank" rel="noopener">https://x.com/Yi_yuss</a>' }
+            ]
+        },
+        announce: {
+            title: '遊戲公告',
+            items: [
+                { badge: '福利', html: '每回報一條有效BUG，可領取1~10萬金幣序號，<a href="https://discord.gg/rdKVtjh5kG" target="blank" rel="noopener">點我回報</a>' },
+                { badge: '徵稿', html: '歡迎有興趣的繪師一起參與二創，本作不涉及任何營利。' },
+                { badge: '版本', html: '將在V1.2版加入更多的角色、技能、天賦、地圖，以及嘗試角色像素動態化。' },
+                { badge: '託管', html: '使用 GitHub 免費空間，常常會非常卡，下午通常會好一點。' },
+                { badge: '存檔', html: '遊戲提供自動存檔，若主動清除瀏覽器資料，存檔會丟失，可善用手動備份。' }
+            ]
+        },
+        regarding: {
+            title: 'Regarding',
+            items: [
+                { badge: '聲明', html: '遊戲為非官方之個人二次創作，僅供展示與娛樂，無任何商業用途。' },
+                { badge: '角色', host: 'regarding-char-host' },
+                { badge: '繪師', host: 'regarding-artist-host', suffix: ' 感謝提供素材。' },
+                { badge: '設定', html: '遊戲劇情皆為虛構，與任何VTuber之官方作品、立場或企劃皆無關聯。' },
+                { badge: '尊重', html: '若任何權利人有疑慮，請與我聯繫，我將立即配合修改或下架。' },
+                { badge: '聯絡', html: '<a href="https://x.com/Yi_yuss" target="blank" rel="noopener">https://x.com/Yi_yuss</a>' }
+            ]
+        }
+    },
+
+    // 挑戰／闖關／防禦 HUD。prefix 凍結。只有挑戰有 legend。
+    MODE_HUD_SLOTS: [
+        { prefix: 'challenge', legend: 'Z=攻擊\u00a0\u00a0X=衝刺' },
+        { prefix: 'stage' },
+        { prefix: 'defense' }
+    ],
+
+    // 生存／防禦結算列。標題、標籤、value id、初值凍結。生存與防禦不合一。
+    SUMMARY_PANELS: [
+        {
+            screenId: 'game-over-screen',
+            boxClass: 'game-over-summary',
+            innerClass: 'game-over-summary-content',
+            title: '遊戲結算',
+            videoId: 'game-over-video',
+            videoSrc: 'assets/videos/game_over.mp4',
+            rows: [
+                { label: '遊戲時間(秒):', id: 'game-over-time', initial: '00:00' },
+                { label: '最終等級:', id: 'game-over-level', initial: '0' },
+                { label: '獲得金幣:', id: 'game-over-coins', initial: '0' },
+                { label: '最終波數:', id: 'game-over-exp', initial: '0' }
+            ],
+            achievementsId: 'game-over-achievements'
+        },
+        {
+            screenId: 'victory-screen',
+            boxId: 'victory-summary',
+            boxClass: 'victory-summary',
+            innerClass: 'victory-summary-content',
+            title: '遊戲勝利',
+            videoId: 'victory-video',
+            videoSrc: 'assets/videos/victory.mp4',
+            rows: [
+                { label: '遊戲時間(秒):', id: 'summary-time', initial: '00:00' },
+                { label: '最終等級:', id: 'summary-level', initial: '0' },
+                { label: '獲得金幣:', id: 'summary-coins', initial: '0' },
+                { label: '最終波數:', id: 'summary-exp', initial: '0' }
+            ],
+            achievementsId: 'victory-achievements'
+        },
+        {
+            screenId: 'defense-gameover-screen',
+            boxClass: 'game-over-summary',
+            innerClass: 'game-over-summary-content',
+            title: '防禦模式結算',
+            videoId: 'defense-gameover-video',
+            videoSrc: 'assets/videos/game_over.mp4',
+            rows: [
+                { label: '遊戲時間:', id: 'defense-failure-time', initial: '00:00' },
+                { label: '波次進度:', id: 'defense-failure-wave', initial: '0/30' },
+                { label: '獲得金幣:', id: 'defense-failure-gold', initial: '0' },
+                { label: '擊殺數:', id: 'defense-failure-kill', initial: '0' },
+                { label: '建造塔數:', id: 'defense-failure-tower', initial: '0' },
+                { label: '主堡血量:', id: 'defense-failure-base', initial: '0/0' }
+            ]
+        },
+        {
+            screenId: 'defense-victory-screen',
+            boxClass: 'victory-summary',
+            innerClass: 'victory-summary-content',
+            title: '防禦模式勝利',
+            videoId: 'defense-victory-video',
+            videoSrc: 'assets/videos/victory.mp4',
+            rows: [
+                { label: '遊戲時間:', id: 'defense-victory-time', initial: '00:00' },
+                { label: '波次進度:', id: 'defense-victory-wave', initial: '0/30' },
+                { label: '獲得金幣:', id: 'defense-victory-gold', initial: '0' },
+                { label: '擊殺數:', id: 'defense-victory-kill', initial: '0' },
+                { label: '建造塔數:', id: 'defense-victory-tower', initial: '0' },
+                { label: '主堡血量:', id: 'defense-victory-base', initial: '0/0' }
+            ]
+        }
     ],
 
     // 難度模式倍率（影響生成速度、生成數量、移動速度等）
@@ -1524,6 +1793,7 @@ const CONFIG = {
     DIFFICULTY: {
         EASY: {
             NAME: '簡單',
+            selectIntro: '世界陷入了奇異的詛咒——<br>所有 VTuber 都被神秘的「信號」控制，只要靠近她們的歌聲，就會忍不住想「坐下」。<br><br>你，唯一仍保持理智的玩家，必須在滿地馬桶迷宮中生存下來！',
             spawnIntervalMultiplier: 1.15,
             spawnCountMultiplier: 0.9,
             enemySpeedMultiplier: 1.0,
@@ -1533,6 +1803,7 @@ const CONFIG = {
         },
         HARD: {
             NAME: '困難',
+            selectIntro: '不斷傳來的詭異聲響，你以為只是廁所鬧鬼？<br>來自深淵的「未知信號」<br>都是在引導你走向那個終極馬桶！<br><br>在這裡，水花會奪命、歌聲會迷惑、<br>每一秒的遲疑，都是墜入「坐下」的開始。',
             spawnIntervalMultiplier: 0.85,
             spawnCountMultiplier: 1.2,
             enemySpeedMultiplier: 1.2,
@@ -1542,6 +1813,7 @@ const CONFIG = {
         },
         ASURA: {
             NAME: '修羅',
+            selectIntro: '這不是為了生存，而是為了證明。<br>每一個「信號」都將襲來、<br>每一秒的遲疑都是坐下。<br><br>若你能在此地存活，你將不再是玩家，<br>——而是「信號」的支配者！',
             spawnIntervalMultiplier: 0.85,
             spawnCountMultiplier: 1.2,
             enemySpeedMultiplier: 1.7,
@@ -1550,6 +1822,18 @@ const CONFIG = {
             maxEnemiesBonusMax: 100
         }
     },
+
+    // 宇宙／支部只出困難＋修羅。兩套畫面不合一（CSS／預設選項不同）。
+    DIFFICULTY_HARD_ONLY_MAP_IDS: ['desert', 'branch'],
+    DIFFICULTY_SELECT_GRIDS: {
+        'difficulty-select-screen': ['EASY', 'HARD'],
+        'desert-difficulty-select-screen': ['HARD', 'ASURA']
+    },
+    // 難度畫面殼。標題／返回 id 凍結。卡仍走 DIFFICULTY_SELECT_GRIDS。兩套畫面不合一。
+    DIFFICULTY_SCREENS: [
+        { id: 'difficulty-select-screen', backId: 'diff-back', title: '選擇難度' },
+        { id: 'desert-difficulty-select-screen', backId: 'diff-back-desert', title: '選擇難度' }
+    ],
 
     // ============================================================================
     // 敵人基礎屬性配置

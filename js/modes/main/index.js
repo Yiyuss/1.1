@@ -126,7 +126,7 @@
       } catch(_){}
 
       // 清除其他模式的 GIF 圖層殘留，避免污染
-      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.clearAll === 'function') window.GifOverlay.clearAll(); } catch(_){}
+      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hideAll === 'function') window.GifOverlay.hideAll(); } catch(_){}
       try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.ChallengeGifOverlay !== 'undefined' && typeof window.ChallengeGifOverlay.clearAll === 'function') window.ChallengeGifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.MainGifOverlay !== 'undefined' && typeof window.MainGifOverlay.clearAll === 'function') window.MainGifOverlay.clearAll(); } catch(_){}
@@ -2949,11 +2949,8 @@
     }
   };
 
-  // 優先註冊到隔離化 GameModeManager；若不可用則回退到舊 ModeManager
   if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.register === 'function') {
     window.GameModeManager.register(MODE_ID, MainMode);
-  } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.register === 'function') {
-    window.ModeManager.register(MODE_ID, MainMode);
   } else {
     console.warn('[MainMode] 找不到可用的模式管理器，無法註冊主線模式');
   }

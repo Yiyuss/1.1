@@ -44,7 +44,6 @@ const RedeemCodeSystem = {
         'BUG26412': 10000,           // 永久有效 BUG回報序號
         'BUG18554': 10000,           // 永久有效 BUG回報序號
         'BUG77774': 10000,           // 永久有效 BUG回報序號
-        'BUG37575': 170000,          // 永久有效 BUG回報序號
         'DADA2025': 10000,           // 永久有效 灰妲序號
         'LOCO2025': 10000,           // 永久有效 洛可序號
         'EARENDEL2026': 10000,       // 永久有效 蒂兒序號
@@ -166,14 +165,11 @@ const RedeemCodeSystem = {
             return { success: false, message: '此序號已使用過，每個序號只能使用一次' };
         }
         
-        // 標記為已使用
-        this.markCodeAsUsed(upperCode);
-        
-        // 發放金幣
+        // 序號金幣要真的加上：先入帳，數字有增加才標成用過。標太早的話，畫面寫成功、金幣沒變、序號也沒了。
+        const before = (typeof Game !== 'undefined' && typeof Game.coins === 'number') ? Math.floor(Game.coins) : 0;
         try {
             if (typeof Game !== 'undefined' && typeof Game.addCoins === 'function') {
-                Game.addCoins(coins);
-                console.log('[RedeemCodeSystem] 成功發放金幣:', coins);
+                Game.addCoins(coins, { source: 'redeem' });
             } else {
                 console.error('[RedeemCodeSystem] 遊戲系統未初始化:', {
                     Game: typeof Game,
@@ -185,6 +181,19 @@ const RedeemCodeSystem = {
             console.error('[RedeemCodeSystem] 發放金幣失敗:', e);
             return { success: false, message: '發放金幣時發生錯誤: ' + e.message };
         }
+        const after = (typeof Game !== 'undefined' && typeof Game.coins === 'number') ? Math.floor(Game.coins) : before;
+        if (after < before + Math.floor(coins)) {
+            return { success: false, message: '金幣沒有發放，這個序號還可以再試一次' };
+        }
+        this.markCodeAsUsed(upperCode);
+        try {
+            const shown = String(Math.max(0, after));
+            const hud = document.getElementById('coins-text');
+            const talent = document.getElementById('talent-coins-text');
+            if (hud) hud.textContent = shown;
+            if (talent) talent.textContent = shown;
+        } catch (_) {}
+        console.log('[RedeemCodeSystem] 成功發放金幣:', coins);
         
         return { 
             success: true, 

@@ -2,6 +2,12 @@
 // 这是游戏状态的唯一真实来源
 // 所有游戏逻辑都在这里处理
 
+const WaveSpawn = require('../js/shared/wave_spawn');
+const WaveRules = require('../js/shared/wave_rules');
+const ExperienceCurve = require('../js/shared/experience_curve');
+const EnemyHp = require('../js/shared/enemy_hp');
+const HitRoll = require('../js/shared/hit_roll');
+
 class GameState {
   constructor(roomId) {
     this.roomId = roomId;
@@ -16,20 +22,23 @@ class GameState {
     this.chests = []; // ChestState[]
     this.obstacles = []; // ObstacleState[] - 障碍物（静态）
     this.decorations = []; // DecorationState[] - 地图装饰（静态）
+    this._staticRev = 0;
     this.carHazards = []; // CarHazardState[] - 路口车辆（动态）
     this.exit = null; // { x, y, width, height } - 出口（Boss 波次後生成）
     this.wave = 1;
     this.waveStartTime = Date.now();
     this.lastEnemySpawnTime = 0;
     this.enemySpawnRate = 2000; // 初始生成间隔（毫秒）
-    this.lastCarSpawnTime = 0;
+    // 組隊路口車子等十秒：跟單機一樣，進場先等 10 秒才出第一批
+    this.lastCarSpawnTime = Date.now();
     this.carSpawnInterval = 10000; // 路口车辆生成间隔（10秒）
     this.selectedMap = null; // 当前选择的地图
     this.isGameOver = false;
     this.isVictory = false;
     this.gameTime = 0;
     this.lastUpdateTime = Date.now();
-    this.config = null; // CONFIG数据（从客户端同步）
+    this.config = null;
+    this.maxEnemiesBonus = 0;
     this._shouldBroadcastGameOver = false; // ✅ 修复：标记是否需要广播 game_over 事件
 
     // ✅ session：用於「新一局」重置狀態，避免上一局波次/怪物殘留造成開場幾隻血超多
@@ -272,9 +281,9 @@ class GameState {
       b.life = (b.life || 0) - (deltaTime || 16.67);
       if (b.life <= 0) { this.bullets.splice(i, 1); continue; }
 
-      const r = (b.size || 8) + 16;
       for (const p of this.players.values()) {
         if (!p || p.isDead || p.health <= 0) continue;
+        const r = (b.size || 8) + this._playerBodyRadius(p);
         const dx = p.x - b.x;
         const dy = p.y - b.y;
         if (Math.sqrt(dx * dx + dy * dy) < r) {
@@ -298,8 +307,8 @@ class GameState {
   _shouldEnableRanged(enemyType, enemyConfig) {
     try {
       if (!enemyConfig || !enemyConfig.RANGED_ATTACK) return false;
-      // 例外：路口 HUMAN2 瓶子投擲常駐
-      const alwaysEnable = (this.mapId === 'intersection' && enemyType === 'HUMAN2');
+      // 例外：路口 HUMAN2 瓶子投擲常駐（組隊地圖認房間）
+      const alwaysEnable = (this._getActiveMapId() === 'intersection' && enemyType === 'HUMAN2');
       if (alwaysEnable) return true;
       const enabledFlag = (enemyConfig.RANGED_ATTACK.ENABLED !== false);
       return enabledFlag && this._isBossRangedEnabled();
@@ -309,7 +318,7 @@ class GameState {
   // 支部地圖小BOSS/大BOSS 雷射：與玩家雷射LV1同邏輯，漸層紅、0.5秒、50傷害、只對玩家
   _spawnBossLaser(enemy, targetPlayer) {
     if (!enemy || !targetPlayer) return;
-    const mapId = this.mapId || (this.selectedMap && this.selectedMap.id);
+    const mapId = this._getActiveMapId();
     if (mapId !== 'branch') return;
     const t = enemy.type;
     if (t !== 'UNKNOWN_MINI_BOSS' && t !== 'UNKNOWN_BOSS') return;
@@ -326,6 +335,9 @@ class GameState {
     const id = `bl_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
     this.bossLasers.push({
       id,
+      ownerId: enemy.id,
+      dirX: ndx,
+      dirY: ndy,
       startX: pts.startX,
       startY: pts.startY,
       endX: pts.endX,
@@ -341,8 +353,8 @@ class GameState {
   }
 
   _computeBossLaserEndpoints(sx, sy, dx, dy) {
-    const worldW = this.worldWidth || 1920;
-    const worldH = this.worldHeight || 1080;
+    const worldW = this.worldWidth || 3840;
+    const worldH = this.worldHeight || 2160;
     const edgeCandidates = [];
     if (dx > 0) edgeCandidates.push((worldW - sx) / dx);
     else if (dx < 0) edgeCandidates.push((0 - sx) / dx);
@@ -438,6 +450,12 @@ class GameState {
     // 其他：BOSS 火彈（追蹤可選）
     try {
       const angle = Math.atan2(targetPlayer.y - enemy.y, targetPlayer.x - enemy.x);
+      // 組隊首領火彈大小：跟單機一樣，大首領放大五成，小首領放大三成五。支部未知首領不放大
+      const baseSize = (typeof ra.PROJECTILE_SIZE === 'number') ? ra.PROJECTILE_SIZE : 18;
+      const t = enemy.type;
+      let projectileSize = baseSize;
+      if (t === 'BOSS' || t === 'ELF_BOSS' || t === 'HUMAN_BOSS') projectileSize = baseSize * 1.5;
+      else if (t === 'MINI_BOSS' || t === 'ELF_MINI_BOSS' || t === 'HUMAN_MINI_BOSS') projectileSize = baseSize * 1.35;
       this.bossProjectiles.push({
         id,
         kind: 'BOSS_PROJECTILE',
@@ -446,7 +464,7 @@ class GameState {
         angle,
         speed: (typeof ra.PROJECTILE_SPEED === 'number') ? ra.PROJECTILE_SPEED : 5,
         damage: (typeof ra.PROJECTILE_DAMAGE === 'number') ? ra.PROJECTILE_DAMAGE : 40,
-        size: (typeof ra.PROJECTILE_SIZE === 'number') ? ra.PROJECTILE_SIZE : 18,
+        size: projectileSize,
         homing: !!ra.HOMING,
         turnRate: (typeof ra.TURN_RATE === 'number') ? ra.TURN_RATE : 0,
         createdAt: now,
@@ -465,6 +483,19 @@ class GameState {
       if (now - bl.startTime >= bl.duration) {
         this.bossLasers.splice(i, 1);
         continue;
+      }
+      // 組隊支部雷射跟著首領：單機的紅線黏在怪身上一起走。方向維持放出那一下，不要停在原地
+      if (bl.ownerId) {
+        const owner = this.enemies.find(e => e && e.id === bl.ownerId);
+        if (owner && typeof owner.x === 'number' && typeof owner.y === 'number') {
+          const dx = (typeof bl.dirX === 'number') ? bl.dirX : Math.cos(bl.angle || 0);
+          const dy = (typeof bl.dirY === 'number') ? bl.dirY : Math.sin(bl.angle || 0);
+          const pts = this._computeBossLaserEndpoints(owner.x, owner.y, dx, dy);
+          bl.startX = pts.startX;
+          bl.startY = pts.startY;
+          bl.endX = pts.endX;
+          bl.endY = pts.endY;
+        }
       }
       if (now - bl.lastTickAt >= bl.tickInterval) {
         const half = (bl.width || 16) / 2;
@@ -487,7 +518,8 @@ class GameState {
             dist = Math.sqrt((player.x - projX) ** 2 + (player.y - projY) ** 2);
           }
           if (dist <= detectionRange) {
-            this._applyDamageToPlayer(player, bl.damage || 50, { ignoreInvulnerability: true, ignoreDodge: false });
+            // 組隊支部雷射受傷無敵：單機挨了一下後那一秒打不到，不要每跳都扣
+            this._applyDamageToPlayer(player, bl.damage || 50, { ignoreInvulnerability: false, ignoreDodge: false });
           }
         }
         bl.lastTickAt = now;
@@ -524,13 +556,13 @@ class GameState {
         const rectY = p.y - (p.height || 14) / 2;
         for (const player of this.players.values()) {
           if (!player || player.isDead || player.health <= 0) continue;
-          const pr = 16;
+          const pr = this._playerBodyRadius(player);
           const closestX = Math.max(rectX, Math.min(player.x, rectX + (p.width || 10)));
           const closestY = Math.max(rectY, Math.min(player.y, rectY + (p.height || 14)));
           const dx = player.x - closestX;
           const dy = player.y - closestY;
           if (Math.sqrt(dx * dx + dy * dy) < pr) {
-            // BottleProjectile：不忽略無敵，不忽略閃避（單機同源）
+            // 組隊變身瓶子：沒變身是 16，變大後用記下的半徑。單機瓶子打的是變大的身體
             this._applyDamageToPlayer(player, (p.damage || 15), { ignoreInvulnerability: false, ignoreDodge: false });
             // ✅ VFX（多人元素）：瓶子命中 → 閃光/震動（由客戶端套用距離門檻）
             try {
@@ -564,8 +596,8 @@ class GameState {
           if (!player || player.isDead || player.health <= 0) continue;
           const dx = player.x - p.x;
           const dy = player.y - p.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < nearestDist) { nearestDist = dist; nearest = player; }
+          const distSq = dx * dx + dy * dy;
+          if (distSq < nearestDist) { nearestDist = distSq; nearest = player; }
         }
         if (nearest) {
           const targetAngle = Math.atan2(nearest.y - p.y, nearest.x - p.x);
@@ -582,9 +614,9 @@ class GameState {
       p.y += Math.sin(p.angle || 0) * (p.speed || 5) * deltaMul;
 
       // 碰撞（circle vs player circle）
-      const r = ((p.size || 18) / 2) + 16;
       for (const player of this.players.values()) {
         if (!player || player.isDead || player.health <= 0) continue;
+        const r = ((p.size || 18) / 2) + this._playerBodyRadius(player);
         const dx = player.x - p.x;
         const dy = player.y - p.y;
         if (Math.sqrt(dx * dx + dy * dy) < r) {
@@ -628,7 +660,7 @@ class GameState {
       // ✅ 組隊設定：共享金幣（客戶端會用「delta」寫入自己的 localStorage，保留單機存檔碼不變）
       sessionCoins: 0,
       gold: playerData.gold || 0, // 向後相容（舊欄位，勿依賴）
-      characterId: playerData.characterId || 'pineapple',
+      characterId: this.normalizePlayableCharacterId(playerData.characterId),
       nickname: playerData.nickname || '玩家',
       facing: playerData.facing || 0, // 面向角度
       vx: 0,
@@ -690,6 +722,38 @@ class GameState {
       player.health = Math.min(player.maxHealth || player.health, player.health + heal);
       ls.lastAt = now;
     } catch (_) { }
+  }
+
+  // 組隊倒地收大招：時間到或倒地都把變身收掉，體型回到變身前
+  _endPlayerUltimate(player) {
+    if (!player || !player.isUltimateActive) return;
+    player.isUltimateActive = false;
+    player.ultimateImageKey = null;
+    player.ultimateEndTime = 0;
+    if (typeof player._originalWidth === 'number' && player._originalWidth > 0) {
+      player.width = player._originalWidth;
+    }
+    if (typeof player._originalHeight === 'number' && player._originalHeight > 0) {
+      player.height = player._originalHeight;
+    }
+    if (typeof player._originalCollisionRadius === 'number' && player._originalCollisionRadius > 0) {
+      player.collisionRadius = player._originalCollisionRadius;
+    }
+  }
+
+  // 組隊怪碰撞半徑：跟單機一樣用碰撞圓，不要用圖的一半
+  _enemyBodyRadius(enemy) {
+    if (enemy && typeof enemy.collisionRadius === 'number' && enemy.collisionRadius > 0) {
+      return enemy.collisionRadius;
+    }
+    const size = enemy && typeof enemy.size === 'number' ? enemy.size : 32;
+    return size / 2;
+  }
+
+  // 組隊變身遠程：沒變身是 16，變大後用記下的半徑
+  _playerBodyRadius(player) {
+    const r = player && typeof player.collisionRadius === 'number' ? player.collisionRadius : 16;
+    return r > 0 ? r : 16;
   }
 
   _applyDamageToPlayer(player, amount, opts = {}) {
@@ -756,6 +820,8 @@ class GameState {
     if (player.health <= 0) {
       player.health = 0;
       player.isDead = true;
+      // 組隊倒地收大招：單機倒地會把變身停掉。躺著不要繼續變大
+      this._endPlayerUltimate(player);
       // ✅ 死亡時重置救援進度（避免殘留）
       try {
         player.resurrectionProgress = 0;
@@ -796,6 +862,8 @@ class GameState {
     this.experienceOrbs = [];
     this.chests = [];
     this.minibossSpawnedForWave = false;
+    // 組隊再來一局首領：上一局出過的話，不把這個清掉，第 20 波就不會再出
+    this.bossSpawned = false;
     this.carHazards = [];
     // ⚠️ 修复：不要清空障碍物和装饰物，因为 host 会在 new-session 之后发送新的数据
     // 如果在这里清空，会导致 host 发送的数据被忽略（因为时间窗口机制）
@@ -806,8 +874,11 @@ class GameState {
     this.wave = 1;
     this.waveStartTime = Date.now();
     this.lastEnemySpawnTime = 0;
-    this.lastCarSpawnTime = 0;
+    // 組隊路口車子等十秒：跟單機一樣，進場先等 10 秒才出第一批
+    this.lastCarSpawnTime = Date.now();
     this.enemySpawnRate = 2000;
+    this._refreshEnemySpawnRate();
+    this._refreshMaxEnemiesBonus();
     this.isGameOver = false;
     this.isVictory = false;
     this.gameTime = 0;
@@ -861,6 +932,15 @@ class GameState {
       }
       // ✅ 單機同源：新局開始時能量必須重置為 0，不是保留舊值
       p.energy = 0;
+      // 組隊再來一局收大招：上一局變身還沒結束就開新局，不要把大體型留到這一局
+      p.isUltimateActive = false;
+      p.ultimateImageKey = null;
+      p.ultimateEndTime = 0;
+      if (typeof p._originalWidth === 'number' && p._originalWidth > 0) p.width = p._originalWidth;
+      if (typeof p._originalHeight === 'number' && p._originalHeight > 0) p.height = p._originalHeight;
+      if (typeof p._originalCollisionRadius === 'number' && p._originalCollisionRadius > 0) {
+        p.collisionRadius = p._originalCollisionRadius;
+      }
       p.vx = 0; p.vy = 0;
       p.lastAttackAt = 0;
       p.lastAutoFireAt = 0;
@@ -884,14 +964,136 @@ class GameState {
     }
   }
 
+  // 組隊地圖認房間：進房就有地圖。出怪、首領、車子不要等比較晚的選圖封包
   _getActiveMapId() {
     return (this.mapId && typeof this.mapId === 'string')
       ? this.mapId
       : (this.selectedMap && this.selectedMap.id) ? this.selectedMap.id : 'city';
   }
 
+  // 組隊路口經驗：跟單機一樣，路口每隻 +2，人類小首領和首領再 +20
+  _experienceValue(enemyType, enemyConfig) {
+    let value = (enemyConfig && typeof enemyConfig.EXPERIENCE === 'number') ? enemyConfig.EXPERIENCE : 5;
+    if (this._getActiveMapId() === 'intersection') {
+      value += 2;
+      if (enemyType === 'HUMAN_MINI_BOSS' || enemyType === 'HUMAN_BOSS') value += 20;
+    }
+    return value;
+  }
+
   _getActiveDiffId() {
     return (this.diffId && typeof this.diffId === 'string') ? this.diffId : 'EASY';
+  }
+
+  normalizePlayableCharacterId(id) {
+    const aliases = {
+      abby: 'rabi',
+      loco: 'rokurost',
+      earendel: 'elondier',
+      sensen: 'lilylinglan'
+    };
+    if (!id || typeof id !== 'string') return 'margaret';
+    return aliases[id] || id;
+  }
+
+  _getDifficultyConfig() {
+    try {
+      const diffId = this._getActiveDiffId();
+      return (this.config && this.config.DIFFICULTY && this.config.DIFFICULTY[diffId])
+        ? this.config.DIFFICULTY[diffId]
+        : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  _refreshEnemySpawnRate() {
+    const rateCfg = (this.config && this.config.WAVES && this.config.WAVES.ENEMY_SPAWN_RATE)
+      ? this.config.WAVES.ENEMY_SPAWN_RATE : {};
+    const intervalMult = this._getDifficultyConfig().spawnIntervalMultiplier || 1;
+    this.enemySpawnRate = WaveRules.computeSpawnInterval(this.wave, rateCfg, intervalMult);
+  }
+
+  _applyEnemySpeed(baseSpeed) {
+    const speed = (typeof baseSpeed === 'number') ? baseSpeed : 2;
+    const mult = this._getDifficultyConfig().enemySpeedMultiplier || 1;
+    return speed * mult;
+  }
+
+  _refreshMaxEnemiesBonus() {
+    const d = this._getDifficultyConfig();
+    const minB = d.maxEnemiesBonusMin || 0;
+    const maxB = d.maxEnemiesBonusMax || 0;
+    if (maxB <= 0) {
+      this.maxEnemiesBonus = 0;
+      return;
+    }
+    const lo = Math.min(minB, maxB);
+    const hi = Math.max(minB, maxB);
+    this.maxEnemiesBonus = lo + Math.floor(Math.random() * (hi - lo + 1));
+  }
+
+  _getMaxEnemiesCap() {
+    const base = (this.config && this.config.OPTIMIZATION && typeof this.config.OPTIMIZATION.MAX_ENEMIES === 'number')
+      ? this.config.OPTIMIZATION.MAX_ENEMIES
+      : 550;
+    return base + Math.max(0, this.maxEnemiesBonus || 0);
+  }
+
+  // 組隊數量上限：跟單機一樣，大約每秒清一次。經驗球滿了不再掉新的。玩家子彈按人數加、最多兩倍，多出來的小怪清離人最遠的，首領留下
+  _trimToSoloCaps(now) {
+    const opt = (this.config && this.config.OPTIMIZATION) ? this.config.OPTIMIZATION : {};
+    const interval = (typeof opt.CLEANUP_INTERVAL === 'number') ? opt.CLEANUP_INTERVAL : 1000;
+    if (this._lastTrimAt && (now - this._lastTrimAt) < interval) return;
+    this._lastTrimAt = now;
+
+    // 組隊玩家子彈人數：這包是玩家打出去的。一人 1200，每多一人加 600，最多 2400。怪的火彈、修羅彈幕另算
+    const soloProj = (typeof opt.MAX_PROJECTILES === 'number') ? opt.MAX_PROJECTILES : 1200;
+    const party = Math.max(1, (this.players && this.players.size) || 1);
+    const maxProj = Math.min(soloProj * 2, soloProj + Math.floor(soloProj / 2) * (party - 1));
+    if (this.projectiles.length > maxProj) {
+      this.projectiles.splice(0, this.projectiles.length - maxProj);
+    }
+
+    const cap = this._getMaxEnemiesCap();
+    if (this.enemies.length <= cap) return;
+    const isBoss = (t) => (
+      t === 'BOSS' || t === 'ELF_BOSS' || t === 'HUMAN_BOSS' || t === 'UNKNOWN_BOSS' ||
+      t === 'MINI_BOSS' || t === 'ELF_MINI_BOSS' || t === 'HUMAN_MINI_BOSS' || t === 'UNKNOWN_MINI_BOSS'
+    );
+    const living = [];
+    for (const p of this.players.values()) {
+      if (p && !p.isDead && p.health > 0 && typeof p.x === 'number' && typeof p.y === 'number') living.push(p);
+    }
+    const ranked = [];
+    for (let i = 0; i < this.enemies.length; i++) {
+      const e = this.enemies[i];
+      if (!e || isBoss(e.type)) continue;
+      let best = Infinity;
+      for (const p of living) {
+        const dx = e.x - p.x;
+        const dy = e.y - p.y;
+        const d = dx * dx + dy * dy;
+        if (d < best) best = d;
+      }
+      ranked.push({ i, d: best });
+    }
+    ranked.sort((a, b) => b.d - a.d);
+    let toRemove = this.enemies.length - cap;
+    const drop = new Set();
+    for (const row of ranked) {
+      if (toRemove <= 0) break;
+      drop.add(row.i);
+      toRemove--;
+    }
+    if (drop.size) this.enemies = this.enemies.filter((_, i) => !drop.has(i));
+  }
+
+  _isNonTransformUltimate(cid) {
+    const ults = (this.config && this.config.CHARACTER_ULTIMATES) ? this.config.CHARACTER_ULTIMATES : {};
+    const ult = ults[cid] || {};
+    if (ult.NO_TRANSFORM || ult.IS_EXPLOSION_ULTIMATE || ult.IS_EXCLUSIVE_HEAL_ULTIMATE) return true;
+    return cid === 'pineapple' || cid === 'rabi' || cid === 'elondier' || cid === 'lilylinglan' || cid === 'baibaihong';
   }
 
   _getTotalWaves(config) {
@@ -906,87 +1108,93 @@ class GameState {
   _computeExperienceToNextLevel(level) {
     try {
       const cfg = (this.config && this.config.EXPERIENCE) ? this.config.EXPERIENCE : null;
-      const base = cfg ? (cfg.LEVEL_UP_BASE || 80) : 80;
-      const mult = cfg ? (cfg.LEVEL_UP_MULTIPLIER || 1.12) : 1.12;
-      const softcap = cfg ? (cfg.SOFTCAP_LEVEL || 20) : 20;
-      const lateMult = cfg ? (cfg.LEVEL_UP_MULTIPLIER_LATE || 1.07) : 1.07;
-      const lateLinear = cfg ? (cfg.LEVEL_UP_LINEAR_LATE || 30) : 30;
-
-      const lv = Math.max(1, Math.floor(level || 1));
-
-      // 1) 前期：完全沿用舊公式（確保 1~20 手感不變）
-      if (lv <= softcap) {
-        return Math.floor(base * Math.pow(mult, lv - 1));
-      }
-
-      // 2) 後期：以 softcap 當錨點，改用較緩的倍率 + 線性補償
-      const xpAtSoftcap = Math.floor(base * Math.pow(mult, softcap - 1));
-      const n = lv - softcap; // 從 softcap 後第 n 級開始
-      const value = xpAtSoftcap * Math.pow(lateMult, n) + lateLinear * n;
-      return Math.max(1, Math.floor(value));
+      return ExperienceCurve.computeToNextLevel(level, cfg);
     } catch (_) {
-      // 出錯時回退到簡單線性成長，避免整個 getState 崩潰
       const lv = Math.max(1, Math.floor(level || 1));
       return 80 + (lv - 1) * 20;
     }
   }
 
+  // 組隊經驗累計：用本場加總算出等級，不改那筆加總
+  _levelFromCumulativeExp(totalExp) {
+    let level = 1;
+    let remain = Math.max(0, Math.floor(totalExp || 0));
+    let guard = 0;
+    while (guard++ < 500) {
+      const need = this._computeExperienceToNextLevel(level);
+      if (!(need > 0) || remain < need) break;
+      remain -= need;
+      level++;
+    }
+    return level;
+  }
+
   _computeEnemyMaxHealth(type, enemyConfig, wave, config) {
-    const tuning = (config && config.TUNING) ? config.TUNING : null;
-    const mapId = this._getActiveMapId();
-    const diffId = this._getActiveDiffId();
-    const totalWaves = this._getTotalWaves(config);
+    const raw = this._computeEnemyBaseMaxHealth(type, enemyConfig, wave, config);
+    const party = (this.players && typeof this.players.size === 'number') ? this.players.size : 1;
+    return EnemyHp.computePartyMaxHealth(raw, party);
+  }
 
-    const isMini = (type === 'MINI_BOSS' || type === 'ELF_MINI_BOSS' || type === 'HUMAN_MINI_BOSS' || type === 'UNKNOWN_MINI_BOSS');
-    const isBoss = (type === 'BOSS' || type === 'ELF_BOSS' || type === 'HUMAN_BOSS' || type === 'UNKNOWN_BOSS');
+  _computeEnemyBaseMaxHealth(type, enemyConfig, wave, config) {
+    const health = enemyConfig && typeof enemyConfig.HEALTH === 'number' ? enemyConfig.HEALTH : 100;
+    return EnemyHp.computeBaseMaxHealth(
+      type,
+      health,
+      wave,
+      this._getActiveMapId(),
+      this._getActiveDiffId(),
+      config
+    );
+  }
 
-    const baseHealthCfg = enemyConfig && typeof enemyConfig.HEALTH === 'number' ? enemyConfig.HEALTH : 100;
-
-    try {
-      if (tuning && !isMini && !isBoss) {
-        const enemyHealthConfig = (((tuning.ENEMY_HEALTH || {})[mapId] || {})[diffId]) || null;
-        if (enemyHealthConfig) {
-          const baseHealth = baseHealthCfg + (enemyHealthConfig.baseHealth || 0);
-          const maxHealthWave30 = enemyHealthConfig.maxHealthWave30 || baseHealth;
-          if (wave === 1) return Math.floor(baseHealth);
-          if (wave >= totalWaves) {
-            const wavesBeyond = wave - totalWaves;
-            return Math.floor(maxHealthWave30 * Math.pow(1.3, wavesBeyond));
-          }
-          const progress = (wave - 1) / Math.max(1, (totalWaves - 1));
-          return Math.floor(baseHealth + (maxHealthWave30 - baseHealth) * progress);
-        }
+  // 組隊怪出生在邊緣內側：跟單機一樣，不要生在地圖外面再走進來
+  _pickInnerEdgeSpawn(rad, inner, sep) {
+    const worldW = this.worldWidth || 3840;
+    const worldH = this.worldHeight || 2160;
+    const r = (typeof rad === 'number' && rad > 0) ? rad : 16;
+    const pad = (typeof inner === 'number' && inner > 0) ? inner : (r + 12);
+    const gap = (typeof sep === 'number') ? sep : 4;
+    const edge = Math.floor(Math.random() * 4);
+    const span = (a, b) => {
+      const lo = Math.min(a, b);
+      const hi = Math.max(a, b);
+      if (hi <= lo) return lo;
+      return lo + Math.random() * (hi - lo);
+    };
+    const place = () => {
+      if (edge === 3) return { x: pad, y: span(pad, worldH - pad) };
+      if (edge === 1) return { x: worldW - pad, y: span(pad, worldH - pad) };
+      if (edge === 0) return { x: span(pad, worldW - pad), y: pad };
+      return { x: span(pad, worldW - pad), y: worldH - pad };
+    };
+    const blocked = (nx, ny) => {
+      for (const e of this.enemies) {
+        if (!e || e.isDead) continue;
+        const eRad = (typeof e.collisionRadius === 'number' && e.collisionRadius > 0) ? e.collisionRadius : ((e.size || 32) / 2);
+        const minDist = r + eRad + gap;
+        const dx = e.x - nx;
+        const dy = e.y - ny;
+        if ((dx * dx + dy * dy) < (minDist * minDist)) return true;
       }
-      if (tuning && isMini) {
-        const miniBossConfig = (((tuning.MINI_BOSS || {})[mapId] || {})[diffId]) || null;
-        if (miniBossConfig && miniBossConfig.startWave1 && miniBossConfig.endWave30) {
-          const start = miniBossConfig.startWave1;
-          const end = miniBossConfig.endWave30;
-          if (wave === 1) return Math.floor(start);
-          if (wave >= totalWaves) {
-            const wavesBeyond = wave - totalWaves;
-            return Math.floor(end * Math.pow(1.3, wavesBeyond));
-          }
-          const perWave = Math.pow(end / start, 1 / Math.max(1, (totalWaves - 1)));
-          return Math.floor(start * Math.pow(perWave, Math.max(0, wave - 1)));
-        }
+      for (const o of this.obstacles || []) {
+        const halfW = (o.width || 150) / 2;
+        const halfH = (o.height || 150) / 2;
+        const left = o.x - halfW;
+        const right = o.x + halfW;
+        const top = o.y - halfH;
+        const bottom = o.y + halfH;
+        const cx = Math.max(left, Math.min(nx, right));
+        const cy = Math.max(top, Math.min(ny, bottom));
+        const dx = nx - cx;
+        const dy = ny - cy;
+        if ((dx * dx + dy * dy) <= (r * r)) return true;
       }
-      if (tuning && isBoss) {
-        const bossConfig = (((tuning.BOSS || {})[mapId] || {})[diffId]) || null;
-        const bossWave = (config && config.WAVES && typeof config.WAVES.BOSS_WAVE === 'number') ? config.WAVES.BOSS_WAVE : 20;
-        if (bossConfig && (bossConfig.wave20 || bossConfig.wave30) && wave === bossWave) {
-          return Math.floor(bossConfig.wave20 || bossConfig.wave30);
-        }
-      }
-    } catch (_) { }
-
-    // fallback：WAVES multiplier
-    try {
-      const hm = (config && config.WAVES) ? config.WAVES.HEALTH_MULTIPLIER_PER_WAVE : null;
-      const mul = (typeof hm === 'number') ? hm : 1.05;
-      return Math.floor(baseHealthCfg * Math.pow(mul, Math.max(0, wave - 1)));
-    } catch (_) { }
-    return Math.floor(baseHealthCfg);
+      return false;
+    };
+    let pos = place();
+    let attempts = 0;
+    while (attempts++ < 25 && blocked(pos.x, pos.y)) pos = place();
+    return pos;
   }
 
   _pickEdgeSpawn(margin = 50) {
@@ -1002,34 +1210,24 @@ class GameState {
   }
 
   _computeHit(baseDamage, inputMeta, player = null) {
-    // 參考 client DamageSystem：浮動±10%，爆擊 10% 基礎 + bonus
-    const fluct = 0.10;
-    const rand = 1 + (Math.random() * 2 * fluct - fluct);
-    let amount = Math.max(1, Math.round((baseDamage || 0) * rand));
-
-    const allowCrit = !(inputMeta && inputMeta.allowCrit === false);
-    // ✅ 優先使用 player.meta.critChanceBonusPct（持續同步），其次使用 inputMeta.critChanceBonusPct（攻擊時傳入）
-    let bonusCrit = 0;
+    // 浮動／爆擊走 HitRoll（與單人同一份，只四捨五入一次）。
+    // 爆擊加成仍優先用 player.meta（持續同步），沒有才用這一擊帶來的數字。
+    const options = {};
+    if (inputMeta && inputMeta.allowCrit === false) options.allowCrit = false;
     if (player && player.meta && typeof player.meta.critChanceBonusPct === 'number') {
-      bonusCrit = player.meta.critChanceBonusPct;
+      options.critChanceBonusPct = player.meta.critChanceBonusPct;
     } else if (inputMeta && typeof inputMeta.critChanceBonusPct === 'number') {
-      bonusCrit = inputMeta.critChanceBonusPct;
+      options.critChanceBonusPct = inputMeta.critChanceBonusPct;
     }
-    const overrideCrit = (inputMeta && typeof inputMeta.critChancePctOverride === 'number') ? inputMeta.critChancePctOverride : null;
-    const critChance = overrideCrit != null ? overrideCrit : (0.10 + bonusCrit);
-    let critMultiplierBonus = 0;
+    if (inputMeta && typeof inputMeta.critChancePctOverride === 'number') {
+      options.critChancePctOverride = inputMeta.critChancePctOverride;
+    }
     if (player && player.meta && typeof player.meta.critMultiplierBonusPct === 'number') {
-      critMultiplierBonus = player.meta.critMultiplierBonusPct;
+      options.critMultiplierBonusPct = player.meta.critMultiplierBonusPct;
     } else if (inputMeta && typeof inputMeta.critMultiplierBonusPct === 'number') {
-      critMultiplierBonus = inputMeta.critMultiplierBonusPct;
+      options.critMultiplierBonusPct = inputMeta.critMultiplierBonusPct;
     }
-    const effectiveCritMultiplier = 1.75 + critMultiplierBonus;
-    let isCrit = false;
-    if (allowCrit && Math.random() < Math.max(0, Math.min(1, critChance))) {
-      isCrit = true;
-      amount = Math.max(1, Math.round(amount * Math.max(1.0, effectiveCritMultiplier)));
-    }
-    return { amount, isCrit };
+    return HitRoll.computeHitRoll(baseDamage || 0, options);
   }
 
   // ✅ 組隊設定：共享金幣發放（每位玩家都累加相同的 sessionCoins）
@@ -1044,6 +1242,13 @@ class GameState {
   // 移除玩家
   removePlayer(uid) {
     this.players.delete(uid);
+    // 人離開要把人收掉：這個人還在飛的匕首、火球，還有他的 FBI 車，不要留著繼續打
+    if (Array.isArray(this.projectiles)) {
+      this.projectiles = this.projectiles.filter(p => !p || p.playerUid !== uid);
+    }
+    if (Array.isArray(this.carHazards)) {
+      this.carHazards = this.carHazards.filter(c => !c || c.ownerUid !== uid);
+    }
   }
 
   // 处理玩家输入
@@ -1060,11 +1265,9 @@ class GameState {
 
         // ✅ 優先使用客戶端回報的絕對座標（解決累積誤差導致的錯位）
         if (typeof input.x === 'number' && typeof input.y === 'number') {
-            // 防瞬移檢查：如果移動距離過大（例如 > 500像素/幀），則視為非法或瞬移，改用服務器推算
-            // 但考慮到大跳/衝刺技能，閾值要寬鬆
+            // 組隊死線要留在怪身上：死線最遠拉 600。500 會把比較遠的那下退回
             const distSq = (input.x - player.x)**2 + (input.y - player.y)**2;
-            // 閾值：500px (約半個屏幕寬度)
-            if (distSq < 500 * 500) { 
+            if (distSq < 720 * 720) { 
                 player.x = input.x;
                 player.y = input.y;
             } else {
@@ -1081,8 +1284,8 @@ class GameState {
         }
 
         // ✅ 边界检查（使用实例的世界大小）
-        const worldWidth = this.worldWidth || 1920;
-        const worldHeight = this.worldHeight || 1080;
+        const worldWidth = this.worldWidth || 3840;
+        const worldHeight = this.worldHeight || 2160;
         player.x = Math.max(0, Math.min(worldWidth, player.x));
         player.y = Math.max(0, Math.min(worldHeight, player.y));
 
@@ -1104,6 +1307,16 @@ class GameState {
         try { player.lastAttackAt = Date.now(); } catch (_) { }
         this.createProjectile(uid, input);
         break;
+
+      case 'heal': {
+        // 組隊補血送伺服器：唱歌、幼妲光輝、吞噬之力、幼妲天使、心靈魔法
+        const amount = Math.max(0, Math.floor(Number(input.amount) || 0));
+        if (!amount) break;
+        const cap = player.maxHealth || 200;
+        const add = Math.min(amount, cap);
+        player.health = Math.min(cap, (player.health || 0) + add);
+        break;
+      }
 
       case 'aoe_tick':
         // ✅ 服务器权威：持续效果/范围技能 tick（圆形AOE）
@@ -1157,11 +1370,34 @@ class GameState {
           if (typeof input.critChanceBonusPct === 'number') player.meta.critChanceBonusPct = Math.max(0, input.critChanceBonusPct);
           if (typeof input.critMultiplierBonusPct === 'number') player.meta.critMultiplierBonusPct = Math.max(0, Math.min(1, input.critMultiplierBonusPct));
           // ✅ 新增：maxHealth 同步（多人元素，影響復活時的血量）
-          if (typeof input.maxHealth === 'number' && input.maxHealth > 0) {
-            player.maxHealth = Math.max(100, Math.floor(input.maxHealth)); // 最小值 100，避免異常值
-            // 確保當前血量不超過新的最大血量
-            if (player.health > player.maxHealth) {
-              player.health = player.maxHealth;
+            if (typeof input.maxHealth === 'number' && input.maxHealth > 0) {
+            const oldMax = player.maxHealth || 200;
+            const newMax = Math.max(100, Math.floor(input.maxHealth));
+            if (newMax > oldMax) {
+              const delta = newMax - oldMax;
+              const ult = Math.max(0, Math.floor(Number(input.ultimateHealthBonus) || 0));
+              if (ult > 0) {
+                // 組隊大招加血：單機是直接加上去，不按比例
+                player.maxHealth = newMax;
+                player.health = Math.min(newMax, (player.health || 0) + Math.min(ult, delta));
+              } else {
+                // 組隊血量上限連目前血：與單機相同，先按比例補，升級選單再補一次增加量
+                const ratio = oldMax > 0 ? ((player.health || 0) / oldMax) : 1;
+                let next = Math.floor((player.health || 0) + delta * ratio);
+                const bonus = Math.max(0, Math.floor(Number(input.healthUpgradeBonus) || 0));
+                next += Math.min(bonus, delta);
+                player.maxHealth = newMax;
+                player.health = Math.min(newMax, Math.max(0, next));
+              }
+            } else {
+              player.maxHealth = newMax;
+              const abs = Math.max(0, Math.floor(Number(input.healthAbsolute) || 0));
+              if (abs > 0) {
+                // 組隊大招結束回血：回到變身前的血量
+                player.health = Math.min(newMax, abs);
+              } else if (player.health > player.maxHealth) {
+                player.health = player.maxHealth;
+              }
             }
           }
           // ⚠️ 修復：同步回血速度倍率（基礎回血、天賦回血、武器技能回血等）
@@ -1173,6 +1409,16 @@ class GameState {
           if (typeof input.healthRegenIntervalMs === 'number' && input.healthRegenIntervalMs > 0) {
             if (!player.meta) player.meta = {};
             player.meta.healthRegenIntervalMs = Math.max(1000, Math.floor(input.healthRegenIntervalMs));
+          }
+          // 組隊能量覺醒：倍率 1～2，沒送仍是每秒 1
+          if (typeof input.energyRegenMultiplier === 'number' && input.energyRegenMultiplier > 0) {
+            if (!player.meta) player.meta = {};
+            player.meta.energyRegenMultiplier = Math.max(1, Math.min(2, input.energyRegenMultiplier));
+          }
+          // 組隊拾取範圍：1～5，沒送當 1（吸引距離 100）
+          if (typeof input.pickupRangeMultiplier === 'number' && input.pickupRangeMultiplier > 0) {
+            if (!player.meta) player.meta = {};
+            player.meta.pickupRangeMultiplier = Math.max(1, Math.min(5, input.pickupRangeMultiplier));
           }
           // ✅ 單機同源：不獸控制（吸血）— 只同步最終參數，伺服器權威結算回復
           if (input.lifesteal && typeof input.lifesteal === 'object') {
@@ -1252,10 +1498,20 @@ class GameState {
     // 经验球
     this.spawnExperienceOrb(enemy.x, enemy.y, enemy.experienceValue || 5);
 
-    // 金幣共享
-    let coinGain = 2;
-    if (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' || enemy.type === 'UNKNOWN_MINI_BOSS') coinGain = 50;
-    else if (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS' || enemy.type === 'UNKNOWN_BOSS') coinGain = 500;
+    // 組隊支部金幣：支部 10／500／1000，其他地圖仍是 2／50／500
+    const mapId = this._getActiveMapId();
+    const isMiniBoss = (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' || enemy.type === 'UNKNOWN_MINI_BOSS');
+    const isBoss = (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS' || enemy.type === 'UNKNOWN_BOSS');
+    let coinGain;
+    if (mapId === 'branch') {
+      if (isBoss) coinGain = 1000;
+      else if (isMiniBoss) coinGain = 500;
+      else coinGain = 10;
+    } else {
+      if (isBoss) coinGain = 500;
+      else if (isMiniBoss) coinGain = 50;
+      else coinGain = 2;
+    }
     this.awardCoinsToAllPlayers(coinGain);
 
     // 宝箱
@@ -1271,17 +1527,80 @@ class GameState {
       });
     }
 
-    // Boss 波次出口
+    // 組隊首領出口：跟單機一樣，打死第 20 波首領後要走到地圖中心才勝利
     try {
-      const bossWave = (this.config && this.config.WAVES && this.config.WAVES.BOSS_WAVE) ? this.config.WAVES.BOSS_WAVE : 20;
+      const bossWave = WaveRules.bossWaveNumber(this.config && this.config.WAVES);
       if (
         (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS' || enemy.type === 'UNKNOWN_BOSS') &&
         this.wave === bossWave
       ) {
-        this.isVictory = true;
-        this.exit = null;
+        const worldW = this.worldWidth || 3840;
+        const worldH = this.worldHeight || 2160;
+        this.exit = { x: worldW / 2, y: worldH / 2, width: 300, height: 242 };
       }
     } catch (_) { }
+  }
+
+  _finishAoeHit(enemy, damage, input, player, uid) {
+    const hit = (input && input.weaponType === 'EXPLOSION')
+      ? { amount: Math.max(0, Math.floor(damage || 0)), isCrit: false }
+      : (input && input.preRolled === true)
+      ? { amount: Math.max(0, Math.floor(damage || 0)), isCrit: input.isCrit === true }
+      : this._computeHit(damage, input, player);
+    if (hit.amount > 0) {
+      this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
+      this._applyLifesteal(uid, hit.amount);
+    }
+    const slowMs = (input && typeof input.slowMs === 'number' && input.slowMs > 0) ? input.slowMs : 0;
+    const slowFactor = (input && typeof input.slowFactor === 'number') ? input.slowFactor : 0.5;
+    const slowed = slowMs > 0 && enemy.health > 0 && !enemy.isDead;
+    if (slowed) this._applyEnemySlow(enemy, slowMs, slowFactor);
+    if (!(hit.amount > 0) && !slowed) return;
+    try {
+      const ev = {
+        enemyId: enemy.id,
+        x: enemy.x,
+        y: enemy.y,
+        h: enemy.size || 32,
+        damage: hit.amount,
+        isCrit: hit.isCrit === true,
+        weaponType: (input && input.weaponType) || null,
+        playerUid: uid || null
+      };
+      if (slowed) {
+        ev.slowMs = slowMs;
+        ev.slowFactor = slowFactor;
+      }
+      this.hitEvents.push(ev);
+    } catch (_) { }
+  }
+
+  // 引力波推開：距離與單機相同，越靠近中心推得越遠。
+  _pushEnemiesOut(input) {
+    const x = (typeof input.x === 'number') ? input.x : 0;
+    const y = (typeof input.y === 'number') ? input.y : 0;
+    const radius = Math.max(1, Math.min(800, Math.floor(input.radius || 120)));
+    const mul = (typeof input.pushMultiplier === 'number') ? input.pushMultiplier : 0;
+    const r2 = radius * radius;
+    try { this._rebuildEnemySpatialIndex(); } catch (_) { }
+    const near = this._getEnemiesNearCircle(x, y, radius);
+    const worldW = this.worldWidth || 3840;
+    const worldH = this.worldHeight || 2160;
+    for (let i = 0; i < near.length; i++) {
+      const enemy = near[i];
+      if (!enemy || enemy.isDead || enemy.health <= 0) continue;
+      const dx = enemy.x - x;
+      const dy = enemy.y - y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= 0 || distSq > r2) continue;
+      const dist = Math.sqrt(distSq);
+      const push = 30 * (1 - Math.min(dist / radius, 1)) * (1 + mul);
+      enemy.x += (dx / dist) * push;
+      enemy.y += (dy / dist) * push;
+      const pad = (enemy.size || 32) / 2;
+      enemy.x = Math.max(pad, Math.min(worldW - pad, enemy.x));
+      enemy.y = Math.max(pad, Math.min(worldH - pad, enemy.y));
+    }
   }
 
   // ✅ AOE tick：圆形范围伤害（给 Aura/Orbit/Gravity/IceField 等持续效果用）
@@ -1291,7 +1610,22 @@ class GameState {
     if (!player || player.isDead) return;
 
     const damage = Math.max(0, Math.floor(input.damage || 0));
-    if (!damage) return;
+    const slowMs = (typeof input.slowMs === 'number' && input.slowMs > 0) ? input.slowMs : 0;
+    const doPush = input.push === true;
+    if (!damage && !slowMs && !doPush) return;
+    if (doPush && !damage) {
+      this._pushEnemiesOut(input);
+      return;
+    }
+    // 艾比大絕：單機打全圖、固定 15000。半徑上限 800 會打不到遠處。
+    if (input.weaponType === 'EXPLOSION') {
+      for (let n = 0; n < this.enemies.length; n++) {
+        const enemy = this.enemies[n];
+        if (!enemy || enemy.isDead || enemy.health <= 0) continue;
+        this._finishAoeHit(enemy, damage, input, player, uid);
+      }
+      return;
+    }
 
     // ✅ 修复：检查是否是线 segment 范围伤害（LASER）
     const isLineSegment = (
@@ -1329,21 +1663,7 @@ class GameState {
           // 线段长度为0，使用点到点的距离
           const dist = Math.sqrt((enemy.x - startX) ** 2 + (enemy.y - startY) ** 2);
           if (dist <= halfWidth + (enemy.collisionRadius || 16)) {
-            const hit = this._computeHit(damage, input, player);
-            this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
-            this._applyLifesteal(uid, hit.amount);
-            try {
-              this.hitEvents.push({
-                enemyId: enemy.id,
-                x: enemy.x,
-                y: enemy.y,
-                h: enemy.size || 32,
-                damage: hit.amount,
-                isCrit: hit.isCrit,
-                weaponType: input.weaponType || null, // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
-                playerUid: uid || null // ✅ 修復：添加 playerUid，用於客戶端判斷是否是本地玩家的投射物（BO音效）
-              });
-            } catch (_) { }
+            this._finishAoeHit(enemy, damage, input, player, uid);
           }
         } else {
           // 计算点到线段的最近点
@@ -1354,21 +1674,7 @@ class GameState {
           const dist = Math.sqrt((enemy.x - projX) ** 2 + (enemy.y - projY) ** 2);
           
           if (dist <= halfWidth + (enemy.collisionRadius || 16)) {
-            const hit = this._computeHit(damage, input, player);
-            this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
-            this._applyLifesteal(uid, hit.amount);
-            try {
-              this.hitEvents.push({
-                enemyId: enemy.id,
-                x: enemy.x,
-                y: enemy.y,
-                h: enemy.size || 32,
-                damage: hit.amount,
-                isCrit: hit.isCrit,
-                weaponType: input.weaponType || null, // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
-                playerUid: uid || null // ✅ 修復：添加 playerUid，用於客戶端判斷是否是本地玩家的投射物（BO音效）
-              });
-            } catch (_) { }
+            this._finishAoeHit(enemy, damage, input, player, uid);
           }
         }
       }
@@ -1391,21 +1697,7 @@ class GameState {
           const dy = enemy.y - y;
           if ((dx * dx + dy * dy) > r2) continue;
         }
-        const hit = this._computeHit(damage, input, player);
-        this.damageEnemy(enemy, hit.amount, { sourceUid: uid });
-        this._applyLifesteal(uid, hit.amount);
-        try {
-          this.hitEvents.push({
-            enemyId: enemy.id,
-            x: enemy.x,
-            y: enemy.y,
-            h: enemy.size || 32,
-            damage: hit.amount,
-            isCrit: hit.isCrit,
-            weaponType: input.weaponType || null,
-            playerUid: uid || null
-          });
-        } catch (_) { }
+        this._finishAoeHit(enemy, damage, input, player, uid);
       }
     }
   }
@@ -1421,8 +1713,8 @@ class GameState {
     // console.log(`[GameState.createProjectile] ✅ 創建投射物: uid=${uid}, weaponType=${input.weaponType || 'UNKNOWN'}, projectiles.length=${this.projectiles.length}`);
 
     // ✅ 参数验证和边界检查
-    const worldWidth = this.worldWidth || 1920;
-    const worldHeight = this.worldHeight || 1080;
+    const worldWidth = this.worldWidth || 3840;
+    const worldHeight = this.worldHeight || 2160;
 
     // 验证位置（必须在世界范围内）
     let x = typeof input.x === 'number' ? input.x : player.x;
@@ -1487,7 +1779,7 @@ class GameState {
     // ✅ 服务器权威：鳳梨不咬舌（pineapple）的大招改由伺服器生成掉落物（PINEAPPLE chest）
     // 目的：避免客戶端事件/本地生成與 state.chests 權威打架，並確保所有端看到一致的掉落物。
     try {
-      if (player.characterId === 'pineapple') {
+      if (this.normalizePlayableCharacterId(player.characterId) === 'pineapple') {
         const count = 5;
         const minD = 200;
         const maxD = 800;
@@ -1528,16 +1820,9 @@ class GameState {
     // 對於變身型大招（非鳳梨、非爆炸型、非森森鈴蘭），設置大招狀態以便其他客戶端能看到變身效果
     // 注意：大招功能本身是單機元素（武器變化、屬性加成等），只在本地玩家執行
     // 但大招動畫（isUltimateActive、ultimateImageKey、體型變化）是多人元素，需要同步
-    // ✅ 不會變身的角色：鳳梨（pineapple）、艾比（rabi/abby，爆炸型大招）、森森鈴蘭（sensen/lilylinglan，未來，目前未實作）
-    // 這些角色的大招不設置 isUltimateActive，因為它們不會變身
-    const isNonTransformUltimate = (
-      player.characterId === 'pineapple' || 
-      player.characterId === 'rabi' || // 艾比（爆炸型大招）
-      player.characterId === 'abby' || // 艾比（別名）
-      player.characterId === 'elondier' || // 厄倫蒂兒：分身大招（非變身）
-      player.characterId === 'sensen' || // 森森鈴蘭（未來，目前未實作）
-      player.characterId === 'lilylinglan' // 森森鈴蘭（別名）
-    );
+    // 不會變身：CHARACTER_ULTIMATES 的 NO_TRANSFORM／爆炸／專屬回血；設定未到時用角色 id 後備
+    const cid = this.normalizePlayableCharacterId(player.characterId);
+    const isNonTransformUltimate = this._isNonTransformUltimate(cid);
     
     if (!isNonTransformUltimate) {
       // 只有變身型大招才設置動畫狀態
@@ -1545,7 +1830,7 @@ class GameState {
         // 從客戶端傳來的 input 中獲取大招配置（如果有的話）
         // 如果沒有，使用預設值（客戶端會自己處理變身邏輯）
         const now = Date.now();
-        const ultimateDurationMs = (input && typeof input.durationMs === 'number') ? input.durationMs : 10000; // 預設 10 秒
+        const ultimateDurationMs = (input && typeof input.durationMs === 'number') ? input.durationMs : 15000;
         
         // 保存原始體型（用於大招結束時恢復）
         if (typeof player._originalWidth !== 'number') {
@@ -1568,7 +1853,7 @@ class GameState {
         }
         
         // 體型變化（從 input 獲取，或使用預設倍率）
-        const sizeMultiplier = (input && typeof input.sizeMultiplier === 'number') ? input.sizeMultiplier : 1.5;
+        const sizeMultiplier = (input && typeof input.sizeMultiplier === 'number') ? input.sizeMultiplier : 2.5;
         const baseWidth = player._originalWidth || player.width || 32;
         const baseHeight = player._originalHeight || player.height || 32;
         player.width = Math.floor(baseWidth * sizeMultiplier);
@@ -1579,7 +1864,7 @@ class GameState {
     // 非變身型大招（鳳梨、艾比、森森鈴蘭）不設置 isUltimateActive，因為它們不會變身
   }
 
-  // ✅ 共享經驗：用於鳳梨掉落物等特殊獎勵（由客戶端回報 amount，伺服器轉為權威 counter）
+  // 組隊經驗共用：怪變厚，撿到的經驗全隊一起拿（鳳梨掉落也是）
   awardExperienceToAllPlayers(amount, chestId = null) {
     const inc = Math.max(0, Math.floor(amount || 0));
     if (!inc) return;
@@ -1646,7 +1931,7 @@ class GameState {
           const dx = px - closestX;
           const dy = py - closestY;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 16) { // 玩家半徑約 16
+          if (dist < this._playerBodyRadius(p)) { // 組隊變身出口：沒變身仍是 16
             this.isVictory = true;
             break;
           }
@@ -1668,7 +1953,7 @@ class GameState {
 
     // ✅ 服务器权威：生成路口车辆（仅路口地图，仅多人模式）
     // 注意：服务器端只在多人模式下生成车辆，单机模式由客户端生成
-    if (this.selectedMap && this.selectedMap.id === 'intersection' && this.players.size > 0) {
+    if (this._getActiveMapId() === 'intersection' && this.players.size > 0) {
       this.spawnCarHazards(now);
     }
 
@@ -1686,7 +1971,7 @@ class GameState {
     }
 
     // ✅ 服务器权威：生成大BOSS (第20波)
-    if (this.wave === 20 && !this.bossSpawned && this.config) {
+    if (this.wave === WaveRules.bossWaveNumber(this.config && this.config.WAVES) && !this.bossSpawned && this.config) {
       this.spawnBoss(this.config);
       this.bossSpawned = true;
     }
@@ -1698,6 +1983,7 @@ class GameState {
 
     // 检查游戏结束条件
     this.checkGameOver();
+    try { this._trimToSoloCaps(now); } catch (_) { }
   }
 
   updateResurrections(deltaTime) {
@@ -1742,30 +2028,20 @@ class GameState {
   updatePlayers(deltaTime) {
     const now = Date.now();
     for (const player of this.players.values()) {
-      // ✅ 修復：檢查經驗是否足夠升級，與單機模式一致
-      // 服務器端需要處理升級邏輯，確保 level 和 experienceToNextLevel 與客戶端一致
-      if (typeof player.experience === 'number' && player.experience > 0 && typeof player.level === 'number') {
-        let currentExp = player.experience;
-        let currentLevel = player.level;
-        let expToNext = this._computeExperienceToNextLevel(currentLevel);
-        
-        // 循環檢查是否有多級升級（與單機模式一致）
-        while (currentExp >= expToNext && expToNext > 0) {
-          currentExp -= expToNext;
-          currentLevel++;
-          expToNext = this._computeExperienceToNextLevel(currentLevel);
-        }
-        
-        // 更新服務器端的 level 和 experience
-        if (currentLevel !== player.level) {
-          player.level = currentLevel;
-        }
-        player.experience = currentExp;
+      // 組隊經驗累計：這格是本場加總。等級另外算，不要把經驗扣回去，否則客戶端前後差會變負，升級吃不到
+      if (typeof player.experience === 'number' && player.experience > 0) {
+        const nextLevel = this._levelFromCumulativeExp(player.experience);
+        if (nextLevel !== player.level) player.level = nextLevel;
       }
       
-      // 能量恢复
+      // 組隊死人不會回血：單機死了就停。死人回血會讓救援以為他還活著，全員倒下也不結束
+      if (!player.isDead && player.health > 0) {
+      // 能量恢复（組隊能量覺醒：與單機 1+加成 相同，沒點仍是每秒 1）
       if (player.energy < player.maxEnergy) {
-        player.energy = Math.min(player.maxEnergy, player.energy + 1 * (deltaTime / 1000));
+        const energyMul = (player.meta && typeof player.meta.energyRegenMultiplier === 'number')
+          ? Math.max(1, Math.min(2, player.meta.energyRegenMultiplier))
+          : 1;
+        player.energy = Math.min(player.maxEnergy, player.energy + 1 * energyMul * (deltaTime / 1000));
       }
       
       // ⚠️ 修復：生命自然恢復（與單機一致：每5秒+1，受回血速度倍率影響）
@@ -1788,24 +2064,11 @@ class GameState {
         // 滿血時重置計時器
         player._healthRegenAccumulator = 0;
       }
+      }
       
       // ✅ 多人元素：大招結束時清理狀態（讓所有客戶端看到大招結束）
       if (player.isUltimateActive && typeof player.ultimateEndTime === 'number' && now >= player.ultimateEndTime) {
-        player.isUltimateActive = false;
-        player.ultimateImageKey = null;
-        player.ultimateEndTime = 0;
-        // 恢復原始體型（從客戶端同步，或使用預設值）
-        // 注意：實際的武器恢復、屬性恢復等是單機元素，由客戶端自己處理
-        // 這裡只處理多人元素（視覺狀態同步）
-        if (typeof player._originalWidth === 'number' && player._originalWidth > 0) {
-          player.width = player._originalWidth;
-        }
-        if (typeof player._originalHeight === 'number' && player._originalHeight > 0) {
-          player.height = player._originalHeight;
-        }
-        if (typeof player._originalCollisionRadius === 'number' && player._originalCollisionRadius > 0) {
-          player.collisionRadius = player._originalCollisionRadius;
-        }
+        this._endPlayerUltimate(player);
       }
     }
   }
@@ -1890,8 +2153,8 @@ class GameState {
       }
 
       // ✅ 检查边界（使用实例的世界大小）
-      const worldWidth = this.worldWidth || 1920;
-      const worldHeight = this.worldHeight || 1080;
+      const worldWidth = this.worldWidth || 3840;
+      const worldHeight = this.worldHeight || 2160;
       const margin = 100; // 允许投射物稍微超出边界
       if (proj.x < -margin || proj.x > worldWidth + margin || proj.y < -margin || proj.y > worldHeight + margin) {
         this.projectiles.splice(i, 1);
@@ -1939,7 +2202,7 @@ class GameState {
         const dx = proj.x - enemy.x;
         const dy = proj.y - enemy.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const collisionRadius = (proj.size || 20) / 2 + (enemy.size || 32) / 2;
+        const collisionRadius = (proj.size || 20) / 2 + this._enemyBodyRadius(enemy);
 
         if (dist < collisionRadius) {
           // 穿透投射物（黑洞粒子）：同一敵人只傷害一次
@@ -1954,18 +2217,29 @@ class GameState {
           this.damageEnemy(enemy, hit.amount, { sourceUid: proj.playerUid });
           // ✅ 單機同源：命中後吸血（不獸控制）
           this._applyLifesteal(proj.playerUid, hit.amount);
+          // 紳士綿羊：直接命中且沒打死才減速（與單機同一條件）
+          const fireballSlow = proj.weaponType === 'FIREBALL' && !proj.pierce && enemy.health > 0 && !enemy.isDead;
+          if (fireballSlow) this._applyEnemySlow(enemy, 1000, 0.5);
           try {
-            this.hitEvents.push({
+            const ev = {
               enemyId: enemy.id,
               x: enemy.x,
               y: enemy.y,
               h: enemy.size || 32,
               damage: hit.amount,
               isCrit: hit.isCrit,
-              weaponType: proj.weaponType || null, // ✅ 新增：武器類型，用於客戶端創建對應的特殊視覺效果
-              playerUid: proj.playerUid || null // ✅ 修復：添加 playerUid，用於客戶端判斷是否是本地玩家的投射物（BO音效）
-            });
+              weaponType: proj.weaponType || null,
+              playerUid: proj.playerUid || null
+            };
+            if (fireballSlow) {
+              ev.slowMs = 1000;
+              ev.slowFactor = 0.5;
+            }
+            this.hitEvents.push(ev);
           } catch (_) { }
+          if (proj.weaponType === 'FIREBALL' && !proj.pierce) {
+            this._applyFireballSplash(proj, enemy, projPlayer);
+          }
 
           // 穿透投射物不移除，繼續飛行；非穿透則碰撞後移除
           if (!proj.pierce) {
@@ -1974,6 +2248,61 @@ class GameState {
           }
         }
       }
+    }
+  }
+
+  // 紳士綿羊減速：記住原本速度，時間到還原。只改這一招。
+  _applyEnemySlow(enemy, durationMs, factor) {
+    if (!enemy || enemy.isDead || enemy.health <= 0) return;
+    if (typeof enemy._baseSpeed !== 'number') {
+      enemy._baseSpeed = (typeof enemy.speed === 'number') ? enemy.speed : 2;
+    }
+    const f = Math.max(0, Math.min(1, (typeof factor === 'number') ? factor : 0.5));
+    enemy.speed = enemy._baseSpeed * f;
+    enemy.slowUntil = Date.now() + (durationMs || 1000);
+  }
+
+  _restoreEnemySlow(enemy) {
+    if (!enemy || !enemy.slowUntil) return;
+    if (Date.now() < enemy.slowUntil) return;
+    if (typeof enemy._baseSpeed === 'number') enemy.speed = enemy._baseSpeed;
+    enemy.slowUntil = 0;
+  }
+
+  // 紳士綿羊濺射：旁邊 60% 傷害、不爆擊，範圍與單機相同。黑洞粒子不走這裡。
+  _applyFireballSplash(proj, primary, player) {
+    if (!proj || !primary) return;
+    const radius = Math.max(34, ((proj.size || 20) / 2) * 2.6);
+    const radiusSq = radius * radius;
+    const splashBase = (proj.damage || 0) * 0.6;
+    const near = this._getEnemiesNearCircle(primary.x, primary.y, radius);
+    for (let s = 0; s < near.length; s++) {
+      const e = near[s];
+      if (!e || e === primary || e.isDead || e.health <= 0) continue;
+      const dx = e.x - primary.x;
+      const dy = e.y - primary.y;
+      if ((dx * dx + dy * dy) > radiusSq) continue;
+      const splash = this._computeHit(splashBase, { allowCrit: false }, player);
+      this.damageEnemy(e, splash.amount, { sourceUid: proj.playerUid });
+      const stillUp = e.health > 0 && !e.isDead;
+      if (stillUp) this._applyEnemySlow(e, 1000, 0.5);
+      try {
+        const ev = {
+          enemyId: e.id,
+          x: e.x,
+          y: e.y,
+          h: e.size || 32,
+          damage: splash.amount,
+          isCrit: false,
+          weaponType: 'FIREBALL',
+          playerUid: proj.playerUid || null
+        };
+        if (stillUp) {
+          ev.slowMs = 1000;
+          ev.slowFactor = 0.5;
+        }
+        this.hitEvents.push(ev);
+      } catch (_) { }
     }
   }
 
@@ -1994,6 +2323,7 @@ class GameState {
 
     for (let i = this.enemies.length - 1; i >= 0; i--) {
       const enemy = this.enemies[i];
+      this._restoreEnemySlow(enemy);
 
       // ✅ MMORPG 架構：更新敵人死亡動畫狀態
       if (enemy.isDying) {
@@ -2021,9 +2351,9 @@ class GameState {
             if (player.isDead || player.health <= 0) continue;
             const dx = player.x - enemy.x;
             const dy = player.y - enemy.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < nearestDist) {
-              nearestDist = dist;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < nearestDist) {
+              nearestDist = distSq;
               nearestPlayer = player;
             }
           }
@@ -2079,13 +2409,13 @@ class GameState {
           console.warn(`[GameState.updateEnemies] ⚠️ 玩家 ${player.uid} 位置无效: x=${player.x}, y=${player.y}`);
           continue;
         }
-        const dx = player.x - enemy.x;
-        const dy = player.y - enemy.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < nearestDist) {
-          nearestDist = dist;
-          nearestPlayer = player;
-        }
+            const dx = player.x - enemy.x;
+            const dy = player.y - enemy.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < nearestDist) {
+              nearestDist = distSq;
+              nearestPlayer = player;
+            }
       }
       
       // ⚠️ 修复：游戏结束时（所有玩家死亡）不输出日志，这是正常情况
@@ -2123,8 +2453,7 @@ class GameState {
         
         // ✅ 檢查障礙物碰撞（與單機模式一致）
         // ⚠️ 修復：障礙物是中心坐標（obs.x, obs.y 是中心），需要轉換為矩形邊界
-        const enemySize = enemy.size || 32;
-        const enemyRadiusForObs = enemySize / 2;
+        const enemyRadiusForObs = this._enemyBodyRadius(enemy);
         const blockedByObs = (nx, ny) => {
           for (const obs of this.obstacles || []) {
             // ⚠️ 修復：障礙物是中心坐標，需要轉換為矩形邊界
@@ -2154,6 +2483,31 @@ class GameState {
           enemy.y = candY;
         }
 
+        // 組隊怪會滑開障礙：疊到障礙裡就往外推一點，跟單機一樣。地圖邊緣的脫困不動
+        const slideStrength = (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS') ? 0.45 : 0.25;
+        const slideR = enemyRadiusForObs;
+        for (const obs of this.obstacles || []) {
+          const halfW = (obs.width || 150) / 2;
+          const halfH = (obs.height || 150) / 2;
+          const left = obs.x - halfW;
+          const right = obs.x + halfW;
+          const top = obs.y - halfH;
+          const bottom = obs.y + halfH;
+          const closestX = Math.max(left, Math.min(enemy.x, right));
+          const closestY = Math.max(top, Math.min(enemy.y, bottom));
+          let sdx = enemy.x - closestX;
+          let sdy = enemy.y - closestY;
+          const sd2 = sdx * sdx + sdy * sdy;
+          if (sd2 < slideR * slideR) {
+            const sd = Math.max(0.0001, Math.sqrt(sd2));
+            sdx /= sd;
+            sdy /= sd;
+            const push = (slideR - sd) * slideStrength;
+            enemy.x += sdx * push;
+            enemy.y += sdy * push;
+          }
+        }
+
         // ✅ 修复：与单机一致 - 怪物之间的软排斥（参考 js/enemy.js Line 460-524）
         // ✅ 晚局保護：crowdMode 下只對大體積敵人保留軟排斥（避免密集時 n²）
         const enemyRadius = enemy.collisionRadius || (enemy.size || 32) / 2;
@@ -2161,10 +2515,10 @@ class GameState {
         const maxCheckDistanceSq = checkRadius * checkRadius; // 只检查附近的敌人（性能优化）
         
         // 判断是否为花园大体积敌人
-        const isGardenLargeEnemyForRepulsion = (this.selectedMap && this.selectedMap.id === 'garden') &&
+        const isGardenLargeEnemyForRepulsion = (this._getActiveMapId() === 'garden') &&
           (enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'ELF_BOSS');
         // 判断是否为支部大体积敌人
-        const isBranchLargeEnemyForRepulsion = (this.selectedMap && this.selectedMap.id === 'branch') &&
+        const isBranchLargeEnemyForRepulsion = (this._getActiveMapId() === 'branch') &&
           (enemy.type === 'UNKNOWN_MINI_BOSS' || enemy.type === 'UNKNOWN_BOSS');
         // 判断是否为大体积敌人
         const isLargeEnemyForRepulsion = (enemy.type === 'MINI_BOSS' || enemy.type === 'ELF_MINI_BOSS' || enemy.type === 'HUMAN_MINI_BOSS' || enemy.type === 'UNKNOWN_MINI_BOSS' ||
@@ -2248,18 +2602,21 @@ class GameState {
         }
 
         // ✅ 敌人边界检查（防止敌人移动到世界外）
-        const worldWidth = this.worldWidth || 1920;
-        const worldHeight = this.worldHeight || 1080;
+        const worldWidth = this.worldWidth || 3840;
+        const worldHeight = this.worldHeight || 2160;
         const margin = 100; // 允许敌人稍微超出边界（用于生成和移动）
         enemy.x = Math.max(-margin, Math.min(worldWidth + margin, enemy.x));
         enemy.y = Math.max(-margin, Math.min(worldHeight + margin, enemy.y));
 
         // ✅ 服务器权威：敌人攻击玩家（碰撞检测和伤害计算）
-        const enemySizeForCollision = enemy.size || 32;
-        const playerSize = 32; // 默认玩家大小
-        const collisionRadius = (enemySizeForCollision / 2) + (playerSize / 2);
+        // 組隊變身碰撞：平常半徑 16，變大後用伺服器已記下的碰撞半徑
+        const playerRadius = (nearestPlayer && typeof nearestPlayer.collisionRadius === 'number' && nearestPlayer.collisionRadius > 0)
+          ? nearestPlayer.collisionRadius
+          : 16;
+        const collisionRadius = this._enemyBodyRadius(enemy) + playerRadius;
 
-        if (nearestDist < collisionRadius) {
+        // 組隊距離用平方：最近玩家存的是距離平方，要跟門檻的平方比，才跟單機的直線距離一樣
+        if (nearestDist < collisionRadius * collisionRadius) {
           // 检查攻击冷却
           if (now - enemy.lastAttackTime >= enemy.attackCooldown) {
             // ✅ 單機同源：受傷無敵/迴避/防禦（由 player-meta 提供最終值）
@@ -2283,7 +2640,8 @@ class GameState {
 
         // ✅ 伺服器權威：遠程攻擊（火彈/瓶子）— 與單機 Enemy.updateRangedAttack 同源
         try {
-          if (enemy.rangedAttack && nearestDist <= (enemy.rangedAttack.RANGE || 0)) {
+          const rangedRange = enemy.rangedAttack ? (enemy.rangedAttack.RANGE || 0) : 0;
+          if (enemy.rangedAttack && nearestDist <= rangedRange * rangedRange) {
             if (!enemy.lastRangedAttackAt) enemy.lastRangedAttackAt = 0;
             const cd = enemy.rangedAttack.COOLDOWN || 0;
             if (cd > 0 && now - enemy.lastRangedAttackAt >= cd) {
@@ -2292,9 +2650,9 @@ class GameState {
             }
           }
           // 支部地圖小BOSS/大BOSS：雷射技能（與玩家雷射LV1同冷卻 5000ms）
-          const isBranchBoss = (this.mapId === 'branch') && (enemy.type === 'UNKNOWN_MINI_BOSS' || enemy.type === 'UNKNOWN_BOSS');
+          const isBranchBoss = (this._getActiveMapId() === 'branch') && (enemy.type === 'UNKNOWN_MINI_BOSS' || enemy.type === 'UNKNOWN_BOSS');
           const bossLaserTriggerRange = 600; // 玩家進入 600 像素內才發射雷射
-          if (isBranchBoss && nearestPlayer && nearestDist <= bossLaserTriggerRange) {
+          if (isBranchBoss && nearestPlayer && nearestDist <= bossLaserTriggerRange * bossLaserTriggerRange) {
             if (!enemy.lastBossLaserAt) enemy.lastBossLaserAt = 0;
             if (now - enemy.lastBossLaserAt >= 5000) {
               this._spawnBossLaser(enemy, nearestPlayer);
@@ -2321,7 +2679,7 @@ class GameState {
       this.lastEnemySpawnTime = now - this.enemySpawnRate;
     }
     const timeSinceLastSpawn = now - this.lastEnemySpawnTime;
-    const smallEnemyCount = this.enemies.filter(e => e && !/^(MINI_BOSS|ELF_MINI_BOSS|HUMAN_MINI_BOSS|UNKNOWN_MINI_BOSS|BOSS|ELF_BOSS|HUMAN_BOSS|UNKNOWN_BOSS)$/.test(e.type || '')).length;
+    const smallEnemyCount = this.enemies.filter(e => e && WaveRules.isSmallEnemyType(e.type)).length;
     const timeOk = timeSinceLastSpawn >= this.enemySpawnRate;
     const emergencySpawn = smallEnemyCount === 0; // 無小怪時每 tick 嘗試
     if (!timeOk && !emergencySpawn) {
@@ -2363,75 +2721,36 @@ class GameState {
     }
 
     // 完整版：使用CONFIG数据（需要从客户端同步CONFIG）
-    const maxEnemies = (config.OPTIMIZATION && config.OPTIMIZATION.MAX_ENEMIES) || 100;
+    const maxEnemies = this._getMaxEnemiesCap();
     if (this.enemies.length >= maxEnemies) return; // 未生成，不重置 lastEnemySpawnTime
 
     // 获取可用的敌人类型
-    const availableTypes = (config.WAVES.ENEMY_TYPES || [])
-      .filter(entry => entry.WAVE <= this.wave)
-      .map(entry => entry.TYPE);
+    const mapId = this._getActiveMapId();
+    const availableTypes = WaveRules.availableEnemyTypes(config.WAVES.ENEMY_TYPES, this.wave);
 
     if (availableTypes.length === 0) return; // 未生成，不重置 lastEnemySpawnTime
 
-    // 计算生成数量
-    const sc = (config.WAVES && config.WAVES.SPAWN_COUNT) ? config.WAVES.SPAWN_COUNT : {};
-    const base = sc.INITIAL || 3;
-    const inc = (this.wave >= 5 && typeof sc.INCREASE_PER_WAVE_LATE === 'number') ? sc.INCREASE_PER_WAVE_LATE : (sc.INCREASE_PER_WAVE || 0.9);
-    const max = (this.wave >= 5 && typeof sc.MAXIMUM_LATE === 'number') ? sc.MAXIMUM_LATE : (sc.MAXIMUM || 12);
-    const countBase = Math.min(Math.floor(base + (this.wave - 1) * inc), max);
-    const count = Math.max(1, countBase);
+    const diffId = this._getActiveDiffId();
+    const diff = (config.DIFFICULTY && config.DIFFICULTY[diffId]) ? config.DIFFICULTY[diffId] : {};
+    const count = WaveSpawn.computeSpawnCount(
+      this.wave,
+      (config.WAVES && config.WAVES.SPAWN_COUNT) || {},
+      diff.spawnCountMultiplier
+    );
 
     for (let i = 0; i < count && this.enemies.length < maxEnemies; i++) {
       // 随机选择敌人类型
       let enemyType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
-      
-      // ✅ 修复：与单机一致 - 根据地图选择敌人类型（参考 js/wave.js Line 143-165）
-      if (this.selectedMap) {
-        // 第二张地图（forest）将普通敌人替换为 *_2 变体
-        if (this.selectedMap.id === 'forest') {
-          if (enemyType === 'ZOMBIE') enemyType = 'ZOMBIE2';
-          else if (enemyType === 'SKELETON') enemyType = 'SKELETON2';
-          else if (enemyType === 'GHOST') enemyType = 'GHOST2';
-        }
-        // 第三张地图（desert）将普通敌人替换为 *_3 变体
-        else if (this.selectedMap.id === 'desert') {
-          if (enemyType === 'ZOMBIE') enemyType = 'ZOMBIE3';
-          else if (enemyType === 'SKELETON') enemyType = 'SKELETON3';
-          else if (enemyType === 'GHOST') enemyType = 'GHOST3';
-        }
-        // 第四张地图（garden）将普通敌人替换为花精灵系列
-        else if (this.selectedMap.id === 'garden') {
-          if (enemyType === 'ZOMBIE') enemyType = 'ELF';
-          else if (enemyType === 'SKELETON') enemyType = 'ELF2';
-          else if (enemyType === 'GHOST') enemyType = 'ELF3';
-        }
-        // 第五张地图（intersection）将普通敌人替换为人类系列
-        else if (this.selectedMap.id === 'intersection') {
-          if (enemyType === 'ZOMBIE') enemyType = 'HUMAN1';
-          else if (enemyType === 'SKELETON') enemyType = 'HUMAN2';
-          else if (enemyType === 'GHOST') enemyType = 'HUMAN3';
-        }
-        // 第六张地图（branch）将普通敌人替换为未知系列
-        else if (this.selectedMap.id === 'branch') {
-          if (enemyType === 'ZOMBIE') enemyType = 'UNKNOWN1';
-          else if (enemyType === 'SKELETON') enemyType = 'UNKNOWN2';
-          else if (enemyType === 'GHOST') enemyType = 'UNKNOWN3';
-        }
-      }
+      enemyType = WaveRules.remapEnemyType(mapId, enemyType);
       
       const enemyConfig = config.ENEMIES[enemyType] || { SIZE: 32, HEALTH: 100, SPEED: 2 };
 
-      // ✅ 在世界边缘生成（使用实例的世界大小）
-      const worldWidth = this.worldWidth || 1920;
-      const worldHeight = this.worldHeight || 1080;
-      const edge = Math.floor(Math.random() * 4);
-      let x, y;
-      switch (edge) {
-        case 0: x = Math.random() * worldWidth; y = -50; break;
-        case 1: x = worldWidth + 50; y = Math.random() * worldHeight; break;
-        case 2: x = Math.random() * worldWidth; y = worldHeight + 50; break;
-        case 3: x = -50; y = Math.random() * worldHeight; break;
-      }
+      const rad = (typeof enemyConfig.COLLISION_RADIUS === 'number' && enemyConfig.COLLISION_RADIUS > 0)
+        ? enemyConfig.COLLISION_RADIUS
+        : 16;
+      const pos = this._pickInnerEdgeSpawn(rad, rad + 12, 4);
+      const x = pos.x;
+      const y = pos.y;
 
       // ✅ 血量同源：優先用 TUNING（與單機一致），否則回退 WAVES multiplier
       const health = this._computeEnemyMaxHealth(enemyType, enemyConfig, this.wave, config);
@@ -2445,13 +2764,16 @@ class GameState {
         type: enemyType,
         health: health,
         maxHealth: health,
-        speed: enemyConfig.SPEED || 2,
+        speed: this._applyEnemySpeed(enemyConfig.SPEED || 2),
         size: enemyConfig.SIZE || 32,
-        experienceValue: enemyConfig.EXPERIENCE || 5,
+        experienceValue: this._experienceValue(enemyType, enemyConfig),
         isDead: false,
         damage: (typeof enemyConfig.DAMAGE === 'number') ? enemyConfig.DAMAGE : 10,
         rangedAttack,
-        lastRangedAttackAt: 0
+        lastRangedAttackAt: 0,
+        collisionRadius: (typeof enemyConfig.COLLISION_RADIUS === 'number' && enemyConfig.COLLISION_RADIUS > 0)
+          ? enemyConfig.COLLISION_RADIUS
+          : ((enemyConfig.SIZE || 32) / 2)
       });
     }
     if (this.enemies.length > lenBefore) this.lastEnemySpawnTime = now;
@@ -2459,6 +2781,10 @@ class GameState {
 
   // 生成经验球
   spawnExperienceOrb(x, y, value) {
+    // 組隊經驗球滿了不掉：地上已經有 600 顆就不再生成，舊的留著。跟單機一樣
+    const opt = (this.config && this.config.OPTIMIZATION) ? this.config.OPTIMIZATION : {};
+    const maxOrbs = (typeof opt.MAX_EXPERIENCE_ORBS === 'number') ? opt.MAX_EXPERIENCE_ORBS : 600;
+    if (this.experienceOrbs.length >= maxOrbs) return;
     const orb = {
       id: `orb_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       x,
@@ -2473,53 +2799,22 @@ class GameState {
   spawnMiniBoss(config) {
     if (!config || !config.ENEMIES) return;
 
+    const mapId = this._getActiveMapId();
+    const type = WaveRules.miniBossTypeForMap(mapId);
+    const count = WaveRules.miniBossCountForMap(mapId);
     const wave = this.wave;
-    let type = 'MINI_BOSS';
-
-    // 根据地图选择 Boss 类型 (参考 WaveSystem)
-    if (this.selectedMap) {
-      if (this.selectedMap.id === 'forest') type = 'MINI_BOSS'; // 森林沿用
-      else if (this.selectedMap.id === 'garden') type = 'ELF_MINI_BOSS';
-      else if (this.selectedMap.id === 'intersection') type = 'HUMAN_MINI_BOSS';
-      else if (this.selectedMap.id === 'branch') type = 'UNKNOWN_MINI_BOSS';
-    }
-
     const enemyConfig = config.ENEMIES[type] || config.ENEMIES['MINI_BOSS'];
     if (!enemyConfig) return;
 
-    // ✅ 修复：与单机一致 - 第二、第三、第四、第五、第六张地图：每波生成 2 只小BOSS；其余维持 1 只
-    const count = (this.selectedMap && (this.selectedMap.id === 'forest' || this.selectedMap.id === 'desert' || this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection' || this.selectedMap.id === 'branch')) ? 2 : 1;
-
     for (let idx = 0; idx < count; idx++) {
-      // ✅ 與單機一致：從世界邊緣生成（每次生成時重新選擇位置，避免重疊）
-      const spawn = this._pickEdgeSpawn(80);
-      let x = spawn.x;
-      let y = spawn.y;
-
-      // ✅ 修复：尝试避免与其他敌人重叠（参考单机模式的逻辑）
       const rad = (enemyConfig.COLLISION_RADIUS || 80);
-      let attempts = 0;
-      const sep = 6;
-      while (attempts++ < 25) {
-        let overlap = false;
-        for (const e of this.enemies) {
-          if (!e || e.isDead) continue;
-          const eRad = (e.collisionRadius || e.size / 2 || 16);
-          const minDist = rad + eRad + sep;
-          const dx = e.x - x;
-          const dy = e.y - y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < minDist) {
-            overlap = true;
-            break;
-          }
-        }
-        if (!overlap) break;
-        // 重新选择边缘位置
-        const newSpawn = this._pickEdgeSpawn(80);
-        x = newSpawn.x;
-        y = newSpawn.y;
-      }
+      let inner = rad + 12;
+      if (mapId === 'garden' && type === 'ELF_MINI_BOSS') inner = 130;
+      else if (mapId === 'intersection' && type === 'HUMAN_MINI_BOSS') inner = 110;
+      else if (mapId === 'branch' && type === 'UNKNOWN_MINI_BOSS') inner = 110;
+      const pos = this._pickInnerEdgeSpawn(rad, inner, 6);
+      const x = pos.x;
+      const y = pos.y;
 
       // ✅ 血量同源（TUNING.MINI_BOSS）
       const health = this._computeEnemyMaxHealth(type, enemyConfig, wave, config);
@@ -2531,9 +2826,9 @@ class GameState {
         type: type,
         health: health,
         maxHealth: health,
-        speed: enemyConfig.SPEED || 3,
+        speed: this._applyEnemySpeed(enemyConfig.SPEED || 3),
         size: enemyConfig.SIZE || 64,
-        experienceValue: enemyConfig.EXPERIENCE || 5,
+        experienceValue: this._experienceValue(type, enemyConfig),
         isDead: false,
         damage: (typeof enemyConfig.DAMAGE === 'number') ? enemyConfig.DAMAGE : 20,
         rangedAttack,
@@ -2553,17 +2848,12 @@ class GameState {
   spawnBoss(config) {
     if (!config || !config.ENEMIES) return;
 
-    let type = 'BOSS';
-    if (this.selectedMap) {
-      if (this.selectedMap.id === 'garden') type = 'ELF_BOSS';
-      else if (this.selectedMap.id === 'intersection') type = 'HUMAN_BOSS';
-      else if (this.selectedMap.id === 'branch') type = 'UNKNOWN_BOSS';
-    }
+    const type = WaveRules.bossTypeForMap(this._getActiveMapId());
 
     const enemyConfig = config.ENEMIES[type] || config.ENEMIES['BOSS'];
     if (!enemyConfig) return;
 
-    const spawn = this._pickEdgeSpawn(120);
+    // 組隊首領出生在中央：跟單機一樣，第 20 波首領直接出現在地圖中心
     const worldWidth = this.worldWidth || 3840;
     const worldHeight = this.worldHeight || 2160;
 
@@ -2572,18 +2862,21 @@ class GameState {
     const rangedAttack = this._shouldEnableRanged(type, enemyConfig) ? (enemyConfig.RANGED_ATTACK || null) : null;
     this.enemies.push({
       id: `final_boss_${Date.now()}`,
-      x: spawn.x,
-      y: spawn.y,
+      x: worldWidth / 2,
+      y: worldHeight / 2,
       type: type,
       health: health,
       maxHealth: health,
-      speed: enemyConfig.SPEED || 4,
+      speed: this._applyEnemySpeed(enemyConfig.SPEED || 4),
       size: enemyConfig.SIZE || 128,
-      experienceValue: enemyConfig.EXPERIENCE || 5,
+      experienceValue: this._experienceValue(type, enemyConfig),
       isDead: false,
       damage: (typeof enemyConfig.DAMAGE === 'number') ? enemyConfig.DAMAGE : 50,
       rangedAttack,
-      lastRangedAttackAt: 0
+      lastRangedAttackAt: 0,
+      collisionRadius: (typeof enemyConfig.COLLISION_RADIUS === 'number' && enemyConfig.COLLISION_RADIUS > 0)
+        ? enemyConfig.COLLISION_RADIUS
+        : ((enemyConfig.SIZE || 128) / 2)
     });
     // ✅ 修羅彈幕：Boss 出現後啟動環狀旋轉彈幕（同源 wave.js）
     try {
@@ -2596,25 +2889,29 @@ class GameState {
   // ✅ 服务器权威：更新经验球（检测玩家收集）
   updateExperienceOrbs(deltaTime) {
     const deltaMul = (deltaTime || 16.67) / 16.67;
-    const attractRange = 220; // 與單機體感接近：靠近後會被吸過來
     const attractSpeed = 7.5; // 像素/16.67ms
     for (let i = this.experienceOrbs.length - 1; i >= 0; i--) {
       const orb = this.experienceOrbs[i];
 
-      // ✅ 伺服器權威吸附：朝最近的活著玩家靠近（恢復「經驗可吸」）
+      // ✅ 伺服器權威吸附：朝最近的活著玩家靠近。距離與單機相同：100×該玩家的拾取範圍
       try {
         let nearest = null;
-        let nearestDist = Infinity;
+        let nearestDistSq = Infinity;
         for (const p of this.players.values()) {
           if (!p || p.isDead || p.health <= 0) continue;
           const dx = p.x - orb.x;
           const dy = p.y - orb.y;
-          const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < nearestDist) {
-            nearestDist = d;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < nearestDistSq) {
+            nearestDistSq = d2;
             nearest = p;
           }
         }
+        const nearestDist = Math.sqrt(nearestDistSq);
+        const rangeMul = (nearest && nearest.meta && typeof nearest.meta.pickupRangeMultiplier === 'number')
+          ? Math.max(1, Math.min(5, nearest.meta.pickupRangeMultiplier))
+          : 1;
+        const attractRange = 100 * rangeMul; // 組隊拾取範圍
         if (nearest && nearestDist < attractRange && nearestDist > 0.0001) {
           const dx = nearest.x - orb.x;
           const dy = nearest.y - orb.y;
@@ -2631,13 +2928,13 @@ class GameState {
         const dx = player.x - orb.x;
         const dy = player.y - orb.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const collisionRadius = (orb.size || 20) / 2 + 16; // 玩家半径约16
+        const collisionRadius = (orb.size || 20) / 2 + this._playerBodyRadius(player);
 
         if (dist < collisionRadius) {
           // ✅ 流量優化：音效是單機元素，不需要通過伺服器發送（節省流量）
           // 客戶端會在本地播放音效：當伺服器同步 experience 時，客戶端 handleServerGameState 會調用
           // Game.player.gainExperience(deltaExp)，在 gainExperience() 中播放 collect_exp 音效
-          // ✅ 经验共享（服务器权威）：移除经验球，并把经验值发给所有玩家
+          // 組隊經驗共用：怪變厚，一顆經驗全隊一起拿
           const value = Math.max(0, Math.floor(orb.value || 0));
           if (value > 0) {
             for (const p of this.players.values()) {
@@ -2685,6 +2982,9 @@ class GameState {
 
   // ✅ 服务器权威：尝试收集宝箱
   collectChest(uid, chestId) {
+    // 組隊倒地不撿箱：死人的請求不要把箱子刪掉
+    const player = this.players.get(uid);
+    if (!player || player.isDead || player.health <= 0) return null;
     const chestIndex = this.chests.findIndex(c => c.id === chestId);
     if (chestIndex === -1) {
       return null;
@@ -2710,9 +3010,7 @@ class GameState {
   updateWave(now) {
     const waveElapsed = now - this.waveStartTime;
     // ✅ 與單機一致：使用 CONFIG.WAVES.DURATION（缺省 60s）
-    const waveDuration = (this.config && this.config.WAVES && typeof this.config.WAVES.DURATION === 'number')
-      ? this.config.WAVES.DURATION
-      : 60000; // 60秒一波
+    const waveDuration = WaveRules.waveDurationMs(this.config && this.config.WAVES);
 
     if (waveElapsed >= waveDuration) {
       this.wave++;
@@ -2722,11 +3020,7 @@ class GameState {
 
       // ✅ 與單機一致：用 CONFIG.WAVES.ENEMY_SPAWN_RATE（初始/每波遞減/最小值）
       try {
-        const rateCfg = (this.config && this.config.WAVES && this.config.WAVES.ENEMY_SPAWN_RATE) ? this.config.WAVES.ENEMY_SPAWN_RATE : null;
-        const initial = rateCfg && typeof rateCfg.INITIAL === 'number' ? rateCfg.INITIAL : 2000;
-        const dec = rateCfg && typeof rateCfg.DECREASE_PER_WAVE === 'number' ? rateCfg.DECREASE_PER_WAVE : 100;
-        const min = rateCfg && typeof rateCfg.MINIMUM === 'number' ? rateCfg.MINIMUM : 300;
-        this.enemySpawnRate = Math.max(min, initial - (this.wave - 1) * dec);
+        this._refreshEnemySpawnRate();
       } catch (_) { }
 
       // ✅ 與單機一致：每一波固定生成一隻小BOSS（由 nextWave 觸發）
@@ -2784,6 +3078,7 @@ class GameState {
       width: obs.size || 150,
       height: obs.size || 150
     }));
+    this._staticRev = (this._staticRev || 0) + 1;
     console.log(`[GameState.setObstacles] ✅ 已设置障碍物，数量=${this.obstacles.length}, mapId=${mapId || 'N/A'}`);
   }
 
@@ -2803,6 +3098,7 @@ class GameState {
       height: deco.height || 100,
       imageKey: deco.imageKey
     }));
+    this._staticRev = (this._staticRev || 0) + 1;
     console.log(`[GameState.setDecorations] ✅ 已设置装饰物，数量=${this.decorations.length}, mapId=${mapId || 'N/A'}`);
   }
 
@@ -2825,8 +3121,8 @@ class GameState {
   // ✅ 服务器权威：更新路口车辆
   updateCarHazards(deltaTime) {
     const deltaMul = deltaTime / 16.67;
-    const worldWidth = this.worldWidth || 1920;
-    const worldHeight = this.worldHeight || 1080;
+    const worldWidth = this.worldWidth || 3840;
+    const worldHeight = this.worldHeight || 2160;
     const despawnPad = 400;
 
     for (let i = this.carHazards.length - 1; i >= 0; i--) {
@@ -2877,7 +3173,7 @@ class GameState {
           // 矩形与圆形碰撞检测
           const rectX = car.x - car.width / 2;
           const rectY = car.y - car.height / 2;
-          const playerRadius = 16; // 玩家半径约16
+          const playerRadius = this._playerBodyRadius(player);
 
           // 计算矩形中心到圆心的最近点
           const closestX = Math.max(rectX, Math.min(player.x, rectX + car.width));
@@ -2954,8 +3250,8 @@ class GameState {
       });
     } catch (_) {}
 
-    const worldWidth = this.worldWidth || 1920;
-    const worldHeight = this.worldHeight || 1080;
+    const worldWidth = this.worldWidth || 3840;
+    const worldHeight = this.worldHeight || 2160;
     const carSpeed = 15; // 固定速度
     const count = 4; // 每批生成4台
     const damage = 100;
@@ -3057,8 +3353,8 @@ class GameState {
   spawnFBICars(uid, input) {
     const player = this.players.get(uid);
     if (!player || player.isDead) return;
-    const worldWidth = this.worldWidth || 1920;
-    const worldHeight = this.worldHeight || 1080;
+    const worldWidth = this.worldWidth || 3840;
+    const worldHeight = this.worldHeight || 2160;
     const carSpeed = 15;
     const damage = (typeof input.finalDamage === 'number') ? input.finalDamage : 10;
     const width = 320;
@@ -3245,7 +3541,8 @@ class GameState {
         maxLife: b.maxLife,
         size: b.size,
         color: b.color,
-        damage: b.damage
+        damage: b.damage,
+        id: b.id
       }) : null)).filter(Boolean)
       : [];
 
@@ -3254,7 +3551,27 @@ class GameState {
       : [];
 
     const chestsSlim = hasSession
-      ? (this.chests || []).map(c => (c ? ({ id: c.id, x: c.x, y: c.y, kind: c.kind, createdAt: c.createdAt }) : null)).filter(Boolean)
+      ? (this.chests || []).map(c => {
+        if (!c) return null;
+        // 組隊鳳梨要像鳳梨：種類和飛出起點要送出去，不然客戶端會畫成普通寶箱
+        const row = {
+          id: c.id,
+          x: c.x,
+          y: c.y,
+          type: c.type || 'NORMAL',
+          createdAt: c.createdAt
+        };
+        if (row.type === 'PINEAPPLE' || row.type === 'PINEAPPLE_SUPPLEMENT') {
+          if (typeof c.spawnX === 'number') row.spawnX = c.spawnX;
+          if (typeof c.spawnY === 'number') row.spawnY = c.spawnY;
+          if (typeof c.flyDurationMs === 'number') row.flyDurationMs = c.flyDurationMs;
+        }
+        if (row.type === 'PINEAPPLE_SUPPLEMENT') {
+          if (typeof c.expireMs === 'number') row.expireMs = c.expireMs;
+          if (typeof c.healAmount === 'number') row.healAmount = c.healAmount;
+        }
+        return row;
+      }).filter(Boolean)
       : [];
 
     const carHazardsSlim = hasSession

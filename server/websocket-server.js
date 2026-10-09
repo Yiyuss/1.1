@@ -37,7 +37,8 @@ const gameStates = new Map();
 
 // ✅ 权威服务器：游戏循环
 // - 模拟：60Hz（保持碰撞/AI 细腻）
-// - 广播：基準 30Hz，晚局依狀態大小自動降頻（避免 JSON/parse 雪崩）
+// - 广播：約 30Hz。配額見 quota_monitor.sh（2TB，95% 停機）。
+//   每人只送自己的畫面，怪多也不改慢，避免一頓一頓。
 const GAME_TICK_INTERVAL = 16.67; // 模拟毫秒
 const BROADCAST_INTERVAL = 33.33; // 基準广播毫秒
 let lastGameUpdate = Date.now();
@@ -244,16 +245,18 @@ function handleJoin(ws, msg) {
   } catch (_) { }
 
   // ✅ 权威服务器：添加玩家到游戏状态
-  const characterId = (msg && typeof msg.characterId === 'string') ? msg.characterId : 'pineapple';
+  const characterId = gameState.normalizePlayableCharacterId(
+    (msg && typeof msg.characterId === 'string' && msg.characterId) ? msg.characterId : 'margaret'
+  );
   const nickname = (msg && typeof msg.nickname === 'string') ? msg.nickname : '玩家';
   // ✅ 使用客戶端發送的 maxHealth（如果有的話），否則使用默認值
   const maxHealth = (msg && typeof msg.maxHealth === 'number' && msg.maxHealth > 0) ? msg.maxHealth : 200;
   gameState.addPlayer(uid, {
-    x: 1920 / 2,
-    y: 1080 / 2,
+    x: (gameState.worldWidth || 3840) / 2,
+    y: (gameState.worldHeight || 2160) / 2,
     health: maxHealth,
     maxHealth: maxHealth,
-    energy: 100,
+    energy: 0,
     maxEnergy: 100,
     level: 1,
     experience: 0,
@@ -277,15 +280,13 @@ function handleJoin(ws, msg) {
     state: (() => {
       const result = gameState.getState();
       const state = result.state || result; // 兼容旧代码
-      // ⚠️ 修复：在 handleJoin() 时，如果 sessionId 为空，仍然返回实际数据
-      // 因为这是新游戏开始，不应该返回空数组
       if (!gameState.currentSessionId) {
         // sessionId 为空，说明是新游戏开始，返回实际数据（可能是空的，但这是正常的）
-        // 不需要特殊处理，因为新游戏开始时数据本来就是空的
       }
       return state;
     })()
   }));
+  ws._lastStaticRev = gameState._staticRev || 0;
 
   // 通知房間內其他用戶（可選，用於統計）
   broadcastToRoom(roomId, ws, {
@@ -318,6 +319,8 @@ function handleGameData(ws, roomId, uid, data) {
       if (typeof data.diffId === 'string') gameState.diffId = data.diffId;
       if (typeof data.mapId === 'string') gameState.mapId = data.mapId;
     } catch (_) { }
+    try { gameState._refreshEnemySpawnRate(); } catch (_) { }
+    try { gameState._refreshMaxEnemiesBonus(); } catch (_) { }
     console.log(`[GameState] 收到CONFIG数据: roomId=${actualRoomId}, uid=${uid}`);
     return;
   }
@@ -399,7 +402,7 @@ function handleGameData(ws, roomId, uid, data) {
   }
 
   // ✅ 权威服务器：处理玩家输入（不转发，服务器处理）
-  if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate' || data.type === 'aoe_tick' || data.type === 'player-meta')) {
+  if (gameState && (data.type === 'move' || data.type === 'attack' || data.type === 'use_ultimate' || data.type === 'aoe_tick' || data.type === 'heal' || data.type === 'player-meta')) {
     // ⚠️ 調試：確認收到輸入
     if (data.type === 'attack') {
       console.log(`[WebSocket.handleGameData] ✅ 收到攻擊輸入: roomId=${actualRoomId}, uid=${uid}, weaponType=${data.weaponType || 'UNKNOWN'}`);
@@ -470,8 +473,7 @@ function handleGameData(ws, roomId, uid, data) {
     return;
   }
 
-  // ✅ 权威服务器：经验共享奖励（由客户端回报 amount，服务器转为权威 counter）
-  // 用途：鳳梨不咬舌掉落物等「特殊经验奖励」
+  // ✅ 权威服务器：鳳梨經驗全隊共用
   if (gameState && data.type === 'award_exp') {
     try {
       const amount = Math.max(0, Math.floor(data.amount || 0));
@@ -483,6 +485,16 @@ function handleGameData(ws, roomId, uid, data) {
         // 舊的 sfxEvents 系統已被移除（survival_team_master_plan.md）
       }
     } catch (_) { }
+    return;
+  }
+
+  // 組隊看得到隊友技能：只轉畫面給其他人，不進權威狀態。自己這台已經畫過了
+  if (gameState && data && data.t === 'event' && data.type === 'projectile_spawn') {
+    broadcastToRoom(actualRoomId, ws, {
+      type: 'game-data',
+      fromUid: uid,
+      data
+    });
     return;
   }
 
@@ -555,6 +567,37 @@ function handleDisconnect(ws) {
 }
 
 // ✅ 权威服务器：游戏循环
+// 同一連線已經看過的 id，下一包只留會變的欄位。第一次出現仍送完整欄位，客戶端才建得出種類與尺寸。
+function slimKnown(list, prev, keep) {
+  const next = new Set();
+  if (!Array.isArray(list)) return { list: list, next: next };
+  const out = new Array(list.length);
+  for (let i = 0; i < list.length; i++) {
+    const item = list[i];
+    if (!item || typeof item.id !== 'string') {
+      out[i] = item;
+      continue;
+    }
+    next.add(item.id);
+    if (!prev || !prev.has(item.id)) {
+      out[i] = item;
+      continue;
+    }
+    const slim = { id: item.id };
+    for (let k = 0; k < keep.length; k++) {
+      const key = keep[k];
+      if (item[key] !== undefined) slim[key] = item[key];
+    }
+    out[i] = slim;
+  }
+  return { list: out, next: next };
+}
+
+const ENEMY_LIVE_KEYS = ['x', 'y', 'health', 'isDead', 'isDying', 'killerUid', 'deathElapsed', 'deathVelX', 'deathVelY', 'hitFlashTime'];
+const PROJECTILE_LIVE_KEYS = ['x', 'y', 'angle', 'assignedTargetId'];
+const BOSS_PROJECTILE_LIVE_KEYS = ['x', 'y', 'angle', 'vx', 'vy'];
+const BULLET_LIVE_KEYS = ['x', 'y', 'vx', 'vy', 'life'];
+
 function gameLoop() {
   const now = Date.now();
   let deltaTime = now - lastGameUpdate;
@@ -572,16 +615,9 @@ function gameLoop() {
       // 更新游戏状态
       gameState.update(deltaTime);
 
-      // 广播游戏状态给所有客户端（晚局自动降频）
-      const enemyCount = Array.isArray(gameState.enemies) ? gameState.enemies.length : 0;
-      const projCount = Array.isArray(gameState.projectiles) ? gameState.projectiles.length : 0;
-      const bulletCount = Array.isArray(gameState.bullets) ? gameState.bullets.length : 0;
-      let interval = BROADCAST_INTERVAL; // base ~30Hz
-      // ✅ 晚局：数量越大越降频（优先保活不卡死）
-      if (enemyCount > 450 || bulletCount > 800 || projCount > 500) interval = 200; // ~5Hz
-      else if (enemyCount > 350 || bulletCount > 500 || projCount > 350) interval = 100; // ~10Hz
+      // 广播遊戲狀態。維持約 30Hz：2TB 配額在畫面範圍內撐得住，降到 5Hz 會變成一頓一頓。
       const lastAt = (typeof gameState._lastBroadcastAt === 'number') ? gameState._lastBroadcastAt : 0;
-      if (now - lastAt >= interval) {
+      if (now - lastAt >= BROADCAST_INTERVAL) {
         gameState._lastBroadcastAt = now;
         const result = gameState.getState();
         const state = result.state || result; // 兼容旧代码
@@ -599,23 +635,35 @@ function gameLoop() {
             }
           } catch (_) { }
 
-          // 世界中心作為後備（避免找不到玩家時崩潰）
-          const fallbackX = (typeof gameState.worldWidth === 'number') ? (gameState.worldWidth / 2) : 1920;
-          const fallbackY = (typeof gameState.worldHeight === 'number') ? (gameState.worldHeight / 2) : 1080;
+          // 鏡頭與單機相同：1280×720，跟著玩家，夾在世界邊界。
+          // 外圈 320：大怪半身、鏡頭晃、車速 15 在慢更新時不會已進入畫面才出現。
+          const worldW = (typeof gameState.worldWidth === 'number') ? gameState.worldWidth : 3840;
+          const worldH = (typeof gameState.worldHeight === 'number') ? gameState.worldHeight : 2160;
+          const fallbackX = worldW / 2;
+          const fallbackY = worldH / 2;
+          const VIEW_W = 1280;
+          const VIEW_H = 720;
+          const VIEW_PAD = 320;
 
-          // 以 1280x720 的半對角線 + margin 估算（世界座標）
-          const R_ENEMIES = 1400;
-          const R_PROJECTILES = 1700;
-          const R_BULLETS = 1800;
-          const R_ORBS = 1600;
-          const R_CHESTS = 2200;
-          const R_CARS = 2600;
-          const R_HIT = 1800;
-
-          const within = (x, y, cx, cy, r2) => {
-            const dx = x - cx;
-            const dy = y - cy;
-            return (dx * dx + dy * dy) <= r2;
+          const cameraView = (px, py) => {
+            const maxX = Math.max(0, worldW - VIEW_W);
+            const maxY = Math.max(0, worldH - VIEW_H);
+            const camX = Math.max(0, Math.min(px - VIEW_W / 2, maxX));
+            const camY = Math.max(0, Math.min(py - VIEW_H / 2, maxY));
+            return {
+              left: camX - VIEW_PAD,
+              right: camX + VIEW_W + VIEW_PAD,
+              top: camY - VIEW_PAD,
+              bottom: camY + VIEW_H + VIEW_PAD
+            };
+          };
+          const inView = (x, y, v) => x >= v.left && x <= v.right && y >= v.top && y <= v.bottom;
+          const segNearView = (x1, y1, x2, y2, v) => {
+            const minX = Math.min(x1, x2);
+            const maxX = Math.max(x1, x2);
+            const minY = Math.min(y1, y2);
+            const maxY = Math.max(y1, y2);
+            return maxX >= v.left && minX <= v.right && maxY >= v.top && minY <= v.bottom;
           };
 
           for (const clientWs of room) {
@@ -626,62 +674,74 @@ function gameLoop() {
               const ps = uid ? pmap.get(uid) : null;
               const cx = (ps && typeof ps.x === 'number') ? ps.x : fallbackX;
               const cy = (ps && typeof ps.y === 'number') ? ps.y : fallbackY;
-
-              const r2e = R_ENEMIES * R_ENEMIES;
-              const r2p = R_PROJECTILES * R_PROJECTILES;
-              const r2b = R_BULLETS * R_BULLETS;
-              const r2o = R_ORBS * R_ORBS;
-              const r2c = R_CHESTS * R_CHESTS;
-              const r2car = R_CARS * R_CARS;
-              const r2h = R_HIT * R_HIT;
+              const view = cameraView(cx, cy);
 
               const enemies = Array.isArray(state.enemies)
-                ? state.enemies.filter(e => e && typeof e.x === 'number' && typeof e.y === 'number' && within(e.x, e.y, cx, cy, r2e))
+                ? state.enemies.filter(e => e && typeof e.x === 'number' && typeof e.y === 'number' && inView(e.x, e.y, view))
                 : [];
               const projectiles = Array.isArray(state.projectiles)
-                ? state.projectiles.filter(p => p && typeof p.x === 'number' && typeof p.y === 'number' && within(p.x, p.y, cx, cy, r2p))
+                ? state.projectiles.filter(p => p && typeof p.x === 'number' && typeof p.y === 'number' && inView(p.x, p.y, view))
                 : [];
               const bossProjectiles = Array.isArray(state.bossProjectiles)
-                ? state.bossProjectiles.filter(p => p && typeof p.x === 'number' && typeof p.y === 'number' && within(p.x, p.y, cx, cy, r2p))
+                ? state.bossProjectiles.filter(p => p && typeof p.x === 'number' && typeof p.y === 'number' && inView(p.x, p.y, view))
                 : [];
               const bossLasers = Array.isArray(state.bossLasers)
                 ? state.bossLasers.filter(bl => {
                     if (!bl || typeof bl.startX !== 'number' || typeof bl.startY !== 'number') return false;
-                    const midX = (bl.startX + (bl.endX || bl.startX)) / 2;
-                    const midY = (bl.startY + (bl.endY || bl.startY)) / 2;
-                    return within(midX, midY, cx, cy, r2p);
+                    return segNearView(bl.startX, bl.startY, bl.endX || bl.startX, bl.endY || bl.startY, view);
                   })
                 : [];
               const bullets = Array.isArray(state.bullets)
-                ? state.bullets.filter(b => b && typeof b.x === 'number' && typeof b.y === 'number' && within(b.x, b.y, cx, cy, r2b))
+                ? state.bullets.filter(b => b && typeof b.x === 'number' && typeof b.y === 'number' && inView(b.x, b.y, view))
                 : [];
               const experienceOrbs = Array.isArray(state.experienceOrbs)
-                ? state.experienceOrbs.filter(o => o && typeof o.x === 'number' && typeof o.y === 'number' && within(o.x, o.y, cx, cy, r2o))
+                ? state.experienceOrbs.filter(o => o && typeof o.x === 'number' && typeof o.y === 'number' && inView(o.x, o.y, view))
                 : [];
               const chests = Array.isArray(state.chests)
-                ? state.chests.filter(c => c && typeof c.x === 'number' && typeof c.y === 'number' && within(c.x, c.y, cx, cy, r2c))
+                ? state.chests.filter(c => c && typeof c.x === 'number' && typeof c.y === 'number' && inView(c.x, c.y, view))
                 : [];
               const carHazards = Array.isArray(state.carHazards)
-                ? state.carHazards.filter(c => c && typeof c.x === 'number' && typeof c.y === 'number' && within(c.x, c.y, cx, cy, r2car))
+                ? state.carHazards.filter(c => c && typeof c.x === 'number' && typeof c.y === 'number' && inView(c.x, c.y, view))
                 : [];
               const hitEvents = Array.isArray(state.hitEvents)
-                ? state.hitEvents.filter(ev => ev && typeof ev.x === 'number' && typeof ev.y === 'number' && within(ev.x, ev.y, cx, cy, r2h))
+                ? state.hitEvents.filter(ev => ev && typeof ev.x === 'number' && typeof ev.y === 'number' && inView(ev.x, ev.y, view))
                 : [];
+
+              const enemySlimmed = slimKnown(enemies, clientWs._seenEnemyIds, ENEMY_LIVE_KEYS);
+              const projSlimmed = slimKnown(projectiles, clientWs._seenProjectileIds, PROJECTILE_LIVE_KEYS);
+              const bossProjSlimmed = slimKnown(bossProjectiles, clientWs._seenBossProjectileIds, BOSS_PROJECTILE_LIVE_KEYS);
+              const bulletSlimmed = slimKnown(bullets, clientWs._seenBulletIds, BULLET_LIVE_KEYS);
 
               const tailored = {
                 ...state,
-                enemies,
-                projectiles,
-                bossProjectiles,
+                enemies: enemySlimmed.list,
+                projectiles: projSlimmed.list,
+                bossProjectiles: bossProjSlimmed.list,
                 bossLasers,
-                bullets,
+                bullets: bulletSlimmed.list,
                 experienceOrbs,
                 chests,
                 carHazards,
                 hitEvents
               };
 
+              // 障礙／裝飾是靜態：只在變更（或此連線還沒拿過）時下發，避免 30Hz 重複整圖
+              const staticRev = gameState._staticRev || 0;
+              if (clientWs._lastStaticRev === staticRev) {
+                delete tailored.obstacles;
+                delete tailored.decorations;
+              } else {
+                clientWs._lastStaticRev = staticRev;
+              }
+              if (!Array.isArray(tailored.vfxEvents) || tailored.vfxEvents.length === 0) {
+                delete tailored.vfxEvents;
+              }
+
               clientWs.send(JSON.stringify({ type: 'game-state', state: tailored, timestamp: now }));
+              clientWs._seenEnemyIds = enemySlimmed.next;
+              clientWs._seenProjectileIds = projSlimmed.next;
+              clientWs._seenBossProjectileIds = bossProjSlimmed.next;
+              clientWs._seenBulletIds = bulletSlimmed.next;
             } catch (_) { }
           }
         } else {

@@ -188,6 +188,8 @@ class IceFieldEffect extends Entity {
         this.startTime = Date.now();
         this.player = player;
         this.weaponType = 'BIG_ICE_BALL';
+        this.isGroundField = true;
+        this._ownsNetTick = true;
         
         // 伤害间隔（与守护领域相同）
         const cfg = (CONFIG && CONFIG.WEAPONS && CONFIG.WEAPONS.BIG_ICE_BALL) || {};
@@ -230,12 +232,14 @@ class IceFieldEffect extends Entity {
             for (const enemy of candidates) {
                 if (this.isColliding(enemy)) {
                     // 应用缓速效果（如果还没有应用，或者缓速效果已过期）
+                    let netSlow = false;
                     if (typeof enemy.applySlow === 'function') {
                         const needsSlow = !this.slowedEnemies.has(enemy.id) || 
                                         (enemy.isSlowed && Date.now() > enemy.slowEndTime);
                         if (needsSlow) {
                             enemy.applySlow(this.slowDurationMs, this.slowFactor);
                             this.slowedEnemies.add(enemy.id);
+                            netSlow = true;
                         }
                     }
                     
@@ -263,11 +267,7 @@ class IceFieldEffect extends Entity {
                     const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                     let isSurvivalMode = false;
                     try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
+                        const activeId = Utils.getActiveModeId();
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
@@ -297,6 +297,10 @@ class IceFieldEffect extends Entity {
                                 radius: 1,
                                 enemyIds: [enemy.id],
                                 damage: finalDamage,
+                                preRolled: true,
+                                isCrit: isCrit,
+                                slowMs: netSlow ? this.slowDurationMs : 0,
+                                slowFactor: this.slowFactor,
                                 allowCrit: true,
                                 critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                             });

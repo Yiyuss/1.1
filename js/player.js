@@ -1,41 +1,3 @@
-/**
- * 玩家扣血除錯日誌（預設關閉）
- * 啟用擇一：① 網址 ?damageLog=1 ② 主控台 window.MT_DAMAGE_LOG = true ③ localStorage.setItem('mt_damageLog','1') 後重新整理
- * 選用：?damageLogStack=1 或 window.MT_DAMAGE_LOG_STACK = true 會附加簡短堆疊
- * 最近紀錄：window.__MT_DAMAGE_LOG_BUFFER__（最多 40 筆，供複製回報）
- */
-function mtIsPlayerDamageLogEnabled() {
-    try {
-        if (typeof window !== 'undefined') {
-            if (window.MT_DAMAGE_LOG === true || window.MT_DAMAGE_LOG === 1) return true;
-            if (window.localStorage && window.localStorage.getItem('mt_damageLog') === '1') return true;
-            const s = window.location && window.location.search;
-            if (s && /(?:^|[?&])damageLog=1(?:&|$)/.test(s)) return true;
-        }
-    } catch (_) { }
-    return false;
-}
-
-function mtPlayerDamageLogWantStack() {
-    try {
-        if (typeof window !== 'undefined') {
-            if (window.MT_DAMAGE_LOG_STACK === true || window.MT_DAMAGE_LOG_STACK === 1) return true;
-            const s = window.location && window.location.search;
-            if (s && /(?:^|[?&])damageLogStack=1(?:&|$)/.test(s)) return true;
-        }
-    } catch (_) { }
-    return false;
-}
-
-function mtPushPlayerDamageLogEntry(entry) {
-    try {
-        if (typeof window === 'undefined') return;
-        if (!window.__MT_DAMAGE_LOG_BUFFER__) window.__MT_DAMAGE_LOG_BUFFER__ = [];
-        window.__MT_DAMAGE_LOG_BUFFER__.push(entry);
-        while (window.__MT_DAMAGE_LOG_BUFFER__.length > 40) window.__MT_DAMAGE_LOG_BUFFER__.shift();
-    } catch (_) { }
-}
-
 // 玩家類
 class Player extends Entity {
     constructor(x, y) {
@@ -98,6 +60,8 @@ class Player extends Entity {
         // 生命自然恢復：每5秒回1HP（不溢出，上限100）
         this.healthRegenIntervalMs = 5000;
         this.healthRegenAccumulator = 0;
+        // 本場：合成鳳梨補品後保留 LV10 腎上腺素回血（不寫存檔）
+        this._sessionKeptAdrenalineRegenLevel = 0;
         
         // 初始武器 - 飛鏢
         this.addWeapon('DAGGER');
@@ -115,25 +79,7 @@ class Player extends Entity {
      */
     static computeExperienceToNextLevel(level) {
         const cfg = (typeof CONFIG !== 'undefined' && CONFIG.EXPERIENCE) ? CONFIG.EXPERIENCE : null;
-        const base = cfg ? (cfg.LEVEL_UP_BASE || 80) : 80;
-        const mult = cfg ? (cfg.LEVEL_UP_MULTIPLIER || 1.12) : 1.12;
-        const softcap = cfg ? (cfg.SOFTCAP_LEVEL || 20) : 20;
-        const lateMult = cfg ? (cfg.LEVEL_UP_MULTIPLIER_LATE || 1.07) : 1.07;
-        const lateLinear = cfg ? (cfg.LEVEL_UP_LINEAR_LATE || 30) : 30;
-
-        const lv = Math.max(1, Math.floor(level || 1));
-
-        // 1) 前期：完全沿用舊公式（確保 1~20 手感不變）
-        if (lv <= softcap) {
-            return Math.floor(base * Math.pow(mult, lv - 1));
-        }
-
-        // 2) 後期：以 softcap 當錨點，改用較緩的倍率 + 線性補償（仍會越來越難，但不再指數爆炸）
-        const xpAtSoftcap = Math.floor(base * Math.pow(mult, softcap - 1));
-        const n = lv - softcap; // 從 softcap 後第 n 級開始
-        const value = xpAtSoftcap * Math.pow(lateMult, n) + lateLinear * n;
-        // 保底至少比 softcap 時更高，且至少 1
-        return Math.max(1, Math.floor(value));
+        return ExperienceCurve.computeToNextLevel(level, cfg);
     }
 
     /**
@@ -143,15 +89,21 @@ class Player extends Entity {
      * @param {Set|string[]|null} weaponTypesFilter - null=清除全部；Set/Array=僅清除指定 weaponType
      * @param {Set|string[]|null} excludeTypes - 排除的 weaponType（不清除）；用於遠程開大時保留已到達的大招投射物
      */
-    static clearPlayerProjectiles(targetPlayer, weaponTypesFilter, excludeTypes) {
+    static clearPlayerProjectiles(targetPlayer, weaponTypesFilter, excludeTypes, keepIfYoungerThanMs) {
         if (!targetPlayer || typeof Game === 'undefined' || !Array.isArray(Game.projectiles)) return;
         const filterSet = (weaponTypesFilter == null) ? null : new Set(Array.isArray(weaponTypesFilter) ? weaponTypesFilter : [weaponTypesFilter]);
         const excludeSet = (excludeTypes == null) ? null : new Set(Array.isArray(excludeTypes) ? excludeTypes : [excludeTypes]);
+        const keepYoung = (typeof keepIfYoungerThanMs === 'number' && keepIfYoungerThanMs > 0) ? keepIfYoungerThanMs : 0;
         try {
             for (const p of Game.projectiles) {
                 if (!p || p.markedForDeletion || p.player !== targetPlayer) continue;
                 if (excludeSet && p.weaponType && excludeSet.has(p.weaponType)) continue;
                 if (filterSet !== null && (!p.weaponType || !filterSet.has(p.weaponType))) continue;
+                // 組隊大招結束留技能：剛出現的是大招結束後回來的原技能，不要清
+                if (keepYoung) {
+                    const born = p._netSeenAt || p.startTime || 0;
+                    if (!born || (Date.now() - born) < keepYoung) continue;
+                }
                 try {
                     if (typeof p._destroyDom === 'function') p._destroyDom();
                     if (p.el && p.el.parentNode) { p.el.parentNode.removeChild(p.el); p.el = null; }
@@ -163,6 +115,9 @@ class Player extends Entity {
     }
     
     update(deltaTime) {
+        // 大招時間到一定收：放在移動前面。滑鼠走位若在後面拋錯，這一幀就不會收到變身。
+        this._endUltimateIfTimeUp();
+
         // 組隊模式：死亡時不更新移動和武器
         if (this._isDead) {
             // 處理復活邏輯
@@ -233,14 +188,19 @@ class Player extends Entity {
             this._resolveObstacleOverlap();
         }
         
-        // 能量自然恢復（每秒+1，封頂100；覺醒能量：+100% 恢復速度）
-        const energyMul = 1.0 + (this.awakeningEnergyRegenBoost || 0);
-        this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegenRate * energyMul * (deltaTime / 1000));
-        UI.updateEnergyBar(this.energy, this.maxEnergy);
+        // 組隊能量跟伺服器：客戶端再加會先滿，剛按大招伺服器還沒滿就不會放
+        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+        if (!isMultiplayer) {
+            const energyMul = 1.0 + (this.awakeningEnergyRegenBoost || 0);
+            this.energy = Math.min(this.maxEnergy, this.energy + this.energyRegenRate * energyMul * (deltaTime / 1000));
+        }
+        // 組隊介面不跟隊友：血條能量條只畫自己。隊友的更新會把你的條蓋成他們的
+        if (!this._isRemotePlayer) {
+            UI.updateEnergyBar(this.energy, this.maxEnergy);
+        }
 
         // 生命自然恢復：每5秒+1（上限100）
         // ✅ 權威伺服器模式：組隊模式下，回血由伺服器權威處理，客戶端只顯示（避免雙重計算導致跳動）
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         if (!isMultiplayer) {
             // 單機模式：客戶端處理回血（完全正確，0 BUG）
             if (this.health < this.maxHealth) {
@@ -260,29 +220,27 @@ class Player extends Entity {
         }
         // 組隊模式：回血由伺服器權威處理（server/game-state.js updatePlayers），客戶端只更新UI顯示
         // 伺服器同步的 health 會在 handleServerGameState 中更新，這裡只更新UI
-        if (isMultiplayer) {
+        if (isMultiplayer && !this._isRemotePlayer) {
             UI.updateHealthBar(this.health, this.maxHealth);
         }
 
-        // 監聽大招觸發（Q鍵）— 僅當角色允許使用大絕時才處理
-        const qDown = Input.isKeyDown('q') || Input.isKeyDown('Q');
-        if (this.canUseUltimate && qDown && !this.ultimateKeyHeld) {
-            this.tryActivateUltimate();
-        }
-        this.ultimateKeyHeld = qDown;
-
-        // 大招結束判定
-        if (this.isUltimateActive && Date.now() >= this.ultimateEndTime) {
-            this.deactivateUltimate();
-        }
-
-        // 厄倫蒂兒大招（非變身）：分身時間到清理（保險，避免殘留）
-        try {
-            if (this._elondierCloneUltimateEndTime && Date.now() >= this._elondierCloneUltimateEndTime) {
-                this._elondierCloneUltimateEndTime = 0;
-                this._deactivateElondierUltimateClones();
+        // 組隊介面不跟隊友：Q 和大招結束只算自己。不然你按 Q，能量滿的隊友也會在你這台開大
+        if (!this._isRemotePlayer) {
+            const qDown = Input.isKeyDown('q') || Input.isKeyDown('Q');
+            if (this.canUseUltimate && qDown && !this.ultimateKeyHeld) {
+                this.tryActivateUltimate();
             }
-        } catch (_) { }
+            this.ultimateKeyHeld = qDown;
+
+            this._endUltimateIfTimeUp();
+
+            try {
+                if (this._elondierCloneUltimateEndTime && Date.now() >= this._elondierCloneUltimateEndTime) {
+                    this._elondierCloneUltimateEndTime = 0;
+                    this._deactivateElondierUltimateClones();
+                }
+            } catch (_) { }
+        }
 
         // 更新無敵狀態
         if (this.isInvulnerable) {
@@ -337,11 +295,7 @@ class Player extends Entity {
             try {
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
@@ -731,57 +685,7 @@ class Player extends Entity {
         const talentDef = this.damageReductionFlat || 0;
         const reduction = baseDef + talentDef;
         const effective = Math.max(0, amount - reduction);
-
-        if (effective > 0 && mtIsPlayerDamageLogEnabled()) {
-            const prevHealth = this.health;
-            let wave = null;
-            try {
-                if (typeof WaveSystem !== 'undefined' && typeof WaveSystem.currentWave === 'number') wave = WaveSystem.currentWave;
-            } catch (_) { }
-            let diffId = null;
-            try {
-                if (typeof Game !== 'undefined' && Game.difficulty && Game.difficulty.id) diffId = Game.difficulty.id;
-            } catch (_) { }
-            const entry = {
-                iso: new Date().toISOString(),
-                rawAmount: amount,
-                effective,
-                defenseReduction: reduction,
-                options: {
-                    source: options && options.source,
-                    weaponType: options && options.weaponType,
-                    ignoreInvulnerability: !!(options && options.ignoreInvulnerability),
-                    ignoreDodge: !!(options && options.ignoreDodge)
-                },
-                invulnAtApply: {
-                    isInvulnerable: !!this.isInvulnerable,
-                    source: this.invulnerabilitySource,
-                    timeMs: this.invulnerabilityTime,
-                    durationMs: this.invulnerabilityDuration
-                },
-                hp: { before: prevHealth, after: prevHealth - effective, max: this.maxHealth },
-                context: {
-                    mapId: (typeof Game !== 'undefined' && Game.selectedMap) ? Game.selectedMap.id : null,
-                    characterId: (typeof Game !== 'undefined' && Game.selectedCharacter) ? Game.selectedCharacter.id : null,
-                    wave,
-                    diffId,
-                    multiplayer: !!(typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled)
-                }
-            };
-            if (mtPlayerDamageLogWantStack()) {
-                try {
-                    const st = (new Error()).stack;
-                    entry.callerStack = st ? String(st).split('\n').slice(1, 8).join('\n') : null;
-                } catch (_) { entry.callerStack = null; }
-            }
-            try {
-                console.warn('[馬桶坐坐 扣血紀錄] 請複製下列 JSON 回報開發者 →', JSON.stringify(entry));
-            } catch (_) {
-                console.warn('[馬桶坐坐 扣血紀錄]', entry);
-            }
-            mtPushPlayerDamageLogEntry(entry);
-        }
-
+        
         this.health -= effective;
         if (this.health <= 0) {
             this.health = 0;
@@ -812,9 +716,24 @@ class Player extends Entity {
         this.invulnerabilityTime = 0;
         this.invulnerabilityDuration = d > 0 ? d : this.invulnerabilityDuration;
         this.invulnerabilitySource = 'INVINCIBLE';
+        // 組隊無敵立刻送：否則伺服器最多半秒後才知道，這段時間仍會扣血
+        this._requestTeamInvincibleMeta();
         // ✅ 修复：不在这里创建 InvincibleEffect，因为 weapon.js 的 fire() 方法已经创建了
         // 如果这里也创建，会导致重复创建，造成重叠问题
         // 这里只设置无敌状态，视觉效果由 weapon.js 的 fire() 方法处理
+    }
+
+    _requestTeamInvincibleMeta() {
+        if (this._isRemotePlayer) return;
+        if (typeof Game === 'undefined' || !(Game.multiplayer && Game.multiplayer.enabled)) return;
+        try {
+            if (typeof Utils !== 'undefined' && Utils.isSurvivalModeContext && !Utils.isSurvivalModeContext()) return;
+        } catch (_) { return; }
+        try {
+            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.requestImmediatePlayerMeta === 'function') {
+                window.SurvivalOnlineRuntime.requestImmediatePlayerMeta();
+            }
+        } catch (_) {}
     }
     
     // 死亡
@@ -831,36 +750,13 @@ class Player extends Entity {
          
         // 組隊模式：死亡時停止攻擊和移動，但不結束遊戲
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer);
-        const isServerAuthoritative = !!(isMultiplayer && Game.multiplayer && Game.multiplayer.enabled);
         if (isMultiplayer) {
-             // 清除所有武器（停止攻擊）
-             this.clearWeapons();
+             // 組隊復活留技能：死人本來就不會再放技能。清掉的話，拉起來只剩一把匕首
              // 血量歸0
              this.health = 0;
              // 復活進度重置
              this._resurrectionProgress = 0;
              this._resurrectionRescuer = null;
-
-            // ✅ 權威伺服器模式：死亡/全滅判定由伺服器 state.isDead/state.isGameOver 統一權威
-            // 避免客戶端廣播 player_death/game_over 造成互打與循環。
-            if (!isServerAuthoritative) {
-                // 舊模式（非 enabled）才保留事件廣播（隔離：只允許 survival）
-                let isSurvivalMode = false;
-                try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
-                    isSurvivalMode = (activeId === 'survival' || activeId === null);
-                } catch (_) { }
-                if (isSurvivalMode && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    window.SurvivalOnlineBroadcastEvent("player_death", {
-                        playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                    });
-                }
-                this._checkAllPlayersDead();
-            }
          } else {
              // 單人模式：直接結束遊戲
              Game.gameOver();
@@ -874,8 +770,10 @@ class Player extends Entity {
          this.health = this.maxHealth;
          this._resurrectionProgress = 0;
          this._resurrectionRescuer = null;
-         // 恢復初始武器
-         this.addWeapon('DAGGER');
+         // 組隊復活留技能：身上還有技能就不要再發一把匕首，否則原有的匕首會被多升一級
+         if (!this.weapons || this.weapons.length === 0) {
+             this.addWeapon('DAGGER');
+         }
          // ✅ 權威伺服器模式：復活狀態由伺服器權威；本地行為僅在 server 回傳時套用
          try {
              if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
@@ -890,138 +788,6 @@ class Player extends Entity {
                  return;
              }
          } catch (_) { }
-        // 舊模式：廣播復活狀態（隔離：只允許 survival）
-        if (typeof Game !== 'undefined' && Game.multiplayer && typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-            let isSurvivalMode = false;
-            try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                isSurvivalMode = (activeId === 'survival' || activeId === null);
-            } catch (_) { }
-            if (isSurvivalMode) {
-                window.SurvivalOnlineBroadcastEvent("player_resurrect", {
-                    playerUid: (Game.multiplayer && Game.multiplayer.uid) ? Game.multiplayer.uid : null
-                });
-            }
-        }
-     }
-     
-    // ✅ MMORPG 架構：所有玩家都能檢查遊戲失敗，不依賴隊長端
-    _checkAllPlayersDead() {
-        if (!Game || !Game.multiplayer) return;
-        // ✅ 權威伺服器模式：全滅判定由伺服器 checkGameOver 統一權威
-        if (Game.multiplayer && Game.multiplayer.enabled) return;
-         if (Game.isGameOver) return; // 已經結束了
-         
-         try {
-             // ✅ 修復：檢查所有玩家（本地+遠程）是否都死亡，不管本地玩家是否死亡
-             // 先檢查本地玩家是否死亡
-             const localPlayerDead = this._isDead;
-             
-            // 檢查所有遠程玩家是否都死亡
-             let allRemotePlayersDead = true;
-             
-            // 通過 RemotePlayerManager 獲取遠程玩家（完整的 Player 對象）
-            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && window.SurvivalOnlineRuntime.RemotePlayerManager) {
-                const rm = window.SurvivalOnlineRuntime.RemotePlayerManager;
-                if (typeof rm.getAllPlayers === 'function') {
-                    const remotePlayers = rm.getAllPlayers();
-                    if (remotePlayers && remotePlayers.length > 0) {
-                        for (const remotePlayer of remotePlayers) {
-                            // 檢查完整的 Player 對象的死亡狀態
-                            if (remotePlayer && typeof remotePlayer._isDead === "boolean" && !remotePlayer._isDead) {
-                                allRemotePlayersDead = false;
-                                break;
-                            }
-                        }
-                    } else {
-                        // ✅ 修復：如果房間其實有其他隊員，但遠端玩家物件尚未建立，不要直接判定「全死」
-                        // 這能避免剛進房/剛重連時，因遠端列表尚未就緒導致誤觸 game_over
-                        try {
-                            if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.getMembersState === 'function') {
-                                const members = window.SurvivalOnlineRuntime.getMembersState() || [];
-                                const aliveOthersExist = Array.isArray(members) && members.some(m => m && m.uid && m.uid !== (Game.multiplayer && Game.multiplayer.uid));
-                                if (aliveOthersExist) {
-                                    allRemotePlayersDead = false;
-                                } else {
-                                    allRemotePlayersDead = true;
-                                }
-                            } else {
-                                allRemotePlayersDead = true;
-                            }
-                        } catch (_) { allRemotePlayersDead = true; }
-                    }
-                } else {
-                    // 如果 RemotePlayerManager 不可用，嘗試通過 Runtime 獲取（簡化狀態）
-                    if (typeof window.SurvivalOnlineRuntime.getRemotePlayers === 'function') {
-                        const remotePlayers = window.SurvivalOnlineRuntime.getRemotePlayers() || [];
-                        if (remotePlayers.length > 0) {
-                            for (const remotePlayer of remotePlayers) {
-                                // 檢查簡化狀態的死亡標記
-                                if (remotePlayer && typeof remotePlayer._isDead === "boolean" && !remotePlayer._isDead) {
-                                    allRemotePlayersDead = false;
-                                    break;
-                                }
-                            }
-                        } else {
-                            // ✅ 同上：遠端狀態尚未就緒時避免誤判全死
-                            try {
-                                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.getMembersState === 'function') {
-                                    const members = window.SurvivalOnlineRuntime.getMembersState() || [];
-                                    const aliveOthersExist = Array.isArray(members) && members.some(m => m && m.uid && m.uid !== (Game.multiplayer && Game.multiplayer.uid));
-                                    if (aliveOthersExist) {
-                                        allRemotePlayersDead = false;
-                                    } else {
-                                        allRemotePlayersDead = true;
-                                    }
-                                } else {
-                                    allRemotePlayersDead = true;
-                                }
-                            } catch (_) { allRemotePlayersDead = true; }
-                        }
-                    } else {
-                        // 無法獲取遠程玩家信息，假設只有本地玩家
-                        allRemotePlayersDead = true;
-                    }
-                }
-            } else {
-                // 無法獲取遠程玩家信息，假設只有本地玩家
-                allRemotePlayersDead = true;
-            }
-             
-            // ✅ MMORPG 架構：如果所有玩家都死亡，觸發遊戲結束
-            // 使用防重複機制：第一個檢測到的玩家廣播 game_over 事件
-            // ✅ 修復：只有當本地玩家和所有遠程玩家都死亡時，才觸發遊戲結束
-            if (localPlayerDead && allRemotePlayersDead) {
-                // 先檢查是否已經有 game_over 事件在處理中（防止重複觸發）
-                if (Game._gameOverEventSent) return; // 已經有其他玩家觸發了
-                Game._gameOverEventSent = true; // 標記為已觸發
-                
-                // 廣播遊戲結束事件（舊模式；隔離：只允許 survival）
-                if (typeof window !== "undefined" && typeof window.SurvivalOnlineBroadcastEvent === "function") {
-                    let isSurvivalMode = false;
-                    try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
-                        isSurvivalMode = (activeId === 'survival' || activeId === null);
-                    } catch (_) { }
-                    if (isSurvivalMode) {
-                        window.SurvivalOnlineBroadcastEvent("game_over", {
-                            reason: "all_players_dead"
-                        });
-                    }
-                }
-                 Game.gameOver();
-             }
-         } catch (e) {
-             console.warn("[Player] 檢查所有玩家死亡狀態失敗:", e);
-         }
      }
      
      // 清除所有武器
@@ -1045,24 +811,7 @@ class Player extends Entity {
         const mul = ignoreMultiplier ? 1.0 : ((this.experienceGainMultiplier != null) ? this.experienceGainMultiplier : 1.0);
         const finalAmount = Math.max(0, Math.floor((amount || 0) * mul));
         
-        // ✅ 單機元素：音效是單機元素，只在本地播放
-        // 在組隊模式下，經驗由伺服器同步，需要在 gainExperience 中播放音效
-        // 在單機模式下，經驗球收集時會播放音效，這裡不需要重複播放
-        if (finalAmount > 0 && typeof AudioManager !== 'undefined') {
-            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-            // 組隊模式下：經驗由伺服器同步，在這裡播放音效
-            // 單機模式下：經驗球收集時會在 experience.js 中播放音效，這裡不播放（避免重複）
-            // ✅ 修復：音效是單機元素，只在本地玩家播放
-            if (isMultiplayer && !this._isRemotePlayer) {
-                // 尊重 EXP 音效開關
-                if (AudioManager.expSoundEnabled !== false) {
-                    AudioManager.playSound('collect_exp');
-                }
-            }
-            // 單機模式下，如果 options.silent 為 false 或未設置，則不播放音效（由 experience.js 播放）
-            // 如果 options.silent 為 true，則不播放音效（由調用者控制，例如從其他來源獲得經驗時）
-        }
-        
+        // 組隊音效只聽自己：經驗數字全隊共用，但這支函式每人都會被叫到，聲音不在這裡播。單機由經驗球自己播
         this.experience += finalAmount;
         
         // ✅ 组队模式：如果升级菜单正在显示，延迟处理升级（避免覆盖菜单）
@@ -1166,6 +915,7 @@ class Player extends Entity {
         if ((weaponType === 'HEART_CONNECTION' || weaponType === 'ADRENALINE' || weaponType === 'RAINBOW_RESONANCE' || weaponType === 'DARK_MATTER') && typeof BuffSystem !== 'undefined' && typeof BuffSystem.applyBuffsFromTalents === 'function') {
             BuffSystem.applyBuffsFromTalents(this);
         }
+        this._requestTeamSkillMeta();
     }
     
     // 升級武器
@@ -1177,7 +927,20 @@ class Player extends Entity {
             if ((weaponType === 'HEART_CONNECTION' || weaponType === 'ADRENALINE' || weaponType === 'RAINBOW_RESONANCE' || weaponType === 'DARK_MATTER') && typeof BuffSystem !== 'undefined' && typeof BuffSystem.applyBuffsFromTalents === 'function') {
                 BuffSystem.applyBuffsFromTalents(this);
             }
+            this._requestTeamSkillMeta();
         }
+    }
+
+    // 組隊技能立刻送：閃避、吸血、回血這類，否則伺服器最多半秒還是舊的
+    _requestTeamSkillMeta() {
+        if (this._isRemotePlayer) return;
+        try {
+            if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled &&
+                typeof window !== 'undefined' && window.SurvivalOnlineRuntime &&
+                typeof window.SurvivalOnlineRuntime.requestImmediatePlayerMeta === 'function') {
+                window.SurvivalOnlineRuntime.requestImmediatePlayerMeta();
+            }
+        } catch (_) {}
     }
 
     /**
@@ -1224,11 +987,7 @@ class Player extends Entity {
         try {
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
             
@@ -1274,8 +1033,22 @@ class Player extends Entity {
         this.activateUltimate();
     }
 
+    // 時間到就收。沒有變身前記錄也要把變大清掉，否則會一直停在大招。
+    _endUltimateIfTimeUp() {
+        if (this._isRemotePlayer || !this.isUltimateActive) return;
+        if (!(typeof this.ultimateEndTime === 'number' && this.ultimateEndTime > 0 && Date.now() >= this.ultimateEndTime)) return;
+        this.deactivateUltimate();
+        if (this.isUltimateActive) {
+            this.isUltimateActive = false;
+            this.ultimateEndTime = 0;
+            this._ultimateImageKey = null;
+        }
+    }
+
     // 啟動大招：變身、體型變大、四技能LV10、能量消耗
     activateUltimate() {
+        // 已經在大招就不要重開。重開會把 15 秒再算一次，這段時間升的級也會被清掉。
+        if (this.isUltimateActive && this._ultimateBackup) return;
         // 取得角色特定的大招配置（若存在）
         // 修復：遠程玩家使用自己的角色，本地玩家使用 Game.selectedCharacter
         let characterId = null;
@@ -1317,7 +1090,7 @@ class Player extends Entity {
                 }
 
                 // 設置分身存在時間（不使用 isUltimateActive，避免套用預設變身圖片）
-                this._elondierCloneUltimateEndTime = Date.now() + (CONFIG && CONFIG.ULTIMATE ? CONFIG.ULTIMATE.DURATION_MS : 8000);
+                this._elondierCloneUltimateEndTime = Date.now() + (CONFIG && CONFIG.ULTIMATE ? CONFIG.ULTIMATE.DURATION_MS : 15000);
 
                 // 召喚分身
                 if (!this._isRemotePlayer && typeof ElondierUltimateClone !== 'undefined') {
@@ -1337,7 +1110,7 @@ class Player extends Entity {
             return;
         }
 
-        // 白白虹（baibaihong）：專屬大招 — 回滿血 + 5 秒無敵 + A64 特效，不變身
+        // 白白虹（baibaihong）：專屬大招 — 回滿血 + 15 秒無敵 + A64 特效，不變身
         if (characterId === 'baibaihong') {
             this._activateBaibaihongExclusiveUltimate();
             return;
@@ -1383,6 +1156,10 @@ class Player extends Entity {
         if (extraHp > 0) {
             this.maxHealth += extraHp;
             this.health += extraHp;
+            if (!this._isRemotePlayer && !this._teamUltimateHpSent) {
+                this._teamUltimateHealthBonus = extraHp;
+                this._teamUltimateHpSent = true;
+            }
             if (typeof UI !== 'undefined' && UI.updateHealthBar) {
                 UI.updateHealthBar(this.health, this.maxHealth);
             }
@@ -1423,6 +1200,8 @@ class Player extends Entity {
             const originalDefense = this.baseDefense || 1; // 預設基礎防禦為1
             this.baseDefense = originalDefense + extraDefense;
         }
+        // 組隊大招加血：下一幀把暫時血量與額外防禦送出去
+        this._requestTeamInvincibleMeta();
         
         // 第二位角色：大絕期間暫停BGM（僅第二位角色）
         if (characterId === 'dada' && typeof AudioManager !== 'undefined' && AudioManager.music) {
@@ -1544,11 +1323,9 @@ class Player extends Entity {
             }
         } catch (_) {}
 
-        // ✅ 權威伺服器模式：多人進行中時，鳳梨掉落物由伺服器生成並透過 state.chests(type=PINEAPPLE) 同步
-        // 這裡只保留能量消耗/音效/鏡頭震動等本地視覺，避免本地生成與伺服器權威打架。
+        // 組隊鳳梨大絕不重複：伺服器收到開大已經會噴 5 顆，這裡不要再送
         try {
             if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
-                // 視覺：沿用大招啟動的鏡頭震動
                 try {
                     if (!Game.cameraShake) {
                         Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
@@ -1600,7 +1377,13 @@ class Player extends Entity {
 
     // 結束大招：恢復原始狀態與武器、能量歸零
     deactivateUltimate() {
-        if (!this.isUltimateActive || !this._ultimateBackup) return;
+        if (!this.isUltimateActive) return;
+        if (!this._ultimateBackup) {
+            this.isUltimateActive = false;
+            this.ultimateEndTime = 0;
+            this._ultimateImageKey = null;
+            return;
+        }
         this.isUltimateActive = false;
         
         // 停止角色特定音效（若存在）
@@ -1678,6 +1461,12 @@ class Player extends Entity {
                 UI.updateHealthBar(this.health, this.maxHealth);
             }
         }
+        if (!this._isRemotePlayer && this.health > 0 && this._ultimateBackup && typeof this._ultimateBackup.health === 'number') {
+            this._teamHealthAbsolute = Math.min(this.maxHealth, this._ultimateBackup.health);
+        }
+        this._teamUltimateHpSent = false;
+        // 組隊大招結束回血：下一幀把變身前的血量與防禦送出去
+        this._requestTeamInvincibleMeta();
 
         // 大招結束後：移除玩家名下的大招武器投射物（守護領域、熙歌場域、環繞球、雷射、斬擊等）
         // 瑪格麗特、灰妲、洛可洛斯特、熙歌 大招結束，大招技能消失，恢復原主動技能（含變身中累積的等級）
@@ -1725,7 +1514,7 @@ class Player extends Entity {
             const now = Date.now();
             const endTime = (typeof endTimeOverride === 'number' && endTimeOverride > 0)
                 ? endTimeOverride
-                : (this.ultimateEndTime || (now + (CONFIG && CONFIG.ULTIMATE ? CONFIG.ULTIMATE.DURATION_MS : 8000)));
+                : (this.ultimateEndTime || (now + (CONFIG && CONFIG.ULTIMATE ? CONFIG.ULTIMATE.DURATION_MS : 15000)));
 
             for (let i = 0; i < 4; i++) {
                 const jitterX = (Math.random() - 0.5) * 20;

@@ -4,6 +4,8 @@ class ExplosionEffect extends Entity {
     constructor(player, x, y) {
         super(x, y, 517, 517);
         this.player = player;
+        // 組隊艾比大絕要有爆炸圖：沒寫種類，送給隊友會變成一顆白球。單機看得到這張大圖
+        this.weaponType = 'EXPLOSION';
         this.startTime = Date.now();
         this.durationMs = 1000; // 1秒动画
         this.frameDuration = this.durationMs / 25; // 每帧40ms
@@ -116,11 +118,7 @@ class ExplosionEffect extends Entity {
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         let isSurvivalMode = false;
         try {
-            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
+            const activeId = Utils.getActiveModeId();
             isSurvivalMode = (activeId === 'survival' || activeId === null);
         } catch (_) {}
         

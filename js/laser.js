@@ -208,6 +208,9 @@ class LaserBeam extends Entity {
                             if (typeof DamageNumbers !== 'undefined') {
                                 DamageNumbers.show(this.damage, p.x, p.y - 20, false, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle) });
                             }
+                        } else if (isMultiplayer && p === Game.player && typeof DamageNumbers !== 'undefined') {
+                            // 組隊支部雷射要有數字：單機打中會在自己頭上出數字。扣血仍由伺服器算，這裡不要再扣一次
+                            DamageNumbers.show(this.damage, p.x, p.y - 20, false, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle) });
                         }
                     }
                 }
@@ -259,6 +262,15 @@ class LaserBeam extends Entity {
                     candidates = Array.from(set.values());
                 }
             } catch (_) {}
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+            let isSurvivalMode = false;
+            try {
+                const activeId = Utils.getActiveModeId();
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            const sendNet = isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player
+                && typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function";
+            const netHitIds = sendNet ? [] : null;
             for (const enemy of candidates) {
                 const d = this.pointSegmentDistance(enemy.x, enemy.y, this.startX, this.startY, this.endX, this.endY);
                 if (d <= half + enemy.collisionRadius) {
@@ -294,94 +306,40 @@ class LaserBeam extends Entity {
                         }
                     }
                     
-                    let finalDamage = this.damage;
-                    let isCrit = false;
-                    let lifestealAmount = 0;
-                    if (typeof DamageSystem !== 'undefined') {
-                        const result = DamageSystem.computeHit(this.damage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0) });
-                        finalDamage = result.amount;
-                        isCrit = result.isCrit;
-                        lifestealAmount = (typeof result.lifestealAmount === 'number') ? result.lifestealAmount : 0;
-                    }
-                    
-                    // ✅ 權威伺服器模式：持續效果傷害由 game.js 自動發送 aoe_tick 到伺服器
-                    // 單機模式：直接造成傷害並顯示傷害數字
-                    // 多人模式：不調用 takeDamage（避免雙重傷害），傷害由伺服器 hitEvents 處理
-                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                    let isSurvivalMode = false;
-                    try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
-                        isSurvivalMode = (activeId === 'survival' || activeId === null);
-                    } catch (_) {}
-                    
-                    // 單機模式：直接造成傷害並顯示傷害數字
+                    // 單機：這一隻直接扣血。組隊：先收進名單，這一跳結束再送一次。
                     if (!isSurvivalMode || !isMultiplayer) {
+                        let finalDamage = this.damage;
+                        let isCrit = false;
+                        if (typeof DamageSystem !== 'undefined') {
+                            const result = DamageSystem.computeHit(this.damage, enemy, { weaponType: this.weaponType, critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0) });
+                            finalDamage = result.amount;
+                            isCrit = result.isCrit;
+                        }
                         enemy.takeDamage(finalDamage);
                         if (typeof DamageNumbers !== 'undefined') {
                             DamageNumbers.show(finalDamage, enemy.x, enemy.y - (enemy.height||0)/2, isCrit, { dirX: Math.cos(this.angle), dirY: Math.sin(this.angle), enemyId: enemy.id });
                         }
-                    }
-                    // 多人模式：LaserBeam 沒有 tickDamage 屬性，所以 game.js 不會自動處理
-                    // 需要手動發送 aoe_tick 到伺服器（使用線段範圍而非圓形範圍）
-                    if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
-                        if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
-                            // 計算受影響的敵人範圍
-                            const half = this.width / 2;
-                            let hitEnemies = [];
-                            let candidates2 = Game.enemies || [];
-                            try {
-                                if (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function') {
-                                    const dx2 = this.endX - this.startX;
-                                    const dy2 = this.endY - this.startY;
-                                    const dist2 = Math.hypot(dx2, dy2);
-                                    const midX2 = (this.startX + this.endX) / 2;
-                                    const midY2 = (this.startY + this.endY) / 2;
-                                    const rMid2 = Math.max(half + 64, dist2 / 2 + half + 32);
-                                    const rEnd2 = half + 64;
-                                    const set2 = new Map();
-                                    const addList2 = (list) => {
-                                        for (const e2 of list || []) {
-                                            const key2 = e2 && (e2.id || e2);
-                                            if (!key2) continue;
-                                            if (!set2.has(key2)) set2.set(key2, e2);
-                                        }
-                                    };
-                                    addList2(Game.getEnemiesNearCircle(midX2, midY2, rMid2));
-                                    addList2(Game.getEnemiesNearCircle(this.startX, this.startY, rEnd2));
-                                    addList2(Game.getEnemiesNearCircle(this.endX, this.endY, rEnd2));
-                                    candidates2 = Array.from(set2.values());
-                                }
-                            } catch (_) {}
-                            for (const e of candidates2) {
-                                if (!e || e.markedForDeletion) continue;
-                                const d = this.pointSegmentDistance(e.x, e.y, this.startX, this.startY, this.endX, this.endY);
-                                if (d <= half + e.collisionRadius) {
-                                    hitEnemies.push(e.id);
-                                }
-                            }
-                            if (hitEnemies.length > 0) {
-                                window.SurvivalOnlineRuntime.sendToNet({
-                                    type: 'aoe_tick',
-                                    weaponType: this.weaponType || 'LASER',
-                                    x: this.startX,
-                                    y: this.startY,
-                                    endX: this.endX,
-                                    endY: this.endY,
-                                    width: this.width,
-                                    damage: this.damage,
-                                    allowCrit: true,
-                                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
-                                    enemyIds: hitEnemies,
-                                    timestamp: Date.now()
-                                });
-                            }
-                        }
+                    } else if (netHitIds && enemy.id) {
+                        netHitIds.push(enemy.id);
                     }
                 }
+            }
+            // 雷射每跳只送一次。放在迴圈裡會依怪的數量重複送。
+            if (netHitIds && netHitIds.length > 0) {
+                window.SurvivalOnlineRuntime.sendToNet({
+                    type: 'aoe_tick',
+                    weaponType: this.weaponType || 'LASER',
+                    x: this.startX,
+                    y: this.startY,
+                    endX: this.endX,
+                    endY: this.endY,
+                    width: this.width,
+                    damage: this.damage,
+                    allowCrit: true,
+                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
+                    enemyIds: netHitIds,
+                    timestamp: Date.now()
+                });
             }
             this.tickAccumulator = 0;
         }

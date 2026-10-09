@@ -35,9 +35,8 @@
         if (typeof Game !== 'undefined') {
           // 暂停游戏
           if (Game.pause) Game.pause(true);
-          // 停止游戏循环
+          // 停止生存更新：只暫停，不要用 isGameOver（退出 3D 後會讓生存看起來已結束）
           if (Game.isPaused !== undefined) Game.isPaused = true;
-          if (Game.isGameOver !== undefined) Game.isGameOver = true;
           // 清除Game的canvas引用，避免冲突
           if (Game.canvas) {
             try {
@@ -93,7 +92,7 @@
       } catch(_){}
 
       // 5. 清除其他模式的GIF图层残留
-      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.clearAll === 'function') window.GifOverlay.clearAll(); } catch(_){}
+      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hideAll === 'function') window.GifOverlay.hideAll(); } catch(_){}
       try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.ChallengeGifOverlay !== 'undefined' && typeof window.ChallengeGifOverlay.clearAll === 'function') window.ChallengeGifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.MainGifOverlay !== 'undefined' && typeof window.MainGifOverlay.clearAll === 'function') window.MainGifOverlay.clearAll(); } catch(_){}
@@ -142,11 +141,15 @@
         console.log('[3D Mode] Created new WebGL canvas');
       }
 
-      // 检查Three.js是否已加载（通过importmap加载的ES6模块版本）
+      // Three.js 只在進 3D 時載（開生存／組隊不要先拉 CDN）
       if (typeof window.THREE === 'undefined' && typeof THREE === 'undefined') {
-        console.error('[3D Mode] Three.js is not loaded. Please include Three.js library.');
-        alert('3D模式需要Three.js库，请确保已加载Three.js');
-        return;
+        try {
+          window.THREE = await import('three');
+        } catch (e) {
+          console.error('[3D Mode] Three.js is not loaded', e);
+          alert('3D模式需要Three.js库，请确保已加载Three.js');
+          return;
+        }
       }
       
       // 使用全局THREE（通过importmap加载的ES6模块版本）
@@ -1421,11 +1424,15 @@
         if (hud && hud.parentNode) {
           hud.parentNode.removeChild(hud);
         }
-        // 恢复Game的canvas引用（如果需要）
+        // 恢复Game的canvas引用，並清掉 3D 期間留下的結束旗標
         try {
-          if (typeof Game !== 'undefined' && canvas) {
-            Game.canvas = canvas;
-            Game.ctx = canvas.getContext('2d');
+          if (typeof Game !== 'undefined') {
+            if (canvas) {
+              Game.canvas = canvas;
+              Game.ctx = canvas.getContext('2d');
+            }
+            Game.isGameOver = false;
+            if (Game.isPaused !== undefined) Game.isPaused = true;
           }
         } catch(_){}
         

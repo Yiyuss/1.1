@@ -119,6 +119,11 @@
         b.life -= deltaTime;
         if (b.life <= 0) { this.bullets.splice(i, 1); continue; }
 
+        // 組隊修羅彈幕不要自己刪：打中由伺服器刪。這裡先刪會冒火花，下一包又把彈幕放回來
+        if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
+          continue;
+        }
+
         // 新增：與玩家碰撞則造成傷害並移除彈幕
         try {
           const player = (typeof Game !== 'undefined') ? Game.player : null;

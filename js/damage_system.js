@@ -29,26 +29,10 @@
     // 進行一次命中計算。baseDamage 已包含武器等級與天賦加成者亦可，但非必要。
     // options 可帶入 { allowCrit: true/false, weaponType: 'LASER' | 'ORBIT' | ... }
     computeHit(baseDamage, enemy, options){
-      const allowCrit = options && options.allowCrit !== false; // 預設允許爆擊
-      // 浮動：在 [0.9, 1.1] 之間乘以
-      const f = this.fluctuationPct;
-      const rand = 1 + (Math.random() * 2 * f - f);
-
-      let final = baseDamage * rand;
-      let isCrit = false;
-      // 新增：支援玩家天賦提供的爆擊加成或覆蓋
-      const bonusCrit = options && typeof options.critChanceBonusPct === 'number' ? options.critChanceBonusPct : 0;
-      const overrideCrit = options && typeof options.critChancePctOverride === 'number' ? options.critChancePctOverride : null;
-      const critChance = overrideCrit != null ? overrideCrit : (this.critChanceBase + bonusCrit);
-      const critMultiplierBonus = options && typeof options.critMultiplierBonusPct === 'number' ? options.critMultiplierBonusPct : 0;
-      const effectiveCritMultiplier = this.critMultiplier + critMultiplierBonus;
-      if (allowCrit && Math.random() < Math.max(0, Math.min(1, critChance))) {
-        isCrit = true;
-        final *= Math.max(1.0, effectiveCritMultiplier);
-      }
-
-      // 避免浮點誤差造成顯示奇怪；對外保留整數
-      const amount = Math.max(1, Math.round(final));
+      // 浮動／爆擊與組隊伺服器同一份（HitRoll）。吸血仍留在這裡。
+      const rolled = HitRoll.computeHitRoll(baseDamage, options);
+      const amount = rolled.amount;
+      const isCrit = rolled.isCrit;
       
       // 計算吸血效果（不獸控制技能）
       const lifestealAmount = this._calculateLifesteal(amount, options);

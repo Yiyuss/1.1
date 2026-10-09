@@ -10,6 +10,7 @@ class BossProjectile extends Entity {
         this.turnRate = turnRate;
         this.lifeTime = 5000; // 5秒後自動消失
         this.createdTime = Date.now();
+        this._ageMs = 0;
         
         // 視覺效果
         this.glowSize = size * 1.5;
@@ -48,13 +49,20 @@ class BossProjectile extends Entity {
                     }
                 }
                 if (typeof this._netAngle === 'number') this.angle = this._netAngle;
+                // 組隊首領火彈要有拖尾：位置跟伺服器走。拖尾和光暈呼吸跟單機一樣，不要在這裡扣血
+                this.updateParticles(deltaTime);
+                this.particleSpawnTimer += deltaTime;
+                if (this.particleSpawnTimer >= this.particleSpawnInterval) {
+                    this.spawnTrailParticle();
+                    this.particleSpawnTimer = 0;
+                }
+                this.pulsePhase += deltaTime * 0.01;
                 return;
             }
         } catch (_) { }
-        const currentTime = Date.now();
-        
-        // 檢查生命週期
-        if (currentTime - this.createdTime > this.lifeTime) {
+        // 暫停不扣首領火彈壽命：用這一幀的時間累加。暫停時這段不跑，恢復後不會把暫停的秒數一次扣光。
+        this._ageMs = (this._ageMs || 0) + Math.max(0, deltaTime || 0);
+        if (this._ageMs > this.lifeTime) {
             this.destroy();
             return;
         }
@@ -68,11 +76,7 @@ class BossProjectile extends Entity {
                 try {
                     let isSurvivalMode = false;
                     try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
+                        const activeId = Utils.getActiveModeId();
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
@@ -133,11 +137,7 @@ class BossProjectile extends Entity {
             try {
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
@@ -353,11 +353,7 @@ class BossProjectile extends Entity {
             try {
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
@@ -401,11 +397,7 @@ class BossProjectile extends Entity {
             try {
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
@@ -449,11 +441,7 @@ class BossProjectile extends Entity {
             try {
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
@@ -487,11 +475,7 @@ class BossProjectile extends Entity {
             try {
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
