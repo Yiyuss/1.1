@@ -20,6 +20,7 @@ class GravityWaveField extends Entity {
         this.tickIntervalMs = 120; // 與 ORBIT/LASER 相同節奏
         this.tickAccumulator = 0;
         this.weaponType = 'GRAVITY_WAVE';
+        this._ownsNetTick = true;
         // 碰撞以圓形為主
         this.collisionRadius = radius;
 
@@ -137,11 +138,7 @@ class GravityWaveField extends Entity {
                     const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                     let isSurvivalMode = false;
                     try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
+                        const activeId = Utils.getActiveModeId();
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
@@ -161,6 +158,8 @@ class GravityWaveField extends Entity {
                                 radius: 1,
                                 enemyIds: [enemy.id],
                                 damage: finalDamage,
+                                preRolled: true,
+                                isCrit: isCrit,
                                 allowCrit: true,
                                 critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                             });
@@ -174,6 +173,27 @@ class GravityWaveField extends Entity {
         // 推怪功能：0.5秒觸發一次
         this.pushAccumulator += deltaTime;
         if (this.pushAccumulator >= this.pushIntervalMs) {
+            const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
+            let isSurvivalMode = false;
+            try {
+                const activeId = Utils.getActiveModeId();
+                isSurvivalMode = (activeId === 'survival' || activeId === null);
+            } catch (_) {}
+            if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
+                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === 'function') {
+                    window.SurvivalOnlineRuntime.sendToNet({
+                        type: 'aoe_tick',
+                        weaponType: 'GRAVITY_WAVE',
+                        x: this.x,
+                        y: this.y,
+                        radius: Math.max(10, Math.floor(this.radius || 120)),
+                        damage: 0,
+                        push: true,
+                        pushMultiplier: this.pushMultiplier || 0,
+                        timestamp: Date.now()
+                    });
+                }
+            } else if (!isSurvivalMode || !isMultiplayer) {
             const currentTime = Date.now();
             const targets2 = (typeof Game !== 'undefined' && typeof Game.getEnemiesNearCircle === 'function')
                 ? Game.getEnemiesNearCircle(this.x, this.y, this.collisionRadius)
@@ -206,14 +226,14 @@ class GravityWaveField extends Entity {
                     }
                 }
             }
-            this.pushAccumulator = 0;
-            // 清理過期的推怪記錄（避免內存泄漏）
             const expiredTime = currentTime - this.pushIntervalMs * 2;
             for (const [enemyId, time] of this.enemyLastPushTime.entries()) {
                 if (time < expiredTime) {
                     this.enemyLastPushTime.delete(enemyId);
                 }
             }
+            }
+            this.pushAccumulator = 0;
         }
 
         // 同步GIF位置與尺寸

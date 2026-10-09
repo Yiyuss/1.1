@@ -15,6 +15,7 @@ class GravityCollapseProjectile extends Entity {
         this.weaponLevel = weaponLevel || 1;
         this.player = player;
         this.weaponType = 'GRAVITY_COLLAPSE';
+        this._ownsNetTick = true;
 
         this.maxRange = cfg.MAX_RANGE || 500;
         this.durationMs = cfg.DURATION || 3000;
@@ -117,12 +118,14 @@ class GravityCollapseProjectile extends Entity {
                 : (Game.enemies || []);
             for (const enemy of candidates) {
                 if (this._isInRadius(enemy)) {
+                    let netSlow = false;
                     if (typeof enemy.applySlow === 'function') {
                         const needsSlow = !this.slowedEnemies.has(enemy.id) ||
                             (enemy.isSlowed && Date.now() > enemy.slowEndTime);
                         if (needsSlow) {
                             enemy.applySlow(this.slowDurationMs, this.slowFactor);
                             this.slowedEnemies.add(enemy.id);
+                            netSlow = true;
                         }
                     }
 
@@ -145,11 +148,7 @@ class GravityCollapseProjectile extends Entity {
                     const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                     let isSurvivalMode = false;
                     try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
+                        const activeId = Utils.getActiveModeId();
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
 
@@ -174,6 +173,10 @@ class GravityCollapseProjectile extends Entity {
                                 radius: 1,
                                 enemyIds: [enemy.id],
                                 damage: finalDamage,
+                                preRolled: true,
+                                isCrit: isCrit,
+                                slowMs: netSlow ? this.slowDurationMs : 0,
+                                slowFactor: this.slowFactor,
                                 allowCrit: true,
                                 critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0),
                                 critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)

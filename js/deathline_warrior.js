@@ -148,26 +148,10 @@ class DeathlineWarriorEffect extends Entity {
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         let isSurvivalMode = false;
         try {
-            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
+            const activeId = Utils.getActiveModeId();
             isSurvivalMode = (activeId === 'survival' || activeId === null);
         } catch (_) {}
         
-        // 計算基礎傷害（用於組隊模式發送 aoe_tick）
-        let baseDamage = this.damage;
-        if (typeof DamageSystem !== 'undefined' && target) {
-            const result = DamageSystem.computeHit(this.damage, target, {
-                weaponType: this.weaponType,
-                critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
-            });
-            baseDamage = result.amount;
-        }
-        
-        // ✅ 組隊模式：發送 aoe_tick 到伺服器（一次性傷害，不是持續效果）
-        // 注意：DEATHLINE_WARRIOR 和 DEATHLINE_SUPERMAN 不是持續效果（沒有 tickDamage），不會通過 game.js 自動發送
         if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
             if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                 window.SurvivalOnlineRuntime.sendToNet({
@@ -177,7 +161,7 @@ class DeathlineWarriorEffect extends Entity {
                     y: target.y,
                     // ✅ 優化：單體傷害半徑從 5 增加到 60，以容忍網路延遲造成的敵人位置誤差（確保必中）
                     radius: this.aoeRadius > 0 ? this.aoeRadius : 60, 
-                    damage: baseDamage,
+                    damage: this.damage,
                     allowCrit: true,
                     critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
                     timestamp: Date.now()
@@ -282,6 +266,10 @@ class DeathlineWarriorEffect extends Entity {
         if (this.player) {
             this.player.x = target.x;
             this.player.y = target.y;
+            // 組隊死線要留在怪身上：單機會留在怪身上。下一包舊位置不要把人拉回去
+            if (this.player === Game.player && Game.multiplayer && Game.multiplayer.enabled) {
+                this.player._deathlinePosHoldUntil = Date.now() + 500;
+            }
         }
         
         this.hitsCompleted++;

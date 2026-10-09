@@ -382,4 +382,25 @@ const Utils = {
             return null;
         }
     },
+
+    // 目前模式 id。生存未走 GameModeManager 時為 null（視為生存）。
+    getActiveModeId: function () {
+        try {
+            if (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function') {
+                return GameModeManager.getCurrent();
+            }
+        } catch (_) { }
+        try {
+            if (typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function') {
+                return ModeManager.getActiveModeId();
+            }
+        } catch (_) { }
+        return null;
+    },
+
+    // 生存主迴圈／技能同步用：survival，或尚未掛模式（null）。
+    isSurvivalModeContext: function () {
+        const id = this.getActiveModeId();
+        return id === 'survival' || id === null;
+    },
 };

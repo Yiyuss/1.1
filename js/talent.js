@@ -5,70 +5,82 @@ const TalentSystem = {
         hp_boost: {
             name: '生命強化',
             description: '升級可提升初始生命值。',
-            cost: 500
+            cost: 500,
+            selectCardSrc: 'assets/images/test.png'
         },
         defense_boost: {
             name: '防禦強化',
             description: '升級可減免所受傷害。',
-            cost: 5000
+            cost: 5000,
+            selectCardSrc: 'assets/images/test2.png'
         },
         speed_boost: {
             name: '移動加速',
             description: '升級可提升移動速度。',
-            cost: 1000
+            cost: 1000,
+            selectCardSrc: 'assets/images/test3.png'
         },
         // 新增：拾取範圍增加
         pickup_range_boost: {
             name: '拾取範圍增加',
             description: '升級可增加拾取範圍。',
-            cost: 500
+            cost: 500,
+            selectCardSrc: 'assets/images/test4.png'
         },
         // 新增：傷害強化
         damage_boost: {
             name: '傷害強化',
             description: '升級可提升攻擊傷害。',
-            cost: 3000
+            cost: 3000,
+            selectCardSrc: 'assets/images/test5.png'
         },
         // 新增：傷害特化（追加固定傷害）
         damage_specialization: {
             name: '傷害特化',
             description: '升級可追加固定傷害。',
-            cost: 3000
+            cost: 3000,
+            selectCardSrc: 'assets/images/test6.png'
         },
         // 新增：爆擊強化（提升爆擊率）
         crit_enhance: {
             name: '爆擊強化',
             description: '升級可提升爆擊率。',
-            cost: 3000
+            cost: 3000,
+            selectCardSrc: 'assets/images/test7.png'
         },
         // 新增：回血強化（提升回血速度）
         regen_speed_boost: {
             name: '回血強化',
             description: '升級可提升回血速度。',
-            cost: 3000
+            cost: 3000,
+            selectCardSrc: 'assets/images/test8.png'
         },
         experience_boost: {
             name: '經驗值強化',
             description: '升級可提升獲得的經驗值。',
-            cost: 3000
+            cost: 3000,
+            selectCardSrc: 'assets/images/test10.png'
         },
         // 新增：升級操作次數強化（提升重抽/換一個/保留次數）
         levelup_action_charges: {
             name: '選項次數強化',
             description: '升級可增加重抽/換一個/保留的次數。',
-            cost: 3000
+            cost: 3000,
+            selectCardSrc: 'assets/images/test9.png'
         },
         // 新增：消波塊增加（僅套用在防禦模式）
         defense_gold_boost: {
             name: '消波塊增加',
             description: '升級可提升防禦模式的初始消波塊。',
-            cost: 3000
+            cost: 3000,
+            selectCardSrc: 'assets/images/test11.png'
         },
         // 新增：迴避強化
         dodge_enhance: {
             name: '迴避強化',
             description: '升級可提升迴避傷害的機率。',
-            cost: 3000
+            cost: 3000,
+            selectCardSrc: 'assets/images/test12.png'
         },
         // 新增：雞腿強化（強化雞腿庇佑的基礎攻擊）
         chicken_blessing_boost: {
@@ -103,13 +115,15 @@ const TalentSystem = {
         gravity_wave_boost: {
             name: '引力強化',
             description: '升級可增加引力波的推力。',
-            cost: 3000
+            cost: 3000,
+            selectCardSrc: 'assets/images/A27.png'
         },
         // 新增：AI強化（提升召喚AI的傷害）
         ai_boost: {
             name: 'AI強化',
             description: '升級可提升召喚AI的傷害。',
-            cost: 3000
+            cost: 3000,
+            selectCardSrc: 'assets/images/AI.png'
         },
         // 新增：星體軌跡強化
         stellar_orbit_boost: {
@@ -134,23 +148,39 @@ const TalentSystem = {
             name: '專屬強化',
             description: '解鎖專屬系統，強化角色專屬技能。',
             cost: 0,
-            isExclusive: true
+            isExclusive: true,
+            selectCardSrc: 'assets/images/A69.png'
         },
         // 覺醒強化（獨特性天賦，需要覺醒之路成就解鎖）
         awakening_enhance: {
             name: '覺醒強化',
             description: '解鎖覺醒系統，獲得強大的覺醒能力。',
             cost: 0,
-            isAwakening: true
+            isAwakening: true,
+            selectCardSrc: 'assets/images/A65.jpg'
         },
         // 輔助強化（獨特性天賦，需要輔助之路成就解鎖）
         assist_enhance: {
             name: '輔助強化',
             description: '解鎖輔助系統，進階輔助技能（替換原本技能）。',
             cost: 0,
-            isAssist: true
+            isAssist: true,
+            selectCardSrc: 'assets/images/A83.png'
         }
     },
+
+    // 主格子視覺順序（含兩格空位）。改順序＝改按鈕位置，須操作者點名。專屬／輔助／覺醒子技能不在這張表。
+    TALENT_SELECT_SLOTS: ['hp_boost', 'defense_boost', 'speed_boost', 'pickup_range_boost', 'damage_boost', 'damage_specialization', 'crit_enhance', 'regen_speed_boost', 'experience_boost', 'levelup_action_charges', 'dodge_enhance', 'defense_gold_boost', 'gravity_wave_boost', 'ai_boost', 'exclusive_enhance', 'assist_enhance', 'awakening_enhance', null, null],
+    // 子視窗格序凍結（含空格）。名稱／圖示仍讀 _awakeningSlots／_exclusiveSlots／_assistSlots。
+    AWAKENING_SELECT_SLOTS: ['awakening_hp', 'awakening_regen', 'awakening_attack', 'awakening_crit_damage', 'awakening_cooldown', 'awakening_energy'],
+    EXCLUSIVE_SELECT_SLOTS: ['sheep_guard_boost', 'heart_companion_boost', 'rotating_muffin_boost', 'pineapple_orbit_boost', 'chicken_blessing_boost', 'stellar_orbit_boost', 'gabriel_orbit_boost', 'wedding_call_orbit_boost', null],
+    ASSIST_SELECT_SLOTS: ['sing_advanced', 'young_dada_glory_advanced', 'devouring_power_advanced', null, null, null, null, null, null],
+    // 子視窗殼凍結（標題／提示／說明）。格子仍走上面三份 SELECT_SLOTS。解鎖邏輯不合一。
+    TALENT_SUBWINDOW_SLOTS: [
+        { prefix: 'awakening', title: '覺醒系統', hint: '雙擊格子解鎖覺醒能力（僅限生存模式）', desc: '點選覺醒格子查看詳細說明。' },
+        { prefix: 'exclusive', title: '專屬系統', hint: '雙擊格子升級專屬技能（最多六階）。', desc: '點選專屬格子查看詳細說明。' },
+        { prefix: 'assist', title: '輔助系統', hint: '解鎖輔助系統，進階輔助技能（替換原本技能）。', desc: '點選輔助格子查看詳細說明。' }
+    ],
 
     // 階梯天賦設定：每級效果與花費
     tieredTalents: {
@@ -446,8 +476,190 @@ const TalentSystem = {
         }
     },
     
+    // 天賦主格子由 TALENT_SELECT_SLOTS 生成。須在 bindEvents / loadUnlockedTalents 之前。
+    renderSelectGrid: function() {
+        const grid = document.querySelector('#talent-select-screen .char-grid.talent-grid');
+        if (!grid || grid.getAttribute('data-rendered') === '1') return;
+        const slots = this.TALENT_SELECT_SLOTS || [];
+        if (!Array.isArray(slots) || !slots.length) return;
+        grid.innerHTML = '';
+        slots.forEach(function (id) {
+            if (!id) {
+                const empty = document.createElement('div');
+                empty.className = 'char-slot empty';
+                grid.appendChild(empty);
+                return;
+            }
+            const t = (TalentSystem.talents && TalentSystem.talents[id]) ? TalentSystem.talents[id] : null;
+            if (!t) return;
+            const btn = document.createElement('button');
+            btn.className = 'char-card selectable locked';
+            btn.setAttribute('data-talent-id', id);
+            const img = document.createElement('img');
+            img.src = t.selectCardSrc || 'assets/images/GM.png';
+            img.alt = t.name || '';
+            img.className = 'grayscale';
+            const name = document.createElement('div');
+            name.className = 'char-name';
+            name.textContent = t.name || '';
+            btn.appendChild(img);
+            btn.appendChild(name);
+            grid.appendChild(btn);
+        });
+        grid.setAttribute('data-rendered', '1');
+    },
+
+    _SUBSLOT_BTN_STYLE: 'position:relative;display:flex;flex-direction:column;align-items:center;padding:10px 6px;background:rgba(255,255,255,0.06);border:2px solid rgba(255,255,255,0.15);border-radius:12px;cursor:pointer;transition:border-color 0.2s,box-shadow 0.2s;',
+    _SUBSLOT_IMG_STYLE: 'width:64px;height:64px;object-fit:cover;border-radius:8px;margin-bottom:6px;',
+    _SUBSLOT_EMPTY_STYLE: 'display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.03);border:2px dashed rgba(255,255,255,0.1);border-radius:12px;min-height:100px;color:rgba(255,255,255,0.2);font-size:13px;',
+    _SUBWINDOW_OVERLAY_STYLE: 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;',
+    _SUBWINDOW_CARD_STYLE: 'width:min(520px,94vw);max-height:90vh;overflow-y:auto;padding:24px 20px;background:linear-gradient(135deg,rgba(20,20,40,0.97),rgba(30,15,50,0.97));border:2px solid rgba(255,215,0,0.35);border-radius:16px;box-shadow:0 12px 24px rgba(0,0,0,0.6);',
+    _SUBWINDOW_TITLE_STYLE: 'text-align:center;color:#ffd700;margin:0 0 6px;font-size:22px;text-shadow:0 0 12px rgba(255,215,0,0.4);',
+    _SUBWINDOW_HINT_STYLE: 'text-align:center;color:rgba(255,255,255,0.6);font-size:13px;margin:0 0 16px;',
+    _SUBWINDOW_GRID_STYLE: 'display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;',
+    _SUBWINDOW_DESC_BOX_STYLE: 'background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px 16px;margin-bottom:16px;min-height:60px;',
+    _SUBWINDOW_DESC_TEXT_STYLE: 'color:rgba(255,255,255,0.8);font-size:13px;line-height:1.6;margin:0;',
+    _SUBWINDOW_CLOSE_STYLE: 'padding:8px 28px;font-size:14px;',
+
+    // 覺醒／專屬／輔助殼由 TALENT_SUBWINDOW_SLOTS 生成。須在 render*Grid／init*Window 之前。
+    renderSubWindows: function() {
+        const host = document.getElementById('talent-subwindow-host');
+        if (!host || host.getAttribute('data-rendered') === '1') return;
+        host.innerHTML = '';
+        const self = this;
+        (this.TALENT_SUBWINDOW_SLOTS || []).forEach(function (slot) {
+            if (!slot || !slot.prefix) return;
+            const p = slot.prefix;
+            const overlay = document.createElement('div');
+            overlay.id = p + '-overlay';
+            overlay.className = 'hidden';
+            overlay.setAttribute('aria-hidden', 'true');
+            overlay.setAttribute('style', self._SUBWINDOW_OVERLAY_STYLE);
+            const card = document.createElement('div');
+            card.setAttribute('style', self._SUBWINDOW_CARD_STYLE);
+            const title = document.createElement('h2');
+            title.setAttribute('style', self._SUBWINDOW_TITLE_STYLE);
+            title.textContent = slot.title || '';
+            const hint = document.createElement('p');
+            hint.setAttribute('style', self._SUBWINDOW_HINT_STYLE);
+            hint.textContent = slot.hint || '';
+            const grid = document.createElement('div');
+            grid.id = p + '-slot-grid';
+            grid.setAttribute('style', self._SUBWINDOW_GRID_STYLE);
+            const descBox = document.createElement('div');
+            descBox.setAttribute('style', self._SUBWINDOW_DESC_BOX_STYLE);
+            const desc = document.createElement('p');
+            desc.id = p + '-desc-text';
+            desc.setAttribute('style', self._SUBWINDOW_DESC_TEXT_STYLE);
+            desc.textContent = slot.desc || '';
+            descBox.appendChild(desc);
+            const closeWrap = document.createElement('div');
+            closeWrap.setAttribute('style', 'text-align:center;');
+            const closeBtn = document.createElement('button');
+            closeBtn.id = p + '-close';
+            closeBtn.className = 'ghost';
+            closeBtn.setAttribute('style', self._SUBWINDOW_CLOSE_STYLE);
+            closeBtn.textContent = '返回';
+            closeWrap.appendChild(closeBtn);
+            card.appendChild(title);
+            card.appendChild(hint);
+            card.appendChild(grid);
+            card.appendChild(descBox);
+            card.appendChild(closeWrap);
+            overlay.appendChild(card);
+            host.appendChild(overlay);
+        });
+        host.setAttribute('data-rendered', '1');
+    },
+
+    // 覺醒／專屬／輔助格子由 SELECT_SLOTS 生成。須在 init*Window 綁事件之前。
+    renderSubSlotGrid: function(opts) {
+        const grid = document.getElementById(opts.gridId);
+        if (!grid || grid.getAttribute('data-rendered') === '1') return;
+        const order = this[opts.orderKey] || [];
+        const lookup = this[opts.lookupKey] || [];
+        if (!Array.isArray(order) || !order.length) return;
+        const byId = {};
+        lookup.forEach(function (s) { if (s && s.id) byId[s.id] = s; });
+        const self = this;
+        grid.innerHTML = '';
+        order.forEach(function (id) {
+            if (!id) {
+                const empty = document.createElement('div');
+                empty.setAttribute('style', self._SUBSLOT_EMPTY_STYLE);
+                empty.textContent = '空格';
+                grid.appendChild(empty);
+                return;
+            }
+            const s = byId[id];
+            if (!s) return;
+            const btn = document.createElement('button');
+            btn.className = opts.slotClass + ' locked';
+            btn.setAttribute(opts.dataAttr, id);
+            btn.setAttribute('style', self._SUBSLOT_BTN_STYLE);
+            const img = document.createElement('img');
+            img.src = s.icon;
+            img.alt = s.name || '';
+            img.className = 'grayscale';
+            img.setAttribute('style', self._SUBSLOT_IMG_STYLE);
+            const name = document.createElement('div');
+            name.setAttribute('style', 'color:#fff;font-size:12px;font-weight:700;text-align:center;');
+            name.textContent = s.name || '';
+            const status = document.createElement('div');
+            status.className = opts.statusClass;
+            status.setAttribute('style', 'font-size:10px;margin-top:2px;color:#aaa;');
+            status.textContent = opts.lockedText;
+            btn.appendChild(img);
+            btn.appendChild(name);
+            btn.appendChild(status);
+            grid.appendChild(btn);
+        });
+        grid.setAttribute('data-rendered', '1');
+    },
+
+    renderAwakeningGrid: function() {
+        this.renderSubSlotGrid({
+            gridId: 'awakening-slot-grid',
+            orderKey: 'AWAKENING_SELECT_SLOTS',
+            lookupKey: '_awakeningSlots',
+            slotClass: 'awakening-slot',
+            dataAttr: 'data-awakening-id',
+            statusClass: 'awakening-slot-status',
+            lockedText: '未解鎖'
+        });
+    },
+
+    renderExclusiveGrid: function() {
+        this.renderSubSlotGrid({
+            gridId: 'exclusive-slot-grid',
+            orderKey: 'EXCLUSIVE_SELECT_SLOTS',
+            lookupKey: '_exclusiveSlots',
+            slotClass: 'exclusive-slot',
+            dataAttr: 'data-exclusive-id',
+            statusClass: 'exclusive-slot-status',
+            lockedText: '未解鎖'
+        });
+    },
+
+    renderAssistGrid: function() {
+        this.renderSubSlotGrid({
+            gridId: 'assist-slot-grid',
+            orderKey: 'ASSIST_SELECT_SLOTS',
+            lookupKey: '_assistSlots',
+            slotClass: 'assist-slot',
+            dataAttr: 'data-assist-id',
+            statusClass: 'assist-slot-status',
+            lockedText: '未替換'
+        });
+    },
+
     // 初始化天賦系統
     init: function() {
+        this.renderSubWindows();
+        this.renderSelectGrid();
+        this.renderAwakeningGrid();
+        this.renderExclusiveGrid();
+        this.renderAssistGrid();
         // 先進行舊資料遷移（hp_boost_50 / hp_boost_100 轉換為等級）
         this.migrateLegacyTalentData();
         this.loadUnlockedTalents();
@@ -972,6 +1184,8 @@ const TalentSystem = {
     },
 
     initAwakeningWindow: function() {
+        this.renderSubWindows();
+        this.renderAwakeningGrid();
         const overlay = document.getElementById('awakening-overlay');
         if (!overlay) return;
         // 返回按鈕
@@ -1120,6 +1334,8 @@ const TalentSystem = {
     },
 
     initExclusiveWindow: function() {
+        this.renderSubWindows();
+        this.renderExclusiveGrid();
         const overlay = document.getElementById('exclusive-overlay');
         if (!overlay) return;
         const closeBtn = document.getElementById('exclusive-close');
@@ -1245,6 +1461,8 @@ const TalentSystem = {
     },
 
     initAssistWindow: function() {
+        this.renderSubWindows();
+        this.renderAssistGrid();
         const overlay = document.getElementById('assist-overlay');
         if (!overlay) return;
         const closeBtn = document.getElementById('assist-close');

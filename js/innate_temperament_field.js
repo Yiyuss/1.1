@@ -14,6 +14,7 @@ class InnateTemperamentField extends Entity {
         this.tickIntervalMs = 120; // 與守護領域/恆星領域一致
         this.tickAccumulator = 0;
         this.weaponType = 'INNATE_TEMPERAMENT';
+        this._ownsNetTick = true;
         this.collisionRadius = radius;
 
         // 緩速：恆星領域LV10完全相同（預設 0.5 = 緩速50%）
@@ -104,11 +105,7 @@ class InnateTemperamentField extends Entity {
             const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
 
@@ -123,6 +120,8 @@ class InnateTemperamentField extends Entity {
                             y: this.y,
                             radius: Math.max(10, Math.floor(this.collisionRadius || this.radius || 120)),
                             damage: Math.max(0, Math.floor(this.tickDamage || 0)),
+                            slowMs: this.slowDurationMs,
+                            slowFactor: this.slowFactor,
                             allowCrit: true,
                             critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
                             timestamp: Date.now()

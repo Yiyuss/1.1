@@ -104,7 +104,8 @@ class Chest extends Entity {
         try {
             if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
                 const player = Game.player;
-                if (player) {
+                // 組隊倒地不撿箱：人躺著不要把箱子撿走，留給活著的人
+                if (player && !player._isDead && player.health > 0) {
                     const dx = this.x - player.x;
                     const dy = this.y - player.y;
                     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -130,11 +131,7 @@ class Chest extends Entity {
             try {
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) { }
 
@@ -354,11 +351,7 @@ class Chest extends Entity {
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         let isSurvivalMode = false;
         try {
-            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
+            const activeId = Utils.getActiveModeId();
             isSurvivalMode = (activeId === 'survival' || activeId === null);
         } catch (_) { }
 
@@ -425,11 +418,21 @@ class PineappleSupplementPickup extends Chest {
         this._spawnY = (opts && typeof opts.spawnY === 'number') ? opts.spawnY : y;
         this._targetX = x;
         this._targetY = y;
-        this._flyStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const nowFly = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const flyElapsed = (opts && typeof opts.flyElapsedMs === 'number') ? Math.max(0, opts.flyElapsedMs) : 0;
+        this._flyStart = nowFly - flyElapsed;
         this._flyDuration = (opts && typeof opts.flyDurationMs === 'number') ? Math.max(0, Math.floor(opts.flyDurationMs)) : 600;
-        this.x = this._spawnX;
-        this.y = this._spawnY;
-        this._landed = (this._flyDuration <= 0);
+        if (this._flyDuration <= 0 || flyElapsed >= this._flyDuration) {
+            this.x = x;
+            this.y = y;
+            this._landed = true;
+        } else {
+            const t = flyElapsed / this._flyDuration;
+            const k = 1 - (1 - t) * (1 - t);
+            this.x = this._spawnX + (this._targetX - this._spawnX) * k;
+            this.y = this._spawnY + (this._targetY - this._spawnY) * k;
+            this._landed = false;
+        }
         this._bornAt = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
         this._expireMs = (opts && typeof opts.expireMs === 'number') ? Math.max(1, Math.floor(opts.expireMs)) : 60000;
     }
@@ -450,7 +453,7 @@ class PineappleSupplementPickup extends Chest {
             const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
             if (isMultiplayer) {
                 const p = Game.player;
-                if (p && this.isColliding(p)) {
+                if (p && !p._isDead && p.health > 0 && this.isColliding(p)) {
                     this.collect(p);
                     return;
                 }
@@ -575,11 +578,7 @@ class PineappleSupplementPickup extends Chest {
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         let isSurvivalMode = false;
         try {
-            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
+            const activeId = Utils.getActiveModeId();
             isSurvivalMode = (activeId === 'survival' || activeId === null);
         } catch (_) { }
         if (isSurvivalMode && isMultiplayer) {
@@ -658,12 +657,22 @@ class PineappleUltimatePickup extends Chest {
         this._spawnY = (opts && typeof opts.spawnY === 'number') ? opts.spawnY : y;
         this._targetX = x;
         this._targetY = y;
-        this._flyStart = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const nowFly = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+        const flyElapsed = (opts && typeof opts.flyElapsedMs === 'number') ? Math.max(0, opts.flyElapsedMs) : 0;
+        this._flyStart = nowFly - flyElapsed;
         this._flyDuration = (opts && typeof opts.flyDurationMs === 'number') ? Math.max(0, Math.floor(opts.flyDurationMs)) : 600;
-        // 起始先放在玩家位置，逐步飛到目標
-        this.x = this._spawnX;
-        this.y = this._spawnY;
-        this._landed = (this._flyDuration <= 0);
+        // 起始先放在玩家位置，逐步飛到目標。已經飛完的直接停在落點
+        if (this._flyDuration <= 0 || flyElapsed >= this._flyDuration) {
+            this.x = x;
+            this.y = y;
+            this._landed = true;
+        } else {
+            const t = flyElapsed / this._flyDuration;
+            const k = 1 - (1 - t) * (1 - t);
+            this.x = this._spawnX + (this._targetX - this._spawnX) * k;
+            this.y = this._spawnY + (this._targetY - this._spawnY) * k;
+            this._landed = false;
+        }
     }
 
     update(deltaTime) {
@@ -683,7 +692,7 @@ class PineappleUltimatePickup extends Chest {
             const isServerAuthoritative = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
             if (isServerAuthoritative) {
                 const player = Game.player;
-                if (player && this.isColliding(player)) {
+                if (player && !player._isDead && player.health > 0 && this.isColliding(player)) {
                     this.collect(player);
                     return;
                 }
@@ -695,11 +704,7 @@ class PineappleUltimatePickup extends Chest {
                     try {
                         let isSurvivalMode = false;
                         try {
-                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                ? GameModeManager.getCurrent()
-                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                    ? ModeManager.getActiveModeId()
-                                    : null);
+                            const activeId = Utils.getActiveModeId();
                             isSurvivalMode = (activeId === 'survival' || activeId === null);
                         } catch (_) { }
 
@@ -828,11 +833,7 @@ class PineappleUltimatePickup extends Chest {
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         let isSurvivalMode = false;
         try {
-            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
+            const activeId = Utils.getActiveModeId();
             isSurvivalMode = (activeId === 'survival' || activeId === null);
         } catch (_) { }
 
@@ -850,7 +851,14 @@ class PineappleUltimatePickup extends Chest {
                     y: this.y
                 });
             }
-            // 等待服務器廣播
+            // 組隊鳳梨沒撿到還能再撿：沒被收走就放開，跟普通箱和補品一樣
+            try {
+                setTimeout(() => {
+                    if (!this.markedForDeletion) {
+                        this.isCollecting = false;
+                    }
+                }, 500);
+            } catch (_) {}
             return;
         }
 

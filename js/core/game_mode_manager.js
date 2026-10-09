@@ -111,6 +111,16 @@
         for (const it of manifest.audio) {
           if (!it || !it.name || !it.src) continue;
           audio.set(it.name, it.src);
+          // 循環 BGM：進場才掛上 AudioManager.music，避免開生存先拉挑戰 BOSS 曲
+          if (it.loop && typeof AudioManager !== 'undefined' && AudioManager.music && !AudioManager.music[it.name]) {
+            try {
+              const el = new Audio();
+              el.src = it.src;
+              el.loop = true;
+              el.volume = (typeof AudioManager.musicVolume === 'number') ? AudioManager.musicVolume : 0.5;
+              AudioManager.music[it.name] = el;
+            } catch (_) {}
+          }
         }
       }
       // JSON：如需模式配置，可於此載入
@@ -356,9 +366,27 @@
     has(id){ return _modes.has(id); },
     list(){ return Array.from(_modes.keys()); },
     getCurrent(){ return _current ? _current.id : null; },
+    getActiveModeId(){ return this.getCurrent(); },
     async start(id, params){
+      // 過渡層先上：延遲載入模式腳本時不要黑屏
+      TransitionLayer.show();
+      await new Promise(r => requestAnimationFrame(r));
+
+      try {
+        if (global.ModeScripts && typeof global.ModeScripts.ensure === 'function') {
+          await global.ModeScripts.ensure(id);
+        }
+      } catch (e) {
+        console.error('[GameModeManager] 載入模式腳本失敗', id, e);
+        try { TransitionLayer.hide(); } catch (_) {}
+        throw e;
+      }
+
       const mode = _modes.get(id);
-      if (!mode) throw new Error(`Mode '${id}' not registered`);
+      if (!mode) {
+        try { TransitionLayer.hide(); } catch (_) {}
+        throw new Error(`Mode '${id}' not registered`);
+      }
       
       // ========== 過渡層方案（正確的執行順序）==========
       // 關鍵原則：過渡層必須在舊模式還活著時顯示，至少撐過一幀
@@ -372,12 +400,6 @@
       // 7. 背景載入 Mode B
       // 8. Mode B 就緒，切顯示到 Mode B
       // 9. 移除過渡層並清理視頻
-      
-      // 🔴 Step 1-2：無論是否有舊模式，都先顯示過渡層並播放 LOAD.mp4
-      TransitionLayer.show();
-      
-      // 🔑 Step 3：關鍵一幀 - 確保過渡層被渲染穩定
-      await new Promise(r => requestAnimationFrame(r));
       
       // 🔴 Step 4：現在才安全停止舊模式（過渡層已穩定，不會黑屏）
       if (_current) {

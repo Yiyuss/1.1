@@ -60,6 +60,75 @@
                 }
             }
 
+            // 組隊補血送伺服器：單機仍只改本地血量
+            _syncTeamHeal(amount) {
+                const heal = Math.max(0, Math.floor(Number(amount) || 0));
+                if (!heal) return;
+                if (!this.player || this.player._isRemotePlayer) return;
+                if (typeof Game === 'undefined' || this.player !== Game.player) return;
+                if (!(Game.multiplayer && Game.multiplayer.enabled)) return;
+                let isSurvival = false;
+                try { isSurvival = Utils.isSurvivalModeContext(); } catch (_) {}
+                if (!isSurvival) return;
+                if (typeof window === 'undefined' || !window.SurvivalOnlineRuntime || typeof window.SurvivalOnlineRuntime.sendToNet !== 'function') return;
+                window.SurvivalOnlineRuntime.sendToNet({
+                    type: 'heal',
+                    amount: heal,
+                    timestamp: Date.now()
+                });
+            }
+
+            // 組隊場域跟等級變大：圈變了才再送一次，隊友才看得到變大。打多少仍走原本的結算
+            _syncTeamFieldSize(entity) {
+                try {
+                    if (!entity || !entity.id) return;
+                    if (!this.player || this.player._isRemotePlayer) return;
+                    if (typeof Game === 'undefined' || this.player !== Game.player) return;
+                    if (!(Game.multiplayer && Game.multiplayer.enabled)) return;
+                    let isSurvival = false;
+                    try { isSurvival = Utils.isSurvivalModeContext(); } catch (_) {}
+                    if (!isSurvival) return;
+                    if (typeof window === 'undefined' || typeof window.SurvivalOnlineBroadcastEvent !== 'function') return;
+                    const uid = Game.multiplayer.uid;
+                    if (!uid) return;
+                    window.SurvivalOnlineBroadcastEvent('projectile_spawn', {
+                        id: entity.id,
+                        x: this.player.x,
+                        y: this.player.y,
+                        weaponType: entity.weaponType || this.type,
+                        playerUid: uid,
+                        radius: entity.radius,
+                        slowFactor: entity.slowFactor,
+                        visualScale: entity.visualScale
+                    });
+                } catch (_) {}
+            }
+
+            // 組隊神裁跟等級變遠：劍飛的範圍變了才再送一次。打多少仍走原本的結算
+            _syncTeamDivineRange(entity) {
+                try {
+                    if (!entity || !entity.id) return;
+                    if (!this.player || this.player._isRemotePlayer) return;
+                    if (typeof Game === 'undefined' || this.player !== Game.player) return;
+                    if (!(Game.multiplayer && Game.multiplayer.enabled)) return;
+                    let isSurvival = false;
+                    try { isSurvival = Utils.isSurvivalModeContext(); } catch (_) {}
+                    if (!isSurvival) return;
+                    if (typeof window === 'undefined' || typeof window.SurvivalOnlineBroadcastEvent !== 'function') return;
+                    const uid = Game.multiplayer.uid;
+                    if (!uid) return;
+                    window.SurvivalOnlineBroadcastEvent('projectile_spawn', {
+                        id: entity.id,
+                        x: this.player.x,
+                        y: this.player.y,
+                        weaponType: 'DIVINE_JUDGMENT',
+                        playerUid: uid,
+                        detectRadius: entity.detectRadius,
+                        aoeRadius: entity.aoeRadius
+                    });
+                } catch (_) {}
+            }
+
             // 發射投射物
             fire() {
                 const levelMul = (typeof DamageSystem !== 'undefined')
@@ -79,6 +148,12 @@
                             finalDamage: dmg,
                             timestamp: Date.now()
                         });
+                        // 組隊音效只聽自己：只有施放的人有 FBI 聲，跟單機一樣
+                        try {
+                            if (!this.player._isRemotePlayer && typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
+                                AudioManager.playSound('FBI');
+                            }
+                        } catch (_) {}
                         return;
                     }
                     if (typeof Game !== 'undefined' && typeof Game.spawnFBICars === 'function') {
@@ -161,6 +236,7 @@
                         heal = this.level;
                     }
                     this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                    this._syncTeamHeal(heal);
                     if (typeof UI !== 'undefined') {
                         UI.updateHealthBar(this.player.health, this.player.maxHealth);
                     }
@@ -184,6 +260,7 @@
                         heal = this.level;
                     }
                     this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                    this._syncTeamHeal(heal);
                     if (typeof UI !== 'undefined') {
                         UI.updateHealthBar(this.player.health, this.player.maxHealth);
                     }
@@ -207,6 +284,7 @@
                         heal = this.level;
                     }
                     this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                    this._syncTeamHeal(heal);
                     if (typeof UI !== 'undefined') {
                         UI.updateHealthBar(this.player.health, this.player.maxHealth);
                     }
@@ -281,6 +359,7 @@
                     const heal = healAmounts[Math.min(this.level - 1, healAmounts.length - 1)] || 12;
 
                     this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                    this._syncTeamHeal(heal);
                     if (typeof UI !== 'undefined') {
                         UI.updateHealthBar(this.player.health, this.player.maxHealth);
                     }
@@ -301,14 +380,10 @@
                     // 單機模式：速度隨等級線性增長，LV1為基礎速度，LV10為2倍速度
                     // 重要：整個系統（所有球）的旋轉速度是固定的，就像摩天輪一樣，不管裝了多少個箱子，整個系統轉1圈的時間是固定的
                     // 每顆球都使用相同的 angularSpeed，這樣整個系統就會以固定速度旋轉
+                    // 組隊環繞跟等級轉：跟單機一樣，一級原速，滿級兩倍。不要停在一級
                     let angularSpeed = this.config.ANGULAR_SPEED;
-                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                    if (!isMultiplayer) {
-                        // 單機模式：LV1到LV10，速度從基礎速度線性增長到2倍基礎速度
-                        // 整個系統轉1圈的時間：LV1時1秒，LV10時0.5秒（2倍速）
-                        const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
-                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
-                    }
+                    const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                    angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
                     for (let i = 0; i < count; i++) {
                         const angle = (i / count) * Math.PI * 2;
                         const baseRadius = this.config.ORBIT_RADIUS;
@@ -334,11 +409,8 @@
                 if (this.type === 'STELLAR_ORBIT') {
                     const count = this.projectileCount;
                     let angularSpeed = this.config.ANGULAR_SPEED;
-                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                    if (!isMultiplayer) {
-                        const speedMultiplier = 1.0 + (this.level - 1) / 9;
-                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
-                    }
+                    const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                    angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
                     for (let i = 0; i < count; i++) {
                         const angle = (i / count) * Math.PI * 2;
                         const baseRadius = this.config.ORBIT_RADIUS;
@@ -367,14 +439,10 @@
                     // 單機模式：速度隨等級線性增長，LV1為基礎速度，LV10為2倍速度
                     // 重要：整個系統（所有球）的旋轉速度是固定的，就像摩天輪一樣，不管裝了多少個箱子，整個系統轉1圈的時間是固定的
                     // 每顆球都使用相同的 angularSpeed，這樣整個系統就會以固定速度旋轉
+                    // 組隊環繞跟等級轉：跟單機一樣，一級原速，滿級兩倍。不要停在一級
                     let angularSpeed = this.config.ANGULAR_SPEED;
-                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                    if (!isMultiplayer) {
-                        // 單機模式：LV1到LV10，速度從基礎速度線性增長到2倍基礎速度
-                        // 整個系統轉1圈的時間：LV1時1秒，LV10時0.5秒（2倍速）
-                        const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
-                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
-                    }
+                    const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                    angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
                     for (let i = 0; i < count; i++) {
                         const angle = (i / count) * Math.PI * 2;
                         const baseRadius = this.config.ORBIT_RADIUS;
@@ -403,14 +471,10 @@
                     // 單機模式：速度隨等級線性增長，LV1為基礎速度，LV10為2倍速度
                     // 重要：整個系統（所有球）的旋轉速度是固定的，就像摩天輪一樣，不管裝了多少個箱子，整個系統轉1圈的時間是固定的
                     // 每顆球都使用相同的 angularSpeed，這樣整個系統就會以固定速度旋轉
+                    // 組隊環繞跟等級轉：跟單機一樣，一級原速，滿級兩倍。不要停在一級
                     let angularSpeed = this.config.ANGULAR_SPEED;
-                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                    if (!isMultiplayer) {
-                        // 單機模式：LV1到LV10，速度從基礎速度線性增長到2倍基礎速度
-                        // 整個系統轉1圈的時間：LV1時1秒，LV10時0.5秒（2倍速）
-                        const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
-                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
-                    }
+                    const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                    angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
                     for (let i = 0; i < count; i++) {
                         const angle = (i / count) * Math.PI * 2;
                         const baseRadius = this.config.ORBIT_RADIUS;
@@ -440,12 +504,8 @@
                     const count = this.projectileCount;
                     // 單機模式：速度隨等級線性增長，LV1為基礎速度，LV10為2倍速度
                     let angularSpeed = this.config.ANGULAR_SPEED;
-                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                    if (!isMultiplayer) {
-                        // 單機模式：LV1到LV10，速度從基礎速度線性增長到2倍基礎速度
-                        const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
-                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
-                    }
+                    const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                    angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
                     for (let i = 0; i < count; i++) {
                         const angle = (i / count) * Math.PI * 2;
                         const baseRadius = this.config.ORBIT_RADIUS;
@@ -474,12 +534,8 @@
                     const count = this.projectileCount;
                     // 單機模式：速度隨等級線性增長，LV1為基礎速度，LV10為2倍速度
                     let angularSpeed = this.config.ANGULAR_SPEED;
-                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                    if (!isMultiplayer) {
-                        // 單機模式：LV1到LV10，速度從基礎速度線性增長到2倍基礎速度
-                        const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
-                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
-                    }
+                    const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                    angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
                     for (let i = 0; i < count; i++) {
                         const angle = (i / count) * Math.PI * 2;
                         const baseRadius = this.config.ORBIT_RADIUS;
@@ -508,11 +564,8 @@
                 if (this.type === 'GABRIEL_ORBIT') {
                     const count = this.projectileCount;
                     let angularSpeed = this.config.ANGULAR_SPEED;
-                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                    if (!isMultiplayer) {
-                        const speedMultiplier = 1.0 + (this.level - 1) / 9;
-                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
-                    }
+                    const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                    angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
                     for (let i = 0; i < count; i++) {
                         const angle = (i / count) * Math.PI * 2;
                         const baseRadius = this.config.ORBIT_RADIUS;
@@ -540,11 +593,8 @@
                 if (this.type === 'WEDDING_CALL_ORBIT') {
                     const count = this.projectileCount;
                     let angularSpeed = this.config.ANGULAR_SPEED;
-                    const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
-                    if (!isMultiplayer) {
-                        const speedMultiplier = 1.0 + (this.level - 1) / 9;
-                        angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
-                    }
+                    const speedMultiplier = 1.0 + (this.level - 1) / 9; // LV1=1.0, LV10=2.0
+                    angularSpeed = this.config.ANGULAR_SPEED * speedMultiplier;
                     for (let i = 0; i < count; i++) {
                         const angle = (i / count) * Math.PI * 2;
                         const baseRadius = this.config.ORBIT_RADIUS;
@@ -580,9 +630,11 @@
                         Game.addProjectile(this._auraEntity);
                     } else {
                         // 升級或定期同步最新數值
+                        const grew = this._auraEntity.radius !== dynamicRadius;
                         this._auraEntity.radius = dynamicRadius;
                         this._auraEntity.damage = dmg;
                         this._auraEntity.tickDamage = Math.max(1, Math.round(dmg));
+                        if (grew) this._syncTeamFieldSize(this._auraEntity);
                     }
                     return;
                 }
@@ -597,9 +649,11 @@
                         this._auraEntity = new CygnusUltimateField(this.player, dynamicRadius, dmg);
                         Game.addProjectile(this._auraEntity);
                     } else {
+                        const grew = this._auraEntity.radius !== dynamicRadius;
                         this._auraEntity.radius = dynamicRadius;
                         this._auraEntity.damage = dmg;
                         this._auraEntity.tickDamage = Math.max(0, Math.round(dmg));
+                        if (grew) this._syncTeamFieldSize(this._auraEntity);
                     }
                     return;
                 }
@@ -616,8 +670,10 @@
                         this._auraEntity = new StellarField(this.player, dynamicRadius, slowFactor);
                         Game.addProjectile(this._auraEntity);
                     } else {
+                        const grew = this._auraEntity.radius !== dynamicRadius || this._auraEntity.slowFactor !== slowFactor;
                         this._auraEntity.radius = dynamicRadius;
                         this._auraEntity.slowFactor = slowFactor;
+                        if (grew) this._syncTeamFieldSize(this._auraEntity);
                     }
                     return;
                 }
@@ -633,10 +689,12 @@
                         this._auraEntity = new InnateTemperamentField(this.player, dynamicRadius, dmg, slowFactor);
                         Game.addProjectile(this._auraEntity);
                     } else {
+                        const grew = this._auraEntity.radius !== dynamicRadius || this._auraEntity.slowFactor !== slowFactor;
                         this._auraEntity.radius = dynamicRadius;
                         this._auraEntity.damage = dmg;
                         this._auraEntity.tickDamage = Math.max(0, Math.round(dmg));
                         this._auraEntity.slowFactor = slowFactor;
+                        if (grew) this._syncTeamFieldSize(this._auraEntity);
                     }
                     return;
                 }
@@ -664,10 +722,12 @@
                         Game.addProjectile(this._auraEntity);
                     } else {
                         // 升級或定期同步最新數值
+                        const grew = this._auraEntity.radius !== dynamicRadius;
                         this._auraEntity.radius = dynamicRadius;
                         this._auraEntity.damage = dmg;
                         this._auraEntity.tickDamage = Math.max(1, Math.round(dmg));
                         this._auraEntity.pushMultiplier = pushMultiplier; // 同步推力加成
+                        if (grew) this._syncTeamFieldSize(this._auraEntity);
                     }
                     return;
                 }
@@ -1014,6 +1074,7 @@
                     // 1) 立即治療：LV1~LV10 = +12, +14, ..., +30（公式：10 + 2*LV）
                     const heal = 10 + 2 * Math.max(1, this.level);
                     this.player.health = Math.min(this.player.maxHealth, this.player.health + heal);
+                    this._syncTeamHeal(heal);
                     if (typeof UI !== 'undefined') {
                         UI.updateHealthBar(this.player.health, this.player.maxHealth);
                     }
@@ -1347,6 +1408,8 @@
                     const patrolSpeedFactor = (typeof cfg.PATROL_SPEED_FACTOR === 'number') ? cfg.PATROL_SPEED_FACTOR : 0.35;
                     const dmg = this._computeFinalDamage(levelMul);
 
+                    const beforeDetect = this._divineJudgmentEntity ? this._divineJudgmentEntity.detectRadius : null;
+                    const beforeAoe = this._divineJudgmentEntity ? this._divineJudgmentEntity.aoeRadius : null;
                     if (!this._divineJudgmentEntity || this._divineJudgmentEntity.markedForDeletion) {
                         this._divineJudgmentEntity = new DivineJudgmentEffect(this.player, {
                             damage: dmg,
@@ -1381,6 +1444,9 @@
                             this._divineJudgmentEntity.damage = dmg;
                             this._divineJudgmentEntity.detectRadius = detectRadius;
                             this._divineJudgmentEntity.aoeRadius = aoeRadius;
+                        }
+                        if (this._divineJudgmentEntity.detectRadius !== beforeDetect || this._divineJudgmentEntity.aoeRadius !== beforeAoe) {
+                            this._syncTeamDivineRange(this._divineJudgmentEntity);
                         }
                     }
                     return;
@@ -1777,10 +1843,13 @@
             // 覺醒力量加成（+300 基礎攻擊，僅生存模式）
             const awakeningAttackFlat = (this.player && this.player.awakeningAttackFlat) ? this.player.awakeningAttackFlat : 0;
 
-            const lvPct = Math.max(0, (levelMul || 1) - 1);
-            const percentSum = lvPct + talentPct + attrPct;
+            const lvPct = (typeof DamageFormula !== 'undefined' && DamageFormula.levelPctFromMul)
+                ? DamageFormula.levelPctFromMul(levelMul)
+                : Math.max(0, (levelMul || 1) - 1);
             const baseFlat = base + frenzyExtra + frenzyIceBallExtra + gravityCollapseExtra + gravityWaveExtra + innateTemperamentExtra + deathlineExtra + deathlineSupermanExtra + radiantGloryExtra + divineJudgmentExtra + whiteRainbowBeamExtra + specFlat + attrFlat + chickenBlessingFlat + sheepGuardFlat + heartCompanionFlat + rotatingMuffinFlat + pineappleOrbitFlat + stellarOrbitFlat + gabrielOrbitFlat + weddingCallOrbitFlat + awakeningAttackFlat;
-            const value = baseFlat * (1 + percentSum);
+            const value = (typeof DamageFormula !== 'undefined' && DamageFormula.applyAddThenMul)
+                ? DamageFormula.applyAddThenMul(baseFlat, [lvPct, talentPct, attrPct])
+                : baseFlat * (1 + lvPct + talentPct + attrPct);
             return value;
         };
 

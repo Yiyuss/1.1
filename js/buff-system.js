@@ -17,15 +17,40 @@ const BuffSystem = {
     // 與 game.js 一致：生存模式為 survival，或舊流程未掛載模式時 activeId 為 null 視為生存
     _isSurvivalModeContext: function() {
         try {
-            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
-            return (activeId === 'survival' || activeId === null);
+            return (typeof Utils !== 'undefined' && typeof Utils.isSurvivalModeContext === 'function')
+                ? Utils.isSurvivalModeContext()
+                : true;
         } catch (_) {
             return false;
         }
+    },
+    /**
+     * 回血技能倍率：身上的腎上腺素／心意相通／虹光共鳴／暗物質，
+     * 或本場合成鳳梨補品後保留的 LV10 腎上腺素（_sessionKeptAdrenalineRegenLevel）。
+     * 兩者取高，不疊加。不寫入存檔。
+     */
+    _applyRegenSkillMultiplier: function(player) {
+        player._heartConnectionRegenMultiplier = 1.0;
+        let weaponMul = 1.0;
+        if (player.weapons && Array.isArray(player.weapons)) {
+            const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE' || w.type === 'RAINBOW_RESONANCE' || w.type === 'DARK_MATTER'));
+            if (regenSkillWeapon) {
+                const config = regenSkillWeapon.config || ((typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[regenSkillWeapon.type]) ? CONFIG.WEAPONS[regenSkillWeapon.type] : null);
+                if (config) {
+                    const boostPerLevel = config.REGEN_SPEED_BOOST_PER_LEVEL || 0.30;
+                    const level = regenSkillWeapon.level || 1;
+                    weaponMul = 1.0 + (boostPerLevel * level);
+                }
+            }
+        }
+        let sessionMul = 1.0;
+        const sessionLv = player._sessionKeptAdrenalineRegenLevel;
+        if (typeof sessionLv === 'number' && sessionLv > 0) {
+            const adrenCfg = (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS.ADRENALINE) ? CONFIG.WEAPONS.ADRENALINE : null;
+            const boostPerLevel = (adrenCfg && adrenCfg.REGEN_SPEED_BOOST_PER_LEVEL) || 0.30;
+            sessionMul = 1.0 + (boostPerLevel * sessionLv);
+        }
+        player._heartConnectionRegenMultiplier = Math.max(weaponMul, sessionMul);
     },
     // 所有可用的buff類型及其效果
     buffTypes: {
@@ -247,6 +272,13 @@ const BuffSystem = {
                 // 最大血量增加：按比例增加当前血量
                 const healthRatio = oldMaxHealth > 0 ? (player.health / oldMaxHealth) : 1.0;
                 player.health = Math.min(player.maxHealth, Math.floor(player.health + (player.maxHealth - oldMaxHealth) * healthRatio));
+                try {
+                    if (!player._isRemotePlayer && player === Game.player && Game.multiplayer && Game.multiplayer.enabled &&
+                        typeof Utils !== 'undefined' && Utils.isSurvivalModeContext && Utils.isSurvivalModeContext() &&
+                        window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.requestImmediatePlayerMeta === 'function') {
+                        window.SurvivalOnlineRuntime.requestImmediatePlayerMeta();
+                    }
+                } catch (_) {}
             } else {
                 // 最大血量减少或不变：保持当前血量但不超过新上限
                 player.health = Math.min(player.health, player.maxHealth);
@@ -418,23 +450,7 @@ const BuffSystem = {
             // 這樣可以確保生命值只被計算一次，不會被重置
             this.applyAttributeUpgrades(player);
             
-            // 處理心意相通/腎上腺素/虹光共鳴/暗物質技能的回血速度提升
-            // 先清除技能倍率（確保沒有殘留值）
-            player._heartConnectionRegenMultiplier = 1.0;
-            if (player.weapons && Array.isArray(player.weapons)) {
-                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE' || w.type === 'RAINBOW_RESONANCE' || w.type === 'DARK_MATTER'));
-                if (regenSkillWeapon) {
-                    // 確保 config 存在（如果沒有，從 CONFIG.WEAPONS 獲取）
-                    const config = regenSkillWeapon.config || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[regenSkillWeapon.type]) ? CONFIG.WEAPONS[regenSkillWeapon.type] : null;
-                    if (config) {
-                        const boostPerLevel = config.REGEN_SPEED_BOOST_PER_LEVEL || 0.30;
-                        const level = regenSkillWeapon.level || 1;
-                        // 計算技能倍率（例如 LV3: 1.0 + 0.30 * 3 = 1.90）
-                        const totalBoost = 1.0 + (boostPerLevel * level);
-                        player._heartConnectionRegenMultiplier = totalBoost;
-                    }
-                }
-            }
+            this._applyRegenSkillMultiplier(player);
             // 觸發回血強化buff更新（會自動與天賦和心意相通加算）
             const oldMultiplier = player.healthRegenSpeedMultiplier || 1.0;
             if (regenLv > 0) {
@@ -552,23 +568,7 @@ const BuffSystem = {
                 player.dodgeTalentRate = this._getTierEffect('dodge_enhance', dodgeLv, 'dodgeRate', 0) || 0;
             }
             
-            // 心意相通/腎上腺素/虹光共鳴/暗物質技能：檢查玩家是否擁有該技能並應用回血速度提升
-            // 先清除技能倍率（確保沒有殘留值）
-            player._heartConnectionRegenMultiplier = 1.0;
-            if (player.weapons && Array.isArray(player.weapons)) {
-                const regenSkillWeapon = player.weapons.find(w => w && (w.type === 'HEART_CONNECTION' || w.type === 'ADRENALINE' || w.type === 'RAINBOW_RESONANCE' || w.type === 'DARK_MATTER'));
-                if (regenSkillWeapon) {
-                    // 確保 config 存在（如果沒有，從 CONFIG.WEAPONS 獲取）
-                    const config = regenSkillWeapon.config || (typeof CONFIG !== 'undefined' && CONFIG.WEAPONS && CONFIG.WEAPONS[regenSkillWeapon.type]) ? CONFIG.WEAPONS[regenSkillWeapon.type] : null;
-                    if (config) {
-                        const boostPerLevel = config.REGEN_SPEED_BOOST_PER_LEVEL || 0.30;
-                        const level = regenSkillWeapon.level || 1;
-                        // 計算技能倍率（例如 LV10: 1.0 + 0.30 * 10 = 4.0）
-                        const totalBoost = 1.0 + (boostPerLevel * level);
-                        player._heartConnectionRegenMultiplier = totalBoost;
-                    }
-                }
-            }
+            this._applyRegenSkillMultiplier(player);
             // 觸發回血強化buff更新（會自動與天賦和心意相通加算）
             const oldMultiplier = player.healthRegenSpeedMultiplier || 1.0;
             if (regenLv > 0) {

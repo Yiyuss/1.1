@@ -71,7 +71,20 @@ class RadiantGloryEffect extends Entity {
             beam._radiantGloryAssignment = this.enemyBeamAssignment;
             beam._radiantGloryMaxHits = 3; // 每個敵人最多3條雷射
             this.beams.push(beam);
-            Game.addProjectile(beam);
+            // 組隊光芒要有十條：這組線自己不畫，要靠每一條光束畫。隊友的光束若走一般送出，會被當成別人的子彈丟掉，十條就整組不見
+            const remoteUid = (this.player && this.player._isRemotePlayer)
+                ? (this.player._remoteUid || this.player.uid || null)
+                : null;
+            if (this.player && this.player._isRemotePlayer) {
+                beam._isVisualOnly = true;
+                if (remoteUid) beam._remotePlayerUid = remoteUid;
+                if (!beam.id) beam.id = 'radiant_beam_' + this.instanceId + '_' + i;
+                if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+                    Game.projectiles.push(beam);
+                }
+            } else {
+                Game.addProjectile(beam);
+            }
         }
     }
     

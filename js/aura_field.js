@@ -21,6 +21,7 @@ class AuraField extends Entity {
         this.tickIntervalMs = 120; // 與 ORBIT/LASER 相同節奏
         this.tickAccumulator = 0;
         this.weaponType = 'AURA_FIELD';
+        this._ownsNetTick = true;
         // 碰撞以圓形為主
         this.collisionRadius = radius;
 
@@ -142,11 +143,7 @@ class AuraField extends Entity {
                     const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                     let isSurvivalMode = false;
                     try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
+                        const activeId = Utils.getActiveModeId();
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
@@ -166,6 +163,8 @@ class AuraField extends Entity {
                                 radius: 1,
                                 enemyIds: [enemy.id],
                                 damage: finalDamage,
+                                preRolled: true,
+                                isCrit: isCrit,
                                 allowCrit: true,
                                 critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
                             });

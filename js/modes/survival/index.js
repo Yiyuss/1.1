@@ -175,6 +175,14 @@
       // （防汙染保險）確保挑戰模式 HUD 與覆蓋元素被隱藏/移除
       try { const cHUD = document.getElementById('challenge-ui'); if (cHUD) cHUD.style.display = 'none'; } catch(_){ }
       try { const actor = document.getElementById('challenge-player-actor'); if (actor && actor.parentNode) actor.parentNode.removeChild(actor); } catch(_){ }
+      // 3D 進場會把生存血條設成不顯示，離開時沒有還原
+      try {
+        const gameUI = document.getElementById('game-ui');
+        if (gameUI) {
+          gameUI.style.display = '';
+          gameUI.classList.remove('hidden');
+        }
+      } catch (_) {}
     },
     exit(ctx){
       // 停止本模式音樂；其餘事件/計時器釋放由 GameModeManager 的 ctx.dispose 自動處理
@@ -251,11 +259,8 @@
     update(){ /* 交由 Game.update */ },
     draw(){ /* 交由 Game.draw */ }
   };
-  // 優先註冊到隔離化 GameModeManager；若不可用則回退到舊 ModeManager
   if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.register === 'function') {
     window.GameModeManager.register(SurvivalMode.id, SurvivalMode);
-  } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.register === 'function') {
-    window.ModeManager.register(SurvivalMode.id, SurvivalMode);
   } else {
     console.warn('[SurvivalMode] 找不到可用的模式管理器，無法註冊生存模式');
   }

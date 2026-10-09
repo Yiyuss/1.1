@@ -12,6 +12,14 @@
 //   6) 變更點集中在 setupMapAndDifficultySelection 以維持選角畫面為底層、其他視窗覆蓋顯示
 
 document.addEventListener('DOMContentLoaded', function() {
+    if (typeof ModeHud !== 'undefined' && ModeHud.renderModeHuds) ModeHud.renderModeHuds();
+    if (typeof SummaryPanels !== 'undefined' && SummaryPanels.renderSummaryPanels) SummaryPanels.renderSummaryPanels();
+    renderStartMenuButtons();
+    renderStartInfoPages();
+    renderRegardingLinks();
+    renderConfirmDialogs();
+    renderPromptModals();
+    renderBackupSections();
     // 開始按鈕
     const startButton = document.getElementById('start-button');
     startButton.addEventListener('click', function() {
@@ -216,6 +224,7 @@ function setupAutoPause() {
 
     // 可見性變更：當回到可見時，若覆蓋層（升級/技能）開啟，保持暫停但解除靜音以恢復 BGM 與音效
     document.addEventListener('visibilitychange', () => {
+        if (document.hidden && typeof Input !== 'undefined' && Input.releaseHeldKeys) Input.releaseHeldKeys();
         // 組隊模式下不暫停，避免影響其他玩家
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.sessionId);
         if (document.hidden && !isMultiplayer) {
@@ -227,14 +236,7 @@ function setupAutoPause() {
         } else {
             // 若目前為非生存模式（主線/挑戰），維持暫停並不恢復生存迴圈或BGM
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
-                // 非生存模式包含：主線、挑戰、闖關、防禦、冒險（這些模式的暫停/菜單由各自 UI 控制）
-                const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge' || activeId === 'stage' || activeId === 'defense' || activeId === 'adventure');
-                if (isNonSurvivalMode) {
+                if (!Utils.isSurvivalModeContext()) {
                     Game.pause(true);
                     return;
                 }
@@ -271,6 +273,7 @@ function setupAutoPause() {
     });
 
     window.addEventListener('blur', () => {
+        if (typeof Input !== 'undefined' && Input.releaseHeldKeys) Input.releaseHeldKeys();
         // 組隊模式下不暫停，避免影響其他玩家
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.sessionId);
         if (!isMultiplayer) {
@@ -294,14 +297,7 @@ function setupAutoPause() {
         }
         
         try {
-            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
-            // 非生存模式包含：主線、挑戰、闖關、防禦、冒險（這些模式的暫停/菜單由各自 UI 控制）
-            const isNonSurvivalMode = (activeId === 'main' || activeId === 'challenge' || activeId === 'stage' || activeId === 'defense' || activeId === 'adventure');
-            if (isNonSurvivalMode) {
+            if (!Utils.isSurvivalModeContext()) {
                 Game.pause(true);
                 return;
             }
@@ -343,11 +339,7 @@ function setupSkillsMenuToggle() {
     KeyboardRouter.register('game', 'Escape', (e) => {
         // 僅在「生存模式」開啟全域技能頁（避免污染挑戰/闖關/防禦）
         try {
-            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
+            const activeId = Utils.getActiveModeId();
             if (activeId !== 'survival') {
                 return; // 非生存模式不處理 ESC（交由各模式自己的 ESC 菜單）
             }
@@ -369,8 +361,44 @@ function setupSkillsMenuToggle() {
     });
 }
 
+// 選角格由 CONFIG.CHAR_SELECT_SLOTS 生成。順序凍結（含三格空位、森森最後）。
+function renderCharSelectGrid() {
+    const grid = document.querySelector('#character-select-screen .char-grid');
+    if (!grid || grid.getAttribute('data-rendered') === '1') return;
+    const slots = (typeof CONFIG !== 'undefined' && CONFIG.CHAR_SELECT_SLOTS) ? CONFIG.CHAR_SELECT_SLOTS : [];
+    if (!Array.isArray(slots) || !slots.length) return;
+    const byId = {};
+    ((CONFIG && CONFIG.CHARACTERS) || []).forEach(function (c) { byId[c.id] = c; });
+    grid.innerHTML = '';
+    slots.forEach(function (id) {
+        if (!id) {
+            const empty = document.createElement('div');
+            empty.className = 'char-slot empty';
+            grid.appendChild(empty);
+            return;
+        }
+        const ch = byId[id];
+        if (!ch) return;
+        const btn = document.createElement('button');
+        btn.className = 'char-card selectable';
+        btn.setAttribute('data-char-id', ch.id);
+        const img = document.createElement('img');
+        img.src = ch.selectCardSrc || ('assets/images/' + (ch.avatarImageKey || 'player1-2') + '.png');
+        img.alt = ch.name || '';
+        const name = document.createElement('div');
+        name.className = 'char-name';
+        name.textContent = ch.name || '';
+        btn.appendChild(img);
+        btn.appendChild(name);
+        grid.appendChild(btn);
+    });
+    grid.setAttribute('data-rendered', '1');
+}
+
 // 選角介面事件與確認流程（回復原行為：單擊僅更新預覽，雙擊/空白鍵進入選圖）
 function setupCharacterSelection() {
+    renderConfirmDialogs();
+    renderCharSelectGrid();
     const screen = document.getElementById('character-select-screen');
     const cards = screen.querySelectorAll('.char-card.selectable');
     const previewImg = document.getElementById('char-preview-img');
@@ -405,6 +433,32 @@ function setupCharacterSelection() {
         // 若角色未設定解鎖價格或價格<=0，視為預設解鎖
         if (ch && (!ch.unlockCost || ch.unlockCost <= 0)) return true;
         return unlockedSet.has(id);
+    };
+    // 引繼碼套用後刷新角色：選角畫面的解鎖名單只在進頁時讀一次，不刷新的話卡片還是鎖的。
+    window.refreshUnlockedCharacterCards = () => {
+        unlockedSet.clear();
+        loadUnlockedCharacters().forEach((id) => unlockedSet.add(id));
+        const charScreen = document.getElementById('character-select-screen');
+        if (charScreen) {
+            charScreen.querySelectorAll('.char-card.selectable').forEach((card) => {
+                const id = card.getAttribute('data-char-id');
+                const ch = (CONFIG.CHARACTERS || []).find(c => c.id === id);
+                if (!ch) return;
+                const unlocked = isUnlocked(id, ch);
+                if (unlocked) {
+                    card.classList.remove('locked');
+                    const img = card.querySelector('img');
+                    if (img) img.classList.remove('grayscale');
+                } else {
+                    card.classList.add('locked');
+                    const img = card.querySelector('img');
+                    if (img) img.classList.add('grayscale');
+                }
+            });
+        }
+        try {
+            if (typeof window.__refreshTeamCharacterList === 'function') window.__refreshTeamCharacterList();
+        } catch (_) {}
     };
     const unlockCharacter = (id) => {
         if (!unlockedSet.has(id)) {
@@ -715,7 +769,448 @@ function setupCharacterSelection() {
 }
 
 // 地圖與難度選擇事件
+// 選圖格由 CONFIG.MAP_SELECT_GRIDS 生成。未開放格、闖關「(施工中)」、主線卡名「冒險村莊」凍結。
+// 選圖格容器由 MAP_SELECT_GRIDS 的 key 生成。生存格預設顯示，其餘 hidden。須在 renderMapSelectGrids 之前。
+function renderMapGridHosts() {
+    const main = document.querySelector('#map-select-screen .map-main');
+    if (!main || main.getAttribute('data-grid-hosts') === '1') return;
+    const grids = (typeof CONFIG !== 'undefined' && CONFIG.MAP_SELECT_GRIDS) ? CONFIG.MAP_SELECT_GRIDS : null;
+    if (!grids) return;
+    const info = main.querySelector('.map-info');
+    Object.keys(grids).forEach(function (gridId) {
+        if (!gridId || document.getElementById(gridId)) return;
+        const el = document.createElement('div');
+        el.id = gridId;
+        el.className = gridId === 'grid-survival' ? 'map-grid' : 'map-grid hidden';
+        if (info) main.insertBefore(el, info);
+        else main.appendChild(el);
+    });
+    main.setAttribute('data-grid-hosts', '1');
+}
+
+function renderMapSelectGrids() {
+    const grids = (typeof CONFIG !== 'undefined' && CONFIG.MAP_SELECT_GRIDS) ? CONFIG.MAP_SELECT_GRIDS : null;
+    if (!grids) return;
+    const byId = {};
+    ((CONFIG && CONFIG.MAPS) || []).forEach(function (m) { byId[m.id] = m; });
+    const lockedSrc = 'assets/images/background3.jpg';
+    Object.keys(grids).forEach(function (gridId) {
+        const el = document.getElementById(gridId);
+        if (!el || el.getAttribute('data-rendered') === '1') return;
+        const slots = grids[gridId] || [];
+        el.innerHTML = '';
+        slots.forEach(function (slot) {
+            if (!slot || !slot.id) return;
+            const locked = !!slot.disabled;
+            const cfg = byId[slot.id];
+            const btn = document.createElement('button');
+            btn.className = locked ? 'map-card disabled' : 'map-card selectable';
+            btn.setAttribute('data-map-id', slot.id);
+            const img = document.createElement('img');
+            const nameText = slot.cardName || (locked ? '尚未開放' : ((cfg && (cfg.selectCardName || cfg.name)) || ''));
+            const altText = slot.cardAlt || (locked ? '尚未開放' : ((cfg && (cfg.selectCardAlt || nameText)) || ''));
+            img.src = locked ? lockedSrc : (slot.cardSrc || (cfg && cfg.selectCardSrc) || lockedSrc);
+            img.alt = altText;
+            const name = document.createElement('div');
+            name.className = 'map-name';
+            name.textContent = nameText;
+            btn.appendChild(img);
+            btn.appendChild(name);
+            el.appendChild(btn);
+        });
+        el.setAttribute('data-rendered', '1');
+    });
+}
+
+// 選圖左側模式鈕由 CONFIG.MODE_SELECT_BUTTONS 生成。順序與文案凍結。
+function renderModeSelectButtons() {
+    const menu = document.querySelector('#map-select-screen .map-menu');
+    if (!menu || menu.getAttribute('data-modes-rendered') === '1') return;
+    const slots = (typeof CONFIG !== 'undefined' && CONFIG.MODE_SELECT_BUTTONS) ? CONFIG.MODE_SELECT_BUTTONS : [];
+    Array.prototype.slice.call(menu.querySelectorAll('.mode-btn')).forEach(function (btn) {
+        try { menu.removeChild(btn); } catch (_) {}
+    });
+    slots.forEach(function (slot) {
+        if (!slot || !slot.mode) return;
+        const btn = document.createElement('button');
+        btn.id = 'mode-' + slot.mode;
+        btn.className = slot.primary ? 'mode-btn primary' : 'mode-btn';
+        const label = slot.label || '';
+        btn.setAttribute('aria-label', label);
+        btn.textContent = label;
+        menu.appendChild(btn);
+    });
+    menu.setAttribute('data-modes-rendered', '1');
+}
+
+function _appendRegardingLinks(host, slots) {
+    if (!host || host.getAttribute('data-rendered') === '1') return;
+    host.innerHTML = '';
+    (slots || []).forEach(function (slot, i) {
+        if (!slot || !slot.href) return;
+        if (i) host.appendChild(document.createTextNode('、'));
+        const a = document.createElement('a');
+        a.href = slot.href;
+        a.setAttribute('target', 'blank');
+        a.setAttribute('rel', 'noopener');
+        a.textContent = slot.label || '';
+        host.appendChild(a);
+    });
+    host.setAttribute('data-rendered', '1');
+}
+
+// 引繼碼表單由 BACKUP_SECTIONS 生成。主體上下兩塊、冒險同一塊。不改 SaveCode。
+function renderBackupSections() {
+    const host = document.getElementById('backup-sections-host');
+    if (!host || host.getAttribute('data-rendered') === '1') return;
+    const slots = (typeof CONFIG !== 'undefined' && CONFIG.BACKUP_SECTIONS) ? CONFIG.BACKUP_SECTIONS : [];
+    host.innerHTML = '';
+    const h2Style = 'margin:0 0 6px;';
+    const fieldStyle = 'width:100%;';
+    const copyStyle = 'margin-top:6px;';
+    function addOut(parent, slot) {
+        const box = document.createElement('div');
+        box.setAttribute('style', 'margin-top:8px;');
+        const label = document.createElement('label');
+        label.setAttribute('for', slot.outId);
+        label.textContent = slot.outLabel || '';
+        const input = document.createElement('input');
+        input.id = slot.outId;
+        input.type = 'text';
+        input.readOnly = true;
+        input.placeholder = slot.outPlaceholder || '';
+        input.setAttribute('style', fieldStyle);
+        const copy = document.createElement('button');
+        copy.id = slot.copyId;
+        copy.className = 'ghost';
+        copy.setAttribute('style', copyStyle);
+        copy.textContent = '複製';
+        box.appendChild(label);
+        box.appendChild(input);
+        box.appendChild(copy);
+        parent.appendChild(box);
+    }
+    slots.forEach(function (slot) {
+        if (!slot || !slot.layout) return;
+        const content = document.createElement('div');
+        content.className = 'content';
+        if (slot.contentStyle) content.setAttribute('style', slot.contentStyle);
+        const title = document.createElement('h2');
+        title.setAttribute('style', h2Style);
+        title.textContent = slot.title || '';
+        const desc = document.createElement('p');
+        desc.textContent = slot.desc || '';
+        content.appendChild(title);
+        content.appendChild(desc);
+        if (slot.layout === 'split-out') {
+            const gen = document.createElement('button');
+            gen.id = slot.genId;
+            gen.className = 'primary';
+            gen.textContent = slot.genLabel || '';
+            content.appendChild(gen);
+            addOut(content, slot);
+        } else if (slot.layout === 'split-in') {
+            const label = document.createElement('label');
+            label.setAttribute('for', slot.inId);
+            label.textContent = slot.inLabel || '';
+            const input = document.createElement('input');
+            input.id = slot.inId;
+            input.type = 'text';
+            input.placeholder = slot.inPlaceholder || '';
+            input.setAttribute('style', fieldStyle);
+            const apply = document.createElement('button');
+            apply.id = slot.applyId;
+            apply.className = 'primary';
+            apply.setAttribute('style', copyStyle);
+            apply.textContent = slot.applyLabel || '';
+            content.appendChild(label);
+            content.appendChild(input);
+            content.appendChild(apply);
+        } else if (slot.layout === 'nested') {
+            const genWrap = document.createElement('div');
+            genWrap.setAttribute('style', 'margin-bottom:12px;');
+            const gen = document.createElement('button');
+            gen.id = slot.genId;
+            gen.className = 'primary';
+            gen.textContent = slot.genLabel || '';
+            genWrap.appendChild(gen);
+            addOut(genWrap, slot);
+            content.appendChild(genWrap);
+            const inWrap = document.createElement('div');
+            const inTitle = document.createElement('h2');
+            inTitle.setAttribute('style', h2Style);
+            inTitle.textContent = slot.inTitle || '';
+            const inDesc = document.createElement('p');
+            inDesc.setAttribute('style', 'margin:0 0 4px;');
+            inDesc.textContent = slot.inDesc || '';
+            const label = document.createElement('label');
+            label.setAttribute('for', slot.inId);
+            label.textContent = slot.inLabel || '';
+            const input = document.createElement('input');
+            input.id = slot.inId;
+            input.type = 'text';
+            input.placeholder = slot.inPlaceholder || '';
+            input.setAttribute('style', fieldStyle);
+            const apply = document.createElement('button');
+            apply.id = slot.applyId;
+            apply.className = 'primary';
+            apply.setAttribute('style', copyStyle);
+            apply.textContent = slot.applyLabel || '';
+            inWrap.appendChild(inTitle);
+            inWrap.appendChild(inDesc);
+            inWrap.appendChild(label);
+            inWrap.appendChild(input);
+            inWrap.appendChild(apply);
+            content.appendChild(inWrap);
+        }
+        host.appendChild(content);
+    });
+    host.setAttribute('data-rendered', '1');
+}
+
+// 序號兌換／3D 密碼殼由 PROMPT_MODALS 生成。文案與輸入型別凍結。流程不合一。
+function renderPromptModals() {
+    const slots = (typeof CONFIG !== 'undefined' && CONFIG.PROMPT_MODALS) ? CONFIG.PROMPT_MODALS : [];
+    slots.forEach(function (slot) {
+        if (!slot || !slot.hostId || !slot.id) return;
+        const host = document.getElementById(slot.hostId);
+        if (!host || host.getAttribute('data-rendered') === '1') return;
+        host.innerHTML = '';
+        const overlay = document.createElement('div');
+        overlay.id = slot.id;
+        overlay.className = 'modal hidden';
+        if (slot.overlayStyle) overlay.setAttribute('style', slot.overlayStyle);
+        const card = document.createElement('div');
+        card.className = 'modal-card';
+        if (slot.cardStyle) card.setAttribute('style', slot.cardStyle);
+        const title = document.createElement('h2');
+        title.textContent = slot.title || '';
+        const form = document.createElement('div');
+        form.className = 'redeem-code-form';
+        const label = document.createElement('label');
+        label.setAttribute('for', slot.inputId || '');
+        label.textContent = slot.label || '';
+        const input = document.createElement('input');
+        input.type = slot.inputType || 'text';
+        if (slot.inputId) input.id = slot.inputId;
+        input.placeholder = slot.placeholder || '';
+        input.setAttribute('maxlength', '50');
+        const message = document.createElement('div');
+        if (slot.messageId) message.id = slot.messageId;
+        message.className = 'redeem-code-message';
+        form.appendChild(label);
+        form.appendChild(input);
+        form.appendChild(message);
+        const actions = document.createElement('div');
+        actions.className = 'modal-actions';
+        const ok = document.createElement('button');
+        if (slot.okId) ok.id = slot.okId;
+        ok.className = 'ghost';
+        ok.textContent = slot.okLabel || '';
+        const cancel = document.createElement('button');
+        if (slot.cancelId) cancel.id = slot.cancelId;
+        cancel.className = 'ghost';
+        cancel.textContent = slot.cancelLabel || '';
+        actions.appendChild(ok);
+        actions.appendChild(cancel);
+        card.appendChild(title);
+        card.appendChild(form);
+        card.appendChild(actions);
+        overlay.appendChild(card);
+        host.appendChild(overlay);
+        host.setAttribute('data-rendered', '1');
+    });
+}
+
+// 角色／天賦解鎖確認殼由 CONFIRM_DIALOGS 生成。標題／預設說明／確認取消凍結。解鎖邏輯不合一。
+function renderConfirmDialogs() {
+    const slots = (typeof CONFIG !== 'undefined' && CONFIG.CONFIRM_DIALOGS) ? CONFIG.CONFIRM_DIALOGS : [];
+    slots.forEach(function (slot) {
+        if (!slot || !slot.prefix || !slot.hostId) return;
+        const host = document.getElementById(slot.hostId);
+        if (!host || host.getAttribute('data-rendered') === '1') return;
+        host.innerHTML = '';
+        const overlay = document.createElement('div');
+        overlay.id = slot.prefix + '-confirm';
+        overlay.className = 'hidden';
+        const dialog = document.createElement('div');
+        dialog.className = 'talent-dialog';
+        const title = document.createElement('div');
+        title.className = 'talent-dialog-title';
+        title.id = slot.prefix + '-confirm-title';
+        title.textContent = slot.title || '';
+        const desc = document.createElement('div');
+        desc.className = 'talent-dialog-desc';
+        desc.id = slot.prefix + '-confirm-desc';
+        desc.textContent = slot.desc || '';
+        const actions = document.createElement('div');
+        actions.className = 'talent-dialog-actions';
+        const ok = document.createElement('button');
+        ok.id = slot.prefix + '-confirm-ok';
+        ok.className = 'primary';
+        ok.textContent = '確認';
+        const cancel = document.createElement('button');
+        cancel.id = slot.prefix + '-confirm-cancel';
+        cancel.className = 'ghost';
+        cancel.textContent = '取消';
+        actions.appendChild(ok);
+        actions.appendChild(cancel);
+        dialog.appendChild(title);
+        dialog.appendChild(desc);
+        dialog.appendChild(actions);
+        overlay.appendChild(dialog);
+        host.appendChild(overlay);
+        host.setAttribute('data-rendered', '1');
+    });
+}
+
+// Regarding 角色／繪師連結由 CONFIG 生成。顯示名與 CHARACTERS.name 可不同。
+function renderRegardingLinks() {
+    const chars = (typeof CONFIG !== 'undefined' && CONFIG.REGARDING_CHAR_LINKS) ? CONFIG.REGARDING_CHAR_LINKS : [];
+    const artists = (typeof CONFIG !== 'undefined' && CONFIG.REGARDING_ARTIST_LINKS) ? CONFIG.REGARDING_ARTIST_LINKS : [];
+    _appendRegardingLinks(document.getElementById('regarding-char-host'), chars);
+    _appendRegardingLinks(document.getElementById('regarding-artist-host'), artists);
+}
+
+// 開始畫面左側文案由 START_INFO_PAGES 生成。badge／字面凍結。
+function renderStartInfoPages() {
+    const pages = (typeof CONFIG !== 'undefined' && CONFIG.START_INFO_PAGES) ? CONFIG.START_INFO_PAGES : null;
+    if (!pages) return;
+    Object.keys(pages).forEach(function (key) {
+        const el = document.getElementById('tpl-' + key);
+        const page = pages[key];
+        if (!el || !page || el.getAttribute('data-info-rendered') === '1') return;
+        el.innerHTML = '';
+        const h2 = document.createElement('h2');
+        h2.textContent = page.title || '';
+        const content = document.createElement('div');
+        content.className = 'content';
+        const ul = document.createElement('ul');
+        ul.className = 'list';
+        (page.items || []).forEach(function (item) {
+            if (!item || !item.badge) return;
+            const li = document.createElement('li');
+            const badge = document.createElement('span');
+            badge.className = 'badge';
+            badge.textContent = item.badge;
+            li.appendChild(badge);
+            li.appendChild(document.createTextNode(' '));
+            if (item.host) {
+                const host = document.createElement('span');
+                host.id = item.host;
+                li.appendChild(host);
+                if (item.suffix) li.appendChild(document.createTextNode(item.suffix));
+            } else if (item.html) {
+                const hold = document.createElement('span');
+                hold.innerHTML = item.html;
+                while (hold.firstChild) li.appendChild(hold.firstChild);
+            }
+            ul.appendChild(li);
+        });
+        content.appendChild(ul);
+        el.appendChild(h2);
+        el.appendChild(content);
+        el.setAttribute('data-info-rendered', '1');
+    });
+}
+
+// 開始畫面右側鈕由 START_MENU_BUTTONS 生成。順序與文案凍結。
+function renderStartMenuButtons() {
+    const menu = document.querySelector('#start-screen .start-menu');
+    if (!menu || menu.getAttribute('data-start-menu-rendered') === '1') return;
+    const slots = (typeof CONFIG !== 'undefined' && CONFIG.START_MENU_BUTTONS) ? CONFIG.START_MENU_BUTTONS : [];
+    Array.prototype.slice.call(menu.querySelectorAll('.menu-btn')).forEach(function (btn) {
+        try { menu.removeChild(btn); } catch (_) {}
+    });
+    slots.forEach(function (slot) {
+        if (!slot || !slot.label) return;
+        const btn = document.createElement('button');
+        if (slot.id) btn.id = slot.id;
+        btn.className = slot.primary ? 'menu-btn primary' : 'menu-btn ghost';
+        if (slot.target) btn.setAttribute('data-target', slot.target);
+        btn.textContent = slot.label;
+        menu.appendChild(btn);
+    });
+    menu.setAttribute('data-start-menu-rendered', '1');
+}
+
+function isHardOnlyDifficultyMap(mapId) {
+    const ids = (typeof CONFIG !== 'undefined' && CONFIG.DIFFICULTY_HARD_ONLY_MAP_IDS) ? CONFIG.DIFFICULTY_HARD_ONLY_MAP_IDS : ['desert', 'branch'];
+    return ids.indexOf(mapId) !== -1;
+}
+
+// 難度畫面殼由 DIFFICULTY_SCREENS 生成。標題／返回 id 凍結。兩套畫面不合一。須在 renderDiffSelectGrids 之前。
+function renderDifficultyScreens() {
+    const host = document.getElementById('difficulty-screen-host');
+    if (!host || host.getAttribute('data-rendered') === '1') return;
+    const slots = (typeof CONFIG !== 'undefined' && CONFIG.DIFFICULTY_SCREENS) ? CONFIG.DIFFICULTY_SCREENS : [];
+    host.innerHTML = '';
+    host.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;');
+    slots.forEach(function (slot) {
+        if (!slot || !slot.id) return;
+        const screen = document.createElement('div');
+        screen.id = slot.id;
+        screen.className = 'screen hidden';
+        screen.style.pointerEvents = 'auto';
+        const card = document.createElement('div');
+        card.className = 'select-card';
+        const title = document.createElement('h1');
+        title.className = 'select-title';
+        title.textContent = slot.title || '';
+        const grid = document.createElement('div');
+        grid.className = 'diff-grid';
+        const actions = document.createElement('div');
+        actions.className = 'select-actions';
+        const back = document.createElement('button');
+        if (slot.backId) back.id = slot.backId;
+        back.className = 'ghost';
+        back.textContent = '返回';
+        actions.appendChild(back);
+        card.appendChild(title);
+        card.appendChild(grid);
+        card.appendChild(actions);
+        screen.appendChild(card);
+        host.appendChild(screen);
+    });
+    host.setAttribute('data-rendered', '1');
+}
+
+// 難度卡由 DIFFICULTY_SELECT_GRIDS 生成。兩套畫面不合一。介紹／名稱凍結。
+function renderDiffSelectGrids() {
+    const grids = (typeof CONFIG !== 'undefined' && CONFIG.DIFFICULTY_SELECT_GRIDS) ? CONFIG.DIFFICULTY_SELECT_GRIDS : null;
+    const diffs = (typeof CONFIG !== 'undefined' && CONFIG.DIFFICULTY) ? CONFIG.DIFFICULTY : {};
+    if (!grids) return;
+    Object.keys(grids).forEach(function (screenId) {
+        const screen = document.getElementById(screenId);
+        const host = screen ? screen.querySelector('.diff-grid') : null;
+        if (!host || host.getAttribute('data-rendered') === '1') return;
+        host.innerHTML = '';
+        (grids[screenId] || []).forEach(function (id) {
+            const d = diffs[id];
+            if (!d) return;
+            const btn = document.createElement('button');
+            btn.className = 'diff-card selectable';
+            btn.setAttribute('data-diff-id', id);
+            const label = document.createElement('span');
+            label.className = 'diff-label';
+            label.textContent = d.NAME || id;
+            const intro = document.createElement('div');
+            intro.className = 'diff-intro';
+            intro.innerHTML = d.selectIntro || '';
+            btn.appendChild(label);
+            btn.appendChild(intro);
+            host.appendChild(btn);
+        });
+        host.setAttribute('data-rendered', '1');
+    });
+}
+
 function setupMapAndDifficultySelection() {
+    renderMapGridHosts();
+    renderMapSelectGrids();
+    renderModeSelectButtons();
+    renderDifficultyScreens();
+    renderDiffSelectGrids();
     const mapScreen = document.getElementById('map-select-screen');
     const diffScreen = document.getElementById('difficulty-select-screen');
     const desertDiffScreen = document.getElementById('desert-difficulty-select-screen');
@@ -730,199 +1225,62 @@ function setupMapAndDifficultySelection() {
     // 將 selectedDiffId 的宣告提前，避免在 confirmMap 中賦值時落入 TDZ（暫時性死區）導致錯誤
     let selectedDiffId = null;
 
-    // 新增：模式切換（生存 / 挑戰）— 切換右側地圖 grid 與介紹
-    const survivalGrid = document.getElementById('grid-survival');
-    const challengeGrid = document.getElementById('grid-challenge');
-    const stageGrid = document.getElementById('grid-stage');
-    const defenseGrid = document.getElementById('grid-defense');
-    const mainGrid = document.getElementById('grid-main');
-    const adventureGrid = document.getElementById('grid-adventure');
-    const grid3d = document.getElementById('grid-3d');
-    const modeSurvival = document.getElementById('mode-survival');
-    const modeChallenge = document.getElementById('mode-challenge');
-    const modeStage = document.getElementById('mode-stage');
-    const modeDefense = document.getElementById('mode-defense');
-    const modeMain = document.getElementById('mode-main');
-    const modeAdventure = document.getElementById('mode-adventure');
-    const mode3d = document.getElementById('mode-3d');
-
+    // 模式切換：grid／鈕都跟 MODE_SELECT_BUTTONS。未知 mode 當生存（與改前 else 相同）。
+    const modeSlots = (typeof CONFIG !== 'undefined' && CONFIG.MODE_SELECT_BUTTONS) ? CONFIG.MODE_SELECT_BUTTONS : [];
     const switchMode = (mode) => {
-        // 播放模式切換音效（button_click2）
         playClick2();
-        // 切換顯示的 grid，並重置已選地圖
-        if (mode === 'challenge') {
-            if (survivalGrid) hide(survivalGrid);
-            if (challengeGrid) show(challengeGrid);
-            if (stageGrid) hide(stageGrid);
-            if (defenseGrid) hide(defenseGrid);
-            if (mainGrid) hide(mainGrid);
-            if (adventureGrid) hide(adventureGrid);
-            if (grid3d) hide(grid3d);
-            // 改為與使用者要求一致的提示文案
-            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
-            selectedMapCfg = null;
-            if (modeSurvival) modeSurvival.classList.remove('primary');
-            if (modeChallenge) modeChallenge.classList.add('primary');
-            if (modeStage) modeStage.classList.remove('primary');
-            if (modeDefense) modeDefense.classList.remove('primary');
-            if (modeMain) modeMain.classList.remove('primary');
-            if (modeAdventure) modeAdventure.classList.remove('primary');
-            if (mode3d) mode3d.classList.remove('primary');
-        } else if (mode === 'stage') {
-            if (survivalGrid) hide(survivalGrid);
-            if (challengeGrid) hide(challengeGrid);
-            if (stageGrid) show(stageGrid);
-            if (defenseGrid) hide(defenseGrid);
-            if (mainGrid) hide(mainGrid);
-            if (adventureGrid) hide(adventureGrid);
-            if (grid3d) hide(grid3d);
-            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
-            selectedMapCfg = null;
-            if (modeSurvival) modeSurvival.classList.remove('primary');
-            if (modeChallenge) modeChallenge.classList.remove('primary');
-            if (modeStage) modeStage.classList.add('primary');
-            if (modeDefense) modeDefense.classList.remove('primary');
-            if (modeMain) modeMain.classList.remove('primary');
-            if (modeAdventure) modeAdventure.classList.remove('primary');
-            if (mode3d) mode3d.classList.remove('primary');
-        } else if (mode === 'defense') {
-            if (survivalGrid) hide(survivalGrid);
-            if (challengeGrid) hide(challengeGrid);
-            if (stageGrid) hide(stageGrid);
-            if (defenseGrid) show(defenseGrid);
-            if (mainGrid) hide(mainGrid);
-            if (adventureGrid) hide(adventureGrid);
-            if (grid3d) hide(grid3d);
-            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
-            selectedMapCfg = null;
-            if (modeSurvival) modeSurvival.classList.remove('primary');
-            if (modeChallenge) modeChallenge.classList.remove('primary');
-            if (modeStage) modeStage.classList.remove('primary');
-            if (modeDefense) modeDefense.classList.add('primary');
-            if (modeMain) modeMain.classList.remove('primary');
-            if (modeAdventure) modeAdventure.classList.remove('primary');
-            if (mode3d) mode3d.classList.remove('primary');
-        } else if (mode === 'main') {
-            if (survivalGrid) hide(survivalGrid);
-            if (challengeGrid) hide(challengeGrid);
-            if (stageGrid) hide(stageGrid);
-            if (defenseGrid) hide(defenseGrid);
-            if (mainGrid) show(mainGrid);
-            if (adventureGrid) hide(adventureGrid);
-            if (grid3d) hide(grid3d);
-            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
-            selectedMapCfg = null;
-            if (modeSurvival) modeSurvival.classList.remove('primary');
-            if (modeChallenge) modeChallenge.classList.remove('primary');
-            if (modeStage) modeStage.classList.remove('primary');
-            if (modeDefense) modeDefense.classList.remove('primary');
-            if (modeMain) modeMain.classList.add('primary');
-            if (modeAdventure) modeAdventure.classList.remove('primary');
-            if (mode3d) mode3d.classList.remove('primary');
-        } else if (mode === 'adventure') {
-            if (survivalGrid) hide(survivalGrid);
-            if (challengeGrid) hide(challengeGrid);
-            if (stageGrid) hide(stageGrid);
-            if (defenseGrid) hide(defenseGrid);
-            if (mainGrid) hide(mainGrid);
-            if (adventureGrid) show(adventureGrid);
-            if (grid3d) hide(grid3d);
-            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
-            selectedMapCfg = null;
-            if (modeSurvival) modeSurvival.classList.remove('primary');
-            if (modeChallenge) modeChallenge.classList.remove('primary');
-            if (modeStage) modeStage.classList.remove('primary');
-            if (modeDefense) modeDefense.classList.remove('primary');
-            if (modeMain) modeMain.classList.remove('primary');
-            if (modeAdventure) modeAdventure.classList.add('primary');
-            if (mode3d) mode3d.classList.remove('primary');
-        } else if (mode === '3d') {
-            if (survivalGrid) hide(survivalGrid);
-            if (challengeGrid) hide(challengeGrid);
-            if (stageGrid) hide(stageGrid);
-            if (defenseGrid) hide(defenseGrid);
-            if (mainGrid) hide(mainGrid);
-            if (adventureGrid) hide(adventureGrid);
-            if (grid3d) show(grid3d);
-            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
-            selectedMapCfg = null;
-            if (modeSurvival) modeSurvival.classList.remove('primary');
-            if (modeChallenge) modeChallenge.classList.remove('primary');
-            if (modeStage) modeStage.classList.remove('primary');
-            if (modeDefense) modeDefense.classList.remove('primary');
-            if (modeMain) modeMain.classList.remove('primary');
-            if (modeAdventure) modeAdventure.classList.remove('primary');
-            if (mode3d) mode3d.classList.add('primary');
+        const known = modeSlots.some(function (slot) { return slot && slot.mode === mode; });
+        const active = known ? mode : 'survival';
+        modeSlots.forEach(function (slot) {
+            if (!slot || !slot.mode) return;
+            const grid = document.getElementById('grid-' + slot.mode);
+            if (grid) {
+                if (slot.mode === active) show(grid);
+                else hide(grid);
+            }
+            const btn = document.getElementById('mode-' + slot.mode);
+            if (btn) {
+                if (slot.mode === active) btn.classList.add('primary');
+                else btn.classList.remove('primary');
+            }
+        });
+        if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
+        selectedMapCfg = null;
+    };
+    modeSlots.forEach(function (slot) {
+        if (!slot || !slot.mode) return;
+        const btn = document.getElementById('mode-' + slot.mode);
+        if (btn) btn.addEventListener('click', function () { switchMode(slot.mode); });
+    });
+
+    // confirmMap 進場路徑不要合一：主線先 TransitionLayer、3D 要密碼、防禦多 isDefenseMap、冒險沒有後備畫面。
+    const gridVisible = (mode) => {
+        const grid = document.getElementById('grid-' + mode);
+        return !!(grid && !grid.classList.contains('hidden'));
+    };
+    const hideMapSelectMenus = () => {
+        hide(mapScreen);
+        hide(diffScreen);
+        if (desertDiffScreen) hide(desertDiffScreen);
+        hide(DOMCache.get('character-select-screen'));
+    };
+    const startModeSkipDifficulty = (modeId) => {
+        hideMapSelectMenus();
+        if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
+            window.GameModeManager.start(modeId, {
+                selectedCharacter: Game.selectedCharacter,
+                selectedMap: Game.selectedMap
+            });
         } else {
-            if (survivalGrid) show(survivalGrid);
-            if (challengeGrid) hide(challengeGrid);
-            if (stageGrid) hide(stageGrid);
-            if (defenseGrid) hide(defenseGrid);
-            if (mainGrid) hide(mainGrid);
-            if (adventureGrid) hide(adventureGrid);
-            if (grid3d) hide(grid3d);
-            if (mapDescEl) mapDescEl.textContent = '提示：點擊地圖顯示介紹，雙擊或空白鍵確認';
-            selectedMapCfg = null;
-            if (modeSurvival) modeSurvival.classList.add('primary');
-            if (modeChallenge) modeChallenge.classList.remove('primary');
-            if (modeStage) modeStage.classList.remove('primary');
-            if (modeDefense) modeDefense.classList.remove('primary');
-            if (modeMain) modeMain.classList.remove('primary');
-            if (modeAdventure) modeAdventure.classList.remove('primary');
-            if (mode3d) mode3d.classList.remove('primary');
+            show(DOMCache.get('game-screen'));
         }
     };
-    // 綁定模式按鈕
-    if (modeSurvival) modeSurvival.addEventListener('click', () => switchMode('survival'));
-    if (modeChallenge) modeChallenge.addEventListener('click', () => switchMode('challenge'));
-    if (modeStage) modeStage.addEventListener('click', () => switchMode('stage'));
-    if (modeDefense) modeDefense.addEventListener('click', () => switchMode('defense'));
-    if (modeMain) modeMain.addEventListener('click', () => switchMode('main'));
-    if (modeAdventure) modeAdventure.addEventListener('click', () => switchMode('adventure'));
-    if (mode3d) mode3d.addEventListener('click', () => switchMode('3d'));
 
     const showMapDesc = (cfg, card) => {
         Game.selectedMap = cfg || null;
         playClick2();
-        if (mapDescEl) {
-            // 選到廁所或草原時更新指定文案；其他地圖維持提示
-            if (cfg && (cfg.id === 'city' || cfg.name === '廁所' || cfg.name === 'LV1.廁所')) {
-                mapDescEl.textContent = '光滑平面的廁所，可使用馬桶障礙物躲避敵人。';
-            } else if (cfg && (cfg.id === 'forest' || cfg.name === '草原' || cfg.name === 'LV2.草原')) {
-                mapDescEl.textContent = '綠意盎然的草原，卻出現了許多馬桶。';
-            } else if (cfg && (cfg.id === 'desert' || cfg.name === '宇宙' || cfg.name === 'LV3.宇宙' || cfg.name === '宇宙LV.3')) {
-                mapDescEl.textContent = '無盡的宇宙星空中，漂浮著許多馬桶。';
-            } else if (cfg && (cfg.id === 'garden' || cfg.name === '花園' || cfg.name === 'LV4.花園')) {
-                mapDescEl.textContent = '美麗的花園中，花精靈們守護著這片淨土。';
-            } else if (cfg && (cfg.id === 'intersection' || cfg.name === '路口' || cfg.name === 'LV5.路口')) {
-                mapDescEl.textContent = '繁忙的路口，人群正在聚集。';
-            } else if (cfg && (cfg.id === 'branch' || cfg.name === '支部' || cfg.name === 'LV6.支部')) {
-                mapDescEl.textContent = '支部據點中，未知信號潛伏於此。';
-            } else if (cfg && (cfg.id === 'challenge-1' || (typeof cfg.name === 'string' && cfg.name.includes('銀河系')))) {
-                // 銀河系地圖介紹
-                mapDescEl.textContent = '未知信號所具現化的能量體「森森鈴蘭」。';
-            } else if (cfg && (cfg.id === 'challenge-2' || (typeof cfg.name === 'string' && cfg.name.includes('星雲')))) {
-                // 星雲地圖介紹
-                mapDescEl.textContent = '星雲深處的神秘存在「洛可洛斯特」，在宇宙中探索著鬆餅。';
-            } else if (cfg && (cfg.id === 'challenge-3' || (typeof cfg.name === 'string' && cfg.name.includes('星軌')))) {
-                // 星軌地圖介紹
-                mapDescEl.textContent = '宇宙星軌守護者「灰妲」，操控著恆星的運行軌跡，非常愛工作。';
-            } else if (cfg && (cfg.id === 'challenge-4' || (typeof cfg.name === 'string' && cfg.name.includes('黑洞')))) {
-                // 黑洞地圖介紹
-                mapDescEl.textContent = '黑洞深處的終極存在「瑪格麗特·諾爾絲」，掌控著宇宙最神秘的力量。';
-            } else if (cfg && (cfg.id === 'defense-1' || (typeof cfg.name === 'string' && cfg.name.includes('糖果煉金坊')))) {
-                // 防禦模式第一張地圖介紹
-                mapDescEl.textContent = '守護魔法糖果煉金坊，抵抗未知信號的入侵！';
-            } else if (cfg && (cfg.id === 'adventure-isekai' || (typeof cfg.name === 'string' && cfg.name.includes('異世界')))) {
-                // 冒險模式「異世界」介紹
-                mapDescEl.textContent = '從主體遊戲前往另一個世界，請手動F2存檔，遊戲不會自動存檔。';
-            } else if (cfg && (cfg.id === '3d-demo-city' || (typeof cfg.name === 'string' && cfg.name.includes('DEMO城市')))) {
-                // 3D模式「DEMO城市」介紹
-                mapDescEl.textContent = '3D城市探索模式，使用WASD或方向鍵移動，SHIFT跑步，空白鍵跳躍。';
-            } else if (cfg && (cfg.id === 'main-test' || (typeof cfg.name === 'string' && cfg.name.includes('冒險村莊')))) {
-                // 主線模式「冒險村莊」介紹
-                mapDescEl.textContent = '在這裡，你將探索各個角落、與角色互動，並完成小任務來了解每位台V，任務劇情與獎勵皆非官方活動，僅作二次創作娛樂用途。';
-            }
+        if (mapDescEl && cfg && typeof cfg.selectDesc === 'string' && cfg.selectDesc) {
+            mapDescEl.textContent = cfg.selectDesc;
         }
     };
     const confirmMap = () => {
@@ -939,103 +1297,41 @@ function setupMapAndDifficultySelection() {
         hide(diffScreen);
         if (desertDiffScreen) hide(desertDiffScreen);
 
-        // 若目前顯示的是主線模式 grid，直接啟動主線模式，不進入難度選擇
-        const isMainMode = mainGrid && !mainGrid.classList.contains('hidden');
-        if (isMainMode) {
-            // 關鍵：先顯示過渡層並播放 LOAD.mp4，再隱藏選單屏幕，避免黑屏
+        // 判定順序凍結：主線 → 挑戰 → 闖關 → 防禦 → 冒險 → 3D → 否則生存難度。
+        if (gridVisible('main')) {
             try {
               if (typeof window !== 'undefined' && window.TransitionLayer && typeof window.TransitionLayer.show === 'function') {
                 window.TransitionLayer.show();
               }
             } catch(e) {}
-            
-            // 過渡層已顯示後，再隱藏選單屏幕
-            hide(mapScreen);
-            hide(diffScreen);
-            if (desertDiffScreen) hide(desertDiffScreen);
-            hide(DOMCache.get('character-select-screen'));
-            
-            // 透過 GameModeManager 啟動主線模式（不分難度）；若不可用則回退至 ModeManager
+            hideMapSelectMenus();
             if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
                 window.GameModeManager.start('main', {
                     selectedCharacter: Game.selectedCharacter,
                     selectedMap: Game.selectedMap
                 });
-            } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
-                window.ModeManager.start('main', {
-                    selectedCharacter: Game.selectedCharacter,
-                    selectedMap: Game.selectedMap
-                });
-            } else {
-                // 後備：僅顯示遊戲畫面
-                show(DOMCache.get('game-screen'));
-            }
-            return;
-        }
-
-        // 若目前顯示的是挑戰模式 grid，直接啟動挑戰模式，不進入難度選擇
-        const isChallengeMode = challengeGrid && !challengeGrid.classList.contains('hidden');
-        if (isChallengeMode) {
-            // 關閉地圖/難度視窗與選角畫面
-            hide(mapScreen);
-            hide(diffScreen);
-            if (desertDiffScreen) hide(desertDiffScreen);
-            hide(DOMCache.get('character-select-screen'));
-            // 透過 GameModeManager 啟動挑戰模式；若不可用則回退至 ModeManager
-            if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
-                window.GameModeManager.start('challenge', {
-                    selectedCharacter: Game.selectedCharacter,
-                    selectedMap: Game.selectedMap
-                });
-            } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
-                window.ModeManager.start('challenge', {
-                    selectedCharacter: Game.selectedCharacter,
-                    selectedMap: Game.selectedMap
-                });
-            } else {
-                // 後備：僅顯示遊戲畫面
-                show(DOMCache.get('game-screen'));
-            }
-            return;
-        }
-
-        // 若目前顯示的是闖關模式 grid，直接啟動闖關模式，不進入難度選擇
-        const isStageMode = stageGrid && !stageGrid.classList.contains('hidden');
-        if (isStageMode) {
-            hide(mapScreen);
-            hide(diffScreen);
-            if (desertDiffScreen) hide(desertDiffScreen);
-            hide(DOMCache.get('character-select-screen'));
-            if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
-                window.GameModeManager.start('stage', {
-                    selectedCharacter: Game.selectedCharacter,
-                    selectedMap: Game.selectedMap
-                });
-            } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
-                window.ModeManager.start('stage', {
-                    selectedCharacter: Game.selectedCharacter,
-                    selectedMap: Game.selectedMap
-                });
             } else {
                 show(DOMCache.get('game-screen'));
             }
             return;
         }
 
-        // 若目前顯示的是防禦模式 grid，或「已選地圖屬於防禦系列」，直接啟動防禦模式，不進入難度選擇
-        const isDefenseMode = defenseGrid && !defenseGrid.classList.contains('hidden');
+        if (gridVisible('challenge')) {
+            startModeSkipDifficulty('challenge');
+            return;
+        }
+
+        if (gridVisible('stage')) {
+            startModeSkipDifficulty('stage');
+            return;
+        }
+
         const isDefenseMap = selectedMapCfg && typeof selectedMapCfg.id === 'string' && selectedMapCfg.id.indexOf('defense') === 0;
-        if (isDefenseMode || isDefenseMap) {
-            hide(mapScreen);
-            hide(diffScreen);
-            if (desertDiffScreen) hide(desertDiffScreen);
-            hide(DOMCache.get('character-select-screen'));
+        if (gridVisible('defense') || isDefenseMap) {
+            hideMapSelectMenus();
             let started = false;
             try {
                 if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
-                    if (typeof window.GameModeManager.has === 'function' && !window.GameModeManager.has('defense')) {
-                        throw new Error('defense mode not registered');
-                    }
                     window.GameModeManager.start('defense', {
                         selectedCharacter: Game.selectedCharacter,
                         selectedMap: Game.selectedMap
@@ -1044,37 +1340,16 @@ function setupMapAndDifficultySelection() {
                 }
             } catch (_) {}
             if (!started) {
-                try {
-                    if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
-                        window.ModeManager.start('defense', {
-                            selectedCharacter: Game.selectedCharacter,
-                            selectedMap: Game.selectedMap
-                        });
-                        started = true;
-                    }
-                } catch (_) {}
-            }
-            if (!started) {
                 show(DOMCache.get('game-screen'));
             }
             return;
         }
 
-        // 若目前顯示的是冒險模式 grid，直接啟動冒險模式，不進入難度選擇（獨立存檔）
-        const isAdventureMode = adventureGrid && !adventureGrid.classList.contains('hidden');
-        if (isAdventureMode) {
-            hide(mapScreen);
-            hide(diffScreen);
-            if (desertDiffScreen) hide(desertDiffScreen);
-            hide(DOMCache.get('character-select-screen'));
+        if (gridVisible('adventure')) {
+            hideMapSelectMenus();
             try {
                 if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
                     window.GameModeManager.start('adventure', {
-                        selectedCharacter: Game.selectedCharacter,
-                        selectedMap: Game.selectedMap
-                    });
-                } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
-                    window.ModeManager.start('adventure', {
                         selectedCharacter: Game.selectedCharacter,
                         selectedMap: Game.selectedMap
                     });
@@ -1083,9 +1358,7 @@ function setupMapAndDifficultySelection() {
             return;
         }
 
-        // 若目前顯示的是3D模式 grid，需要先驗證密碼
-        const is3dMode = grid3d && !grid3d.classList.contains('hidden');
-        if (is3dMode) {
+        if (gridVisible('3d')) {
             // 檢查是否為DEMO城市地圖
             if (selectedMapCfg && selectedMapCfg.id === '3d-demo-city') {
                 // 顯示密碼輸入對話框
@@ -1109,20 +1382,12 @@ function setupMapAndDifficultySelection() {
                         if (password === 'DEMO') {
                             // 密碼正確，關閉對話框並啟動3D模式
                             passwordOverlay.classList.add('hidden');
-                            hide(mapScreen);
-                            hide(diffScreen);
-                            if (desertDiffScreen) hide(desertDiffScreen);
-                            hide(DOMCache.get('character-select-screen'));
+                            hideMapSelectMenus();
                             
                             // 啟動3D模式
                             try {
                                 if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
                                     window.GameModeManager.start('3d', {
-                                        selectedCharacter: Game.selectedCharacter,
-                                        selectedMap: Game.selectedMap
-                                    });
-                                } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
-                                    window.ModeManager.start('3d', {
                                         selectedCharacter: Game.selectedCharacter,
                                         selectedMap: Game.selectedMap
                                     });
@@ -1175,7 +1440,7 @@ function setupMapAndDifficultySelection() {
 
         // 顯示正確的難度視窗；宇宙/支部地圖僅困難/修羅
         // 難度視窗以覆蓋層形式疊在地圖選擇畫面上方（不隱藏 mapScreen）
-        if (selectedMapCfg && (selectedMapCfg.id === 'desert' || selectedMapCfg.id === 'branch') && desertDiffScreen) {
+        if (selectedMapCfg && isHardOnlyDifficultyMap(selectedMapCfg.id) && desertDiffScreen) {
             selectedDiffId = 'HARD';
             Game.selectedDifficultyId = 'HARD';
             show(desertDiffScreen);
@@ -1269,8 +1534,24 @@ function setupMapAndDifficultySelection() {
         });
     }
 
-    const diffCards = diffScreen.querySelectorAll('.diff-card.selectable');
-    const desertDiffCards = desertDiffScreen ? desertDiffScreen.querySelectorAll('.diff-card.selectable') : [];
+    const bindDiffCards = (cards, fallback) => {
+        cards.forEach(card => {
+            const id = card.getAttribute('data-diff-id') || fallback;
+            card.addEventListener('click', () => {
+                selectedDiffId = id;
+                Game.selectedDifficultyId = id;
+                playClick2();
+            });
+            card.addEventListener('dblclick', () => {
+                selectedDiffId = id;
+                startGameWithDifficulty(id, false);
+            });
+            bindDoubleTap(card, () => {
+                selectedDiffId = id;
+                startGameWithDifficulty(id, false);
+            });
+        });
+    };
     const diffBack = document.getElementById('diff-back');
     const diffBackDesert = document.getElementById('diff-back-desert');
 
@@ -1298,15 +1579,9 @@ function setupMapAndDifficultySelection() {
         if (desertDiffScreen) hide(desertDiffScreen);
         hide(document.getElementById('map-select-screen'));
         hide(DOMCache.get('character-select-screen'));
-        // 透過新的 GameModeManager 啟動（優先）；若不可用則回退至舊 ModeManager；再不行回退至既有流程
+        // 透過 GameModeManager 啟動；若不可用則回退至既有流程
         if (typeof window !== 'undefined' && window.GameModeManager && typeof window.GameModeManager.start === 'function') {
             window.GameModeManager.start('survival', {
-                selectedDifficultyId: useId,
-                selectedCharacter: Game.selectedCharacter,
-                selectedMap: Game.selectedMap
-            });
-        } else if (typeof window !== 'undefined' && window.ModeManager && typeof window.ModeManager.start === 'function') {
-            window.ModeManager.start('survival', {
                 selectedDifficultyId: useId,
                 selectedCharacter: Game.selectedCharacter,
                 selectedMap: Game.selectedMap
@@ -1331,43 +1606,8 @@ function setupMapAndDifficultySelection() {
         }
     };
 
-    diffCards.forEach(card => {
-        const id = card.getAttribute('data-diff-id') || 'EASY';
-        // 單擊：僅選擇並播放次要音效
-        card.addEventListener('click', () => {
-            selectedDiffId = id;
-            Game.selectedDifficultyId = id;
-            playClick2();
-        });
-        // 雙擊：直接確認並開始遊戲
-        card.addEventListener('dblclick', () => {
-            selectedDiffId = id;
-            startGameWithDifficulty(id, false);
-        });
-        // 觸控雙擊：使用共用輔助
-        bindDoubleTap(card, () => {
-            selectedDiffId = id;
-            startGameWithDifficulty(id, false);
-        });
-    });
-
-    // Desert 專用難度卡片：支援 HARD / ASURA
-    desertDiffCards.forEach(card => {
-        const id = card.getAttribute('data-diff-id') || 'HARD';
-        card.addEventListener('click', () => {
-            selectedDiffId = id;
-            Game.selectedDifficultyId = id;
-            playClick2();
-        });
-        card.addEventListener('dblclick', () => {
-            selectedDiffId = id;
-            startGameWithDifficulty(id, false);
-        });
-        bindDoubleTap(card, () => {
-            selectedDiffId = id;
-            startGameWithDifficulty(id, false);
-        });
-    });
+    bindDiffCards(diffScreen.querySelectorAll('.diff-card.selectable'), 'EASY');
+    bindDiffCards(desertDiffScreen ? desertDiffScreen.querySelectorAll('.diff-card.selectable') : [], 'HARD');
 
     KeyboardRouter.register('diff-select', 'Space', (e) => {
         e.preventDefault();
@@ -1430,6 +1670,7 @@ function setupTalentScreenToggle() {
     if (!charScreen || !talentScreen) return;
 
     // 初始化天賦狀態
+    renderConfirmDialogs();
     TalentSystem.init();
     // 初始化覺醒系統視窗
     if (typeof TalentSystem.initAwakeningWindow === 'function') {
@@ -1750,6 +1991,7 @@ const KeyboardRouter = {
 
 // 新增：引繼碼介面事件綁定（開始畫面 -> 引繼碼畫面）
 function setupBackupInterface() {
+    renderBackupSections();
     const backupBtn = document.getElementById('backup-button');
     const backupScreen = document.getElementById('backup-screen');
     const startScreen = document.getElementById('start-screen');

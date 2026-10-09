@@ -183,29 +183,11 @@ class DivineJudgmentEffect extends Entity {
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         let isSurvivalMode = false;
         try {
-            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
+            const activeId = Utils.getActiveModeId();
             isSurvivalMode = (activeId === 'survival' || activeId === null);
         } catch (_) {}
         
-        // 計算基礎傷害（用於組隊模式發送 aoe_tick）
-        let baseDamage = this.damage;
-        if (typeof DamageSystem !== 'undefined' && enemies.length > 0) {
-            // 使用第一個敵人計算基礎傷害（用於 aoe_tick，伺服器會重新計算每個敵人的傷害）
-            const firstEnemy = enemies.find(e => !e.markedForDeletion && e.health > 0);
-            if (firstEnemy) {
-                const result = DamageSystem.computeHit(this.damage, firstEnemy, {
-                    weaponType: this._damageWeaponType,
-                    critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0)
-                });
-                baseDamage = result.amount;
-            }
-        }
-        
-        // ✅ 組隊模式：發送一次 aoe_tick（範圍傷害，伺服器會計算範圍內所有敵人）
+        // ✅ 組隊模式：送未浮動的傷害，由伺服器對每隻各算一次
         if (isSurvivalMode && isMultiplayer && !this._isVisualOnly && this.player && this.player === Game.player) {
             if (typeof window !== "undefined" && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
                 window.SurvivalOnlineRuntime.sendToNet({
@@ -214,7 +196,7 @@ class DivineJudgmentEffect extends Entity {
                     x: x,
                     y: y,
                     radius: this.aoeRadius,
-                    damage: baseDamage,
+                    damage: this.damage,
                     allowCrit: true,
                     critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
                     timestamp: Date.now()

@@ -20,87 +20,20 @@
                 const wave = (typeof WaveSystem !== 'undefined' && WaveSystem.currentWave) ? WaveSystem.currentWave : 1;
                 const mapId = (Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : 'city';
                 const diffId = (Game.selectedDifficultyId) ? Game.selectedDifficultyId : 'EASY';
-                const tuning = (CONFIG.TUNING || {});
-                const totalWaves = (CONFIG.WAVES && CONFIG.WAVES.TOTAL_WAVES) ? CONFIG.WAVES.TOTAL_WAVES : 30;
 
-                // 基礎血量（從敵人配置中取得）
                 this.maxHealth = enemyConfig.HEALTH;
-
                 try {
-                    // 普通小怪：根據地圖與難度配置調整血量
-                    if (this.type !== 'MINI_BOSS' && this.type !== 'ELF_MINI_BOSS' && this.type !== 'HUMAN_MINI_BOSS' &&
-                        this.type !== 'UNKNOWN_MINI_BOSS' &&
-                        this.type !== 'BOSS' && this.type !== 'ELF_BOSS' && this.type !== 'HUMAN_BOSS' &&
-                        this.type !== 'UNKNOWN_BOSS') {
-                        const enemyHealthConfig = (((tuning.ENEMY_HEALTH || {})[mapId] || {})[diffId]) || null;
-                        if (enemyHealthConfig) {
-                            // 計算基礎血量（原始基礎值 + 地圖加成）
-                            const baseHealth = this.maxHealth + (enemyHealthConfig.baseHealth || 0);
-                            // 計算第30波目標血量
-                            const maxHealthWave30 = enemyHealthConfig.maxHealthWave30 || baseHealth;
-
-                            // 根據波次線性插值：第1波使用基礎血量，第30波達到最大血量
-                            if (wave === 1) {
-                                this.maxHealth = baseHealth;
-                            } else if (wave >= totalWaves) {
-                                // 30波後：每波額外+當前血量的30%（無限疊加，避免卡BUG刷金幣）
-                                const wave30Health = maxHealthWave30;
-                                const wavesBeyond30 = wave - totalWaves;
-                                // 計算公式：第30波血量 * (1.3 ^ 超過30波的波數)
-                                this.maxHealth = Math.floor(wave30Health * Math.pow(1.3, wavesBeyond30));
-                            } else {
-                                // 線性插值：從基礎血量到最大血量
-                                const progress = (wave - 1) / (totalWaves - 1);
-                                this.maxHealth = Math.floor(baseHealth + (maxHealthWave30 - baseHealth) * progress);
-                            }
-                        } else {
-                            // 如果沒有配置，使用基礎值（應確保所有地圖/難度組合都有配置）
-                            console.warn(`[Enemy] 未找到血量配置: 地圖=${mapId}, 難度=${diffId}, 類型=${this.type}`);
-                            this.maxHealth = enemyConfig.HEALTH;
-                        }
-                    }
-                    // 小BOSS：根據地圖與難度配置調整血量
-                    else if (this.type === 'MINI_BOSS' || this.type === 'ELF_MINI_BOSS' || this.type === 'HUMAN_MINI_BOSS' || this.type === 'UNKNOWN_MINI_BOSS') {
-                        const miniBossConfig = (((tuning.MINI_BOSS || {})[mapId] || {})[diffId]) || null;
-                        if (miniBossConfig && miniBossConfig.startWave1 && miniBossConfig.endWave30) {
-                            const start = miniBossConfig.startWave1;
-                            const end = miniBossConfig.endWave30;
-
-                            // 根據波次計算血量：第1波使用起始值，第30波達到結束值
-                            if (wave === 1) {
-                                this.maxHealth = start;
-                            } else if (wave >= totalWaves) {
-                                // 30波後：每波額外+當前血量的30%（無限疊加，避免卡BUG刷金幣）
-                                const wave30Health = end;
-                                const wavesBeyond30 = wave - totalWaves;
-                                // 計算公式：第30波血量 * (1.3 ^ 超過30波的波數)
-                                this.maxHealth = Math.floor(wave30Health * Math.pow(1.3, wavesBeyond30));
-                            } else {
-                                // 指數增長：從起始值到結束值
-                                const perWave = Math.pow(end / start, 1 / Math.max(1, (totalWaves - 1)));
-                                const steps = Math.max(0, wave - 1);
-                                this.maxHealth = Math.floor(start * Math.pow(perWave, steps));
-                            }
-                        } else {
-                            // 如果沒有配置，使用基礎值（向後兼容）
-                            this.maxHealth = enemyConfig.HEALTH;
-                        }
-                    }
-                    // 大BOSS：根據地圖與難度配置調整血量（僅第20波）
-                    else if (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS') {
-                        const bossConfig = (((tuning.BOSS || {})[mapId] || {})[diffId]) || null;
-                        // 大BOSS僅第20波出現，直接指定目標血量（原為第30波，已縮短為20波）
-                        const bossWave = (CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 20;
-                        if (bossConfig && (bossConfig.wave20 || bossConfig.wave30) && wave === bossWave) {
-                            // 優先使用 wave20，如果沒有則使用 wave30（向後兼容）
-                            this.maxHealth = bossConfig.wave20 || bossConfig.wave30;
-                        } else {
-                            // 如果沒有配置，使用基礎值（向後兼容）
-                            this.maxHealth = enemyConfig.HEALTH;
-                        }
+                    if (typeof EnemyHp !== 'undefined' && EnemyHp.computeBaseMaxHealth) {
+                        this.maxHealth = EnemyHp.computeBaseMaxHealth(
+                            this.type,
+                            enemyConfig.HEALTH,
+                            wave,
+                            mapId,
+                            diffId,
+                            (typeof CONFIG !== 'undefined') ? CONFIG : null
+                        );
                     }
                 } catch (e) {
-                    // 保守處理：任何錯誤均不影響既有流程，使用基礎值
                     console.warn('[Enemy] 血量計算錯誤，使用基礎值:', e);
                     this.maxHealth = enemyConfig.HEALTH;
                 }
@@ -378,6 +311,7 @@
                 try {
                     if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
                         // 網路插值：平滑追向伺服器目標座標，避免 server state 節流造成「瞬移」
+                        const prevXForFacing = this.x;
                         try {
                             if (typeof this._netTargetX === 'number' && typeof this._netTargetY === 'number') {
                                 const dx = this._netTargetX - this.x;
@@ -395,8 +329,33 @@
                                 }
                             }
                         } catch (_) { }
+                        // 組隊怪會轉身：跟單機一樣，往左走換左臉，往右走換右臉
+                        try {
+                            const dxFacing = this.x - prevXForFacing;
+                            if (dxFacing > 0.05) this.facingX = 1;
+                            else if (dxFacing < -0.05) this.facingX = -1;
+                        } catch (_) { }
                         if (this.hitFlashTime > 0) {
                             this.hitFlashTime = Math.max(0, this.hitFlashTime - deltaTime);
+                        }
+                        if (this.isSlowed && Date.now() > this.slowEndTime) {
+                            this.isSlowed = false;
+                            this.speed = this.baseSpeed;
+                        }
+                        // 組隊怪會動圖：花護衛和支部未知怪跟單機一樣換圖，不要停在第一張
+                        if (!this.isDying && this._spriteAnimation && (typeof Game === 'undefined' || !Game.isPaused)) {
+                            const animType = this.type;
+                            if (
+                                animType === 'ELF_MINI_BOSS' || animType === 'UNKNOWN1' ||
+                                animType === 'UNKNOWN_MINI_BOSS' || animType === 'UNKNOWN_BOSS'
+                            ) {
+                                const sa = this._spriteAnimation;
+                                sa.animAccumulator += deltaTime;
+                                while (sa.animAccumulator >= sa.frameDuration) {
+                                    sa.currentFrame = (sa.currentFrame + 1) % sa.totalFrames;
+                                    sa.animAccumulator -= sa.frameDuration;
+                                }
+                            }
                         }
                         return;
                     }
@@ -431,11 +390,7 @@
                     try {
                         let isSurvivalMode = false;
                         try {
-                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                ? GameModeManager.getCurrent()
-                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                    ? ModeManager.getActiveModeId()
-                                    : null);
+                            const activeId = Utils.getActiveModeId();
                             isSurvivalMode = (activeId === 'survival' || activeId === null);
                         } catch (_) { }
 
@@ -737,11 +692,7 @@
                     try {
                         let isSurvivalMode = false;
                         try {
-                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                ? GameModeManager.getCurrent()
-                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                    ? ModeManager.getActiveModeId()
-                                    : null);
+                            const activeId = Utils.getActiveModeId();
                             isSurvivalMode = (activeId === 'survival' || activeId === null);
                         } catch (_) { }
 
@@ -787,11 +738,7 @@
                         try {
                             let isSurvivalMode = false;
                             try {
-                                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                    ? GameModeManager.getCurrent()
-                                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                        ? ModeManager.getActiveModeId()
-                                        : null);
+                                const activeId = Utils.getActiveModeId();
                                 isSurvivalMode = (activeId === 'survival' || activeId === null);
                             } catch (_) { }
 
@@ -1412,11 +1359,7 @@
                             try {
                                 let isSurvivalMode = false;
                                 try {
-                                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                        ? GameModeManager.getCurrent()
-                                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                            ? ModeManager.getActiveModeId()
-                                            : null);
+                                    const activeId = Utils.getActiveModeId();
                                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                                 } catch (_) { }
 
@@ -1483,11 +1426,7 @@
                     try {
                         let isSurvivalMode = false;
                         try {
-                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                ? GameModeManager.getCurrent()
-                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                    ? ModeManager.getActiveModeId()
-                                    : null);
+                            const activeId = Utils.getActiveModeId();
                             isSurvivalMode = (activeId === 'survival' || activeId === null);
                         } catch (_) { }
 
@@ -1533,11 +1472,7 @@
                 try {
                     let isSurvivalMode = false;
                     try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
+                        const activeId = Utils.getActiveModeId();
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) { }
 
@@ -1717,11 +1652,7 @@
                     try {
                         let isSurvivalMode = false;
                         try {
-                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                ? GameModeManager.getCurrent()
-                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                    ? ModeManager.getActiveModeId()
-                                    : null);
+                            const activeId = Utils.getActiveModeId();
                             isSurvivalMode = (activeId === 'survival' || activeId === null);
                         } catch (_) { }
 
@@ -1769,11 +1700,7 @@
                     try {
                         let isSurvivalMode = false;
                         try {
-                            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                                ? GameModeManager.getCurrent()
-                                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                    ? ModeManager.getActiveModeId()
-                                    : null);
+                            const activeId = Utils.getActiveModeId();
                             isSurvivalMode = (activeId === 'survival' || activeId === null);
                         } catch (_) { }
 

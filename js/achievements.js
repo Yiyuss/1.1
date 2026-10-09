@@ -335,5 +335,51 @@ const Achievements = (function(){
     sessionUnlocked = [];
   }
 
-  return { DEFINITIONS, getAll, isUnlocked, unlock, getUnlockedIds, getSessionUnlocked, consumeSessionUnlocked, renderList, areUnlocked, isFusionUnlocked, clearAll };
+  // 生存通關成就（單人 game.js 與組隊 survival_online.js 必須走這裡，條件禁止分叉）
+  function unlockSurvivalClears(ctx) {
+    ctx = ctx || {};
+    const diffId = ctx.diffId || 'EASY';
+    const charId = ctx.charId || null;
+    const mapId = ctx.mapId || null;
+    unlock('FIRST_CLEAR');
+    if (diffId === 'HARD') unlock('HARD_CLEAR');
+    if (charId === 'rokurost' && mapId === 'city') unlock('ROKUROST_CITY_CLEAR');
+    if (charId === 'dada' && mapId === 'city') unlock('DADA_CITY_CLEAR');
+    if (charId === 'rabi' && mapId === 'city') unlock('RABI_CITY_CLEAR');
+    if (charId === 'elondier' && mapId === 'city') unlock('ELONDIER_CITY_CLEAR');
+    if (charId === 'pineapple' && mapId === 'city') unlock('PINEAPPLE_CITY_CLEAR');
+    if (charId === 'baibaihong' && mapId === 'city') unlock('BAIBAIHONG_CITY_CLEAR');
+    if (charId === 'cygnus' && mapId === 'city') unlock('CYGNUS_CITY_CLEAR');
+    if (charId === 'dada' && mapId === 'forest') unlock('DADA_FOREST_CLEAR');
+    if (mapId === 'forest') unlock('EXCLUSIVE_PATH');
+    if (mapId === 'intersection') unlock('INTERSECTION_CLEAR');
+    if (mapId === 'desert') unlock('ASSIST_PATH');
+  }
+
+  function unlockCoinMilestones(coins) {
+    coins = coins || 0;
+    if (coins >= 100000) unlock('COIN_100K');
+    if (coins >= 200000) unlock('COIN_200K');
+  }
+
+  function unlockChallengeClears(mapId) {
+    if (mapId === 'challenge-1') unlock('CHALLENGE_GALAXY_CLEAR');
+    if (mapId === 'challenge-2') unlock('CHALLENGE_NEBULA_CLEAR');
+  }
+
+  function unlockDefenseClear(ctx) {
+    ctx = ctx || {};
+    if (ctx.isLv1Map || ctx.mapId === 'defense-1') unlock('DEFENSE_LV1_CLEAR');
+  }
+
+  function invalidateCache() {
+    _unlockedCache = null;
+    _cacheTimestamp = 0;
+  }
+
+  return {
+    DEFINITIONS, getAll, isUnlocked, unlock, unlockSurvivalClears,
+    unlockCoinMilestones, unlockChallengeClears, unlockDefenseClear, invalidateCache,
+    getUnlockedIds, getSessionUnlocked, consumeSessionUnlocked, renderList, areUnlocked, isFusionUnlocked, clearAll
+  };
 })();

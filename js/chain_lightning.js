@@ -243,11 +243,7 @@ class ChainLightningEffect extends Entity {
                     const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                     let isSurvivalMode = false;
                     try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
+                        const activeId = Utils.getActiveModeId();
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
@@ -308,6 +304,8 @@ class ChainLightningEffect extends Entity {
                                     radius: 10,
                                     enemyIds: [target.id],
                                     damage: finalDamage,
+                                    preRolled: true,
+                                    isCrit: isCrit,
                                     allowCrit: true,
                                     critChanceBonusPct: critChance,
                                     timestamp: Date.now()
@@ -729,11 +727,7 @@ class FrenzyLightningEffect extends Entity {
                     const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                     let isSurvivalMode = false;
                     try {
-                        const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                            ? GameModeManager.getCurrent()
-                            : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                                ? ModeManager.getActiveModeId()
-                                : null);
+                        const activeId = Utils.getActiveModeId();
                         isSurvivalMode = (activeId === 'survival' || activeId === null);
                     } catch (_) {}
                     
@@ -794,6 +788,8 @@ class FrenzyLightningEffect extends Entity {
                                     radius: 10,
                                     enemyIds: [target.id],
                                     damage: finalDamage,
+                                    preRolled: true,
+                                    isCrit: isCrit,
                                     allowCrit: true,
                                     critChanceBonusPct: critChance,
                                     timestamp: Date.now()

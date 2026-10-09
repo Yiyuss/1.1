@@ -278,11 +278,7 @@ const UI = {
         try {
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) {}
             
@@ -700,9 +696,7 @@ const UI = {
      * 不變式：格式與文字不可更動；目前選項數量為 4；必須處理 ultimate 狀態備份邏輯不變。
      */
     getUpgradeOptions: function() {
-        const options = [];
         const player = Game.player;
-        const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
 
         // 在大招期間，升級選項基於「大招前的武器狀態」生成，避免因LV10臨時武器導致無選項
         // 安全檢查：確保 _ultimateBackup 存在且是有效的陣列，且玩家確實在大招狀態
@@ -710,585 +704,45 @@ const UI = {
             ? player._ultimateBackup.weapons // [{ type, level }]
             : (Array.isArray(player.weapons) ? player.weapons.map(w => ({ type: w.type, level: w.level })) : []);
 
-        // 針對角色設定：可選擇性隱藏部分武器（例如第二位角色禁用綿羊系技能）
         const ch = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
-        const disabledWeapons = (ch && Array.isArray(ch.disabledWeapons)) ? new Set(ch.disabledWeapons) : new Set();
-        
-        // 檢查角色專屬技能（用於過濾現有武器升級選項）
-        const exclusiveWeapons = (ch && Array.isArray(ch.exclusiveWeapons)) ? new Set(ch.exclusiveWeapons) : new Set();
-        // 找出所有角色的專屬技能
-        const allExclusiveWeapons = new Set();
-        if (CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) {
-            CONFIG.CHARACTERS.forEach(char => {
-                if (char.exclusiveWeapons && Array.isArray(char.exclusiveWeapons)) {
-                    char.exclusiveWeapons.forEach(weapon => allExclusiveWeapons.add(weapon));
-                }
-            });
-        }
-
-        // 現有武器升級選項（使用CONFIG計算下一級描述）
-        const hasFrenzy = sourceWeaponsInfo.some(w => w.type === 'FRENZY_LIGHTNING');
-        const hasFrenzySlash = sourceWeaponsInfo.some(w => w.type === 'FRENZY_SLASH');
-        const hasDivineJudgment = sourceWeaponsInfo.some(w => w.type === 'DIVINE_JUDGMENT');
-        const hasMindMagic = sourceWeaponsInfo.some(w => w.type === 'MIND_MAGIC');
-        const hasFrenzyIceBall = sourceWeaponsInfo.some(w => w.type === 'FRENZY_ICE_BALL');
-        const hasFrenzyYoungDadaGlory = sourceWeaponsInfo.some(w => w.type === 'FRENZY_YOUNG_DADA_GLORY');
-        const hasGravityWave = sourceWeaponsInfo.some(w => w.type === 'GRAVITY_WAVE');
-        const hasInnateTemperament = sourceWeaponsInfo.some(w => w.type === 'INNATE_TEMPERAMENT');
-        const hasRadiantGlory = sourceWeaponsInfo.some(w => w.type === 'RADIANT_GLORY');
-        const hasDeathlineSuperman = sourceWeaponsInfo.some(w => w.type === 'DEATHLINE_SUPERMAN');
-        const hasPineappleSupplement = sourceWeaponsInfo.some(w => w.type === 'PINEAPPLE_SUPPLEMENT');
-        const hasWhiteRainbowBeam = sourceWeaponsInfo.some(w => w.type === 'WHITE_RAINBOW_BEAM');
-        const hasGravityCollapse = sourceWeaponsInfo.some(w => w.type === 'GRAVITY_COLLAPSE');
-        // 檢查召喚AI LV2：如果已合成召喚AI LV2，則隱藏連鎖閃電的升級選項
-        const hasSummonAILv2 = sourceWeaponsInfo.some(w => w.type === 'SUMMON_AI' && typeof w.level === 'number' && w.level >= 2);
-        // 檢查召喚AI LV1升級到LV2的條件（需要連鎖閃電LV10）
-        const summonAIInfo = sourceWeaponsInfo.find(w => w.type === 'SUMMON_AI');
-        const chainLightningForUpgrade = sourceWeaponsInfo.find(w => w.type === 'CHAIN_LIGHTNING');
-        const summonAILevelForUpgrade = (summonAIInfo && typeof summonAIInfo.level === 'number') ? summonAIInfo.level : 0;
-        const chainLightningLevelForUpgrade = (chainLightningForUpgrade && typeof chainLightningForUpgrade.level === 'number') ? chainLightningForUpgrade.level : 0;
-        const canUpgradeSummonAIToLv2 = (summonAILevelForUpgrade === 1 && chainLightningLevelForUpgrade >= 10);
-        for (const info of sourceWeaponsInfo) {
-            const cfg = CONFIG.WEAPONS[info.type];
-            if (!cfg) continue;
-            // 若此武器被角色設定為禁用，則不提供升級選項
-            if (disabledWeapons.has(info.type)) continue;
-            // 若此武器為專屬技能，只有擁有該專屬技能的角色可以看到升級選項
-            if (allExclusiveWeapons.has(info.type) && !exclusiveWeapons.has(info.type)) {
-                continue; // 其他角色的專屬技能，當前角色不可見
-            }
-            // 當已獲得融合武器時，隱藏其來源武器的升級（應援棒/連鎖閃電）
-                if ((hasFrenzy && (info.type === 'DAGGER' || info.type === 'CHAIN_LIGHTNING')) ||
-                    (hasFrenzySlash && (info.type === 'DAGGER' || info.type === 'SLASH')) ||
-                    (hasDivineJudgment && (info.type === 'JUDGMENT' || info.type === 'SLASH')) ||
-                    (hasMindMagic && (info.type === 'DAGGER' || info.type === 'SING')) ||
-                    (hasFrenzyIceBall && (info.type === 'DAGGER' || info.type === 'BIG_ICE_BALL')) ||
-                    (hasFrenzyYoungDadaGlory && (info.type === 'DAGGER' || info.type === 'YOUNG_DADA_GLORY')) ||
-                    (hasGravityWave && (info.type === 'AURA_FIELD' || info.type === 'INVINCIBLE')) ||
-                    (hasInnateTemperament && (info.type === 'AURA_FIELD' || info.type === 'STELLAR_FIELD')) ||
-                    (hasDeathlineSuperman && (info.type === 'DAGGER' || info.type === 'DEATHLINE_WARRIOR')) ||
-                    (hasRadiantGlory && (info.type === 'CHAIN_LIGHTNING' || info.type === 'LASER')) ||
-                    (hasPineappleSupplement && (info.type === 'DAGGER' || info.type === 'ADRENALINE')) ||
-                    (hasWhiteRainbowBeam && (info.type === 'LASER' || info.type === 'WHITE_NIGHT_BEAM')) ||
-                    (hasGravityCollapse && (info.type === 'SLASH' || info.type === 'BLACK_HOLE_PARTICLE')) ||
-                    (hasSummonAILv2 && info.type === 'CHAIN_LIGHTNING')) continue;
-            // 召喚AI特殊處理：只有滿足合成條件（連鎖閃電LV10）才能升級到LV2
-            if (info.type === 'SUMMON_AI' && info.level === 1 && !canUpgradeSummonAIToLv2) {
-                continue; // 不滿足合成條件，不顯示LV2升級選項
-            }
-            if (info.level < cfg.LEVELS.length) {
-                options.push({
-                    type: info.type,
-                    name: cfg.NAME,
-                    level: info.level + 1,
-                    description: cfg.LEVELS[info.level].DESCRIPTION
-                });
-            }
-        }
-
-        // 新武器選項（基於來源狀態判定）
-        const availableWeapons = ['DAGGER', 'FIREBALL', 'LIGHTNING', 'ORBIT', 'STELLAR_ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'AURA_FIELD', 'STELLAR_FIELD', 'INVINCIBLE', 'SLASH', 'CHICKEN_BLESSING', 'YOUNG_DADA_GLORY', 'BIG_ICE_BALL', 'ABSTRACTION', 'SIXTH_SENSE', 'PON', 'STARFALL', 'BAGUETTE_THROW', 'PINEAPPLE_ORBIT', 'GABRIEL_ORBIT', 'WEDDING_CALL_ORBIT', 'ADRENALINE', 'RAINBOW_RESONANCE', 'DARK_MATTER', 'BLACK_HOLE_PARTICLE', 'DEVOURING_POWER', 'FBI', 'WHITE_NIGHT_BEAM', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'DEATHLINE_WARRIOR', 'UNCONTROLLABLE_BEAST', 'HEART_COMPANION', 'HEART_CONNECTION', 'HEART_TRANSMISSION', 'JUDGMENT', 'SUMMON_AI'];
-        // 檢查角色專屬技能（使用上面已定義的 exclusiveWeapons 和 allExclusiveWeapons）
-        const playerWeaponTypes = sourceWeaponsInfo.map(w => w.type);
-        // 使用上面已定義的 hasDeathlineSuperman 和 hasRadiantGlory（避免重複定義）
-        for (const weaponType of availableWeapons) {
-            // 若此武器被角色設定為禁用，則完全不顯示於升級選項中
-            if (disabledWeapons.has(weaponType)) continue;
-            // 若此武器為專屬技能，只有擁有該專屬技能的角色可以看到
-            if (allExclusiveWeapons.has(weaponType) && !exclusiveWeapons.has(weaponType)) {
-                continue; // 其他角色的專屬技能，當前角色不可見
-            }
-            // PON：不隱藏於多人模式（與抽象化/第六感一致）
-            // 當已獲得融合武器時，隱藏其來源武器的新增選項（避免再次拿到應援棒/連鎖閃電）
-            // 檢查召喚AI LV2：如果已合成召喚AI LV2，則隱藏連鎖閃電的新增選項
-            const hasSummonAILv2ForNew = sourceWeaponsInfo.some(w => w.type === 'SUMMON_AI' && typeof w.level === 'number' && w.level >= 2);
-            if ((hasFrenzy && (weaponType === 'DAGGER' || weaponType === 'CHAIN_LIGHTNING')) ||
-                (hasFrenzySlash && (weaponType === 'DAGGER' || weaponType === 'SLASH')) ||
-                (hasDivineJudgment && (weaponType === 'JUDGMENT' || weaponType === 'SLASH')) ||
-                (hasMindMagic && (weaponType === 'DAGGER' || weaponType === 'SING')) ||
-                (hasFrenzyIceBall && (weaponType === 'DAGGER' || weaponType === 'BIG_ICE_BALL')) ||
-                (hasFrenzyYoungDadaGlory && (weaponType === 'DAGGER' || weaponType === 'YOUNG_DADA_GLORY')) ||
-                (hasGravityWave && (weaponType === 'AURA_FIELD' || weaponType === 'INVINCIBLE')) ||
-                (hasInnateTemperament && (weaponType === 'AURA_FIELD' || weaponType === 'STELLAR_FIELD')) ||
-                (hasDeathlineSuperman && (weaponType === 'DAGGER' || weaponType === 'DEATHLINE_WARRIOR')) ||
-                (hasRadiantGlory && (weaponType === 'CHAIN_LIGHTNING' || weaponType === 'LASER')) ||
-                (hasPineappleSupplement && (weaponType === 'DAGGER' || weaponType === 'ADRENALINE')) ||
-                (hasWhiteRainbowBeam && (weaponType === 'LASER' || weaponType === 'WHITE_NIGHT_BEAM')) ||
-                (hasGravityCollapse && (weaponType === 'SLASH' || weaponType === 'BLACK_HOLE_PARTICLE')) ||
-                (hasSummonAILv2ForNew && weaponType === 'CHAIN_LIGHTNING')) continue;
-            // 召喚AI技能：需要成就解鎖（星雲征服者）
-            if (weaponType === 'SUMMON_AI') {
-                // 檢查是否已解鎖成就「星雲征服者」
-                const isUnlocked = (function(){
-                    try { 
-                        return !!(typeof Achievements !== 'undefined' && Achievements.isUnlocked && Achievements.isUnlocked('CHALLENGE_NEBULA_CLEAR')); 
-                    } catch(_) { 
-                        return false; 
-                    }
-                })();
-                if (!isUnlocked) continue; // 未解鎖，不顯示
-                // 檢查是否已經召喚過AI（一次性技能，只能選一次）
-                if (playerWeaponTypes.includes('SUMMON_AI')) continue; // 已經召喚過，不顯示
-            }
-            if (!playerWeaponTypes.includes(weaponType)) {
-                const weaponConfig = CONFIG.WEAPONS[weaponType];
-                options.push({
-                    type: weaponType,
-                    name: weaponConfig.NAME,
-                    level: 1,
-                    description: weaponConfig.LEVELS[0].DESCRIPTION
-                });
-            }
-        }
-
-        // 融合武器選項：狂熱雷擊（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 連鎖閃電(CHAIN_LIGHTNING)）
-        try {
-            const hasFrenzyFusion = playerWeaponTypes.includes('FRENZY_LIGHTNING');
-            const cheer = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
-            const cl = sourceWeaponsInfo.find(w => w.type === 'CHAIN_LIGHTNING');
-            // 成就門檻：使用通用融合解鎖 API（可擴充不同融合的門檻）
-            const fusionUnlocked = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_LIGHTNING')); } catch(_) { return false; }
-            })();
-            // 需求：兩者皆達到 LV10（嚴格驗證：確保 level 是有效的數字類型）
-            const cheerLevel = (cheer && typeof cheer.level === 'number') ? cheer.level : 0;
-            const clLevel = (cl && typeof cl.level === 'number') ? cl.level : 0;
-            const fusionReady = (!!cheer && !!cl && cheerLevel >= 10 && clLevel >= 10);
-            if (!hasFrenzyFusion && fusionReady && fusionUnlocked) {
-                const cfgF = CONFIG.WEAPONS['FRENZY_LIGHTNING'];
-                if (cfgF && Array.isArray(cfgF.LEVELS) && cfgF.LEVELS.length > 0) {
-                    options.push({
-                        type: 'FRENZY_LIGHTNING',
-                        name: cfgF.NAME,
-                        level: 1,
-                        description: cfgF.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        try {
-            const hasPineappleSuppFusion = playerWeaponTypes.includes('PINEAPPLE_SUPPLEMENT');
-            const cheerPS = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
-            const adrenPS = sourceWeaponsInfo.find(w => w.type === 'ADRENALINE');
-            const fusionUnlockedPS = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('PINEAPPLE_SUPPLEMENT')); } catch(_) { return false; }
-            })();
-            const cheerPSLevel = (cheerPS && typeof cheerPS.level === 'number') ? cheerPS.level : 0;
-            const adrenPSLevel = (adrenPS && typeof adrenPS.level === 'number') ? adrenPS.level : 0;
-            const fusionReadyPS = (!!cheerPS && !!adrenPS && cheerPSLevel >= 10 && adrenPSLevel >= 10);
-            if (!hasPineappleSuppFusion && fusionReadyPS && fusionUnlockedPS) {
-                const cfgPS = CONFIG.WEAPONS['PINEAPPLE_SUPPLEMENT'];
-                if (cfgPS && Array.isArray(cfgPS.LEVELS) && cfgPS.LEVELS.length > 0) {
-                    options.push({
-                        type: 'PINEAPPLE_SUPPLEMENT',
-                        name: cfgPS.NAME,
-                        level: 1,
-                        description: cfgPS.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：狂熱斬擊（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 斬擊(SLASH)）
-        try {
-            const hasFrenzySlashFusion = playerWeaponTypes.includes('FRENZY_SLASH');
-            const cheerS = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
-            const slashS = sourceWeaponsInfo.find(w => w.type === 'SLASH');
-            const fusionUnlockedS = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_SLASH')); } catch(_) { return false; }
-            })();
-            // 嚴格驗證：確保 level 是有效的數字類型
-            const cheerSLevel = (cheerS && typeof cheerS.level === 'number') ? cheerS.level : 0;
-            const slashSLevel = (slashS && typeof slashS.level === 'number') ? slashS.level : 0;
-            const fusionReadyS = (!!cheerS && !!slashS && cheerSLevel >= 10 && slashSLevel >= 10);
-            if (!hasFrenzySlashFusion && fusionReadyS && fusionUnlockedS) {
-                const cfgFS = CONFIG.WEAPONS['FRENZY_SLASH'];
-                if (cfgFS && Array.isArray(cfgFS.LEVELS) && cfgFS.LEVELS.length > 0) {
-                    options.push({
-                        type: 'FRENZY_SLASH',
-                        name: cfgFS.NAME,
-                        level: 1,
-                        description: cfgFS.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：神界裁決（需成就解鎖 + 同時持有且等級達標的 裁決(JUDGMENT) 與 斬擊(SLASH)）
-        try {
-            const hasDivineJudgmentFusion = playerWeaponTypes.includes('DIVINE_JUDGMENT');
-            const judgment = sourceWeaponsInfo.find(w => w.type === 'JUDGMENT');
-            const slash = sourceWeaponsInfo.find(w => w.type === 'SLASH');
-            const fusionUnlockedDJ = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('DIVINE_JUDGMENT')); } catch(_) { return false; }
-            })();
-            const judgmentLevel = (judgment && typeof judgment.level === 'number') ? judgment.level : 0;
-            const slashLevel = (slash && typeof slash.level === 'number') ? slash.level : 0;
-            const fusionReadyDJ = (!!judgment && !!slash && judgmentLevel >= 10 && slashLevel >= 10);
-            if (!hasDivineJudgmentFusion && fusionReadyDJ && fusionUnlockedDJ) {
-                const cfgDJ = CONFIG.WEAPONS['DIVINE_JUDGMENT'];
-                if (cfgDJ && Array.isArray(cfgDJ.LEVELS) && cfgDJ.LEVELS.length > 0) {
-                    options.push({
-                        type: 'DIVINE_JUDGMENT',
-                        name: cfgDJ.NAME,
-                        level: 1,
-                        description: cfgDJ.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：心靈魔法（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 唱歌(SING)）
-        try {
-            const hasMindFusion = playerWeaponTypes.includes('MIND_MAGIC');
-            const cheer2 = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
-            const sing2 = sourceWeaponsInfo.find(w => w.type === 'SING');
-            const fusionUnlocked2 = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('MIND_MAGIC')); } catch(_) { return false; }
-            })();
-            // 嚴格驗證：確保 level 是有效的數字類型
-            const cheer2Level = (cheer2 && typeof cheer2.level === 'number') ? cheer2.level : 0;
-            const sing2Level = (sing2 && typeof sing2.level === 'number') ? sing2.level : 0;
-            const fusionReady2 = (!!cheer2 && !!sing2 && cheer2Level >= 10 && sing2Level >= 10);
-            if (!hasMindFusion && fusionReady2 && fusionUnlocked2) {
-                const cfgM = CONFIG.WEAPONS['MIND_MAGIC'];
-                if (cfgM && Array.isArray(cfgM.LEVELS) && cfgM.LEVELS.length > 0) {
-                    options.push({
-                        type: 'MIND_MAGIC',
-                        name: cfgM.NAME,
-                        level: 1,
-                        description: cfgM.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：狂熱大波（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 大波球(BIG_ICE_BALL)）
-        try {
-            const hasFrenzyIceBallFusion = playerWeaponTypes.includes('FRENZY_ICE_BALL');
-            const cheer3 = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
-            const iceBall = sourceWeaponsInfo.find(w => w.type === 'BIG_ICE_BALL');
-            const fusionUnlocked3 = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_ICE_BALL')); } catch(_) { return false; }
-            })();
-            // 嚴格驗證：確保 level 是有效的數字類型
-            const cheer3Level = (cheer3 && typeof cheer3.level === 'number') ? cheer3.level : 0;
-            const iceBallLevel = (iceBall && typeof iceBall.level === 'number') ? iceBall.level : 0;
-            const fusionReady3 = (!!cheer3 && !!iceBall && cheer3Level >= 10 && iceBallLevel >= 10);
-            if (!hasFrenzyIceBallFusion && fusionReady3 && fusionUnlocked3) {
-                const cfgFIB = CONFIG.WEAPONS['FRENZY_ICE_BALL'];
-                if (cfgFIB && Array.isArray(cfgFIB.LEVELS) && cfgFIB.LEVELS.length > 0) {
-                    options.push({
-                        type: 'FRENZY_ICE_BALL',
-                        name: cfgFIB.NAME,
-                        level: 1,
-                        description: cfgFIB.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：引力波（需成就解鎖 + 同時持有且等級達標的 守護領域(AURA_FIELD) 與 無敵(INVINCIBLE)）
-        try {
-            const hasGravityWaveFusion = playerWeaponTypes.includes('GRAVITY_WAVE');
-            const auraField = sourceWeaponsInfo.find(w => w.type === 'AURA_FIELD');
-            const invincible = sourceWeaponsInfo.find(w => w.type === 'INVINCIBLE');
-            const fusionUnlockedGW = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('GRAVITY_WAVE')); } catch(_) { return false; }
-            })();
-            // 嚴格驗證：確保 level 是有效的數字類型
-            const auraFieldLevel = (auraField && typeof auraField.level === 'number') ? auraField.level : 0;
-            const invincibleLevel = (invincible && typeof invincible.level === 'number') ? invincible.level : 0;
-            const fusionReadyGW = (!!auraField && !!invincible && auraFieldLevel >= 10 && invincibleLevel >= 10);
-            if (!hasGravityWaveFusion && fusionReadyGW && fusionUnlockedGW) {
-                const cfgGW = CONFIG.WEAPONS['GRAVITY_WAVE'];
-                if (cfgGW && Array.isArray(cfgGW.LEVELS) && cfgGW.LEVELS.length > 0) {
-                    options.push({
-                        type: 'GRAVITY_WAVE',
-                        name: cfgGW.NAME,
-                        level: 1,
-                        description: cfgGW.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：先天氣質（需成就解鎖 + 同時持有且等級達標的 守護領域(AURA_FIELD) 與 恆星領域(STELLAR_FIELD)）
-        try {
-            const hasInnateFusion = playerWeaponTypes.includes('INNATE_TEMPERAMENT');
-            const auraField = sourceWeaponsInfo.find(w => w.type === 'AURA_FIELD');
-            const stellarField = sourceWeaponsInfo.find(w => w.type === 'STELLAR_FIELD');
-            const fusionUnlockedIT = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('INNATE_TEMPERAMENT')); } catch(_) { return false; }
-            })();
-            const auraFieldLevel = (auraField && typeof auraField.level === 'number') ? auraField.level : 0;
-            const stellarFieldLevel = (stellarField && typeof stellarField.level === 'number') ? stellarField.level : 0;
-            const fusionReadyIT = (!!auraField && !!stellarField && auraFieldLevel >= 10 && stellarFieldLevel >= 10);
-            if (!hasInnateFusion && fusionReadyIT && fusionUnlockedIT) {
-                const cfgIT = CONFIG.WEAPONS['INNATE_TEMPERAMENT'];
-                if (cfgIT && Array.isArray(cfgIT.LEVELS) && cfgIT.LEVELS.length > 0) {
-                    options.push({
-                        type: 'INNATE_TEMPERAMENT',
-                        name: cfgIT.NAME,
-                        level: 1,
-                        description: cfgIT.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：光芒萬丈（需成就解鎖 + 同時持有且等級達標的 連鎖閃電(CHAIN_LIGHTNING) 與 雷射(LASER)）
-        try {
-            const hasRadiantGloryFusion = playerWeaponTypes.includes('RADIANT_GLORY');
-            const chainLightning = sourceWeaponsInfo.find(w => w.type === 'CHAIN_LIGHTNING');
-            const laser = sourceWeaponsInfo.find(w => w.type === 'LASER');
-            const fusionUnlockedRG = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('RADIANT_GLORY')); } catch(_) { return false; }
-            })();
-            // 嚴格驗證：確保 level 是有效的數字類型
-            const chainLightningLevel = (chainLightning && typeof chainLightning.level === 'number') ? chainLightning.level : 0;
-            const laserLevel = (laser && typeof laser.level === 'number') ? laser.level : 0;
-            const fusionReadyRG = (!!chainLightning && !!laser && chainLightningLevel >= 10 && laserLevel >= 10);
-            if (!hasRadiantGloryFusion && fusionReadyRG && fusionUnlockedRG) {
-                const cfgRG = CONFIG.WEAPONS['RADIANT_GLORY'];
-                if (cfgRG && Array.isArray(cfgRG.LEVELS) && cfgRG.LEVELS.length > 0) {
-                    options.push({
-                        type: 'RADIANT_GLORY',
-                        name: cfgRG.NAME,
-                        level: 1,
-                        description: cfgRG.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：召喚AI LV2（需同時持有且等級達標的 連鎖閃電(CHAIN_LIGHTNING) LV10 與 召喚AI(SUMMON_AI) LV1）
-        try {
-            const summonAI = sourceWeaponsInfo.find(w => w.type === 'SUMMON_AI');
-            const chainLightningForAI = sourceWeaponsInfo.find(w => w.type === 'CHAIN_LIGHTNING');
-            // 檢查是否已有召喚AI LV2
-            const hasSummonAILv2 = (summonAI && typeof summonAI.level === 'number' && summonAI.level >= 2);
-            // 嚴格驗證：確保 level 是有效的數字類型
-            const summonAILevel = (summonAI && typeof summonAI.level === 'number') ? summonAI.level : 0;
-            const chainLightningForAILevel = (chainLightningForAI && typeof chainLightningForAI.level === 'number') ? chainLightningForAI.level : 0;
-            // 需求：召喚AI LV1 且 連鎖閃電 LV10
-            const fusionReadyAI = (!!summonAI && !!chainLightningForAI && summonAILevel === 1 && chainLightningForAILevel >= 10);
-            if (!hasSummonAILv2 && fusionReadyAI) {
-                const cfgAI = CONFIG.WEAPONS['SUMMON_AI'];
-                if (cfgAI && Array.isArray(cfgAI.LEVELS) && cfgAI.LEVELS.length > 1) {
-                    options.push({
-                        type: 'SUMMON_AI',
-                        name: cfgAI.NAME,
-                        level: 2,
-                        description: cfgAI.LEVELS[1].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：幼妲天使（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 幼妲光輝(YOUNG_DADA_GLORY)）
-        try {
-            const hasFrenzyYoungDadaGloryFusion = playerWeaponTypes.includes('FRENZY_YOUNG_DADA_GLORY');
-            const cheer4 = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
-            const youngDadaGlory = sourceWeaponsInfo.find(w => w.type === 'YOUNG_DADA_GLORY');
-            const fusionUnlocked4 = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('FRENZY_YOUNG_DADA_GLORY')); } catch(_) { return false; }
-            })();
-            // 嚴格驗證：確保 level 是有效的數字類型
-            const cheer4Level = (cheer4 && typeof cheer4.level === 'number') ? cheer4.level : 0;
-            const youngDadaGloryLevel = (youngDadaGlory && typeof youngDadaGlory.level === 'number') ? youngDadaGlory.level : 0;
-            const fusionReady4 = (!!cheer4 && !!youngDadaGlory && cheer4Level >= 10 && youngDadaGloryLevel >= 10);
-            if (!hasFrenzyYoungDadaGloryFusion && fusionReady4 && fusionUnlocked4) {
-                const cfgFYDG = CONFIG.WEAPONS['FRENZY_YOUNG_DADA_GLORY'];
-                if (cfgFYDG && Array.isArray(cfgFYDG.LEVELS) && cfgFYDG.LEVELS.length > 0) {
-                    options.push({
-                        type: 'FRENZY_YOUNG_DADA_GLORY',
-                        name: cfgFYDG.NAME,
-                        level: 1,
-                        description: cfgFYDG.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：死線超人（需成就解鎖 + 同時持有且等級達標的 應援棒(DAGGER) 與 死線戰士(DEATHLINE_WARRIOR)）
-        try {
-            const hasDeathlineSupermanFusion = playerWeaponTypes.includes('DEATHLINE_SUPERMAN');
-            const cheer5 = sourceWeaponsInfo.find(w => w.type === 'DAGGER');
-            const deathlineWarrior = sourceWeaponsInfo.find(w => w.type === 'DEATHLINE_WARRIOR');
-            const fusionUnlocked5 = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('DEATHLINE_SUPERMAN')); } catch(_) { return false; }
-            })();
-            // 嚴格驗證：確保兩個武器都存在，且 level 是有效的數字類型，且都 >= 10
-            const cheer5Level = (cheer5 && typeof cheer5.level === 'number') ? cheer5.level : 0;
-            const deathlineWarriorLevel = (deathlineWarrior && typeof deathlineWarrior.level === 'number') ? deathlineWarrior.level : 0;
-            const fusionReady5 = (!!cheer5 && !!deathlineWarrior && cheer5Level >= 10 && deathlineWarriorLevel >= 10);
-            if (!hasDeathlineSupermanFusion && fusionReady5 && fusionUnlocked5) {
-                const cfgDS = CONFIG.WEAPONS['DEATHLINE_SUPERMAN'];
-                if (cfgDS && Array.isArray(cfgDS.LEVELS) && cfgDS.LEVELS.length > 0) {
-                    options.push({
-                        type: 'DEATHLINE_SUPERMAN',
-                        name: cfgDS.NAME,
-                        level: 1,
-                        description: cfgDS.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：光芒萬丈（需成就解鎖 + 同時持有且等級達標的 連鎖閃電(CHAIN_LIGHTNING) 與 雷射(LASER)）
-        try {
-            const hasRadiantGloryFusion = playerWeaponTypes.includes('RADIANT_GLORY');
-            const chainLightning = sourceWeaponsInfo.find(w => w.type === 'CHAIN_LIGHTNING');
-            const laser = sourceWeaponsInfo.find(w => w.type === 'LASER');
-            const fusionUnlockedRG = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('RADIANT_GLORY')); } catch(_) { return false; }
-            })();
-            // 嚴格驗證：確保 level 是有效的數字類型
-            const chainLightningLevel2 = (chainLightning && typeof chainLightning.level === 'number') ? chainLightning.level : 0;
-            const laserLevel2 = (laser && typeof laser.level === 'number') ? laser.level : 0;
-            const fusionReadyRG = (!!chainLightning && !!laser && chainLightningLevel2 >= 10 && laserLevel2 >= 10);
-            if (!hasRadiantGloryFusion && fusionReadyRG && fusionUnlockedRG) {
-                const cfgRG = CONFIG.WEAPONS['RADIANT_GLORY'];
-                if (cfgRG && Array.isArray(cfgRG.LEVELS) && cfgRG.LEVELS.length > 0) {
-                    options.push({
-                        type: 'RADIANT_GLORY',
-                        name: cfgRG.NAME,
-                        level: 1,
-                        description: cfgRG.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：白虹光束（需成就解鎖 + 同時持有且等級達標的 雷射(LASER) 與 白夜光束(WHITE_NIGHT_BEAM)）
-        try {
-            const hasWhiteRainbowBeamFusion = playerWeaponTypes.includes('WHITE_RAINBOW_BEAM');
-            const laserWRB = sourceWeaponsInfo.find(w => w.type === 'LASER');
-            const whiteNightBeamWRB = sourceWeaponsInfo.find(w => w.type === 'WHITE_NIGHT_BEAM');
-            const fusionUnlockedWRB = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('WHITE_RAINBOW_BEAM')); } catch(_) { return false; }
-            })();
-            const laserWRBLevel = (laserWRB && typeof laserWRB.level === 'number') ? laserWRB.level : 0;
-            const whiteNightBeamWRBLevel = (whiteNightBeamWRB && typeof whiteNightBeamWRB.level === 'number') ? whiteNightBeamWRB.level : 0;
-            const fusionReadyWRB = (!!laserWRB && !!whiteNightBeamWRB && laserWRBLevel >= 10 && whiteNightBeamWRBLevel >= 10);
-            if (!hasWhiteRainbowBeamFusion && fusionReadyWRB && fusionUnlockedWRB) {
-                const cfgWRB = CONFIG.WEAPONS['WHITE_RAINBOW_BEAM'];
-                if (cfgWRB && Array.isArray(cfgWRB.LEVELS) && cfgWRB.LEVELS.length > 0) {
-                    options.push({
-                        type: 'WHITE_RAINBOW_BEAM',
-                        name: cfgWRB.NAME,
-                        level: 1,
-                        description: cfgWRB.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 融合武器選項：重力塌縮（需成就解鎖 + 同時持有且等級達標的 斬擊(SLASH) 與 黑洞粒子(BLACK_HOLE_PARTICLE)）
-        try {
-            const hasGravityCollapseFusion = playerWeaponTypes.includes('GRAVITY_COLLAPSE');
-            const slashGC = sourceWeaponsInfo.find(w => w.type === 'SLASH');
-            const blackHoleParticle = sourceWeaponsInfo.find(w => w.type === 'BLACK_HOLE_PARTICLE');
-            const fusionUnlockedGC = (function(){
-                try { return !!(typeof Achievements !== 'undefined' && Achievements.isFusionUnlocked && Achievements.isFusionUnlocked('GRAVITY_COLLAPSE')); } catch(_) { return false; }
-            })();
-            const slashGCLevel = (slashGC && typeof slashGC.level === 'number') ? slashGC.level : 0;
-            const blackHoleParticleLevel = (blackHoleParticle && typeof blackHoleParticle.level === 'number') ? blackHoleParticle.level : 0;
-            const fusionReadyGC = (!!slashGC && !!blackHoleParticle && slashGCLevel >= 10 && blackHoleParticleLevel >= 10);
-            if (!hasGravityCollapseFusion && fusionReadyGC && fusionUnlockedGC) {
-                const cfgGC = CONFIG.WEAPONS['GRAVITY_COLLAPSE'];
-                if (cfgGC && Array.isArray(cfgGC.LEVELS) && cfgGC.LEVELS.length > 0) {
-                    options.push({
-                        type: 'GRAVITY_COLLAPSE',
-                        name: cfgGC.NAME,
-                        level: 1,
-                        description: cfgGC.LEVELS[0].DESCRIPTION
-                    });
-                }
-            }
-        } catch (_) {}
-
-        // 新增：屬性升級選項（每局生效，不寫入localStorage）
-        try {
-            const atkLv = Math.max(0, Math.min(10, player.attackUpgradeLevel || 0));
-            if (atkLv < 10) {
-                options.push({
-                    type: 'ATTR_ATTACK',
-                    name: '攻擊力強化',
-                    level: atkLv + 1,
-                    description: '每級+10%傷害'
-                });
-            }
-            // 新增：攻擊力上升（每級+2基礎攻擊力，單純加法）
-            const atkFlatLv = Math.max(0, Math.min(10, player.attackPowerUpgradeLevel || 0));
-            if (atkFlatLv < 10) {
-                options.push({
-                    type: 'ATTR_ATTACK_POWER',
-                    name: '攻擊力上升',
-                    level: atkFlatLv + 1,
-                    description: '每級+2基礎攻擊力'
-                });
-            }
-            const crtLv = Math.max(0, Math.min(10, player.critUpgradeLevel || 0));
-            if (crtLv < 10) {
-                options.push({
-                    type: 'ATTR_CRIT',
-                    name: '爆擊率強化',
-                    level: crtLv + 1,
-                    description: '每級+2%爆擊率'
-                });
-            }
-            // 新增：生命加成與防禦加成（最高LV10）
-            const hpLv = Math.max(0, Math.min(10, player.healthUpgradeLevel || 0));
-            if (hpLv < 10) {
-                options.push({
-                    type: 'ATTR_HEALTH',
-                    name: '生命加成',
-                    level: hpLv + 1,
-                    description: '每級+20基礎血量'
-                });
-            }
-            const defLv = Math.max(0, Math.min(10, player.defenseUpgradeLevel || 0));
-            if (defLv < 10) {
-                options.push({
-                    type: 'ATTR_DEFENSE',
-                    name: '防禦加成',
-                    level: defLv + 1,
-                    description: '每級+1基礎防禦'
-                });
-            }
-        } catch (_) {}
-
-        // 森森鈴蘭為作弊角色：可直接取得五個融合技能（無需前置武器與成就），並僅顯示 allowedUpgradeTypes 內的選項
-        if (ch && ch.id === 'lilylinglan' && Array.isArray(ch.allowedUpgradeTypes)) {
-            const cheatFusions = [
-                { type: 'MIND_MAGIC', cfg: CONFIG.WEAPONS['MIND_MAGIC'] },
-                { type: 'GRAVITY_WAVE', cfg: CONFIG.WEAPONS['GRAVITY_WAVE'] },
-                { type: 'FRENZY_LIGHTNING', cfg: CONFIG.WEAPONS['FRENZY_LIGHTNING'] },
-                { type: 'FRENZY_SLASH', cfg: CONFIG.WEAPONS['FRENZY_SLASH'] },
-                { type: 'RADIANT_GLORY', cfg: CONFIG.WEAPONS['RADIANT_GLORY'] }
-            ];
-            for (const { type, cfg } of cheatFusions) {
-                const alreadyInOptions = options.some(o => o.type === type);
-                if (!playerWeaponTypes.includes(type) && !alreadyInOptions && cfg && Array.isArray(cfg.LEVELS) && cfg.LEVELS.length > 0) {
-                    options.push({ type, name: cfg.NAME, level: 1, description: cfg.LEVELS[0].DESCRIPTION });
-                }
-            }
-        }
-
-        // 森森鈴蘭為作弊角色：僅顯示 allowedUpgradeTypes 內的選項，其他角色不受影響
-        if (ch && ch.id === 'lilylinglan' && Array.isArray(ch.allowedUpgradeTypes)) {
-            const allowedSet = new Set(ch.allowedUpgradeTypes);
-            for (let i = options.length - 1; i >= 0; i--) {
-                if (!allowedSet.has(options[i].type)) options.splice(i, 1);
-            }
-        }
+        const options = UpgradeRegistry.collectCandidates({
+            sourceWeaponsInfo: sourceWeaponsInfo,
+            character: ch,
+            characters: (CONFIG.CHARACTERS && Array.isArray(CONFIG.CHARACTERS)) ? CONFIG.CHARACTERS : [],
+            player: player,
+            weaponsConfig: CONFIG.WEAPONS
+        });
 
         // 每次升級隨機挑選4個（不足4則返回全部）
         const shuffled = Utils.shuffleArray(options);
         return shuffled.slice(0, 4);
+    },
+
+    /**
+     * 標準融合：移除來源技、加入或升級結果技。不含投射物清理（那些仍走 selectUpgrade 專段）。
+     */
+    _applyStandardFusion: function(player, resultType, sourceTypes) {
+        const sources = Array.isArray(sourceTypes) ? sourceTypes : [];
+        if (player.isUltimateActive && player._ultimateBackup) {
+            const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
+            player._ultimateBackup.weapons = list.filter(info => sources.indexOf(info.type) === -1);
+            const idx = player._ultimateBackup.weapons.findIndex(info => info.type === resultType);
+            const cfgF = CONFIG.WEAPONS[resultType];
+            if (idx >= 0) {
+                const curLv = player._ultimateBackup.weapons[idx].level || 1;
+                if (cfgF && curLv < cfgF.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
+            } else {
+                player._ultimateBackup.weapons.push({ type: resultType, level: 1 });
+            }
+        } else {
+            player.weapons = (player.weapons || []).filter(w => sources.indexOf(w.type) === -1);
+            const existingF = player.weapons.find(w => w.type === resultType);
+            if (existingF) {
+                player.upgradeWeapon(resultType);
+            } else {
+                player.addWeapon(resultType);
+            }
+        }
     },
     
     /**
@@ -1321,6 +775,12 @@ const UI = {
             if (typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
                 BuffSystem.applyAttributeUpgrades(player);
             }
+            // 組隊爆擊立刻送：否則伺服器最多半秒後才用新爆擊率
+            try {
+                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.requestImmediatePlayerMeta === 'function') {
+                    window.SurvivalOnlineRuntime.requestImmediatePlayerMeta();
+                }
+            } catch (_) {}
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
             // ✅ 修复：属性升级后立即关闭菜单（与武器升级一致）
@@ -1349,6 +809,7 @@ const UI = {
             // 按上限增加量補血（每級+20，但以差值計算更穩健）
             const deltaMax = Math.max(0, (player.maxHealth || prevMax) - prevMax);
             player.health = Math.min(player.maxHealth, (player.health || 0) + deltaMax);
+            player._teamHealthUpgradeBonus = deltaMax;
             // 更新血量條
             try { UI.updateHealthBar(player.health, player.maxHealth); } catch (_) {}
             
@@ -1357,11 +818,7 @@ const UI = {
             const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
             let isSurvivalMode = false;
             try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                    ? GameModeManager.getCurrent()
-                    : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                        ? ModeManager.getActiveModeId()
-                        : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
             } catch (_) { }
             
@@ -1391,6 +848,12 @@ const UI = {
             if (typeof BuffSystem !== 'undefined' && BuffSystem.applyAttributeUpgrades) {
                 BuffSystem.applyAttributeUpgrades(player);
             }
+            // 組隊防禦立刻送：否則伺服器最多半秒後才用新防禦
+            try {
+                if (typeof window !== 'undefined' && window.SurvivalOnlineRuntime && typeof window.SurvivalOnlineRuntime.requestImmediatePlayerMeta === 'function') {
+                    window.SurvivalOnlineRuntime.requestImmediatePlayerMeta();
+                }
+            } catch (_) {}
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
             // ✅ 修复：属性升级后立即关闭菜单（与武器升级一致）
@@ -1398,100 +861,21 @@ const UI = {
             return;
         }
 
-        // 融合：狂熱雷擊（移除 應援棒(DAGGER)/連鎖閃電(CHAIN_LIGHTNING)，加入或升級 FRENZY_LIGHTNING）
-        if (weaponType === 'FRENZY_LIGHTNING') {
-            if (player.isUltimateActive && player._ultimateBackup) {
-                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
-                // 移除基礎武器
-                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'CHAIN_LIGHTNING');
-                // 加入或升級融合武器
-                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'FRENZY_LIGHTNING');
-                const cfgF = CONFIG.WEAPONS['FRENZY_LIGHTNING'];
-                if (idx >= 0) {
-                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
-                    if (cfgF && curLv < cfgF.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
-                } else {
-                    player._ultimateBackup.weapons.push({ type: 'FRENZY_LIGHTNING', level: 1 });
-                }
-            } else {
-                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
-                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'CHAIN_LIGHTNING');
-                const existingF = player.weapons.find(w => w.type === 'FRENZY_LIGHTNING');
-                if (existingF) {
-                    player.upgradeWeapon('FRENZY_LIGHTNING');
-                } else {
-                    player.addWeapon('FRENZY_LIGHTNING');
-                }
-            }
-            // 記錄成就：融合狂熱雷擊
-            try { if (typeof Achievements !== 'undefined' && Achievements.unlock) Achievements.unlock('FRENZY_FUSION'); } catch(_) {}
-            try { this.updateSkillsList(); } catch (_) {}
-            this._playClick();
-            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
-            this.hideLevelUpMenu();
-            return;
-        }
-
-        // 融合：狂熱斬擊（移除 應援棒(DAGGER)/斬擊(SLASH)，加入或升級 FRENZY_SLASH）
-        if (weaponType === 'FRENZY_SLASH') {
-            if (player.isUltimateActive && player._ultimateBackup) {
-                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
-                // 移除基礎武器
-                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'SLASH');
-                // 加入或升級融合武器
-                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'FRENZY_SLASH');
-                const cfgFS = CONFIG.WEAPONS['FRENZY_SLASH'];
-                if (idx >= 0) {
-                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
-                    if (cfgFS && curLv < cfgFS.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
-                } else {
-                    player._ultimateBackup.weapons.push({ type: 'FRENZY_SLASH', level: 1 });
-                }
-            } else {
-                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
-                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'SLASH');
-                const existingFS = player.weapons.find(w => w.type === 'FRENZY_SLASH');
-                if (existingFS) {
-                    player.upgradeWeapon('FRENZY_SLASH');
-                } else {
-                    player.addWeapon('FRENZY_SLASH');
-                }
+        const standardFusion = (typeof UpgradeRegistry !== 'undefined' && UpgradeRegistry.getStandardSelect)
+            ? UpgradeRegistry.getStandardSelect(weaponType)
+            : null;
+        if (standardFusion) {
+            this._applyStandardFusion(player, standardFusion.result, standardFusion.sourceTypes);
+            if (standardFusion.result === 'PINEAPPLE_SUPPLEMENT') {
+                player._sessionKeptAdrenalineRegenLevel = 10;
+                try {
+                    if (typeof BuffSystem !== 'undefined' && BuffSystem.applyBuffsFromTalents) {
+                        BuffSystem.applyBuffsFromTalents(player);
+                    }
+                } catch (_) {}
             }
             try { this.updateSkillsList(); } catch (_) {}
             this._playClick();
-            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
-            this.hideLevelUpMenu();
-            return;
-        }
-
-        // 融合：神界裁決（移除 裁決(JUDGMENT)/斬擊(SLASH)，加入或升級 DIVINE_JUDGMENT）
-        if (weaponType === 'DIVINE_JUDGMENT') {
-            if (player.isUltimateActive && player._ultimateBackup) {
-                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
-                // 移除基礎武器
-                player._ultimateBackup.weapons = list.filter(info => info.type !== 'JUDGMENT' && info.type !== 'SLASH');
-                // 加入或升級融合武器
-                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'DIVINE_JUDGMENT');
-                const cfgDJ = CONFIG.WEAPONS['DIVINE_JUDGMENT'];
-                if (idx >= 0) {
-                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
-                    if (cfgDJ && curLv < cfgDJ.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
-                } else {
-                    player._ultimateBackup.weapons.push({ type: 'DIVINE_JUDGMENT', level: 1 });
-                }
-            } else {
-                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
-                player.weapons = (player.weapons || []).filter(w => w.type !== 'JUDGMENT' && w.type !== 'SLASH');
-                const existingDJ = player.weapons.find(w => w.type === 'DIVINE_JUDGMENT');
-                if (existingDJ) {
-                    player.upgradeWeapon('DIVINE_JUDGMENT');
-                } else {
-                    player.addWeapon('DIVINE_JUDGMENT');
-                }
-            }
-            try { this.updateSkillsList(); } catch (_) {}
-            this._playClick();
-            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
             this.hideLevelUpMenu();
             return;
         }
@@ -1614,161 +998,6 @@ const UI = {
             return;
         }
 
-        // 融合：心靈魔法（移除 應援棒(DAGGER)/唱歌(SING)，加入或升級 MIND_MAGIC）
-        if (weaponType === 'MIND_MAGIC') {
-            if (player.isUltimateActive && player._ultimateBackup) {
-                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
-                // 移除基礎武器
-                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'SING');
-                // 加入或升級融合武器
-                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'MIND_MAGIC');
-                const cfgM = CONFIG.WEAPONS['MIND_MAGIC'];
-                if (idx >= 0) {
-                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
-                    if (cfgM && curLv < cfgM.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
-                } else {
-                    player._ultimateBackup.weapons.push({ type: 'MIND_MAGIC', level: 1 });
-                }
-            } else {
-                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
-                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'SING');
-                const existingM = player.weapons.find(w => w.type === 'MIND_MAGIC');
-                if (existingM) {
-                    player.upgradeWeapon('MIND_MAGIC');
-                } else {
-                    player.addWeapon('MIND_MAGIC');
-                }
-            }
-            try { this.updateSkillsList(); } catch (_) {}
-            this._playClick();
-            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
-            this.hideLevelUpMenu();
-            return;
-        }
-
-        // 融合：狂熱大波（移除 應援棒(DAGGER)/大波球(BIG_ICE_BALL)，加入或升級 FRENZY_ICE_BALL）
-        if (weaponType === 'FRENZY_ICE_BALL') {
-            if (player.isUltimateActive && player._ultimateBackup) {
-                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
-                // 移除基礎武器
-                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'BIG_ICE_BALL');
-                // 加入或升級融合武器
-                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'FRENZY_ICE_BALL');
-                const cfgFIB = CONFIG.WEAPONS['FRENZY_ICE_BALL'];
-                if (idx >= 0) {
-                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
-                    if (cfgFIB && curLv < cfgFIB.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
-                } else {
-                    player._ultimateBackup.weapons.push({ type: 'FRENZY_ICE_BALL', level: 1 });
-                }
-            } else {
-                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
-                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'BIG_ICE_BALL');
-                const existingFIB = player.weapons.find(w => w.type === 'FRENZY_ICE_BALL');
-                if (existingFIB) {
-                    player.upgradeWeapon('FRENZY_ICE_BALL');
-                } else {
-                    player.addWeapon('FRENZY_ICE_BALL');
-                }
-            }
-            try { this.updateSkillsList(); } catch (_) {}
-            this._playClick();
-            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
-            this.hideLevelUpMenu();
-            return;
-        }
-
-        // 融合：幼妲天使（移除 應援棒(DAGGER)/幼妲光輝(YOUNG_DADA_GLORY)，加入或升級 FRENZY_YOUNG_DADA_GLORY）
-        if (weaponType === 'FRENZY_YOUNG_DADA_GLORY') {
-            if (player.isUltimateActive && player._ultimateBackup) {
-                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
-                // 移除基礎武器
-                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'YOUNG_DADA_GLORY');
-                // 加入或升級融合武器
-                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'FRENZY_YOUNG_DADA_GLORY');
-                const cfgFYDG = CONFIG.WEAPONS['FRENZY_YOUNG_DADA_GLORY'];
-                if (idx >= 0) {
-                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
-                    if (cfgFYDG && curLv < cfgFYDG.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
-                } else {
-                    player._ultimateBackup.weapons.push({ type: 'FRENZY_YOUNG_DADA_GLORY', level: 1 });
-                }
-            } else {
-                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
-                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'YOUNG_DADA_GLORY');
-                const existingFYDG = player.weapons.find(w => w.type === 'FRENZY_YOUNG_DADA_GLORY');
-                if (existingFYDG) {
-                    player.upgradeWeapon('FRENZY_YOUNG_DADA_GLORY');
-                } else {
-                    player.addWeapon('FRENZY_YOUNG_DADA_GLORY');
-                }
-            }
-            try { this.updateSkillsList(); } catch (_) {}
-            this._playClick();
-            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
-            this.hideLevelUpMenu();
-            return;
-        }
-
-        // 融合：死線超人（移除 應援棒(DAGGER)/死線戰士(DEATHLINE_WARRIOR)，加入或升級 DEATHLINE_SUPERMAN）
-        if (weaponType === 'DEATHLINE_SUPERMAN') {
-            if (player.isUltimateActive && player._ultimateBackup) {
-                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
-                // 移除基礎武器
-                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'DEATHLINE_WARRIOR');
-                // 加入或升級融合武器
-                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'DEATHLINE_SUPERMAN');
-                const cfgDS = CONFIG.WEAPONS['DEATHLINE_SUPERMAN'];
-                if (idx >= 0) {
-                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
-                    if (cfgDS && curLv < cfgDS.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
-                } else {
-                    player._ultimateBackup.weapons.push({ type: 'DEATHLINE_SUPERMAN', level: 1 });
-                }
-            } else {
-                // 正常期間：保持 Weapon 實例陣列，直接移除基礎武器
-                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'DEATHLINE_WARRIOR');
-                const existingDS = player.weapons.find(w => w.type === 'DEATHLINE_SUPERMAN');
-                if (existingDS) {
-                    player.upgradeWeapon('DEATHLINE_SUPERMAN');
-                } else {
-                    player.addWeapon('DEATHLINE_SUPERMAN');
-                }
-            }
-            try { this.updateSkillsList(); } catch (_) {}
-            this._playClick();
-            // ✅ 修复：合成技能必须关闭菜单，否则菜单无法关闭
-            this.hideLevelUpMenu();
-            return;
-        }
-
-        if (weaponType === 'PINEAPPLE_SUPPLEMENT') {
-            if (player.isUltimateActive && player._ultimateBackup) {
-                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
-                player._ultimateBackup.weapons = list.filter(info => info.type !== 'DAGGER' && info.type !== 'ADRENALINE');
-                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'PINEAPPLE_SUPPLEMENT');
-                const cfgPS = CONFIG.WEAPONS['PINEAPPLE_SUPPLEMENT'];
-                if (idx >= 0) {
-                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
-                    if (cfgPS && curLv < cfgPS.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
-                } else {
-                    player._ultimateBackup.weapons.push({ type: 'PINEAPPLE_SUPPLEMENT', level: 1 });
-                }
-            } else {
-                player.weapons = (player.weapons || []).filter(w => w.type !== 'DAGGER' && w.type !== 'ADRENALINE');
-                const existingPS = player.weapons.find(w => w.type === 'PINEAPPLE_SUPPLEMENT');
-                if (existingPS) {
-                    player.upgradeWeapon('PINEAPPLE_SUPPLEMENT');
-                } else {
-                    player.addWeapon('PINEAPPLE_SUPPLEMENT');
-                }
-            }
-            try { this.updateSkillsList(); } catch (_) {}
-            this._playClick();
-            this.hideLevelUpMenu();
-            return;
-        }
-
         // 融合：白虹光束（移除 雷射(LASER)/白夜光束(WHITE_NIGHT_BEAM)，加入或升級 WHITE_RAINBOW_BEAM）
         if (weaponType === 'WHITE_RAINBOW_BEAM') {
             try {
@@ -1798,34 +1027,6 @@ const UI = {
                     player.upgradeWeapon('WHITE_RAINBOW_BEAM');
                 } else {
                     player.addWeapon('WHITE_RAINBOW_BEAM');
-                }
-            }
-            try { this.updateSkillsList(); } catch (_) {}
-            this._playClick();
-            this.hideLevelUpMenu();
-            return;
-        }
-
-        // 融合：重力塌縮（移除 斬擊(SLASH)/黑洞粒子(BLACK_HOLE_PARTICLE)，加入或升級 GRAVITY_COLLAPSE）
-        if (weaponType === 'GRAVITY_COLLAPSE') {
-            if (player.isUltimateActive && player._ultimateBackup) {
-                const list = Array.isArray(player._ultimateBackup.weapons) ? player._ultimateBackup.weapons : [];
-                player._ultimateBackup.weapons = list.filter(info => info.type !== 'SLASH' && info.type !== 'BLACK_HOLE_PARTICLE');
-                const idx = player._ultimateBackup.weapons.findIndex(info => info.type === 'GRAVITY_COLLAPSE');
-                const cfgGC = CONFIG.WEAPONS['GRAVITY_COLLAPSE'];
-                if (idx >= 0) {
-                    const curLv = player._ultimateBackup.weapons[idx].level || 1;
-                    if (cfgGC && curLv < cfgGC.LEVELS.length) player._ultimateBackup.weapons[idx].level += 1;
-                } else {
-                    player._ultimateBackup.weapons.push({ type: 'GRAVITY_COLLAPSE', level: 1 });
-                }
-            } else {
-                player.weapons = (player.weapons || []).filter(w => w.type !== 'SLASH' && w.type !== 'BLACK_HOLE_PARTICLE');
-                const existingGC = player.weapons.find(w => w.type === 'GRAVITY_COLLAPSE');
-                if (existingGC) {
-                    player.upgradeWeapon('GRAVITY_COLLAPSE');
-                } else {
-                    player.addWeapon('GRAVITY_COLLAPSE');
                 }
             }
             try { this.updateSkillsList(); } catch (_) {}
@@ -2014,11 +1215,7 @@ const UI = {
         const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
         let isSurvivalMode = false;
         try {
-            const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                ? GameModeManager.getCurrent()
-                : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
+            const activeId = Utils.getActiveModeId();
             isSurvivalMode = (activeId === 'survival' || activeId === null);
         } catch (_) { }
         
@@ -2534,26 +1731,7 @@ const UI = {
             return;
         }
         
-        // ✅ 修复：如果队列中有待处理的升级，且菜单已关闭，应该先处理队列
-        // ⚠️ 关键：如果队列中有标记但菜单已关闭，说明队列可能卡住了，需要处理队列
-        if (isMultiplayer && this._pendingLevelUps && this._pendingLevelUps.length > 0) {
-            // 队列中有待处理的升级，但菜单已关闭，说明队列可能卡住了
-            // ⚠️ 关键修复：先触发队列处理，而不是直接显示菜单
-            // 如果队列处理失败，清空队列，然后显示菜单
-            setTimeout(() => {
-                // 检查队列是否还有标记（如果处理成功，标记应该被移除）
-                if (this._pendingLevelUps && this._pendingLevelUps.length > 0) {
-                    // 队列处理可能失败，清空队列，避免卡住
-                    console.warn('[UI] 队列处理可能失败，清空队列，避免卡住');
-                    this._pendingLevelUps = [];
-                    // 清空队列后，重新调用 showLevelUpMenu 显示菜单
-                    this.showLevelUpMenu();
-                }
-            }, 100);
-            // 不继续执行，等待队列处理完成
-            return;
-        }
-        
+        // 組隊升級選單要出現：選單關著就要顯示。不要因為後面還排著升級就把這次吃掉
         // 暫停遊戲，但不靜音，避免升級音效與BGM被切斷（僅單人模式）
         if (!isMultiplayer && typeof Game !== 'undefined' && Game.pause) {
             Game.pause(false);
@@ -2748,14 +1926,11 @@ const UI = {
             Game.resume();
         }
         
-        // ✅ 单机模式：连续升级时，在关闭菜单后检查是否还能再次升级（避免盖掉前一个升级的选项机会）
-        // 如果升级后经验仍然足够，再次显示升级菜单（不递归调用 levelUp，而是直接检查经验）
-        if (!isMultiplayer) {
+        // 組隊連續升級接著出：一次吃到兩級，選完這次若經驗還夠，要接著出下一次。單機本來就會。組隊仍然不暫停
             try {
                 if (typeof Game !== 'undefined' && Game.player && !Game.player._isRemotePlayer) {
                     const player = Game.player;
                     if (player.experience >= player.experienceToNextLevel) {
-                        // 延迟一帧，确保菜单完全关闭后再显示下一个
                         setTimeout(() => {
                             if (player.experience >= player.experienceToNextLevel) {
                                 player.levelUp();
@@ -2764,7 +1939,6 @@ const UI = {
                     }
                 }
             } catch (_) {}
-        }
     },
 
     // 私有：標記升級卡片待確認高亮

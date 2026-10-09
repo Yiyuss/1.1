@@ -32,7 +32,7 @@ class ElondierUltimateClone extends Entity {
         this.offsetY = (typeof opts.offsetY === 'number') ? opts.offsetY : off.y;
 
         // 存在時間：與大招變身時間相同（由 Player.ultimateEndTime 傳入或 durationMs）
-        this.durationMs = (typeof opts.durationMs === 'number' && opts.durationMs > 0) ? opts.durationMs : (CONFIG && CONFIG.ULTIMATE ? CONFIG.ULTIMATE.DURATION_MS : 8000);
+        this.durationMs = (typeof opts.durationMs === 'number' && opts.durationMs > 0) ? opts.durationMs : (CONFIG && CONFIG.ULTIMATE ? CONFIG.ULTIMATE.DURATION_MS : 15000);
         const endTime = (typeof opts.endTime === 'number' && opts.endTime > 0) ? opts.endTime : (Date.now() + this.durationMs);
         this.endTime = endTime;
 

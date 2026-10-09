@@ -1,7 +1,7 @@
 // 生存模式組隊（測試版）
 // 目標：
 // - 僅在生存模式流程中啟用（不影響其他模式）
-// - 使用 Firebase（匿名登入 + Firestore）做 signaling / 房間大廳
+// - 使用 Firebase（匿名登入 + Firestore）做房間大廳（rooms / members）。舊 WebRTC / host 快照已刪。
 // - 使用 WebSocket 服務器進行遊戲數據傳輸，保護隱私，不暴露 IP
 // - 提供完整的多人同步：玩家位置、狀態、敵人、技能效果等
 //
@@ -25,11 +25,9 @@ import {
   deleteDoc,
   serverTimestamp,
   collection,
-  addDoc,
   onSnapshot,
   query,
   where,
-  orderBy,
   limit,
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
@@ -241,7 +239,6 @@ let _netUid = null;
 let _activeRoomId = null;
 let _activeRoomUnsub = null;
 let _membersUnsub = null;
-let _signalsUnsub = null;
 let _isHost = false;
 let _hostUid = null;
 let _roomState = null;
@@ -509,6 +506,21 @@ const RemotePlayerManager = (() => {
   }
 
   function remove(uid) {
+    if (!uid) return;
+    // 人離開要把人收掉：頭上的圖和跟這個人的技能一起收。路口的車沒有主人，不要收
+    try {
+      if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hide === 'function') {
+        window.GifOverlay.hide('remote-player-' + uid);
+      }
+    } catch (_) {}
+    try {
+      if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+        for (let i = 0; i < Game.projectiles.length; i++) {
+          const proj = Game.projectiles[i];
+          if (proj && proj._remotePlayerUid === uid) proj.markedForDeletion = true;
+        }
+      }
+    } catch (_) {}
     const player = remotePlayers.get(uid);
     if (player) {
       // 從 Game.remotePlayers 中移除
@@ -707,241 +719,9 @@ const Runtime = (() => {
     return enabled;
   }
 
-  function onStateMessage(payload) {
-    if (!payload || typeof payload !== "object") return;
-    if (payload.t !== "state") return;
-    // ✅ 權威伺服器模式：忽略舊的 t:"state"（避免與 server game-state 的玩家位置/狀態互打）
-    try {
-      if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-        return;
-      }
-    } catch (_) { }
-    if (!enabled) {
-      console.warn("[SurvivalOnline] onStateMessage: Runtime未啟用，忽略狀態消息");
-      return;
-    }
-    const now = Date.now();
-    const players = payload.players || {};
-
-    if (SURVIVAL_ONLINE_DEBUG) {
-      console.log(`[SurvivalOnline] onStateMessage: 收到狀態消息，玩家數量=${Object.keys(players).length}, enabled=${enabled}, isHost=${_isHost}`);
-    }
-
-    // 所有端（包括隊長和隊員）：根據接收到的狀態創建/更新遠程玩家對象
-    for (const [uid, p] of Object.entries(players)) {
-      if (!p || typeof p.x !== "number" || typeof p.y !== "number") {
-        console.warn(`[SurvivalOnline] onStateMessage: 跳過無效玩家 ${uid}`, p);
-        continue;
-      }
-      if (_uid && uid === _uid) {
-        console.log(`[SurvivalOnline] onStateMessage: 跳過自己 ${uid}`);
-        continue; // 不覆蓋自己
-      }
-
-      // 獲取成員數據（角色ID、天賦等級、名字）- 優先從狀態消息獲取，其次從 _membersState 獲取
-      const member = _membersState ? _membersState.get(uid) : null;
-      const characterId = ((typeof p.characterId === "string") ? p.characterId : null) || (member && member.characterId) || null;
-      const talentLevels = (member && member.talentLevels) ? member.talentLevels : null;
-      // ✅ 修復：定義 playerName 變量（確保在作用域內可用）
-      const playerName = (typeof p.name === "string" && p.name.trim()) ? p.name : (member && typeof member.name === "string" && member.name.trim()) ? member.name : uid.slice(0, 6);
-
-      if (SURVIVAL_ONLINE_DEBUG) {
-        console.log(`[SurvivalOnline] onStateMessage: 處理玩家 ${uid}, 位置=(${p.x}, ${p.y}), characterId=${characterId}, name=${playerName}`);
-      }
-
-      // 創建或更新遠程玩家對象
-      try {
-        if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.getOrCreate === "function") {
-          const remotePlayer = RemotePlayerManager.getOrCreate(uid, p.x, p.y, characterId, talentLevels);
-          if (remotePlayer) {
-            if (SURVIVAL_ONLINE_DEBUG) {
-              console.log(`[SurvivalOnline] onStateMessage: 成功創建/更新遠程玩家 ${uid}`);
-            }
-            // ✅ 修復：保存名字到遠程玩家對象（確保繪製時能獲取到正確的名字）
-            remotePlayer._remotePlayerName = playerName;
-            // ✅ 標準連線遊戲移動同步：使用速度外推 + 平滑插值
-            // 這是所有連線遊戲（包括不到10MB的小遊戲）的標準做法
-            const targetX = p.x;
-            const targetY = p.y;
-            if (typeof targetX === "number" && typeof targetY === "number") {
-              const dx = targetX - remotePlayer.x;
-              const dy = targetY - remotePlayer.y;
-              const distance = Math.sqrt(dx * dx + dy * dy);
-
-              // 初始化速度追蹤
-              if (!remotePlayer._lastStateTime) {
-                remotePlayer._lastStateTime = now;
-                remotePlayer._lastStateX = targetX;
-                remotePlayer._lastStateY = targetY;
-                remotePlayer._velocityX = 0;
-                remotePlayer._velocityY = 0;
-              }
-
-              // 如果距離很大，直接跳轉（網絡延遲或重連）
-              if (distance > 150) {
-                remotePlayer.x = targetX;
-                remotePlayer.y = targetY;
-                remotePlayer._velocityX = 0;
-                remotePlayer._velocityY = 0;
-                remotePlayer._lastStateTime = now;
-                remotePlayer._lastStateX = targetX;
-                remotePlayer._lastStateY = targetY;
-                remotePlayer._remoteInput = null;
-              } else if (distance > 0.5) {
-                // ✅ 標準做法：計算速度並使用速度外推
-                const timeDelta = Math.max(1, now - remotePlayer._lastStateTime); // 毫秒
-                const newVelocityX = (targetX - remotePlayer._lastStateX) / timeDelta * 1000; // 像素/秒
-                const newVelocityY = (targetY - remotePlayer._lastStateY) / timeDelta * 1000;
-
-                // 平滑速度（避免突然變化）
-                const velocityLerp = 0.3; // 速度平滑係數
-                remotePlayer._velocityX = remotePlayer._velocityX * (1 - velocityLerp) + newVelocityX * velocityLerp;
-                remotePlayer._velocityY = remotePlayer._velocityY * (1 - velocityLerp) + newVelocityY * velocityLerp;
-
-                // ✅ 標準做法：使用很小的插值係數（0.1-0.2），讓移動更直接、不飄
-                // 這是所有連線遊戲的標準做法
-                const lerpFactor = Math.min(0.2, Math.max(0.1, distance / 50)); // 很小的插值係數
-                remotePlayer.x = remotePlayer.x + (targetX - remotePlayer.x) * lerpFactor;
-                remotePlayer.y = remotePlayer.y + (targetY - remotePlayer.y) * lerpFactor;
-
-                // 更新狀態追蹤
-                remotePlayer._lastStateTime = now;
-                remotePlayer._lastStateX = targetX;
-                remotePlayer._lastStateY = targetY;
-              } else {
-                // 距離很小，直接設置（避免微小抖動）
-                remotePlayer.x = targetX;
-                remotePlayer.y = targetY;
-                remotePlayer._velocityX = 0;
-                remotePlayer._velocityY = 0;
-                remotePlayer._lastStateTime = now;
-                remotePlayer._lastStateX = targetX;
-                remotePlayer._lastStateY = targetY;
-              }
-            }
-            // ✅ 修復：更新其他狀態（確保血量正確同步）
-            if (typeof p.health === "number") {
-              remotePlayer.health = Math.max(0, Math.min(p.health, p.maxHealth || remotePlayer.maxHealth || 100));
-            }
-            if (typeof p.maxHealth === "number") remotePlayer.maxHealth = p.maxHealth;
-            if (typeof p.energy === "number") remotePlayer.energy = p.energy;
-            if (typeof p.maxEnergy === "number") remotePlayer.maxEnergy = p.maxEnergy;
-            if (typeof p.level === "number") remotePlayer.level = p.level;
-            if (typeof p.exp === "number") remotePlayer.experience = p.exp;
-            // ✅ 修复：遠程玩家的 experienceToNextLevel 可以從服務器同步（不影響本地玩家）
-            // 注意：本地玩家的 experienceToNextLevel 由客户端管理，不受服务器影响
-            if (typeof p.expToNext === "number" && remotePlayer !== Game.player) {
-              remotePlayer.experienceToNextLevel = p.expToNext;
-            }
-            if (typeof p._isDead === "boolean") remotePlayer._isDead = p._isDead;
-            if (typeof p._resurrectionProgress === "number") remotePlayer._resurrectionProgress = p._resurrectionProgress;
-            if (typeof p.isUltimateActive === "boolean") remotePlayer.isUltimateActive = p.isUltimateActive;
-            if (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) remotePlayer._ultimateImageKey = p.ultimateImageKey;
-            if (typeof p.ultimateEndTime === "number") remotePlayer.ultimateEndTime = p.ultimateEndTime;
-            if (typeof p.width === "number" && p.width > 0) remotePlayer.width = p.width;
-            if (typeof p.height === "number" && p.height > 0) remotePlayer.height = p.height;
-            if (typeof p.collisionRadius === "number" && p.collisionRadius > 0) remotePlayer.collisionRadius = p.collisionRadius;
-            // ✅ MMORPG 架構：同步玩家朝向（確保遠程玩家朝向正確）
-            if (typeof p.facingRight === "boolean") remotePlayer.facingRight = p.facingRight;
-            if (typeof p.facingAngle === "number") remotePlayer.facingAngle = p.facingAngle;
-
-            // ✅ 單機元素：玩家受傷紅閃不應同步到遠程玩家（只對本地玩家顯示）
-            // 根據 master plan，玩家受傷紅閃是單機元素，不應透過網路廣播
-            // 遠程玩家的受傷視覺效果應該由伺服器 hitEvents 或其他多人元素處理
-
-            // ✅ MMORPG 架構：同步共享的金幣和經驗值到本地玩家
-            // ⚠️ 注意：這是 LEGACY 代碼（M3 架構），權威多人已由伺服器 game-state 取代
-            // 但為了兼容性，仍然保留這個邏輯，只在 session 初始化時同步
-            // 經驗值同步應該由 handleServerGameState 處理（使用 gainExperience），這裡不應該直接設置
-            if (typeof p.coins === "number" && typeof Game !== "undefined") {
-              // 使用其他玩家的金幣數量（因為金幣是共享的）
-              Game.coins = Math.max(0, Math.floor(p.coins));
-              // 更新金幣顯示
-              if (typeof UI !== "undefined" && UI.updateCoinsDisplay) {
-                UI.updateCoinsDisplay(Game.coins);
-              }
-            }
-            // ⚠️ 修復：經驗值同步應該由 handleServerGameState 處理（使用 gainExperience），這裡不應該直接設置
-            // 直接設置 Game.player.experience 會繞過 gainExperience 的升級檢查和音效播放
-            // 只有在 session 初始化時才同步 experienceToNextLevel（如果還沒有被 handleServerGameState 處理）
-            if (typeof Game !== "undefined" && Game.player && typeof p.exp === "number") {
-              // ✅ 修復：只有在 session 初始化時才同步 experienceToNextLevel
-              // 之後完全由客戶端管理（通過 gainExperience 和 levelUp()），與單機一致
-              // ⚠️ 注意：經驗值同步應該由 handleServerGameState 處理，這裡不應該直接設置 Game.player.experience
-              if (!_sessionCountersPrimed && typeof p.expToNext === "number") {
-                Game.player.experienceToNextLevel = p.expToNext;
-              }
-              // ⚠️ 不應該直接設置 Game.player.experience，應該由 handleServerGameState 處理
-              // Game.player.experience = p.exp; // 已移除，由 handleServerGameState 處理
-            }
-
-            // 確保角色圖片正確設置（如果角色ID存在但圖片未設置）
-            if (characterId && !remotePlayer.spriteImageKey) {
-              try {
-                if (typeof CONFIG !== "undefined" && CONFIG.CHARACTERS) {
-                  const char = CONFIG.CHARACTERS.find(c => c && c.id === characterId);
-                  if (char && char.spriteImageKey) {
-                    remotePlayer.spriteImageKey = char.spriteImageKey;
-                    console.log(`[SurvivalOnline] onStateMessage: 設置遠程玩家 ${uid} 的角色圖片為 ${char.spriteImageKey}`);
-                  }
-                }
-              } catch (e) {
-                console.warn(`[SurvivalOnline] onStateMessage: 設置角色圖片失敗:`, e);
-              }
-            }
-          } else {
-            console.error(`[SurvivalOnline] onStateMessage: RemotePlayerManager.getOrCreate 返回 null 或 undefined for ${uid}`);
-          }
-        } else {
-          console.error(`[SurvivalOnline] onStateMessage: RemotePlayerManager 或 getOrCreate 不可用`);
-        }
-      } catch (e) {
-        console.error(`[SurvivalOnline] 創建/更新遠程玩家失敗:`, e);
-      }
-    }
-
-    // 保存位置信息（用於其他用途）
-    for (const [uid, p] of Object.entries(players)) {
-      if (!p || typeof p.x !== "number" || typeof p.y !== "number") continue;
-      if (_uid && uid === _uid) continue; // 不覆蓋自己
-      remotePlayers.set(uid, {
-        x: p.x,
-        y: p.y,
-        name: typeof p.name === "string" ? p.name : uid.slice(0, 6),
-        characterId: (typeof p.characterId === "string") ? p.characterId : null, // 保存角色ID
-        // 大招狀態同步
-        isUltimateActive: (typeof p.isUltimateActive === "boolean") ? p.isUltimateActive : false,
-        ultimateImageKey: (typeof p.ultimateImageKey === "string" && p.ultimateImageKey) ? p.ultimateImageKey : null,
-        ultimateEndTime: (typeof p.ultimateEndTime === "number") ? p.ultimateEndTime : 0,
-        width: (typeof p.width === "number" && p.width > 0) ? p.width : null,
-        height: (typeof p.height === "number" && p.height > 0) ? p.height : null,
-        collisionRadius: (typeof p.collisionRadius === "number" && p.collisionRadius > 0) ? p.collisionRadius : null,
-        // 死亡和復活狀態同步
-        _isDead: (typeof p._isDead === "boolean") ? p._isDead : false,
-        health: (typeof p.health === "number") ? p.health : 100,
-        maxHealth: (typeof p.maxHealth === "number") ? p.maxHealth : 100,
-        _resurrectionProgress: (typeof p._resurrectionProgress === "number") ? p._resurrectionProgress : 0,
-        updatedAt: now,
-      });
-    }
-    // 清掉過期（避免斷線殘留）
-    for (const [uid, p] of remotePlayers) {
-      if (now - (p.updatedAt || 0) > 8000) {
-        remotePlayers.delete(uid);
-        // 移除遠程玩家對象
-        try {
-          if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.remove === "function") {
-            RemotePlayerManager.remove(uid);
-          }
-        } catch (_) { }
-        // 隱藏對應的GIF覆蓋層
-        try {
-          if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hide === 'function') {
-            window.GifOverlay.hide(`remote-player-${uid}`);
-          }
-        } catch (_) { }
-      }
-    }
+  function onStateMessage(/* payload */) {
+    // LEGACY t:"state"：舊 host 廣播。權威多人走 handleServerGameState。WS 若仍轉發此型別，丟棄。
+    return;
   }
 
   // M2：處理事件（客戶端接收室長廣播的事件）
@@ -1090,7 +870,7 @@ const Runtime = (() => {
       } else if (eventType === "chest_collected") {
         // ✅ C：寶箱屬於競技（誰撿到誰拿）
         // - 所有人：移除寶箱（避免重複撿取/殘留）
-        // - 只有撿到的人：NORMAL → 開升級選單；PINEAPPLE → 回報 award_exp（共享經驗）；PINEAPPLE_SUPPLEMENT → 本地補血
+        // - 只有撿到的人：NORMAL → 開升級選單；PINEAPPLE → 回報 award_exp（全隊共用）；PINEAPPLE_SUPPLEMENT → 本地補血
         try {
           if (typeof Game === "undefined") return;
 
@@ -1141,16 +921,12 @@ const Runtime = (() => {
           if (!isCollector) return;
 
           if (isPineapple) {
-            // ✅ 鳳梨掉落：共享經驗（伺服器權威 counter）；回報 amount（與單機同源：50 + 30% 當下所需升級經驗）
+            // ✅ 鳳梨掉落：全隊共用（50 + 30% 撿到的人當下所需升級經驗）
             // ✅ 確保只在生存模式且多人模式下發送
             try {
               let isSurvivalMode = false;
               try {
-                const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                  ? GameModeManager.getCurrent()
-                  : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                    ? ModeManager.getActiveModeId()
-                    : null);
+                const activeId = Utils.getActiveModeId();
                 isSurvivalMode = (activeId === 'survival' || activeId === null);
               } catch (_) { }
               const p = Game.player;
@@ -1165,6 +941,11 @@ const Runtime = (() => {
                 const bonus = Math.max(0, Math.floor(needNow * 0.30));
                 const amount = base + bonus;
                 window.SurvivalOnlineRuntime.sendToNet({ type: "award_exp", amount, chestId });
+                try {
+                  if (typeof AudioManager !== "undefined" && AudioManager.expSoundEnabled !== false) {
+                    AudioManager.playSound("collect_exp");
+                  }
+                } catch (_) { }
               }
             } catch (_) { }
           } else if (isPineappleSupp) {
@@ -1176,6 +957,10 @@ const Runtime = (() => {
                 const healFromLocal = (matched && typeof matched._healAmount === "number") ? Math.max(0, Math.floor(matched._healAmount)) : null;
                 const heal = (healFromEvent != null) ? healFromEvent : (healFromLocal != null ? healFromLocal : 0);
                 p.health = Math.min(p.maxHealth || 200, (p.health || 0) + heal);
+                // 組隊鳳梨補品補血：只送撿到的人這一次，否則血量同步會把補的血蓋掉
+                if (heal > 0 && typeof window.SurvivalOnlineRuntime.sendToNet === "function") {
+                  window.SurvivalOnlineRuntime.sendToNet({ type: "heal", amount: heal, timestamp: Date.now() });
+                }
                 if (typeof UI !== "undefined" && UI.updateHealthBar && typeof p.health === "number" && typeof p.maxHealth === "number") {
                   UI.updateHealthBar(p.health, p.maxHealth);
                 }
@@ -1463,7 +1248,7 @@ const Runtime = (() => {
             const isPersistentEffect = (
               weaponType === 'AURA_FIELD' || weaponType === 'CYGNUS_ULTIMATE_FIELD' || weaponType === 'STELLAR_FIELD' || weaponType === 'INNATE_TEMPERAMENT' || weaponType === 'GRAVITY_WAVE' || weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' ||
               weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' || weaponType === 'HEART_COMPANION' ||
-              weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'GABRIEL_ORBIT' || weaponType === 'WEDDING_CALL_ORBIT' || weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC' ||
+              weaponType === 'PINEAPPLE_ORBIT' || weaponType === 'GABRIEL_ORBIT' || weaponType === 'WEDDING_CALL_ORBIT' || weaponType === 'RADIANT_GLORY' || weaponType === 'MIND_MAGIC' || weaponType === 'DIVINE_JUDGMENT' ||
               // ✅ 厄倫蒂兒大招分身：需要同步生成（純視覺；投擲傷害走伺服器權威 attack input）
               weaponType === 'ELONDIER_ULTIMATE_CLONE'
             );
@@ -1472,8 +1257,15 @@ const Runtime = (() => {
 
             let existingProjectile = null;
             if (isPersistentEffect && playerUid) {
-              // ✅ 特例：厄倫蒂兒分身同一玩家會有 4 個，必須用 id 去重，不能用 weaponType+playerUid 合併
-              if (weaponType === 'ELONDIER_ULTIMATE_CLONE') {
+              // 組隊環繞要有好幾顆：同一個人的球各有編號。不能併成一顆。分身也是各算各的
+              const isSeparateCopy = (
+                weaponType === 'ELONDIER_ULTIMATE_CLONE' ||
+                weaponType === 'ORBIT' || weaponType === 'STELLAR_ORBIT' ||
+                weaponType === 'CHICKEN_BLESSING' || weaponType === 'ROTATING_MUFFIN' ||
+                weaponType === 'HEART_COMPANION' || weaponType === 'PINEAPPLE_ORBIT' ||
+                weaponType === 'GABRIEL_ORBIT' || weaponType === 'WEDDING_CALL_ORBIT'
+              );
+              if (isSeparateCopy) {
                 existingProjectile = Game.projectiles.find(p => p && p.id === projectileId);
               } else {
                 // ⚠️ 修復：對於持續效果，檢查是否已存在相同類型和玩家的效果
@@ -1524,6 +1316,9 @@ const Runtime = (() => {
                 if (typeof eventData.y === "number") existingProjectile.y = eventData.y;
                 if (typeof eventData.angle === "number") existingProjectile.angle = eventData.angle;
                 if (typeof eventData.radius === "number") existingProjectile.radius = eventData.radius;
+                // 組隊神裁跟等級變遠：劍巡守的範圍跟傷害圈一起變，不要停在剛放下去的距離
+                if (typeof eventData.detectRadius === "number") existingProjectile.detectRadius = eventData.detectRadius;
+                if (typeof eventData.aoeRadius === "number") existingProjectile.aoeRadius = eventData.aoeRadius;
                 if (typeof eventData.duration === "number") existingProjectile.duration = eventData.duration;
                 if (typeof eventData.durationMs === "number") existingProjectile.durationMs = eventData.durationMs;
                 if (typeof eventData.slowFactor === "number") existingProjectile.slowFactor = eventData.slowFactor; // 恆星領域升級時同步緩速
@@ -1728,8 +1523,8 @@ const Runtime = (() => {
                       eventData.summonAILevel || 1
                     );
                     ai.id = projectileId;
-                    // ✅ MMORPG架构：远程玩家的AI也应该造成伤害（每个玩家的AI独立计算伤害）
-                    // 不标记为_isVisualOnly，让每个玩家的AI都能独立计算伤害并叠加
+                    ai.weaponType = 'SUMMON_AI';
+                    // 組隊召喚不要被清掉：人要留著。雷仍由對方送，不要在這裡改成只做畫面
                     ai._remotePlayerUid = eventData.playerUid;
                     // ✅ 修复：确保AI的player引用正确设置
                     ai.player = targetPlayer;
@@ -1777,7 +1572,7 @@ const Runtime = (() => {
                   const cloneIdx = (typeof eventData.cloneIndex === "number") ? eventData.cloneIndex : 0;
                   const dur = (typeof eventData.durationMs === "number" && eventData.durationMs > 0)
                     ? eventData.durationMs
-                    : ((typeof CONFIG !== 'undefined' && CONFIG.ULTIMATE) ? CONFIG.ULTIMATE.DURATION_MS : 8000);
+                    : ((typeof CONFIG !== 'undefined' && CONFIG.ULTIMATE) ? CONFIG.ULTIMATE.DURATION_MS : 15000);
                   const clone = new ElondierUltimateClone(
                     targetPlayer,
                     eventData.x || targetPlayer.x,
@@ -2152,7 +1947,8 @@ const Runtime = (() => {
                     eventData.displayScale || (isSuperman ? 1.0 : 0.5) // ✅ 與單機一致：DEATHLINE_SUPERMAN 為 1.0，DEATHLINE_WARRIOR 為 0.5
                   );
                   effect.id = projectileId;
-                  // 不标记为_isVisualOnly，让每个玩家的死线战士/死线超人都能独立计算伤害
+                  // 組隊死線不要拽隊友：這份只負責畫面。人的位置跟伺服器，不要在這邊把人拽到別的怪上
+                  effect._isVisualOnly = true;
                   effect._remotePlayerUid = eventData.playerUid;
                   Game.projectiles.push(effect);
                 }
@@ -2369,6 +2165,33 @@ const Runtime = (() => {
                     eventData.y || targetPlayer.y,
                     eventData.angle,
                     eventData.weaponLevel || 1,
+                    targetPlayer
+                  );
+                  effect.id = projectileId;
+                  effect._isVisualOnly = true;
+                  effect._remotePlayerUid = eventData.playerUid;
+                  Game.projectiles.push(effect);
+                }
+              } else if ((weaponType === "BIG_ICE_BALL" || weaponType === "FRENZY_ICE_BALL") && eventData.isIceField && typeof IceFieldEffect !== "undefined") {
+                // 組隊大波要有冰圈：單機落地有一圈冰。這包是圈，不要再做成飛行的球
+                let targetPlayer = null;
+                if (eventData.playerUid) {
+                  const rt = (typeof window !== 'undefined') ? window.SurvivalOnlineRuntime : null;
+                  if (rt && rt.RemotePlayerManager && typeof rt.RemotePlayerManager.get === 'function') {
+                    const remotePlayer = rt.RemotePlayerManager.get(eventData.playerUid);
+                    if (remotePlayer) targetPlayer = remotePlayer;
+                  }
+                  if (!targetPlayer && eventData.playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
+                    targetPlayer = Game.player;
+                  }
+                }
+                if (targetPlayer) {
+                  const effect = new IceFieldEffect(
+                    eventData.x || targetPlayer.x,
+                    eventData.y || targetPlayer.y,
+                    (typeof eventData.radius === 'number') ? eventData.radius : 78,
+                    0,
+                    eventData.duration || 3000,
                     targetPlayer
                   );
                   effect.id = projectileId;
@@ -2917,26 +2740,14 @@ const Runtime = (() => {
             if (typeof window !== 'undefined' && window.SurvivalOnlineUI && typeof window.SurvivalOnlineUI.openLobbyScreen === 'function') {
               window.SurvivalOnlineUI.openLobbyScreen();
             }
-            // 觸發成就（組隊模式勝利）
+            // 觸發成就（組隊模式勝利）— 條件與單人同一函式，禁止在此再寫一份 if
             try {
-              if (typeof Achievements !== 'undefined' && Achievements.unlock) {
-                Achievements.unlock('FIRST_CLEAR');
-                const diffId = (typeof Game !== 'undefined' && Game.selectedDifficultyId) ? Game.selectedDifficultyId : 'EASY';
-                if (diffId === 'HARD') Achievements.unlock('HARD_CLEAR');
-                const charId = (typeof Game !== 'undefined' && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
-                const mapId = (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null;
-                if (charId === 'rokurost' && mapId === 'city') Achievements.unlock('ROKUROST_CITY_CLEAR');
-                if (charId === 'dada' && mapId === 'city') Achievements.unlock('DADA_CITY_CLEAR');
-                if (charId === 'rabi' && mapId === 'city') Achievements.unlock('RABI_CITY_CLEAR');
-                if (charId === 'elondier' && mapId === 'city') Achievements.unlock('ELONDIER_CITY_CLEAR');
-                if (charId === 'pineapple' && mapId === 'city') Achievements.unlock('PINEAPPLE_CITY_CLEAR');
-                if (charId === 'baibaihong' && mapId === 'city') Achievements.unlock('BAIBAIHONG_CITY_CLEAR');
-                if (charId === 'cygnus' && mapId === 'city') Achievements.unlock('CYGNUS_CITY_CLEAR');
-                if (charId === 'dada' && mapId === 'forest') Achievements.unlock('DADA_FOREST_CLEAR');
-                // 任一角色通關草原地圖：解鎖專屬之路成就
-                if (mapId === 'forest') Achievements.unlock('EXCLUSIVE_PATH');
-                if (mapId === 'intersection') Achievements.unlock('INTERSECTION_CLEAR');
-                if (mapId === 'desert') Achievements.unlock('ASSIST_PATH');
+              if (typeof Achievements !== 'undefined' && typeof Achievements.unlockSurvivalClears === 'function') {
+                Achievements.unlockSurvivalClears({
+                  diffId: (typeof Game !== 'undefined' && Game.selectedDifficultyId) ? Game.selectedDifficultyId : 'EASY',
+                  charId: (typeof Game !== 'undefined' && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null,
+                  mapId: (typeof Game !== 'undefined' && Game.selectedMap && Game.selectedMap.id) ? Game.selectedMap.id : null
+                });
               }
             } catch (_) {}
             // 顯示勝利畫面
@@ -2953,235 +2764,22 @@ const Runtime = (() => {
     }
   }
 
-  // M5：處理全量快照（重連恢復）
-  function onFullSnapshotMessage(payload) {
-    if (!payload || typeof payload !== "object") return;
-    if (payload.t !== "full_snapshot") return;
-    // ✅ LEGACY：權威多人已由伺服器 game-state 取代（避免舊重連恢復邏輯回魂）
-    try { if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return; } catch (_) { }
-
-    try {
-      console.log("[SurvivalOnline] M5: 收到全量快照，開始恢復遊戲狀態");
-
-      // 恢復 sessionId
-      if (payload.sessionId && typeof Game !== "undefined" && Game.multiplayer) {
-        Game.multiplayer.sessionId = payload.sessionId;
-      }
-
-      // 恢復遊戲時間
-      if (typeof payload.gameTime === "number" && typeof Game !== "undefined") {
-        Game.gameTime = payload.gameTime;
-      }
-
-      // 恢復波次
-      if (typeof payload.currentWave === "number" && typeof WaveSystem !== "undefined") {
-        WaveSystem.currentWave = payload.currentWave;
-        if (typeof UI !== "undefined" && UI.updateWaveInfo) {
-          UI.updateWaveInfo(WaveSystem.currentWave);
-        }
-      }
-
-      // 先處理玩家狀態（使用 M3 的邏輯）
-      onSnapshotMessage(payload);
-
-      // 恢復敵人（僅在室長端，客戶端不生成敵人）
-      // 注意：客戶端不應該真正生成敵人，只是記錄用於視覺效果
-      // 實際的敵人生成和戰鬥邏輯由室長處理
-
-      // 恢復經驗球和寶箱（同樣，客戶端只做記錄）
-
-      console.log("[SurvivalOnline] M5: 遊戲狀態恢復完成");
-    } catch (e) {
-      console.warn("[SurvivalOnline] M5: 全量快照處理失敗:", e);
-    }
+  function onFullSnapshotMessage(/* payload */) {
+    // LEGACY t:"full_snapshot"：舊 host 重連快照。權威多人由伺服器 state 全量同步。
+    return;
   }
 
-  // M3：處理狀態快照（客戶端接收室長廣播的快照）
-  function onSnapshotMessage(payload) {
-    if (!payload || typeof payload !== "object") return;
-    if (payload.t !== "snapshot") return;
-    // ✅ LEGACY：權威多人已由伺服器 game-state 取代
-    try { if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return; } catch (_) { }
-
-    try {
-      // MMO 架構：不再校正位置，只同步關鍵狀態
-      // 每個玩家都是獨立的，位置由客戶端自己控制，不被服務器校正
-      if (payload.players && _uid && payload.players[_uid]) {
-        const myState = payload.players[_uid];
-        if (typeof Game !== "undefined" && Game.player) {
-          const player = Game.player;
-
-          // ✅ MMO 架構：不再校正位置，只同步關鍵狀態（血量、能量、等級等）
-          // 位置由客戶端自己控制，不被服務器校正，確保每個玩家都是獨立的
-
-          // 血量/能量/等級/經驗：硬覆蓋保一致
-          if (typeof myState.hp === "number") player.health = Math.max(0, Math.min(myState.hp, player.maxHealth || 100));
-          if (typeof myState.maxHp === "number") player.maxHealth = myState.maxHp;
-          if (typeof myState.energy === "number") player.energy = Math.max(0, Math.min(myState.energy, player.maxEnergy || 100));
-          if (typeof myState.maxEnergy === "number") player.maxEnergy = myState.maxEnergy;
-          if (typeof myState.level === "number") player.level = myState.level;
-          if (typeof myState.exp === "number") player.experience = myState.exp;
-          // ✅ 修復：只有在 session 初始化時才同步 experienceToNextLevel
-          // 之後完全由客戶端管理（通過 gainExperience 和 levelUp()），與單機一致
-          // ⚠️ 注意：這是 LEGACY 代碼（M3 架構），權威多人已由伺服器 game-state 取代
-          // 但為了兼容性，仍然保留這個邏輯，只在 session 初始化時同步
-          // 這裡不做任何事，因為 experienceToNextLevel 已經由 gainExperience 和 levelUp() 管理
-
-          // 金幣同步（組隊模式共享金幣）
-          if (typeof myState.coins === "number" && typeof Game !== "undefined") {
-            Game.coins = Math.max(0, Math.floor(myState.coins));
-            // 更新金幣顯示
-            if (typeof UI !== "undefined" && UI.updateCoinsDisplay) {
-              UI.updateCoinsDisplay(Game.coins);
-            }
-          }
-
-          // ✅ 多人元素：大招動畫狀態同步（讓所有客戶端能看到其他玩家的大招變身效果）
-          // 注意：大招功能本身是單機元素（武器變化、屬性加成等），只在本地執行
-          // 但大招動畫（isUltimateActive、ultimateImageKey、體型變化）是多人元素，需要同步
-          if (typeof myState.isUltimateActive === "boolean") {
-            const wasUltimateActive = player.isUltimateActive;
-            const isNowUltimateActive = myState.isUltimateActive;
-
-            // ✅ 單機元素：如果伺服器通知大招結束，必須在設定 isUltimateActive 之前呼叫 deactivateUltimate
-            // 否則 deactivateUltimate 會因 isUltimateActive 已為 false 而提早 return，導致武器/技能無法正確恢復
-            if (wasUltimateActive && !isNowUltimateActive && typeof player.deactivateUltimate === 'function') {
-              try {
-                player.deactivateUltimate(); // 完整恢復：武器、額外防禦、洛可HP、場域清理、BGM、z-index 等（與單機一致）
-              } catch (e) {
-                console.warn('[SurvivalOnline] 大招結束 deactivateUltimate 失敗:', e);
-              }
-            }
-
-            player.isUltimateActive = isNowUltimateActive;
-          }
-          if (typeof myState.ultimateImageKey === "string" && myState.ultimateImageKey) {
-            player._ultimateImageKey = myState.ultimateImageKey;
-          } else if (myState.isUltimateActive === false) {
-            player._ultimateImageKey = null;
-          }
-          if (typeof myState.ultimateEndTime === "number") {
-            player.ultimateEndTime = myState.ultimateEndTime;
-          }
-          // ✅ 多人元素：體型同步（大招變身時的視覺效果）
-          // ✅ 修复：大招结束时，服务器会恢复体积，需要同步（即使值为原始值，也要同步）
-          if (typeof myState.width === "number") {
-            // 允许同步原始体积（可能小于或等于当前值）
-            player.width = myState.width;
-          }
-          if (typeof myState.height === "number") {
-            // 允许同步原始体积（可能小于或等于当前值）
-            player.height = myState.height;
-          }
-          if (typeof myState.collisionRadius === "number") {
-            // 允许同步原始碰撞半径（可能小于或等于当前值）
-            player.collisionRadius = myState.collisionRadius;
-          }
-
-          // 死亡和復活狀態同步
-          if (typeof myState._isDead === "boolean") {
-            player._isDead = myState._isDead;
-            // 如果死亡，清除武器
-            if (myState._isDead && player.clearWeapons && typeof player.clearWeapons === 'function') {
-              player.clearWeapons();
-            }
-            // 如果復活，恢復初始武器
-            if (!myState._isDead && player._isDead && player.weapons && player.weapons.length === 0) {
-              player.addWeapon('DAGGER');
-            }
-          }
-          if (typeof myState._resurrectionProgress === "number") {
-            player._resurrectionProgress = myState._resurrectionProgress;
-          }
-
-          // ✅ 單機元素：UI 更新應該只由本地玩家更新，不應該在組隊模式下執行
-          // 注意：onSnapshotMessage 應該已經在組隊模式下被停用（第2191行），但為了安全起見，這裡再次檢查
-          // 在組隊模式下，UI 更新應該由 handleServerGameState 處理，而不是這裡
-          if (typeof UI !== "undefined") {
-            // ✅ 確保只在非組隊模式下更新 UI（避免 HUD 跳到其他玩家身上）
-            try {
-              const isMultiplayer = (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled);
-              if (!isMultiplayer) {
-                if (UI.updateHealthBar) UI.updateHealthBar(player.health, player.maxHealth);
-                if (UI.updateEnergyBar) UI.updateEnergyBar(player.energy, player.maxEnergy);
-                if (UI.updateLevel) UI.updateLevel(player.level);
-                if (UI.updateExpBar) UI.updateExpBar(player.experience, player.experienceToNextLevel);
-              }
-            } catch (_) { }
-          }
-        }
-      }
-
-      // 處理 BOSS 狀態（如果存在）
-      if (payload.boss && typeof Game !== "undefined" && Game.boss) {
-        const boss = Game.boss;
-        const bossState = payload.boss;
-        // BOSS 位置插值
-        if (typeof bossState.x === "number" && typeof bossState.y === "number") {
-          const dx = bossState.x - boss.x;
-          const dy = bossState.y - boss.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist > 50) {
-            const lerp = 0.3;
-            boss.x += dx * lerp;
-            boss.y += dy * lerp;
-          } else {
-            boss.x = bossState.x;
-            boss.y = bossState.y;
-          }
-        }
-        // BOSS 血量硬覆蓋
-        if (typeof bossState.hp === "number") boss.health = Math.max(0, bossState.hp);
-        if (typeof bossState.maxHp === "number") boss.maxHealth = bossState.maxHp;
-      }
-
-      // 處理出口狀態（如果存在）
-      if (payload.exit && typeof Game !== "undefined") {
-        if (!Game.exit && payload.exit.x !== undefined && payload.exit.y !== undefined) {
-          // 出口尚未生成，但快照中有，可以顯示提示（實際生成由室長處理）
-        } else if (Game.exit) {
-          // 出口已存在，同步位置
-          Game.exit.x = payload.exit.x || Game.exit.x;
-          Game.exit.y = payload.exit.y || Game.exit.y;
-        }
-      }
-
-      // ✅ MMO 架構：不再同步敵人，每個客戶端自己生成
-      // 使用確定性生成確保所有客戶端生成相同的敵人
-      // 敵人同步已移除，每個客戶端自己生成和更新敵人
-    } catch (e) {
-      console.warn("[SurvivalOnline] M3 快照處理失敗:", e);
-    }
-  }
-
-  function collectLocalState(game) {
-    try {
-      const player = game && game.player ? game.player : null;
-      if (!player) return null;
-      return { x: player.x, y: player.y };
-    } catch (_) {
-      return null;
-    }
+  function onSnapshotMessage(/* payload */) {
+    // LEGACY t:"snapshot"：舊 host 週期快照。權威多人由 handleServerGameState 取代。
+    return;
   }
 
   function tick(game, deltaTime) {
     if (!enabled) return;
 
-    // ✅ 修復：組隊模式下離開分頁或失去焦點時，停止發送輸入到服務器，避免狀態不一致
-    // 組隊模式不能暫停遊戲（Game.pause），因為其他人還在繼續遊戲
-    // 但離開分頁或失去焦點時應該停止發送輸入，只接收服務器狀態，切回來時會自動同步
+    // 組隊沒焦點仍要送位置：視窗還看得到、只是點到別處，人要繼續走。單機這時也還在跑。
+    // 切到別的分頁才停。那一頁已經沒在跑，不要把整房暫停。
     if (typeof document !== "undefined" && document.hidden) {
-      // 頁面隱藏時，不發送輸入，但保持連接（WebSocket 保持開啟）
-      // 遊戲循環繼續運行，只接收服務器狀態，避免切回來時狀態不一致
-      return;
-    }
-
-    // ✅ 修復：檢查窗口是否失去焦點（blur 事件）
-    // 組隊模式下，即使窗口失去焦點，也不應該暫停遊戲，但應該停止發送輸入
-    // 使用 document.hasFocus() 檢查窗口焦點狀態
-    if (typeof document !== "undefined" && typeof document.hasFocus === "function" && !document.hasFocus()) {
-      // 窗口失去焦點時，不發送輸入，但保持連接（WebSocket 保持開啟）
-      // 遊戲循環繼續運行，只接收服務器狀態，避免切回來時狀態不一致
       return;
     }
 
@@ -3265,16 +2863,10 @@ const Runtime = (() => {
           }
         } catch (_) { }
 
-        // ✅ 爆擊率同步（天賦 + 升級 + 角色基礎）
+        // 組隊爆擊不重複算：這個欄位已經含天賦、升級、角色自帶，不要再加一次
         let critChanceBonusPct = 0;
         try {
-          // 天賦爆擊率
-          const critTalentPct = p.critChanceBonusPct || 0;
-          // 升級爆擊率
-          const critUpgradePct = p.critChanceUpgradeBonusPct || 0;
-          // 角色基礎爆擊率
-          const charBaseCritPct = p._characterBaseCritBonusPct || 0;
-          critChanceBonusPct = critTalentPct + critUpgradePct + charBaseCritPct;
+          critChanceBonusPct = p.critChanceBonusPct || 0;
         } catch (_) { }
 
         // ✅ B：天賦/角色加成同源（例：不獸控制吸血）
@@ -3313,8 +2905,21 @@ const Runtime = (() => {
           // ⚠️ 修復：同步回血速度倍率（基礎回血、天賦回血、武器技能回血等）
           healthRegenSpeedMultiplier: (typeof p.healthRegenSpeedMultiplier === 'number' && p.healthRegenSpeedMultiplier > 0) ? p.healthRegenSpeedMultiplier : 1.0,
           // ⚠️ 修復：同步回血間隔（與單機一致：5000ms）
-          healthRegenIntervalMs: (typeof p.healthRegenIntervalMs === 'number' && p.healthRegenIntervalMs > 0) ? Math.floor(p.healthRegenIntervalMs) : 5000
+          healthRegenIntervalMs: (typeof p.healthRegenIntervalMs === 'number' && p.healthRegenIntervalMs > 0) ? Math.floor(p.healthRegenIntervalMs) : 5000,
+          // 組隊能量覺醒：單機是 1+加成（+100% 就是 2），沒點仍是 1
+          energyRegenMultiplier: Math.max(1, Math.min(2, 1 + (typeof p.awakeningEnergyRegenBoost === 'number' ? p.awakeningEnergyRegenBoost : 0))),
+          // 組隊血量上限連目前血：只有生命升級那一下帶這筆，送出後清掉
+          healthUpgradeBonus: (typeof p._teamHealthUpgradeBonus === 'number' && p._teamHealthUpgradeBonus > 0) ? Math.floor(p._teamHealthUpgradeBonus) : 0,
+          // 組隊大招加血：只有開大那一下帶這筆，送出後清掉
+          ultimateHealthBonus: (typeof p._teamUltimateHealthBonus === 'number' && p._teamUltimateHealthBonus > 0) ? Math.floor(p._teamUltimateHealthBonus) : 0,
+          // 組隊大招結束回血：只有收大那一下帶變身前的血量，送出後清掉
+          healthAbsolute: (typeof p._teamHealthAbsolute === 'number' && p._teamHealthAbsolute > 0) ? Math.floor(p._teamHealthAbsolute) : 0,
+          // 組隊拾取範圍：單機是 100×倍率，天賦最高 5
+          pickupRangeMultiplier: Math.max(1, Math.min(5, (typeof p.pickupRangeMultiplier === 'number' && p.pickupRangeMultiplier > 0) ? p.pickupRangeMultiplier : 1))
         };
+        p._teamHealthUpgradeBonus = 0;
+        p._teamUltimateHealthBonus = 0;
+        p._teamHealthAbsolute = 0;
         const sig = JSON.stringify(meta);
         if (sig !== tick._lastMetaSig) {
           tick._lastMetaSig = sig;
@@ -3337,149 +2942,7 @@ const Runtime = (() => {
     return Array.from(remotePlayers.entries()).map(([uid, p]) => ({ uid, ...p }));
   }
 
-  // M3：收集完整狀態快照（僅室長端）
-  let lastSnapshotAt = 0;
-  const SNAPSHOT_INTERVAL_MS = 300; // 每 300ms 發送一次快照（約 3.3Hz）
-
-  function collectSnapshot() {
-    // ✅ LEGACY：舊 host 快照系統（M3）— 權威多人已由伺服器 game-state 取代
-    try { if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return null; } catch (_) { }
-    if (!_isHost) return null;
-    try {
-      const snapshot = {
-        players: {},
-        boss: null,
-        exit: null,
-        enemies: [], // 添加敵人信息
-        timestamp: Date.now()
-      };
-
-      // 收集所有玩家狀態（含 host 自己）
-      try {
-        if (typeof Game !== "undefined" && Game.player) {
-          const p = Game.player;
-          const hostMember = _membersState ? _membersState.get(_uid) : null;
-          const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
-          snapshot.players[_uid] = {
-            x: p.x || 0,
-            y: p.y || 0,
-            hp: p.health || 0,
-            maxHp: p.maxHealth || 100,
-            energy: p.energy || 0,
-            maxEnergy: p.maxEnergy || 100,
-            level: p.level || 1,
-            exp: p.experience || 0,
-            expToNext: p.experienceToNextLevel || 100,
-            coins: Game.coins || 0, // 添加金幣字段
-            name: getPlayerNickname(),
-            characterId: hostCharacterId, // 添加角色ID，用於隊員端渲染完整角色外觀
-            // 死亡和復活狀態同步
-            _isDead: (typeof p._isDead === "boolean") ? p._isDead : false,
-            _resurrectionProgress: (typeof p._resurrectionProgress === "number") ? p._resurrectionProgress : 0,
-            // 大招狀態同步
-            isUltimateActive: p.isUltimateActive || false,
-            ultimateImageKey: p._ultimateImageKey || null,
-            ultimateEndTime: p.ultimateEndTime || 0,
-            width: p.width || CONFIG.PLAYER.SIZE,
-            height: p.height || CONFIG.PLAYER.SIZE,
-            collisionRadius: p.collisionRadius || (CONFIG.PLAYER.SIZE / 2)
-          };
-        }
-      } catch (_) { }
-
-      // 收集遠程玩家狀態
-      try {
-        const remoteStates = RemotePlayerManager.getAllStates();
-        for (const [uid, state] of Object.entries(remoteStates)) {
-          const member = _membersState ? _membersState.get(uid) : null;
-          const name = (member && typeof member.name === "string") ? member.name : uid.slice(0, 6);
-          // M4：遠程玩家已有完整的 Player 對象，使用真實狀態
-          const remotePlayer = RemotePlayerManager.get(uid);
-          const characterId = (member && member.characterId) ? member.characterId : null;
-          if (remotePlayer) {
-            snapshot.players[uid] = {
-              x: remotePlayer.x || 0,
-              y: remotePlayer.y || 0,
-              hp: remotePlayer.health || 0,
-              maxHp: remotePlayer.maxHealth || 100,
-              energy: remotePlayer.energy || 0,
-              maxEnergy: remotePlayer.maxEnergy || 100,
-              level: remotePlayer.level || 1,
-              exp: remotePlayer.experience || 0,
-              expToNext: remotePlayer.experienceToNextLevel || 100,
-              coins: Game.coins || 0, // 添加金幣字段（組隊模式共享金幣）
-              name: name,
-              characterId: characterId, // 添加角色ID，用於隊員端渲染完整角色外觀
-              // 死亡和復活狀態同步
-              _isDead: (typeof remotePlayer._isDead === "boolean") ? remotePlayer._isDead : false,
-              _resurrectionProgress: (typeof remotePlayer._resurrectionProgress === "number") ? remotePlayer._resurrectionProgress : 0,
-              // 大招狀態同步
-              isUltimateActive: remotePlayer.isUltimateActive || false,
-              ultimateImageKey: remotePlayer._ultimateImageKey || null,
-              ultimateEndTime: remotePlayer.ultimateEndTime || 0,
-              width: remotePlayer.width || CONFIG.PLAYER.SIZE,
-              height: remotePlayer.height || CONFIG.PLAYER.SIZE,
-              collisionRadius: remotePlayer.collisionRadius || (CONFIG.PLAYER.SIZE / 2)
-            };
-          } else {
-            // 後備：如果遠程玩家對象不存在，使用簡化狀態
-            snapshot.players[uid] = {
-              x: state.x || 0,
-              y: state.y || 0,
-              hp: 100,
-              maxHp: 100,
-              energy: 0,
-              maxEnergy: 100,
-              level: 1,
-              exp: 0,
-              expToNext: 100,
-              coins: Game.coins || 0, // 添加金幣字段（組隊模式共享金幣）
-              name: name,
-              characterId: characterId // 添加角色ID，用於隊員端渲染完整角色外觀
-            };
-          }
-        }
-      } catch (_) { }
-
-      // 收集 BOSS 狀態
-      try {
-        if (typeof Game !== "undefined" && Game.boss) {
-          const boss = Game.boss;
-          snapshot.boss = {
-            x: boss.x || 0,
-            y: boss.y || 0,
-            hp: boss.health || 0,
-            maxHp: boss.maxHealth || 0,
-            type: boss.type || "BOSS"
-          };
-        }
-      } catch (_) { }
-
-      // 收集出口狀態
-      try {
-        if (typeof Game !== "undefined" && Game.exit) {
-          const exit = Game.exit;
-          snapshot.exit = {
-            x: exit.x || 0,
-            y: exit.y || 0,
-            width: exit.width || 0,
-            height: exit.height || 0
-          };
-        }
-      } catch (_) { }
-
-      // ✅ MMO 架構：不再同步敵人，每個客戶端自己生成
-      // 使用確定性生成確保所有客戶端生成相同的敵人
-      // 敵人同步已移除，每個客戶端自己生成和更新敵人
-      // snapshot.enemies 不再使用
-
-      return snapshot;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // M2：更新遠程玩家（僅室長端調用）
+  // M2：更新遠程玩家
   // MMO 架構：每個玩家都更新遠程玩家，不依賴隊長端
   function updateRemotePlayers(deltaTime) {
     // ✅ MMO 架構：每個玩家都執行，更新遠程玩家的武器和攻擊效果
@@ -3620,10 +3083,6 @@ function roomDocRef(roomId) {
 function memberDocRef(roomId, uid) {
   return doc(_db, "rooms", roomId, "members", uid);
 }
-function signalsColRef(roomId) {
-  return collection(_db, "rooms", roomId, "signals");
-}
-
 async function createRoom(initial) {
   await ensureAuth();
   if (!_uid) throw new Error("匿名登入失敗（request.auth 為空），請確認 Firebase Auth 匿名已啟用且 Authorized domains 已加入 yiyuss.github.io");
@@ -3805,11 +3264,9 @@ async function leaveRoom() {
   try {
     if (_activeRoomUnsub) { try { _activeRoomUnsub(); } catch (_) { } }
     if (_membersUnsub) { try { _membersUnsub(); } catch (_) { } }
-    if (_signalsUnsub) { try { _signalsUnsub(); } catch (_) { } }
   } finally {
     _activeRoomUnsub = null;
     _membersUnsub = null;
-    _signalsUnsub = null;
   }
 
   // ✅ 清理邏輯：清理遠程玩家
@@ -3861,9 +3318,11 @@ async function leaveRoom() {
     }
   } catch (_) { }
 
-  // ✅ 清理邏輯：若我是室長：嘗試關房（無後端下無法保證；規則允許就關）
+  // 房主斷線不要趕人：人還在打的時候，房主自己連不上就離開。房間不要關掉，不然其他人會被一起送回開始畫面。
+  // 大廳裡房主按離開，比賽還沒開，仍會關房。
   try {
-    if (_isHost && _activeRoomId) {
+    const inMatch = (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled && !Game.isGameOver);
+    if (_isHost && _activeRoomId && !inMatch) {
       await updateDoc(roomDocRef(_activeRoomId), { status: "closed", updatedAt: serverTimestamp() });
     }
   } catch (_) { }
@@ -3925,6 +3384,27 @@ function _startMemberHeartbeat() {
       // 心跳失敗不致命（可能是離線、權限、或暫時限流）
     }
   }, MEMBER_HEARTBEAT_MS);
+}
+
+// 人還在場上就不要清：切到別的分頁時，十五秒的回報會變慢。人還在這局就不要移出，不然會被踢出去。
+function _memberStillInMatch(authUid) {
+  if (!authUid) return false;
+  const ids = [];
+  try {
+    if (typeof _getLocalNetUid === "function") ids.push(_getLocalNetUid());
+    if (typeof Game !== "undefined" && Array.isArray(Game.remotePlayers)) {
+      for (let i = 0; i < Game.remotePlayers.length; i++) {
+        const p = Game.remotePlayers[i];
+        if (p && p._remoteUid) ids.push(p._remoteUid);
+      }
+    }
+  } catch (_) { }
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    if (id === authUid) return true;
+    if (typeof id === "string" && id.indexOf(authUid + ":") === 0) return true;
+  }
+  return false;
 }
 
 function _isMemberStale(member) {
@@ -3992,21 +3472,6 @@ async function hostStartGame() {
     _roomState.status = "starting";
     _roomState.mapId = mapId;
     _roomState.diffId = diffId;
-  }
-}
-
-async function sendSignal(payload) {
-  if (!_activeRoomId) {
-    console.warn(`[SurvivalOnline] sendSignal: 跳過，activeRoomId 為空`);
-    return;
-  }
-  try {
-    // 注意：sendSignal 現在只用於房間管理信令（如 starting 狀態），不再用於 WebRTC
-    await addDoc(signalsColRef(_activeRoomId), { ...payload, createdAt: serverTimestamp() });
-    console.log(`[SurvivalOnline] sendSignal: 已發送信號 type=${payload.type}, toUid=${payload.toUid}`);
-  } catch (e) {
-    console.error(`[SurvivalOnline] sendSignal: 發送失敗 type=${payload.type}, toUid=${payload.toUid}:`, e);
-    throw e; // 重新拋出以便調用者處理
   }
 }
 
@@ -4209,60 +3674,6 @@ async function hostDisbandTeam() {
   _setText("survival-online-status", "隊伍已解散");
 }
 
-function listenSignals(roomId) {
-  // ✅ 權威伺服器模式：不再使用 Firebase signaling 通道
-  // 避免「舊組隊系統」被誤啟用後，與 WebSocket game-state 權威互打。
-  try {
-    if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return;
-  } catch (_) { }
-  if (_signalsUnsub) { try { _signalsUnsub(); } catch (_) { } }
-  // 注意：where + orderBy(createdAt) 會要求複合索引；為了「免建索引、少麻煩」
-  // 這裡改成只用 where(toUid==me) + limit，然後逐筆消費刪除即可（順序在本設計不重要）。
-  const q = query(
-    signalsColRef(roomId),
-    where("toUid", "==", _uid),
-    limit(50)
-  );
-  _signalsUnsub = onSnapshot(
-    q,
-    (snap) => {
-      console.log(`[SurvivalOnline] listenSignals: 收到 ${snap.docChanges().length} 個信號變更`);
-      // 關鍵：使用 for...of 循環確保異步操作按順序執行
-      (async () => {
-        for (const ch of snap.docChanges()) {
-          if (ch.type !== "added") {
-            console.log(`[SurvivalOnline] listenSignals: 跳過非 added 變更 type=${ch.type}`);
-            continue;
-          }
-          const sig = ch.doc.data() || {};
-          const sid = ch.doc.id;
-          console.log(`[SurvivalOnline] listenSignals: 處理信號 sid=${sid}, type=${sig.type}, fromUid=${sig.fromUid}, toUid=${sig.toUid}`);
-          try {
-            await handleSignal(sig);
-          } catch (e) {
-            console.error(`[SurvivalOnline] listenSignals: 處理信號失敗:`, e);
-          }
-          // 消費後刪除，避免重播
-          try {
-            await deleteDoc(doc(_db, "rooms", roomId, "signals", sid));
-            console.log(`[SurvivalOnline] listenSignals: 已刪除信號 sid=${sid}`);
-          } catch (e) {
-            console.error(`[SurvivalOnline] listenSignals: 刪除信號失敗:`, e);
-          }
-        }
-      })();
-    },
-    (err) => {
-      // 避免「Uncaught Error in snapshot listener」導致整個監聽器掛掉而無提示
-      try {
-        const msg = (err && err.message) ? String(err.message) : "監聽器錯誤";
-        _setText("survival-online-status", `信令監聽錯誤：${msg}`);
-        console.warn("[SurvivalOnline] signals listener error:", err);
-      } catch (_) { }
-    }
-  );
-}
-
 // 連接 WebSocket 服務器
 async function connectWebSocket() {
   if (!_activeRoomId || !_uid) {
@@ -4337,7 +3748,7 @@ async function connectWebSocket() {
         instanceId: (_instanceId || _getOrCreateInstanceId()),
         isHost: _isHost,
         // ✅ 讓伺服器知道角色/暱稱，否則隊友端可能看不到正確貼圖（或全部變同一隻）
-        characterId: (typeof Game !== 'undefined' && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : 'pineapple',
+        characterId: (typeof Game !== 'undefined' && Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : 'margaret',
         nickname: (typeof getPlayerNickname === 'function') ? getPlayerNickname() : '玩家',
         // ✅ 發送初始 maxHealth（如果已計算）
         maxHealth: initialMaxHealth,
@@ -4506,7 +3917,9 @@ async function connectWebSocket() {
                 if (!targetPlayer && playerUid === (Game.multiplayer && Game.multiplayer.uid)) {
                   targetPlayer = Game.player;
                 }
-                if (targetPlayer) {
+                // 組隊白白虹大招一張：自己按大時已經畫了一張。這包再畫會疊在頭上。隊友才從這包畫
+                const isLocalCaster = !!(playerUid && Game.multiplayer && playerUid === Game.multiplayer.uid);
+                if (targetPlayer && !isLocalCaster) {
                   const duration = (typeof data.duration === "number") ? data.duration : 15000;
                   const effect = new BaibaihongExclusiveUltimateEffect(targetPlayer, duration, 1000);
                   effect._isVisualOnly = true;
@@ -4516,8 +3929,10 @@ async function connectWebSocket() {
               }
             }
           } else if (msg.type === 'user-joined' || msg.type === 'user-left') {
-            // 用戶加入/離開通知（可選）
             console.log(`[SurvivalOnline] connectWebSocket: ${msg.type}, uid=${msg.uid}`);
+            if (msg.type === 'user-left' && msg.uid && typeof RemotePlayerManager !== 'undefined' && typeof RemotePlayerManager.remove === 'function') {
+              RemotePlayerManager.remove(msg.uid);
+            }
           }
         } catch (e) {
           console.error(`[SurvivalOnline] connectWebSocket: 處理消息失敗:`, e);
@@ -4715,167 +4130,6 @@ function _applyVfxEvent(eventType, eventData) {
   } catch (_) { }
 }
 
-// 通過 Firebase 發送消息（替代 WebRTC DataChannel）
-async function sendMessageViaFirebase(toUid, message) {
-  if (!_activeRoomId || !_uid || !toUid) return;
-  try {
-    await addDoc(collection(_db, "rooms", _activeRoomId, "messages"), {
-      fromUid: _uid,
-      toUid: toUid,
-      message: message,
-      createdAt: serverTimestamp(),
-      consumed: false
-    });
-  } catch (e) {
-    console.error(`[SurvivalOnline] sendMessageViaFirebase: 發送失敗:`, e);
-    throw e;
-  }
-}
-
-// 監聽 Firebase 消息（替代 WebRTC DataChannel）
-let _messagesUnsub = null;
-function listenMessages(roomId) {
-  // ✅ 權威伺服器模式：不再使用 Firebase messages 通道
-  // 避免舊 client-authoritative 同步復活造成互打/空世界/重複生成。
-  try {
-    if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return;
-  } catch (_) { }
-  if (_messagesUnsub) { try { _messagesUnsub(); } catch (_) { } }
-  const q = query(
-    collection(_db, "rooms", roomId, "messages"),
-    where("toUid", "==", _uid),
-    where("consumed", "==", false),
-    orderBy("createdAt", "asc"),
-    limit(100)
-  );
-  _messagesUnsub = onSnapshot(
-    q,
-    (snap) => {
-      (async () => {
-        for (const ch of snap.docChanges()) {
-          if (ch.type !== "added") continue;
-          const msgDoc = ch.doc;
-          const data = msgDoc.data() || {};
-          const fromUid = data.fromUid;
-          const message = data.message;
-
-          if (!fromUid || !message) continue;
-
-          // 處理消息
-          try {
-            if (_isHost) {
-              handleHostDataMessage(fromUid, message);
-            } else {
-              // 隊員端處理來自 host 的消息
-              if (message.t === "state") {
-                Runtime.onStateMessage(message);
-              } else if (message.t === "event") {
-                Runtime.onEventMessage(message);
-              } else if (message.t === "snapshot") {
-                Runtime.onSnapshotMessage(message);
-              }
-            }
-          } catch (e) {
-            console.error(`[SurvivalOnline] listenMessages: 處理消息失敗:`, e);
-          }
-
-          // 標記為已消費並刪除
-          try {
-            await updateDoc(msgDoc.ref, { consumed: true });
-            await deleteDoc(msgDoc.ref);
-          } catch (e) {
-            console.error(`[SurvivalOnline] listenMessages: 標記消息失敗:`, e);
-          }
-        }
-      })();
-    },
-    (err) => {
-      console.error(`[SurvivalOnline] listenMessages: 監聽錯誤:`, err);
-    }
-  );
-}
-
-// M5：發送全量快照給指定隊員（用於重連恢復）
-function sendFullSnapshotToClient(targetUid) {
-  // ✅ LEGACY：舊重連全量快照（M5）— 權威多人已由伺服器 state 全量同步取代
-  try { if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) return; } catch (_) { }
-  if (!_isHost || !targetUid) return;
-  try {
-    const snapshot = collectSnapshot();
-    if (!snapshot) return;
-
-    // 添加額外的全量信息（敵人、掉落物等）
-    const fullSnapshot = {
-      ...snapshot,
-      t: "full_snapshot", // 標記為全量快照
-      sessionId: (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.sessionId) ? Game.multiplayer.sessionId : null,
-      gameTime: (typeof Game !== "undefined" && typeof Game.gameTime === "number") ? Game.gameTime : 0,
-      currentWave: (typeof WaveSystem !== "undefined" && typeof WaveSystem.currentWave === "number") ? WaveSystem.currentWave : 1,
-      enemies: [],
-      experienceOrbs: [],
-      chests: [],
-      projectiles: []
-    };
-
-    // 收集所有敵人狀態
-    try {
-      if (typeof Game !== "undefined" && Array.isArray(Game.enemies)) {
-        for (const enemy of Game.enemies) {
-          if (enemy && !enemy.markedForDeletion) {
-            fullSnapshot.enemies.push({
-              id: enemy.id || `enemy_${Date.now()}_${Math.random()}`,
-              type: enemy.type || "ENEMY",
-              x: enemy.x || 0,
-              y: enemy.y || 0,
-              hp: enemy.health || 0,
-              maxHp: enemy.maxHealth || 0
-            });
-          }
-        }
-      }
-    } catch (_) { }
-
-    // 收集所有經驗球狀態
-    try {
-      if (typeof Game !== "undefined" && Array.isArray(Game.experienceOrbs)) {
-        for (const orb of Game.experienceOrbs) {
-          if (orb && !orb.markedForDeletion) {
-            fullSnapshot.experienceOrbs.push({
-              x: orb.x || 0,
-              y: orb.y || 0,
-              value: orb.value || 0
-            });
-          }
-        }
-      }
-    } catch (_) { }
-
-    // 收集所有寶箱狀態
-    try {
-      if (typeof Game !== "undefined" && Array.isArray(Game.chests)) {
-        for (const chest of Game.chests) {
-          if (chest && !chest.markedForDeletion) {
-            fullSnapshot.chests.push({
-              x: chest.x || 0,
-              y: chest.y || 0
-            });
-          }
-        }
-      }
-    } catch (_) { }
-
-    // 發送給指定隊員（通過 WebSocket 廣播，服務器會轉發給目標用戶）
-    if (_ws && _ws.readyState === WebSocket.OPEN) {
-      _sendViaWebSocket(fullSnapshot);
-      if (SURVIVAL_ONLINE_DEBUG) {
-        console.log(`[SurvivalOnline] M5: 已發送全量快照給隊員 ${targetUid}`);
-      }
-    }
-  } catch (e) {
-    console.warn("[SurvivalOnline] M5: 發送全量快照失敗:", e);
-  }
-}
-
 // MMO 架構：事件廣播系統（每個玩家都廣播自己的事件）
 function broadcastEvent(eventType, eventData) {
   // ✅ MMO 架構：每個玩家都廣播自己的事件，不依賴隊長端
@@ -4938,6 +4192,7 @@ function broadcastEvent(eventType, eventData) {
         }
         return;
       }
+      // 組隊看得到隊友技能：雷射、斬擊、環繞這些畫面要送出去。怪和寶箱仍不走這條
       if (
         eventType === "wave_start" ||
         eventType === "enemy_spawn" ||
@@ -4947,7 +4202,6 @@ function broadcastEvent(eventType, eventData) {
         eventType === "chest_spawn" ||
         eventType === "chest_collected" ||
         eventType === "boss_projectile_spawn" ||
-        eventType === "projectile_spawn" ||
         eventType === "obstacles_spawn" ||
         eventType === "decorations_spawn" ||
         eventType === "exit_spawn" ||
@@ -5120,8 +4374,12 @@ function handleServerGameState(state, timestamp) {
             // 否則會出現：怪在追伺服器座標，你的鏡頭跟著本地座標 → 看起來「沒有怪/沒有追蹤/只是移動圖片」
             // ✅ 修復：頁面恢復時也需要強制對齊，避免位置偏離（離開分頁太久後回來時）
             try {
+              // 組隊死線要留在怪身上：死線剛拉過去，舊位置不要蓋回來。平常走太遠仍要對齊
+              const holdUntil = Game.player._deathlinePosHoldUntil;
+              const holdingDeathline = typeof holdUntil === 'number' && Date.now() < holdUntil;
               const shouldForceSync = !_didServerPosSync ||
-                (typeof playerState.x === "number" && typeof playerState.y === "number" &&
+                (!holdingDeathline &&
+                  typeof playerState.x === "number" && typeof playerState.y === "number" &&
                   typeof Game.player.x === "number" && typeof Game.player.y === "number" &&
                   (Math.abs(playerState.x - Game.player.x) > 300 || Math.abs(playerState.y - Game.player.y) > 300));
 
@@ -5236,12 +4494,15 @@ function handleServerGameState(state, timestamp) {
                 handleServerGameState._lastServerHealth = newHealth;
               }
 
-              // ⚠️ 修復：只在血量真的減少時觸發紅閃（排除 maxHealth 變化導致的 health 調整）
-              // 並且要排除無敵狀態（無敵時不應該受傷，也不應該觸發紅閃）
-              // 還要排除初始化時的情況（prevHealth 可能是 0 或 maxHealth，導致誤判）
-              const isInitializing = (prevHealth === 0 || prevHealth === (Game.player.maxHealth || 200));
+              // 組隊滿血也會紅閃：滿血被打到也要閃。血量上限一起變（例如大招結束）不算被打
               const isInvulnerable = (Game.player.isInvulnerable && Game.player.invulnerabilitySource === 'INVINCIBLE');
-              const isHealthDecreased = (newHealth < prevHealth && newHealth > 0 && prevHealth > 0);
+              const nextMaxHealth = (typeof playerState.maxHealth === "number") ? playerState.maxHealth : (Game.player.maxHealth || 200);
+              if (typeof handleServerGameState._lastFlashMaxHealth !== "number") {
+                handleServerGameState._lastFlashMaxHealth = nextMaxHealth;
+              }
+              const maxHealthChanged = handleServerGameState._lastFlashMaxHealth !== nextMaxHealth;
+              handleServerGameState._lastFlashMaxHealth = nextMaxHealth;
+              const isHealthDecreased = (newHealth < prevHealth && newHealth > 0 && prevHealth > 0 && !maxHealthChanged);
 
               // ⚠️ 修复：只有在非新 session 时才更新 health（新 session 已经在上面强制同步了）
               // ✅ 修复：补血/回血是单机元素，如果客户端血量高于服务器同步的血量（表示客户端刚补血/回血），保留客户端血量
@@ -5271,13 +4532,17 @@ function handleServerGameState(state, timestamp) {
               }
 
               // 只在血量真的減少、不是初始化、不是無敵狀態時觸發紅閃
-              if (isHealthDecreased && !isInitializing && !isInvulnerable && !Game.player._isDead) {
+              if (isHealthDecreased && !isInvulnerable && !Game.player._isDead) {
                 try {
                   Game.player.hitFlashTime = Game.player.hitFlashDuration || 150;
                   if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
                     window.GifOverlay.flash('player', { color: '#ff0000', durationMs: Game.player.hitFlashDuration || 150, opacity: 0.8 });
                   }
                 } catch (_) { }
+                // 組隊挨打要一明一暗：單機挨打後那一秒人會半透明閃。扣血仍由伺服器算
+                Game.player.isInvulnerable = true;
+                Game.player.invulnerabilityTime = 0;
+                Game.player.invulnerabilitySource = 'HIT_FLASH';
               }
 
               // ✅ 修复：_lastHealth 应该只在服务器血量真的变化时更新
@@ -5420,27 +4685,46 @@ function handleServerGameState(state, timestamp) {
             try {
               if (typeof playerState.isUltimateActive === "boolean") {
                 const wasUltimateActive = Game.player.isUltimateActive;
-                const isNowUltimateActive = playerState.isUltimateActive;
+                let isNowUltimateActive = playerState.isUltimateActive;
+                // 組隊倒地收大招：人躺著不要被大招旗標再變一次
+                if (Game.player._isDead && isNowUltimateActive) {
+                  isNowUltimateActive = false;
+                  Game.player._ultimateImageKey = null;
+                }
 
                 // ✅ 修復：如果本地玩家正在大招狀態，確保武器被正確設置為LV10
                 // 這可以防止組隊模式下武器只放一次就沒了的問題
                 if (isNowUltimateActive) {
+                  const endAt = (typeof playerState.ultimateEndTime === 'number') ? playerState.ultimateEndTime : 0;
+                  if (endAt > 0 && Date.now() >= endAt) {
+                    // 伺服器時間已經到了還標著變身：不要再開一次
+                    isNowUltimateActive = false;
+                  }
+                }
+
+                if (isNowUltimateActive) {
                   // 檢查武器是否正確設置為該技能最高級（炫球類為LV5，其餘為LV10）
+                  const levelMismatch = (w) => {
+                    if (!w || !w.config || !Array.isArray(w.config.LEVELS) || !w.config.LEVELS.length) return true;
+                    return w.level !== Math.min(CONFIG.ULTIMATE.ULTIMATE_LEVEL, w.config.LEVELS.length);
+                  };
                   const needsReactivate = !Game.player._ultimateBackup ||
                     !Game.player.weapons ||
                     Game.player.weapons.length === 0 ||
-                    Game.player.weapons.some(w => !w || w.level !== Math.min(CONFIG.ULTIMATE.ULTIMATE_LEVEL, w.config.LEVELS.length));
+                    Game.player.weapons.some(levelMismatch);
 
-                  if (needsReactivate) {
-                    // 武器沒有被正確設置，重新執行 activateUltimate
-                    console.warn('[SurvivalOnline] 檢測到武器等級不正確，重新執行 activateUltimate', {
-                      hasBackup: !!Game.player._ultimateBackup,
-                      weaponsLength: Game.player.weapons ? Game.player.weapons.length : 0,
-                      weaponsLevels: Game.player.weapons ? Game.player.weapons.map(w => w ? w.level : 'null') : []
-                    });
-                    if (typeof Game.player.activateUltimate === 'function') {
-                      Game.player.activateUltimate();
+                  if (needsReactivate && Game.player.isUltimateActive && Game.player._ultimateBackup) {
+                    // 已經在大招：只補等級。整段重開會把 15 秒重算，期間學的技能也會不見。
+                    for (const w of Game.player.weapons) {
+                      if (!w || !w.config || !Array.isArray(w.config.LEVELS) || !w.config.LEVELS.length) continue;
+                      const want = Math.min(CONFIG.ULTIMATE.ULTIMATE_LEVEL, w.config.LEVELS.length);
+                      if (w.level !== want) {
+                        w.level = want;
+                        w.projectileCount = w.config.LEVELS[want - 1].COUNT;
+                      }
                     }
+                  } else if (needsReactivate && typeof Game.player.activateUltimate === 'function') {
+                    Game.player.activateUltimate();
                   }
                 }
 
@@ -5456,7 +4740,9 @@ function handleServerGameState(state, timestamp) {
 
                 Game.player.isUltimateActive = isNowUltimateActive;
               }
-              if (typeof playerState.ultimateImageKey === "string" && playerState.ultimateImageKey) {
+              if (Game.player._isDead) {
+                Game.player._ultimateImageKey = null;
+              } else if (typeof playerState.ultimateImageKey === "string" && playerState.ultimateImageKey) {
                 Game.player._ultimateImageKey = playerState.ultimateImageKey;
               } else if (playerState.isUltimateActive === false) {
                 Game.player._ultimateImageKey = null;
@@ -5486,6 +4772,25 @@ function handleServerGameState(state, timestamp) {
           updateRemotePlayerFromServer(playerState);
         }
       }
+      // 人離開要把人收掉：這一包沒有的隊友就收掉。自己還在名單裡才收，避免空包把人清光
+      try {
+        const myUid = _getLocalNetUid();
+        const alive = new Set();
+        for (let i = 0; i < state.players.length; i++) {
+          const ps = state.players[i];
+          if (ps && ps.uid) alive.add(ps.uid);
+        }
+        if (myUid && alive.has(myUid) && typeof RemotePlayerManager !== 'undefined' &&
+            typeof RemotePlayerManager.getAllPlayers === 'function' &&
+            typeof RemotePlayerManager.remove === 'function') {
+          const remotes = RemotePlayerManager.getAllPlayers() || [];
+          for (let i = 0; i < remotes.length; i++) {
+            const rp = remotes[i];
+            const id = rp && rp._remoteUid;
+            if (id && !alive.has(id)) RemotePlayerManager.remove(id);
+          }
+        }
+      } catch (_) {}
     }
 
     // 更新敌人（服务器权威）
@@ -5535,15 +4840,81 @@ function handleServerGameState(state, timestamp) {
         for (const ev of state.hitEvents) {
           if (!ev) continue;
           const dmg = (typeof ev.damage === "number") ? ev.damage : 0;
-          if (dmg <= 0) continue;
+          if (dmg <= 0) {
+            if (typeof ev.slowMs === 'number' && ev.slowMs > 0 && ev.enemyId && enemyIndex && typeof enemyIndex.get === 'function') {
+              const slowedOnly = enemyIndex.get(ev.enemyId);
+              if (slowedOnly && typeof slowedOnly.applySlow === 'function') {
+                slowedOnly.applySlow(ev.slowMs, (typeof ev.slowFactor === 'number') ? ev.slowFactor : 0.5);
+              }
+            }
+            continue;
+          }
           const weaponType = ev.weaponType || null;
           const isLocalPlayer = (ev.playerUid && Game.multiplayer && Game.multiplayer.uid && ev.playerUid === Game.multiplayer.uid);
           if (!isLocalPlayer && processedHitEvents >= MAX_HIT_EVENTS_PER_STATE) continue;
           const x = (typeof ev.x === "number") ? ev.x : 0;
           const y = (typeof ev.y === "number") ? ev.y : 0;
           const h = (typeof ev.h === "number") ? ev.h : 0;
-          DamageNumbers.show(Math.round(dmg), x, y - h / 2, ev.isCrit === true, { enemyId: ev.enemyId || null });
+          // 組隊大絕不要兩條數字：大絕下面會出放大紅字。這裡再出一條普通數字就疊在一起。單機只有紅字
+          if (weaponType !== 'EXPLOSION') {
+            DamageNumbers.show(Math.round(dmg), x, y - h / 2, ev.isCrit === true, { enemyId: ev.enemyId || null });
+          }
           processedHitEvents++;
+          // 組隊死線不要拽隊友：攻擊圖跟打中的地方走。同一下打到很多隻只出一張
+          if (!isLocalPlayer && (weaponType === 'DEATHLINE_WARRIOR' || weaponType === 'DEATHLINE_SUPERMAN') && typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
+            const deathline = Game.projectiles.find(p => p && p._isVisualOnly && p.weaponType === weaponType && p._remotePlayerUid === ev.playerUid && !p.markedForDeletion);
+            if (deathline && Array.isArray(deathline.hitEffects)) {
+              const nowHit = Date.now();
+              const recent = deathline.hitEffects.some(h => h && (nowHit - h.startTime) < 80);
+              if (!recent) {
+                deathline.hitEffects.push({
+                  x: x - 10,
+                  y: y - 10,
+                  startTime: nowHit,
+                  frame: 0,
+                  duration: 1000
+                });
+              }
+            }
+          }
+          // 組隊裁決要有刀光：單機打中會在怪身上出刀光。組隊扣血不走 takeDamage，所以要在這裡補
+          if ((weaponType === 'JUDGMENT' || weaponType === 'DIVINE_JUDGMENT') && ev.enemyId && enemyIndex && typeof enemyIndex.get === 'function') {
+            const judged = enemyIndex.get(ev.enemyId);
+            if (judged && typeof judged._createJudgmentHitEffect === 'function') {
+              try { judged._createJudgmentHitEffect(); } catch (_) {}
+            }
+          }
+          if (typeof ev.slowMs === 'number' && ev.slowMs > 0 && ev.enemyId && enemyIndex && typeof enemyIndex.get === 'function') {
+            const slowed = enemyIndex.get(ev.enemyId);
+            if (slowed && typeof slowed.applySlow === 'function') {
+              slowed.applySlow(ev.slowMs, (typeof ev.slowFactor === 'number') ? ev.slowFactor : 0.5);
+            }
+          }
+          // 組隊 FBI 車撞怪要有火花：單機撞到噴三顆。組隊扣血不走車子自己的碰撞，所以要在這裡補
+          if (weaponType === 'FBI' && particleBudget > 0) {
+            try {
+              if (!Game.explosionParticles) Game.explosionParticles = [];
+              const particleCount = Math.max(1, Math.floor(18 * 0.2));
+              const remainingTotal = Math.max(0, MAX_EXPLOSION_PARTICLES_TOTAL - Game.explosionParticles.length);
+              const allow = Math.max(0, Math.min(particleCount, particleBudget, remainingTotal));
+              for (let i = 0; i < allow; i++) {
+                const ang = Math.random() * Math.PI * 2;
+                const spd = 2.5 + Math.random() * 5.5;
+                Game.explosionParticles.push({
+                  x: x + (Math.random() - 0.5) * 8,
+                  y: y + (Math.random() - 0.5) * 8,
+                  vx: Math.cos(ang) * spd,
+                  vy: Math.sin(ang) * spd,
+                  life: 320 + Math.random() * 220,
+                  maxLife: 320 + Math.random() * 220,
+                  size: 5 + Math.random() * 4,
+                  color: (i % 3 === 0) ? '#ffffff' : '#ff6666',
+                  source: 'CAR_HIT'
+                });
+              }
+              particleBudget -= allow;
+            } catch (_) { }
+          }
 
           // ✅ 修復：根據武器類型創建對應的特殊視覺效果（多人元素）
           // weaponType/isLocalPlayer 已在上方算好（避免重複計算）
@@ -5567,8 +4938,8 @@ function handleServerGameState(state, timestamp) {
             weaponType === 'BAGUETTE_THROW' || weaponType === 'HEART_TRANSMISSION' || weaponType === 'ELONDIER_CLONE_THROW') {
             try {
               if (particleBudget > 0) {
-                // ✅ 僅組隊模式：厄倫蒂兒大招分身投擲物的命中粒子砍半（減少負擔），不影響單機
-                const particleCount = (weaponType === 'ELONDIER_CLONE_THROW') ? 9 : 18; // 18 與單機一致；ELONDIER_CLONE_THROW 砍半
+                // 組隊分身命中粒子跟單機：單機打中噴 18 顆白點。不要砍半
+                const particleCount = 18;
                 if (!Game.explosionParticles) Game.explosionParticles = [];
                 const remainingTotal = Math.max(0, MAX_EXPLOSION_PARTICLES_TOTAL - Game.explosionParticles.length);
                 const allow = Math.max(0, Math.min(particleCount, particleBudget, remainingTotal));
@@ -5659,37 +5030,9 @@ function handleServerGameState(state, timestamp) {
               tempExplosion._showSpecialDamageNumber(dmg, x, y - h / 2);
             }
 
-            // ✅ 修復：艾比大絕的 knife2.gif 覆蓋層特效（多人元素）
-            // 需要在所有命中的敵人位置顯示 knife2.gif 覆蓋層
-            // 查找對應的 ExplosionEffect 實例，如果存在則添加命中敵人
-            if (typeof Game !== 'undefined' && Array.isArray(Game.projectiles)) {
-              const explosionEffect = Game.projectiles.find(p =>
-                p && p.constructor && p.constructor.name === 'ExplosionEffect' &&
-                p.weaponType === 'EXPLOSION' &&
-                !p.damageApplied &&
-                !p.markedForDeletion
-              );
-              if (explosionEffect && Array.isArray(explosionEffect.hitEnemies)) {
-                // 檢查是否已存在該敵人（避免重複）
-                const enemyId = ev.enemyId || null;
-                const existingHit = explosionEffect.hitEnemies.find(h => h.enemyId === enemyId);
-                if (!existingHit) {
-                  explosionEffect.hitEnemies.push({
-                    enemy: null, // 敵人可能已經死亡，只保存位置
-                    x: x,
-                    y: y,
-                    enemyId: enemyId
-                  });
-                }
-                // 如果還沒有創建覆蓋層，現在創建
-                if (!explosionEffect._hitOverlaysCreated && typeof explosionEffect._createHitOverlays === 'function') {
-                  explosionEffect._createHitOverlays();
-                  explosionEffect._hitOverlaysCreated = true;
-                }
-              }
-            }
+            // 組隊艾比刀光一張：刀光由爆炸效果自己出，跟單機一樣。這裡再出一次會疊兩張
 
-            // 後備方案：如果找不到 ExplosionEffect 實例，直接創建 knife2.gif 覆蓋層
+            // 後備方案：如果找不到 ExplosionEffect 實例，直接創建特殊傷害數字
             if (typeof ExplosionEffect === 'undefined' || typeof ExplosionEffect.prototype._showSpecialDamageNumber !== 'function') {
               // 後備方案：直接創建特殊傷害數字（與 ExplosionEffect._showSpecialDamageNumber 相同邏輯）
               let layer = null;
@@ -5840,11 +5183,7 @@ function handleServerGameState(state, timestamp) {
           }
           // ✅ FBI 技能：車輛生成時播放 FBI 音效（僅組隊模式）
           else if (v.type === 'fbi_spawn') {
-            try {
-              if (typeof AudioManager !== 'undefined' && typeof AudioManager.playSound === 'function') {
-                AudioManager.playSound('FBI');
-              }
-            } catch (_) { }
+            // 組隊音效只聽自己：FBI 是技能，施放的人已在本地播放，不要播給隊友
           }
           // ✅ 修复：处理BOSS投射物爆炸事件（音效+特效+相机震动）
           else if (v.type === 'screen_effect' && v.data && v.data.type === 'boss_projectile_explosion') {
@@ -5909,6 +5248,35 @@ function handleServerGameState(state, timestamp) {
                     maxLife: 1000,
                     size: 3 + Math.random() * 4,
                     color: ['#ff0000', '#ff3300', '#ff6600', '#ff9900', '#ffcc00', '#ff4400'][Math.floor(Math.random() * 6)]
+                  });
+                }
+                // 組隊首領火彈要有火花：單機打中還有十二顆黃火花和八團煙。二十五顆火已經有了，不要再出一份
+                for (let s = 0; s < 12; s++) {
+                  const ang = Math.random() * Math.PI * 2;
+                  const spd = 4 + Math.random() * 8;
+                  Game.explosionParticles.push({
+                    x: eventData.x,
+                    y: eventData.y,
+                    vx: Math.cos(ang) * spd,
+                    vy: Math.sin(ang) * spd,
+                    life: 200 + Math.random() * 300,
+                    maxLife: 200 + Math.random() * 300,
+                    size: 1 + Math.random() * 2,
+                    color: '#ffff00'
+                  });
+                }
+                for (let s = 0; s < 8; s++) {
+                  const ang = Math.random() * Math.PI * 2;
+                  const spd = 0.5 + Math.random() * 2;
+                  Game.explosionParticles.push({
+                    x: eventData.x + (Math.random() - 0.5) * 20,
+                    y: eventData.y + (Math.random() - 0.5) * 20,
+                    vx: Math.cos(ang) * spd,
+                    vy: Math.sin(ang) * spd - 1,
+                    life: 800 + Math.random() * 600,
+                    maxLife: 800 + Math.random() * 600,
+                    size: 8 + Math.random() * 12,
+                    color: '#666666'
                   });
                 }
               }
@@ -6054,8 +5422,7 @@ function handleServerGameState(state, timestamp) {
       // ✅ 双重检查：确保只在多人模式下执行（防止影响单机）
       if (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled) {
         const ObstacleCtor = _getGlobalCtor("Obstacle");
-        // ✅ 修复：始终处理障碍物（服务器现在始终发送，即使为空数组）
-        // ⚠️ 注意：只在多人模式下执行，单机模式不会执行到这里
+        // 靜態圖：有陣列才套用（含空陣列＝清掉）。欄位缺省＝沿用上一包，省流量。
         if (Array.isArray(state.obstacles)) {
           Game.obstacles = [];
           if (state.obstacles.length > 0 && ObstacleCtor) {
@@ -6069,8 +5436,6 @@ function handleServerGameState(state, timestamp) {
             }
           }
         }
-        // ✅ 修复：始终处理装饰物（服务器现在始终发送，即使为空数组）
-        // ⚠️ 注意：只在多人模式下执行，单机模式不会执行到这里
         if (Array.isArray(state.decorations)) {
           Game.decorations = [];
           if (state.decorations.length > 0) {
@@ -6204,6 +5569,8 @@ function updateChestsFromServer(chests) {
             spawnX: (typeof chestState.spawnX === 'number') ? chestState.spawnX : (chestState.x || 0),
             spawnY: (typeof chestState.spawnY === 'number') ? chestState.spawnY : (chestState.y || 0),
             flyDurationMs: (typeof chestState.flyDurationMs === 'number') ? chestState.flyDurationMs : 600,
+            // 組隊鳳梨飛過不要再飛：離開畫面再進來要接著上次的時間，不要從起點再飛一次
+            flyElapsedMs: (typeof chestState.createdAt === 'number') ? Math.max(0, Date.now() - chestState.createdAt) : 0,
             expValue: 0
           };
           local = new UltimateCtor(chestState.x || 0, chestState.y || 0, opts);
@@ -6216,6 +5583,7 @@ function updateChestsFromServer(chests) {
             spawnX: (typeof chestState.spawnX === 'number') ? chestState.spawnX : (chestState.x || 0),
             spawnY: (typeof chestState.spawnY === 'number') ? chestState.spawnY : (chestState.y || 0),
             flyDurationMs: (typeof chestState.flyDurationMs === 'number') ? chestState.flyDurationMs : 600,
+            flyElapsedMs: (typeof chestState.createdAt === 'number') ? Math.max(0, Date.now() - chestState.createdAt) : 0,
             expireMs: (typeof chestState.expireMs === 'number') ? chestState.expireMs : 60000,
             healAmount: (typeof chestState.healAmount === 'number') ? Math.max(0, Math.floor(chestState.healAmount)) : 0
           };
@@ -6226,9 +5594,12 @@ function updateChestsFromServer(chests) {
       }
       if (local) list.push(local);
     } else {
-      // 平滑：靜態為主，直接同步
-      if (typeof chestState.x === 'number') local.x = chestState.x;
-      if (typeof chestState.y === 'number') local.y = chestState.y;
+      // 組隊鳳梨要像鳳梨：飛出去的那一下不要被落點蓋掉
+      const flying = (isPine || isPineSupp) && local._landed === false;
+      if (!flying) {
+        if (typeof chestState.x === 'number') local.x = chestState.x;
+        if (typeof chestState.y === 'number') local.y = chestState.y;
+      }
     }
   }
 }
@@ -6280,12 +5651,42 @@ function updateRemotePlayerFromServer(playerState) {
     if (typeof remotePlayer.y !== 'number' && typeof remotePlayer._netTargetY === 'number') remotePlayer.y = remotePlayer._netTargetY;
 
     // 狀態：不可用 `||`（0 會被吃掉）
-    if (typeof playerState.health === 'number') remotePlayer.health = playerState.health;
+    if (typeof playerState.health === 'number') {
+      const prevHealth = remotePlayer.health;
+      const nextHealth = playerState.health;
+      const prevMax = remotePlayer.maxHealth;
+      const nextMax = (typeof playerState.maxHealth === 'number') ? playerState.maxHealth : prevMax;
+      const maxChanged = (typeof prevMax === 'number' && typeof nextMax === 'number' && prevMax !== nextMax);
+      // 組隊隊友挨打會紅閃：跟你自己挨打一樣，人會閃紅。死掉那一下不閃，也不出聲
+      if (remotePlayer._teamHealthSeen && typeof prevHealth === 'number' && nextHealth < prevHealth && nextHealth > 0 && prevHealth > 0 && !maxChanged) {
+        try {
+          const oid = remotePlayer._remoteUid ? ('remote-player-' + remotePlayer._remoteUid) : '';
+          const el = oid ? document.getElementById('gif-overlay-' + oid) : null;
+          if (el && typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.flash === 'function') {
+            window.GifOverlay.flash(oid, { color: '#ff0000', durationMs: 150, opacity: 0.8 });
+          }
+        } catch (_) {}
+        if (remotePlayer.invulnerabilitySource !== 'INVINCIBLE') {
+          // 組隊挨打要一明一暗：隊友挨打也要跟單機一樣半透明閃
+          remotePlayer.isInvulnerable = true;
+          remotePlayer.invulnerabilityTime = 0;
+          remotePlayer.invulnerabilitySource = 'HIT_FLASH';
+        }
+      }
+      remotePlayer.health = nextHealth;
+      remotePlayer._teamHealthSeen = true;
+    }
     if (typeof playerState.maxHealth === 'number') remotePlayer.maxHealth = playerState.maxHealth;
     if (typeof playerState.energy === 'number') remotePlayer.energy = playerState.energy;
     if (typeof playerState.maxEnergy === 'number') remotePlayer.maxEnergy = playerState.maxEnergy;
     if (typeof playerState.level === 'number') remotePlayer.level = playerState.level;
-    if (typeof playerState.facing === 'number') remotePlayer.facing = playerState.facing;
+    if (typeof playerState.facing === 'number') {
+      remotePlayer.facing = playerState.facing;
+      // 組隊隊友會轉身：灰妲、厄倫、白白虹跟單機一樣，往左走換左臉。上下走不換
+      const faceX = Math.cos(playerState.facing);
+      if (faceX > 0.1) remotePlayer.facingRight = true;
+      else if (faceX < -0.1) remotePlayer.facingRight = false;
+    }
     if (typeof playerState.isDead === 'boolean') remotePlayer._isDead = playerState.isDead;
     if (typeof playerState.resurrectionProgress === 'number') remotePlayer._resurrectionProgress = playerState.resurrectionProgress;
     if (typeof playerState.nickname === 'string') remotePlayer._remotePlayerName = playerState.nickname;
@@ -6310,10 +5711,13 @@ function updateRemotePlayerFromServer(playerState) {
           remotePlayer.invulnerabilitySource = null;
         }
       }
-      // 遠程玩家大招結束時：清除其大招技能投射物（瑪格麗特/灰妲/洛可洛斯特/熙歌 的大招武器類型）
+      // 組隊大招結束留技能：只清這個人的大招。單機不會把原技能一起清掉。剛回來的那一下留著
       if (wasUlt && !playerState.isUltimateActive && typeof Player !== 'undefined' && Player.clearPlayerProjectiles) {
-        const allUltTypes = ['AURA_FIELD', 'CYGNUS_ULTIMATE_FIELD', 'ORBIT', 'STELLAR_ORBIT', 'LASER', 'SING', 'CHAIN_LIGHTNING', 'FRENZY_LIGHTNING', 'SLASH', 'FRENZY_SLASH', 'INVINCIBLE', 'ROTATING_MUFFIN', 'MUFFIN_THROW', 'UNCONTROLLABLE_BEAST', 'STELLAR_FIELD', 'GRAVITY_WAVE', 'INNATE_TEMPERAMENT'];
-        Player.clearPlayerProjectiles(remotePlayer, allUltTypes);
+        const endCharId = (remotePlayer._remoteCharacter && remotePlayer._remoteCharacter.id) ? remotePlayer._remoteCharacter.id : null;
+        const endCfg = (endCharId && CONFIG.CHARACTER_ULTIMATES && CONFIG.CHARACTER_ULTIMATES[endCharId]) ? CONFIG.CHARACTER_ULTIMATES[endCharId] : null;
+        const endUltTypes = (endCfg && endCfg.ULTIMATE_WEAPONS) ? endCfg.ULTIMATE_WEAPONS : (CONFIG.ULTIMATE && CONFIG.ULTIMATE.ULTIMATE_WEAPONS);
+        const endUltArr = Array.isArray(endUltTypes) ? endUltTypes : [];
+        Player.clearPlayerProjectiles(remotePlayer, endUltArr, null, 800);
       }
     }
     if (typeof playerState.ultimateImageKey === 'string' && playerState.ultimateImageKey) {
@@ -6445,6 +5849,21 @@ function updateEnemiesFromServer(enemies) {
       if (typeof enemyState.maxHealth === 'number') enemy.maxHealth = enemyState.maxHealth;
       // ✅ 同步敵人屬性（否則某些怪/王會看起來「不追蹤/移動怪怪的」）
       if (typeof enemyState.type === 'string') enemy.type = enemyState.type;
+      // 組隊首領音樂：權威同步不會走首領出生事件，首領出現時要跟單機一樣換曲
+      const finalBossType = (typeof enemy.type === 'string') ? enemy.type : '';
+      if (
+        finalBossType === 'BOSS' || finalBossType === 'ELF_BOSS' ||
+        finalBossType === 'HUMAN_BOSS' || finalBossType === 'UNKNOWN_BOSS'
+      ) {
+        if (Game.boss !== enemy) {
+          Game.boss = enemy;
+          try {
+            if (typeof AudioScene !== 'undefined' && typeof AudioScene.enterBoss === 'function') {
+              AudioScene.enterBoss();
+            }
+          } catch (_) { }
+        }
+      }
       if (typeof enemyState.speed === 'number') enemy.speed = enemyState.speed;
       if (typeof enemyState.size === 'number') {
         try {
@@ -6468,8 +5887,7 @@ function updateEnemiesFromServer(enemies) {
       if (typeof enemyState.isDying === 'boolean') {
         const wasDying = enemy.isDying;
         enemy.isDying = enemyState.isDying;
-        // ✅ 修復：當敵人從非死亡狀態變為死亡狀態時，只在本地玩家是擊殺者時播放死亡音效
-        // 音效是單機元素，應該像其他音效一樣在客戶端直接播放，但只對本地玩家播放
+        // 組隊音效只聽自己：只有自己打死的怪才有死亡聲。隊友打死的看得到，但不出聲
         if (!wasDying && enemyState.isDying) {
           try {
             const isLocalPlayerKill = (enemyState.killerUid && Game.multiplayer && Game.multiplayer.uid && enemyState.killerUid === Game.multiplayer.uid);
@@ -6555,6 +5973,8 @@ function updateProjectilesFromServer(projectiles) {
       // ✅ 厄倫蒂兒大招分身：持續效果由 projectile_spawn 事件同步（本地分身也不在 state.projectiles）
       // - 本地分身必須保留，才能繼續發射 ELONDIER_CLONE_THROW（傷害走伺服器權威 attack input）
       weaponType === 'ELONDIER_ULTIMATE_CLONE' ||
+      // 組隊召喚不要被清掉：召喚不在伺服器子彈清單裡。單機會留到這局結束，這裡不要把它當普通子彈刪掉
+      weaponType === 'SUMMON_AI' ||
       // 通過構造函數名稱檢查
       constructorName === 'LaserBeam' || constructorName === 'ChainLightningEffect' || constructorName === 'FrenzyLightningEffect' ||
       constructorName === 'SlashEffect' || constructorName === 'InvincibleEffect' || constructorName === 'SingEffect' || constructorName === 'BaibaihongExclusiveUltimateEffect' || constructorName === 'AuraField' || constructorName === 'StellarField' || constructorName === 'InnateTemperamentField' || constructorName === 'GravityWaveField' ||
@@ -6564,6 +5984,7 @@ function updateProjectilesFromServer(projectiles) {
       constructorName === 'WhiteNightBeamEffect' || constructorName === 'WhiteRainbowBeamEffect' ||
       constructorName === 'ExplosionEffect' || constructorName === 'StarfallEffect' || constructorName === 'StarfallMoon' ||
       constructorName === 'ElondierUltimateClone' ||
+      constructorName === 'AICompanion' ||
       // 檢查是否有 _remotePlayerUid（通過事件創建的標記）
       (proj._remotePlayerUid && proj._isVisualOnly)
     );
@@ -6827,6 +6248,48 @@ function updateBossLasersFromServer(bossLasers) {
 }
 
 // ✅ 不影响单机：只在多人模式下执行（伺服器權威的修羅彈幕 bullets）
+// 組隊修羅打中要有火花：跟單機打中一樣，震動一下並冒火花。只有伺服器真的把這顆刪掉才播
+function _playAsuraBulletHitJuice(x, y) {
+  try {
+    if (typeof Game === 'undefined') return;
+    if (!Game.cameraShake) {
+      Game.cameraShake = { active: false, intensity: 0, duration: 0, offsetX: 0, offsetY: 0 };
+    }
+    Game.cameraShake.active = true;
+    Game.cameraShake.intensity = 6;
+    Game.cameraShake.duration = 120;
+    if (!Game.explosionParticles) Game.explosionParticles = [];
+    for (let k = 0; k < 6; k++) {
+      const ang = Math.random() * Math.PI * 2;
+      const spd = 0.8 + Math.random() * 1.2;
+      Game.explosionParticles.push({
+        x: x,
+        y: y,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd,
+        life: 180 + Math.random() * 120,
+        maxLife: 180 + Math.random() * 120,
+        size: 2 + Math.random() * 2,
+        color: '#ffcc55'
+      });
+    }
+    for (let k = 0; k < 3; k++) {
+      const ang2 = Math.random() * Math.PI * 2;
+      const spd2 = 0.5 + Math.random() * 1.0;
+      Game.explosionParticles.push({
+        x: x + (Math.random() - 0.5) * 8,
+        y: y + (Math.random() - 0.5) * 8,
+        vx: Math.cos(ang2) * spd2 * 0.5,
+        vy: Math.sin(ang2) * spd2 * 0.5 - 0.6,
+        life: 250 + Math.random() * 150,
+        maxLife: 250 + Math.random() * 150,
+        size: 5 + Math.random() * 3,
+        color: '#cc6666'
+      });
+    }
+  } catch (_) {}
+}
+
 function updateBulletsFromServer(bullets) {
   try {
     if (typeof Game === 'undefined' || !Game.multiplayer || !Game.multiplayer.enabled) return;
@@ -6839,26 +6302,71 @@ function updateBulletsFromServer(bullets) {
       BulletSystem.init();
     }
 
-    // 客戶端只渲染：覆蓋 bullets，清空 emitters，避免本地生成
+    // 客戶端只渲染：不在本地再生成。有編號的彈幕沿用同一顆，只改位置與速度。
     BulletSystem.enabled = true;
     BulletSystem.emitters = [];
-    BulletSystem.bullets = [];
 
-    for (const b of bullets) {
-      if (!b) continue;
-      // ✅ 修复：与单机一致 - 正确同步弹幕的速度（vx 和 vy），否则弹幕不会移动
-      BulletSystem.bullets.push({
-        x: (typeof b.x === 'number') ? b.x : 0,
-        y: (typeof b.y === 'number') ? b.y : 0,
-        vx: (typeof b.vx === 'number') ? b.vx : 0, // ✅ 修复：同步 vx
-        vy: (typeof b.vy === 'number') ? b.vy : 0, // ✅ 修复：同步 vy
-        life: (typeof b.life === 'number') ? b.life : 0,
-        maxLife: (typeof b.maxLife === 'number') ? b.maxLife : ((typeof b.life === 'number') ? b.life : 0),
-        size: (typeof b.size === 'number') ? b.size : 12,
-        color: (typeof b.color === 'string') ? b.color : '#ffcc66',
-        damage: (typeof b.damage === 'number') ? b.damage : 0
-      });
+    const incoming = Array.isArray(bullets) ? bullets : [];
+    const prev = Array.isArray(BulletSystem.bullets) ? BulletSystem.bullets : [];
+    const byId = updateBulletsFromServer._byId || (updateBulletsFromServer._byId = new Map());
+    byId.clear();
+    for (let i = 0; i < prev.length; i++) {
+      const old = prev[i];
+      if (old && typeof old.id === 'string' && old.id) byId.set(old.id, old);
     }
+    const next = [];
+    for (let i = 0; i < incoming.length; i++) {
+      const b = incoming[i];
+      if (!b) continue;
+      const id = (typeof b.id === 'string') ? b.id : '';
+      let slot = id ? byId.get(id) : null;
+      if (!slot) slot = {};
+      if (id) slot.id = id;
+      if (typeof b.x === 'number') slot.x = b.x;
+      if (typeof b.y === 'number') slot.y = b.y;
+      if (typeof b.vx === 'number') slot.vx = b.vx;
+      if (typeof b.vy === 'number') slot.vy = b.vy;
+      if (typeof b.life === 'number') slot.life = b.life;
+      if (typeof b.maxLife === 'number') slot.maxLife = b.maxLife;
+      if (typeof b.size === 'number') slot.size = b.size;
+      if (typeof b.color === 'string') slot.color = b.color;
+      if (typeof b.damage === 'number') slot.damage = b.damage;
+      if (typeof slot.x !== 'number') slot.x = 0;
+      if (typeof slot.y !== 'number') slot.y = 0;
+      if (typeof slot.vx !== 'number') slot.vx = 0;
+      if (typeof slot.vy !== 'number') slot.vy = 0;
+      if (typeof slot.life !== 'number') slot.life = 0;
+      if (typeof slot.maxLife !== 'number') slot.maxLife = slot.life;
+      if (typeof slot.size !== 'number') slot.size = 12;
+      if (typeof slot.color !== 'string') slot.color = '#ffcc66';
+      if (typeof slot.damage !== 'number') slot.damage = 0;
+      next.push(slot);
+    }
+    if (Array.isArray(bullets)) {
+      const incomingIds = updateBulletsFromServer._incomingIds || (updateBulletsFromServer._incomingIds = new Set());
+      incomingIds.clear();
+      for (let j = 0; j < incoming.length; j++) {
+        const ib = incoming[j];
+        if (ib && typeof ib.id === 'string' && ib.id) incomingIds.add(ib.id);
+      }
+      const player = (typeof Game !== 'undefined') ? Game.player : null;
+      if (player && !player._isDead && player.health > 0) {
+        const pr = (player.collisionRadius != null) ? player.collisionRadius : 16;
+        for (let j = 0; j < prev.length; j++) {
+          const old = prev[j];
+          if (!old || typeof old.id !== 'string' || !old.id || incomingIds.has(old.id)) continue;
+          if (!(typeof old.life === 'number' && old.life > 50)) continue;
+          const br = old.size || 4;
+          const dx = player.x - old.x;
+          const dy = player.y - old.y;
+          const rad = pr + br;
+          if (dx * dx + dy * dy <= rad * rad) {
+            _playAsuraBulletHitJuice(old.x, old.y);
+          }
+        }
+      }
+    }
+    BulletSystem.bullets = next;
   } catch (_) { }
 }
 
@@ -6939,9 +6447,22 @@ function updateExperienceOrbsFromServer(orbs) {
 
   // 移除服务器不存在的经验球
   for (let i = Game.experienceOrbs.length - 1; i >= 0; i--) {
-    if (!serverOrbIds.has(Game.experienceOrbs[i].id)) {
-      Game.experienceOrbs.splice(i, 1);
-    }
+    const gone = Game.experienceOrbs[i];
+    if (!gone || serverOrbIds.has(gone.id)) continue;
+    // 組隊音效只聽自己：球消失時，只有貼著它的人有撿取聲。經驗數字仍全隊共用
+    try {
+      const p = Game.player;
+      if (p && !p._isDead && typeof gone.x === 'number' && typeof gone.y === 'number' && typeof p.x === 'number') {
+        const dx = p.x - gone.x;
+        const dy = p.y - gone.y;
+        const body = (typeof p.collisionRadius === 'number' && p.collisionRadius > 0) ? p.collisionRadius : 16;
+        const rad = ((gone.size || 20) / 2) + body + 48;
+        if ((dx * dx + dy * dy) < (rad * rad) && typeof AudioManager !== 'undefined' && AudioManager.expSoundEnabled !== false) {
+          AudioManager.playSound('collect_exp');
+        }
+      }
+    } catch (_) { }
+    Game.experienceOrbs.splice(i, 1);
   }
 
   // 更新或创建经验球
@@ -6963,15 +6484,6 @@ function updateExperienceOrbsFromServer(orbs) {
       if (typeof orbState.value === 'number') orb.value = orbState.value;
     }
   }
-}
-
-// ❌ 腫瘤切除：此函數已廢棄，傷害計算完全由伺服器權威處理
-// 傷害數字和敵人血量更新都通過 state.hitEvents 和 state.enemies 同步
-// 保留此函數僅為向後兼容，但不會被調用（handleHostDataMessage 在權威伺服器模式下已被禁用）
-function _handleEnemyDamageMessage(fromUid, msg) {
-  // ✅ 腫瘤切除：不再處理 enemy_damage 消息，傷害由伺服器 hitEvents 統一處理
-  // 此函數保留僅為向後兼容，實際不會執行任何邏輯
-  return;
 }
 
 // ✅ MMORPG 架構：處理 weapon_upgrade 消息（所有玩家都可以調用）
@@ -7114,227 +6626,6 @@ function _handleUltimatePineappleMessage(fromUid, msg) {
   }
 }
 
-function handleHostDataMessage(fromUid, msg) {
-  if (!msg || typeof msg !== "object") return;
-  if (!fromUid || typeof fromUid !== "string") {
-    console.warn("[SurvivalOnline] handleHostDataMessage: fromUid 無效", fromUid);
-    return;
-  }
-  // ✅ 權威伺服器模式：禁止舊 host 聚合/轉發通道（pos/state/snapshot...）
-  // 這條通道會把 client-side 狀態當成權威再廣播，是「舊權威系統衝突」的核心來源之一。
-  try {
-    if (typeof Game !== "undefined" && Game.multiplayer && Game.multiplayer.enabled) {
-      return;
-    }
-  } catch (_) { }
-  if (msg.t === "reconnect_request") {
-    // M5：隊員請求全量快照（重連恢復）
-    // ✅ LEGACY：權威多人下已停用
-    return;
-  } else if (msg.t === "pos") {
-    // 收到玩家位置，室長彙總後廣播
-    // 再次檢查 fromUid（防止緩存問題）
-    if (!fromUid || typeof fromUid !== "string") {
-      console.warn("[SurvivalOnline] handleHostDataMessage: pos 消息 fromUid 無效", fromUid);
-      return;
-    }
-    const player = _membersState ? (_membersState.get(fromUid) || {}) : {};
-    const name = typeof player.name === "string" ? player.name : (fromUid && typeof fromUid.slice === "function" ? fromUid.slice(0, 6) : "unknown");
-    const x = typeof msg.x === "number" ? msg.x : 0;
-    const y = typeof msg.y === "number" ? msg.y : 0;
-
-    // 獲取成員的角色ID和天賦等級
-    const member = _membersState ? _membersState.get(fromUid) : null;
-    const characterId = (member && member.characterId) ? member.characterId : null;
-    const talentLevels = (member && member.talentLevels && typeof member.talentLevels === 'object') ? member.talentLevels : null;
-
-    // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
-    let remotePlayer = null;
-    try {
-      if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
-        remotePlayer = RemotePlayerManager.get(fromUid);
-      }
-    } catch (_) { }
-
-    // 在 host 端也顯示（讓 host 看得到別人）- 包含完整狀態信息
-    Runtime.onStateMessage({
-      t: "state",
-      players: {
-        [fromUid]: {
-          x,
-          y,
-          name,
-          characterId: characterId,
-          // 添加更多狀態信息（如果遠程玩家對象已存在）
-          health: (remotePlayer && typeof remotePlayer.health === "number") ? remotePlayer.health : 100,
-          maxHealth: (remotePlayer && typeof remotePlayer.maxHealth === "number") ? remotePlayer.maxHealth : 100,
-          _isDead: (remotePlayer && typeof remotePlayer._isDead === "boolean") ? remotePlayer._isDead : false,
-          _resurrectionProgress: (remotePlayer && typeof remotePlayer._resurrectionProgress === "number") ? remotePlayer._resurrectionProgress : 0,
-          isUltimateActive: (remotePlayer && typeof remotePlayer.isUltimateActive === "boolean") ? remotePlayer.isUltimateActive : false,
-          ultimateImageKey: (remotePlayer && remotePlayer._ultimateImageKey) ? remotePlayer._ultimateImageKey : null,
-          ultimateEndTime: (remotePlayer && typeof remotePlayer.ultimateEndTime === "number") ? remotePlayer.ultimateEndTime : 0,
-          width: (remotePlayer && typeof remotePlayer.width === "number" && remotePlayer.width > 0) ? remotePlayer.width : null,
-          height: (remotePlayer && typeof remotePlayer.height === "number" && remotePlayer.height > 0) ? remotePlayer.height : null,
-          collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : null
-        }
-      }
-    });
-
-    // 彙總全員狀態（含 host 自己）
-    const players = {};
-    try {
-      // host 自己
-      if (typeof Game !== "undefined" && Game.player) {
-        const hostMember = _membersState ? _membersState.get(_uid) : null;
-        const hostCharacterId = (hostMember && hostMember.characterId) ? hostMember.characterId : (Game.selectedCharacter && Game.selectedCharacter.id) ? Game.selectedCharacter.id : null;
-        const hostPlayer = Game.player;
-        players[_uid] = {
-          x: Game.player.x,
-          y: Game.player.y,
-          name: getPlayerNickname(),
-          characterId: hostCharacterId, // 添加角色ID
-          // 添加更多狀態信息
-          health: (hostPlayer && typeof hostPlayer.health === "number") ? hostPlayer.health : 100,
-          maxHealth: (hostPlayer && typeof hostPlayer.maxHealth === "number") ? hostPlayer.maxHealth : 100,
-          _isDead: (hostPlayer && typeof hostPlayer._isDead === "boolean") ? hostPlayer._isDead : false,
-          _resurrectionProgress: (hostPlayer && typeof hostPlayer._resurrectionProgress === "number") ? hostPlayer._resurrectionProgress : 0,
-          isUltimateActive: (hostPlayer && typeof hostPlayer.isUltimateActive === "boolean") ? hostPlayer.isUltimateActive : false,
-          ultimateImageKey: (hostPlayer && hostPlayer._ultimateImageKey) ? hostPlayer._ultimateImageKey : null,
-          ultimateEndTime: (hostPlayer && typeof hostPlayer.ultimateEndTime === "number") ? hostPlayer.ultimateEndTime : 0,
-          width: (hostPlayer && typeof hostPlayer.width === "number" && hostPlayer.width > 0) ? hostPlayer.width : null,
-          height: (hostPlayer && typeof hostPlayer.height === "number" && hostPlayer.height > 0) ? hostPlayer.height : null,
-          collisionRadius: (hostPlayer && typeof hostPlayer.collisionRadius === "number" && hostPlayer.collisionRadius > 0) ? hostPlayer.collisionRadius : null
-        };
-      }
-    } catch (_) { }
-    // 已知其他人（Runtime 內 + 這次）
-    // 使用 Set 來追蹤已處理的 UID，避免重複
-    const processedUids = new Set();
-    for (const p of Runtime.getRemotePlayers()) {
-      if (processedUids.has(p.uid)) continue; // 跳過已處理的
-      processedUids.add(p.uid);
-
-      const member = _membersState ? _membersState.get(p.uid) : null;
-      const characterId = (member && member.characterId) ? member.characterId : (p.characterId) ? p.characterId : null;
-
-      // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
-      let remotePlayer = null;
-      try {
-        if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
-          remotePlayer = RemotePlayerManager.get(p.uid);
-        }
-      } catch (_) { }
-
-      players[p.uid] = {
-        x: p.x,
-        y: p.y,
-        name: p.name,
-        characterId: characterId, // 添加角色ID
-        // 添加更多狀態信息（如果遠程玩家對象已存在）
-        health: (remotePlayer && typeof remotePlayer.health === "number") ? remotePlayer.health : 100,
-        maxHealth: (remotePlayer && typeof remotePlayer.maxHealth === "number") ? remotePlayer.maxHealth : 100,
-        _isDead: (remotePlayer && typeof remotePlayer._isDead === "boolean") ? remotePlayer._isDead : false,
-        _resurrectionProgress: (remotePlayer && typeof remotePlayer._resurrectionProgress === "number") ? remotePlayer._resurrectionProgress : 0,
-        isUltimateActive: (remotePlayer && typeof remotePlayer.isUltimateActive === "boolean") ? remotePlayer.isUltimateActive : false,
-        ultimateImageKey: (remotePlayer && remotePlayer._ultimateImageKey) ? remotePlayer._ultimateImageKey : null,
-        ultimateEndTime: (remotePlayer && typeof remotePlayer.ultimateEndTime === "number") ? remotePlayer.ultimateEndTime : 0,
-        width: (remotePlayer && typeof remotePlayer.width === "number" && remotePlayer.width > 0) ? remotePlayer.width : null,
-        height: (remotePlayer && typeof remotePlayer.height === "number" && remotePlayer.height > 0) ? remotePlayer.height : null,
-        collisionRadius: (remotePlayer && typeof remotePlayer.collisionRadius === "number" && remotePlayer.collisionRadius > 0) ? remotePlayer.collisionRadius : null
-      };
-    }
-    // 添加這次的 fromUid（如果還沒處理）
-    if (!processedUids.has(fromUid)) {
-      const fromMember = _membersState ? _membersState.get(fromUid) : null;
-      const fromCharacterId = (fromMember && fromMember.characterId) ? fromMember.characterId : null;
-      // 獲取遠程玩家對象（如果已存在）以獲取完整狀態
-      let fromRemotePlayer = null;
-      try {
-        if (typeof RemotePlayerManager !== "undefined" && typeof RemotePlayerManager.get === "function") {
-          fromRemotePlayer = RemotePlayerManager.get(fromUid);
-        }
-      } catch (_) { }
-      players[fromUid] = {
-        x,
-        y,
-        name: name,
-        characterId: fromCharacterId, // 添加角色ID
-        // 添加更多狀態信息（如果遠程玩家對象已存在）
-        health: (fromRemotePlayer && typeof fromRemotePlayer.health === "number") ? fromRemotePlayer.health : 100,
-        maxHealth: (fromRemotePlayer && typeof fromRemotePlayer.maxHealth === "number") ? fromRemotePlayer.maxHealth : 100,
-        _isDead: (fromRemotePlayer && typeof fromRemotePlayer._isDead === "boolean") ? fromRemotePlayer._isDead : false,
-        _resurrectionProgress: (fromRemotePlayer && typeof fromRemotePlayer._resurrectionProgress === "number") ? fromRemotePlayer._resurrectionProgress : 0,
-        isUltimateActive: (fromRemotePlayer && typeof fromRemotePlayer.isUltimateActive === "boolean") ? fromRemotePlayer.isUltimateActive : false,
-        ultimateImageKey: (fromRemotePlayer && fromRemotePlayer._ultimateImageKey) ? fromRemotePlayer._ultimateImageKey : null,
-        ultimateEndTime: (fromRemotePlayer && typeof fromRemotePlayer.ultimateEndTime === "number") ? fromRemotePlayer.ultimateEndTime : 0,
-        width: (fromRemotePlayer && typeof fromRemotePlayer.width === "number" && fromRemotePlayer.width > 0) ? fromRemotePlayer.width : null,
-        height: (fromRemotePlayer && typeof fromRemotePlayer.height === "number" && fromRemotePlayer.height > 0) ? fromRemotePlayer.height : null,
-        collisionRadius: (fromRemotePlayer && typeof fromRemotePlayer.collisionRadius === "number" && fromRemotePlayer.collisionRadius > 0) ? fromRemotePlayer.collisionRadius : null
-      };
-    }
-
-    // 廣播給所有 client（通過 WebSocket）
-    // ✅ 優化：限制同步頻率為 10Hz（100ms），避免流量過大
-    // 但要確保數據已更新（上面的代碼已經更新了 players）
-    if (_ws && _ws.readyState === WebSocket.OPEN) {
-      const now = Date.now();
-      if (now - lastSendAt >= 100) { // 100ms = 10Hz
-        _sendViaWebSocket({ t: "state", players });
-        lastSendAt = now;
-      }
-    }
-    return;
-  }
-  if (msg.t === "ultimate_pineapple") {
-    // ✅ MMORPG 架構：所有玩家都能處理鳳梨大絕掉落物生成，不依賴隊長端
-    _handleUltimatePineappleMessage(fromUid, msg);
-    return;
-  }
-
-  if (msg.t === "weapon_upgrade") {
-    // ✅ MMORPG 架構：所有玩家都能處理武器升級，不依賴隊長端
-    _handleWeaponUpgradeMessage(fromUid, msg);
-    return;
-  }
-
-  if (msg.t === "enemy_damage") {
-    // ✅ 腫瘤切除：傷害數字改走伺服器 hitEvents（server/game-state.js），不再處理 enemy_damage 消息
-    // _handleEnemyDamageMessage 已廢棄，傷害計算完全由伺服器權威處理
-    // 傷害數字和敵人血量更新都通過 state.hitEvents 和 state.enemies 同步
-    return;
-  }
-
-  if (msg.t === "input") {
-    // ✅ MMORPG 架構：所有玩家都能處理輸入消息，不依賴隊長端
-    _handleInputMessage(fromUid, msg);
-    return;
-  }
-}
-
-// ❌ 舊架構殘留：此函數已被 Runtime.sendToNet 取代，保留僅為向後兼容
-// 注意：此函數使用舊的 Host-Client 架構，不應再使用
-// 請使用 Runtime.sendToNet 或直接使用 _sendViaWebSocket
-function sendToNet(obj) {
-  if (!obj) return;
-  // ⚠️ 警告：此函數使用舊的 Host-Client 架構
-  // ✅ MMO 架構：直接通過 WebSocket 發送，不依賴隊長端
-  _sendViaWebSocket(obj);
-}
-
-// ❌ 已簡化：handleSignal 函數（WebRTC 相關代碼已刪除）
-// 注意：此函數現在只用於房間管理信令（如 starting 狀態），不再用於 WebRTC
-// 如果不再需要，可以完全刪除此函數和 listenSignals
-async function handleSignal(sig) {
-  if (!sig || typeof sig !== "object") {
-    console.warn(`[SurvivalOnline] handleSignal: 無效信號`, sig);
-    return;
-  }
-  // 注意：WebRTC 相關信令（offer, answer, candidate）已不再處理
-  // 此函數現在只用於房間管理信令（如果有的話）
-  console.log(`[SurvivalOnline] handleSignal: 收到信號 type=${sig.type}, fromUid=${sig.fromUid}, toUid=${sig.toUid}, isHost=${_isHost}`);
-  // 可以在此處添加房間管理相關的信令處理（如果需要）
-}
-
 async function reconnectClient() {
   if (!_activeRoomId || !_uid) return;
 
@@ -7393,7 +6684,7 @@ function startAutoCleanup() {
 
     try {
       const stale = Array.from(_membersState.values())
-        .filter(m => m && m.uid && m.uid !== _uid && m.role !== "host" && _isMemberStale(m));
+        .filter(m => m && m.uid && m.uid !== _uid && m.role !== "host" && _isMemberStale(m) && !_memberStillInMatch(m.uid));
 
       for (const m of stale) {
         try {
@@ -7759,8 +7050,16 @@ function _fillMapOptions() {
   if (!sel) return;
   sel.innerHTML = "";
   const maps = (typeof CONFIG !== "undefined" && Array.isArray(CONFIG.MAPS)) ? CONFIG.MAPS : [];
-  const survivalMaps = maps.filter((m) => m && typeof m.id === "string" && ["city", "forest", "desert", "garden", "intersection", "branch"].includes(m.id));
-  for (const m of survivalMaps) {
+  const ids = (typeof MapAssets !== "undefined" && MapAssets.collectSurvivalMapIds)
+    ? MapAssets.collectSurvivalMapIds()
+    : ["city", "forest", "desert", "garden", "intersection", "branch"];
+  const byId = {};
+  for (let i = 0; i < maps.length; i++) {
+    if (maps[i] && maps[i].id) byId[maps[i].id] = maps[i];
+  }
+  for (let j = 0; j < ids.length; j++) {
+    const m = byId[ids[j]];
+    if (!m) continue;
     const opt = document.createElement("option");
     opt.value = m.id;
     opt.textContent = m.name || m.id;
@@ -7768,7 +7067,14 @@ function _fillMapOptions() {
   }
 }
 
-// 根據地圖動態更新難度選項（僅宇宙地圖可選修羅難度）
+function _isHardOnlyDiffMap(mapId) {
+  const ids = (typeof CONFIG !== "undefined" && Array.isArray(CONFIG.DIFFICULTY_HARD_ONLY_MAP_IDS))
+    ? CONFIG.DIFFICULTY_HARD_ONLY_MAP_IDS
+    : ["desert", "branch"];
+  return ids.indexOf(mapId) !== -1;
+}
+
+// 根據地圖動態更新難度選項（宇宙／支部僅困難＋修羅，跟 DIFFICULTY_SELECT_GRIDS）
 function _updateDifficultyOptions() {
   const selMap = _qs("survival-online-host-map");
   const selDiff = _qs("survival-online-host-diff");
@@ -7776,41 +7082,29 @@ function _updateDifficultyOptions() {
 
   const mapId = selMap.value;
   const currentDiff = selDiff.value;
+  const hardOnlyMap = _isHardOnlyDiffMap(mapId);
+  const grids = (typeof CONFIG !== "undefined" && CONFIG.DIFFICULTY_SELECT_GRIDS) ? CONFIG.DIFFICULTY_SELECT_GRIDS : {};
+  const diffs = (typeof CONFIG !== "undefined" && CONFIG.DIFFICULTY) ? CONFIG.DIFFICULTY : {};
+  const ids = hardOnlyMap
+    ? (grids["desert-difficulty-select-screen"] || ["HARD", "ASURA"])
+    : (grids["difficulty-select-screen"] || ["EASY", "HARD"]);
 
-  // 清空現有選項
   selDiff.innerHTML = "";
-
-  // 宇宙與支部地圖僅困難/修羅；其餘地圖為簡單+困難（可選修羅僅宇宙/支部）
-  const hardOnlyMap = (mapId === "desert" || mapId === "branch");
-  if (!hardOnlyMap) {
-    const easyOpt = document.createElement("option");
-    easyOpt.value = "EASY";
-    easyOpt.textContent = "簡單";
-    selDiff.appendChild(easyOpt);
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    const opt = document.createElement("option");
+    opt.value = id;
+    opt.textContent = (diffs[id] && diffs[id].NAME) ? diffs[id].NAME : id;
+    selDiff.appendChild(opt);
   }
 
-  const hardOpt = document.createElement("option");
-  hardOpt.value = "HARD";
-  hardOpt.textContent = "困難";
-  selDiff.appendChild(hardOpt);
-
-  if (mapId === "desert" || mapId === "branch") {
-    const asuraOpt = document.createElement("option");
-    asuraOpt.value = "ASURA";
-    asuraOpt.textContent = "修羅";
-    selDiff.appendChild(asuraOpt);
-  }
-
-  // 若當前選擇修羅但地圖不支援，則切換到困難；若為宇宙/支部且選了簡單則改為困難
-  if (currentDiff === "ASURA" && mapId !== "desert" && mapId !== "branch") {
+  if (currentDiff === "ASURA" && !hardOnlyMap) {
     selDiff.value = "HARD";
-    // 同步更新房間設置
     if (_isHost && _activeRoomId) {
       hostUpdateSettings({ diffId: "HARD" }).catch(() => { });
     }
   } else if (currentDiff && ["EASY", "HARD", "ASURA"].includes(currentDiff)) {
-    // 宇宙/支部不允許 EASY，若當前為 EASY 則改為 HARD
-    if ((mapId === "desert" || mapId === "branch") && currentDiff === "EASY") {
+    if (hardOnlyMap && currentDiff === "EASY") {
       selDiff.value = "HARD";
       if (_isHost && _activeRoomId) hostUpdateSettings({ diffId: "HARD" }).catch(() => { });
     } else {
@@ -7833,7 +7127,7 @@ function _syncHostSelectsFromRoom() {
     if (selDiff && _roomState.diffId) {
       // 驗證難度是否有效（非宇宙/支部地圖不能選修羅）
       const mapId = selMap ? selMap.value : null;
-      if (_roomState.diffId === "ASURA" && mapId !== "desert" && mapId !== "branch") {
+      if (_roomState.diffId === "ASURA" && !_isHardOnlyDiffMap(mapId)) {
         // 如果房間設置了修羅但地圖不是宇宙，強制改為困難
         selDiff.value = "HARD";
         if (_isHost && _activeRoomId) {
@@ -8822,13 +8116,6 @@ try {
       }
     } catch (_) { }
   });
-
-  // ✅ 清理邏輯：頁面可見性變化時也清理（切換標籤頁等）
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      // 頁面隱藏時不清理，只在完全關閉時清理
-    }
-  });
 } catch (_) { }
 
 
@@ -8921,3 +8208,10 @@ try {
 //     }
 //   }
 // }
+
+// 引繼碼套用後，人還在組隊大廳時，角色下拉要跟選角畫面一起重讀。
+window.__refreshTeamCharacterList = function () {
+  try {
+    if (typeof _activeRoomId !== 'undefined' && _activeRoomId && typeof updateLobbyUI === 'function') updateLobbyUI();
+  } catch (_) {}
+};

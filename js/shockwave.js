@@ -110,11 +110,7 @@ class ShockwaveEffect extends Entity {
                 const isMultiplayer = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                 let isSurvivalMode = false;
                 try {
-                    const activeId = (typeof GameModeManager !== 'undefined' && typeof GameModeManager.getCurrent === 'function')
-                        ? GameModeManager.getCurrent()
-                        : ((typeof ModeManager !== 'undefined' && typeof ModeManager.getActiveModeId === 'function')
-                            ? ModeManager.getActiveModeId()
-                            : null);
+                    const activeId = Utils.getActiveModeId();
                     isSurvivalMode = (activeId === 'survival' || activeId === null);
                 } catch (_) {}
                 
@@ -144,6 +140,10 @@ class ShockwaveEffect extends Entity {
                             radius: 10,
                             enemyIds: [enemy.id],
                             damage: finalDamage,
+                            preRolled: true,
+                            isCrit: isCrit,
+                            slowMs: 1500,
+                            slowFactor: 0.01,
                             allowCrit: true,
                             critChanceBonusPct: ((this.player && this.player.critChanceBonusPct) || 0), critMultiplierBonusPct: ((this.player && this.player.awakeningCritDamageBonusPct) || 0),
                             timestamp: Date.now()

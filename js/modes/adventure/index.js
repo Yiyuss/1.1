@@ -221,9 +221,6 @@
   if (typeof window !== 'undefined') {
     if (window.GameModeManager && typeof window.GameModeManager.register === 'function') {
       window.GameModeManager.register(MODE_ID, AdventureMode);
-    } else if (window.ModeManager && typeof window.ModeManager.register === 'function') {
-      // 回退：若新管理器不可用，暫掛到舊 ModeManager（仍使用 iframe，互不污染）
-      window.ModeManager.register(MODE_ID, AdventureMode);
     } else {
       console.warn('[AdventureMode] 找不到可用的模式管理器，無法註冊冒險模式');
     }

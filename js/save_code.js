@@ -215,8 +215,10 @@ const SaveCode = (function(){
       const coins = Math.max(0, Math.floor(parseInt(payload.c, 10) || 0));
       const levels = (payload.tl && typeof payload.tl === 'object') ? payload.tl : {};
       const legacy = Array.isArray(payload.ut) ? payload.ut : [];
-      const achievements = Array.isArray(payload.ac) ? payload.ac : [];
-      const unlockedChars = Array.isArray(payload.uc) ? payload.uc : null;
+      const hasAc = Array.isArray(payload.ac);
+      const achievements = hasAc ? payload.ac : null;
+      const hasUc = Array.isArray(payload.uc);
+      const unlockedChars = hasUc ? payload.uc.slice() : null;
       const defenseAutoSkills = (payload.das && typeof payload.das === 'object') ? payload.das : {};
       // 寫入 localStorage（不更動鍵名）
       try { localStorage.setItem('game_coins', String(coins)); } catch(_) {}
@@ -224,19 +226,23 @@ const SaveCode = (function(){
       try { localStorage.setItem('unlocked_talents', JSON.stringify(legacy)); } catch(_) {}
       // 寫入角色解鎖狀態（若有）
       try {
-        if (unlockedChars && unlockedChars.length) {
-          // 確保預設角色永遠存在
+        if (hasUc && unlockedChars) {
           if (!unlockedChars.includes('margaret')) unlockedChars.push('margaret');
           localStorage.setItem('unlocked_characters', JSON.stringify(unlockedChars));
+          if (typeof window !== 'undefined' && typeof window.refreshUnlockedCharacterCards === 'function') {
+            window.refreshUnlockedCharacterCards();
+          }
         }
       } catch(_) {}
-      // 寫入成就（若有）
       try {
-        if (achievements && achievements.length) {
+        if (hasAc) {
           const map = {};
-          achievements.forEach(id => { map[id] = { unlocked: true, ts: Date.now() }; });
+          (achievements || []).forEach(id => { map[id] = { unlocked: true, ts: Date.now() }; });
           localStorage.setItem('achievements', JSON.stringify(map));
         }
+      } catch(_) {}
+      try {
+        if (typeof Achievements !== 'undefined' && Achievements.invalidateCache) Achievements.invalidateCache();
       } catch(_) {}
       // 寫入防禦模式自動化技能解鎖狀態（V4新增，向下相容：舊版本無此欄位時不寫入）
       try {
@@ -247,6 +253,12 @@ const SaveCode = (function(){
       // 更新記憶體與UI（不改事件順序，僅在可用時刷新顯示）
       try { if (typeof Game !== 'undefined' && Game.loadCoins) Game.loadCoins(); } catch(_) {}
       try { if (typeof UI !== 'undefined' && UI.updateCoinsDisplay) UI.updateCoinsDisplay(coins); } catch(_) {}
+      try {
+        if (typeof Achievements !== 'undefined' && Achievements.renderList) {
+          const list = document.getElementById('achievements-list');
+          if (list) Achievements.renderList(list);
+        }
+      } catch(_) {}
       try {
         if (typeof TalentSystem !== 'undefined' && TalentSystem.tieredTalents) {
           Object.keys(TalentSystem.tieredTalents).forEach(id => {

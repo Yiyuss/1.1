@@ -12,9 +12,8 @@ const WaveSystem = {
         this.lastEnemySpawnTime = 0;
         // 初始生成間隔，套用難度倍率（預設 EASY）
         const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.EASY) || {});
-        const baseInit = CONFIG.WAVES.ENEMY_SPAWN_RATE.INITIAL;
         const mult = diff.spawnIntervalMultiplier || 1;
-        this.enemySpawnRate = Math.max(baseInit * mult, CONFIG.WAVES.ENEMY_SPAWN_RATE.MINIMUM);
+        this.enemySpawnRate = WaveRules.computeSpawnInterval(1, CONFIG.WAVES.ENEMY_SPAWN_RATE, mult);
         this.lastMiniBossTime = 0;
         this.lastMiniBossWave = 0; // 追蹤本波是否已生成小BOSS
 
@@ -50,9 +49,7 @@ const WaveSystem = {
         // 進波判定：使用同步的波次開始時間
         // 根因：波次推進被「設定存在」綁死——CONFIG 未就緒時讀取拋錯、整幀被 catch 跳過，波次從不推進。修正：用預設 60s、處理時間異常，仍依時間推進。
         let waveElapsedTime = currentTime - this.waveStartTime;
-        const waveDuration = (typeof CONFIG !== 'undefined' && CONFIG.WAVES && typeof CONFIG.WAVES.DURATION === 'number')
-            ? CONFIG.WAVES.DURATION
-            : 60000;
+        const waveDuration = WaveRules.waveDurationMs(typeof CONFIG !== 'undefined' ? CONFIG.WAVES : null);
         if (waveElapsedTime < 0) {
             this.waveStartTime = currentTime;
             waveElapsedTime = 0;
@@ -69,7 +66,7 @@ const WaveSystem = {
         }
         // ✅ 額外防護2：場上無小怪時，每幀嘗試生成（繞過冷卻），避免連續通關後因任何邊界情況卡死
         const enemies = (Game && Array.isArray(Game.enemies)) ? Game.enemies : [];
-        const smallEnemyCount = enemies.filter(e => e && !/^(MINI_BOSS|ELF_MINI_BOSS|HUMAN_MINI_BOSS|UNKNOWN_MINI_BOSS|BOSS|ELF_BOSS|HUMAN_BOSS|UNKNOWN_BOSS)$/.test(e.type || '')).length;
+        const smallEnemyCount = enemies.filter(e => e && WaveRules.isSmallEnemyType(e.type)).length;
         const timeOk = (currentTime - this.lastEnemySpawnTime) >= this.enemySpawnRate;
         const shouldTry = timeOk || (smallEnemyCount === 0); // 無小怪時每幀嘗試，避免卡死
         if (shouldTry) {
@@ -86,7 +83,7 @@ const WaveSystem = {
         // }
 
         // 生成大BOSS（單機）
-        const bossWave = (typeof CONFIG !== 'undefined' && CONFIG.WAVES && typeof CONFIG.WAVES.BOSS_WAVE === 'number') ? CONFIG.WAVES.BOSS_WAVE : 20;
+        const bossWave = WaveRules.bossWaveNumber(typeof CONFIG !== 'undefined' ? CONFIG.WAVES : null);
         if (this.currentWave === bossWave && Game.boss === null && Game.exit === null) {
             this.spawnBoss();
         }
@@ -104,10 +101,7 @@ const WaveSystem = {
         const diff = (Game.difficulty || (typeof CONFIG !== 'undefined' && CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.EASY) || {});
         const mult = diff.spawnIntervalMultiplier || 1;
         const rateCfg = (typeof CONFIG !== 'undefined' && CONFIG.WAVES && CONFIG.WAVES.ENEMY_SPAWN_RATE) ? CONFIG.WAVES.ENEMY_SPAWN_RATE : { INITIAL: 2000, DECREASE_PER_WAVE: 100, MINIMUM: 300 };
-        const initial = typeof rateCfg.INITIAL === 'number' ? rateCfg.INITIAL : 2000;
-        const dec = typeof rateCfg.DECREASE_PER_WAVE === 'number' ? rateCfg.DECREASE_PER_WAVE : 100;
-        const min = typeof rateCfg.MINIMUM === 'number' ? rateCfg.MINIMUM : 300;
-        this.enemySpawnRate = Math.max(min, (initial - (this.currentWave - 1) * dec) * mult);
+        this.enemySpawnRate = WaveRules.computeSpawnInterval(this.currentWave, rateCfg, mult);
 
         // 更新UI
         UI.updateWaveInfo(this.currentWave);
@@ -142,60 +136,25 @@ const WaveSystem = {
         }
 
         // 獲取可用的敵人類型
-        const enemyTypes = (CONFIG.WAVES.ENEMY_TYPES || []).filter(entry => entry && entry.WAVE <= this.currentWave);
-        const availableTypes = enemyTypes.map(entry => entry.TYPE).filter(Boolean);
+        const mapId = (Game.selectedMap && Game.selectedMap.id) || '';
+        const availableTypes = WaveRules.availableEnemyTypes(CONFIG.WAVES.ENEMY_TYPES, this.currentWave);
 
         if (availableTypes.length === 0) {
             return;
         }
 
-        // 計算本次生成數量隨波次增加並套用難度倍率
-        // 調整：取消「第5波後的額外生成加成」，讓所有地圖行為與花園一致（永遠使用前期加成）
-        const sc = CONFIG.WAVES.SPAWN_COUNT || {};
-        const base = sc.INITIAL ?? 3;
-        const earlyInc = sc.INCREASE_PER_WAVE ?? 0.9;
-        const earlyMax = sc.MAXIMUM ?? 12;
-        const inc = earlyInc;
-        const max = earlyMax;
-        const countBase = Math.min(Math.floor(base + (this.currentWave - 1) * inc), max);
         const diff = (Game.difficulty || (CONFIG.DIFFICULTY && CONFIG.DIFFICULTY.EASY) || {});
-        const countMult = diff.spawnCountMultiplier || 1;
-        const count = Math.max(1, Math.floor(countBase * countMult));
+        const count = WaveSpawn.computeSpawnCount(
+            this.currentWave,
+            CONFIG.WAVES.SPAWN_COUNT || {},
+            diff.spawnCountMultiplier
+        );
 
         for (let i = 0; i < count; i++) {
             if (Game.enemies.length >= effectiveMax) break;
             // 隨機選擇敵人類型
             let enemyType = Utils.randomChoice(availableTypes);
-            // 第二張地圖（forest）將普通敵人替換為 *_2 變體（基礎數值相同但初始HP+10/ATK+5）
-            if (Game.selectedMap && Game.selectedMap.id === 'forest') {
-                if (enemyType === 'ZOMBIE') enemyType = 'ZOMBIE2';
-                else if (enemyType === 'SKELETON') enemyType = 'SKELETON2';
-                else if (enemyType === 'GHOST') enemyType = 'GHOST2';
-            }
-            // 第三張地圖（desert）將普通敵人替換為 *_3 變體（相對 *_2 再提升）
-            else if (Game.selectedMap && Game.selectedMap.id === 'desert') {
-                if (enemyType === 'ZOMBIE') enemyType = 'ZOMBIE3';
-                else if (enemyType === 'SKELETON') enemyType = 'SKELETON3';
-                else if (enemyType === 'GHOST') enemyType = 'GHOST3';
-            }
-            // 第四張地圖（garden）將普通敵人替換為花精靈系列（基礎值與第3張地圖相同）
-            else if (Game.selectedMap && Game.selectedMap.id === 'garden') {
-                if (enemyType === 'ZOMBIE') enemyType = 'ELF';
-                else if (enemyType === 'SKELETON') enemyType = 'ELF2';
-                else if (enemyType === 'GHOST') enemyType = 'ELF3';
-            }
-            // 第五張地圖（intersection）將普通敵人替換為人類系列
-            else if (Game.selectedMap && Game.selectedMap.id === 'intersection') {
-                if (enemyType === 'ZOMBIE') enemyType = 'HUMAN1';
-                else if (enemyType === 'SKELETON') enemyType = 'HUMAN2';
-                else if (enemyType === 'GHOST') enemyType = 'HUMAN3';
-            }
-            // 第六張地圖（branch）將普通敵人替換為未知系列
-            else if (Game.selectedMap && Game.selectedMap.id === 'branch') {
-                if (enemyType === 'ZOMBIE') enemyType = 'UNKNOWN1';
-                else if (enemyType === 'SKELETON') enemyType = 'UNKNOWN2';
-                else if (enemyType === 'GHOST') enemyType = 'UNKNOWN3';
-            }
+            enemyType = WaveRules.remapEnemyType(mapId, enemyType);
             // 在世界邊緣生成敵人（加入內縮與分散避免重疊）
             const worldW = (Game.worldWidth || Game.canvas.width);
             const worldH = (Game.worldHeight || Game.canvas.height);
@@ -291,17 +250,15 @@ const WaveSystem = {
         this.lastMiniBossWave = this.currentWave;
         this.lastMiniBossTime = Date.now();
         // 第二、第三、第四、第五、第六張地圖（forest、desert、garden、intersection、branch）：每波生成 2 隻小BOSS；其餘維持 1 隻。
-        const count = (Game.selectedMap && (Game.selectedMap.id === 'forest' || Game.selectedMap.id === 'desert' || Game.selectedMap.id === 'garden' || Game.selectedMap.id === 'intersection' || Game.selectedMap.id === 'branch')) ? 2 : 1;
+        const mapId = (Game.selectedMap && Game.selectedMap.id) || '';
+        const count = WaveRules.miniBossCountForMap(mapId);
         for (let idx = 0; idx < count; idx++) {
             // 在世界邊緣生成小BOSS（加入內縮與分散避免重疊）
             const worldW = (Game.worldWidth || Game.canvas.width);
             const worldH = (Game.worldHeight || Game.canvas.height);
 
             // 根據地圖選擇小BOSS類型（在計算內縮距離之前確定）
-            let miniBossType = 'MINI_BOSS';
-            if (Game.selectedMap && Game.selectedMap.id === 'garden') miniBossType = 'ELF_MINI_BOSS';
-            else if (Game.selectedMap && Game.selectedMap.id === 'intersection') miniBossType = 'HUMAN_MINI_BOSS';
-            else if (Game.selectedMap && Game.selectedMap.id === 'branch') miniBossType = 'UNKNOWN_MINI_BOSS';
+            const miniBossType = WaveRules.miniBossTypeForMap(mapId);
             const rad = (CONFIG.ENEMIES[miniBossType] && CONFIG.ENEMIES[miniBossType].COLLISION_RADIUS) ? CONFIG.ENEMIES[miniBossType].COLLISION_RADIUS : 32;
 
             // 針對花園地圖花護衛增加內縮距離，避免一開始就卡在邊界
@@ -406,10 +363,7 @@ const WaveSystem = {
             return; // 跳过生成，避免错误
         }
         // 根據地圖選擇大BOSS類型
-        let bossType = 'BOSS';
-        if (Game.selectedMap && Game.selectedMap.id === 'garden') bossType = 'ELF_BOSS';
-        else if (Game.selectedMap && Game.selectedMap.id === 'intersection') bossType = 'HUMAN_BOSS';
-        else if (Game.selectedMap && Game.selectedMap.id === 'branch') bossType = 'UNKNOWN_BOSS';
+        const bossType = WaveRules.bossTypeForMap((Game.selectedMap && Game.selectedMap.id) || '');
         // 在世界中央生成大BOSS
         const boss = new Enemy(
             (Game.worldWidth || CONFIG.CANVAS_WIDTH) / 2,

@@ -17,6 +17,14 @@ function safePlayStage(ctx) {
 (function(){
   const MODE_ID = 'stage';
 
+  function getStageOverlay() {
+    if (typeof window === 'undefined') return null;
+    if (!window.StageGifOverlay && typeof window.createGifOverlay === 'function') {
+      window.StageGifOverlay = window.createGifOverlay('stage-gif-overlay-');
+    }
+    return window.StageGifOverlay || null;
+  }
+
   const StageMode = {
     id: MODE_ID,
     getManifest(){
@@ -35,8 +43,9 @@ function safePlayStage(ctx) {
       const ctx2d = canvas ? canvas.getContext('2d') : null;
       if (!canvas || !ctx2d) return;
       try { ctx2d.imageSmoothingEnabled = false; } catch(_){}
-      // 進入闖關模式前先清除其他模式的 GIF 圖層殘留，避免污染
-      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.clearAll === 'function') window.GifOverlay.clearAll(); } catch(_){}
+      // 藏生存層，不拆節點。闖關畫在 StageGifOverlay。
+      try { if (typeof window !== 'undefined' && window.GifOverlay && typeof window.GifOverlay.hideAll === 'function') window.GifOverlay.hideAll(); } catch(_){}
+      try { const ov = getStageOverlay(); if (ov && typeof ov.clearAll === 'function') ov.clearAll(); } catch(_){}
       try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.ChallengeGifOverlay !== 'undefined' && typeof window.ChallengeGifOverlay.clearAll === 'function') window.ChallengeGifOverlay.clearAll(); } catch(_){}
 
@@ -101,6 +110,8 @@ function safePlayStage(ctx) {
           key = 'player6';
         } else if (sc && sc.id === 'elondier') {
           key = 'player7';
+        } else if (sc && sc.id === 'baibaihong') {
+          key = 'player8';
         } else if (sc && sc.id === 'cygnus') {
           key = 'player9';
         }
@@ -188,7 +199,7 @@ function safePlayStage(ctx) {
         // 特殊處理：player5.png 需要保持 500:467 的寬高比
         // 特殊處理：player3.gif 需要保持原比例（與冒險模式一致）
         try {
-          if (typeof window.GifOverlay !== 'undefined') {
+          if (getStageOverlay()) {
             const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
             if (sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4')) {
               // player4.png 保持寬高比
@@ -199,9 +210,9 @@ function safePlayStage(ctx) {
                 const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
                 const renderHeight = actorSize;
                 const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+                getStageOverlay().showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
               } else {
-                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
+                getStageOverlay().showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
               }
             } else if (sc && (sc.id === 'rabi' || sc.spriteImageKey === 'player5')) {
               // player5.png 保持寬高比 (500:467)
@@ -212,9 +223,9 @@ function safePlayStage(ctx) {
                 const aspectRatio = imgWidth / imgHeight; // 500/467 ≈ 1.071
                 const renderHeight = actorSize;
                 const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+                getStageOverlay().showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
               } else {
-                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
+                getStageOverlay().showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
               }
             } else if (sc && (sc.id === 'pineapple' || sc.spriteImageKey === 'player6')) {
               // player6.gif 保持寬高比 (242:320)
@@ -225,9 +236,9 @@ function safePlayStage(ctx) {
                 const aspectRatio = imgWidth / imgHeight; // 242/320 ≈ 0.756
                 const renderHeight = actorSize;
                 const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+                getStageOverlay().showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
               } else {
-                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
+                getStageOverlay().showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
               }
             } else if (sc && (sc.id === 'lilylinglan' || sc.spriteImageKey === 'player3')) {
               // player3.gif 保持原比例（1:1），使用模式原有的尺寸計算
@@ -239,9 +250,9 @@ function safePlayStage(ctx) {
                 // 使用模式原有的尺寸計算方式，保持原比例
                 const renderHeight = actorSize;
                 const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+                getStageOverlay().showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
               } else {
-                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
+                getStageOverlay().showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
               }
             } else if (sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7')) {
               const imgKey = keys.right ? 'player7-1' : 'player7';
@@ -253,10 +264,10 @@ function safePlayStage(ctx) {
                 const renderHeight = actorSize;
                 const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                 const src = (imgObj && imgObj.src) ? imgObj.src : actorSrc;
-                window.GifOverlay.showOrUpdate('stage-player', src, player.x, player.y, { width: renderWidth, height: renderHeight });
+                getStageOverlay().showOrUpdate('stage-player', src, player.x, player.y, { width: renderWidth, height: renderHeight });
               } else {
                 const fallbackSrc = keys.right ? 'assets/images/player7-1.png' : 'assets/images/player7.png';
-                window.GifOverlay.showOrUpdate('stage-player', fallbackSrc, player.x, player.y, actorSize);
+                getStageOverlay().showOrUpdate('stage-player', fallbackSrc, player.x, player.y, actorSize);
               }
             } else if (sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8')) {
               const imgKey = keys.right ? 'player8-1' : 'player8';
@@ -269,10 +280,10 @@ function safePlayStage(ctx) {
                 const renderHeight = Math.max(1, Math.floor(actorSize * (imgHeight / refHeight)));
                 const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                 const src = (imgObj && imgObj.src) ? imgObj.src : actorSrc;
-                window.GifOverlay.showOrUpdate('stage-player', src, player.x, player.y, { width: renderWidth, height: renderHeight });
+                getStageOverlay().showOrUpdate('stage-player', src, player.x, player.y, { width: renderWidth, height: renderHeight });
               } else {
                 const fallbackSrc = keys.right ? 'assets/images/player8-1.png' : 'assets/images/player8.png';
-                window.GifOverlay.showOrUpdate('stage-player', fallbackSrc, player.x, player.y, actorSize);
+                getStageOverlay().showOrUpdate('stage-player', fallbackSrc, player.x, player.y, actorSize);
               }
             } else if (sc && (sc.id === 'cygnus' || sc.spriteImageKey === 'player9')) {
               const imgObj = (Game.images && Game.images['player9']) ? Game.images['player9'] : null;
@@ -283,9 +294,9 @@ function safePlayStage(ctx) {
                 const renderHeight = actorSize;
                 const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                 const src = (imgObj && imgObj.src) ? imgObj.src : actorSrc;
-                window.GifOverlay.showOrUpdate('stage-player', src, player.x, player.y, { width: renderWidth, height: renderHeight });
+                getStageOverlay().showOrUpdate('stage-player', src, player.x, player.y, { width: renderWidth, height: renderHeight });
               } else {
-                window.GifOverlay.showOrUpdate('stage-player', 'assets/images/player9.png', player.x, player.y, actorSize);
+                getStageOverlay().showOrUpdate('stage-player', 'assets/images/player9.png', player.x, player.y, actorSize);
               }
             } else if (sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2')) {
               const imgKey = keys.right ? 'player2-1' : 'player2';
@@ -297,10 +308,10 @@ function safePlayStage(ctx) {
                 const renderHeight = actorSize;
                 const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
                 const src = (imgObj && imgObj.src) ? imgObj.src : actorSrc;
-                window.GifOverlay.showOrUpdate('stage-player', src, player.x, player.y, { width: renderWidth, height: renderHeight });
+                getStageOverlay().showOrUpdate('stage-player', src, player.x, player.y, { width: renderWidth, height: renderHeight });
               } else {
                 const fallbackSrc = keys.right ? 'assets/images/player2-1.png' : 'assets/images/player2.png';
-                window.GifOverlay.showOrUpdate('stage-player', fallbackSrc, player.x, player.y, actorSize);
+                getStageOverlay().showOrUpdate('stage-player', fallbackSrc, player.x, player.y, actorSize);
               }
             } else if ((!sc || sc.id === 'margaret' || sc.spriteImageKey === 'player') || /player\.gif$/i.test(actorSrc)) {
               // player.gif 保持原比例（1:1），使用模式原有的尺寸計算
@@ -312,12 +323,12 @@ function safePlayStage(ctx) {
                 // 使用模式原有的尺寸計算方式，保持原比例
                 const renderHeight = actorSize;
                 const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
+                getStageOverlay().showOrUpdate('stage-player', actorSrc, player.x, player.y, { width: renderWidth, height: renderHeight });
               } else {
-                window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
+                getStageOverlay().showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
               }
             } else {
-              window.GifOverlay.showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
+              getStageOverlay().showOrUpdate('stage-player', actorSrc, player.x, player.y, actorSize);
             }
           }
         } catch(_){}
@@ -367,7 +378,7 @@ function safePlayStage(ctx) {
     },
     exit(ctx){
       try { if (ctx && typeof ctx.dispose === 'function') ctx.dispose(); } catch(_){}
-      try { if (typeof window.GifOverlay !== 'undefined') window.GifOverlay.clearAll(); } catch(_){}
+      try { const ov = getStageOverlay(); if (ov && typeof ov.clearAll === 'function') ov.clearAll(); } catch(_){}
       try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}
       try { if (typeof window.ChallengeGifOverlay !== 'undefined' && typeof window.ChallengeGifOverlay.clearAll === 'function') window.ChallengeGifOverlay.clearAll(); } catch(_){}
       try { const gameUI = document.getElementById('game-ui'); if (gameUI) gameUI.style.display = ''; } catch(_){}
