@@ -81,6 +81,68 @@ const Game = {
         this._enemyGrid = grid;
         this._enemyGridBuiltAt = Date.now();
     },
+    // 互斥只查附近格子：含正在倒下的怪。武器用的格子會跳過沒血的，互斥不能跳過。
+    rebuildRepulsionGrid: function () {
+        const size = this.spatialCellSize || 64;
+        const enemies = Array.isArray(this.enemies) ? this.enemies : [];
+        const grid = new Map();
+        for (const e of enemies) {
+            if (!e || e.markedForDeletion || typeof e.x !== 'number' || typeof e.y !== 'number') continue;
+            const key = (Math.floor(e.x / size)) + '|' + (Math.floor(e.y / size));
+            let list = grid.get(key);
+            if (!list) { list = []; grid.set(key, list); }
+            list.push(e);
+        }
+        this._repulsionGrid = grid;
+    },
+    _rebindRepulsionGrid: function (enemy, oldX, oldY) {
+        const grid = this._repulsionGrid;
+        if (!grid || typeof grid.get !== 'function' || !enemy) return;
+        const size = this.spatialCellSize || 64;
+        const ogi = Math.floor(oldX / size);
+        const ogj = Math.floor(oldY / size);
+        const ngi = Math.floor(enemy.x / size);
+        const ngj = Math.floor(enemy.y / size);
+        if (ogi === ngi && ogj === ngj) return;
+        const oldList = grid.get(ogi + '|' + ogj);
+        if (oldList) {
+            const idx = oldList.indexOf(enemy);
+            if (idx >= 0) oldList.splice(idx, 1);
+        }
+        const newKey = ngi + '|' + ngj;
+        let list = grid.get(newKey);
+        if (!list) { list = []; grid.set(newKey, list); }
+        list.push(enemy);
+    },
+    _unbindRepulsionGrid: function (enemy, x, y) {
+        const grid = this._repulsionGrid;
+        if (!grid || typeof grid.get !== 'function' || !enemy) return;
+        const size = this.spatialCellSize || 64;
+        const list = grid.get((Math.floor(x / size)) + '|' + (Math.floor(y / size)));
+        if (!list) return;
+        const idx = list.indexOf(enemy);
+        if (idx >= 0) list.splice(idx, 1);
+    },
+    getRepulsionNeighbors: function (x, y, r) {
+        const grid = this._repulsionGrid;
+        const size = this.spatialCellSize || 64;
+        if (!grid || typeof grid.get !== 'function' || typeof x !== 'number' || typeof y !== 'number' || typeof r !== 'number') {
+            return this.enemies || [];
+        }
+        const res = [];
+        const minCx = ((x - r) / size) | 0;
+        const maxCx = ((x + r) / size) | 0;
+        const minCy = ((y - r) / size) | 0;
+        const maxCy = ((y + r) / size) | 0;
+        for (let cy = minCy; cy <= maxCy; cy++) {
+            for (let cx = minCx; cx <= maxCx; cx++) {
+                const bucket = grid.get(cx + '|' + cy);
+                if (!bucket) continue;
+                for (let i = 0; i < bucket.length; i++) res.push(bucket[i]);
+            }
+        }
+        return res;
+    },
     getEnemiesNearCircle: function (x, y, r) {
         const res = [];
         const grid = this._enemyGrid;
@@ -239,7 +301,13 @@ const Game = {
             try {
                 inSurvival = Utils.isSurvivalModeContext();
             } catch (_) { }
-            if (inSurvival) {
+            // 選單不畫被蓋住的畫面：畫布在隱藏的 game-screen 裡。場中暫停仍要畫。
+            let playfieldVisible = true;
+            try {
+                const playfield = document.getElementById('game-screen');
+                if (playfield) playfieldVisible = !playfield.classList.contains('hidden');
+            } catch (_) { }
+            if (inSurvival && playfieldVisible) {
                 this.draw();
             }
         } catch (e) {
@@ -384,7 +452,8 @@ const Game = {
         // 更新武器（第二次，保留歷史節奏）
         this._updateWeapons(deltaTime);
 
-        // 更新敵人
+        // 更新敵人。互斥格子先建好，怪移動後改掛到新格子，後來的怪才推得到剛剛走過的那隻。
+        this.rebuildRepulsionGrid();
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const enemy = this.enemies[i];
             // ✅ 修復：防止 enemy 為 null/undefined 或沒有 update 方法導致整個系統崩潰
@@ -392,10 +461,14 @@ const Game = {
                 this.enemies.splice(i, 1);
                 continue;
             }
+            const prevX = enemy.x;
+            const prevY = enemy.y;
             enemy.update(deltaTime);
+            if (enemy.x !== prevX || enemy.y !== prevY) this._rebindRepulsionGrid(enemy, prevX, prevY);
 
             // 移除標記為刪除的敵人
             if (enemy.markedForDeletion) {
+                this._unbindRepulsionGrid(enemy, enemy.x, enemy.y);
                 this.enemies.splice(i, 1);
 
                 // 如果是大BOSS，清除引用

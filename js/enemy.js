@@ -509,8 +509,11 @@
                 let repulsionY = 0;
                 let repulsionCount = 0;
 
-                // 只檢查附近的敵人（性能優化）
-                for (const otherEnemy of Game.enemies || []) {
+                // 互斥只查附近格子。距離和推力跟全場掃描同一套，格子沒建好就仍掃全場。
+                const nearby = (typeof Game.getRepulsionNeighbors === 'function')
+                    ? Game.getRepulsionNeighbors(this.x, this.y, maxCheckDistance)
+                    : (Game.enemies || []);
+                for (const otherEnemy of nearby) {
                     if (otherEnemy === this || otherEnemy.markedForDeletion) continue;
 
                     const dx = this.x - otherEnemy.x;
