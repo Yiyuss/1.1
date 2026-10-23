@@ -1211,16 +1211,21 @@ const Game = {
 
         // （移至前景）爆炸粒子原本在敵人之前繪製，改為敵人之上
 
-        // 繪製敵人
+        // 繪製敵人。人在鏡頭外就不畫；移動和攻擊仍在 update。外擴蓋過最大首領的底圖。
+        const enemyView = this._viewWorldRect();
         for (const enemy of this.enemies) {
-            // ⚠️ 修复：添加 null 检查，防止在清理过程中尝试绘制已被清理的敌人
-            if (enemy && typeof enemy.draw === 'function') {
-                try {
-                    enemy.draw(this.ctx);
-                } catch (e) {
-                    // ⚠️ 修复：如果敌人已被清理或 draw 方法失败，跳过绘制
-                    console.warn('[Game] drawEntities: enemy.draw 失败:', e);
+            if (!enemy || typeof enemy.draw !== 'function') continue;
+            if (typeof enemy.x === 'number' && typeof enemy.y === 'number') {
+                const reach = Math.max(48, (enemy.width || 0) * 0.6, (enemy.height || 0) * 0.6) + 16;
+                if (enemy.x < enemyView.x - reach || enemy.y < enemyView.y - reach ||
+                    enemy.x > enemyView.x + enemyView.w + reach || enemy.y > enemyView.y + enemyView.h + reach) {
+                    continue;
                 }
+            }
+            try {
+                enemy.draw(this.ctx);
+            } catch (e) {
+                console.warn('[Game] drawEntities: enemy.draw 失败:', e);
             }
         }
 
@@ -1487,6 +1492,22 @@ const Game = {
     },
 
     // 繪製背景
+    // 這一幀鏡頭實際看到的世界範圍（含震動）。畫圖用，不改鏡頭跟隨。
+    _viewWorldRect: function () {
+        let x = (this.camera && this.camera.x) || 0;
+        let y = (this.camera && this.camera.y) || 0;
+        if (this.cameraShake && this.cameraShake.active) {
+            x += this.cameraShake.offsetX || 0;
+            y += this.cameraShake.offsetY || 0;
+        }
+        return {
+            x: x,
+            y: y,
+            w: (this.canvas && this.canvas.width) || 1280,
+            h: (this.canvas && this.canvas.height) || 720
+        };
+    },
+
     drawBackground: function () {
         // 根據選定地圖的背景鍵選擇對應圖片
         const bgKey = (this.backgroundKey) || (this.selectedMap && this.selectedMap.backgroundKey) || 'background';
@@ -1494,12 +1515,35 @@ const Game = {
         if (imgObj && imgObj.complete) {
             // 第4張地圖（花園）、第5張地圖（路口）、第6張地圖（支部）：直接使用3840x2160圖片，不使用九宮格
             if (this.selectedMap && (this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection' || this.selectedMap.id === 'branch')) {
-                // 直接在世界座標(0,0)繪製完整圖片（座標系已平移）
-                this.ctx.drawImage(imgObj, 0, 0);
+                const imgW = imgObj.naturalWidth || imgObj.width || 0;
+                const imgH = imgObj.naturalHeight || imgObj.height || 0;
+                const view = this._viewWorldRect();
+                if (!(imgW > 0) || !(imgH > 0)) {
+                    this.ctx.drawImage(imgObj, 0, 0);
+                } else {
+                    // 只貼鏡頭那一塊。多 2px 給縮放取樣，邊上的像素跟整張貼上相同。
+                    const pad = 2;
+                    let sx = Math.floor(view.x) - pad;
+                    let sy = Math.floor(view.y) - pad;
+                    let ex = Math.ceil(view.x + view.w) + pad;
+                    let ey = Math.ceil(view.y + view.h) + pad;
+                    if (sx < 0) sx = 0;
+                    if (sy < 0) sy = 0;
+                    if (ex > imgW) ex = imgW;
+                    if (ey > imgH) ey = imgH;
+                    const sw = ex - sx;
+                    const sh = ey - sy;
+                    if (sw > 0 && sh > 0) {
+                        this.ctx.drawImage(imgObj, sx, sy, sw, sh, sx, sy, sw, sh);
+                    }
+                }
             } else {
                 // 其他地圖：平鋪背景圖片，覆蓋目前可視區域（已平移座標）
-                const pattern = this.ctx.createPattern(imgObj, 'repeat');
-                this.ctx.fillStyle = pattern || '#111';
+                if (this._bgPatternSource !== imgObj) {
+                    this._bgPattern = this.ctx.createPattern(imgObj, 'repeat');
+                    this._bgPatternSource = imgObj;
+                }
+                this.ctx.fillStyle = this._bgPattern || '#111';
                 // 與既有設計保持一致：使用世界座標 camera.x/camera.y（座標系已平移）
                 this.ctx.fillRect(this.camera.x, this.camera.y, this.canvas.width, this.canvas.height);
             }
