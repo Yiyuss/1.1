@@ -46,11 +46,11 @@
       .td-build-card.disabled { filter:grayscale(0.7); opacity:0.5; cursor:default; }
       .td-build-icon-wrap { width:72px; height:72px; border-radius:14px; margin-right:18px; padding:4px; box-sizing:border-box; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.25); }
       .td-build-icon-wrap img { width:100%; height:100%; object-fit:cover; border-radius:8px; image-rendering:pixelated; }
-      .td-build-main { flex:1; display:flex; flex-direction:column; justify-content:center; }
-      .td-build-title { font-size:22px; font-weight:700; color:#FFFFFF; margin-bottom:4px; text-shadow:0 0 3px rgba(0,0,0,0.6); }
-      .td-build-desc { font-size:14px; color:rgba(180,200,220,0.9); }
-      .td-build-price { position:absolute; top:10px; right:14px; padding:4px 10px; border-radius:6px; font-size:14px; font-weight:700; color:#fff; background:linear-gradient(180deg,rgba(80,80,80,0.55),rgba(60,60,60,0.5)); box-shadow:0 2px 4px rgba(0,0,0,0.6); text-align:center; line-height:1.15; }
-      .td-build-price-unit { display:block; font-size:11px; font-weight:600; }
+      .td-build-main { flex:1; min-width:0; display:flex; flex-direction:column; justify-content:center; }
+      .td-build-title { font-size:20px; font-weight:700; color:#FFFFFF; margin-bottom:2px; text-shadow:0 0 3px rgba(0,0,0,0.6); white-space:nowrap; }
+      .td-build-desc { font-size:13px; color:rgba(180,200,220,0.9); white-space:nowrap; }
+      .td-build-price { position:static; display:inline-flex; align-items:center; gap:4px; align-self:flex-start; margin-top:6px; padding:2px 8px; border-radius:6px; font-size:13px; font-weight:700; color:#fff; background:linear-gradient(180deg,rgba(80,80,80,0.55),rgba(60,60,60,0.5)); box-shadow:0 2px 4px rgba(0,0,0,0.6); line-height:1.2; }
+      .td-build-price-unit { display:inline; font-size:12px; font-weight:600; }
       .td-build-card.can-afford .td-build-price { background:linear-gradient(180deg,rgba(46,204,113,0.9),rgba(39,174,96,0.85)); }
       .td-build-card.disabled .td-build-price { background:linear-gradient(180deg,rgba(90,90,90,0.7),rgba(60,60,60,0.6)); }
 
@@ -149,9 +149,9 @@
       const cfg = this.game.config.TOWERS || {};
       const resourceName = (this.game.config.RESOURCES && this.game.config.RESOURCES.RESOURCE_NAME) || '消波塊';
       const items = [
-        { id:'buildArrow', type:'ARROW', iconKey:'sniper2', title:cfg.ARROW?.name || '狙擊塔', desc:`高射速單體輸出，花費${resourceName}` },
-        { id:'buildMagic', type:'MAGIC', iconKey:'element2', title:cfg.MAGIC?.name || '元素塔', desc:`元素爆炸範圍，花費${resourceName}` },
-        { id:'buildSlow',  type:'SLOW',  iconKey:'ICE2',    title:cfg.SLOW?.name  || '冰凍塔', desc:`範圍緩速控制，花費${resourceName}` }
+        { id:'buildArrow', type:'ARROW', iconKey:'sniper2', title:cfg.ARROW?.name || '狙擊塔', desc:'高射速單體輸出' },
+        { id:'buildMagic', type:'MAGIC', iconKey:'element2', title:cfg.MAGIC?.name || '元素塔', desc:'元素爆炸範圍' },
+        { id:'buildSlow',  type:'SLOW',  iconKey:'ICE2',    title:cfg.SLOW?.name  || '冰凍塔', desc:'範圍緩速控制' }
       ];
       this.buildCards = {};
       items.forEach(it => {
@@ -165,8 +165,8 @@
           <div class="td-build-main">
             <div class="td-build-title">${it.title}</div>
             <div class="td-build-desc">${it.desc}</div>
+            <div class="td-build-price"><span data-role="price">0</span><span class="td-build-price-unit">${resourceName}</span></div>
           </div>
-          <div class="td-build-price"><span data-role="price">0</span><span class="td-build-price-unit">${resourceName}</span></div>
         `;
         card.addEventListener('click', () => {
           if (!this.game || this.game.isPaused || this.game.isGameOver || this.game.isGameWon) return;
