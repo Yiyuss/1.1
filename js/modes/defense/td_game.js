@@ -135,16 +135,12 @@ class TDGame {
         }
     }
     
-    // 更新相機
-    updateCamera(deltaTime) {
-        // 平滑相機移動
-        const lerpFactor = 0.1;
-        this.camera.x += (this.camera.targetX - this.camera.x) * lerpFactor;
-        this.camera.y += (this.camera.targetY - this.camera.y) * lerpFactor;
-        
-        // 限制相機邊界
-        this.camera.x = Math.max(0, Math.min(this.config.MAP.WIDTH - this.canvas.width, this.camera.x));
-        this.camera.y = Math.max(0, Math.min(this.config.MAP.HEIGHT - this.canvas.height, this.camera.y));
+    // 更新相機。人物停，鏡頭就停。不慢慢追，避免停下來地圖還在一像素一像素挪。
+    updateCamera() {
+        const maxX = Math.max(0, this.config.MAP.WIDTH - this.canvas.width);
+        const maxY = Math.max(0, this.config.MAP.HEIGHT - this.canvas.height);
+        this.camera.x = Math.max(0, Math.min(maxX, this.camera.targetX));
+        this.camera.y = Math.max(0, Math.min(maxY, this.camera.targetY));
     }
     
     // 初始化遊戲
@@ -237,18 +233,16 @@ class TDGame {
         
         this.gameTime += deltaTime;
         
-        // 更新相機
-        this.updateCamera(deltaTime);
-        
         // 更新遊戲邏輯
         this.updateWave(deltaTime);
         
         // 更新玩家
         this.player.update(deltaTime, this.currentTime, this.enemyManager, this.towerManager, this.gameState);
         
-        // 更新相機目標位置（跟隨玩家）
+        // 人物位置定了再對鏡頭，同一幀鎖住
         this.camera.targetX = this.player.x - this.canvas.width / 2;
         this.camera.targetY = this.player.y - this.canvas.height / 2;
+        this.updateCamera();
         
         // 更新敵人
         this.enemyManager.update(deltaTime, this.currentTime);
