@@ -1513,10 +1513,10 @@ const Game = {
         const bgKey = (this.backgroundKey) || (this.selectedMap && this.selectedMap.backgroundKey) || 'background';
         const imgObj = (this.images || Game.images || {})[bgKey];
         if (imgObj && imgObj.complete) {
-            // 第4張地圖（花園）、第5張地圖（路口）、第6張地圖（支部）：直接使用3840x2160圖片，不使用九宮格
-            if (this.selectedMap && (this.selectedMap.id === 'garden' || this.selectedMap.id === 'intersection' || this.selectedMap.id === 'branch')) {
-                const imgW = imgObj.naturalWidth || imgObj.width || 0;
-                const imgH = imgObj.naturalHeight || imgObj.height || 0;
+            // 一邊超過 1920 的整張圖只貼鏡頭那一塊。1280×720 的小圖仍平鋪。新的大地圖不用再寫 id。
+            const imgW = imgObj.naturalWidth || imgObj.width || 0;
+            const imgH = imgObj.naturalHeight || imgObj.height || 0;
+            if (imgW > 1920 || imgH > 1200) {
                 const view = this._viewWorldRect();
                 if (!(imgW > 0) || !(imgH > 0)) {
                     this.ctx.drawImage(imgObj, 0, 0);
@@ -3184,6 +3184,13 @@ const Game = {
             this.worldHeight = CONFIG.CANVAS_HEIGHT * (CONFIG.WORLD?.GRID_Y || 3);
             console.log(`[Game] 设置世界大小 (九宮格模式): ${this.worldWidth}x${this.worldHeight}`);
         }
+
+        // 大地圖只留這一張。另外兩張放掉。圖還沒好就不放，避免開場沒底圖。
+        try {
+            if (typeof MapAssets !== 'undefined' && typeof MapAssets.retainOnlyPlayingBackground === 'function') {
+                MapAssets.retainOnlyPlayingBackground((this.selectedMap && this.selectedMap.id) || '');
+            }
+        } catch (_) { }
 
         // 更新玩家位置（因为世界大小可能改变了）
         if (this.player) {
