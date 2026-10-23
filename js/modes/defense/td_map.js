@@ -400,12 +400,7 @@ class TDMap {
                 }
                 
                 // 不能在主堡附近建造（保留一些空間）
-                const distanceToBase = Math.sqrt(
-                    Math.pow(cell.centerX - this.basePosition.x, 2) + 
-                    Math.pow(cell.centerY - this.basePosition.y, 2)
-                );
-                
-                if (distanceToBase < this.config.BASE.SIZE) {
+                if (TDDist.closerThan(cell.centerX, cell.centerY, this.basePosition.x, this.basePosition.y, this.config.BASE.SIZE)) {
                     cell.isBuildable = false;
                     continue;
                 }

@@ -9,7 +9,6 @@ let _selectedMapId = 'challenge-1';   // 記錄當前選擇的地圖ID
 function shouldPlayChallengeBGM(){
   try {
     if (Utils.getActiveModeId() !== 'challenge') return false;
-    if (typeof Game !== 'undefined' && Game.isGameOver) return false;
     if (typeof UI !== 'undefined' && UI.isScreenVisible) {
       if (UI.isScreenVisible('victory-screen') || UI.isScreenVisible('game-over-screen')) return false;
     }
@@ -431,7 +430,7 @@ function safePlayShura(ctx) {
             // 分頁回可見：僅在未開啟挑戰菜單、未處於勝利/失敗覆蓋層時恢復主迴圈
             const m = document.getElementById('challenge-menu');
             const isOpen = m && !m.classList.contains('hidden');
-            if (!isOpen && !Game.isGameOver) {
+            if (!isOpen) {
               try {
                 if (typeof UI !== 'undefined' && UI.isScreenVisible) {
                   if (!UI.isScreenVisible('victory-screen') && !UI.isScreenVisible('game-over-screen')) {
@@ -467,7 +466,7 @@ function safePlayShura(ctx) {
         try {
           const m = document.getElementById('challenge-menu');
           const isOpen = m && !m.classList.contains('hidden');
-          if (!isOpen && !Game.isGameOver) {
+          if (!isOpen) {
             try {
               if (typeof UI !== 'undefined' && UI.isScreenVisible) {
                 if (!UI.isScreenVisible('victory-screen') && !UI.isScreenVisible('game-over-screen')) {
@@ -806,7 +805,7 @@ function safePlayShura(ctx) {
             // 頁面可見但被暫停：檢查是否應該恢復
             const m = document.getElementById('challenge-menu');
             const isOpen = m && !m.classList.contains('hidden');
-            if (!isOpen && (!Game || !Game.isGameOver)) {
+            if (!isOpen) {
               try {
                 if (typeof UI !== 'undefined' && UI.isScreenVisible) {
                   if (!UI.isScreenVisible('victory-screen') && !UI.isScreenVisible('game-over-screen')) {
@@ -1073,7 +1072,6 @@ function safePlayShura(ctx) {
               if (!p) {
                 try {
                   // 勝利/失敗期間或返回主選單時不恢復挑戰 BGM，避免重疊污染
-                  if (typeof Game !== 'undefined' && Game.isGameOver) return;
                   if (typeof UI !== 'undefined' && UI.isScreenVisible) {
                     if (UI.isScreenVisible('victory-screen') || UI.isScreenVisible('game-over-screen')) return;
                   }

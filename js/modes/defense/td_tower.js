@@ -156,14 +156,8 @@ class TDTower {
         }
         
         // 檢查目標是否仍在範圍內
-        if (this.target) {
-            const distance = Math.sqrt(
-                Math.pow(this.target.x - this.x, 2) + 
-                Math.pow(this.target.y - this.y, 2)
-            );
-            if (distance > this.range) {
-                this.target = null;
-            }
+        if (this.target && TDDist.beyond(this.target.x, this.target.y, this.x, this.y, this.range)) {
+            this.target = null;
         }
     }
     
@@ -457,10 +451,9 @@ class TDProjectile {
         if (this.targetEnemy && this.targetEnemy.isAlive) {
             const dx = this.targetEnemy.x - this.x;
             const dy = this.targetEnemy.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
             
             // 如果距離很近，直接朝目標移動（追蹤模式）
-            if (distance < 200) {
+            if (TDDist.closerThan(this.targetEnemy.x, this.targetEnemy.y, this.x, this.y, 200)) {
                 const turnRate = 0.15; // 轉向速率
                 const targetAngle = Math.atan2(dy, dx);
                 const currentAngle = Math.atan2(this.vy, this.vx);
@@ -500,14 +493,9 @@ class TDProjectile {
         for (const enemy of enemies) {
             if (!enemy.isAlive) continue;
             
-            const distance = Math.sqrt(
-                Math.pow(enemy.x - this.x, 2) + 
-                Math.pow(enemy.y - this.y, 2)
-            );
-            
             // 使用子彈碰撞半徑 + 敵人碰撞半徑，提高命中率
             const totalRadius = this.collisionRadius + enemy.getCollisionRadius();
-            if (distance <= totalRadius) {
+            if (TDDist.within(enemy.x, enemy.y, this.x, this.y, totalRadius)) {
                 return enemy;
             }
         }
@@ -575,13 +563,10 @@ class TDProjectile {
             allEnemies.forEach(enemy => {
                 if (!enemy.isAlive) return;
                 
-                const distance = Math.sqrt(
-                    Math.pow(enemy.x - this.x, 2) + 
-                    Math.pow(enemy.y - this.y, 2)
-                );
-                
-                if (distance <= this.splashRadius) {
-                    const damageMultiplier = Math.max(0.3, 1 - (distance / this.splashRadius));
+                const distSq = TDDist.sq(enemy.x, enemy.y, this.x, this.y);
+                if (!TDDist.withinSq(distSq, this.splashRadius)) return;
+                const distance = Math.sqrt(distSq);
+                const damageMultiplier = Math.max(0.3, 1 - (distance / this.splashRadius));
                     const base = this.damage * damageMultiplier;
                     const result = computeTalentScaledDamage(base, enemy);
                     const finalDamage = result.amount;
@@ -605,7 +590,6 @@ class TDProjectile {
                     if (this.slowEffect > 0) {
                         enemy.applySlow(this.slowEffect, this.slowDuration, currentTime);
                     }
-                }
             });
         } else {
             // 單體傷害（洛可洛斯特 - ARROW塔，或瑪格麗特 - SLOW塔）

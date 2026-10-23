@@ -62,8 +62,8 @@ class TDEnhancedUI {
     
     // 更新懸停的格子
     updateHoveredCell(x, y) {
-        const worldX = x + this.game.camera.x;
-        const worldY = y + this.game.camera.y;
+        const worldX = x + Math.round(this.game.camera.x);
+        const worldY = y + Math.round(this.game.camera.y);
         const cell = this.game.map.getNearestCell(worldX, worldY);
         this.hoveredCell = cell;
     }
@@ -554,10 +554,12 @@ class TDEnhancedUI {
         
         const cell = this.hoveredCell;
         const canBuild = this.game.map.canBuildAt(cell.centerX, cell.centerY);
-        const screenX = cell.x - this.game.camera.x;
-        const screenY = cell.y - this.game.camera.y;
-        const screenCenterX = cell.centerX - this.game.camera.x;
-        const screenCenterY = cell.centerY - this.game.camera.y;
+        const camX = Math.round(this.game.camera.x);
+        const camY = Math.round(this.game.camera.y);
+        const screenX = cell.x - camX;
+        const screenY = cell.y - camY;
+        const screenCenterX = cell.centerX - camX;
+        const screenCenterY = cell.centerY - camY;
         
         // 格子預覽
         this.ctx.strokeStyle = canBuild ? '#00FF00' : '#FF0000';

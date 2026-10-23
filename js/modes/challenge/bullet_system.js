@@ -305,7 +305,7 @@
         // 與玩家碰撞（圓形近似）：使用挑戰模式玩家回退值 CHALLENGE_PLAYER
         try {
           const p = global.CHALLENGE_PLAYER || null;
-          if (p && !global.Game?.isGameOver) {
+          if (p) {
             const dx = b.x - p.x;
             const dy = b.y - p.y;
             const pr = Math.max(6, (p.collisionRadius || 10));
@@ -464,7 +464,7 @@
         // 與玩家碰撞/擦彈
         try {
           const p = global.CHALLENGE_PLAYER || null;
-          if (p && !global.Game?.isGameOver){
+          if (p){
             const pr = Math.max(6, (p.collisionRadius || 10));
             const gb = Math.max(0, (p.grazeBuffer || 0));
             const d = segDist(p.x, p.y, L.sx, L.sy, L.ex, L.ey);

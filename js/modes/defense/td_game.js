@@ -389,9 +389,9 @@ class TDGame {
     handleClick(x, y) {
         if (this.isPaused || this.isGameOver || this.isGameWon) return;
         
-        // 將畫面座標轉換為世界座標（考慮相機偏移）
-        const worldX = x + this.camera.x;
-        const worldY = y + this.camera.y;
+        // 與畫布同一個整數鏡頭，點到的格子跟看到的一致
+        const worldX = x + Math.round(this.camera.x);
+        const worldY = y + Math.round(this.camera.y);
         
         // 如果在建造模式
         if (this.buildMode && this.selectedTowerType) {
@@ -408,11 +408,7 @@ class TDGame {
         }
         
         // 檢查是否點擊了主堡
-        const baseDistance = Math.sqrt(
-            Math.pow(worldX - this.config.BASE.X, 2) + 
-            Math.pow(worldY - this.config.BASE.Y, 2)
-        );
-        if (baseDistance <= this.config.BASE.SIZE / 2) {
+        if (TDDist.within(worldX, worldY, this.config.BASE.X, this.config.BASE.Y, this.config.BASE.SIZE / 2)) {
             // 點擊主堡顯示信息
             this.playSound('button_click2');
             this.selectedTower = null;
@@ -760,8 +756,8 @@ class TDGame {
                 const targetWidthElement = Math.floor(targetHeight * aspectElement);
 
                 this.towerManager.towers.forEach((tower, idx) => {
-                    const screenX = tower.x - this.camera.x;
-                    const screenY = tower.y - this.camera.y;
+                    const screenX = tower.x - camX;
+                    const screenY = tower.y - camY;
                     if (tower.type === 'SLOW') {
                         window.TDGifOverlay.showOrUpdate(
                             'slow-tower-' + idx,
@@ -793,8 +789,8 @@ class TDGame {
                 const isPlayer9 = sc && (sc.id === 'cygnus' || sc.spriteImageKey === 'player9');
                 
                 if ((playerIsGif || isPlayer4 || isPlayer5 || isPlayer2 || isPlayer6 || isPlayer7 || isPlayer8 || isPlayer9) && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
-                    const screenX = this.player.x - this.camera.x;
-                    const screenY = this.player.y - this.camera.y;
+                    const screenX = this.player.x - camX;
+                    const screenY = this.player.y - camY;
                     
                     let playerSrc = this.player.sprite.src;
                     let player2ImgObj = null;
@@ -998,10 +994,12 @@ class TDGame {
         const canBuild = this.map.canBuildAt(this.mousePos.x, this.mousePos.y);
         
         // 將世界坐標轉換為屏幕坐標
-        const screenX = mouseCell.x - this.camera.x;
-        const screenY = mouseCell.y - this.camera.y;
-        const screenCenterX = mouseCell.centerX - this.camera.x;
-        const screenCenterY = mouseCell.centerY - this.camera.y;
+        const camX = Math.round(this.camera.x);
+        const camY = Math.round(this.camera.y);
+        const screenX = mouseCell.x - camX;
+        const screenY = mouseCell.y - camY;
+        const screenCenterX = mouseCell.centerX - camX;
+        const screenCenterY = mouseCell.centerY - camY;
         
         this.ctx.save();
         this.ctx.strokeStyle = canBuild ? '#00FF00' : '#FF0000';
@@ -1339,8 +1337,8 @@ class TDGame {
     // 處理滑鼠移動
     handleMouseMove(x, y) {
         // 將屏幕坐標轉換為世界坐標
-        this.mousePos.x = x + this.camera.x;
-        this.mousePos.y = y + this.camera.y;
+        this.mousePos.x = x + Math.round(this.camera.x);
+        this.mousePos.y = y + Math.round(this.camera.y);
     }
     
     // 更新主堡自動化技能
@@ -1362,11 +1360,7 @@ class TDGame {
                 let hasEnemyInRange = false;
                 for (const enemy of enemies) {
                     if (!enemy || !enemy.isAlive || enemy.hp <= 0) continue;
-                    const dist = Math.sqrt(
-                        Math.pow(enemy.x - baseX, 2) + 
-                        Math.pow(enemy.y - baseY, 2)
-                    );
-                    if (dist <= skill.range) {
+                    if (TDDist.within(enemy.x, enemy.y, baseX, baseY, skill.range)) {
                         hasEnemyInRange = true;
                         break;
                     }
@@ -1471,17 +1465,17 @@ class TDGame {
             // 覆蓋_findNearestEnemy方法，使用防禦模式的敵人列表
             effect._findNearestEnemy = (x, y, excludeIds = new Set(), withinRadius = null) => {
                 let best = null;
-                let bestDist = Infinity;
+                let bestDistSq = Infinity;
                 for (const enemy of enemies) {
                     if (!enemy || !enemy.isAlive || enemy.hp <= 0) continue;
                     // 使用WeakMap獲取唯一ID
                     const enemyId = enemyIdMap.get(enemy) || enemy;
                     if (excludeIds.has(enemyId)) continue;
-                    const d = Math.sqrt(Math.pow(enemy.x - x, 2) + Math.pow(enemy.y - y, 2));
+                    const dSq = TDDist.sq(enemy.x, enemy.y, x, y);
                     // 如果指定了範圍，必須在範圍內
-                    if (withinRadius != null && d > withinRadius) continue;
-                    if (d < bestDist) { 
-                        bestDist = d; 
+                    if (withinRadius != null && TDDist.beyondSq(dSq, withinRadius)) continue;
+                    if (dSq < bestDistSq) { 
+                        bestDistSq = dSq; 
                         best = enemy; 
                     }
                 }
@@ -1498,11 +1492,7 @@ class TDGame {
                     return;
                 }
                 // 檢查第一個目標是否在範圍內（如果不在範圍內，不構建鏈）
-                const primaryDist = Math.sqrt(
-                    Math.pow(primary.x - basePlayer.x, 2) + 
-                    Math.pow(primary.y - basePlayer.y, 2)
-                );
-                if (primaryDist > skill.range) {
+                if (TDDist.beyond(primary.x, primary.y, basePlayer.x, basePlayer.y, skill.range)) {
                     effect.segments = [];
                     return;
                 }

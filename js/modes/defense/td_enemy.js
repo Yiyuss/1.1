@@ -138,11 +138,8 @@ class TDEnemy {
         // 檢查是否已經到達主堡（在移動過程中持續檢查，確保能正確觸發）
         const baseX = this.fullConfig.BASE.X;
         const baseY = this.fullConfig.BASE.Y;
-        const distanceToBase = Math.sqrt(
-            Math.pow(this.x - baseX, 2) + Math.pow(this.y - baseY, 2)
-        );
         // 如果距離主堡足夠近（小於主堡尺寸的一半），立即觸發到達終點
-        if (distanceToBase <= this.fullConfig.BASE.SIZE / 2) {
+        if (TDDist.within(this.x, this.y, baseX, baseY, this.fullConfig.BASE.SIZE / 2)) {
             this.reachEnd();
             return;
         }
@@ -181,13 +178,14 @@ class TDEnemy {
         
         const dx = targetX - this.x;
         const dy = targetY - this.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distSq = dx * dx + dy * dy;
         
-        if (distance < 5) {
+        if (distSq < 25) {
             // 到達當前路徑點，移動到下一個
             this.pathIndex++;
         } else {
-            // 向目標移動
+            // 向目標移動。方向仍用實際長度，速度不變。
+            const distance = Math.sqrt(distSq);
             const moveSpeed = this.speed * this.slowEffect;
             const moveDistance = moveSpeed * (deltaTime / 1000);
             
@@ -535,10 +533,7 @@ class TDEnemy {
     
     // 檢查是否與某點碰撞
     isCollidingWith(x, y, radius = 0) {
-        const distance = Math.sqrt(
-            Math.pow(this.x - x, 2) + Math.pow(this.y - y, 2)
-        );
-        return distance <= (this.getCollisionRadius() + radius);
+        return TDDist.within(this.x, this.y, x, y, this.getCollisionRadius() + radius);
     }
 }
 
@@ -761,27 +756,19 @@ class TDEnemyManager {
     
     // 獲取範圍內的敵人
     getEnemiesInRange(x, y, range) {
-        return this.enemies.filter(enemy => {
-            const distance = Math.sqrt(
-                Math.pow(enemy.x - x, 2) + Math.pow(enemy.y - y, 2)
-            );
-            return distance <= range;
-        });
+        return this.enemies.filter(enemy => TDDist.within(enemy.x, enemy.y, x, y, range));
     }
     
     // 獲取最近的敵人
     getNearestEnemy(x, y, range = Infinity) {
         let nearest = null;
-        let nearestDistance = range;
+        let nearestDistSq = TDDist.limitSq(range);
         
         this.enemies.forEach(enemy => {
-            const distance = Math.sqrt(
-                Math.pow(enemy.x - x, 2) + Math.pow(enemy.y - y, 2)
-            );
-            
-            if (distance < nearestDistance) {
+            const distSq = TDDist.sq(enemy.x, enemy.y, x, y);
+            if (distSq < nearestDistSq) {
                 nearest = enemy;
-                nearestDistance = distance;
+                nearestDistSq = distSq;
             }
         });
         
