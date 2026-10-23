@@ -188,27 +188,18 @@ function handleMessage(ws, msg) {
     (msg && msg.type === 'game-data' && msg.data && typeof msg.data.type === 'string')
       ? msg.data.type
       : (typeof msg.type === 'string' ? msg.type : 'unknown');
-  // 上限仍是每秒 120。滿了繼續丟攻擊和範圍技。走路、大招、補血、進房那幾包不能丟，否則人還在走、怪和血停在舊位置，大招也會被舊狀態收掉。
-  const keepWhenFull = (
-    type === 'join' ||
-    dataType === 'move' ||
-    dataType === 'use_ultimate' ||
-    dataType === 'baibaihong_exclusive_ultimate' ||
-    dataType === 'heal' ||
-    dataType === 'player-meta' ||
-    dataType === 'config' ||
-    dataType === 'map' ||
-    dataType === 'world-size' ||
-    dataType === 'obstacles' ||
-    dataType === 'decorations' ||
-    dataType === 'new-session'
+  // 上限仍是每秒 120。滿了只丟這三種高頻、少一包還能玩的。其他包含以後新增的操作，預設留下。
+  const dropWhenFull = (
+    dataType === 'attack' ||
+    dataType === 'aoe_tick' ||
+    dataType === 'vfx'
   );
   let cost = 1;
   if (dataType === 'move') cost = 0.25;
   else if (dataType === 'player-meta') cost = 0.5;
   else if (dataType === 'vfx') cost = 0.25;
   const nextCount = limiter.count + cost;
-  if (nextCount > MAX_PACKETS_PER_SEC && !keepWhenFull) {
+  if (nextCount > MAX_PACKETS_PER_SEC && dropWhenFull) {
     return;
   }
   if (nextCount <= MAX_PACKETS_PER_SEC) {

@@ -1874,9 +1874,16 @@ const DOMCache = {
  */
 function show(element) {
     const el = typeof element === 'string' ? DOMCache.get(element) || document.getElementById(element) : element;
-    if (el) {
-        el.classList.remove('hidden');
+    if (!el) return;
+    const finish = function () { el.classList.remove('hidden'); };
+    if (el.id === 'map-select-screen' && typeof MapAssets !== 'undefined' && typeof MapAssets.restoreLargeMapCards === 'function') {
+        const pending = MapAssets.restoreLargeMapCards() || [];
+        if (pending.length) {
+            Promise.all(pending).then(finish);
+            return;
+        }
     }
+    finish();
 }
 
 /**
