@@ -871,6 +871,7 @@ class GameState {
     // this.obstacles = []; // ❌ 移除：不清空，让 host 发送的数据能够被接受
     // this.decorations = []; // ❌ 移除：不清空，让 host 发送的数据能够被接受
     this.exit = null;
+    this._exitReady = false;
     this.wave = 1;
     this.waveStartTime = Date.now();
     this.lastEnemySpawnTime = 0;
@@ -1532,11 +1533,12 @@ class GameState {
       const bossWave = WaveRules.bossWaveNumber(this.config && this.config.WAVES);
       if (
         (enemy.type === 'BOSS' || enemy.type === 'ELF_BOSS' || enemy.type === 'HUMAN_BOSS' || enemy.type === 'UNKNOWN_BOSS') &&
-        this.wave === bossWave
+        (enemy._clearsWave === true || this.wave === bossWave)
       ) {
         const worldW = this.worldWidth || 3840;
         const worldH = this.worldHeight || 2160;
         this.exit = { x: worldW / 2, y: worldH / 2, width: 300, height: 242 };
+        this._exitReady = false;
       }
     } catch (_) { }
   }
@@ -1923,18 +1925,24 @@ class GameState {
         const ey = this.exit.y;
         const halfW = (this.exit.width || 0) / 2;
         const halfH = (this.exit.height || 0) / 2;
+        let living = 0;
+        let inside = 0;
         for (const p of this.players.values()) {
           if (!p || p.isDead || p.health <= 0) continue;
+          living++;
           const px = p.x, py = p.y;
           const closestX = Math.max(ex - halfW, Math.min(px, ex + halfW));
           const closestY = Math.max(ey - halfH, Math.min(py, ey + halfH));
           const dx = px - closestX;
           const dy = py - closestY;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < this._playerBodyRadius(p)) { // 組隊變身出口：沒變身仍是 16
-            this.isVictory = true;
-            break;
-          }
+          if (dist < this._playerBodyRadius(p)) inside++; // 組隊變身出口：沒變身仍是 16
+        }
+        // 出口跟首領同一個中心。人還站在上面時先不算，要走出來再走進去。
+        if (!this._exitReady) {
+          if (living > 0 && inside === 0) this._exitReady = true;
+        } else if (inside > 0) {
+          this.isVictory = true;
         }
       }
     } catch (_) { }
@@ -2876,7 +2884,8 @@ class GameState {
       lastRangedAttackAt: 0,
       collisionRadius: (typeof enemyConfig.COLLISION_RADIUS === 'number' && enemyConfig.COLLISION_RADIUS > 0)
         ? enemyConfig.COLLISION_RADIUS
-        : ((enemyConfig.SIZE || 128) / 2)
+        : ((enemyConfig.SIZE || 128) / 2),
+      _clearsWave: true
     });
     // ✅ 修羅彈幕：Boss 出現後啟動環狀旋轉彈幕（同源 wave.js）
     try {

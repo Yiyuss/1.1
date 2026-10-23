@@ -1634,16 +1634,12 @@
                 // 避免客戶端廣播 game_victory 造成互打與循環
                 const isServerAuthoritative = (typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled);
                 if (!isServerAuthoritative && (this.type === 'BOSS' || this.type === 'ELF_BOSS' || this.type === 'HUMAN_BOSS' || this.type === 'UNKNOWN_BOSS')) {
-                    // 單機模式：客戶端處理 BOSS 死亡邏輯
-                    // 第20波BOSS死亡時，生成出口而不是立即獲勝
+                    // 單機：這一隻是第 20 波生出來的首領，死了就生出口。
+                    // 波次時鐘可能已經走到 21，不能拿當下的波次數字改判直接勝利。
                     const currentWave = (typeof WaveSystem !== 'undefined' && WaveSystem.currentWave) ? WaveSystem.currentWave : 0;
                     const bossWave = (typeof CONFIG !== 'undefined' && CONFIG.WAVES && CONFIG.WAVES.BOSS_WAVE) ? CONFIG.WAVES.BOSS_WAVE : 20;
-                    if (currentWave === bossWave) {
-                        // 在地圖中心生成出口
+                    if (this._clearsWave || currentWave === bossWave) {
                         Game.spawnExit();
-                    } else {
-                        // 非第20波（向後兼容），立即獲勝
-                        Game.victory();
                     }
                 }
 

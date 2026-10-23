@@ -285,8 +285,35 @@ async function _waitForWsJoined(timeoutMs = 3000) {
   }
   return false;
 }
-// ✅ 權威伺服器 game-state 節流：避免 60Hz 大包造成卡頓/閃現感
+// 權威伺服器的場面。擠在一起時只留最新一包，舊的不解析。沒擠時每一包都套用。
 let _lastServerGameStateAt = 0;
+let _pendingGameStateRaw = null;
+let _gameStatePumpQueued = false;
+
+function _pumpGameState() {
+  _gameStatePumpQueued = false;
+  const raw = _pendingGameStateRaw;
+  _pendingGameStateRaw = null;
+  if (!raw) return;
+  let msg = null;
+  try { msg = JSON.parse(raw); } catch (_) { return; }
+  if (!msg || msg.type !== 'game-state') return;
+  const now = Date.now();
+  _lastServerGameStateAt = now;
+  try {
+    _netStats.gameStateCount++;
+    _netStats.lastGameStateAt = now;
+    const s = msg.state || {};
+    _netStats.lastStateSizes = {
+      players: Array.isArray(s.players) ? s.players.length : 0,
+      enemies: Array.isArray(s.enemies) ? s.enemies.length : 0,
+      projectiles: Array.isArray(s.projectiles) ? s.projectiles.length : 0,
+      orbs: Array.isArray(s.experienceOrbs) ? s.experienceOrbs.length : 0,
+    };
+    _updateNetStatusLine();
+  } catch (_) { }
+  handleServerGameState(msg.state, msg.timestamp);
+}
 // ✅ 除錯開關（多人同步熱路徑避免大量 log 造成卡頓/延遲/「閃現感」）
 const SURVIVAL_ONLINE_DEBUG = false;
 try { if (typeof window !== "undefined") window.SURVIVAL_ONLINE_DEBUG = SURVIVAL_ONLINE_DEBUG; } catch (_) { }
@@ -3819,16 +3846,15 @@ async function connectWebSocket() {
 
       wsRef.onmessage = (ev) => {
         try {
-          // ✅ 先節流再 parse：game-state 在晚局會非常大，避免 60Hz 大包把 JSON.parse 壓垮前端
           const raw = ev.data;
-          const nowPre = Date.now();
           try {
-            if (typeof raw === 'string' && (nowPre - _lastServerGameStateAt) < 33) {
-              // 只對 game-state 做早退，避免誤丟其他 game-data
-              const head = raw.slice(0, 80);
-              if (head.includes('"type":"game-state"')) {
-                return;
+            if (typeof raw === 'string' && raw.slice(0, 80).includes('"type":"game-state"')) {
+              _pendingGameStateRaw = raw;
+              if (!_gameStatePumpQueued) {
+                _gameStatePumpQueued = true;
+                setTimeout(_pumpGameState, 0);
               }
+              return;
             }
           } catch (_) { }
 
@@ -3840,25 +3866,7 @@ async function connectWebSocket() {
             try { _flushWsQueue(); } catch (_) { }
             _updateNetStatusLine("joined");
           } else if (msg.type === 'game-state') {
-            // ✅ 权威服务器：接收服务器游戏状态（節流處理，避免 60Hz 壓垮前端）
-            const now = Date.now();
-            if (now - _lastServerGameStateAt >= 33) { // ~30Hz
-              _lastServerGameStateAt = now;
-              _netStats.gameStateCount++;
-              _netStats.lastGameStateAt = now;
-              try {
-                const s = msg.state || {};
-                _netStats.lastStateSizes = {
-                  players: Array.isArray(s.players) ? s.players.length : 0,
-                  enemies: Array.isArray(s.enemies) ? s.enemies.length : 0,
-                  projectiles: Array.isArray(s.projectiles) ? s.projectiles.length : 0,
-                  orbs: Array.isArray(s.experienceOrbs) ? s.experienceOrbs.length : 0,
-                };
-                // 如果一直是空世界，這裡會直接顯示出來（e=0, pr=0）
-                _updateNetStatusLine();
-              } catch (_) { }
-              handleServerGameState(msg.state, msg.timestamp);
-            }
+            handleServerGameState(msg.state, msg.timestamp);
           } else if (msg.type === 'game-data') {
             // 處理遊戲數據
             const data = msg.data;
@@ -4297,9 +4305,6 @@ function handleServerGameState(state, timestamp) {
       Game._newGameStarted = false;
     }
     // ⚠️ 修復：單機勝利後進多人時，須等伺服器送過 isVictory = false 後才接受 isVictory = true，避免殘留觸發勝利動畫
-    if (state.isVictory === false) {
-      Game._ignoreVictoryUntilConfirmed = false;
-    }
     if (state.isGameOver) {
       // 新游戏已开始，但服务器还在发送上一局的 isGameOver = true，忽略它
       // ⚠️ 修复：添加节流，避免频繁输出日志
@@ -4315,6 +4320,10 @@ function handleServerGameState(state, timestamp) {
       // 不需要显式设置，因为 _gameOverEventSent 在 startGame 中应该保持为 true
       shouldSkipGameOver = true; // 标记跳过游戏结束处理，但继续执行后续状态更新
     }
+  }
+
+  if (typeof Game !== 'undefined' && state.isVictory === false) {
+    Game._ignoreVictoryUntilConfirmed = false;
   }
 
   if (typeof Game !== 'undefined' && state.isGameOver && !shouldSkipGameOver) {
@@ -4683,18 +4692,38 @@ function handleServerGameState(state, timestamp) {
             // 注意：大招功能本身是單機元素（武器變化、屬性加成等），只在本地執行
             // 但大招動畫（isUltimateActive、ultimateImageKey、體型變化）是多人元素，需要同步
             try {
+              let wasUltimateActive = false;
               if (typeof playerState.isUltimateActive === "boolean") {
-                const wasUltimateActive = Game.player.isUltimateActive;
+                wasUltimateActive = Game.player.isUltimateActive;
                 let isNowUltimateActive = playerState.isUltimateActive;
                 // 組隊倒地收大招：人躺著不要被大招旗標再變一次
                 if (Game.player._isDead && isNowUltimateActive) {
                   isNowUltimateActive = false;
                   Game.player._ultimateImageKey = null;
                 }
+                // 剛按下去、伺服器還沒回覆的那一包仍是沒開。先別收。15 秒還是伺服器回覆之後那一次。
+                const ackUntil = (typeof Game.player._ultAckUntil === 'number') ? Game.player._ultAckUntil : 0;
+                const ackWaiting = !!Game.player._ultAckPending && Date.now() < ackUntil;
+                if (playerState.isUltimateActive === true) {
+                  if (Game.player._ultDoNotRestart) {
+                    isNowUltimateActive = false;
+                    Game.player._ultDoNotRestart = false;
+                    Game.player._ultAckPending = false;
+                  } else {
+                    Game.player._ultAckPending = false;
+                  }
+                } else if (!Game.player._isDead && wasUltimateActive && !isNowUltimateActive && Game.player._ultAckPending) {
+                  if (ackWaiting) {
+                    isNowUltimateActive = true;
+                  } else {
+                    Game.player._ultAckPending = false;
+                    Game.player._ultDoNotRestart = true;
+                  }
+                }
 
                 // ✅ 修復：如果本地玩家正在大招狀態，確保武器被正確設置為LV10
                 // 這可以防止組隊模式下武器只放一次就沒了的問題
-                if (isNowUltimateActive) {
+                if (isNowUltimateActive && !ackWaiting) {
                   const endAt = (typeof playerState.ultimateEndTime === 'number') ? playerState.ultimateEndTime : 0;
                   if (endAt > 0 && Date.now() >= endAt) {
                     // 伺服器時間已經到了還標著變身：不要再開一次
@@ -4740,28 +4769,33 @@ function handleServerGameState(state, timestamp) {
 
                 Game.player.isUltimateActive = isNowUltimateActive;
               }
+              const holdLocalUlt = !!(Game.player._ultAckPending && wasUltimateActive && playerState.isUltimateActive === false);
               if (Game.player._isDead) {
                 Game.player._ultimateImageKey = null;
+              } else if (holdLocalUlt) {
+                // 舊包還沒帶變身圖和體型，不要把已經變大的人縮回去
               } else if (typeof playerState.ultimateImageKey === "string" && playerState.ultimateImageKey) {
                 Game.player._ultimateImageKey = playerState.ultimateImageKey;
               } else if (playerState.isUltimateActive === false) {
                 Game.player._ultimateImageKey = null;
               }
-              if (typeof playerState.ultimateEndTime === "number") {
+              if (!holdLocalUlt && typeof playerState.ultimateEndTime === "number") {
                 Game.player.ultimateEndTime = playerState.ultimateEndTime;
               }
 
               // ✅ 多人元素：體型同步（大招變身時的視覺效果）
               // ✅ 修复：大招结束时，服务器会恢复体积，需要同步（即使值为原始值，也要同步）
-              if (typeof playerState.width === "number") {
+              if (holdLocalUlt) {
+                // 同上：這包是施放前的體型
+              } else if (typeof playerState.width === "number") {
                 // 允许同步原始体积（可能小于或等于当前值）
                 Game.player.width = playerState.width;
               }
-              if (typeof playerState.height === "number") {
+              if (!holdLocalUlt && typeof playerState.height === "number") {
                 // 允许同步原始体积（可能小于或等于当前值）
                 Game.player.height = playerState.height;
               }
-              if (typeof playerState.collisionRadius === "number") {
+              if (!holdLocalUlt && typeof playerState.collisionRadius === "number") {
                 // 允许同步原始碰撞半径（可能小于或等于当前值）
                 Game.player.collisionRadius = playerState.collisionRadius;
               }

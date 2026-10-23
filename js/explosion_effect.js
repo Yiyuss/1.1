@@ -61,10 +61,12 @@ class ExplosionEffect extends Entity {
                     }
                 } else {
                     this.markedForDeletion = true;
+                    this._destroyHitOverlays();
                     return;
                 }
             } else {
                 this.markedForDeletion = true;
+                this._destroyHitOverlays();
                 return;
             }
             // 僅視覺模式：只更新位置和動畫，不進行傷害計算
@@ -291,7 +293,7 @@ class ExplosionEffect extends Entity {
             el.style.visibility = 'hidden';
             el.loading = 'eager';
             el.decoding = 'sync';
-            el.addEventListener('load', () => { el.style.visibility = 'visible'; }, { once: true });
+            el.addEventListener('load', () => { this._updateHitOverlayPositions(); }, { once: true });
             el.dataset.logic = 'explosion-hit';
             el.dataset.hitIndex = i;
             layer.appendChild(el);
@@ -327,7 +329,11 @@ class ExplosionEffect extends Entity {
             const vw = canvas.width * scaleX;
             const vh = canvas.height * scaleY;
             const margin = 128;
-            if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) continue;
+            if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) {
+                hit.domEl.style.visibility = 'hidden';
+                continue;
+            }
+            hit.domEl.style.visibility = 'visible';
             
             const leftPx = Math.round(sx);
             const topPx = Math.round(sy);
@@ -348,6 +354,8 @@ class ExplosionEffect extends Entity {
     }
     
     draw(ctx) {
+        // 命中圖貼在視口上。雪碧圖還沒好或人已經走出畫面時，也要更新或藏起，不然會停在螢幕上。
+        this._updateHitOverlayPositions();
         if (!this.spriteSheetLoaded || !this.spriteSheet) return;
         
         // 计算当前帧在雪碧图中的位置
@@ -396,9 +404,6 @@ class ExplosionEffect extends Entity {
             drawWidth, drawHeight
         );
         ctx.restore();
-        
-        // 更新knife2.gif覆盖层位置
-        this._updateHitOverlayPositions();
     }
 }
 

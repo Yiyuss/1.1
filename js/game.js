@@ -601,8 +601,8 @@ const Game = {
                         projectile.destroy();
                     } catch (_) { }
                 }
-                // 白夜光束/白虹光束：移除前強制清理命中覆蓋層 DOM，避免組隊模式殘留「一坨光」
-                if ((projectile.weaponType === 'WHITE_NIGHT_BEAM' || projectile.weaponType === 'WHITE_RAINBOW_BEAM') && typeof projectile._destroyHitOverlays === 'function') {
+                // 命中圖是貼在視口上的，不跟地圖走。拿走效果時要把圖摘掉，否則會停在螢幕固定位置。
+                if (typeof projectile._destroyHitOverlays === 'function') {
                     try {
                         projectile._destroyHitOverlays();
                     } catch (_) { }
@@ -633,7 +633,7 @@ const Game = {
                             if (typeof p.destroy === 'function') {
                                 p.destroy();
                             }
-                            if ((p.weaponType === 'WHITE_NIGHT_BEAM' || p.weaponType === 'WHITE_RAINBOW_BEAM') && typeof p._destroyHitOverlays === 'function') {
+                            if (typeof p._destroyHitOverlays === 'function') {
                                 try { p._destroyHitOverlays(); } catch (_) { }
                             }
                             // 保守清理：若 destroy 未處理 DOM，這裡補一刀
@@ -658,7 +658,7 @@ const Game = {
                         if (!p._createdAt) p._createdAt = now;
                         if (now - p._createdAt > VISUAL_EFFECT_HARD_MAX_AGE) {
                             try { if (typeof p.destroy === 'function') p.destroy(); } catch (_) { }
-                            if ((p.weaponType === 'WHITE_NIGHT_BEAM' || p.weaponType === 'WHITE_RAINBOW_BEAM') && typeof p._destroyHitOverlays === 'function') {
+                            if (typeof p._destroyHitOverlays === 'function') {
                                 try { p._destroyHitOverlays(); } catch (_) { }
                             }
                             try {
@@ -851,23 +851,24 @@ const Game = {
                 // 避免客戶端廣播 game_victory 造成互打與循環
                 const isServerAuthoritative = (this.multiplayer && this.multiplayer.enabled);
                 if (!isServerAuthoritative) {
-                    // 單機模式：客戶端檢查出口觸碰
+                    // 單機：出口跟首領同一個中心。人還站在上面時先不算，要走出來再走進去。
+                    let living = 0;
+                    let inside = 0;
                     for (const player of allPlayers) {
-                        if (!player) continue;
+                        if (!player || player._isDead) continue;
+                        living++;
                         const playerRadius = player.collisionRadius || 16;
                         const playerX = player.x;
                         const playerY = player.y;
-
-                        // 計算玩家中心到出口矩形的最短距離
                         const closestX = Math.max(exitCenterX - exitHalfWidth, Math.min(playerX, exitCenterX + exitHalfWidth));
                         const closestY = Math.max(exitCenterY - exitHalfHeight, Math.min(playerY, exitCenterY + exitHalfHeight));
                         const distance = Utils.distance(playerX, playerY, closestX, closestY);
-
-                        if (distance < playerRadius) {
-                            // 任何一個玩家碰到出口，觸發勝利
-                            this.victory();
-                            break; // 觸發勝利後跳出循環
-                        }
+                        if (distance < playerRadius) inside++;
+                    }
+                    if (!this.exit._ready) {
+                        if (living > 0 && inside === 0) this.exit._ready = true;
+                    } else if (inside > 0) {
+                        this.victory();
                     }
                 }
             }
@@ -1010,7 +1011,9 @@ const Game = {
                 return;
             }
         } catch (_) { }
-        // 清空畫布
+        // 清空畫布。先把混合模式拉回預設，否則上一幀的加色會讓 clear 清不掉，爆炸環就黏在螢幕上。
+        this.ctx.globalCompositeOperation = 'source-over';
+        this.ctx.globalAlpha = 1;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
         // 應用鏡頭震動偏移
