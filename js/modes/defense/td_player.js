@@ -445,18 +445,12 @@ class TDPlayer {
     
     // 檢查是否在建造範圍內
     isInBuildRange(x, y) {
-        const distance = Math.sqrt(
-            Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2)
-        );
-        return distance <= this.buildRange;
+        return TDDist.within(x, y, this.x, this.y, this.buildRange);
     }
     
     // 檢查是否在攻擊範圍內
     isInAttackRange(x, y) {
-        const distance = Math.sqrt(
-            Math.pow(x - this.x, 2) + Math.pow(y - this.y, 2)
-        );
-        return distance <= this.attackRange;
+        return TDDist.within(x, y, this.x, this.y, this.attackRange);
     }
     
     // 停止移動

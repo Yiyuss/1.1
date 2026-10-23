@@ -598,10 +598,44 @@ class TDGameState {
     }
 }
 
+// 距離只拿來比遠近時用平方。要實際長度（移動、飛行時間、傷害衰減、畫圓）才開根號。
+const TDDist = {
+    sq(x1, y1, x2, y2) {
+        const dx = x1 - x2;
+        const dy = y1 - y2;
+        return dx * dx + dy * dy;
+    },
+    withinSq(distSq, range) {
+        if (!(range >= 0)) return Math.sqrt(distSq) <= range;
+        return distSq <= range * range;
+    },
+    beyondSq(distSq, range) {
+        if (!(range >= 0)) return Math.sqrt(distSq) > range;
+        return distSq > range * range;
+    },
+    within(x1, y1, x2, y2, range) {
+        return this.withinSq(this.sq(x1, y1, x2, y2), range);
+    },
+    beyond(x1, y1, x2, y2, range) {
+        return this.beyondSq(this.sq(x1, y1, x2, y2), range);
+    },
+    closerThan(x1, y1, x2, y2, range) {
+        const distSq = this.sq(x1, y1, x2, y2);
+        if (!(range > 0)) return Math.sqrt(distSq) < range;
+        return distSq < range * range;
+    },
+    limitSq(range) {
+        if (range === Infinity) return Infinity;
+        if (!(range > 0)) return -1;
+        return range * range;
+    }
+};
+
 // 導出配置
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { TD_CONFIG, TDGameState };
+    module.exports = { TD_CONFIG, TDGameState, TDDist };
 } else {
     window.TD_CONFIG = TD_CONFIG;
     window.TDGameState = TDGameState;
+    window.TDDist = TDDist;
 }

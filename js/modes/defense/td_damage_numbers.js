@@ -106,8 +106,8 @@
           camera = window.debugTDGame.camera;
         }
         
-        const camX = camera ? camera.x : 0;
-        const camY = camera ? camera.y : 0;
+        const camX = camera ? Math.round(camera.x) : 0;
+        const camY = camera ? Math.round(camera.y) : 0;
         
         const rotatedPortrait = document.documentElement.classList.contains('mobile-rotation-active');
         if (rotatedPortrait) {
