@@ -371,6 +371,7 @@ const WaveSystem = {
             bossType
         );
 
+        boss._clearsWave = true;
         Game.addEnemy(boss);
         Game.boss = boss;
         console.log('Boss spawned!');

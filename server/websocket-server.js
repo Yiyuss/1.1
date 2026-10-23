@@ -172,6 +172,7 @@ wss.on('connection', (ws, req) => {
 
 function handleMessage(ws, msg) {
   const now = Date.now();
+  const { type, roomId, uid, isHost, data } = msg || {};
   let limiter = rateLimits.get(ws);
   if (!limiter) {
     limiter = { count: 0, resetTime: now + RATE_LIMIT_WINDOW };
@@ -187,20 +188,32 @@ function handleMessage(ws, msg) {
     (msg && msg.type === 'game-data' && msg.data && typeof msg.data.type === 'string')
       ? msg.data.type
       : (typeof msg.type === 'string' ? msg.type : 'unknown');
+  // 上限仍是每秒 120。滿了繼續丟攻擊和範圍技。走路、大招、補血、進房那幾包不能丟，否則人還在走、怪和血停在舊位置，大招也會被舊狀態收掉。
+  const keepWhenFull = (
+    type === 'join' ||
+    dataType === 'move' ||
+    dataType === 'use_ultimate' ||
+    dataType === 'baibaihong_exclusive_ultimate' ||
+    dataType === 'heal' ||
+    dataType === 'player-meta' ||
+    dataType === 'config' ||
+    dataType === 'map' ||
+    dataType === 'world-size' ||
+    dataType === 'obstacles' ||
+    dataType === 'decorations' ||
+    dataType === 'new-session'
+  );
   let cost = 1;
   if (dataType === 'move') cost = 0.25;
   else if (dataType === 'player-meta') cost = 0.5;
   else if (dataType === 'vfx') cost = 0.25;
   const nextCount = limiter.count + cost;
-  if (nextCount > MAX_PACKETS_PER_SEC) {
-    // ✅ 速率限制：超過上限一律丟棄（避免 attack/aoe_tick 在晚局把伺服器打爆）
-    // join 例外：允許用戶加入（避免被高頻舊連線影響）
-    if (type !== 'join') return;
-  } else {
+  if (nextCount > MAX_PACKETS_PER_SEC && !keepWhenFull) {
+    return;
+  }
+  if (nextCount <= MAX_PACKETS_PER_SEC) {
     limiter.count = nextCount;
   }
-
-  const { type, roomId, uid, isHost, data } = msg;
 
   switch (type) {
     case 'join':

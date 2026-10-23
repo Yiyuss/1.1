@@ -1020,6 +1020,9 @@ class Player extends Entity {
                     const sizeMultiplier = (charUltimate && typeof charUltimate.PLAYER_SIZE_MULTIPLIER === 'number')
                         ? charUltimate.PLAYER_SIZE_MULTIPLIER
                         : CONFIG.ULTIMATE.PLAYER_SIZE_MULTIPLIER;
+                    this._ultDoNotRestart = false;
+                    this._ultAckPending = true;
+                    this._ultAckUntil = Date.now() + 2000;
                     window.SurvivalOnlineRuntime.sendToNet({
                         type: 'use_ultimate',
                         timestamp: Date.now(),
