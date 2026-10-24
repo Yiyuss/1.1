@@ -1,4 +1,45 @@
 // 輸入控制系統
+
+// 手機：沒有滑鼠懸停的觸控。縮小的電腦視窗、外接滑鼠的觸控筆電不進來。
+function isPhonePlayDevice() {
+    try {
+        if (!window.matchMedia) return false;
+        if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) return false;
+        if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) return true;
+        if ((navigator.maxTouchPoints || 0) > 1 && window.matchMedia('(hover: none)').matches) return true;
+    } catch (_) {}
+    return false;
+}
+window.isPhonePlayDevice = isPhonePlayDevice;
+
+// 其他模式的手機鈕會來登記。離開模式要清掉，避免生存誤觸。
+function clearPhoneModeHooks(mode) {
+    if (!window.phoneModeHooks) return;
+    if (!mode || window.phoneModeHooks.mode === mode) window.phoneModeHooks = null;
+}
+window.clearPhoneModeHooks = clearPhoneModeHooks;
+
+// 手機把手指換成畫布座標。不取代各模式原本的滑鼠點擊。
+function bindPhoneCanvasTouch(events, canvas, onPoint, opts) {
+    if (!(window.isPhonePlayDevice && window.isPhonePlayDevice())) return;
+    if (!events || !canvas || typeof onPoint !== 'function') return;
+    const handler = (e) => {
+        const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+        if (!t) return;
+        const rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        if (e.cancelable) e.preventDefault();
+        onPoint((t.clientX - rect.left) * (canvas.width / rect.width), (t.clientY - rect.top) * (canvas.height / rect.height));
+    };
+    const listen = { capture: true, passive: false };
+    events.on(canvas, 'touchstart', handler, listen);
+    if (!opts || opts.move !== false) events.on(canvas, 'touchmove', handler, listen);
+}
+window.bindPhoneCanvasTouch = bindPhoneCanvasTouch;
+try {
+    if (isPhonePlayDevice()) document.documentElement.classList.add('phone-play');
+} catch (_) {}
+
 const Input = {
     keys: {},
     mousePosition: { x: 0, y: 0 },
@@ -186,8 +227,61 @@ const Input = {
             const clampedY = Utils.clamp(this.mousePosition.y, halfH + margin, Math.max(halfH + margin, worldH - halfH - margin));
             this.mouseTarget = { x: clampedX, y: clampedY };
         });
+
+        this._bindPhoneTouch();
         
         console.log('輸入系統已初始化');
+    },
+
+    // 手機生存：手指點與拖走原來的點地。不改滑鼠那段。其他模式不攔截，點擊仍會發生。
+    _bindPhoneTouch: function() {
+        if (this._phoneTouchBound) return;
+        if (!(window.isPhonePlayDevice && window.isPhonePlayDevice())) return;
+        if (!Game || !Game.canvas) return;
+        this._phoneTouchBound = true;
+        const onTouch = (e) => {
+            let survival = false;
+            try { survival = Utils.isSurvivalModeContext(); } catch (_) {}
+            if (!survival) return;
+            const levelUp = document.getElementById('level-up-menu');
+            const skills = document.getElementById('skills-menu');
+            const overlay = document.getElementById('phone-rotate-overlay');
+            if (levelUp && !levelUp.classList.contains('hidden')) return;
+            if (skills && !skills.classList.contains('hidden')) return;
+            if (overlay && !overlay.classList.contains('hidden')) return;
+            const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+            if (!t) return;
+            if (e.cancelable) e.preventDefault();
+            this._setTargetFromClient(t.clientX, t.clientY);
+        };
+        Game.canvas.addEventListener('touchstart', onTouch, { passive: false });
+        Game.canvas.addEventListener('touchmove', onTouch, { passive: false });
+        document.addEventListener('touchmove', (e) => {
+            const game = document.getElementById('game-screen');
+            if (!game || game.classList.contains('hidden')) return;
+            if (e.target && e.target.closest && e.target.closest('#level-up-menu, #skills-menu, #phone-rotate-overlay, #challenge-menu, #stage-menu, #defense-menu, #main-mode-menu')) return;
+            if (e.cancelable) e.preventDefault();
+        }, { passive: false });
+    },
+
+    _setTargetFromClient: function(clientX, clientY) {
+        const rect = Game.canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const camX = Game.camera?.x || 0;
+        const camY = Game.camera?.y || 0;
+        const scaleX = Game.canvas.width / rect.width;
+        const scaleY = Game.canvas.height / rect.height;
+        this.mousePosition.x = (clientX - rect.left) * scaleX + camX;
+        this.mousePosition.y = (clientY - rect.top) * scaleY + camY;
+        const halfW = Game.player ? Game.player.width / 2 : 0;
+        const halfH = Game.player ? Game.player.height / 2 : 0;
+        const worldW = Game.worldWidth || Game.canvas.width;
+        const worldH = Game.worldHeight || Game.canvas.height;
+        const margin = CONFIG.PLAYER?.BORDER_MARGIN || 0;
+        const clampedX = Utils.clamp(this.mousePosition.x, halfW + margin, Math.max(halfW + margin, worldW - halfW - margin));
+        const clampedY = Utils.clamp(this.mousePosition.y, halfH + margin, Math.max(halfH + margin, worldH - halfH - margin));
+        this.mouseTarget = { x: clampedX, y: clampedY };
+        this.isMouseMoving = true;
     },
     
     // 檢查按鍵是否被按下

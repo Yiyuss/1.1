@@ -349,6 +349,36 @@ function safePlayDefense(ctx) {
           if (_needResumeGameMusic_defense) { safePlayDefense(ctx); } else { ensureGameMusicPlaying(); }
         } catch(_){}
       }, { capture: true });
+
+      if (window.bindPhoneCanvasTouch) {
+        window.bindPhoneCanvasTouch(ctx.events, canvas, (x, y) => {
+          const menu = document.getElementById('defense-menu');
+          if (menu && !menu.classList.contains('hidden')) return;
+          if (tdGame && typeof tdGame.handleClick === 'function') {
+            if (tdUI && typeof tdUI.handleClick === 'function') {
+              if (!tdUI.handleClick(x, y)) tdGame.handleClick(x, y);
+            } else {
+              tdGame.handleClick(x, y);
+            }
+          }
+        }, { move: false });
+        window.phoneModeHooks = {
+          mode: 'defense',
+          menu: function () {
+            if (!window.DefenseUI) return;
+            const m = document.getElementById('defense-menu');
+            const open = m && !m.classList.contains('hidden');
+            if (open) window.DefenseUI.closeMenu();
+            else window.DefenseUI.openMenu();
+          },
+          menuOpen: function () {
+            const m = document.getElementById('defense-menu');
+            return !!(m && !m.classList.contains('hidden'));
+          },
+          showCancel: function () { return !!(tdGame && tdGame.buildMode); },
+          cancel: function () { if (tdGame && typeof tdGame.handleRightClick === 'function') tdGame.handleRightClick(); }
+        };
+      }
       
       // 添加右鍵事件處理：取消蓋塔
       ctx.events.on(canvas, 'contextmenu', (e) => {
@@ -550,6 +580,7 @@ function safePlayDefense(ctx) {
       };
     },
     exit(ctx){
+      try { if (window.clearPhoneModeHooks) window.clearPhoneModeHooks('defense'); } catch (_) {}
       try { 
         // 清理TD遊戲
         if (typeof window.cleanupTDGame === 'function') {

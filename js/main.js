@@ -1639,6 +1639,31 @@ function setupResponsiveViewport() {
     const resizeViewport = () => {
         const viewport = document.getElementById('viewport');
         if (!viewport) return;
+        if (document.documentElement.classList.contains('phone-play')) {
+            const vv = window.visualViewport;
+            const vw = (vv && vv.width) ? vv.width : window.innerWidth;
+            const vh = (vv && vv.height) ? vv.height : window.innerHeight;
+            const targetW = CONFIG.CANVAS_WIDTH;
+            const targetH = CONFIG.CANVAS_HEIGHT;
+            const scale = Math.min(vw / targetW, vh / targetH);
+            const displayW = Math.max(1, Math.floor(targetW * scale));
+            const displayH = Math.max(1, Math.floor(targetH * scale));
+            const root = document.getElementById('game-container');
+            if (root) {
+                root.style.width = vw + 'px';
+                root.style.height = vh + 'px';
+            }
+            viewport.style.position = '';
+            viewport.style.top = '';
+            viewport.style.left = '';
+            viewport.style.transform = '';
+            viewport.style.transformOrigin = '';
+            viewport.style.width = displayW + 'px';
+            viewport.style.height = displayH + 'px';
+            document.documentElement.style.setProperty('--ui-scale', String(scale));
+            document.documentElement.classList.remove('mobile-rotation-active');
+            return;
+        }
         // 手機直立旋轉時交由 UI 處理，避免雙重縮放
         const isMobile = (window.matchMedia && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 768px)').matches))
             || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -1658,6 +1683,9 @@ function setupResponsiveViewport() {
     };
     window.addEventListener('resize', resizeViewport);
     window.addEventListener('orientationchange', resizeViewport);
+    if (document.documentElement.classList.contains('phone-play') && window.visualViewport) {
+        window.visualViewport.addEventListener('resize', resizeViewport);
+    }
     resizeViewport();
 }
 

@@ -1687,7 +1687,7 @@ const CONFIG = {
                 { badge: '移動', html: '滑鼠點擊移動，或使用 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd>。' },
                 { badge: '暫停', html: '按 <kbd>ESC</kbd> 開啟詳細選單。' },
                 { badge: '技能', html: '能量達到 100 時，按 <kbd>Q</kbd> 施放大招。' },
-                { badge: '手機', html: '手機介面自動匹配，目前不支援大招。' },
+                { badge: '手機', html: '手機請橫放。可點畫面移動，並用畫面上的暫停與大招。' },
                 { badge: '回報', html: 'BUG 回報：<a href="https://x.com/Yi_yuss" target="blank" rel="noopener">https://x.com/Yi_yuss</a>' }
             ]
         },

@@ -167,6 +167,28 @@ function safePlayStage(ctx) {
         } catch(_){}
       }, { capture: true });
 
+      if (window.bindPhoneCanvasTouch) {
+        window.bindPhoneCanvasTouch(ctx.events, canvas, (x, y) => {
+          const menu = document.getElementById('stage-menu');
+          if (menu && !menu.classList.contains('hidden')) return;
+          clickTarget = { x, y };
+        });
+        window.phoneModeHooks = {
+          mode: 'stage',
+          menu: function () {
+            if (!window.StageUI) return;
+            const m = document.getElementById('stage-menu');
+            const open = m && !m.classList.contains('hidden');
+            if (open) window.StageUI.closeMenu();
+            else window.StageUI.openMenu();
+          },
+          menuOpen: function () {
+            const m = document.getElementById('stage-menu');
+            return !!(m && !m.classList.contains('hidden'));
+          }
+        };
+      }
+
       // 鍵盤移動
       const setKey = (code, val) => {
         switch(code){
@@ -377,6 +399,7 @@ function safePlayStage(ctx) {
       } catch(_){}
     },
     exit(ctx){
+      try { if (window.clearPhoneModeHooks) window.clearPhoneModeHooks('stage'); } catch (_) {}
       try { if (ctx && typeof ctx.dispose === 'function') ctx.dispose(); } catch(_){}
       try { const ov = getStageOverlay(); if (ov && typeof ov.clearAll === 'function') ov.clearAll(); } catch(_){}
       try { if (typeof window.TDGifOverlay !== 'undefined' && typeof window.TDGifOverlay.clearAll === 'function') window.TDGifOverlay.clearAll(); } catch(_){}

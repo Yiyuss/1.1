@@ -2186,6 +2186,346 @@ _actionHold: function() {
         });
     },
 
+    // 手機橫放。直的不旋轉畫面，改蓋一層請橫放。電腦不進這條。
+    _initPhoneLandscape: function() {
+        if (this._phonePlayBound) return;
+        this._phonePlayBound = true;
+        this._phoneViewScale = 1;
+        try { document.documentElement.classList.add('phone-play'); } catch (_) {}
+        this._buildPhoneControls();
+        this._phoneSync = this._syncPhoneLandscape.bind(this);
+        window.addEventListener('resize', this._phoneSync);
+        window.addEventListener('orientationchange', this._phoneSync);
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', this._phoneSync);
+        this._phoneSyncTimer = setInterval(this._phoneSync, 400);
+        this._syncPhoneLandscape();
+    },
+
+    _buildPhoneControls: function() {
+        const screen = document.getElementById('game-screen');
+        if (!screen || document.getElementById('phone-pause-btn')) return;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'phone-rotate-overlay';
+        overlay.className = 'hidden';
+        const card = document.createElement('div');
+        card.className = 'phone-rotate-card';
+        const line1 = document.createElement('p');
+        line1.textContent = '請把手機橫過來';
+        const line2 = document.createElement('p');
+        line2.textContent = '橫放後就能玩';
+        const lockBtn = document.createElement('button');
+        lockBtn.type = 'button';
+        lockBtn.textContent = '試著轉成橫的';
+        lockBtn.addEventListener('click', function () {
+            const go = function () {
+                try {
+                    if (screen.orientation && screen.orientation.lock) {
+                        screen.orientation.lock('landscape').catch(function () {});
+                    }
+                } catch (_) {}
+            };
+            try {
+                const root = document.documentElement;
+                const req = root.requestFullscreen || root.webkitRequestFullscreen;
+                if (req) {
+                    const pending = req.call(root);
+                    if (pending && pending.then) pending.then(go).catch(go);
+                    else go();
+                } else go();
+            } catch (_) { go(); }
+        });
+        card.appendChild(line1);
+        card.appendChild(line2);
+        card.appendChild(lockBtn);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+
+        const pause = document.createElement('button');
+        pause.type = 'button';
+        pause.id = 'phone-pause-btn';
+        pause.className = 'hidden';
+        pause.textContent = '暫停';
+        pause.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const skills = document.getElementById('skills-menu');
+            const open = skills && !skills.classList.contains('hidden');
+            if (open) this.hideSkillsMenu();
+            else this.showSkillsMenu();
+        });
+
+        const ult = document.createElement('button');
+        ult.type = 'button';
+        ult.id = 'phone-ult-btn';
+        ult.className = 'hidden';
+        ult.textContent = '大招';
+        ult.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof Game !== 'undefined' && Game.player && typeof Game.player.tryActivateUltimate === 'function') {
+                Game.player.tryActivateUltimate();
+            }
+        });
+
+        const confirmBtn = document.createElement('button');
+        confirmBtn.type = 'button';
+        confirmBtn.id = 'phone-upgrade-confirm';
+        confirmBtn.className = 'hidden';
+        confirmBtn.textContent = '確定';
+        confirmBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (this._pendingOptionType) this.selectUpgrade(this._pendingOptionType);
+        });
+
+        const skills = document.getElementById('skills-menu');
+        if (skills && !document.getElementById('phone-skills-close')) {
+            const closeBtn = document.createElement('button');
+            closeBtn.type = 'button';
+            closeBtn.id = 'phone-skills-close';
+            closeBtn.textContent = '關閉';
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.hideSkillsMenu();
+            });
+            skills.appendChild(closeBtn);
+        }
+
+        screen.appendChild(pause);
+        screen.appendChild(ult);
+        screen.appendChild(confirmBtn);
+
+        const viewStep = (dir) => {
+            const steps = [1, 1.4, 1.8, 2.2];
+            let i = 0;
+            for (let n = 0; n < steps.length; n++) {
+                if (Math.abs(steps[n] - this._phoneViewScale) < 0.05) i = n;
+            }
+            i = Math.max(0, Math.min(steps.length - 1, i + dir));
+            this._phoneViewScale = steps[i];
+            this._syncPhoneLandscape();
+        };
+        const viewBtn = (id, label, dir) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = id;
+            btn.className = 'hidden';
+            btn.textContent = label;
+            let touched = false;
+            btn.addEventListener('touchend', (e) => {
+                touched = true;
+                e.preventDefault();
+                e.stopPropagation();
+                viewStep(dir);
+            });
+            btn.addEventListener('click', (e) => {
+                if (touched) { touched = false; return; }
+                e.preventDefault();
+                e.stopPropagation();
+                viewStep(dir);
+            });
+            screen.appendChild(btn);
+        };
+        viewBtn('phone-view-near', '近', 1);
+        viewBtn('phone-view-far', '遠', -1);
+
+        const modeMenu = document.createElement('button');
+        modeMenu.type = 'button';
+        modeMenu.id = 'phone-mode-menu';
+        modeMenu.className = 'hidden';
+        modeMenu.textContent = '暫停';
+        let modeMenuTouched = false;
+        modeMenu.addEventListener('touchend', (e) => {
+            modeMenuTouched = true;
+            e.preventDefault();
+            e.stopPropagation();
+            const hooks = window.phoneModeHooks;
+            if (hooks && typeof hooks.menu === 'function') hooks.menu();
+        });
+        modeMenu.addEventListener('click', (e) => {
+            if (modeMenuTouched) { modeMenuTouched = false; return; }
+            e.preventDefault();
+            e.stopPropagation();
+            const hooks = window.phoneModeHooks;
+            if (hooks && typeof hooks.menu === 'function') hooks.menu();
+        });
+        screen.appendChild(modeMenu);
+
+        const hold = (id, label, downName, upName) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = id;
+            btn.className = 'hidden';
+            btn.textContent = label;
+            const down = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const hooks = window.phoneModeHooks;
+                if (hooks && typeof hooks[downName] === 'function') hooks[downName]();
+            };
+            const up = (e) => {
+                if (e && e.cancelable) e.preventDefault();
+                const hooks = window.phoneModeHooks;
+                if (hooks && typeof hooks[upName] === 'function') hooks[upName]();
+            };
+            btn.addEventListener('touchstart', down, { passive: false });
+            btn.addEventListener('touchend', up);
+            btn.addEventListener('touchcancel', up);
+            screen.appendChild(btn);
+            return btn;
+        };
+        hold('phone-challenge-dash', '衝刺', 'dashDown', 'dashUp');
+        const tapToggle = (id, label, toggleName) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = id;
+            btn.className = 'hidden';
+            btn.textContent = label;
+            let touched = false;
+            const run = () => {
+                const hooks = window.phoneModeHooks;
+                if (hooks && typeof hooks[toggleName] === 'function') hooks[toggleName]();
+                if (UI && UI._syncPhoneLandscape) UI._syncPhoneLandscape();
+            };
+            btn.addEventListener('touchend', (e) => {
+                touched = true;
+                e.preventDefault();
+                e.stopPropagation();
+                run();
+            });
+            btn.addEventListener('click', (e) => {
+                if (touched) { touched = false; return; }
+                e.preventDefault();
+                e.stopPropagation();
+                run();
+            });
+            screen.appendChild(btn);
+        };
+        tapToggle('phone-challenge-fire', '自動', 'toggleAuto');
+        tapToggle('phone-challenge-focus', '集中', 'toggleFocus');
+
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.id = 'phone-defense-cancel';
+        cancel.className = 'hidden';
+        cancel.textContent = '取消';
+        let cancelTouched = false;
+        cancel.addEventListener('touchend', (e) => {
+            cancelTouched = true;
+            e.preventDefault();
+            e.stopPropagation();
+            const hooks = window.phoneModeHooks;
+            if (hooks && typeof hooks.cancel === 'function') hooks.cancel();
+        });
+        cancel.addEventListener('click', (e) => {
+            if (cancelTouched) { cancelTouched = false; return; }
+            e.preventDefault();
+            e.stopPropagation();
+            const hooks = window.phoneModeHooks;
+            if (hooks && typeof hooks.cancel === 'function') hooks.cancel();
+        });
+        screen.appendChild(cancel);
+    },
+
+    _syncPhoneLandscape: function() {
+        try {
+            if (!(window.isPhonePlayDevice && window.isPhonePlayDevice())) return;
+            const game = document.getElementById('game-screen');
+            const overlay = document.getElementById('phone-rotate-overlay');
+            const pause = document.getElementById('phone-pause-btn');
+            const ult = document.getElementById('phone-ult-btn');
+            const confirmBtn = document.getElementById('phone-upgrade-confirm');
+            const gameOn = !!(game && !game.classList.contains('hidden'));
+            const portrait = window.matchMedia
+                ? window.matchMedia('(orientation: portrait)').matches
+                : ((window.innerHeight || 0) > (window.innerWidth || 0));
+            const survival = (typeof Utils !== 'undefined' && Utils.isSurvivalModeContext)
+                ? Utils.isSurvivalModeContext()
+                : false;
+            const levelUp = document.getElementById('level-up-menu');
+            const skills = document.getElementById('skills-menu');
+            const levelOn = !!(levelUp && !levelUp.classList.contains('hidden'));
+            const skillsOn = !!(skills && !skills.classList.contains('hidden'));
+            const over = (typeof Game !== 'undefined' && Game.isGameOver);
+            const showRotate = gameOn && portrait;
+            const showPlay = gameOn && !portrait && survival && !over;
+            const mp = typeof Game !== 'undefined' && Game.multiplayer && Game.multiplayer.enabled;
+
+            if (overlay) overlay.classList.toggle('hidden', !showRotate);
+            if (pause) {
+                pause.classList.toggle('hidden', !showPlay || levelOn || skillsOn);
+                pause.textContent = (Game && Game.multiplayer && Game.multiplayer.sessionId) ? '選單' : '暫停';
+            }
+            if (ult) {
+                ult.classList.toggle('hidden', !showPlay || levelOn);
+                let ready = false;
+                try {
+                    const p = Game && Game.player;
+                    ready = !!(p && !p.isUltimateActive && Math.floor(p.energy) >= p.maxEnergy);
+                } catch (_) {}
+                ult.classList.toggle('is-ready', ready);
+            }
+            if (confirmBtn) confirmBtn.classList.toggle('hidden', !(showPlay && levelOn));
+            const showZoom = showPlay && !levelOn && !skillsOn;
+            const nearBtn = document.getElementById('phone-view-near');
+            const farBtn = document.getElementById('phone-view-far');
+            if (nearBtn) nearBtn.classList.toggle('hidden', !showZoom);
+            if (farBtn) farBtn.classList.toggle('hidden', !showZoom);
+            this._applyPhoneSurvivalZoom(survival);
+
+            const hooks = window.phoneModeHooks;
+            const modeId = (typeof Utils !== 'undefined' && Utils.getActiveModeId) ? Utils.getActiveModeId() : null;
+            const modeOn = gameOn && !portrait && !survival && hooks && hooks.mode === modeId;
+            const modeMenuOpen = !!(modeOn && typeof hooks.menuOpen === 'function' && hooks.menuOpen());
+            const modeMenuBtn = document.getElementById('phone-mode-menu');
+            if (modeMenuBtn) {
+                modeMenuBtn.classList.toggle('hidden', !modeOn);
+                modeMenuBtn.textContent = modeMenuOpen ? '關閉' : '暫停';
+            }
+            const showChallenge = modeOn && hooks.mode === 'challenge' && !modeMenuOpen;
+            const fireBtn = document.getElementById('phone-challenge-fire');
+            const dashBtn = document.getElementById('phone-challenge-dash');
+            const focusBtn = document.getElementById('phone-challenge-focus');
+            if (fireBtn) {
+                fireBtn.classList.toggle('hidden', !showChallenge);
+                fireBtn.classList.toggle('is-on', !!(showChallenge && hooks.autoOn && hooks.autoOn()));
+            }
+            if (dashBtn) dashBtn.classList.toggle('hidden', !showChallenge);
+            if (focusBtn) {
+                focusBtn.classList.toggle('hidden', !showChallenge);
+                focusBtn.classList.toggle('is-on', !!(showChallenge && hooks.focusOn && hooks.focusOn()));
+            }
+            const cancelBtn = document.getElementById('phone-defense-cancel');
+            if (cancelBtn) {
+                const showCancel = modeOn && hooks.mode === 'defense' && !modeMenuOpen && typeof hooks.showCancel === 'function' && hooks.showCancel();
+                cancelBtn.classList.toggle('hidden', !showCancel);
+            }
+
+            if (showRotate && survival && !mp && Game && typeof Game.pause === 'function' && !Game.isPaused && !over) {
+                Game.pause(false);
+                this._phoneHeldPause = true;
+            } else if (!showRotate && this._phoneHeldPause) {
+                this._phoneHeldPause = false;
+                if (gameOn && !levelOn && !skillsOn && Game && typeof Game.resume === 'function' && !over) Game.resume();
+            }
+        } catch (_) {}
+    },
+
+    // 只放大生存畫布的畫面。鏡頭、走路、血條都不改。離開生存就收回。
+    _applyPhoneSurvivalZoom: function(survival) {
+        const canvas = document.getElementById('game-canvas');
+        if (!canvas) return;
+        const scale = survival ? (this._phoneViewScale || 1) : 1;
+        if (scale <= 1) {
+            if (canvas.style.transform) canvas.style.transform = '';
+            return;
+        }
+        canvas.style.transformOrigin = 'center center';
+        canvas.style.transform = 'scale(' + scale + ')';
+    },
+
     /**
      * 初始化：手機螢幕旋轉適應（僅行動裝置）
      * 依賴：#viewport、CONFIG.CANVAS_WIDTH/HEIGHT、window.matchMedia、window.addEventListener
@@ -2194,6 +2534,10 @@ _actionHold: function() {
      */
     initMobileViewportRotation: function() {
         try {
+            if (window.isPhonePlayDevice && window.isPhonePlayDevice()) {
+                this._initPhoneLandscape();
+                return;
+            }
             const isMobile = (window.matchMedia && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 768px)').matches))
                 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             if (!isMobile) return;
