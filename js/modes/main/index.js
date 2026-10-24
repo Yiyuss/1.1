@@ -2077,6 +2077,31 @@
       ctx.events.on(canvas, 'click', onCanvasClick, { capture: true });
       this._onCanvasClick = onCanvasClick;
 
+      if (window.isPhonePlayDevice && window.isPhonePlayDevice() && ctx.events) {
+        const onPhoneTouch = (e) => {
+          const menu = document.getElementById('main-mode-menu');
+          if (menu && !menu.classList.contains('hidden')) return;
+          const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+          if (!t) return;
+          if (e.cancelable) e.preventDefault();
+          onCanvasClick({
+            clientX: t.clientX,
+            clientY: t.clientY,
+            pageX: t.pageX,
+            pageY: t.pageY,
+            preventDefault: function () {},
+            stopPropagation: function () {}
+          });
+        };
+        ctx.events.on(canvas, 'touchstart', onPhoneTouch, { capture: true, passive: false });
+        ctx.events.on(canvas, 'touchmove', onPhoneTouch, { capture: true, passive: false });
+        window.phoneModeHooks = {
+          mode: 'main',
+          menu: function () { toggleMainMenu(true); },
+          menuOpen: function () { return !!(mainMenuEl && !mainMenuEl.classList.contains('hidden')); }
+        };
+      }
+
       // 滑鼠移動檢測（用於 NPC 懸停效果，將滑鼠變成雪碧圖）
       let cursorSpriteEl = null;
       let npcHovering = false; // 追蹤是否在NPC上
@@ -2917,6 +2942,7 @@
         } catch(_) {}
         mainUIEl = null;
         mainMenuEl = null;
+        try { if (window.clearPhoneModeHooks) window.clearPhoneModeHooks('main'); } catch (_) {}
       };
     },
     exit(ctx){

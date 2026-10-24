@@ -363,6 +363,41 @@ function safePlayShura(ctx) {
         } catch(_){}
       }, { capture: true });
 
+      if (window.bindPhoneCanvasTouch) {
+        window.bindPhoneCanvasTouch(ctx.events, canvas, (x, y) => {
+          const menu = document.getElementById('challenge-menu');
+          if (menu && !menu.classList.contains('hidden')) return;
+          clickTarget = { x, y };
+          const dx = x - player.x;
+          const dy = y - player.y;
+          const len = Math.hypot(dx, dy) || 1;
+          if (len > 8) {
+            player.lastMoveX = dx / len;
+            player.lastMoveY = dy / len;
+          }
+        });
+        window.phoneModeHooks = {
+          mode: 'challenge',
+          menu: function () {
+            if (!window.ChallengeUI) return;
+            const m = document.getElementById('challenge-menu');
+            const open = m && !m.classList.contains('hidden');
+            if (open) window.ChallengeUI.closeMenu();
+            else window.ChallengeUI.openMenu();
+          },
+          menuOpen: function () {
+            const m = document.getElementById('challenge-menu');
+            return !!(m && !m.classList.contains('hidden'));
+          },
+          toggleAuto: function () { keys.fire = !keys.fire; return keys.fire; },
+          autoOn: function () { return !!keys.fire; },
+          toggleFocus: function () { keys.shift = !keys.shift; return keys.shift; },
+          focusOn: function () { return !!keys.shift; },
+          dashDown: function () { keys.dash = true; applyDashIfTriggered(); },
+          dashUp: function () { keys.dash = false; applyDashIfTriggered(); }
+        };
+      }
+
       // 鍵盤移動（WASD / ↑↓←→）
       const setKey = (codeOrKey, val) => {
         const k = String(codeOrKey || '').toLowerCase();
@@ -1160,6 +1195,7 @@ function safePlayShura(ctx) {
     },
     // 退出模式：主要依靠 ctx.dispose 清理事件與計時器；可選擇 UI 還原
     exit(ctx){
+      try { if (window.clearPhoneModeHooks) window.clearPhoneModeHooks('challenge'); } catch (_) {}
       try { if (ctx && typeof ctx.dispose === 'function') ctx.dispose(); } catch(_){ }
       // 清理 GIF 覆蓋元素（避免殘留）
       try { if (typeof window.ChallengeGifOverlay !== 'undefined') window.ChallengeGifOverlay.clearAll(); } catch(_){}

@@ -1389,6 +1389,153 @@
       };
       ctx.events.on(window, 'keydown', handleESC);
 
+      // 手機：搖桿寫進原來的 WASD，拖畫面轉原來的右鍵視角。有滑鼠就不進來。
+      if (window.isPhonePlayDevice && window.isPhonePlayDevice()) {
+        const root = document.createElement('div');
+        root.id = 'phone-3d-controls';
+        root.innerHTML = [
+          '<div id="phone-3d-stick"><i></i></div>',
+          '<button type="button" id="phone-3d-jump">跳</button>',
+          '<button type="button" id="phone-3d-run">走路</button>',
+          '<button type="button" id="phone-3d-menu">選單</button>',
+          '<button type="button" id="phone-3d-near">近</button>',
+          '<button type="button" id="phone-3d-far">遠</button>'
+        ].join('');
+        const css = document.createElement('style');
+        css.id = 'phone-3d-style';
+        css.textContent = [
+          '#phone-3d-stick{position:fixed;left:calc(16px + env(safe-area-inset-left));bottom:calc(24px + env(safe-area-inset-bottom));width:128px;height:128px;border-radius:64px;border:2px solid rgba(255,255,255,.85);background:rgba(0,0,0,.35);z-index:40;touch-action:none}',
+          '#phone-3d-stick i{position:absolute;left:44px;top:44px;width:40px;height:40px;border-radius:20px;background:rgba(255,255,255,.85)}',
+          '#phone-3d-jump,#phone-3d-run,#phone-3d-menu,#phone-3d-near,#phone-3d-far{position:fixed;z-index:40;min-height:48px;padding:8px 14px;font-size:18px;font-weight:700;color:#fff;background:rgba(0,0,0,.62);border:2px solid rgba(255,255,255,.85);border-radius:14px;touch-action:manipulation}',
+          '#phone-3d-jump{right:calc(16px + env(safe-area-inset-right));bottom:calc(24px + env(safe-area-inset-bottom))}',
+          '#phone-3d-run{right:calc(16px + env(safe-area-inset-right));bottom:calc(84px + env(safe-area-inset-bottom))}',
+          '#phone-3d-run.is-on{background:rgba(0,120,220,.92)}',
+          '#phone-3d-menu{left:calc(16px + env(safe-area-inset-left));top:calc(16px + env(safe-area-inset-top))}',
+          '#phone-3d-near{right:calc(88px + env(safe-area-inset-right));bottom:calc(84px + env(safe-area-inset-bottom))}',
+          '#phone-3d-far{right:calc(156px + env(safe-area-inset-right));bottom:calc(84px + env(safe-area-inset-bottom))}'
+        ].join('');
+        document.head.appendChild(css);
+        document.body.appendChild(root);
+        const stick = root.querySelector('#phone-3d-stick');
+        const knob = stick.querySelector('i');
+        let stickId = null;
+        let stickX = 0;
+        let stickY = 0;
+        const clearMove = () => {
+          keys.w = false; keys.a = false; keys.s = false; keys.d = false;
+          knob.style.left = '44px';
+          knob.style.top = '44px';
+        };
+        stick.addEventListener('touchstart', (e) => {
+          const t = e.changedTouches[0];
+          if (!t) return;
+          stickId = t.identifier;
+          stickX = t.clientX;
+          stickY = t.clientY;
+          if (e.cancelable) e.preventDefault();
+        }, { passive: false });
+        stick.addEventListener('touchmove', (e) => {
+          const t = Array.prototype.find.call(e.touches, (one) => one.identifier === stickId);
+          if (!t) return;
+          const dx = t.clientX - stickX;
+          const dy = t.clientY - stickY;
+          const dead = 14;
+          keys.a = dx < -dead;
+          keys.d = dx > dead;
+          keys.w = dy < -dead;
+          keys.s = dy > dead;
+          const clamp = (n) => Math.max(-40, Math.min(40, n));
+          knob.style.left = (44 + clamp(dx)) + 'px';
+          knob.style.top = (44 + clamp(dy)) + 'px';
+          if (e.cancelable) e.preventDefault();
+        }, { passive: false });
+        const endStick = (e) => {
+          const hit = Array.prototype.some.call(e.changedTouches, (one) => one.identifier === stickId);
+          if (!hit) return;
+          stickId = null;
+          clearMove();
+        };
+        stick.addEventListener('touchend', endStick);
+        stick.addEventListener('touchcancel', endStick);
+
+        const jumpBtn = root.querySelector('#phone-3d-jump');
+        let jumpHold = false;
+        let jumpTimer = 0;
+        jumpBtn.addEventListener('touchstart', (e) => {
+          jumpHold = true;
+          keys.space = true;
+          if (jumpTimer) { clearTimeout(jumpTimer); jumpTimer = 0; }
+          if (e.cancelable) e.preventDefault();
+        }, { passive: false });
+        const endJump = () => {
+          jumpHold = false;
+          jumpTimer = setTimeout(() => { if (!jumpHold) keys.space = false; }, 80);
+        };
+        jumpBtn.addEventListener('touchend', endJump);
+        jumpBtn.addEventListener('touchcancel', endJump);
+
+        const runBtn = root.querySelector('#phone-3d-run');
+        runBtn.addEventListener('touchend', (e) => {
+          e.preventDefault();
+          runLock = !runLock;
+          runBtn.textContent = runLock ? '跑步' : '走路';
+          runBtn.classList.toggle('is-on', runLock);
+        });
+        root.querySelector('#phone-3d-menu').addEventListener('touchend', (e) => {
+          e.preventDefault();
+          menuOpen = !menuOpen;
+          escMenu.style.display = menuOpen ? 'flex' : 'none';
+        });
+        const zoom = (factor) => {
+          cameraDistance = Math.max(3, Math.min(50, cameraDistance * factor));
+        };
+        root.querySelector('#phone-3d-near').addEventListener('touchend', (e) => { e.preventDefault(); zoom(0.9); });
+        root.querySelector('#phone-3d-far').addEventListener('touchend', (e) => { e.preventDefault(); zoom(1.1); });
+
+        let lookId = null;
+        let lookX = 0;
+        let lookY = 0;
+        const onLookStart = (e) => {
+          if (lookId !== null) return;
+          const t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          lookId = t.identifier;
+          lookX = t.clientX;
+          lookY = t.clientY;
+          if (e.cancelable) e.preventDefault();
+        };
+        const onLookMove = (e) => {
+          const t = Array.prototype.find.call(e.touches, (one) => one.identifier === lookId);
+          if (!t) return;
+          const dx = t.clientX - lookX;
+          const dy = t.clientY - lookY;
+          lookX = t.clientX;
+          lookY = t.clientY;
+          cameraAngleX -= dx * 0.01;
+          cameraAngleY = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraAngleY + dy * 0.01));
+          if (e.cancelable) e.preventDefault();
+        };
+        const onLookEnd = (e) => {
+          const hit = Array.prototype.some.call(e.changedTouches, (one) => one.identifier === lookId);
+          if (hit) lookId = null;
+        };
+        webglCanvas.addEventListener('touchstart', onLookStart, { passive: false });
+        webglCanvas.addEventListener('touchmove', onLookMove, { passive: false });
+        webglCanvas.addEventListener('touchend', onLookEnd);
+        webglCanvas.addEventListener('touchcancel', onLookEnd);
+        Mode3D._phoneCleanup = () => {
+          webglCanvas.removeEventListener('touchstart', onLookStart);
+          webglCanvas.removeEventListener('touchmove', onLookMove);
+          webglCanvas.removeEventListener('touchend', onLookEnd);
+          webglCanvas.removeEventListener('touchcancel', onLookEnd);
+          if (jumpTimer) clearTimeout(jumpTimer);
+          keys.w = false; keys.a = false; keys.s = false; keys.d = false; keys.space = false;
+          if (root.parentNode) root.parentNode.removeChild(root);
+          if (css.parentNode) css.parentNode.removeChild(css);
+          Mode3D._phoneCleanup = null;
+        };
+      }
+
       // 存储清理函数
       Mode3D._cleanup = () => {
         // 清理Three.js资源
@@ -1436,6 +1583,7 @@
           }
         } catch(_){}
         
+        if (Mode3D._phoneCleanup) Mode3D._phoneCleanup();
         // 清理键盘事件监听器
         if (Mode3D._keyboardCleanup) {
           Mode3D._keyboardCleanup();

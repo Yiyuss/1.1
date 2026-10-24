@@ -7353,3 +7353,154 @@ function buyMerchantItem() {
 // 啟動
 width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; ctx.imageSmoothingEnabled = false;
 generateWorld();
+
+// 手機手指：搖桿寫進原來的 WASD，跳躍寫進空白鍵，點畫面寫進左鍵或右鍵。有滑鼠就不進來。
+(function initAdventurePhone() {
+    function isPhone() {
+        try {
+            if (!window.matchMedia) return false;
+            if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) return false;
+            if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) return true;
+            if ((navigator.maxTouchPoints || 0) > 1 && window.matchMedia('(hover: none)').matches) return true;
+        } catch (_) {}
+        return false;
+    }
+    if (!isPhone() || !canvas) return;
+    const style = document.createElement('style');
+    style.textContent = [
+        '#tutorial{display:none}',
+        '#adv-phone-stick{position:fixed;left:calc(16px + env(safe-area-inset-left));bottom:calc(78px + env(safe-area-inset-bottom));width:128px;height:128px;border-radius:64px;border:2px solid rgba(255,255,255,.85);background:rgba(0,0,0,.35);z-index:40;touch-action:none}',
+        '#adv-phone-stick i{position:absolute;left:44px;top:44px;width:40px;height:40px;border-radius:20px;background:rgba(255,255,255,.85);pointer-events:none}',
+        '#adv-phone-jump{position:fixed;left:calc(156px + env(safe-area-inset-left));bottom:calc(108px + env(safe-area-inset-bottom));z-index:40}',
+        '#adv-phone-actions{position:fixed;top:calc(8px + env(safe-area-inset-top));right:calc(8px + env(safe-area-inset-right));display:flex;gap:8px;z-index:40}',
+        '#adv-phone-jump,#adv-phone-actions button{min-height:48px;padding:8px 14px;font-size:18px;font-weight:700;color:#fff;background:rgba(0,0,0,.62);border:2px solid rgba(255,255,255,.85);border-radius:14px;touch-action:manipulation}',
+        '#adv-phone-actions button.is-on{background:rgba(0,120,220,.92)}',
+        '#crafting-menu{width:min(500px,94vw);height:min(380px,70vh)}'
+    ].join('');
+    document.head.appendChild(style);
+
+    const stick = document.createElement('div');
+    stick.id = 'adv-phone-stick';
+    const knob = document.createElement('i');
+    stick.appendChild(knob);
+    document.body.appendChild(stick);
+    let stickId = null;
+    let stickX = 0;
+    let stickY = 0;
+    const clearMove = () => {
+        keys['KeyA'] = false;
+        keys['KeyD'] = false;
+        keys['KeyW'] = false;
+        keys['KeyS'] = false;
+        keys['ArrowLeft'] = false;
+        keys['ArrowRight'] = false;
+        keys['ArrowUp'] = false;
+        keys['ArrowDown'] = false;
+        knob.style.left = '44px';
+        knob.style.top = '44px';
+    };
+    const applyStick = (t) => {
+        const dx = t.clientX - stickX;
+        const dy = t.clientY - stickY;
+        const dead = 14;
+        keys['KeyA'] = dx < -dead;
+        keys['KeyD'] = dx > dead;
+        keys['KeyW'] = dy < -dead;
+        keys['KeyS'] = dy > dead;
+        const clamp = (n) => Math.max(-40, Math.min(40, n));
+        knob.style.left = (44 + clamp(dx)) + 'px';
+        knob.style.top = (44 + clamp(dy)) + 'px';
+    };
+    stick.addEventListener('touchstart', (e) => {
+        const t = e.changedTouches[0];
+        if (!t) return;
+        stickId = t.identifier;
+        stickX = t.clientX;
+        stickY = t.clientY;
+        if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+    stick.addEventListener('touchmove', (e) => {
+        const t = Array.prototype.find.call(e.touches, (one) => one.identifier === stickId);
+        if (!t) return;
+        applyStick(t);
+        if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+    const endStick = (e) => {
+        const hit = Array.prototype.some.call(e.changedTouches, (one) => one.identifier === stickId);
+        if (!hit) return;
+        stickId = null;
+        clearMove();
+    };
+    stick.addEventListener('touchend', endStick);
+    stick.addEventListener('touchcancel', endStick);
+
+    const jump = document.createElement('button');
+    jump.id = 'adv-phone-jump';
+    jump.type = 'button';
+    jump.textContent = '跳';
+    const holdJump = (down) => { keys['Space'] = down; };
+    jump.addEventListener('touchstart', (e) => { holdJump(true); if (e.cancelable) e.preventDefault(); }, { passive: false });
+    jump.addEventListener('touchend', () => holdJump(false));
+    jump.addEventListener('touchcancel', () => holdJump(false));
+    document.body.appendChild(jump);
+
+    let placeMode = false;
+    const actions = document.createElement('div');
+    actions.id = 'adv-phone-actions';
+    const mk = (label, fn) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = label;
+        let touched = false;
+        b.addEventListener('touchend', (e) => {
+            touched = true;
+            e.preventDefault();
+            fn(b);
+        });
+        b.addEventListener('click', (e) => {
+            if (touched) { touched = false; e.preventDefault(); return; }
+            fn(b);
+        });
+        actions.appendChild(b);
+        return b;
+    };
+    const placeBtn = mk('挖掘', (b) => {
+        placeMode = !placeMode;
+        b.textContent = placeMode ? '放置' : '挖掘';
+        b.classList.toggle('is-on', placeMode);
+    });
+    mk('合成', () => { if (typeof toggleCrafting === 'function') toggleCrafting(); });
+    mk('丟', () => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyQ', key: 'q', bubbles: true }));
+        window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyQ', key: 'q', bubbles: true }));
+    });
+    mk('存檔', () => { if (typeof saveGame === 'function') saveGame(); });
+    document.body.appendChild(actions);
+    placeBtn.classList.remove('is-on');
+
+    const aim = (t, down) => {
+        mouse.x = t.clientX;
+        mouse.y = t.clientY;
+        if (!down) {
+            mouse.left = false;
+            mouse.right = false;
+            return;
+        }
+        mouse.left = !placeMode;
+        mouse.right = placeMode;
+    };
+    const onDig = (e) => {
+        const t = e.touches && e.touches[0];
+        if (!t) { mouse.left = false; mouse.right = false; return; }
+        aim(t, true);
+        if (e.cancelable) e.preventDefault();
+    };
+    canvas.addEventListener('touchstart', onDig, { passive: false });
+    canvas.addEventListener('touchmove', onDig, { passive: false });
+    canvas.addEventListener('touchend', (e) => { if (!e.touches.length) aim(e.changedTouches[0], false); });
+    canvas.addEventListener('touchcancel', () => { mouse.left = false; mouse.right = false; });
+    document.addEventListener('touchmove', (e) => {
+        if (e.target && e.target.closest && e.target.closest('#crafting-menu,#chest-menu,#merchant-menu,#adv-phone-actions')) return;
+        if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+})();
