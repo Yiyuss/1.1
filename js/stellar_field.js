@@ -201,7 +201,8 @@ class StellarField extends Entity {
             const vw = canvas.width * scaleX;
             const vh = canvas.height * scaleY;
             const margin = 128;
-            if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) return;
+            if (Utils.domOffscreen(this.el, sx, sy, vw, vh, margin)) return;
+            Utils.revealDom(this.el);
             this.el.style.left = Math.round(sx) + 'px';
             this.el.style.top = Math.round(sy) + 'px';
             const w = (this.radius * 2 * this.visualScale);

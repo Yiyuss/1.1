@@ -181,7 +181,8 @@
                     const ey = hit.y != null ? hit.y : (hit.enemy && !hit.enemy.markedForDeletion ? hit.enemy.y : 0);
                     let sx = (ex - camX) * scaleX;
                     let sy = (ey - camY) * scaleY;
-                    if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) continue;
+                    if (Utils.domOffscreen(hit.domEl, sx, sy, vw, vh, margin)) continue;
+                    Utils.revealDom(hit.domEl);
                     const leftPx = Math.round(sx);
                     const topPx = Math.round(sy);
                     hit.domEl.style.left = leftPx + 'px';

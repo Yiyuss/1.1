@@ -291,6 +291,7 @@ class ExplosionEffect extends Entity {
             el.style.backgroundColor = 'transparent';
             el.style.opacity = '1';
             el.style.visibility = 'hidden';
+            el.dataset.offscreen = '1';
             el.loading = 'eager';
             el.decoding = 'sync';
             el.addEventListener('load', () => { this._updateHitOverlayPositions(); }, { once: true });
@@ -329,11 +330,8 @@ class ExplosionEffect extends Entity {
             const vw = canvas.width * scaleX;
             const vh = canvas.height * scaleY;
             const margin = 128;
-            if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) {
-                hit.domEl.style.visibility = 'hidden';
-                continue;
-            }
-            hit.domEl.style.visibility = 'visible';
+            if (Utils.domOffscreen(hit.domEl, sx, sy, vw, vh, margin)) continue;
+            Utils.revealDom(hit.domEl);
             
             const leftPx = Math.round(sx);
             const topPx = Math.round(sy);
