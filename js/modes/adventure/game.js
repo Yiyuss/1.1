@@ -461,120 +461,103 @@ let mining = { active: false, x: 0, y: 0, progress: 0 };
 //   並在 js/modes/adventure/index.html 中設置 window.ADVENTURE_SELECTED_CHARACTER_ID。
 // - 冒險模式只使用此 ID 來選擇對應圖片，沒有讀寫主體存檔或 SaveCode。
 let playerSpriteImg = null;
-let playerSpriteImg2 = null; // player2-1.png（用於方向切換）
+let playerSpriteImg2 = null; // 朝右圖（灰妲、厄倫蒂兒、白白虹）
 let playerSpriteReady = false;
 let playerSpriteOffsetX = 0;
 let playerSpriteOffsetY = 0;
 let playerSpriteScale = 0.16; // 預設縮放（之後依角色微調）
 
+// 冒險人圖只看這張表。縮放是這個模式自己的，不要跟生存或防禦合成一份。
+const ADVENTURE_LOOK = {
+    margaret: { key: 'player', file: 'player.gif', scale: 0.16 },
+    dada: { key: 'player2', file: 'player2.png', scale: 0.18, faceKey: 'player2-1', faceFile: 'player2-1.png', snap: true, fbW: 290, fbH: 242 },
+    lilylinglan: { key: 'player3', file: 'player3.gif', scale: 0.16 },
+    rokurost: { key: 'player4', file: 'player4.png', scale: 0.08 },
+    rabi: { key: 'player5', file: 'player5.png', scale: 0.11 },
+    pineapple: { key: 'player6', file: 'player6.gif', scale: 0.16 },
+    elondier: { key: 'player7', file: 'player7.png', scale: 0.18, faceKey: 'player7-1', faceFile: 'player7-1.png', snap: true, fbW: 290, fbH: 242 },
+    baibaihong: { key: 'player8', file: 'player8.png', scale: 0.18 * (238 / 265), faceKey: 'player8-1', faceFile: 'player8-1.png', snap: true, fbW: 300, fbH: 238 },
+    cygnus: { key: 'player9', file: 'player9.png', scale: 0.18, snap: true, fbW: 290, fbH: 242 }
+};
+
+function adventureLook(id) {
+    return ADVENTURE_LOOK[id] || ADVENTURE_LOOK.margaret;
+}
+
+function adventureSpriteSrc(file) {
+    return '../../../assets/images/' + file;
+}
+
+function adventureDrawSize(look, img) {
+    if (!look.snap) {
+        return { w: img.width * playerSpriteScale, h: img.height * playerSpriteScale };
+    }
+    const imgWidth = img.width || look.fbW;
+    const imgHeight = img.height || look.fbH;
+    const aspectRatio = imgWidth / imgHeight;
+    const h = Math.max(1, Math.floor(imgHeight * playerSpriteScale));
+    const w = Math.max(1, Math.floor(h * aspectRatio));
+    return { w: w, h: h };
+}
+
+function adventureLoadFace(look, fromParent) {
+    if (!look.faceKey) return;
+    if (fromParent) {
+        try {
+            const parentWin = (window.parent && window.parent !== window) ? window.parent : null;
+            if (parentWin && parentWin.Game && parentWin.Game.images && parentWin.Game.images[look.faceKey]) {
+                playerSpriteImg2 = parentWin.Game.images[look.faceKey];
+                return;
+            }
+        } catch (_) {}
+    }
+    const img2 = new Image();
+    img2.onload = function () { playerSpriteImg2 = img2; };
+    img2.onerror = function () { playerSpriteImg2 = null; };
+    img2.src = adventureSpriteSrc(look.faceFile);
+}
+
 function initPlayerSprite() {
     try {
-        let id = (typeof window !== 'undefined' && window.ADVENTURE_SELECTED_CHARACTER_ID) ? String(window.ADVENTURE_SELECTED_CHARACTER_ID) : 'margaret';
-        // 優先從父視窗（主體遊戲）共用 Game.images 中取得圖片，避免路徑問題
-        let key = 'player'; // 預設瑪格麗特
-        if (id === 'dada') key = 'player2';
-        else if (id === 'lilylinglan') key = 'player3';
-        else if (id === 'rokurost') key = 'player4';
-        else if (id === 'rabi') key = 'player5';
-        else if (id === 'pineapple') key = 'player6';
-        else if (id === 'elondier') key = 'player7';
-        else if (id === 'baibaihong') key = 'player8';
-        else if (id === 'cygnus') key = 'player9';
+        const id = (typeof window !== 'undefined' && window.ADVENTURE_SELECTED_CHARACTER_ID) ? String(window.ADVENTURE_SELECTED_CHARACTER_ID) : 'margaret';
+        const look = adventureLook(id);
+        playerSpriteScale = look.scale;
 
         let parentImg = null;
         try {
             const parentWin = (window.parent && window.parent !== window) ? window.parent : null;
-            if (parentWin && parentWin.Game && parentWin.Game.images && parentWin.Game.images[key]) {
-                parentImg = parentWin.Game.images[key];
+            if (parentWin && parentWin.Game && parentWin.Game.images && parentWin.Game.images[look.key]) {
+                parentImg = parentWin.Game.images[look.key];
             }
-        } catch(_){}
-
-        // 預設縮放：維持與原小人高度接近（約 40~50px），各角色可微調
-        if (id === 'dada') {
-            playerSpriteScale = 0.18; // player2.png 高 242，0.18 ≈ 43px
-        } else if (id === 'rokurost') {
-            playerSpriteScale = 0.08; // player4.png 高 627，0.08 ≈ 50px（與其他角色接近）
-        } else if (id === 'rabi') {
-            playerSpriteScale = 0.11; // player5.png 高 467，0.11 ≈ 51px（與其他角色接近）
-        } else if (id === 'elondier') {
-            playerSpriteScale = 0.18;
-        } else if (id === 'baibaihong') {
-            playerSpriteScale = 0.18 * (238 / 265); // player8 體型較寬，顯示再縮小
-        } else if (id === 'cygnus') {
-            playerSpriteScale = 0.18; // player9.png 290x242，與 player7 相同
-        } else {
-            playerSpriteScale = 0.16; // player.gif / player3.gif 高 320，0.16 ≈ 51px
-        }
+        } catch (_) {}
 
         if (parentImg && parentImg.complete) {
             playerSpriteImg = parentImg;
             playerSpriteReady = true;
             const w = parentImg.width * playerSpriteScale;
             const h = parentImg.height * playerSpriteScale;
-            // 垂直：對齊原本小人腳底（原本角色矩形底部約在 player.y + 38）
             playerSpriteOffsetY = 38 - h;
-            // 水平：以 player.x+10 為角色中心（原本矩形身體中心）
             playerSpriteOffsetX = 10 - w / 2;
-            
-            if (id === 'dada' || id === 'elondier' || id === 'baibaihong') {
-                try {
-                    const parentWin = (window.parent && window.parent !== window) ? window.parent : null;
-                    const altKey = (id === 'dada') ? 'player2-1' : (id === 'elondier') ? 'player7-1' : 'player8-1';
-                    if (parentWin && parentWin.Game && parentWin.Game.images && parentWin.Game.images[altKey]) {
-                        playerSpriteImg2 = parentWin.Game.images[altKey];
-                    } else {
-                        const img2 = new Image();
-                        img2.onload = function(){ playerSpriteImg2 = img2; };
-                        img2.onerror = function(){ playerSpriteImg2 = null; };
-                        img2.src = (id === 'dada') ? '../../../assets/images/player2-1.png' : (id === 'elondier') ? '../../../assets/images/player7-1.png' : '../../../assets/images/player8-1.png';
-                    }
-                } catch(_){}
-            }
+            if (look.faceKey) adventureLoadFace(look, true);
             return;
         }
 
-        // 後備：若父視窗沒有對應圖片，改用相對路徑載入
-        // 資料夾層級：<root>/js/modes/adventure/index.html → ../../../assets/images/...
-        var src = '../../../assets/images/player.gif';
-        if (id === 'dada') {
-            src = '../../../assets/images/player2.png';
-        } else if (id === 'lilylinglan') {
-            src = '../../../assets/images/player3.gif';
-        } else if (id === 'rokurost') {
-            src = '../../../assets/images/player4.png';
-        } else if (id === 'rabi') {
-            src = '../../../assets/images/player5.png';
-        } else if (id === 'pineapple') {
-            src = '../../../assets/images/player6.gif';
-        } else if (id === 'elondier') {
-            src = '../../../assets/images/player7.png';
-        } else if (id === 'baibaihong') {
-            src = '../../../assets/images/player8.png';
-        } else if (id === 'cygnus') {
-            src = '../../../assets/images/player9.png';
-        }
         const img = new Image();
-        img.onload = function(){
+        img.onload = function () {
             playerSpriteImg = img;
             playerSpriteReady = true;
             const w = img.width * playerSpriteScale;
             const h = img.height * playerSpriteScale;
             playerSpriteOffsetY = 38 - h;
             playerSpriteOffsetX = 10 - w / 2;
-            
-            if (id === 'dada' || id === 'elondier' || id === 'baibaihong') {
-                const img2 = new Image();
-                img2.onload = function(){ playerSpriteImg2 = img2; };
-                img2.onerror = function(){ playerSpriteImg2 = null; };
-                img2.src = (id === 'dada') ? '../../../assets/images/player2-1.png' : (id === 'elondier') ? '../../../assets/images/player7-1.png' : '../../../assets/images/player8-1.png';
-            }
+            if (look.faceKey) adventureLoadFace(look, false);
         };
-        img.onerror = function(){
+        img.onerror = function () {
             playerSpriteImg = null;
             playerSpriteReady = false;
         };
-        img.src = src;
-    } catch(_){}
+        img.src = adventureSpriteSrc(look.file);
+    } catch (_) {}
 }
 
 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -4511,14 +4494,11 @@ function draw() {
     // - 否則回退為原本的矩形小人繪製（保持完全相容）。
     // 灰妲（player2）、厄倫蒂兒（player7）、白白虹（player8）需根據方向動態切換圖片（參考生存模式）
     let id = (typeof window !== 'undefined' && window.ADVENTURE_SELECTED_CHARACTER_ID) ? String(window.ADVENTURE_SELECTED_CHARACTER_ID) : 'margaret';
-    const isPlayer2 = (id === 'dada');
-    const isPlayer7 = (id === 'elondier');
-    const isPlayer8 = (id === 'baibaihong');
-    const isPlayer9 = (id === 'cygnus');
+    const look = adventureLook(id);
     let imgToUse = playerSpriteImg;
     let imgSrc = playerSpriteImg ? playerSpriteImg.src : null;
-    
-    if ((isPlayer2 || isPlayer7 || isPlayer8) && playerSpriteImg2) {
+
+    if (look.faceKey && playerSpriteImg2) {
         if (player.facingRight && playerSpriteImg2.complete) {
             imgToUse = playerSpriteImg2;
             imgSrc = playerSpriteImg2.src;
@@ -4527,26 +4507,11 @@ function draw() {
             imgSrc = playerSpriteImg.src;
         }
     }
-    // 熙歌Cygnus（player9）無方向切換，使用單一圖片
-    
+
     if (playerSpriteReady && imgToUse && typeof AdventureGifOverlay !== 'undefined' && typeof AdventureGifOverlay.showOrUpdate === 'function') {
-        let w, h;
-        if (isPlayer2 || isPlayer7 || isPlayer9) {
-            const imgWidth = imgToUse.width || 290;
-            const imgHeight = imgToUse.height || 242;
-            const aspectRatio = imgWidth / imgHeight;
-            h = Math.max(1, Math.floor(imgHeight * playerSpriteScale));
-            w = Math.max(1, Math.floor(h * aspectRatio));
-        } else if (isPlayer8) {
-            const imgWidth = imgToUse.width || 300;
-            const imgHeight = imgToUse.height || 238;
-            const aspectRatio = imgWidth / imgHeight;
-            h = Math.max(1, Math.floor(imgHeight * playerSpriteScale));
-            w = Math.max(1, Math.floor(h * aspectRatio));
-        } else {
-            w = imgToUse.width * playerSpriteScale;
-            h = imgToUse.height * playerSpriteScale;
-        }
+        const drawn = adventureDrawSize(look, imgToUse);
+        const w = drawn.w;
+        const h = drawn.h;
         const screenX = (player.x - camera.x) + playerSpriteOffsetX + w / 2;
         const screenY = (player.y - camera.y) + playerSpriteOffsetY + h / 2;
         if (player.invincibleTimer > 0 && Math.floor(Date.now() / 50) % 2 === 0) {
