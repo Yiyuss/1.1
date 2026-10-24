@@ -713,12 +713,11 @@ class TDGame {
                 this.towerManager &&
                 Array.isArray(this.towerManager.towers)) {
 
-                // 先清除上一幀殘留的防禦模式 GIF，避免售出/移除塔後圖片卡在畫面上
+                // 這一幀還在的圖留著，動畫才不會被拆掉重來。賣掉的塔在這幀結束時才拿走。
+                if (typeof window.TDGifOverlay.begin === 'function') {
+                    window.TDGifOverlay.begin();
+                }
                 try {
-                    if (typeof window.TDGifOverlay.clearAll === 'function') {
-                        window.TDGifOverlay.clearAll();
-                    }
-                } catch (_) {}
 
                 // 以原始比例為基準，套用你之前滿意的顯示高度（約 64px）
                 let iceImg = null;
@@ -771,183 +770,19 @@ class TDGame {
                     }
                 });
                 
-                // 最後統一處理玩家GIF、player4、player5和player2（在clearAll之後，確保玩家圖顯示在最上層）
-                const playerIsGif = this.player.sprite && this.player.sprite.src && /\.gif$/i.test(this.player.sprite.src);
-                const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
-                const isPlayer4 = sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4');
-                const isPlayer5 = sc && (sc.id === 'rabi' || sc.spriteImageKey === 'player5');
-                const isPlayer2 = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2');
-                const isPlayer6 = sc && (sc.id === 'pineapple' || sc.spriteImageKey === 'player6');
-                const isPlayer7 = sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7');
-                const isPlayer8 = sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8');
-                const isPlayer9 = sc && (sc.id === 'cygnus' || sc.spriteImageKey === 'player9');
-                
-                if ((playerIsGif || isPlayer4 || isPlayer5 || isPlayer2 || isPlayer6 || isPlayer7 || isPlayer8 || isPlayer9) && typeof window.TDGifOverlay && typeof window.TDGifOverlay.showOrUpdate === 'function') {
+                const look = (typeof TDPlayerLook !== 'undefined') ? TDPlayerLook.picture(this.player) : null;
+                if (look && typeof window.TDGifOverlay.showOrUpdate === 'function') {
                     const screenX = this.player.x - camX;
                     const screenY = this.player.y - camY;
-                    
-                    let playerSrc = this.player.sprite.src;
-                    let player2ImgObj = null;
-                    let player7ImgObj = null;
-                    let player8ImgObj = null;
-                    if (isPlayer2) {
-                        const player2Key = this.player.facingRight ? 'player2-1' : 'player2';
-                        player2ImgObj = (Game.images && Game.images[player2Key]) ? Game.images[player2Key] : null;
-                        if (player2ImgObj && player2ImgObj.src) {
-                            playerSrc = player2ImgObj.src;
-                        } else {
-                            playerSrc = this.player.facingRight ? 'assets/images/player2-1.png' : 'assets/images/player2.png';
-                        }
-                    }
-                    if (isPlayer7) {
-                        const player7Key = this.player.facingRight ? 'player7-1' : 'player7';
-                        player7ImgObj = (Game.images && Game.images[player7Key]) ? Game.images[player7Key] : null;
-                        if (player7ImgObj && player7ImgObj.src) {
-                            playerSrc = player7ImgObj.src;
-                        } else {
-                            playerSrc = this.player.facingRight ? 'assets/images/player7-1.png' : 'assets/images/player7.png';
-                        }
-                    }
-                    if (isPlayer8) {
-                        const player8Key = this.player.facingRight ? 'player8-1' : 'player8';
-                        player8ImgObj = (Game.images && Game.images[player8Key]) ? Game.images[player8Key] : null;
-                        if (player8ImgObj && player8ImgObj.src) {
-                            playerSrc = player8ImgObj.src;
-                        } else {
-                            playerSrc = this.player.facingRight ? 'assets/images/player8-1.png' : 'assets/images/player8.png';
-                        }
-                    }
-                    if (isPlayer9) {
-                        const player9ImgObj = (Game.images && Game.images['player9']) ? Game.images['player9'] : null;
-                        if (player9ImgObj && player9ImgObj.src) {
-                            playerSrc = player9ImgObj.src;
-                        } else {
-                            playerSrc = 'assets/images/player9.png';
-                        }
-                    }
-                    
-                    if (isPlayer2) {
-                        // player2.png / player2-1.png 保持原比例（290x242），使用模式原有的尺寸計算
-                        const imgObj = player2ImgObj || ((Game.images && Game.images['player2']) ? Game.images['player2'] : null);
-                        if (imgObj && imgObj.complete) {
-                            const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
-                            const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
-                            const aspectRatio = imgWidth / imgHeight; // 290/242 ≈ 1.198
-                            // 使用模式原有的尺寸計算方式，保持原比例
-                            const renderHeight = this.player.size;
-                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
-                        } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
-                        }
-                    } else if (isPlayer4) {
-                        // player4.png 需要保持 500:627 的寬高比，並放大顯示以與其他角色接近
-                        const imgObj = (Game.images && Game.images['player4']) ? Game.images['player4'] : null;
-                        if (imgObj && imgObj.complete) {
-                            const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
-                            const imgHeight = imgObj.naturalHeight || imgObj.height || 627;
-                            const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
-                            // 防禦模式中放大 1.3 倍以與其他角色接近
-                            const renderHeight = Math.max(1, Math.floor(this.player.size * 1.3));
-                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
-                        } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
-                        }
-                    } else if (isPlayer5) {
-                        // player5.png 需要保持 500:467 的寬高比，並放大顯示以與其他角色接近
-                        const imgObj = (Game.images && Game.images['player5']) ? Game.images['player5'] : null;
-                        if (imgObj && imgObj.complete) {
-                            const imgWidth = imgObj.naturalWidth || imgObj.width || 500;
-                            const imgHeight = imgObj.naturalHeight || imgObj.height || 467;
-                            const aspectRatio = imgWidth / imgHeight; // 500/467 ≈ 1.071
-                            // 防禦模式中放大 1.3 倍以與其他角色接近
-                            const renderHeight = Math.max(1, Math.floor(this.player.size * 1.3));
-                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
-                        } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
-                        }
-                    } else if (isPlayer6) {
-                        // player6.gif 保持寬高比 (242:320)
-                        const imgObj = (Game.images && Game.images['player6']) ? Game.images['player6'] : null;
-                        if (imgObj && imgObj.complete) {
-                            const imgWidth = imgObj.naturalWidth || imgObj.width || 242;
-                            const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
-                            const aspectRatio = imgWidth / imgHeight; // 242/320 ≈ 0.756
-                            const renderHeight = this.player.size;
-                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
-                        } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
-                        }
-                    } else if (isPlayer7) {
-                        const imgObj = player7ImgObj || ((Game.images && Game.images['player7']) ? Game.images['player7'] : null);
-                        if (imgObj && imgObj.complete) {
-                            const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
-                            const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
-                            const aspectRatio = imgWidth / imgHeight;
-                            const renderHeight = this.player.size;
-                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
-                        } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
-                        }
-                    } else if (isPlayer8) {
-                        const imgObj = player8ImgObj || ((Game.images && Game.images['player8']) ? Game.images['player8'] : null);
-                        if (imgObj && imgObj.complete) {
-                            const imgWidth = imgObj.naturalWidth || imgObj.width || 300;
-                            const imgHeight = imgObj.naturalHeight || imgObj.height || 238;
-                            const aspectRatio = imgWidth / imgHeight;
-                            const refHeight = 265;
-                            const renderHeight = Math.max(1, Math.floor(this.player.size * (imgHeight / refHeight)));
-                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
-                        } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
-                        }
-                    } else if (isPlayer9) {
-                        const imgObj = (Game.images && Game.images['player9']) ? Game.images['player9'] : null;
-                        if (imgObj && imgObj.complete) {
-                            const imgWidth = imgObj.naturalWidth || imgObj.width || 290;
-                            const imgHeight = imgObj.naturalHeight || imgObj.height || 242;
-                            const aspectRatio = imgWidth / imgHeight;
-                            const renderHeight = this.player.size;
-                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
-                        } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
-                        }
-                    } else if (sc && (sc.id === 'lilylinglan' || sc.spriteImageKey === 'player3')) {
-                        // player3.gif 保持原比例（1:1），使用模式原有的尺寸計算
-                        const imgObj = (Game.images && Game.images['player3']) ? Game.images['player3'] : null;
-                        if (imgObj && imgObj.complete) {
-                            const imgWidth = imgObj.naturalWidth || imgObj.width || 320;
-                            const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
-                            const aspectRatio = imgWidth / imgHeight; // 320/320 = 1.0
-                            // 使用模式原有的尺寸計算方式，保持原比例
-                            const renderHeight = this.player.size;
-                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
-                        } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
-                        }
-                    } else if ((!sc || sc.id === 'margaret' || sc.spriteImageKey === 'player') || /player\.gif$/i.test(playerSrc)) {
-                        // player.gif 保持原比例（1:1），使用模式原有的尺寸計算
-                        const imgObj = (Game.images && Game.images['player']) ? Game.images['player'] : null;
-                        if (imgObj && imgObj.complete) {
-                            const imgWidth = imgObj.naturalWidth || imgObj.width || 320;
-                            const imgHeight = imgObj.naturalHeight || imgObj.height || 320;
-                            const aspectRatio = imgWidth / imgHeight; // 320/320 = 1.0
-                            // 使用模式原有的尺寸計算方式，保持原比例
-                            const renderHeight = this.player.size;
-                            const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, { width: renderWidth, height: renderHeight });
-                        } else {
-                            window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
-                        }
+                    if (look.square) {
+                        window.TDGifOverlay.showOrUpdate('td-player', look.src, screenX, screenY, this.player.size);
                     } else {
-                        window.TDGifOverlay.showOrUpdate('td-player', playerSrc, screenX, screenY, this.player.size);
+                        window.TDGifOverlay.showOrUpdate('td-player', look.src, screenX, screenY, { width: look.width, height: look.height });
+                    }
+                }
+                } finally {
+                    if (typeof window.TDGifOverlay.end === 'function') {
+                        window.TDGifOverlay.end();
                     }
                 }
             }

@@ -1,7 +1,7 @@
 /**
  * 可玩角色圖鍵（生存 Game.images 與防禦 getManifest 同一套）。
  * 來源：CONFIG.CHARACTERS 的 sprite／avatar／hud／levelUp／faceRight；大招 IMAGE_KEY；歷史選角 -3。
- * 不要在防禦手寫 player1–9。畫法／朝向 if 仍在各模式，這份只負責「要載哪些檔」。
+ * 不要在防禦手寫 player1–9。防禦戰場的人圖走 TDPlayerLook。其他模式的畫法 if 仍在。這份只負責「要載哪些檔」。
  */
 (function (root) {
     'use strict';
