@@ -403,4 +403,17 @@ const Utils = {
         const id = this.getActiveModeId();
         return id === 'survival' || id === null;
     },
+
+    // 畫面外也要寫上真實位置。遊戲畫面會把超出的部分切掉，圖從邊緣滑進來。回傳 false，呼叫端照舊寫位置。
+    domOffscreen: function () {
+        return false;
+    },
+
+    // 圖先藏著，第一次寫上位置再顯示，避免先閃在左上角。
+    revealDom: function (el) {
+        if (el && el.dataset.offscreen === '1') {
+            el.dataset.offscreen = '0';
+            el.style.visibility = 'visible';
+        }
+    },
 };

@@ -345,9 +345,13 @@ class SlashEffect extends Entity {
             el.style.backgroundColor = 'transparent';
             el.style.opacity = '1';
             el.style.visibility = 'hidden';
+            el.dataset.offscreen = '1';
             el.loading = 'eager';
             el.decoding = 'sync';
-            el.addEventListener('load', () => { el.style.visibility = 'visible'; }, { once: true });
+            el.addEventListener('load', () => {
+                if (el.dataset.offscreen === '1') return;
+                el.style.visibility = 'visible';
+            }, { once: true });
             el.dataset.logic = 'slash';
             layer.appendChild(el);
             return el;
@@ -383,9 +387,13 @@ class SlashEffect extends Entity {
             el.style.backgroundColor = 'transparent';
             el.style.opacity = '1';
             el.style.visibility = 'hidden';
+            el.dataset.offscreen = '1';
             el.loading = 'eager';
             el.decoding = 'sync';
-            el.addEventListener('load', () => { el.style.visibility = 'visible'; }, { once: true });
+            el.addEventListener('load', () => {
+                if (el.dataset.offscreen === '1') return;
+                el.style.visibility = 'visible';
+            }, { once: true });
             el.dataset.logic = 'slash-hit';
             layer.appendChild(el);
             return el;
@@ -434,7 +442,8 @@ class SlashEffect extends Entity {
             const vw = canvas.width * scaleX;
             const vh = canvas.height * scaleY;
             const margin = 128;
-            if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) continue;
+            if (Utils.domOffscreen(item.el, sx, sy, vw, vh, margin)) continue;
+            if (!this._overlayHidden) Utils.revealDom(item.el);
             const leftPx = Math.round(sx);
             const topPx = Math.round(sy);
             if (item._lastLeft !== leftPx) { item.el.style.left = leftPx + 'px'; item._lastLeft = leftPx; }
@@ -465,7 +474,8 @@ class SlashEffect extends Entity {
             const vw2 = canvas.width * scaleX;
             const vh2 = canvas.height * scaleY;
             const margin2 = 128;
-            if (sx < -margin2 || sy < -margin2 || sx > vw2 + margin2 || sy > vh2 + margin2) continue;
+            if (Utils.domOffscreen(item.el, sx, sy, vw2, vh2, margin2)) continue;
+            if (!this._overlayHidden) Utils.revealDom(item.el);
             const leftPx = Math.round(sx);
             const topPx = Math.round(sy);
             if (item._lastLeft !== leftPx) { item.el.style.left = leftPx + 'px'; item._lastLeft = leftPx; }

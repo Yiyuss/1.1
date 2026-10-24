@@ -97,7 +97,8 @@ class BaibaihongExclusiveUltimateEffect extends Entity {
             const vw = rotatedPortrait ? canvas.width : canvas.width * scaleX;
             const vh = rotatedPortrait ? canvas.height : canvas.height * scaleY;
             const margin = 128;
-            if (sx < -margin || sy < -margin || sx > vw + margin || sy > vh + margin) return;
+            if (Utils.domOffscreen(el, sx, sy, vw, vh, margin)) return;
+            Utils.revealDom(el);
             const leftPx = Math.round(sx);
             const topPx = Math.round(sy);
             if (this._lastLeft !== leftPx) {
