@@ -45,7 +45,47 @@
         return 1.0;
     }
 
+    function sameImage(el, src) {
+        if (!src || !el) return true;
+        try {
+            if (el.getAttribute('src') === src) return true;
+            if (el.src === src) return true;
+            if (el.src === new URL(src, document.baseURI).href) return true;
+        } catch (_) {}
+        return false;
+    }
+
     const TDGifOverlay = {
+        _seen: null,
+        _order: null,
+
+        begin() {
+            this._seen = Object.create(null);
+            this._order = [];
+        },
+
+        end() {
+            const seen = this._seen || Object.create(null);
+            const order = this._order || [];
+            this._seen = null;
+            this._order = null;
+            try {
+                const vp = getViewport();
+                if (!vp) return;
+                const nodes = Array.from(vp.querySelectorAll('[id^="' + ID_PREFIX + '"]'));
+                for (const n of nodes) {
+                    const id = n.id.slice(ID_PREFIX.length);
+                    if (!seen[id]) {
+                        try { vp.removeChild(n); } catch (_) {}
+                    }
+                }
+                for (let i = 0; i < order.length; i++) {
+                    const el = document.getElementById(ID_PREFIX + order[i]);
+                    if (el && el.parentNode === vp) vp.appendChild(el);
+                }
+            } catch (_) {}
+        },
+
         /**
          * 在畫面上顯示或更新一個 GIF
          * @param {string} id - 唯一ID
@@ -58,9 +98,14 @@
             try {
                 const vp = getViewport();
                 if (!vp) return;
-                const el = ensureImg(String(id || ''));
+                const key = String(id || '');
+                if (this._seen && !this._seen[key]) {
+                    this._seen[key] = true;
+                    this._order.push(key);
+                }
+                const el = ensureImg(key);
                 if (!el) return;
-                if (src && el.src !== src) el.src = src;
+                if (src && !sameImage(el, src)) el.src = src;
 
                 const uiScale = getUiScale();
                 let w, h;

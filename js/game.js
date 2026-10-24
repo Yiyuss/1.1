@@ -1060,6 +1060,32 @@ const Game = {
         }
     },
 
+    // 疊層用的畫面尺度。本幀已經算過就沿用，沒有才量一次。數字跟原本相同。
+    _readOverlayView: function () {
+        const vm = this.viewMetrics;
+        const canvas = this.canvas || (typeof document !== 'undefined' ? document.getElementById('game-canvas') : null);
+        let scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
+        try {
+            if (canvas) {
+                if (vm && typeof vm.scaleX === 'number') {
+                    scaleX = vm.scaleX;
+                    scaleY = vm.scaleY;
+                    camX = vm.camX;
+                    camY = vm.camY;
+                } else {
+                    const rect = canvas.getBoundingClientRect();
+                    scaleX = rect.width / canvas.width;
+                    scaleY = rect.height / canvas.height;
+                    camX = this.camera ? this.camera.x : 0;
+                    camY = this.camera ? this.camera.y : 0;
+                }
+                vw = canvas.width * scaleX;
+                vh = canvas.height * scaleY;
+            }
+        } catch (_) {}
+        return { canvas, scaleX, scaleY, camX, camY, vw, vh };
+    },
+
     // 繪製所有實體
     drawEntities: function () {
         // 繪製地圖裝飾（非碰撞）
@@ -1069,20 +1095,9 @@ const Game = {
             // 禁用图像平滑以获得更清晰的像素化效果（避免缩放模糊）
             try { this.ctx.imageSmoothingEnabled = false; } catch (_) { }
 
-            let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
-            try {
-                vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
-                canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
-                if (canvas) {
-                    const rect = canvas.getBoundingClientRect();
-                    scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
-                    scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
-                    camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
-                    camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
-                    vw = canvas.width * scaleX;
-                    vh = canvas.height * scaleY;
-                }
-            } catch (_) {}
+            const view = this._readOverlayView();
+            const canvas = view.canvas, scaleX = view.scaleX, scaleY = view.scaleY;
+            const camX = view.camX, camY = view.camY, vw = view.vw, vh = view.vh;
             const marginDeco = 128;
             for (const deco of this.decorations) {
                 const img = (this.images || Game.images || {})[deco.imageKey];
@@ -1246,20 +1261,9 @@ const Game = {
 
         // 前景層：爆炸粒子（例如追蹤綿羊命中效果）
         if (this.explosionParticles) {
-            let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
-            try {
-                vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
-                canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
-                if (canvas) {
-                    const rect = canvas.getBoundingClientRect();
-                    scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
-                    scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
-                    camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
-                    camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
-                    vw = canvas.width * scaleX;
-                    vh = canvas.height * scaleY;
-                }
-            } catch (_) {}
+            const view = this._readOverlayView();
+            const canvas = view.canvas, scaleX = view.scaleX, scaleY = view.scaleY;
+            const camX = view.camX, camY = view.camY, vw = view.vw, vh = view.vh;
             const margin = 128;
             const inView = (x, y, r = 0) => {
                 if (!canvas) return true;
@@ -1289,20 +1293,9 @@ const Game = {
 
         // 前景層：心意傳遞/厄倫蒂兒分身投擲 命中特效圖片
         if (this.heartTransmissionEffects) {
-            let vm = null, canvas = null, scaleX = 1, scaleY = 1, camX = 0, camY = 0, vw = 0, vh = 0;
-            try {
-                vm = (typeof Game !== 'undefined') ? Game.viewMetrics : null;
-                canvas = (typeof Game !== 'undefined' && Game.canvas) ? Game.canvas : document.getElementById('game-canvas');
-                if (canvas) {
-                    const rect = canvas.getBoundingClientRect();
-                    scaleX = vm ? vm.scaleX : (rect.width / canvas.width);
-                    scaleY = vm ? vm.scaleY : (rect.height / canvas.height);
-                    camX = vm ? vm.camX : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.x : 0);
-                    camY = vm ? vm.camY : ((typeof Game !== 'undefined' && Game.camera) ? Game.camera.y : 0);
-                    vw = canvas.width * scaleX;
-                    vh = canvas.height * scaleY;
-                }
-            } catch (_) {}
+            const view = this._readOverlayView();
+            const canvas = view.canvas, scaleX = view.scaleX, scaleY = view.scaleY;
+            const camX = view.camX, camY = view.camY, vw = view.vw, vh = view.vh;
             const margin = 128;
             const rectInView = (x, y, w, h) => {
                 if (!canvas) return true;

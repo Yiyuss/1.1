@@ -1,6 +1,103 @@
 // 防禦塔TD玩家角色系統
 // 管理玩家的移動、攻擊、建造等行為
 
+// 戰場上的人圖只從這裡出。新角色沿用 spriteImageKey／faceRightImageKey，不必再加一份 if。
+const TDPlayerLook = {
+    _srcFor(key) {
+        try {
+            if (typeof CharacterAssets !== 'undefined' && CharacterAssets.srcForKey) {
+                return CharacterAssets.srcForKey(key);
+            }
+        } catch (_) {}
+        if (key === 'player' || key === 'player3' || key === 'player6') return 'assets/images/' + key + '.gif';
+        return 'assets/images/' + key + '.png';
+    },
+
+    spriteSrc(sc) {
+        if (sc && sc.spriteImageKey) return this._srcFor(sc.spriteImageKey);
+        if (sc && sc.id === 'dada') return this._srcFor('player2');
+        if (sc && sc.id === 'lilylinglan') return this._srcFor('player3');
+        if (sc && sc.id === 'rokurost') return this._srcFor('player4');
+        if (sc && sc.id === 'rabi') return this._srcFor('player5');
+        if (sc && sc.id === 'pineapple') return this._srcFor('player6');
+        if (sc && sc.id === 'elondier') return this._srcFor('player7');
+        if (sc && sc.id === 'baibaihong') return this._srcFor('player8');
+        if (sc && sc.id === 'cygnus') return this._srcFor('player9');
+        return 'assets/images/player.gif';
+    },
+
+    ownsOverlay(player, sc) {
+        const src = player && player.sprite && player.sprite.src;
+        if (src && /\.gif$/i.test(src)) return true;
+        if (!sc) return false;
+        if (sc.spriteImageKey) return true;
+        const id = sc.id;
+        return id === 'margaret' || id === 'dada' || id === 'lilylinglan' || id === 'rokurost' || id === 'rabi' || id === 'pineapple' || id === 'elondier' || id === 'baibaihong' || id === 'cygnus';
+    },
+
+    _useLoadedSrc(sc, displayKey) {
+        if (!sc) return false;
+        const k = sc.spriteImageKey;
+        if (k === 'player2' || k === 'player7' || k === 'player8' || k === 'player9') return true;
+        if (sc.id === 'dada' || sc.id === 'elondier' || sc.id === 'baibaihong' || sc.id === 'cygnus') return true;
+        return !!(sc.faceRightImageKey && displayKey === sc.faceRightImageKey);
+    },
+
+    _box(spriteKey, img, size) {
+        const fallback = {
+            player2: [290, 242],
+            player4: [500, 627],
+            player5: [500, 467],
+            player6: [242, 320],
+            player7: [290, 242],
+            player8: [300, 238],
+            player9: [290, 242],
+            player3: [320, 320],
+            player: [320, 320]
+        };
+        const fb = fallback[spriteKey] || [size, size];
+        const imgWidth = img.naturalWidth || img.width || fb[0];
+        const imgHeight = img.naturalHeight || img.height || fb[1];
+        const aspectRatio = imgWidth / imgHeight;
+        let renderHeight = size;
+        if (spriteKey === 'player4' || spriteKey === 'player5') {
+            renderHeight = Math.max(1, Math.floor(size * 1.3));
+        } else if (spriteKey === 'player8') {
+            renderHeight = Math.max(1, Math.floor(size * (imgHeight / 265)));
+        }
+        return {
+            width: Math.max(1, Math.floor(renderHeight * aspectRatio)),
+            height: renderHeight
+        };
+    },
+
+    picture(player, sc, images) {
+        if (!player) return null;
+        const who = sc || ((typeof Game !== 'undefined') ? Game.selectedCharacter : null);
+        if (!this.ownsOverlay(player, who)) return null;
+        const imgs = images || ((typeof Game !== 'undefined' && Game.images) ? Game.images : {}) || {};
+        const size = player.size;
+        const spriteKey = (who && who.spriteImageKey) || 'player';
+        const displayKey = (player.facingRight && who && who.faceRightImageKey) ? who.faceRightImageKey : spriteKey;
+        let src = (player.sprite && player.sprite.src) || this.spriteSrc(who);
+        if (this._useLoadedSrc(who, displayKey)) {
+            const loaded = imgs[displayKey];
+            src = (loaded && loaded.src) ? loaded.src : this._srcFor(displayKey);
+        }
+        let dim = imgs[displayKey] || null;
+        if (!dim && displayKey !== spriteKey) dim = imgs[spriteKey] || null;
+        if (!(dim && dim.complete)) {
+            return { src: src, square: true, width: size, height: size };
+        }
+        const box = this._box(spriteKey, dim, size);
+        return { src: src, square: false, width: box.width, height: box.height };
+    }
+};
+
+if (typeof window !== 'undefined') {
+    window.TDPlayerLook = TDPlayerLook;
+}
+
 class TDPlayer {
     constructor(x, y, config) {
         console.log('TDPlayer構造函數開始，位置:', x, y);
@@ -69,45 +166,7 @@ class TDPlayer {
         let src = 'assets/images/player.gif';
         try {
             const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
-            // 依選角角色決定圖片：灰妲DaDa使用player2.png，森森鈴蘭使用player3.gif，洛可洛斯特使用player4.png，艾比Rabi使用player5.png，其餘角色維持player.gif
-            if (sc && sc.spriteImageKey) {
-                // 根据spriteImageKey判断是gif还是png
-                if (sc.spriteImageKey === 'player3') {
-                    src = 'assets/images/player3.gif';
-                } else if (sc.spriteImageKey === 'player2') {
-                    src = 'assets/images/player2.png';
-                } else if (sc.spriteImageKey === 'player4') {
-                    src = 'assets/images/player4.png';
-                } else if (sc.spriteImageKey === 'player5') {
-                    src = 'assets/images/player5.png';
-                } else if (sc.spriteImageKey === 'player6') {
-                    src = 'assets/images/player6.gif';
-                } else if (sc.spriteImageKey === 'player7') {
-                    src = 'assets/images/player7.png';
-                } else if (sc.spriteImageKey === 'player8') {
-                    src = 'assets/images/player8.png';
-                } else if (sc.spriteImageKey === 'player9') {
-                    src = 'assets/images/player9.png';
-                } else {
-                    src = `assets/images/${sc.spriteImageKey}.gif`;
-                }
-            } else if (sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2')) {
-                src = 'assets/images/player2.png';
-            } else if (sc && sc.id === 'lilylinglan') {
-                src = 'assets/images/player3.gif';
-            } else if (sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4')) {
-                src = 'assets/images/player4.png';
-            } else if (sc && (sc.id === 'rabi' || sc.spriteImageKey === 'player5')) {
-                src = 'assets/images/player5.png';
-            } else if (sc && (sc.id === 'pineapple' || sc.spriteImageKey === 'player6')) {
-                src = 'assets/images/player6.gif';
-            } else if (sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7')) {
-                src = 'assets/images/player7.png';
-            } else if (sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8')) {
-                src = 'assets/images/player8.png';
-            } else if (sc && (sc.id === 'cygnus' || sc.spriteImageKey === 'player9')) {
-                src = 'assets/images/player9.png';
-            }
+            src = TDPlayerLook.spriteSrc(sc);
         } catch(_) {}
         this.sprite = {
             src,
@@ -471,17 +530,9 @@ class TDPlayer {
     render(ctx, resources) {
         ctx.save();
         
-        // 如果是GIF、player4、player5或player2，跳過Canvas繪製（由TDGifOverlay處理，避免畫質降低）
-        const isGif = this.sprite && this.sprite.src && /\.gif$/i.test(this.sprite.src);
+        // 人圖走網頁層。畫布再畫一次會疊出第二張，而且比較糊。
         const sc = (typeof Game !== 'undefined') ? Game.selectedCharacter : null;
-        const isPlayer4 = sc && (sc.id === 'rokurost' || sc.spriteImageKey === 'player4');
-        const isPlayer5 = sc && (sc.id === 'rabi' || sc.spriteImageKey === 'player5');
-        const isPlayer2 = sc && (sc.id === 'dada' || sc.spriteImageKey === 'player2');
-        const isPlayer7 = sc && (sc.id === 'elondier' || sc.spriteImageKey === 'player7');
-        const isPlayer8 = sc && (sc.id === 'baibaihong' || sc.spriteImageKey === 'player8');
-        const isPlayer9 = sc && (sc.id === 'cygnus' || sc.spriteImageKey === 'player9');
-        
-        if (!isGif && !isPlayer4 && !isPlayer5 && !isPlayer2 && !isPlayer7 && !isPlayer8 && !isPlayer9) {
+        if (!TDPlayerLook.ownsOverlay(this, sc)) {
             // 載入圖片：依 this.sprite.src 推導資源鍵（支援 player / player2）
             let image = null;
             if (this.sprite && this.sprite.src) {
@@ -496,48 +547,13 @@ class TDPlayer {
                 image = resources.getImage('player');
             }
             if (image) {
-                // 後備方案：僅在 TDGifOverlay 不可用時才使用 Canvas 繪製（會導致畫質降低，應避免）
-                // 正常情況下應使用 TDGifOverlay 以保持最佳畫質
-                // 特殊處理：player4.png 需要保持 500:627 的寬高比，並放大顯示以與其他角色接近
-                // 特殊處理：player5.png 需要保持 500:467 的寬高比，並放大顯示以與其他角色接近
-                if (this.sprite && this.sprite.src && /player4\.png$/i.test(this.sprite.src)) {
-                    const imgWidth = image.naturalWidth || image.width || 500;
-                    const imgHeight = image.naturalHeight || image.height || 627;
-                    const aspectRatio = imgWidth / imgHeight; // 500/627 ≈ 0.798
-                    // 防禦模式中放大 1.3 倍以與其他角色接近
-                    const renderHeight = Math.max(1, Math.floor(this.size * 1.3));
-                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                    ctx.drawImage(
-                        image,
-                        this.x - renderWidth / 2,
-                        this.y - renderHeight / 2,
-                        renderWidth,
-                        renderHeight
-                    );
-                } else if (this.sprite && this.sprite.src && /player5\.png$/i.test(this.sprite.src)) {
-                    const imgWidth = image.naturalWidth || image.width || 500;
-                    const imgHeight = image.naturalHeight || image.height || 467;
-                    const aspectRatio = imgWidth / imgHeight; // 500/467 ≈ 1.071
-                    // 防禦模式中放大 1.3 倍以與其他角色接近
-                    const renderHeight = Math.max(1, Math.floor(this.size * 1.3));
-                    const renderWidth = Math.max(1, Math.floor(renderHeight * aspectRatio));
-                    ctx.drawImage(
-                        image,
-                        this.x - renderWidth / 2,
-                        this.y - renderHeight / 2,
-                        renderWidth,
-                        renderHeight
-                    );
-                } else {
-                    // 其他角色使用正方形顯示（保持原有行為）
-                    ctx.drawImage(
-                        image,
-                        this.x - this.size / 2,
-                        this.y - this.size / 2,
-                        this.size,
-                        this.size
-                    );
-                }
+                ctx.drawImage(
+                    image,
+                    this.x - this.size / 2,
+                    this.y - this.size / 2,
+                    this.size,
+                    this.size
+                );
             } else {
                 // 最終後備繪製（純色方塊，僅在圖片載入失敗時使用）
                 ctx.fillStyle = this.isBuilding ? '#FFD700' : '#00FF00';

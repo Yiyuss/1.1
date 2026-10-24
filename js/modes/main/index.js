@@ -2469,7 +2469,7 @@
       }
       
       // 繪製牆面建材
-      function drawMaterialWall(ctx, materialId, x, y, size) {
+      function drawMaterialWall(ctx, materialId, x, y, size, cellX, cellY) {
         if (materialId === 'wall_wood') {
           // 木牆（使用 drawWoodPattern，但沒有 variant，所以用 oak）
           // 工具中 wall_wood 的 type 是 'wood'，會調用 drawWoodPattern
@@ -2482,13 +2482,12 @@
           ctx.fillStyle = c.base;
           ctx.fillRect(x, y, size, size);
           
-          // 木紋線條（使用基於座標的偽隨機數，避免抖動）
+          // 木紋跟地圖第幾格綁定。畫面位置一走就變，不能拿來當彎度。
           ctx.strokeStyle = c.line;
           ctx.lineWidth = 1;
           for (let i = 0; i < 3; i++) {
             const offset = (i - 1) * (size / 3);
-            // 使用基於座標的偽隨機數生成器，確保每個格子的木紋位置固定
-            const seed = (x * 73856093) ^ (y * 19349663) ^ (i * 83492791);
+            const seed = (cellX * 73856093) ^ (cellY * 19349663) ^ (i * 83492791);
             const random = ((seed & 0x7FFFFFFF) / 0x7FFFFFFF) * 2 - 1; // -1 到 1
             ctx.beginPath();
             ctx.moveTo(x, y + size/2 + offset);
@@ -2563,7 +2562,7 @@
                 drawMaterialTile(ctx2d, materialId, px, py, TILE);
               } else if (t === T_WALL) {
                 // 使用高品質建材紋路繪製
-                drawMaterialWall(ctx2d, materialId, px, py, TILE);
+                drawMaterialWall(ctx2d, materialId, px, py, TILE, x, y);
               } else if (t === T_EXIT) {
                 ctx2d.fillStyle = '#5d3a1a'; 
                 ctx2d.fillRect(px,py,TILE+1,TILE+1);
