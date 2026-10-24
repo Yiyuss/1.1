@@ -2853,15 +2853,12 @@ function updateDrops() {
         d.vx *= 0.9; d.vy += GRAVITY; d.x += d.vx; handleCollisions(d, true); d.y += d.vy; handleCollisions(d, false);
         let dist = Math.sqrt(Math.pow(player.x - d.x, 2) + Math.pow(player.y - d.y, 2));
         
-        // 檢查背包是否有空槽位（用於判斷是否應該吸引掉落物）
-        let hasEmptySlot = player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
-        
         // 檢查是否為剛丟出的物品（60幀 = 約1秒內不吸引，讓它飛出去）
         let isJustThrown = d.justThrown && (frameCount - d.throwTime) < 60;
+        let canPull = d.id === IDS.COIN || inventoryCanHold(d.id, 1);
         
-        // 只有背包有空槽位時才吸引掉落物，或者掉落物還沒有嘗試過撿取
-        // 但如果是剛丟出的物品，暫時不吸引（讓它飛出去）
-        if (dist < 100 && (hasEmptySlot || !d.inventoryFullNotified) && !isJustThrown) {
+        // 放得進才吸過來。剛丟出的先讓它飛出去。
+        if (dist < 100 && canPull && !isJustThrown) {
             d.vx += (player.x - d.x) * 0.05;
             d.vy += (player.y - d.y) * 0.05;
         }
@@ -2902,6 +2899,28 @@ function updateDrops() {
     }
 }
 
+function mobCanBeHurt(m) {
+    return !!(m && !m.friendly && !m.passive);
+}
+
+function defeatMob(m) {
+    if (!m || m._defeated) return;
+    m._defeated = true;
+    let coins = 1 + Math.floor(Math.random() * 5);
+    if (m.type === 'boss') {
+        coins = 50;
+        for (let k = 0; k < 5; k++) spawnDrop(m.x + Math.random() * 40, m.y + Math.random() * 40, IDS.DIAMOND);
+        spawnDrop(m.x + 20, m.y + 20, IDS.GOLD_BAR);
+    }
+    for (let c = 0; c < coins; c++) {
+        spawnDrop(m.x + Math.random() * (m.type === 'boss' ? 40 : 10), m.y, IDS.COIN);
+    }
+    if (m.type === 'zombie' || m.type === 'skeleton') spawnDrop(m.x, m.y, IDS.IRON_ORE);
+    if (m.type === 'demon_eye') spawnDrop(m.x, m.y, IDS.TORCH);
+    if (m.type === 'eater') spawnDrop(m.x, m.y, IDS.EBONSTONE);
+    if (m.type === 'hornet' && Math.random() < 0.3) spawnDrop(m.x, m.y, IDS.STINGER);
+}
+
 function updateProjectiles() {
     for (let i = projectiles.length - 1; i >= 0; i--) {
         let p = projectiles[i];
@@ -2923,6 +2942,7 @@ function updateProjectiles() {
             for (let j = mobs.length - 1; j >= 0; j--) {
                 let m = mobs[j];
                 if (p.x > m.x && p.x < m.x + m.w && p.y > m.y && p.y < m.y + m.h) {
+                    if (!mobCanBeHurt(m)) continue;
                     // 确保伤害有效
                     if (p.damage && !isNaN(p.damage) && p.damage > 0) {
                         // 確保怪物HP屬性已定義
@@ -2946,21 +2966,7 @@ function updateProjectiles() {
                     m.vy = -2;
                     createParticle(m.x + m.w / 2, m.y + m.h / 2, m.color, 0.5);
                     if (m.hp <= 0) {
-                        // 掉落錢幣
-                        let coins = 1 + Math.floor(Math.random() * 5);
-                        if (m.type === 'boss') coins = 50;
-                        for(let c=0; c<coins; c++) {
-                            spawnDrop(m.x + Math.random()*10, m.y, IDS.COIN);
-                        }
-                        // 掉落其他物品
-                        if(m.type === 'zombie') spawnDrop(m.x, m.y, IDS.IRON_ORE);
-                        if(m.type === 'demon_eye') spawnDrop(m.x, m.y, IDS.TORCH);
-                        if(m.type === 'skeleton') spawnDrop(m.x, m.y, IDS.IRON_ORE);
-                        if(m.type === 'eater') spawnDrop(m.x, m.y, IDS.EBONSTONE);
-                        if(m.type === 'hornet') {
-                            if(Math.random() < 0.3) spawnDrop(m.x, m.y, IDS.STINGER); // 30% 機率掉毒刺
-                        }
-                        
+                        defeatMob(m);
                         mobs.splice(j, 1);
                         createParticle(m.x + m.w / 2, m.y + m.h / 2, m.color, 1.0);
                     }
@@ -3055,14 +3061,8 @@ function updateMobs() {
             }
             // BOSS 死亡
             if (m.hp <= 0) {
-                // 掉落錢幣
-                let coins = 50; // BOSS 掉多點
-                for(let c=0; c<coins; c++) {
-                    spawnDrop(m.x + Math.random()*40, m.y + Math.random()*40, IDS.COIN);
-                }
+                defeatMob(m);
                 spawnFloatText(m.x, m.y, "已擊敗!", "#ffd700");
-                for(let k=0; k<5; k++) spawnDrop(m.x + Math.random()*40, m.y + Math.random()*40, IDS.DIAMOND); 
-                spawnDrop(m.x + 20, m.y + 20, IDS.GOLD_BAR);
                 mobs.splice(i, 1);
             }
             continue; // BOSS 處理完畢，跳過後面的重力邏輯
@@ -3215,21 +3215,8 @@ function updateMobs() {
             player.vy = -3;
         }
         if (m.hp <= 0) {
-            // 掉落錢幣
-            let coins = 1 + Math.floor(Math.random() * 5); // 1-5 銅幣
-            if (m.type === 'boss') coins = 50; // BOSS 掉多點
-            for(let c=0; c<coins; c++) {
-                spawnDrop(m.x + Math.random()*10, m.y, IDS.COIN);
-            }
-            
+            defeatMob(m);
             mobs.splice(i, 1);
-            if(m.type === 'zombie') spawnDrop(m.x, m.y, IDS.IRON_ORE);
-            if(m.type === 'demon_eye') spawnDrop(m.x, m.y, IDS.TORCH);
-            if(m.type === 'skeleton') spawnDrop(m.x, m.y, IDS.IRON_ORE); // 暂时用铁矿代替骨头
-            if(m.type === 'eater') spawnDrop(m.x, m.y, IDS.EBONSTONE); // 掉落黑檀石
-            if(m.type === 'hornet') {
-                if(Math.random() < 0.3) spawnDrop(m.x, m.y, IDS.STINGER); // 30% 機率掉毒刺
-            }
         }
     }
 }
@@ -3457,22 +3444,12 @@ function explode(tileX, tileY) {
     for(let i=mobs.length-1; i>=0; i--) {
         let m = mobs[i];
         let distM = Math.sqrt(Math.pow(m.x - worldX, 2) + Math.pow(m.y - worldY, 2));
-        if(distM < expRadius) { 
+        if(distM < expRadius && mobCanBeHurt(m)) { 
             m.hp -= 5; 
             spawnFloatText(m.x + m.w/2, m.y, String(5), "#ffeb3b");
             createParticle(m.x, m.y, m.color, 1.0); 
             if(m.hp <= 0) {
-                // 掉落錢幣
-                let coins = 1 + Math.floor(Math.random() * 5);
-                if (m.type === 'boss') coins = 50;
-                for(let c=0; c<coins; c++) {
-                    spawnDrop(m.x + Math.random()*10, m.y, IDS.COIN);
-                }
-                // 掉落其他物品
-                if(m.type === 'zombie') spawnDrop(m.x, m.y, IDS.IRON_ORE);
-                if(m.type === 'demon_eye') spawnDrop(m.x, m.y, IDS.TORCH);
-                if(m.type === 'skeleton') spawnDrop(m.x, m.y, IDS.IRON_ORE);
-                if(m.type === 'eater') spawnDrop(m.x, m.y, IDS.EBONSTONE);
+                defeatMob(m);
                 mobs.splice(i, 1);
             } 
         }
@@ -4697,6 +4674,8 @@ function updateInteraction() {
         if (handItem && handItem.id === IDS.EYE_SUMMON) {
             if (mobs.find(m => m.type === 'boss')) {
                 spawnFloatText(player.x, player.y - 20, "BOSS 已存在!", "#fff");
+                mouse.left = false;
+                return;
             } else {
                 spawnMob(player.x, player.y - 300, 'boss'); // 在上方生成
                 handItem.count--; 
@@ -4800,6 +4779,7 @@ function updateInteraction() {
         let range = (handDef && handDef.range) ? handDef.range : 60;
         for (let i = mobs.length - 1; i >= 0; i--) {
             let m = mobs[i];
+            if (!mobCanBeHurt(m)) continue;
             let dist = Math.sqrt(Math.pow(player.x - m.x, 2) + Math.pow(player.y - m.y, 2));
             if (dist < range && mouse.worldX > m.x - 20 && mouse.worldX < m.x + m.w + 20 && mouse.worldY > m.y - 20 && mouse.worldY < m.y + m.h + 20) {
                 m.vx = (player.x < m.x ? 5 : -5);
@@ -4826,18 +4806,7 @@ function updateInteraction() {
                 playSound('hit');
                 createParticle(m.x + m.w / 2, m.y + m.h / 2, m.color, 0.5);
                 if (m.hp <= 0) {
-                    // 掉落錢幣
-                    let coins = 1 + Math.floor(Math.random() * 5);
-                    if (m.type === 'boss') coins = 50;
-                    for(let c=0; c<coins; c++) {
-                        spawnDrop(m.x + Math.random()*10, m.y, IDS.COIN);
-                    }
-                    // 掉落其他物品
-                    if(m.type === 'zombie') spawnDrop(m.x, m.y, IDS.IRON_ORE);
-                    if(m.type === 'demon_eye') spawnDrop(m.x, m.y, IDS.TORCH);
-                    if(m.type === 'skeleton') spawnDrop(m.x, m.y, IDS.IRON_ORE);
-                    if(m.type === 'eater') spawnDrop(m.x, m.y, IDS.EBONSTONE);
-                    
+                    defeatMob(m);
                     mobs.splice(i, 1);
                     createParticle(m.x + m.w / 2, m.y + m.h / 2, m.color, 1.0);
                 }
@@ -5892,73 +5861,62 @@ function consumeDurability(item, amount = 1) {
     return false; // 返回 false 表示物品還可以使用
 }
 
+function slotIsEmpty(s) {
+    return !s || s.id === IDS.AIR || s.id === 0 || !s.count;
+}
+
+const ADVENTURE_MAX_STACK = 999;
+
+function inventoryCanHold(id, count) {
+    if (!id || id === IDS.AIR || count <= 0 || !BLOCKS[id]) return false;
+    if (BLOCKS[id].durability) {
+        return player.inventory.some(slotIsEmpty);
+    }
+    let room = 0;
+    for (let i = 0; i < player.inventory.length; i++) {
+        let s = player.inventory[i];
+        if (s.id === id && s.count > 0 && s.count < ADVENTURE_MAX_STACK) room += ADVENTURE_MAX_STACK - s.count;
+        else if (slotIsEmpty(s)) room += ADVENTURE_MAX_STACK;
+    }
+    return room >= count;
+}
+
 function addToInventory(id, count, durability) {
-    // 防止添加无效物品
-    if (!id || id === IDS.AIR || count <= 0) return false; // 返回 false 表示添加失敗
-    
-    // 驗證物品ID是否有效
-    if (!BLOCKS[id]) {
-        console.warn(`[addToInventory] 無效的物品ID: ${id}`);
-        return false;
-    }
-    
-    // 檢查物品是否有耐久度
+    if (!inventoryCanHold(id, count)) return false;
+
     let hasDurability = BLOCKS[id] && BLOCKS[id].durability;
-    
-    // 如果有耐久度，不能疊加，必須放在新槽位
     if (hasDurability) {
-        // 查找空槽位
-        let empty = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
-        if(empty) {
-            empty.id = id;
-            empty.count = Math.min(count, 999);
-            // 如果傳入了耐久度參數，使用傳入的值；否則初始化為最大值
-            if (durability !== undefined && durability !== null) {
-                empty.durability = durability;
-            } else {
-                empty.durability = BLOCKS[id].durability;
-            }
-            updateUI();
-            return true; // 成功添加
-        } else {
-            // 背包已满，返回 false，不顯示提示（由調用者決定是否顯示）
-            return false;
-        }
-    }
-    
-    // 沒有耐久度的物品可以疊加
-    let found = player.inventory.find(s => s.id === id && s.count > 0);
-    if(found) {
-        found.count += count;
-        // 防止物品数量溢出（设置一个合理的上限，例如999）
-        const MAX_STACK_SIZE = 999;
-        if (found.count > MAX_STACK_SIZE) {
-            found.count = MAX_STACK_SIZE;
-        }
+        let empty = player.inventory.find(slotIsEmpty);
+        if (!empty) return false;
+        empty.id = id;
+        empty.count = Math.min(count, ADVENTURE_MAX_STACK);
+        if (durability !== undefined && durability !== null) empty.durability = durability;
+        else empty.durability = BLOCKS[id].durability;
         updateUI();
-        return true; // 成功添加
-    } else {
-        // 查找真正的空槽位（id 为 AIR 或 count 为 0）
-        let empty = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
-        if(empty) {
-            empty.id = id;
-            empty.count = Math.min(count, 999); // 限制单次添加的最大数量
-            // 如果是工具/武器，初始化耐久度
-            if (BLOCKS[id] && BLOCKS[id].durability) {
-                // 如果傳入了耐久度參數，使用傳入的值；否則初始化為最大值
-                if (durability !== undefined && durability !== null) {
-                    empty.durability = durability;
-                } else {
-                    empty.durability = BLOCKS[id].durability;
-                }
-            }
-            updateUI();
-            return true; // 成功添加
-        } else {
-            // 背包已满，返回 false，不顯示提示（由調用者決定是否顯示）
-            return false;
+        return true;
+    }
+
+    let remaining = count;
+    for (let i = 0; i < player.inventory.length && remaining > 0; i++) {
+        let s = player.inventory[i];
+        if (s.id === id && s.count > 0 && s.count < ADVENTURE_MAX_STACK) {
+            let add = Math.min(ADVENTURE_MAX_STACK - s.count, remaining);
+            s.count += add;
+            remaining -= add;
         }
     }
+    for (let i = 0; i < player.inventory.length && remaining > 0; i++) {
+        let s = player.inventory[i];
+        if (!slotIsEmpty(s)) continue;
+        let add = Math.min(ADVENTURE_MAX_STACK, remaining);
+        s.id = id;
+        s.count = add;
+        s.durability = undefined;
+        remaining -= add;
+    }
+    if (remaining > 0) return false;
+    updateUI();
+    return true;
 }
 
 // UI 
@@ -6142,19 +6100,7 @@ function craftSelected() {
     }
     if (!can) return;
     
-    // 先檢查背包是否有空槽位（在消耗材料之前檢查）
-    let hasEmptySlot = false;
-    let outHasDurability = BLOCKS[r.out.id] && BLOCKS[r.out.id].durability;
-    if (outHasDurability) {
-        // 有耐久度的物品需要空槽位
-        hasEmptySlot = player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
-    } else {
-        // 沒有耐久度的物品可以疊加或找空槽位
-        let found = player.inventory.find(s => s.id === r.out.id && s.count > 0);
-        hasEmptySlot = found || player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
-    }
-    
-    if (!hasEmptySlot) {
+    if (!inventoryCanHold(r.out.id, r.out.count || 1)) {
         // 背包已滿，只顯示提示訊息（不消耗材料，不掉落物品）
         spawnFloatText(player.x, player.y, "背包已滿!", "#ff5252");
         return; // 不執行合成，不消耗材料
@@ -6463,12 +6409,11 @@ function respawnPlayer() {
 
 // 自殺函數（用於K鍵）
 function killPlayer() {
-    // 設置自殺標記，避免生成墓碑
+    // 剛被打到的閃爍不能擋自殺，否則血歸零卻不會死，吃飽還會把血補回來。
     player._isSuicide = true;
-    // 直接設置HP為0，觸發死亡邏輯
+    player.invincibleTimer = 0;
     player.hp = 0;
-    // 直接調用 takeDamage 來觸發重生邏輯（但會跳過墓碑生成）
-    takeDamage(0); // 傳入0，因為HP已經被設為0
+    takeDamage(0);
 }
 
 window.addEventListener('keydown', e => { 
@@ -7386,17 +7331,7 @@ function buyMerchantItem() {
         return;
     }
     
-    // 先檢查背包是否有空槽位
-    let hasEmptySlot = false;
-    let itemHasDurability = BLOCKS[item.id] && BLOCKS[item.id].durability;
-    if (itemHasDurability) {
-        hasEmptySlot = player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
-    } else {
-        let found = player.inventory.find(s => s.id === item.id && s.count > 0);
-        hasEmptySlot = found || player.inventory.some(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
-    }
-    
-    if (!hasEmptySlot) {
+    if (!inventoryCanHold(item.id, item.count || 1)) {
         spawnFloatText(player.x, player.y, "背包已滿!", "#ff5252");
         return; // 不扣錢，不購買
     }
