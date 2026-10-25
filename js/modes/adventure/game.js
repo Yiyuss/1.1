@@ -445,7 +445,10 @@ let mouse = { x: 0, y: 0, left: false, right: false, worldX: 0, worldY: 0 };
 // 星怒、法杖的冷卻從這一發算起。用全域幀數整除的話，點一下常常對不上。
 let starShotFrame = -30;
 let staffShotFrame = -20;
+let manaMsgFrame = -30;
 let mining = { active: false, x: 0, y: 0, progress: 0 };
+let leavingRopeX = -1;
+let leavingRopeY = -1;
 
 // ==========================================
 // 玩家視覺資源（根據主體遊戲選角決定）
@@ -1842,24 +1845,25 @@ function generateCorruption() {
         }
     
     // 2. 垂直裂隙 (Chasm)
+    // 裂隙從地表挖開。第一格不是空氣可能是樹葉，從下一格挖會把草地留在洞上。
+    let groundY = 0;
+    while (groundY < CHUNK_H) {
+        let gid = tiles[groundY * CHUNK_W + corruptionX];
+        if (gid === IDS.GRASS || gid === IDS.DIRT || gid === IDS.SAND || gid === IDS.SNOW || gid === IDS.STONE || gid === IDS.MUD || gid === IDS.JUNGLE_GRASS || gid === IDS.EBONSTONE) break;
+        groundY++;
+    }
     let chasmW = 6;
-    for(let y = 0; y < CHUNK_H - 20; y++) { // 從地表往下挖
-        if (y < 0 || y >= CHUNK_H) continue;
-        let groundY = 0;
-        // 找地表高度
-        while(groundY < CHUNK_H && tiles[groundY * CHUNK_W + corruptionX] === IDS.AIR) {
-            groundY++;
-        }
-        if (y > groundY) {
-            for(let w = -chasmW/2; w < chasmW/2; w++) {
-                let wx = corruptionX + w;
-                if (wx >= 0 && wx < CHUNK_W && y >= 0 && y < CHUNK_H) {
-                    setTile(wx, y, IDS.AIR); // 挖空
-                    setWall(wx, y, IDS.EBONSTONE); // 背景牆
-                    // 裂隙邊緣長黑檀石
-                    if (w === -chasmW/2 && wx - 1 >= 0) setTile(wx - 1, y, IDS.EBONSTONE);
-                    if (w === Math.floor(chasmW/2)-1 && wx + 1 < CHUNK_W) setTile(wx + 1, y, IDS.EBONSTONE);
-                }
+    for (let y = groundY; y < CHUNK_H - 20; y++) { // 從地表往下挖
+        for (let w = -chasmW / 2; w < chasmW / 2; w++) {
+            let wx = corruptionX + w;
+            if (wx >= 0 && wx < CHUNK_W && y >= 0 && y < CHUNK_H) {
+                // 裂隙不要挖掉探索寶箱。箱子比裂隙先放好，直接挖成空氣，裡面的東西就沒了。
+                let dug = getTile(wx, y);
+                if (dug !== IDS.LOOT_CHEST) setTile(wx, y, IDS.AIR); // 挖空
+                setWall(wx, y, IDS.EBONSTONE); // 背景牆
+                // 裂隙邊緣長黑檀石
+                if (w === -chasmW / 2 && wx - 1 >= 0 && getTile(wx - 1, y) !== IDS.LOOT_CHEST) setTile(wx - 1, y, IDS.EBONSTONE);
+                if (w === Math.floor(chasmW / 2) - 1 && wx + 1 < CHUNK_W && getTile(wx + 1, y) !== IDS.LOOT_CHEST) setTile(wx + 1, y, IDS.EBONSTONE);
             }
         }
     }
@@ -1881,7 +1885,10 @@ function generateJungle() {
             let dist = Math.abs(x - centerX) / radiusX;
             if (Math.random() > dist * dist) {
                 // 如果已经是腐化之地（黑檀石），不覆盖
-                if (tiles[idx] !== IDS.EBONSTONE && (tiles[idx] === IDS.DIRT || tiles[idx] === IDS.STONE)) {
+                if (tiles[idx] !== IDS.EBONSTONE && tiles[idx] === IDS.GRASS) {
+                    // 地表的草地也要變成叢林草。只轉泥土和石頭的話，人站的那一層還是普通草地。
+                    tiles[idx] = IDS.JUNGLE_GRASS;
+                } else if (tiles[idx] !== IDS.EBONSTONE && (tiles[idx] === IDS.DIRT || tiles[idx] === IDS.STONE)) {
                     tiles[idx] = IDS.MUD; // 泥土長草 (如果有空位)
                     if (y > 0 && getTile(x, y-1) === IDS.AIR && Math.random() < 0.2) {
                         tiles[idx] = IDS.JUNGLE_GRASS;
@@ -2225,6 +2232,25 @@ function upgradeAdventureSaveIfNeeded(raw) {
     return raw;
 }
 
+function currentBoss() {
+    // 魔王用掉召喚道具以後，存檔再進來不能消失。
+    let boss = mobs.find(m => m && m.type === 'boss' && m.hp > 0);
+    if (!boss) return null;
+    return { x: boss.x, y: boss.y, hp: boss.hp, maxHp: boss.maxHp, phase: boss.phase === 2 ? 2 : 1 };
+}
+function restoreBoss(data) {
+    if (!data || typeof data.x !== 'number' || typeof data.y !== 'number') return;
+    if (mobs.some(m => m && m.type === 'boss')) return;
+    let maxHp = (typeof data.maxHp === 'number' && data.maxHp > 0) ? data.maxHp : 100;
+    let hp = (typeof data.hp === 'number') ? data.hp : maxHp;
+    if (hp <= 0) return;
+    if (hp > maxHp) hp = maxHp;
+    mobs.push({
+        x: data.x, y: data.y, w: 60, h: 60, vx: 0, vy: 0,
+        hp: hp, maxHp: maxHp, type: 'boss', grounded: false,
+        phase: data.phase === 2 ? 2 : 1, dmg: 5, color: '#d32f2f'
+    });
+}
 function saveGame() {
     const data = { 
         // 冒險模式存檔版本（僅限 terraria_save）
@@ -2241,7 +2267,8 @@ function saveGame() {
         teleporters: teleporters, // 保存傳送門數據
         buffs: player.buffs, // 保存Buff狀態
         fishing: player.fishing, // 保存釣魚狀態
-        pet: player.pet // 保存寵物狀態
+        pet: player.pet, // 保存寵物狀態
+        boss: currentBoss()
     };
     try { 
         localStorage.setItem('terraria_save', JSON.stringify(data)); 
@@ -2433,7 +2460,8 @@ function loadGame() {
             }
         }
         
-        initClouds(); 
+        initClouds();
+        restoreBoss(data.boss);
         startGame(); 
         return true;
     } catch(e) { 
@@ -2644,7 +2672,9 @@ function updatePhysics() {
     let inWeb = (def && def.slow); // 蜘蛛網減速
     let onRope = (def && def.climbable); // 是否在繩索/鐵鍊上
     if (!onRope) player.leavingRope = false;
+    else if (player.leavingRope && (cx !== leavingRopeX || cy !== leavingRopeY)) player.leavingRope = false;
     // 跳開繩子後不要又被黏住。人還沒離開那一格時，不要把往上的速度清掉。
+    // 離開的是這一格。下一截繩子還在的話，不能整條一起放掉。
     let climbingRope = onRope && !player.leavingRope;
     
     // --- 蜘蛛網效果 ---
@@ -2696,8 +2726,6 @@ function updatePhysics() {
 
     // 鉤爪拉玩家 (在重力之後處理)
     if (player.hook.active && player.hook.state === 3) {
-        player.vx = 0; 
-        player.vy = 0; // 停止重力
         player.jumpCount = 0; // 重置跳躍計數（鉤爪鉤住時視為著地）
         let angle = Math.atan2(player.hook.y - (player.y+20), player.hook.x - (player.x+10));
         // 將玩家拉向鉤子
@@ -2708,6 +2736,9 @@ function updatePhysics() {
             // 這樣可以避免在狹窄空間卡牆或彈飛
             let moveX = Math.cos(angle) * speed;
             let moveY = Math.sin(angle) * speed;
+            // 拉的方向要留給碰撞。先把速度清成零，撞進牆時不會把人推出去。
+            player.vx = moveX;
+            player.vy = moveY;
             
             // 先移動X軸，檢查碰撞
             let oldX = player.x;
@@ -2731,6 +2762,8 @@ function updatePhysics() {
                 player.y += moveY;
                 handleCollisions(player, false); // Y軸碰撞檢測
             }
+            player.vx = 0;
+            player.vy = 0;
             
             // 防止位置溢出
             if (player.x < 0) player.x = 0;
@@ -2742,6 +2775,8 @@ function updatePhysics() {
             }
         } else {
             // 距離太近，自動取消鉤爪
+            player.vx = 0;
+            player.vy = 0;
             releaseHook();
         }
     }
@@ -2751,6 +2786,7 @@ function updatePhysics() {
         if (!player.jumpKeyHeld) { 
             if (player.grounded || climbingRope) { // 在繩子上也可以跳。跳開之後這格不再當地板。
                 if (onRope) player.leavingRope = true;
+                if (player.leavingRope) { leavingRopeX = cx; leavingRopeY = cy; }
                 player.vy = -JUMP_FORCE; 
                 player.grounded = false; 
                 player.jumpCount = 1;
@@ -2789,22 +2825,27 @@ function updatePhysics() {
     if (player.invincibleTimer > 0) player.invincibleTimer--;
     
     player.regenTimer++;
-    if (player.regenTimer > 600 && player.hp < player.maxHp) { 
-        player.hp++;
-        // 防止HP溢出
-        if (player.hp > player.maxHp) player.hp = player.maxHp;
-        updateHealthUI(); 
+    // 滿了也要把計時歸零。不然被打掉的第一點，下一幀就補回來。
+    if (player.regenTimer > 600) {
         player.regenTimer = 0;
+        if (player.hp < player.maxHp) {
+            player.hp++;
+            // 防止HP溢出
+            if (player.hp > player.maxHp) player.hp = player.maxHp;
+            updateHealthUI();
+        }
     }
     
     // 魔力回復
     player.manaTimer++;
-    if (player.manaTimer > 60 && player.mana < player.maxMana) { // 每秒回魔
-        player.mana += 1; // 回復速度
-        // 防止魔力溢出
-        if (player.mana > player.maxMana) player.mana = player.maxMana;
+    if (player.manaTimer > 60) { // 每秒回魔
         player.manaTimer = 0;
-        updateHealthUI(); // 更新介面顯示
+        if (player.mana < player.maxMana) {
+            player.mana += 1; // 回復速度
+            // 防止魔力溢出
+            if (player.mana > player.maxMana) player.mana = player.maxMana;
+            updateHealthUI(); // 更新介面顯示
+        }
     }
     
     // --- 寵物 AI ---
@@ -2906,7 +2947,8 @@ function updatePhysics() {
     }
 
     if(player.x < 0) player.x = 0;
-    if(player.x > CHUNK_W*TILE_SIZE) player.x = CHUNK_W*TILE_SIZE;
+    // 右緣要留出身體的寬度。左上角貼著邊界時，往左走會被地圖外的牆再往外推。
+    if (player.x > CHUNK_W*TILE_SIZE - player.w) player.x = CHUNK_W*TILE_SIZE - player.w;
     if(player.y > CHUNK_H*TILE_SIZE) takeDamage(999);
     if(Math.abs(player.vx) > 0.1) { player.facingRight = player.vx > 0; player.anim += 0.2; }
 
@@ -3103,9 +3145,8 @@ function updateProjectiles() {
                 p.vx = Math.cos(angleToPlayer) * speed;
                 p.vy = Math.sin(angleToPlayer) * speed;
                 
-                // 接住
-                let dist = Math.sqrt(Math.pow(player.x - p.x, 2) + Math.pow(player.y - p.y, 2));
-                if (dist < 20) {
+                // 接住看有沒有回到身上。飛向身體中間，卻用左上角量，距離差超過 20，鏢會停在身上再也丟不出去。
+                if (distToRect(p.x, p.y, player) < 12) {
                     projectiles.splice(i, 1);
                     continue;
                 }
@@ -3117,8 +3158,8 @@ function updateProjectiles() {
             projectiles.splice(i, 1);
             continue; // 這一發已經刪了。再刪一次會把旁邊那發清掉。
         }
-        // 往外飛才算離開。剛生在地圖外、還往裡面飛的不要清掉。
-        let flewOut = (p.x < 0 && p.vx <= 0) || (p.x > CHUNK_W * TILE_SIZE && p.vx >= 0) || p.y > CHUNK_H * TILE_SIZE;
+        // 往外飛才算離開。剛生在地圖外、還往裡面飛的不要清掉。往上飛出地圖也要清，不然法術和刺會一直留著。
+        let flewOut = (p.x < 0 && p.vx <= 0) || (p.x > CHUNK_W * TILE_SIZE && p.vx >= 0) || (p.y < 0 && p.vy <= 0) || p.y > CHUNK_H * TILE_SIZE;
         if (flewOut) {
             if (p.type !== 'boomerang') projectiles.splice(i, 1);
             else if (p.returnState) projectiles.splice(i, 1); // 迴旋鏢飛回時才消失
@@ -3385,6 +3426,8 @@ function updateMobSpawning() {
         let m = mobs[i];
         // 商人不会被清理（应该一直存在）
         if (m.friendly && m.type === 'merchant') continue;
+        // 魔王不會因為跑遠被清掉。召喚道具已經用掉，清掉就沒有戰利品。
+        if (m.type === 'boss') continue;
         let mobTileX = Math.floor(m.x / TILE_SIZE);
         let mobTileY = Math.floor(m.y / TILE_SIZE);
         let distX = mobTileX - playerTileX;
@@ -3445,7 +3488,7 @@ function updateMobSpawning() {
             if (Math.abs(y - surfaceY) < 10) {
                 let isDay = !isNight;
                 // 兔子：白天，在草地或泥土上生成，独立限制最多5只
-                if (isDay && nearbyBunnies < 5 && (tiles[belowIdx] === IDS.GRASS || tiles[belowIdx] === IDS.DIRT) && Math.random() < 0.01) { // 調低：10% -> 1%
+                if (isDay && nearbyBunnies < 5 && isPlantSoil(tiles[belowIdx]) && Math.random() < 0.01) { // 調低：10% -> 1%
                     spawnMob(spawnX * TILE_SIZE, y * TILE_SIZE, 'bunny');
                     return;
                 }
@@ -3494,6 +3537,8 @@ function updateMobSpawning() {
         let m = mobs[i];
         // 商人不会被清理（应该一直存在）
         if (m.friendly && m.type === 'merchant') continue;
+        // 魔王不會因為跑遠被清掉。召喚道具已經用掉，清掉就沒有戰利品。
+        if (m.type === 'boss') continue;
         let mobTileX = Math.floor(m.x / TILE_SIZE);
         let mobTileY = Math.floor(m.y / TILE_SIZE);
         let distX = mobTileX - playerTileX;
@@ -3550,11 +3595,12 @@ function explode(tileX, tileY) {
     }
     let worldX = tileX * TILE_SIZE; let worldY = tileY * TILE_SIZE;
     let expRadius = radius * TILE_SIZE;
-    let distP = Math.sqrt(Math.pow(player.x - worldX, 2) + Math.pow(player.y - worldY, 2));
+    // 爆炸看身體有沒有進到範圍。用左上角的話，人站在右下方會沒受傷。
+    let distP = distToRect(worldX, worldY, player);
     if (distP < expRadius) takeDamage(3);
     for(let i=mobs.length-1; i>=0; i--) {
         let m = mobs[i];
-        let distM = Math.sqrt(Math.pow(m.x - worldX, 2) + Math.pow(m.y - worldY, 2));
+        let distM = distToRect(worldX, worldY, m);
         if(distM < expRadius && mobCanBeHurt(m)) { 
             m.hp -= 5; 
             spawnFloatText(m.x + m.w/2, m.y, String(5), "#ffeb3b");
@@ -3568,6 +3614,7 @@ function explode(tileX, tileY) {
 }
 
 function isPlacedBuild(id) {
+    // 玻璃、紅磚、炸藥也是人鋪的。沒算進去的話，上面會生怪，旁邊會長蜘蛛網。
     return id === IDS.FURNACE || id === IDS.WORKBENCH || id === IDS.ANVIL ||
         id === IDS.CHEST || id === IDS.BED || id === IDS.CAMPFIRE ||
         id === IDS.TELEPORTER || id === IDS.TABLE || id === IDS.CHAIR ||
@@ -3576,6 +3623,7 @@ function isPlacedBuild(id) {
         id === IDS.COOKING_POT || id === IDS.CLAY_POT || id === IDS.TORCH ||
         id === IDS.SAPLING || id === IDS.WHEAT_CROP || id === IDS.WHEAT_RIPE ||
         id === IDS.BRICKS || id === IDS.PLANKS || id === IDS.WOOD || id === IDS.WOOD_PLATFORM ||
+        id === IDS.GLASS || id === IDS.RED_BRICK || id === IDS.TNT || id === IDS.TOMBSTONE ||
         id === IDS.GEMSPARK_RED || id === IDS.GEMSPARK_BLUE || id === IDS.GEMSPARK_GREEN ||
         id === IDS.ROPE || id === IDS.CHAIN;
 }
@@ -3583,6 +3631,14 @@ function isPlacedBuild(id) {
 function isSpawnGround(id) {
     let block = BLOCKS[id];
     return !!(block && block.solid && !isPlacedBuild(id));
+}
+
+// 叢林草也是草地。鋤地、種樹、告示牌、樹苗和再生的花都要認它。
+function isGrassGround(id) {
+    return id === IDS.GRASS || id === IDS.JUNGLE_GRASS;
+}
+function isPlantSoil(id) {
+    return id === IDS.DIRT || isGrassGround(id);
 }
 
 function nearPlacedBuild(x, y) {
@@ -3613,6 +3669,7 @@ function flowLiquidSideways(x, y, id, arrived) {
     if (targetX < 0 || targetX >= CHUNK_W) return;
     let targetIdx = y * CHUNK_W + targetX;
     if (tiles[targetIdx] !== IDS.AIR) return;
+    carryPaint(y * CHUNK_W + x, targetIdx);
     tiles[targetIdx] = id;
     tiles[y * CHUNK_W + x] = IDS.AIR;
     clearPaintIfBare(x, y);
@@ -3719,7 +3776,7 @@ function updateWorldLogic() {
             if (id === IDS.SAPLING) {
                 // 土沒了，樹苗不能懸在空中。掉回樹苗。
                 let belowId = getTile(x, y + 1);
-                if (belowId !== IDS.GRASS && belowId !== IDS.DIRT) {
+                if (!isPlantSoil(belowId)) {
                     setTile(x, y, IDS.AIR);
                     spawnDrop(x * TILE_SIZE, y * TILE_SIZE, IDS.SAPLING);
                 } else if (Math.random() < 0.005) {
@@ -3730,11 +3787,27 @@ function updateWorldLogic() {
                     if (y-h < 0 || tiles[(y-h)*CHUNK_W+x] !== IDS.AIR) canGrow = false;
                 }
                 if (canGrow) {
+                    // 人還站在樹苗上就先不長。長出來會把人關進樹幹。
+                    let bodyInTree = false;
+                    let treeCells = [];
+                    for (let h = 0; h < treeH; h++) treeCells.push([x, y - h]);
+                    let topY = y - treeH;
+                    for (let ly = -3; ly <= 1; ly++) for (let lx = -3; lx <= 3; lx++) {
+                        if (lx * lx + ly * ly <= 8) {
+                            let wx = x + lx, wy = topY + ly;
+                            if (wx >= 0 && wx < CHUNK_W && wy >= 0 && wy < CHUNK_H && tiles[wy * CHUNK_W + wx] === IDS.AIR) {
+                                treeCells.push([wx, wy]);
+                            }
+                        }
+                    }
+                    for (let cell of treeCells) {
+                        if (tileOverlapsBody(cell[0], cell[1])) bodyInTree = true;
+                    }
+                    if (!bodyInTree) {
                     for(let h=0; h<treeH; h++) { 
                         setTile(x, y-h, IDS.WOOD); 
                         // 樹長大不拆背景牆。原木不透明，牆會被擋住，砍掉樹還在。
                     }
-                    let topY = y - treeH;
                     for(let ly=-3; ly<=1; ly++) for(let lx=-3; lx<=3; lx++) { 
                         if(lx*lx + ly*ly <= 8) { 
                             let wx = x+lx, wy = topY+ly;
@@ -3743,6 +3816,7 @@ function updateWorldLogic() {
                                 if(tiles[tidx] === IDS.AIR) setTile(wx, wy, IDS.LEAVES);
                             }
                         }
+                    }
                     }
                 }
                 }
@@ -3754,17 +3828,20 @@ function updateWorldLogic() {
                     let belowId = tiles[belowIdx];
                     // 向下流
                     if (belowId === IDS.AIR) {
+                        carryPaint(idx, belowIdx);
                         tiles[belowIdx] = IDS.WATER;
                         tiles[idx] = IDS.AIR;
                         clearPaintIfBare(x, y);
                         continue;
                     }
-                    // 遇岩漿變石頭
+                    // 遇岩漿變石頭。人還在這兩格就先不變，免得被關進石頭。
                     else if (belowId === IDS.LAVA) {
+                        if (!tileOverlapsBody(x, y) && !tileOverlapsBody(x, y + 1)) {
                         tiles[belowIdx] = IDS.STONE;
                         tiles[idx] = IDS.STONE;
                         createParticle(x*TILE_SIZE, y*TILE_SIZE, "#555", 1.0);
                         playSound('mine');
+                        }
                         continue;
                     }
                 }
@@ -3778,17 +3855,20 @@ function updateWorldLogic() {
                     let belowId = tiles[belowIdx];
                     // 向下流
                     if (belowId === IDS.AIR) {
+                        carryPaint(idx, belowIdx);
                         tiles[belowIdx] = IDS.LAVA;
                         tiles[idx] = IDS.AIR;
                         clearPaintIfBare(x, y);
                         continue;
                     }
-                    // 遇水變石頭
+                    // 遇水變石頭。人還在這兩格就先不變，免得被關進石頭。
                     else if (belowId === IDS.WATER) {
+                        if (!tileOverlapsBody(x, y) && !tileOverlapsBody(x, y + 1)) {
                         tiles[belowIdx] = IDS.STONE;
                         tiles[idx] = IDS.STONE;
                         createParticle(x*TILE_SIZE, y*TILE_SIZE, "#555", 1.0);
                         playSound('mine');
+                        }
                         continue;
                     }
                 }
@@ -3800,10 +3880,18 @@ function updateWorldLogic() {
                 let belowIdx = idx + CHUNK_W; 
                 if (y < CHUNK_H - 1) { 
                     let belowId = tiles[belowIdx]; 
-                    if (belowId === IDS.AIR || belowId === IDS.WATER || belowId === IDS.LAVA) { 
+                    if (belowId === IDS.AIR || belowId === IDS.WATER || belowId === IDS.LAVA) {
+                        // 下面有人或怪物就先停。沙子是實心的，掉進去會把人關住。
+                        if (!tileOverlapsBody(x, y + 1)) {
+                        let sandPaint = tileColors[idx];
+                        let belowPaint = tileColors[belowIdx];
                         tiles[belowIdx] = IDS.SAND; 
                         tiles[idx] = (belowId === IDS.WATER || belowId === IDS.LAVA) ? belowId : IDS.AIR;
-                        if (tiles[idx] === IDS.AIR) clearPaintIfBare(x, y); 
+                        if (sandPaint) tileColors[belowIdx] = sandPaint;
+                        else if (belowId !== IDS.AIR) tileColors[belowIdx] = 0;
+                        if (belowId === IDS.WATER || belowId === IDS.LAVA) tileColors[idx] = belowPaint;
+                        else if (tiles[idx] === IDS.AIR) clearPaintIfBare(x, y);
+                        }
                     } 
                 } 
             }
@@ -3866,7 +3954,7 @@ function updateWorldLogic() {
             }
             
             // 2. 花朵再生（在草地上，地表）- 大幅提高概率，避免覆盖已有花朵和玩家建筑
-            if (id === IDS.GRASS && ry < CHUNK_H * 0.5) {
+            if (isGrassGround(id) && ry < CHUNK_H * 0.5) {
                 if (ry > 0) {
                     let aboveIdx = (ry-1)*CHUNK_W+rx;
                     let aboveId = tiles[aboveIdx];
@@ -3920,6 +4008,20 @@ function updateWorldLogic() {
 }
 
 function rectIntersect(r1, r2) { return r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y; }
+function distToRect(px, py, r) {
+    let cx = Math.max(r.x, Math.min(px, r.x + r.w));
+    let cy = Math.max(r.y, Math.min(py, r.y + r.h));
+    let dx = px - cx;
+    let dy = py - cy;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+// 實心格子裡還有人或怪物就先別動。沙子掉下去、水和岩漿變石頭，都會把人關進去。
+function tileOverlapsBody(tx, ty) {
+    let rect = { x: tx * TILE_SIZE, y: ty * TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE };
+    if (rectIntersect(rect, player)) return true;
+    for (let m of mobs) if (rectIntersect(rect, m)) return true;
+    return false;
+}
 function handleCollisions(obj, isX) {
     let minX = Math.floor(obj.x / TILE_SIZE), maxX = Math.floor((obj.x + obj.w) / TILE_SIZE);
     let minY = Math.floor(obj.y / TILE_SIZE), maxY = Math.floor((obj.y + obj.h) / TILE_SIZE);
@@ -4296,10 +4398,18 @@ function draw() {
                 // 如果下方是門，這是門的上半部分，處理兩格高的油漆
                 else if (isDoorBelow) {
                     let belowPaint = (y + 1 < CHUNK_H) ? tileColors[(y + 1) * CHUNK_W + x] : 0;
+                    // 上下顏色不一樣時，下半扇不能被上半扇蓋住。
+                    if (paint > 0 && belowPaint > 0 && paint !== belowPaint && PAINT_COLORS[paint] && PAINT_COLORS[belowPaint]) {
+                        ctx.fillStyle = PAINT_COLORS[paint];
+                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                        ctx.fillStyle = PAINT_COLORS[belowPaint];
+                        ctx.fillRect(px, py + TILE_SIZE, TILE_SIZE, TILE_SIZE);
+                    } else {
                     let doorPaint = paint || belowPaint; // 優先使用當前格的顏色
                     if (doorPaint > 0 && PAINT_COLORS[doorPaint]) {
                         ctx.fillStyle = PAINT_COLORS[doorPaint];
                         ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE * 2); // 兩格高的油漆
+                    }
                     }
                 }
                 // 單獨的門（舊存檔兼容），正常處理油漆
@@ -4315,36 +4425,8 @@ function draw() {
                 ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
             }
         }
-        // 光照處理：如果是門的下半部分（上方有門），跳過光照處理（由上方處理）
-        if (id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN) {
-            let aboveId = (y > 0) ? getTile(x, y - 1) : IDS.AIR;
-            let isDoorAbove = (aboveId === IDS.DOOR_CLOSED || aboveId === IDS.DOOR_OPEN);
-            // 如果上方是門，這是門的下半部分，跳過光照處理（由上方處理兩格高的光照）
-            if (isDoorAbove) {
-                // 跳過光照處理
-            } else {
-                // 如果是門的上半部分（下方有門），需要處理兩格高的光照
-                let belowId = (y < CHUNK_H - 1) ? getTile(x, y + 1) : IDS.AIR;
-                let isDoorBelow = (belowId === IDS.DOOR_CLOSED || belowId === IDS.DOOR_OPEN);
-                if (isDoorBelow) {
-                    let belowLight = (y + 1 < CHUNK_H) ? lightMap[(y + 1) * CHUNK_W + x] : 0;
-                    let doorLight = Math.min(light, belowLight); // 取兩格中較暗的光照
-                    if (doorLight < 1.0) {
-                        ctx.fillStyle = `rgba(0,0,0,${1 - doorLight})`;
-                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE * 2); // 兩格高的陰影
-                    }
-                } else {
-                    // 單獨的門（舊存檔兼容），正常處理光照
-                    if (light < 1.0) {
-                        ctx.fillStyle = `rgba(0,0,0,${1 - light})`;
-                        ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
-                    }
-                }
-            }
-        } else {
-            // 非門方塊，正常處理光照
-            if (light < 1.0) { ctx.fillStyle = `rgba(0,0,0,${1 - light})`; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE); }
-        }
+        // 光照處理：兩格亮度不一樣時，不能拿較暗的那格把亮的半扇塗黑。門的每一格用自己的亮度。
+        if (light < 1.0) { ctx.fillStyle = `rgba(0,0,0,${1 - light})`; ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE); }
         if (mining.active && mining.x === x && mining.y === y) {
             ctx.strokeStyle = "rgba(0,0,0,0.8)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px+16, py+16);
             for(let i=0; i<(mining.progress/BLOCKS[id].hardness)*5; i++) ctx.lineTo(px+Math.random()*32, py+Math.random()*32);
@@ -4741,6 +4823,10 @@ function draw() {
 // 8. 交互 (Interaction)
 // ==========================================
 function getTile(x, y) { if(x<0||x>=CHUNK_W||y<0||y>=CHUNK_H) return IDS.BEDROCK; return tiles[y*CHUNK_W+x]; }
+// 地圖外的格子讀不到。直接拿編號去對，油漆和錘子會被扣掉。
+function cursorInsideMap(tx, ty) {
+    return tx >= 0 && ty >= 0 && tx < CHUNK_W && ty < CHUNK_H;
+}
 function getBlock(x, y) { return BLOCKS[getTile(x, y)] || BLOCKS[IDS.AIR]; }
 function setTile(x, y, id) { 
     if(x<0||x>=CHUNK_W||y<0||y>=CHUNK_H) return; 
@@ -4778,6 +4864,11 @@ function clearPaintIfBare(x, y) {
     let idx = y * CHUNK_W + x;
     if (tiles[idx] === IDS.AIR && walls[idx] === IDS.AIR) tileColors[idx] = 0;
 }
+// 油漆要跟著水走。水一流走，顏色留在空格上，下一輪就清掉。
+function carryPaint(fromIdx, toIdx) {
+    if (!tileColors[fromIdx] || tileColors[toIdx]) return;
+    tileColors[toIdx] = tileColors[fromIdx];
+}
 
 // 用身體中間算距離。左上角會讓右邊和腳邊差一格。
 function playerCenterTx() {
@@ -4794,11 +4885,20 @@ function isNearStation(stationID) {
 }
 
 // 這下沒補到、沒換上。告示牌、墓碑、床自己有右鍵，不要擋掉。
+// 魔力不夠就不要空轉。按住時每幀都說，字會疊成一堆。
+function sayNeedMana() {
+    if (frameCount - manaMsgFrame < 30) return;
+    manaMsgFrame = frameCount;
+    spawnFloatText(player.x, player.y, "魔力不足!", "#2979ff");
+}
 function failedUseLeavesTile(tileId) {
     return tileId === IDS.SIGN || tileId === IDS.TOMBSTONE || tileId === IDS.BED;
 }
 
 function updateInteraction() {
+    // 箱子和商人打開以後走遠，介面還開著，人可以在別的地方繼續拿。
+    closeChestIfFar();
+    closeMerchantIfFar();
     mouse.worldX = camera.x + mouse.x;
     mouse.worldY = camera.y + mouse.y;
     let handItem = player.inventory[player.hotbarSlot];
@@ -4887,7 +4987,7 @@ function updateInteraction() {
                     });
                     playSound('shoot');
                 }
-            }
+            } else sayNeedMana();
             return; // 星怒不挖地
         }
         // 2. 魔法法杖 (Magic Staff)
@@ -4914,7 +5014,7 @@ function updateInteraction() {
                     });
                     playSound('shoot');
                 }
-            }
+            } else sayNeedMana();
             return; // 法杖不挖地
         }
         // 弓箭射擊
@@ -4945,6 +5045,10 @@ function updateInteraction() {
                 }
                 playSound('shoot');
                 updateUI();
+                mouse.left = false;
+            } else {
+                // 沒有箭就不要空轉。點了弓沒有射出，也沒說要箭。
+                spawnFloatText(player.x, player.y, "沒有箭!", "#ff5252");
                 mouse.left = false;
             }
             return; // 弓不近戰也不挖地
@@ -4996,7 +5100,9 @@ function updateInteraction() {
 
     // 以下是原本的挖掘與放置邏輯 (tx, ty, dx, dy, inRange 已在函數開頭定義)
 
-    if (mouse.left && inRange) {
+    // 鉤爪、釣竿、迴旋鏢瞄準的地方可以比挖礦遠。準星超出挖礦距離就沒有射出。
+    let aimLeft = handItem && (handItem.id === IDS.GRAPPLING_HOOK || handItem.id === IDS.BOOMERANG || (handDef && handDef.isFishingRod));
+    if (mouse.left && (inRange || aimLeft)) {
         let id = getTile(tx, ty);
         
         // 使用捕蟲網
@@ -5128,10 +5234,11 @@ function updateInteraction() {
         }
         
         // 錘子模式：拆除背景牆 (Wall) 和非放置類物品 - 放在最前面，優先處理
-        if (handItem && handItem.id === IDS.HAMMER) {
+        if (handItem && handItem.id === IDS.HAMMER && cursorInsideMap(tx, ty)) {
             let idx = ty * CHUNK_W + tx;
             // 先處理背景牆
-            if (walls[idx] !== IDS.AIR) {
+            // 基岩拆不掉。點上去會把看不見的背景牆拆掉，錘子耐久也扣了。
+            if (walls[idx] !== IDS.AIR && id !== IDS.BEDROCK) {
                 // 檢查是否有覆蓋方塊 (通常要先把前景挖掉才能拆牆，這裡簡化為直接拆)
                 let wallId = walls[idx];
                 setWall(tx, ty, IDS.AIR); // 拆除
@@ -5189,7 +5296,8 @@ function updateInteraction() {
         }
         // 門的破壞：只有用錘子才能破壞門
         if ((id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN) && (!handItem || handItem.id !== IDS.HAMMER)) {
-            // 沒有用錘子，不能破壞門（只能右鍵開關）
+            // 沒有錘子就不要空轉。左鍵點門沒有拆掉，也沒說要錘子。
+            spawnFloatText(player.x, player.y, "需要錘子才能拆門!", "#ff5252");
             mouse.left = false;
             return;
         }
@@ -5197,6 +5305,8 @@ function updateInteraction() {
 
         // LOOT_CHEST / SKYWARE_CHEST 不能被挖掘，只能右鍵互動（在右鍵區塊處理）
         if (id === IDS.LOOT_CHEST || id === IDS.SKYWARE_CHEST) {
+            // 左鍵點探索寶箱或天域寶箱不會開。不說的話，會以為箱子是壞的。
+            spawnFloatText(player.x, player.y, "要右鍵打開!", "#ff5252");
             mouse.left = false;
             return;
         }
@@ -5250,9 +5360,11 @@ function updateInteraction() {
         }
 
         if (id !== IDS.AIR && id !== IDS.BEDROCK && id !== IDS.LAVA && id !== IDS.WATER) {
-            if (mining.x !== tx || mining.y !== ty) {
+            // 這一格換成別的方塊就重新挖。進度留著的話，剛放下去或剛掉下來的沙子會被上一塊的進度直接挖掉。
+            if (mining.x !== tx || mining.y !== ty || mining.tile !== id) {
                 mining.x = tx;
                 mining.y = ty;
+                mining.tile = id;
                 mining.progress = 0;
                 mining.active = true;
             }
@@ -5260,11 +5372,13 @@ function updateInteraction() {
             if (handDef && handDef.toolSpeed) speed = handDef.toolSpeed;
             mining.progress += speed;
             if (Math.random() > 0.5 && BLOCKS[id] && BLOCKS[id].color) createParticle(mouse.worldX, mouse.worldY, BLOCKS[id].color);
-            if (mining.progress >= (BLOCKS[id] ? BLOCKS[id].hardness : 10) || (BLOCKS[id] && BLOCKS[id].breakInstantly)) {
+            // 沒寫硬度的方塊也要挖得掉。有定義卻沒寫數字時，進度永遠比不過 undefined，孢子這種材料會留在地上。
+            let mineHardness = (BLOCKS[id] && typeof BLOCKS[id].hardness === 'number') ? BLOCKS[id].hardness : 10;
+            if (mining.progress >= mineHardness || (BLOCKS[id] && BLOCKS[id].breakInstantly)) {
                 playSound('mine');
                 
-                // 只有鎬才扣耐久。劍的編號夾在木鎬和鑽石鎬中間，不能用範圍判斷。
-                if (handItem && (handItem.id === IDS.WOOD_PICK || handItem.id === IDS.STONE_PICK || handItem.id === IDS.IRON_PICK || handItem.id === IDS.GOLD_PICK || handItem.id === IDS.DIAMOND_PICK)) {
+                // 鎬和錘子挖到才扣耐久。劍的編號夾在木鎬和鑽石鎬中間，不能用範圍判斷。
+                if (handItem && (handItem.id === IDS.WOOD_PICK || handItem.id === IDS.STONE_PICK || handItem.id === IDS.IRON_PICK || handItem.id === IDS.GOLD_PICK || handItem.id === IDS.DIAMOND_PICK || handItem.id === IDS.HAMMER)) {
                     if (consumeDurability(handItem, 1)) {
                         updateUI();
                         mouse.left = false;
@@ -5361,6 +5475,8 @@ function updateInteraction() {
                 if (id === IDS.SIGN) delete signData[tx + '_' + ty];
                 setTile(tx, ty, IDS.AIR);
                 mining.active = false;
+                mining.progress = 0;
+                mining.tile = IDS.AIR;
             }
         }
     } else mining.active = false;
@@ -5521,6 +5637,9 @@ function updateInteraction() {
                     player.buffs.wellFed = info.buffTime;
                     spawnFloatText(player.x, player.y, "美味!", "#ffcc80");
                     hasEffect = true;
+                } else if (hasEffect) {
+                    // 補到血就不要說飽食沒換上。食物已經吃掉了。
+                    spawnFloatText(player.x, player.y, "+" + info.heal + " HP", "#4caf50");
                 } else if (!failedUseLeavesTile(id)) {
                     spawnFloatText(player.x, player.y, "已有更長的buff!", "#ffcc80");
                 }
@@ -5553,6 +5672,9 @@ function updateInteraction() {
 
         // 有標價的東西右鍵換成錢。黃金鯉魚寫了賣錢，右鍵卻把它放成方塊。
         if (handItem && BLOCKS[handItem.id] && BLOCKS[handItem.id].value > 0) {
+            if (failedUseLeavesTile(id)) {
+                // 沒賣成，留給告示牌、墓碑或床。
+            } else {
             let worth = BLOCKS[handItem.id].value;
             if (!player.coins) player.coins = 0;
             player.coins += worth;
@@ -5566,13 +5688,14 @@ function updateInteraction() {
             playSound('drink');
             mouse.right = false;
             return;
+            }
         }
         
         // 1. 放置告示牌 (輸入文字，右鍵互動：視為互動元素的一種)
-        if (handItem && handItem.id === IDS.SIGN && (id === IDS.AIR || id === IDS.GRASS)) {
+        if (handItem && handItem.id === IDS.SIGN && (id === IDS.AIR || isGrassGround(id))) {
             let placeX = tx;
             let placeY = ty;
-            if (id === IDS.GRASS) {
+            if (isGrassGround(id)) {
                 // 插在草上。換成告示牌會把地面挖一個洞。
                 if (ty <= 0 || getTile(tx, ty - 1) !== IDS.AIR) {
                     spawnFloatText(player.x, player.y, "上方空間不足，無法放置!", "#ff5252");
@@ -5617,12 +5740,15 @@ function updateInteraction() {
             // 檢查背包有沒有油漆
             let paintItem = player.inventory.find(i => BLOCKS[i.id] && BLOCKS[i.id].isPaint);
             let painted = false;
-            if (paintItem) {
+            let paintFail = "";
+            if (paintItem && cursorInsideMap(tx, ty)) {
                 let colorId = BLOCKS[paintItem.id].isPaint; // 1, 2, 3
                 let idx = ty * CHUNK_W + tx;
-                
+                // 沒有牆的水和岩漿刷了也不顯示。油漆和刷子會被扣掉。
+                let liquidOnly = (tiles[idx] === IDS.WATER || tiles[idx] === IDS.LAVA) && walls[idx] === IDS.AIR;
+                if (liquidOnly) paintFail = "水和岩漿不能刷!";
                 // 可以染方塊 或 染牆壁
-                if (tiles[idx] !== IDS.AIR || walls[idx] !== IDS.AIR) {
+                else if (tiles[idx] !== IDS.AIR || walls[idx] !== IDS.AIR) {
                     if (tileColors[idx] !== colorId) { // 如果顏色不同才染
                         tileColors[idx] = colorId;
                         painted = true;
@@ -5643,13 +5769,15 @@ function updateInteraction() {
                         playSound('slime'); // 濕濕的聲音
                         updateUI();
                     }
-                }
-            }
+                } else paintFail = "這裡沒有東西可刷!";
+            } else if (paintItem) paintFail = "這裡沒有東西可刷!";
             if (painted) {
                 mouse.right = false;
                 return;
             } else if (!failedUseLeavesTile(id)) {
                 if (!paintItem) spawnFloatText(player.x, player.y, "需要油漆!", "#fff");
+                else if (paintFail) spawnFloatText(player.x, player.y, paintFail, "#fff");
+                else spawnFloatText(player.x, player.y, "已經是這個顏色!", "#fff");
                 mouse.right = false;
                 return;
             }
@@ -5678,11 +5806,16 @@ function updateInteraction() {
         
         // 2. 鋤頭 (將泥土/草地 變成 耕地)
         if (handItem && handItem.id === IDS.HOE) {
-            if (id === IDS.DIRT || id === IDS.GRASS) {
+            if (isPlantSoil(id)) {
                 setTile(tx, ty, IDS.TILLED_DIRT);
                 playSound('mine');
                 createParticle(tx*TILE_SIZE, ty*TILE_SIZE, "#4e342e", 0.5);
                 mouse.right = false; 
+                return;
+            } else if (!failedUseLeavesTile(id)) {
+                // 不是草地或泥土就不要空轉。點在石頭上沒有提示，地也不會被鋤開。床留給床自己。
+                spawnFloatText(player.x, player.y, "只能鋤草地或泥土!", "#ff5252");
+                mouse.right = false;
                 return;
             }
         }
@@ -5706,11 +5839,17 @@ function updateInteraction() {
                 spawnFloatText(player.x, player.y, "上方空間不足，無法種植!", "#ff5252");
                 mouse.right = false;
                 return;
+            } else if (!failedUseLeavesTile(id)) {
+                // 不是耕地就不要空轉。點在草地或石頭上沒有提示，種子也不會種下去。床留給床自己。
+                spawnFloatText(player.x, player.y, "只能種在耕地上!", "#ff5252");
+                mouse.right = false;
+                return;
             }
         }
         
         // 4. 種橡實 (種樹)
-        if (handItem && handItem.id === IDS.ACORN && (id === IDS.GRASS || id === IDS.DIRT)) {
+        if (handItem && handItem.id === IDS.ACORN) {
+            if (isPlantSoil(id)) {
             // 不是草地或泥土就留給後面，例如床。
             // 檢查目標方塊上方是否為空氣（可以種植）
             if (getTile(tx, ty-1) === IDS.AIR) {
@@ -5729,10 +5868,17 @@ function updateInteraction() {
                 mouse.right = false;
                 return;
             }
+            } else if (!failedUseLeavesTile(id)) {
+                // 點在石頭上沒有提示，橡實也不會種下去。床留給床自己。
+                spawnFloatText(player.x, player.y, "只能種在草地或泥土上!", "#ff5252");
+                mouse.right = false;
+                return;
+            }
         }
         
         // 釋放生物
-        if (handItem && (handItem.id === IDS.ITEM_BUNNY || handItem.id === IDS.ITEM_FIREFLY) && id === IDS.AIR) {
+        if (handItem && (handItem.id === IDS.ITEM_BUNNY || handItem.id === IDS.ITEM_FIREFLY)) {
+            if (id === IDS.AIR) {
             // 只能放在空氣。不是空氣就留給後面，例如床。點在方塊裡會把這隻消耗掉；點在空氣格底部，腳會插進地板。
             let type = (handItem.id === IDS.ITEM_BUNNY) ? 'bunny' : 'firefly';
             spawnMob(tx * TILE_SIZE, ty * TILE_SIZE, type);
@@ -5744,10 +5890,19 @@ function updateInteraction() {
             updateUI();
             mouse.right = false;
             return;
+            } else if (!failedUseLeavesTile(id)) {
+                // 點在石頭上沒有提示，兔子和螢火蟲也不會放出來。床留給床自己。
+                spawnFloatText(player.x, player.y, "只能放在空氣!", "#ff5252");
+                mouse.right = false;
+                return;
+            }
         }
         
         // 召喚寵物 (胡蘿蔔)
         if (handItem && handItem.id === IDS.CARROT) {
+            if (failedUseLeavesTile(id)) {
+                // 沒召出來，留給告示牌、墓碑或床。
+            } else {
             player.pet.active = !player.pet.active; // 切換開關
             if (player.pet.active) {
                 player.pet.x = player.x;
@@ -5759,6 +5914,7 @@ function updateInteraction() {
             }
             mouse.right = false;
             return;
+            }
         }
         
         // 喝藥水 (敏捷藥水、光芒藥水)
@@ -5971,6 +6127,10 @@ function updateInteraction() {
                     }
                     updateUI();
                     mouse.right = false;
+                } else {
+                    // 實心的地方不能放牆。不說的話，右鍵像沒按到。
+                    spawnFloatText(player.x, player.y, "這裡不能放牆!", "#ff5252");
+                    mouse.right = false;
                 }
             } else {
                 // 檢查是否可以放置方塊
@@ -5986,6 +6146,31 @@ function updateInteraction() {
                     // 例外：手持岩漿或水時，可以取代目標位置的岩漿或水
                     canPlace = true;
                 }
+                // 晶火磚可以放。20 到 39 裡還有晶火磚，不能整段都當成工具。
+                // 工具和種子不要變成方塊。
+                let unplaceable = handItem.id === IDS.WOOD_PICK || handItem.id === IDS.STONE_PICK || handItem.id === IDS.IRON_PICK || handItem.id === IDS.GOLD_PICK || handItem.id === IDS.DIAMOND_PICK
+                    || handItem.id === IDS.WOOD_SWORD || handItem.id === IDS.STONE_SWORD || handItem.id === IDS.IRON_SWORD || handItem.id === IDS.GOLD_SWORD || handItem.id === IDS.DIAMOND_SWORD
+                    || handItem.id === IDS.SAPPHIRE || handItem.id === IDS.EMERALD;
+                // 墓碑挖起來要放得回去。右鍵點在墓碑上會先讀字，不會走到這裡。
+                if (unplaceable ||
+                    def.toolSpeed || def.durability || def.isNet || def.isPaint || def.passive || def.consumable || def.isPetItem ||
+                    handItem.id === IDS.SEEDS || handItem.id === IDS.EYE_SUMMON ||
+                    handItem.id === IDS.WOOD_BOW || 
+                    handItem.id === IDS.ARROW ||
+                    def.isTool || 
+                    def.isBow || 
+                    def.isMagic || 
+                    def.isFishingRod ||
+                    handItem.id === IDS.GRAPPLING_HOOK ||
+                    handItem.id === IDS.BOOMERANG ||
+                    handItem.id === IDS.BLADE_OF_GRASS ||
+                    handItem.id === IDS.ACORN) return; // 橡實只能通過特殊種植邏輯放置，不能直接放置
+                if (!canPlace) {
+                    // 這一格不是空的就不要空轉。點在石頭上沒有提示，方塊也不會放下去。
+                    spawnFloatText(player.x, player.y, "這裡不能放方塊!", "#ff5252");
+                    mouse.right = false;
+                    return;
+                }
                 
                 if (canPlace) {
                     let bx = tx * TILE_SIZE,
@@ -5994,30 +6179,12 @@ function updateInteraction() {
                     if (handItem.id === IDS.SAPLING) {
                         let belowId = getTile(tx, ty + 1);
                         // 沒有草地或泥土就不要空轉。
-                        if (belowId !== IDS.GRASS && belowId !== IDS.DIRT) {
+                        if (!isPlantSoil(belowId)) {
                             spawnFloatText(player.x, player.y, "只能種在草地或泥土上!", "#ff5252");
                             mouse.right = false;
                             return;
                         }
                     }
-                    // 晶火磚可以放。20 到 39 裡還有晶火磚，不能整段都當成工具。
-                    // 工具和種子不要變成方塊。
-                    let unplaceable = handItem.id === IDS.WOOD_PICK || handItem.id === IDS.STONE_PICK || handItem.id === IDS.IRON_PICK || handItem.id === IDS.GOLD_PICK || handItem.id === IDS.DIAMOND_PICK
-                        || handItem.id === IDS.WOOD_SWORD || handItem.id === IDS.STONE_SWORD || handItem.id === IDS.IRON_SWORD || handItem.id === IDS.GOLD_SWORD || handItem.id === IDS.DIAMOND_SWORD
-                        || handItem.id === IDS.SAPPHIRE || handItem.id === IDS.EMERALD || handItem.id === IDS.TOMBSTONE;
-                    if (unplaceable ||
-                        def.toolSpeed || def.durability || def.isNet || def.isPaint || def.passive || def.consumable || def.isPetItem ||
-                        handItem.id === IDS.SEEDS || handItem.id === IDS.EYE_SUMMON ||
-                        handItem.id === IDS.WOOD_BOW || 
-                        handItem.id === IDS.ARROW ||
-                        def.isTool || 
-                        def.isBow || 
-                        def.isMagic || 
-                        def.isFishingRod ||
-                        handItem.id === IDS.GRAPPLING_HOOK ||
-                        handItem.id === IDS.BOOMERANG ||
-                        handItem.id === IDS.BLADE_OF_GRASS ||
-                        handItem.id === IDS.ACORN) return; // 橡實只能通過特殊種植邏輯放置，不能直接放置
                     if (def.solid) {
                         if (rectIntersect({ x: bx, y: by, w: TILE_SIZE, h: TILE_SIZE }, player)) collides = true;
                         for (let m of mobs)
@@ -6026,22 +6193,34 @@ function updateInteraction() {
                     if (!collides) {
                         // 特殊處理：門需要兩格高
                         if (handItem.id === IDS.DOOR_CLOSED) {
-                            // 檢查下方是否也是空氣，且可以放置
+                            // 下面不是空氣就改往上長。點在地板那一格也放得了門。
                             let belowId = getTile(tx, ty + 1);
-                            if (belowId === IDS.AIR) {
-                                // 檢查下方是否有碰撞
-                                let belowCollides = false;
-                                let belowBx = tx * TILE_SIZE;
-                                let belowBy = (ty + 1) * TILE_SIZE;
-                                if (rectIntersect({ x: belowBx, y: belowBy, w: TILE_SIZE, h: TILE_SIZE }, player)) belowCollides = true;
+                            let aboveId = getTile(tx, ty - 1);
+                            let placeDy = belowId === IDS.AIR ? 1 : (aboveId === IDS.AIR ? -1 : 0);
+                            if (placeDy !== 0) {
+                                let otherY = ty + placeDy;
+                                // 貼著舊門會變成三格。開關會把兩扇的相鄰半扇一起翻。
+                                let topY = Math.min(ty, otherY);
+                                let bottomY = Math.max(ty, otherY);
+                                let abovePair = getTile(tx, topY - 1);
+                                let belowPair = getTile(tx, bottomY + 1);
+                                let touchesDoor = abovePair === IDS.DOOR_CLOSED || abovePair === IDS.DOOR_OPEN
+                                    || belowPair === IDS.DOOR_CLOSED || belowPair === IDS.DOOR_OPEN;
+                                if (touchesDoor) {
+                                    // 放門失敗按住右鍵會每幀再刷一次。
+                                    spawnFloatText(player.x, player.y, "門不能貼著另一扇門!", "#ff5252");
+                                    mouse.right = false;
+                                } else {
+                                let otherCollides = false;
+                                let otherBx = tx * TILE_SIZE;
+                                let otherBy = otherY * TILE_SIZE;
+                                if (rectIntersect({ x: otherBx, y: otherBy, w: TILE_SIZE, h: TILE_SIZE }, player)) otherCollides = true;
                                 for (let m of mobs) {
-                                    if (rectIntersect({ x: belowBx, y: belowBy, w: TILE_SIZE, h: TILE_SIZE }, m)) belowCollides = true;
+                                    if (rectIntersect({ x: otherBx, y: otherBy, w: TILE_SIZE, h: TILE_SIZE }, m)) otherCollides = true;
                                 }
-                                
-                                if (!belowCollides) {
-                                    // 同時放置上下兩個門
+                                if (!otherCollides) {
                                     setTile(tx, ty, IDS.DOOR_CLOSED);
-                                    setTile(tx, ty + 1, IDS.DOOR_CLOSED);
+                                    setTile(tx, otherY, IDS.DOOR_CLOSED);
                                     handItem.count--;
                                     if (handItem.count <= 0) {
                                         handItem.id = IDS.AIR;
@@ -6049,11 +6228,17 @@ function updateInteraction() {
                                     }
                                     updateUI();
                                     mouse.right = false;
-                                } else {
+                                } else if (placeDy > 0) {
                                     spawnFloatText(player.x, player.y, "門下方有障礙物!", "#ff5252");
+                                    mouse.right = false;
+                                } else {
+                                    spawnFloatText(player.x, player.y, "門上方有障礙物!", "#ff5252");
+                                    mouse.right = false;
+                                }
                                 }
                             } else {
                                 spawnFloatText(player.x, player.y, "門需要兩格高的空間!", "#ff5252");
+                                mouse.right = false;
                             }
                         } else {
                             // 其他方塊正常放置
@@ -6066,6 +6251,10 @@ function updateInteraction() {
                             updateUI();
                             mouse.right = false;
                         }
+                    } else {
+                        // 人還站在這一格就不要空轉。放不下去也不說，會以為右鍵壞了。
+                        spawnFloatText(player.x, player.y, "這裡站著人或怪物!", "#ff5252");
+                        mouse.right = false;
                     }
                 }
             }
@@ -6102,6 +6291,19 @@ function consumeDurability(item, amount = 1) {
 
 function slotIsEmpty(s) {
     return !s || s.id === IDS.AIR || s.id === 0 || !s.count;
+}
+
+// 手上是空的就放進選到的那格。從第一格找空位，選了別格也看不到剛拿出的東西。
+function preferredEmptyIndex(skip) {
+    let order = [];
+    if (player.hotbarSlot >= 0 && player.hotbarSlot < player.inventory.length) order.push(player.hotbarSlot);
+    for (let i = 0; i < player.inventory.length; i++) if (order.indexOf(i) === -1) order.push(i);
+    for (let i of order) {
+        if (skip && skip.has(i)) continue;
+        let s = player.inventory[i];
+        if (s && s.id === IDS.AIR) return i;
+    }
+    return -1;
 }
 
 const ADVENTURE_MAX_STACK = 999;
@@ -6337,7 +6539,12 @@ function selectRecipe(idx) {
 function craftSelected() { 
     if (selectedRecipeIdx === -1) return; 
     let r = RECIPES[selectedRecipeIdx]; 
-    if (r.station && !isNearStation(r.station)) return; 
+    // 沒靠近工作台就不要空轉。材料夠也點了合成，人卻不知道要站到旁邊。
+    if (r.station && !isNearStation(r.station)) {
+        let stationName = (BLOCKS[r.station] && BLOCKS[r.station].name) ? BLOCKS[r.station].name : "工作台";
+        spawnFloatText(player.x, player.y, "需要靠近" + stationName + "!", "#ff5252");
+        return;
+    } 
     
     // 先汇总每种材料的总需求量（处理同一材料出现多次的情况）
     let costMap = {};
@@ -6371,7 +6578,12 @@ function craftSelected() {
             }
         }
     }
-    if (!can) return;
+    if (!can) {
+        // 材料不夠就不要空轉。選完才把材料丟了，按鈕還亮著，點了沒有合成。
+        spawnFloatText(player.x, player.y, "材料不足!", "#ff5252");
+        selectRecipe(selectedRecipeIdx);
+        return;
+    }
     
     // 合成先算空位：材料用完會空出的格子也算進去，放不下就不扣材料
     if (roomInSlots(slotsAfterCost(costMap), r.out.id) < (r.out.count || 1)) {
@@ -6425,6 +6637,18 @@ function craftSelected() {
     addToInventory(r.out.id, r.out.count);
     updateUI(); 
     selectRecipe(selectedRecipeIdx); 
+}
+function updateInfoUI() {
+    // 座標要跟著人走。背包沒變的時候，畫面上的數字會停住。
+    let info = document.getElementById('info-container');
+    if (!info) return;
+    let coins = player.coins || 0;
+    let defense = player.defense || 0;
+    info.innerHTML = `
+        X: ${Math.floor(player.x/TILE_SIZE)} Y: ${Math.floor(player.y/TILE_SIZE)} <br>
+        💰: ${coins} <br>
+        🛡️: ${defense}
+    `;
 }
 function updateUI() { 
     const hb = document.getElementById('hotbar-container'); 
@@ -6490,18 +6714,7 @@ function updateUI() {
         div.onclick = () => { player.hotbarSlot = idx; updateUI(); }; 
         hb.appendChild(div); 
     }); 
-    
-    // 更新錢幣和防禦力顯示
-    let info = document.getElementById('info-container');
-    if (info) {
-        let coins = player.coins || 0;
-        let defense = player.defense || 0;
-        info.innerHTML = `
-            X: ${Math.floor(player.x/TILE_SIZE)} Y: ${Math.floor(player.y/TILE_SIZE)} <br>
-            💰: ${coins} <br>
-            🛡️: ${defense}
-        `;
-    }
+    updateInfoUI();
 }
 // 魔力容器（使用HTML中的元素）
 let manaContainer = document.getElementById('mana-container');
@@ -6539,12 +6752,17 @@ function updateHealthUI() {
         }
     }
     
-    // --- 更新 Buff 顯示 (左上) ---
+    updateBuffUI();
+}
+function updateBuffUI() {
+    // 藥水時間要繼續倒數。滿血滿魔時畫面不重畫，時間會停住，效果結束了還留著。
     let buffDiv = document.getElementById('buff-container');
     if (!buffDiv) {
         buffDiv = document.createElement('div');
         buffDiv.id = 'buff-container';
-        document.getElementById('ui-layer').appendChild(buffDiv);
+        let layer = document.getElementById('ui-layer');
+        if (!layer) return;
+        layer.appendChild(buffDiv);
     }
     let buffTexts = [];
     if (player.buffs && player.buffs.wellFed > 0) {
@@ -6711,6 +6929,8 @@ function releaseCoveredTile(tx, ty) {
 // 重生玩家函數（用於死亡和自殺）
 function respawnPlayer() {
     alert("你死掉了！");
+    // 傳送選單開著會死在原地。重生後選單還開著，人動不了。
+    closeTeleportMenu();
     player.x = spawnPoint.x;
     player.y = spawnPoint.y;
     player.hp = player.maxHp;
@@ -6756,6 +6976,8 @@ window.addEventListener('keydown', e => {
         e.keyCode === 101 || e.which === 101;    // 'e'
 
     if (isE) {
+        // 按住會一直重來。合成表會閃，自殺和刪存檔也會連跳視窗。
+        if (e.repeat) return;
         try {
             // 若有箱子開著，先關閉
             if (typeof currentChest !== 'undefined' && currentChest) {
@@ -6796,9 +7018,10 @@ window.addEventListener('keydown', e => {
         }
     }
     if (e.code === 'F2') saveGame(); 
-    if (e.code === 'F4') resetGame();
+    if (e.code === 'F4') { if (e.repeat) return; resetGame(); }
     // K鍵自殺（重生到重生點）
     if (e.code === 'KeyK' || e.key === 'k' || e.key === 'K' || e.keyCode === 75 || e.which === 75) {
+        if (e.repeat) return;
         killPlayer();
         return;
     } 
@@ -6920,6 +7143,17 @@ window.addEventListener('mousedown', e => {
     if(e.button===2)mouse.right=true;
 });
 window.addEventListener('mouseup', e => { if(e.button===0)mouse.left=false; if(e.button===2)mouse.right=false; });
+// 視窗失焦就停步。滑鼠離開視窗就停挖，走路的鍵還留著。
+function releaseHeldPointer() {
+    mouse.left = false;
+    mouse.right = false;
+}
+function releaseHeldInput() {
+    keys = {};
+    releaseHeldPointer();
+}
+window.addEventListener('blur', releaseHeldInput);
+document.addEventListener('mouseleave', releaseHeldPointer);
 window.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('resize', () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; ctx.imageSmoothingEnabled = false; });
 
@@ -6975,6 +7209,8 @@ function loop(ts) {
         if (daynightEl) {
             daynightEl.innerText = `${dayNight} ${timeStr}`;
         }
+        updateInfoUI();
+        updateBuffUI();
         requestAnimationFrame(loop);
     } catch(e) {
         console.error("Game Loop Error:", e);
@@ -7143,7 +7379,7 @@ function performTeleport(targetX, targetY) {
     
     // 防止位置溢出
     if (player.x < 0) player.x = 0;
-    if (player.x > CHUNK_W*TILE_SIZE) player.x = CHUNK_W*TILE_SIZE;
+    if (player.x > CHUNK_W*TILE_SIZE - player.w) player.x = CHUNK_W*TILE_SIZE - player.w;
     if (player.y < 0) player.y = 0;
     if (player.y > CHUNK_H*TILE_SIZE) {
         player.y = CHUNK_H*TILE_SIZE;
@@ -7168,6 +7404,29 @@ function closeChestAt(tx, ty) {
     let menu = document.getElementById('chest-menu');
     if (menu) menu.style.display = 'none';
     currentChest = null;
+}
+
+function closeChestIfFar() {
+    if (!currentChest) return;
+    let dx = (player.x + player.w / 2) - (currentChest.x * TILE_SIZE + TILE_SIZE / 2);
+    let dy = (player.y + player.h / 2) - (currentChest.y * TILE_SIZE + TILE_SIZE / 2);
+    if (Math.sqrt(dx * dx + dy * dy) < MINING_RANGE * TILE_SIZE) return;
+    saveGame();
+    let menu = document.getElementById('chest-menu');
+    if (menu) menu.style.display = 'none';
+    currentChest = null;
+}
+
+function closeMerchantIfFar() {
+    if (!isMerchantOpen) return;
+    for (let m of mobs) {
+        if (m.type !== 'merchant' || m.w === undefined || m.h === undefined) continue;
+        let dx = (m.x + m.w / 2) - (player.x + player.w / 2);
+        let dy = (m.y + m.h / 2) - (player.y + player.h / 2);
+        if (Math.sqrt(dx * dx + dy * dy) <= MINING_RANGE * TILE_SIZE) return;
+    }
+    isMerchantOpen = false;
+    updateMerchantUI();
 }
 
 function toggleChest(tileX, tileY) {
@@ -7434,7 +7693,9 @@ function handleChestClick(idx) {
             }
             
             // 找到空槽位並放入
-            let emptySlot = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+            // 手上是空的就放進選到的那格。
+            let emptyIdx = preferredEmptyIndex();
+            let emptySlot = emptyIdx >= 0 ? player.inventory[emptyIdx] : null;
             if (emptySlot) {
                 emptySlot.id = itemToTake.id;
                 emptySlot.count = itemToTake.count;
@@ -7491,18 +7752,8 @@ function handleChestClick(idx) {
                                 processedIndices.add(nextItemIdx);
                             } else {
                                 // 沒有更多相同物品格，找空槽位
-                                let emptySlot = null;
-                                let emptySlotIdx = -1;
-                                for (let i = 0; i < player.inventory.length; i++) {
-                                    if (processedIndices.has(i)) continue;
-                                    let slot = player.inventory[i];
-                                    if (slot.id === IDS.AIR || (slot.id === IDS.AIR && slot.count === 0)) {
-                                        emptySlot = slot;
-                                        emptySlotIdx = i;
-                                        break;
-                                    }
-                                }
-                                
+                                let emptySlotIdx = preferredEmptyIndex(processedIndices);
+                                let emptySlot = emptySlotIdx >= 0 ? player.inventory[emptySlotIdx] : null;
                                 if (emptySlot) {
                                     emptySlot.id = itemToTake.id;
                                     emptySlot.count = Math.min(itemToTake.count, MAX_STACK_SIZE);
@@ -7537,7 +7788,9 @@ function handleChestClick(idx) {
                         return;
                     }
                     
-                    let emptySlot = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+                    // 手上是空的就放進選到的那格。
+            let emptyIdx = preferredEmptyIndex();
+            let emptySlot = emptyIdx >= 0 ? player.inventory[emptyIdx] : null;
                     if (emptySlot) {
                         emptySlot.id = itemToTake.id;
                         emptySlot.count = itemToTake.count;
@@ -7554,7 +7807,9 @@ function handleChestClick(idx) {
                     return;
                 }
                 
-                let emptySlot = player.inventory.find(s => s.id === IDS.AIR || (s.id === IDS.AIR && s.count === 0));
+                // 手上是空的就放進選到的那格。
+            let emptyIdx = preferredEmptyIndex();
+            let emptySlot = emptyIdx >= 0 ? player.inventory[emptyIdx] : null;
                 if (emptySlot) {
                     emptySlot.id = itemToTake.id;
                     emptySlot.count = itemToTake.count;
@@ -7838,14 +8093,15 @@ generateWorld();
         mouse.right = placeMode;
     };
     const onDig = (e) => {
-        const t = e.touches && e.touches[0];
+        // 搖桿還按著時，畫面上的手指才算挖地。跟著第一根手指，放開了還會一直挖。
+        const t = e.targetTouches && e.targetTouches[0];
         if (!t) { mouse.left = false; mouse.right = false; return; }
         aim(t, true);
         if (e.cancelable) e.preventDefault();
     };
     canvas.addEventListener('touchstart', onDig, { passive: false });
     canvas.addEventListener('touchmove', onDig, { passive: false });
-    canvas.addEventListener('touchend', (e) => { if (!e.touches.length) aim(e.changedTouches[0], false); });
+    canvas.addEventListener('touchend', (e) => { if (!e.targetTouches.length) aim(e.changedTouches[0], false); });
     canvas.addEventListener('touchcancel', () => { mouse.left = false; mouse.right = false; });
     document.addEventListener('touchmove', (e) => {
         if (e.target && e.target.closest && e.target.closest('#crafting-menu,#chest-menu,#merchant-menu,#adv-phone-actions')) return;
