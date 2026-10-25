@@ -442,6 +442,9 @@ let player = {
 
 let keys = {};
 let mouse = { x: 0, y: 0, left: false, right: false, worldX: 0, worldY: 0 };
+// 星怒、法杖的冷卻從這一發算起。用全域幀數整除的話，點一下常常對不上。
+let starShotFrame = -30;
+let staffShotFrame = -20;
 let mining = { active: false, x: 0, y: 0, progress: 0 };
 
 // ==========================================
@@ -1907,6 +1910,27 @@ function generateJungle() {
 
 function spawnDrop(x, y, id) { drops.push({ x: x, y: y, w: 12, h: 12, vx: (Math.random()-0.5)*4, vy: -3, id: id, life: 3000, spawnTime: frameCount }); }
 
+function spillChest(items, x, y) {
+    if (!items || !Array.isArray(items)) return;
+    for (let item of items) {
+        if (!item || item.id === IDS.AIR || !(item.count > 0)) continue;
+        let drop = {
+            x: x + (Math.random() - 0.5) * 20,
+            y: y + (Math.random() - 0.5) * 20,
+            w: 12,
+            h: 12,
+            vx: (Math.random() - 0.5) * 4,
+            vy: -3,
+            id: item.id,
+            count: item.count,
+            life: 3000,
+            spawnTime: frameCount
+        };
+        if (item.durability !== undefined) drop.durability = item.durability;
+        drops.push(drop);
+    }
+}
+
 function generateWorld() {
     try {
         if (loadGame()) return; 
@@ -1921,9 +1945,6 @@ function generateWorld() {
         heights[x] = Math.floor(CHUNK_H * 0.4 + n);
     }
     initClouds();
-    generateSkyIslands(); // 生成天空岛
-    generateJungle(); // 先生成叢林（避免腐化之地覆盖丛林）
-    generateCorruption(); // 生成腐化之地（会检查并避免与丛林重叠）
 
     for (let x = 0; x < CHUNK_W; x++) {
         let h = heights[x];
@@ -1950,11 +1971,6 @@ function generateWorld() {
             if (y > h + 5) walls[idx] = IDS.DIRT; else walls[idx] = IDS.AIR;
             if (y < h) { tiles[idx] = IDS.AIR; walls[idx] = IDS.AIR; } 
             else {
-                // --- 黏土生成 ---
-                if (y < h + 10 && tiles[idx] === IDS.DIRT && Math.random() < 0.05) {
-                    tiles[idx] = IDS.CLAY;
-                }
-                
                 let caveN = noise(x * 0.05, y * 0.05, 0); 
                 let waterN = noise(x * 0.08, y * 0.08, 123); 
                 if (caveN > 0.4 && y > h + 5) { 
@@ -1975,6 +1991,8 @@ function generateWorld() {
                     else if (y < h + 10) {
                         if (isSnow) tiles[idx] = IDS.SNOW;
                         else tiles[idx] = isDesert ? IDS.SAND : IDS.DIRT;
+                        // 先寫成泥土再抽黏土。這格還是空氣時抽，黏土永遠生不出來。
+                        if (tiles[idx] === IDS.DIRT && Math.random() < 0.05) tiles[idx] = IDS.CLAY;
                     }
                     else {
                         tiles[idx] = IDS.STONE; walls[idx] = IDS.STONE;
@@ -2013,16 +2031,18 @@ function generateWorld() {
                 }
             }
             
-            // --- 生成地下陶罐 ---
-            // 條件：當前是空氣，下面是石頭/泥土/磚塊，且在地表以下
-            if (y > h + 15 && tiles[idx] === IDS.AIR) {
-                let belowIdx = (y + 1) * CHUNK_W + x;
-                if (belowIdx >= 0 && belowIdx < tiles.length) {
-                    let below = tiles[belowIdx];
-                    if ((below === IDS.STONE || below === IDS.DIRT || below === IDS.WOOD_PLATFORM) && Math.random() < 0.015) {
-                        tiles[idx] = IDS.POT;
-                    }
-                }
+        }
+    }
+
+    // 陶罐要等下面那格寫完。由上往下填的時候，下面還是空氣。
+    for (let x = 0; x < CHUNK_W; x++) {
+        let h = heights[x];
+        for (let y = h + 16; y < CHUNK_H - 1; y++) {
+            let idx = y * CHUNK_W + x;
+            if (tiles[idx] !== IDS.AIR) continue;
+            let below = tiles[(y + 1) * CHUNK_W + x];
+            if ((below === IDS.STONE || below === IDS.DIRT || below === IDS.WOOD_PLATFORM) && Math.random() < 0.015) {
+                tiles[idx] = IDS.POT;
             }
         }
     }
@@ -2063,7 +2083,13 @@ function generateWorld() {
             }
         }
         
-        if (x % 20 === 0 && Math.random() < 0.2 && tiles[groundIdx] === IDS.GRASS) { spawnMob(x * TILE_SIZE, (h - 2) * TILE_SIZE, 'slime'); } // 調低初始生成機率：50% -> 20%
+        if (x % 20 === 0 && Math.random() < 0.2 && tiles[groundIdx] === IDS.GRASS) { // 調低初始生成機率：50% -> 20%
+            // 樹幹裡不要生史萊姆。出生那格不是空氣就跳過。
+            let spawnTy = h - 2;
+            if (spawnTy >= 0 && tiles[spawnTy * CHUNK_W + x] === IDS.AIR) {
+                spawnMob(x * TILE_SIZE, spawnTy * TILE_SIZE, 'slime');
+            }
+        }
         
         // 在地下的洞穴中随机生成探索宝箱
         if (x % 30 === 0 && Math.random() < 0.3) {
@@ -2096,8 +2122,41 @@ function generateWorld() {
         }
     }
     
-    player.x = (CHUNK_W/2) * TILE_SIZE;
-    player.y = (heights[Math.floor(CHUNK_W/2)] - 5) * TILE_SIZE;
+    // 地形填完才長叢林、腐化和天空島。先長會被地表以上的空氣清掉。
+    generateJungle(); // 先生成叢林（避免腐化之地覆盖丛林）
+    generateCorruption(); // 生成腐化之地（会检查并避免与丛林重叠）
+    generateSkyIslands(); // 生成天空岛
+
+    // 出生點不要卡在樹裡。人站得下的空氣才停。
+    let originX = Math.floor(CHUNK_W / 2);
+    let placedSpawn = false;
+    for (let dx = 0; dx <= 40 && !placedSpawn; dx++) {
+        let dirs = dx === 0 ? [0] : [1, -1];
+        for (let dir of dirs) {
+            let x = originX + dx * dir;
+            if (x < 1 || x >= CHUNK_W - 1) continue;
+            let sy = heights[x];
+            let ground = BLOCKS[tiles[sy * CHUNK_W + x]];
+            if (!ground || !ground.solid) continue;
+            let spawnY = sy * TILE_SIZE - player.h;
+            if (spawnY < 0) continue;
+            let topTile = Math.floor(spawnY / TILE_SIZE);
+            let botTile = Math.floor((spawnY + player.h - 1) / TILE_SIZE);
+            let clear = true;
+            for (let ty = topTile; ty <= botTile; ty++) {
+                if (tiles[ty * CHUNK_W + x] !== IDS.AIR) clear = false;
+            }
+            if (!clear) continue;
+            player.x = x * TILE_SIZE;
+            player.y = spawnY;
+            placedSpawn = true;
+            break;
+        }
+    }
+    if (!placedSpawn) {
+        player.x = originX * TILE_SIZE;
+        player.y = (heights[originX] - 5) * TILE_SIZE;
+    }
     spawnPoint.x = player.x; spawnPoint.y = player.y;
     
     startGame();
@@ -2388,11 +2447,11 @@ function resetGame() { if(confirm("確定要刪除存檔?")) { localStorage.remo
 // 6. 物理與邏輯
 // ==========================================
 function updatePhysics() {
-    // 0. 傳送選單開啟時，禁止移動
-    if (isTeleportMenuOpen) {
-        player.vx = 0; 
+    // 傳送選單只停住玩家。怪物、掉落、藥水和無敵時間要繼續走。
+    let moving = !isTeleportMenuOpen;
+    if (!moving) {
+        player.vx = 0;
         player.vy = 0;
-        return; 
     }
     
     // --- 傳送門觸發檢查 (在鉤爪邏輯之前) ---
@@ -2401,19 +2460,20 @@ function updatePhysics() {
     let centerTy = Math.floor((player.y + player.h/2) / TILE_SIZE);
     
     // 判定 W 鍵 (且單次觸發，避免長按)
-    if (keys['KeyW'] && getTile(centerTx, centerTy) === IDS.TELEPORTER) {
+    if (moving && keys['KeyW'] && getTile(centerTx, centerTy) === IDS.TELEPORTER) {
         if (!player.wKeyLocked) { // 鎖定標記，防止連續觸發
             openTeleportUI(centerTx, centerTy);
             player.wKeyLocked = true;
             // 強制停止移動，避免 W 鍵同時觸發爬繩子
-            player.vx = 0; 
-            player.vy = 0; 
-            return; // 直接 return 避免執行後面的爬梯子或跳躍
+            player.vx = 0;
+            player.vy = 0;
+            moving = false; // 這一幀不要接著爬繩或跳躍
         }
-    } else {
+    } else if (moving) {
         player.wKeyLocked = false;
     }
     
+    if (moving) {
     // --- 釣魚浮標物理 ---
     if (player.fishing.active) {
         // 確保釣魚狀態屬性已定義
@@ -2423,6 +2483,8 @@ function updatePhysics() {
         if (!player.fishing.catchWindow) player.fishing.catchWindow = 0;
         
         // 1. 移動與重力
+        // 浮標下落也有上限。太快的話一幀會跳過水面，魚不會咬。
+        if (player.fishing.vy > MAX_FALL) player.fishing.vy = MAX_FALL;
         player.fishing.x += player.fishing.vx;
         player.fishing.y += player.fishing.vy;
         player.fishing.vy += 0.2; // 浮標重力較輕
@@ -2479,13 +2541,28 @@ function updatePhysics() {
                     player.fishing.active = false;
                 }
             }
+            // 浮標停在水裡，不要沉進湖底。沉進土裡就不算入水，魚不會咬。
+            let sitFy = Math.floor(player.fishing.y / TILE_SIZE);
+            let sitBelow = getTile(fx, sitFy + 1);
+            if (getTile(fx, sitFy) === IDS.WATER && sitBelow !== IDS.WATER && BLOCKS[sitBelow] && BLOCKS[sitBelow].solid) {
+                player.fishing.vy = 0;
+                let floorY = (sitFy + 1) * TILE_SIZE;
+                if (player.fishing.y > floorY - 8) player.fishing.y = floorY - 8;
+            }
         } else {
             // 不在水中
             player.fishing.inWater = false;
-            // 碰到地面反彈或停止
+            // 碰到地面反彈或停止。上面是水的話拉回水裡。
             if (BLOCKS[tile] && BLOCKS[tile].solid) {
-                player.fishing.vx = 0; 
-                player.fishing.vy = 0;
+                let aboveTile = getTile(fx, fy - 1);
+                if (aboveTile === IDS.WATER) {
+                    player.fishing.y = fy * TILE_SIZE - 8;
+                    player.fishing.vy = 0;
+                    player.fishing.inWater = true;
+                } else {
+                    player.fishing.vx = 0;
+                    player.fishing.vy = 0;
+                }
             }
         }
         
@@ -2494,20 +2571,6 @@ function updatePhysics() {
         if (dist > 400) {
             player.fishing.active = false;
             spawnFloatText(player.x, player.y, "線斷了!", "#999");
-        }
-    }
-    
-    // --- Buff 邏輯 ---
-    if (player.buffs.wellFed > 0) {
-        player.buffs.wellFed--;
-        // 防止buff时间变成负数
-        if (player.buffs.wellFed < 0) player.buffs.wellFed = 0;
-        // 屬性加成：回血變快，跑得變快
-        if (player.buffs.wellFed > 0 && player.buffs.wellFed % 60 === 0 && player.hp < player.maxHp) {
-            player.hp += 1; // 額外回血
-            // 防止HP溢出
-            if (player.hp > player.maxHp) player.hp = player.maxHp;
-            updateHealthUI();
         }
     }
     
@@ -2539,25 +2602,20 @@ function updatePhysics() {
                     player.jumpCount = 0; // 重置跳躍
                 }
             }
-            // 射程限制
-            let dist = Math.sqrt(Math.pow(player.hook.x-player.x, 2) + Math.pow(player.hook.y-player.y, 2));
-            if (dist > 300) player.hook.state = 2; // 太遠拉回
+            // 射程限制。已經鉤到的那一下不要又改成收回。
+            if (player.hook.state === 1) {
+                let dist = Math.sqrt(Math.pow(player.hook.x-player.x, 2) + Math.pow(player.hook.y-player.y, 2));
+                if (dist > 300) player.hook.state = 2; // 太遠拉回
+            }
         }
         else if (player.hook.state === 2) { // 拉回 (沒鉤中)
             let angle = Math.atan2((player.y+20) - player.hook.y, (player.x+10) - player.hook.x);
             player.hook.x += Math.cos(angle) * 20;
             player.hook.y += Math.sin(angle) * 20;
             let dist = Math.sqrt(Math.pow(player.hook.x-(player.x+10), 2) + Math.pow(player.hook.y-(player.y+20), 2));
-            if (dist < 20) player.hook.active = false;
+            if (dist < 20) releaseHook();
         }
-        else if (player.hook.state === 3) { // 鉤住 (拉玩家)
-            // 跳躍取消鉤爪
-            if (keys['Space'] && !player.jumpKeyHeld) {
-                player.hook.active = false;
-                player.vy = -JUMP_FORCE; // 跳開
-                player.jumpKeyHeld = true;
-            }
-        }
+        // 勾住時不在這裡跳。這裡先跳會把次數清掉，鬆開空白鍵沒有瓶中雲也能再跳一次。
     }
     
     // 檢查是否有二段跳飾品
@@ -2585,6 +2643,9 @@ function updatePhysics() {
     let inLava = currentTile === IDS.LAVA;
     let inWeb = (def && def.slow); // 蜘蛛網減速
     let onRope = (def && def.climbable); // 是否在繩索/鐵鍊上
+    if (!onRope) player.leavingRope = false;
+    // 跳開繩子後不要又被黏住。人還沒離開那一格時，不要把往上的速度清掉。
+    let climbingRope = onRope && !player.leavingRope;
     
     // --- 蜘蛛網效果 ---
     if (inWeb) { 
@@ -2593,7 +2654,7 @@ function updatePhysics() {
     }
     
     // --- 繩索攀爬邏輯 (新增) ---
-    if (onRope) {
+    if (climbingRope) {
         player.grounded = true; // 視為著地，可以隨時跳躍離開
         player.jumpCount = 0;   // 重置跳躍次數
         player.vx *= 0.8;       // 在繩子上左右移動變慢
@@ -2621,13 +2682,20 @@ function updatePhysics() {
     
     // 4. 重力應用 (如果不在繩子上且沒被鉤爪拉住)
     player.lastVy = player.vy; 
-    if (!onRope && player.hook.state !== 3) { // <--- 只有不在繩子上且沒被鉤爪拉住才加重力
+    if (!climbingRope && !(player.hook.active && player.hook.state === 3)) { // 只有還勾著時才不掉下去
         player.vy += GRAVITY; 
         if (player.vy > MAX_FALL) player.vy = MAX_FALL;
     }
     
+    // 跳躍鬆開鉤爪。勾著的時候跳一下就放開，不要把人拉回去。
+    if (player.hook.active && keys['Space'] && !player.jumpKeyHeld) {
+        let wasLatched = player.hook.state === 3;
+        releaseHook();
+        if (wasLatched) player.grounded = true;
+    }
+
     // 鉤爪拉玩家 (在重力之後處理)
-    if (player.hook.state === 3) {
+    if (player.hook.active && player.hook.state === 3) {
         player.vx = 0; 
         player.vy = 0; // 停止重力
         player.jumpCount = 0; // 重置跳躍計數（鉤爪鉤住時視為著地）
@@ -2655,7 +2723,7 @@ function updatePhysics() {
                 
                 // 如果Y軸也被阻擋，可能卡在狹窄空間，取消鉤爪
                 if (player.y === oldY && Math.abs(moveY) > 0.1) {
-                    player.hook.active = false;
+                    releaseHook();
                 }
             } else {
                 // X軸可以移動，繼續移動Y軸
@@ -2669,19 +2737,20 @@ function updatePhysics() {
             if (player.x > CHUNK_W*TILE_SIZE - player.w) player.x = CHUNK_W*TILE_SIZE - player.w;
             if (player.y < 0) player.y = 0;
             if (player.y > CHUNK_H*TILE_SIZE - player.h) {
-                player.hook.active = false; // 超出边界，取消钩爪
+                releaseHook(); // 超出边界，取消钩爪
                 takeDamage(999);
             }
         } else {
             // 距離太近，自動取消鉤爪
-            player.hook.active = false;
+            releaseHook();
         }
     }
     
     // 5. 跳躍處理 (Space 鍵優先判定為跳躍)
     if (keys['Space']) { // 只用 Space 跳躍，W 留給爬梯子
         if (!player.jumpKeyHeld) { 
-            if (player.grounded || onRope) { // 在繩子上也可以跳
+            if (player.grounded || climbingRope) { // 在繩子上也可以跳。跳開之後這格不再當地板。
+                if (onRope) player.leavingRope = true;
                 player.vy = -JUMP_FORCE; 
                 player.grounded = false; 
                 player.jumpCount = 1;
@@ -2715,6 +2784,7 @@ function updatePhysics() {
     if (player.lastVy > 0 && player.vy === 0 && player.grounded && !onRope) { // 下繩子不扣血
         if (player.lastVy > 11) takeDamage(1); 
         if (player.lastVy > 16) takeDamage(2);
+    }
     }
     if (player.invincibleTimer > 0) player.invincibleTimer--;
     
@@ -2755,6 +2825,20 @@ function updatePhysics() {
         }
     }
     
+    // 飽食跟敏捷、光芒一樣，選單開著也要繼續走。
+    if (player.buffs.wellFed > 0) {
+        player.buffs.wellFed--;
+        // 防止buff时间变成负数
+        if (player.buffs.wellFed < 0) player.buffs.wellFed = 0;
+        // 屬性加成：回血變快，跑得變快
+        if (player.buffs.wellFed > 0 && player.buffs.wellFed % 60 === 0 && player.hp < player.maxHp) {
+            player.hp += 1; // 額外回血
+            // 防止HP溢出
+            if (player.hp > player.maxHp) player.hp = player.maxHp;
+            updateHealthUI();
+        }
+    }
+
     // 敏捷藥水 (加速)
     if (player.buffs && player.buffs.swiftness > 0) {
         player.buffs.swiftness--;
@@ -2783,8 +2867,8 @@ function updatePhysics() {
     
     // 檢查附近是否有營火
     let nearCampfire = false;
-    let campfireCx = Math.floor(player.x / TILE_SIZE); 
-    let campfireCy = Math.floor(player.y / TILE_SIZE);
+    let campfireCx = playerCenterTx();
+    let campfireCy = playerCenterTy();
     for(let ry=-5; ry<=5; ry++) {
         for(let rx=-5; rx<=5; rx++) {
             if(getTile(campfireCx+rx, campfireCy+ry) === IDS.CAMPFIRE) { 
@@ -2828,16 +2912,11 @@ function updatePhysics() {
 
     updateMobs();
     updateDrops();
-    updateProjectiles();
+    // 飛行物只在主迴圈走一次。這裡再走，箭、刺、法術、迴旋鏢的速度和計時都會變兩倍。
 }
 
 function updateDrops() {
-    // 每5分鐘清除所有掉落物 (5分鐘 = 300秒 = 18000幀，假設60fps)
-    if (frameCount % 18000 === 0 && frameCount > 0) {
-        drops = [];
-        return;
-    }
-    
+    // 掉落物按自己的時間消失。整批清空會把剛掉的也清掉。
     for (let i = drops.length - 1; i >= 0; i--) {
         let d = drops[i];
         
@@ -2850,7 +2929,15 @@ function updateDrops() {
             continue;
         }
         
-        d.vx *= 0.9; d.vy += GRAVITY; d.x += d.vx; handleCollisions(d, true); d.y += d.vy; handleCollisions(d, false);
+        d.vx *= 0.9;
+        d.vy += GRAVITY;
+        // 掉落物下落也有上限。太快的話一幀超過一格，會穿過地板。
+        if (d.vy > MAX_FALL) d.vy = MAX_FALL;
+        // 吸過來的速度也算進移動。左右或往上超過一格，會穿牆。
+        if (d.vx > TILE_SIZE - 1) d.vx = TILE_SIZE - 1;
+        if (d.vx < 1 - TILE_SIZE) d.vx = 1 - TILE_SIZE;
+        if (d.vy < 1 - TILE_SIZE) d.vy = 1 - TILE_SIZE;
+        d.x += d.vx; handleCollisions(d, true); d.y += d.vy; handleCollisions(d, false);
         let dist = Math.sqrt(Math.pow(player.x - d.x, 2) + Math.pow(player.y - d.y, 2));
         
         // 檢查是否為剛丟出的物品（60幀 = 約1秒內不吸引，讓它飛出去）
@@ -2869,17 +2956,19 @@ function updateDrops() {
         }
         
         if (dist < 20) {
+            let n = (typeof d.count === 'number' && d.count > 0) ? d.count : 1;
             if (d.id === IDS.COIN) { // 特殊撿取邏輯：直接加錢，不進背包
                 if (!player.coins) player.coins = 0;
-                player.coins++;
+                player.coins += n;
                 updateUI(); // 更新UI顯示
                 playSound('drink'); // 撿錢音效
                 drops.splice(i, 1); continue;
             } else {
-                // 嘗試添加到背包（如果有耐久度，傳入保存的耐久度值）
-                if (addToInventory(d.id, 1, d.durability)) {
-                    // 成功添加，移除掉落物
-                    drops.splice(i, 1); continue;
+                let room = inventoryRoom(d.id);
+                let take = Math.min(n, room);
+                if (take > 0 && addToInventory(d.id, take, d.durability)) {
+                    if (take >= n) { drops.splice(i, 1); continue; }
+                    d.count = n - take;
                 } else {
                     // 背包已滿，不移除掉落物，讓它繼續存在
                     // 使用標記來記錄是否已經顯示過提示，避免每幀觸發
@@ -2895,7 +2984,6 @@ function updateDrops() {
                 }
             }
         }
-        d.life--; if(d.life <= 0) drops.splice(i, 1);
     }
 }
 
@@ -2929,20 +3017,39 @@ function updateProjectiles() {
         if (!p.vx) p.vx = 0;
         if (!p.vy) p.vy = 0;
         
-        p.vy += GRAVITY * 0.5;
+        // 只有箭要下墜。刺、法術、星星、迴旋鏢是瞄準射出去的。
+        if (p.type === 'arrow') {
+            p.vy += GRAVITY * 0.5;
+            // 箭的下落也有上限。太快的話一幀超過一格，會穿過地板。
+            if (p.vy > MAX_FALL) p.vy = MAX_FALL;
+        }
         p.x += p.vx;
         p.y += p.vy;
         p.angle = Math.atan2(p.vy, p.vx);
         let tx = Math.floor(p.x / TILE_SIZE);
         let ty = Math.floor(p.y / TILE_SIZE);
         let hit = false;
-        if (BLOCKS[getTile(tx, ty)] && BLOCKS[getTile(tx, ty)].solid) hit = true;
+        // 畫面外不是基岩。星星從鏡頭上方生出來，出界被當成撞牆，立刻消失。
+        if (tx >= 0 && tx < CHUNK_W && ty >= 0 && ty < CHUNK_H) {
+            let block = BLOCKS[tiles[ty * CHUNK_W + tx]];
+            if (block && block.solid) hit = true;
+        }
 
         if (!hit) {
-            for (let j = mobs.length - 1; j >= 0; j--) {
+            if (p.type === 'stinger') {
+                if (p.x > player.x && p.x < player.x + player.w && p.y > player.y && p.y < player.y + player.h) {
+                    takeDamage(p.damage);
+                    hit = true;
+                }
+            } else for (let j = mobs.length - 1; j >= 0; j--) {
                 let m = mobs[j];
                 if (p.x > m.x && p.x < m.x + m.w && p.y > m.y && p.y < m.y + m.h) {
                     if (!mobCanBeHurt(m)) continue;
+                    if (p.type === 'boomerang') {
+                        if (!p._hitMobs) p._hitMobs = [];
+                        if (p._hitMobs.indexOf(m) !== -1) continue;
+                        p._hitMobs.push(m);
+                    }
                     // 确保伤害有效
                     if (p.damage && !isNaN(p.damage) && p.damage > 0) {
                         // 確保怪物HP屬性已定義
@@ -3008,8 +3115,11 @@ function updateProjectiles() {
         if (hit && p.type !== 'boomerang') {
             createParticle(p.x, p.y, "#fff", 0.3);
             projectiles.splice(i, 1);
+            continue; // 這一發已經刪了。再刪一次會把旁邊那發清掉。
         }
-        if (p.x < 0 || p.x > CHUNK_W * TILE_SIZE || p.y > CHUNK_H * TILE_SIZE) {
+        // 往外飛才算離開。剛生在地圖外、還往裡面飛的不要清掉。
+        let flewOut = (p.x < 0 && p.vx <= 0) || (p.x > CHUNK_W * TILE_SIZE && p.vx >= 0) || p.y > CHUNK_H * TILE_SIZE;
+        if (flewOut) {
             if (p.type !== 'boomerang') projectiles.splice(i, 1);
             else if (p.returnState) projectiles.splice(i, 1); // 迴旋鏢飛回時才消失
         }
@@ -3051,9 +3161,11 @@ function updateMobs() {
             m.y += m.vy;
             // BOSS 碰撞傷害
             if (player.invincibleTimer <= 0 && rectIntersect(player, m)) {
-                takeDamage(m.dmg);
-                player.vx = (player.x < m.x ? -8 : 8); 
-                player.vy = -5;
+                // 死掉重生之後不要再被這一擊彈飛。
+                if (!takeDamage(m.dmg)) {
+                    player.vx = (player.x < m.x ? -8 : 8);
+                    player.vy = -5;
+                }
             }
             // BOSS 受傷飄字
             if (m.hp < m.maxHp) {
@@ -3081,13 +3193,23 @@ function updateMobs() {
         
         if (m.type === 'zombie' && isDay) {
             let tx = Math.floor((m.x + m.w/2) / TILE_SIZE); let ty = Math.floor(m.y / TILE_SIZE);
-            let exposed = true;
-            for(let y=ty-1; y>=0; y--) { if(tiles[y*CHUNK_W+tx] !== IDS.AIR) { exposed = false; break; } }
+            let exposed = tx >= 0 && tx < CHUNK_W;
+            if (exposed) {
+                for (let y = ty - 1; y >= 0; y--) {
+                    if (blocksSun(tiles[y * CHUNK_W + tx])) { exposed = false; break; }
+                }
+            }
             if (exposed && Math.random()<0.01) { 
                 m.hp--; 
                 if (m.hp < 0) m.hp = 0; // 防止HP變成負數
                 createParticle(m.x+Math.random()*m.w, m.y, "#ff5722", 0.5); 
             }
+        }
+        if (m.hp <= 0) {
+            // 這幀已經沒血。再往下走還會撞到玩家。
+            defeatMob(m);
+            mobs.splice(i, 1);
+            continue;
         }
         if (dist < 400) {
             // --- 惡魔眼 (飛行) ---
@@ -3158,14 +3280,23 @@ function updateMobs() {
                 if(m.vy > 1) m.vy=1; if(m.vy < -1) m.vy=-1;
             }
             // --- 地面怪物 (殭屍/史萊姆/骷髏) ---
-            else {
+            // 商人不跟殭屍一起跳。前面有牆時這段會把往上的速度設好，後面只清左右速度，商人就會自己跳起來。
+            else if (m.type !== 'merchant') {
                 let speed = (m.type === 'skeleton') ? 0.25 : (m.type === 'zombie' ? 0.15 : 0.2);
-            if (player.x > m.x + 10) m.vx += speed; else if (player.x < m.x - 10) m.vx -= speed;
+                if (player.x > m.x + 10) m.vx += speed; else if (player.x < m.x - 10) m.vx -= speed;
                 
                 if (m.grounded) { // 跳躍邏輯
                     let frontX = m.x + (m.vx > 0 ? m.w + 5 : -5);
-                    let tileFront = getTile(Math.floor(frontX/TILE_SIZE), Math.floor(m.y/TILE_SIZE));
-                    if ((BLOCKS[tileFront] && BLOCKS[tileFront].solid) || (m.type === 'slime' && Math.random() < 0.02)) {
+                    let frontTx = Math.floor(frontX / TILE_SIZE);
+                    let headTy = Math.floor(m.y / TILE_SIZE);
+                    let footTy = Math.floor((m.y + m.h - 1) / TILE_SIZE);
+                    let blocked = false;
+                    // 一格高的階梯在腳邊。只看頭頂那一列會以為前面是空的。
+                    for (let ty = headTy; ty <= footTy; ty++) {
+                        let id = getTile(frontTx, ty);
+                        if (BLOCKS[id] && BLOCKS[id].solid && !BLOCKS[id].platform) blocked = true;
+                    }
+                    if (blocked || (m.type === 'slime' && Math.random() < 0.02)) {
                         m.vy = -6;
                     }
                 }
@@ -3210,9 +3341,11 @@ function updateMobs() {
         if (player.invincibleTimer <= 0 && !m.passive && !m.friendly && rectIntersect(player, m)) {
             // 確保怪物傷害屬性已定義
             let mobDamage = (m.dmg !== undefined && m.dmg > 0) ? m.dmg : 1;
-            takeDamage(mobDamage); 
-            player.vx = (player.x < m.x ? -5 : 5); 
-            player.vy = -3;
+            // 死掉重生之後不要再被這一擊彈飛。
+            if (!takeDamage(mobDamage)) {
+                player.vx = (player.x < m.x ? -5 : 5);
+                player.vy = -3;
+            }
         }
         if (m.hp <= 0) {
             defeatMob(m);
@@ -3275,26 +3408,23 @@ function updateMobSpawning() {
     // 6点~18点是白天（time >= 0.25 && time < 0.75），其他时间是夜晚
     let isNight = time < 0.25 || time >= 0.75;
 
-    // 修复：找到正确的地表高度（从玩家Y位置向上向下搜索）
+    // 生怪只抽一層實心地面。雲和蓋的地板不算，沒抽中就這次不生。
+    let floors = [];
+    for (let y = 0; y < CHUNK_H - 1; y++) {
+        if (tiles[y * CHUNK_W + spawnX] === IDS.AIR && isSpawnGround(tiles[(y + 1) * CHUNK_W + spawnX])) floors.push(y);
+    }
+    if (floors.length === 0) return;
     let surfaceY = playerTileY;
-    for (let testY = Math.max(0, playerTileY - 50); testY < Math.min(CHUNK_H, playerTileY + 50); testY++) {
-        let testIdx = testY * CHUNK_W + spawnX;
-        let testBelowIdx = (testY + 1) * CHUNK_W + spawnX;
-        if (testY < CHUNK_H - 1 && tiles[testIdx] === IDS.AIR && 
-            tiles[testBelowIdx] !== IDS.AIR && tiles[testBelowIdx] !== IDS.WATER && tiles[testBelowIdx] !== IDS.LAVA) {
+    for (let testY = Math.max(0, playerTileY - 50); testY < Math.min(CHUNK_H - 1, playerTileY + 50); testY++) {
+        if (tiles[testY * CHUNK_W + spawnX] === IDS.AIR && isSpawnGround(tiles[(testY + 1) * CHUNK_W + spawnX])) {
             surfaceY = testY;
             break;
         }
     }
-
-    for (let y = 0; y < CHUNK_H - 1; y++) {
-        let idx = y * CHUNK_W + spawnX;
-        let belowIdx = (y + 1) * CHUNK_W + spawnX;
-
-        if (tiles[idx] === IDS.AIR && tiles[belowIdx] !== IDS.AIR && tiles[belowIdx] !== IDS.WATER && tiles[belowIdx] !== IDS.LAVA) {
-            // 檢查是否在腐化之地 (腳下是黑檀石)
-            // 特殊地形怪物也受敌对怪物数量限制（因为它们也是敌对怪物）
-            let groundId = tiles[belowIdx];
+    let y = floors[Math.floor(Math.random() * floors.length)];
+    let idx = y * CHUNK_W + spawnX;
+    let belowIdx = (y + 1) * CHUNK_W + spawnX;
+    let groundId = tiles[belowIdx];
             if (groundId === IDS.EBONSTONE) {
                 if (nearbyHostileMobs < 8 && Math.random() < 0.05) { // 調低：10% -> 5%
                     spawnMob(spawnX * TILE_SIZE, y * TILE_SIZE, 'eater');
@@ -3331,11 +3461,15 @@ function updateMobSpawning() {
                 return; // 敌对怪物已达上限，不生成
             }
             
-            // 決定怪物類型
+            // 最底層自己骰。先骰過淺層再骰，沒中會把已經要生的殭屍取消。
             let type = 'slime';
-            if (isNight) {
+            if (y > CHUNK_H - 100) {
+                if (Math.random() < 0.05) type = 'skeleton';
+                else if (Math.random() < 0.05) type = 'slime';
+                else return;
+            } else if (isNight) {
                 // 夜晚：浅层生成恶魔眼，深层生成僵尸（調低生成機率）
-                if (y < CHUNK_H * 0.4) { 
+                if (y < CHUNK_H * 0.4) {
                     if(Math.random() < 0.05) type = 'demon_eye'; // 調低：50% -> 5%
                     else return; // 95% 機率不生成
                 } else if (Math.random() < 0.05) { // 調低：60% -> 5%
@@ -3351,21 +3485,9 @@ function updateMobSpawning() {
                     return; // 99%概率不生成怪物（白天怪物较少）
                 }
             }
-            // 最深层：生成骷髅或史莱姆（調低生成機率）
-            if (y > CHUNK_H - 100) {
-                if (Math.random() < 0.05) { // 調低：40% -> 5%
-                    type = 'skeleton';
-                } else if (Math.random() < 0.05) { // 5% 機率生成史萊姆
-                    type = 'slime';
-                } else {
-                    return; // 90% 機率不生成
-                }
-            }
             spawnMob(spawnX * TILE_SIZE, y * TILE_SIZE, type);
             createParticle(spawnX * TILE_SIZE, y * TILE_SIZE, "#fff", 1.0);
             return;
-        }
-    }
     
     // 清理玩家视野范围外的怪物（在生怪之后执行）
     for (let i = mobs.length - 1; i >= 0; i--) {
@@ -3391,47 +3513,36 @@ function explode(tileX, tileY) {
                 let dist = Math.sqrt(Math.pow(x-tileX, 2) + Math.pow(y-tileY, 2));
                 if (dist <= radius) {
                     let id = tiles[y*CHUNK_W+x];
-                    if (id !== IDS.BEDROCK && id !== IDS.AIR) {
+                    // 野外寶箱和天域寶箱挖不掉，炸藥也不該直接清掉。清掉不會掉原本的戰利品。
+                    if (id !== IDS.BEDROCK && id !== IDS.AIR && id !== IDS.LOOT_CHEST && id !== IDS.SKYWARE_CHEST) {
                         // --- 箱子破壞處理（必須在 setTile 之前）---
                         if (id === IDS.CHEST) {
                             // 檢查箱子內是否有物品
                             let chestKey = `${x}_${y}`;
                             let chestItems = chestData[chestKey];
                             if (chestItems && Array.isArray(chestItems)) {
-                                // 掉落箱子內的所有物品
-                                chestItems.forEach(item => {
-                                    if (item && item.id !== IDS.AIR && item.count > 0) {
-                                        // 根據數量掉落多個物品
-                                        for (let i = 0; i < item.count; i++) {
-                                            let offsetX = (Math.random() - 0.5) * 20;
-                                            let offsetY = (Math.random() - 0.5) * 20;
-                                            let drop = {
-                                                x: x * TILE_SIZE + 10 + offsetX,
-                                                y: y * TILE_SIZE + 10 + offsetY,
-                                                w: 12,
-                                                h: 12,
-                                                vx: (Math.random() - 0.5) * 4,
-                                                vy: -3,
-                                                id: item.id,
-                                                life: 3000,
-                                                spawnTime: frameCount
-                                            };
-                                            // 如果有耐久度，複製耐久度
-                                            if (item.durability !== undefined) {
-                                                drop.durability = item.durability;
-                                            }
-                                            drops.push(drop);
-                                        }
-                                    }
-                                });
-                                // 清除箱子數據
+                                spillChest(chestItems, x * TILE_SIZE + 10, y * TILE_SIZE + 10);
                                 delete chestData[chestKey];
                             }
+                            closeChestAt(x, y);
                         }
-                        
+                        // 爆炸清掉傳送點。門的另一格一起拆，只留一扇關著的門可撿。
+                        let salvageId = id;
+                        if (id === IDS.TELEPORTER) {
+                            let ti = teleporters.findIndex(t => t.x === x && t.y === y);
+                            if (ti !== -1) teleporters.splice(ti, 1);
+                        }
+                        if (id === IDS.SIGN) delete signData[x + '_' + y];
+                        if (id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN) {
+                            let aboveId = y > 0 ? tiles[(y - 1) * CHUNK_W + x] : IDS.AIR;
+                            let belowId = y < CHUNK_H - 1 ? tiles[(y + 1) * CHUNK_W + x] : IDS.AIR;
+                            if (aboveId === IDS.DOOR_CLOSED || aboveId === IDS.DOOR_OPEN) setTile(x, y - 1, IDS.AIR);
+                            if (belowId === IDS.DOOR_CLOSED || belowId === IDS.DOOR_OPEN) setTile(x, y + 1, IDS.AIR);
+                            salvageId = IDS.DOOR_CLOSED;
+                        }
                         setTile(x, y, IDS.AIR);
                         createParticle(x*TILE_SIZE, y*TILE_SIZE, "#555", 1.0);
-                        if (Math.random() < 0.3) spawnDrop(x*TILE_SIZE, y*TILE_SIZE, id);
+                        if (Math.random() < 0.3) spawnDrop(x*TILE_SIZE, y*TILE_SIZE, salvageId);
                     }
                 }
             }
@@ -3454,6 +3565,58 @@ function explode(tileX, tileY) {
             } 
         }
     }
+}
+
+function isPlacedBuild(id) {
+    return id === IDS.FURNACE || id === IDS.WORKBENCH || id === IDS.ANVIL ||
+        id === IDS.CHEST || id === IDS.BED || id === IDS.CAMPFIRE ||
+        id === IDS.TELEPORTER || id === IDS.TABLE || id === IDS.CHAIR ||
+        id === IDS.BOOKSHELF || id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN ||
+        id === IDS.SIGN || id === IDS.LANTERN || id === IDS.FENCE ||
+        id === IDS.COOKING_POT || id === IDS.CLAY_POT || id === IDS.TORCH ||
+        id === IDS.SAPLING || id === IDS.WHEAT_CROP || id === IDS.WHEAT_RIPE ||
+        id === IDS.BRICKS || id === IDS.PLANKS || id === IDS.WOOD || id === IDS.WOOD_PLATFORM ||
+        id === IDS.GEMSPARK_RED || id === IDS.GEMSPARK_BLUE || id === IDS.GEMSPARK_GREEN ||
+        id === IDS.ROPE || id === IDS.CHAIN;
+}
+
+function isSpawnGround(id) {
+    let block = BLOCKS[id];
+    return !!(block && block.solid && !isPlacedBuild(id));
+}
+
+function nearPlacedBuild(x, y) {
+    for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            if (isPlacedBuild(getTile(x + dx, y + dy))) return true;
+        }
+    }
+    return false;
+}
+
+function buriedForOre(x, y) {
+    let dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (let d of dirs) {
+        let nid = getTile(x + d[0], y + d[1]);
+        let block = BLOCKS[nid];
+        if (!block || !block.solid || isPlacedBuild(nid)) return false;
+    }
+    return true;
+}
+
+// 下面是火把、花、繩子這類不實心的東西時，液體不能掉進去，但也不能卡死。
+// 同一輪不要連走。剛流過去的那格再算一次，水會在一次更新裡橫越整個畫面。
+function flowLiquidSideways(x, y, id, arrived) {
+    let flowDir = Math.random() > 0.5 ? 1 : -1;
+    let targetX = x + flowDir;
+    if (targetX < 0 || targetX >= CHUNK_W) return;
+    let targetIdx = y * CHUNK_W + targetX;
+    if (tiles[targetIdx] !== IDS.AIR) return;
+    tiles[targetIdx] = id;
+    tiles[y * CHUNK_W + x] = IDS.AIR;
+    clearPaintIfBare(x, y);
+    if (arrived) arrived.add(targetIdx);
 }
 
 function updateWorldLogic() {
@@ -3492,16 +3655,22 @@ function updateWorldLogic() {
             if (merchantTileX < 0) merchantTileX = 0;
             if (merchantTileX >= CHUNK_W) merchantTileX = CHUNK_W - 1;
             
-            // 找到地面位置
+            // 商人站在離玩家最近的地面。從最上面向下找到的第一塊，常常是樹葉或天空島。
             let groundY = null;
+            let bestDist = Infinity;
+            let playerTileY = Math.floor(player.y / TILE_SIZE);
             for (let y = 0; y < CHUNK_H - 1; y++) {
                 let idx = y * CHUNK_W + merchantTileX;
                 let belowIdx = (y + 1) * CHUNK_W + merchantTileX;
-                if (tiles[idx] === IDS.AIR && tiles[belowIdx] !== IDS.AIR && 
-                    tiles[belowIdx] !== IDS.WATER && tiles[belowIdx] !== IDS.LAVA &&
-                    BLOCKS[tiles[belowIdx]] && BLOCKS[tiles[belowIdx]].solid) {
-                    groundY = y * TILE_SIZE;
-                    break;
+                let belowId = tiles[belowIdx];
+                if (tiles[idx] === IDS.AIR && belowId !== IDS.AIR &&
+                    belowId !== IDS.WATER && belowId !== IDS.LAVA &&
+                    BLOCKS[belowId] && BLOCKS[belowId].solid) {
+                    let d = Math.abs(y - playerTileY);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        groundY = y * TILE_SIZE;
+                    }
                 }
             }
             
@@ -3522,6 +3691,7 @@ function updateWorldLogic() {
     let endX = Math.min(CHUNK_W, playerTileX + viewRangeX);
     let startY = Math.max(0, playerTileY - viewRangeY);
     let endY = Math.min(CHUNK_H, playerTileY + viewRangeY);
+    let liquidArrived = new Set();
     
     for (let y = endY - 1; y >= startY; y--) {
         // 隨機掃描方向，避免水流偏一邊
@@ -3532,20 +3702,27 @@ function updateWorldLogic() {
             let x = scanStartX + (i * dir);
             if (x < startX || x >= endX) continue;
             let idx = y * CHUNK_W + x;
+            if (liquidArrived.has(idx)) continue;
             let id = tiles[idx];
             // 1. 小麥生長邏輯
-            if (id === IDS.WHEAT_CROP && Math.random() < 0.005) { 
-                setTile(x, y, IDS.WHEAT_RIPE); // 變成熟
+            // 小麥沒有耕地就不熟。種子只能種在耕地上，土挖掉以後不能懸空變熟。
+            // 耕地沒了，麥子不能懸在空中。掉落跟收割一樣。
+            if ((id === IDS.WHEAT_CROP || id === IDS.WHEAT_RIPE) && getTile(x, y + 1) !== IDS.TILLED_DIRT) {
+                setTile(x, y, IDS.AIR);
+                spawnDrop(x * TILE_SIZE, y * TILE_SIZE, IDS.WHEAT);
+                if (id === IDS.WHEAT_RIPE || Math.random() < 0.5) spawnDrop(x * TILE_SIZE, y * TILE_SIZE, IDS.SEEDS);
+            } else if (id === IDS.WHEAT_CROP && getTile(x, y + 1) === IDS.TILLED_DIRT && Math.random() < 0.005) {
+                setTile(x, y, IDS.WHEAT_RIPE);
             }
             
             // 2. 樹木生長
-            if (id === IDS.SAPLING && Math.random() < 0.005) { 
-                // 檢查下方方塊：樹苗必須在草地或泥土上才能生長
+            if (id === IDS.SAPLING) {
+                // 土沒了，樹苗不能懸在空中。掉回樹苗。
                 let belowId = getTile(x, y + 1);
                 if (belowId !== IDS.GRASS && belowId !== IDS.DIRT) {
-                    continue; // 不在草地或泥土上，跳過生長
-                }
-                
+                    setTile(x, y, IDS.AIR);
+                    spawnDrop(x * TILE_SIZE, y * TILE_SIZE, IDS.SAPLING);
+                } else if (Math.random() < 0.005) {
                 let treeH = 5 + Math.floor(Math.random() * 5);
                 let canGrow = true;
                 // 檢查上方空間：需要足夠的空間讓樹木生長
@@ -3555,7 +3732,7 @@ function updateWorldLogic() {
                 if (canGrow) {
                     for(let h=0; h<treeH; h++) { 
                         setTile(x, y-h, IDS.WOOD); 
-                        setWall(x, y-h, IDS.AIR);
+                        // 樹長大不拆背景牆。原木不透明，牆會被擋住，砍掉樹還在。
                     }
                     let topY = y - treeH;
                     for(let ly=-3; ly<=1; ly++) for(let lx=-3; lx<=3; lx++) { 
@@ -3568,6 +3745,7 @@ function updateWorldLogic() {
                         }
                     }
                 }
+                }
             }
             // 2. 簡易水流物理
             if (id === IDS.WATER) {
@@ -3578,6 +3756,7 @@ function updateWorldLogic() {
                     if (belowId === IDS.AIR) {
                         tiles[belowIdx] = IDS.WATER;
                         tiles[idx] = IDS.AIR;
+                        clearPaintIfBare(x, y);
                         continue;
                     }
                     // 遇岩漿變石頭
@@ -3590,17 +3769,7 @@ function updateWorldLogic() {
                     }
                 }
                 // 向左右流
-                if (y < CHUNK_H - 1 && (BLOCKS[tiles[belowIdx]] && BLOCKS[tiles[belowIdx]].solid || tiles[belowIdx] === IDS.WATER)) {
-                    let flowDir = Math.random() > 0.5 ? 1 : -1;
-                    let targetX = x + flowDir;
-                    if (targetX >= 0 && targetX < CHUNK_W) {
-                        let targetIdx = y * CHUNK_W + targetX;
-                        if (tiles[targetIdx] === IDS.AIR) {
-                            tiles[targetIdx] = IDS.WATER;
-                            tiles[idx] = IDS.AIR;
-                        }
-                    }
-                }
+                if (y < CHUNK_H - 1) flowLiquidSideways(x, y, IDS.WATER, liquidArrived);
             }
             // 2.5. 岩漿流動物理 (比照水流)
             if (id === IDS.LAVA) {
@@ -3611,6 +3780,7 @@ function updateWorldLogic() {
                     if (belowId === IDS.AIR) {
                         tiles[belowIdx] = IDS.LAVA;
                         tiles[idx] = IDS.AIR;
+                        clearPaintIfBare(x, y);
                         continue;
                     }
                     // 遇水變石頭
@@ -3623,17 +3793,7 @@ function updateWorldLogic() {
                     }
                 }
                 // 向左右流 (岩浆流动速度稍慢，70%概率)
-                if (y < CHUNK_H - 1 && Math.random() < 0.7 && (BLOCKS[tiles[belowIdx]] && BLOCKS[tiles[belowIdx]].solid || tiles[belowIdx] === IDS.LAVA)) {
-                    let flowDir = Math.random() > 0.5 ? 1 : -1;
-                    let targetX = x + flowDir;
-                    if (targetX >= 0 && targetX < CHUNK_W) {
-                        let targetIdx = y * CHUNK_W + targetX;
-                        if (tiles[targetIdx] === IDS.AIR) {
-                            tiles[targetIdx] = IDS.LAVA;
-                            tiles[idx] = IDS.AIR;
-                        }
-                    }
-                }
+                if (y < CHUNK_H - 1 && Math.random() < 0.7) flowLiquidSideways(x, y, IDS.LAVA, liquidArrived);
             }
             // 3. 沙子下落 (保留原有逻辑)
             if (id === IDS.SAND) { 
@@ -3642,7 +3802,8 @@ function updateWorldLogic() {
                     let belowId = tiles[belowIdx]; 
                     if (belowId === IDS.AIR || belowId === IDS.WATER || belowId === IDS.LAVA) { 
                         tiles[belowIdx] = IDS.SAND; 
-                        tiles[idx] = (belowId === IDS.WATER || belowId === IDS.LAVA) ? belowId : IDS.AIR; 
+                        tiles[idx] = (belowId === IDS.WATER || belowId === IDS.LAVA) ? belowId : IDS.AIR;
+                        if (tiles[idx] === IDS.AIR) clearPaintIfBare(x, y); 
                     } 
                 } 
             }
@@ -3671,28 +3832,9 @@ function updateWorldLogic() {
             let idx = ry * CHUNK_W + rx;
             let id = tiles[idx];
             
-            // 1. 矿石再生（在石头中，避免覆盖已有矿石和玩家建筑）
-            if (id === IDS.STONE && ry > CHUNK_H * 0.1 && ry < CHUNK_H * 0.9) {
-                // 检查是否已经是矿石（避免重复生成）
-                let isOre = false;
-                let oreTypes = [IDS.COAL_ORE, IDS.IRON_ORE, IDS.GOLD_ORE, IDS.DIAMOND_ORE, 
-                                IDS.RUBY_ORE, IDS.SAPPHIRE_ORE, IDS.EMERALD_ORE];
-                for (let oreId of oreTypes) {
-                    if (id === oreId) {
-                        isOre = true;
-                        break;
-                    }
-                }
-                
-                // 检查是否是玩家建筑（避免覆盖）
-                let isPlayerStructure = (id === IDS.FURNACE || id === IDS.WORKBENCH || id === IDS.ANVIL || 
-                                        id === IDS.CHEST || id === IDS.BED || id === IDS.CAMPFIRE || 
-                                        id === IDS.TELEPORTER || id === IDS.TABLE || id === IDS.CHAIR || 
-                                        id === IDS.BOOKSHELF || id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN ||
-                                        id === IDS.SIGN || id === IDS.LANTERN || id === IDS.FENCE ||
-                                        id === IDS.COOKING_POT || id === IDS.CLAY_POT);
-                
-                if (!isOre && !isPlayerStructure && Math.random() < 0.001) { // 0.1%概率，且不是已有矿石或玩家建筑
+            // 再生不吃玩家建築。露出來的石頭、貼著房子的石頭不變成礦。
+            if (id === IDS.STONE && ry > CHUNK_H * 0.1 && ry < CHUNK_H * 0.9 && buriedForOre(rx, ry)) {
+                if (Math.random() < 0.001) {
                     // 宝石优先级更高（更稀有），如果生成宝石就不生成普通矿石
                     let hasGem = false;
                     if (ry > CHUNK_H * 0.5) {
@@ -3752,63 +3894,24 @@ function updateWorldLogic() {
                 }
             }
             
-            // 3. 蜘蛛网再生（在地下洞穴中，避免覆盖已有蜘蛛网和玩家建筑）
-            if (id === IDS.AIR && ry > CHUNK_H * 0.3 && ry < CHUNK_H * 0.8) {
-                // 检查是否已经是蜘蛛网（避免重复生成）
-                if (id !== IDS.COBWEB) {
-                    // 检查是否是玩家建筑（避免覆盖）
-                    let isPlayerStructure = (id === IDS.FURNACE || id === IDS.WORKBENCH || id === IDS.ANVIL || 
-                                            id === IDS.CHEST || id === IDS.BED || id === IDS.CAMPFIRE || 
-                                            id === IDS.TELEPORTER || id === IDS.TABLE || id === IDS.CHAIR || 
-                                            id === IDS.BOOKSHELF || id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN ||
-                                            id === IDS.SIGN || id === IDS.LANTERN || id === IDS.FENCE ||
-                                            id === IDS.COOKING_POT || id === IDS.CLAY_POT || id === IDS.TORCH ||
-                                            id === IDS.SAPLING || id === IDS.WHEAT_CROP || id === IDS.WHEAT_RIPE ||
-                                            id === IDS.POT || id === IDS.VINE || id === IDS.JUNGLE_SPORES);
-                    if (!isPlayerStructure) {
-                    // 检查周围是否有石头（洞穴环境）
-                    let hasStone = false;
-                    for (let dy = -1; dy <= 1; dy++) {
-                        for (let dx = -1; dx <= 1; dx++) {
-                            if (rx+dx >= 0 && rx+dx < CHUNK_W && ry+dy >= 0 && ry+dy < CHUNK_H) {
-                                let checkId = tiles[(ry+dy)*CHUNK_W+(rx+dx)];
-                                if (checkId === IDS.STONE || checkId === IDS.DIRT) {
-                                    hasStone = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if (hasStone) break;
-                    }
-                        if (hasStone && Math.random() < 0.001) {
-                            setTile(rx, ry, IDS.COBWEB);
+            if (id === IDS.AIR && ry > CHUNK_H * 0.3 && ry < CHUNK_H * 0.8 && !nearPlacedBuild(rx, ry)) {
+                let hasStone = false;
+                for (let dy = -1; dy <= 1; dy++) {
+                    for (let dx = -1; dx <= 1; dx++) {
+                        if (rx + dx >= 0 && rx + dx < CHUNK_W && ry + dy >= 0 && ry + dy < CHUNK_H) {
+                            let checkId = tiles[(ry + dy) * CHUNK_W + (rx + dx)];
+                            if (checkId === IDS.STONE || checkId === IDS.DIRT) hasStone = true;
                         }
                     }
                 }
+                if (hasStone && Math.random() < 0.001) setTile(rx, ry, IDS.COBWEB);
             }
-            
-            // 4. 陶罐再生（在地下，避免覆盖已有陶罐和玩家建筑）
-            if (id === IDS.AIR && ry > CHUNK_H * 0.2 && ry < CHUNK_H * 0.7) {
-                // 检查是否已经是陶罐（避免重复生成）
-                if (id !== IDS.POT) {
-                    // 检查是否是玩家建筑（避免覆盖）
-                    let isPlayerStructure = (id === IDS.FURNACE || id === IDS.WORKBENCH || id === IDS.ANVIL || 
-                                            id === IDS.CHEST || id === IDS.BED || id === IDS.CAMPFIRE || 
-                                            id === IDS.TELEPORTER || id === IDS.TABLE || id === IDS.CHAIR || 
-                                            id === IDS.BOOKSHELF || id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN ||
-                                            id === IDS.SIGN || id === IDS.LANTERN || id === IDS.FENCE ||
-                                            id === IDS.COOKING_POT || id === IDS.CLAY_POT || id === IDS.TORCH ||
-                                            id === IDS.SAPLING || id === IDS.WHEAT_CROP || id === IDS.WHEAT_RIPE ||
-                                            id === IDS.VINE || id === IDS.JUNGLE_SPORES || id === IDS.COBWEB);
-                    if (!isPlayerStructure) {
-                        // 检查下方是否有固体方块
-                        if (ry < CHUNK_H - 1) {
-                            let belowId = tiles[(ry+1)*CHUNK_W+rx];
-                            if ((belowId === IDS.STONE || belowId === IDS.DIRT || belowId === IDS.BRICKS) && 
-                                Math.random() < 0.0005) {
-                                setTile(rx, ry, IDS.POT);
-                            }
-                        }
+
+            if (id === IDS.AIR && ry > CHUNK_H * 0.2 && ry < CHUNK_H * 0.7 && !nearPlacedBuild(rx, ry)) {
+                if (ry < CHUNK_H - 1) {
+                    let belowId = tiles[(ry + 1) * CHUNK_W + rx];
+                    if ((belowId === IDS.STONE || belowId === IDS.DIRT) && Math.random() < 0.0005) {
+                        setTile(rx, ry, IDS.POT);
                     }
                 }
             }
@@ -3836,7 +3939,9 @@ function handleCollisions(obj, isX) {
             // 平台逻辑（工作台和木平台）
             if(BLOCKS[id].platform) { 
                 if(isX) continue; 
-                if(obj.vy > 0 && obj.y + obj.h <= by + 8) { 
+                // 平台也要看上一幀的腳。下落比 8 像素快，這一幀會穿過去。
+                let prevBottom = obj.y + obj.h - obj.vy;
+                if(obj.vy > 0 && prevBottom <= by + 8) { 
                     obj.y = by - obj.h; 
                     obj.grounded = true; 
                     obj.vy = 0; 
@@ -3844,9 +3949,18 @@ function handleCollisions(obj, isX) {
                 continue; 
             }
             if (obj.x < bx + TILE_SIZE && obj.x + obj.w > bx && obj.y < by + TILE_SIZE && obj.y + obj.h > by) {
-                if (isX) { if (obj.vx > 0) obj.x = bx - obj.w; else if (obj.vx < 0) obj.x = bx + TILE_SIZE; obj.vx = 0; }
-                else { if (obj.vy > 0) { obj.y = by - obj.h; obj.grounded = true; obj.vy = 0; } else if (obj.vy < 0) { obj.y = by + TILE_SIZE; obj.vy = 0; } }
-                return;
+                if (isX) { if (obj.vx > 0) obj.x = bx - obj.w; else if (obj.vx < 0) obj.x = bx + TILE_SIZE; obj.vx = 0; return; }
+                // 頭擦到天花板時不能把它當成地板。往下才站上去，往上才撞到頂。
+                let prevBottom = obj.y + obj.h - obj.vy;
+                let prevTop = obj.y - obj.vy;
+                if (obj.vy > 0 && prevBottom <= by + 8) {
+                    obj.y = by - obj.h; obj.grounded = true; obj.vy = 0;
+                    return;
+                }
+                if (obj.vy < 0 && prevTop >= by + TILE_SIZE - 8) {
+                    obj.y = by + TILE_SIZE; obj.vy = 0;
+                    return;
+                }
             }
         }
     }
@@ -3855,6 +3969,12 @@ function handleCollisions(obj, isX) {
 // ==========================================
 // 7. 光照 & 渲染
 // ==========================================
+// 平台不算屋頂。木平台為了能站上去被標成實心，陽光卻整條柱子被截斷。
+function blocksSun(id) {
+    let def = BLOCKS[id];
+    return !!(def && def.solid && !def.platform);
+}
+
 function fullLightUpdate() {
     lightMap.fill(0); let sunLevel = getSunLevel();
     // 先扫描所有光源（包括火把），不受上方方块影响
@@ -3862,11 +3982,11 @@ function fullLightUpdate() {
         let idx = y*CHUNK_W + x; let id = tiles[idx];
         if(BLOCKS[id] && BLOCKS[id].light) { lightMap[idx] = BLOCKS[id].light/15; lightQueue.push(idx); }
     }
-    // 再处理阳光传播（从上到下，遇到固体方块停止）
+    // 再处理阳光传播（从上到下，遇到不透光的固体方块停止）
     for(let x=0; x<CHUNK_W; x++) for(let y=0; y<CHUNK_H; y++) {
         let idx = y*CHUNK_W + x; let id = tiles[idx];
-        if (BLOCKS[id] && BLOCKS[id].transparent) { lightMap[idx] = Math.max(lightMap[idx], sunLevel); lightQueue.push(idx); } 
-        if (BLOCKS[id] && BLOCKS[id].solid) break; 
+        if (BLOCKS[id] && BLOCKS[id].transparent) { lightMap[idx] = Math.max(lightMap[idx], sunLevel); lightQueue.push(idx); }
+        if (blocksSun(id)) break;
     }
     propagateLight();
 }
@@ -4240,9 +4360,10 @@ function draw() {
         ctx.restore();
     }
 
+    // 鏡頭已經平移，這裡用世界座標。再減一次會畫到左上方。
     for (let p of projectiles) {
         ctx.save(); 
-        ctx.translate(p.x - camera.x, p.y - camera.y); 
+        ctx.translate(p.x, p.y); 
         ctx.rotate(p.angle);
         if (p.type === 'star') {
             ctx.fillStyle = p.color || '#ff4081'; 
@@ -4298,12 +4419,12 @@ function draw() {
         ctx.strokeStyle = "#424242"; 
         ctx.lineWidth = 2;
         ctx.beginPath(); 
-        ctx.moveTo(player.x+10 - camera.x, player.y+20 - camera.y); 
-        ctx.lineTo(player.hook.x - camera.x, player.hook.y - camera.y); 
+        ctx.moveTo(player.x+10, player.y+20); 
+        ctx.lineTo(player.hook.x, player.hook.y); 
         ctx.stroke();
         // 畫爪頭
         ctx.fillStyle = "#616161"; 
-        ctx.fillRect(player.hook.x - camera.x - 4, player.hook.y - camera.y - 4, 8, 8);
+        ctx.fillRect(player.hook.x - 4, player.hook.y - 4, 8, 8);
     }
 
     // 繪製怪物
@@ -4330,9 +4451,9 @@ function draw() {
             ctx.restore();
             // 血條
             ctx.fillStyle = "red";
-            ctx.fillRect(m.x - camera.x, m.y - camera.y - 10, m.w * (m.hp / m.maxHp), 6);
+            ctx.fillRect(m.x, m.y - 10, m.w * (m.hp / m.maxHp), 6);
             ctx.strokeStyle = "black";
-            ctx.strokeRect(m.x - camera.x, m.y - camera.y - 10, m.w, 6);
+            ctx.strokeRect(m.x, m.y - 10, m.w, 6);
         } else if (m.type === 'demon_eye') {
             ctx.translate(m.x + m.w/2, m.y + m.h/2);
             ctx.rotate(Math.atan2(player.y - m.y, player.x - m.x));
@@ -4348,14 +4469,14 @@ function draw() {
             continue; 
         } else if (m.type === 'skeleton') {
             ctx.fillStyle = "#e0e0e0"; 
-            ctx.fillRect(m.x - camera.x, m.y - camera.y, m.w, m.h);
+            ctx.fillRect(m.x, m.y, m.w, m.h);
             ctx.fillStyle = "#000"; 
-            ctx.fillRect(m.x - camera.x + 4, m.y - camera.y + 6, 4, 4); 
-            ctx.fillRect(m.x - camera.x + 12, m.y - camera.y + 6, 4, 4); // 眼睛
+            ctx.fillRect(m.x + 4, m.y + 6, 4, 4); 
+            ctx.fillRect(m.x + 12, m.y + 6, 4, 4); // 眼睛
             // 簡單肋骨
             ctx.fillStyle = "#9e9e9e"; 
-            ctx.fillRect(m.x - camera.x + 4, m.y - camera.y + 18, 12, 2); 
-            ctx.fillRect(m.x - camera.x + 4, m.y - camera.y + 24, 12, 2);
+            ctx.fillRect(m.x + 4, m.y + 18, 12, 2); 
+            ctx.fillRect(m.x + 4, m.y + 24, 12, 2);
             ctx.restore();
             continue; // 這樣就不會執行後面通用的繪製
         } else if (m.type === 'merchant') {
@@ -4461,9 +4582,9 @@ function draw() {
     if (player.pet && player.pet.active) {
         // 畫一隻小兔子
         ctx.fillStyle = "#fff";
-        ctx.fillRect(player.pet.x - camera.x, player.pet.y - camera.y + 10, 16, 12);
-        ctx.fillRect(player.pet.x - camera.x + 2, player.pet.y - camera.y + 2, 4, 8);
-        ctx.fillRect(player.pet.x - camera.x + 10, player.pet.y - camera.y + 2, 4, 8);
+        ctx.fillRect(player.pet.x, player.pet.y + 10, 16, 12);
+        ctx.fillRect(player.pet.x + 2, player.pet.y + 2, 4, 8);
+        ctx.fillRect(player.pet.x + 10, player.pet.y + 2, 4, 8);
     }
 
     // 玩家本體（矩形 → 角色 GIF 立繪）
@@ -4561,7 +4682,7 @@ function draw() {
         }
         ctx.fillStyle = p.color; 
         ctx.globalAlpha = p.life; 
-        ctx.fillRect(p.x - camera.x, p.y - camera.y, p.size, p.size);
+        ctx.fillRect(p.x, p.y, p.size, p.size);
     }
     ctx.globalAlpha = 1.0;
     
@@ -4623,7 +4744,8 @@ function getTile(x, y) { if(x<0||x>=CHUNK_W||y<0||y>=CHUNK_H) return IDS.BEDROCK
 function getBlock(x, y) { return BLOCKS[getTile(x, y)] || BLOCKS[IDS.AIR]; }
 function setTile(x, y, id) { 
     if(x<0||x>=CHUNK_W||y<0||y>=CHUNK_H) return; 
-    tiles[y*CHUNK_W+x] = id; 
+    tiles[y*CHUNK_W+x] = id;
+    if (id === IDS.AIR) clearPaintIfBare(x, y); 
     // 完全按照备份文件的方式：如果放置的是光源，设置lightMap为1.0
     if(BLOCKS[id] && BLOCKS[id].light > 0) lightMap[y*CHUNK_W+x] = 1.0; 
     // 无论放置什么方块，都将周围区域加入lightQueue并传播光照（参考备份）
@@ -4647,12 +4769,33 @@ function setTile(x, y, id) {
 function setWall(x, y, id) {
     if(x<0||x>=CHUNK_W||y<0||y>=CHUNK_H) return; 
     walls[y*CHUNK_W+x] = id;
+    if (id === IDS.AIR) clearPaintIfBare(x, y);
+}
+
+// 油漆只留在還有方塊或牆的格子。兩邊都空了還留著，下一塊會白拿這個顏色。
+function clearPaintIfBare(x, y) {
+    if (x < 0 || x >= CHUNK_W || y < 0 || y >= CHUNK_H) return;
+    let idx = y * CHUNK_W + x;
+    if (tiles[idx] === IDS.AIR && walls[idx] === IDS.AIR) tileColors[idx] = 0;
+}
+
+// 用身體中間算距離。左上角會讓右邊和腳邊差一格。
+function playerCenterTx() {
+    return Math.floor((player.x + player.w / 2) / TILE_SIZE);
+}
+function playerCenterTy() {
+    return Math.floor((player.y + player.h / 2) / TILE_SIZE);
 }
 
 function isNearStation(stationID) {
-    let px = Math.floor(player.x / TILE_SIZE); let py = Math.floor(player.y / TILE_SIZE);
+    let px = playerCenterTx(); let py = playerCenterTy();
     for(let y = py - 2; y <= py + 2; y++) for(let x = px - 2; x <= px + 2; x++) if(getTile(x, y) === stationID) return true;
     return false;
+}
+
+// 這下沒補到、沒換上。告示牌、墓碑、床自己有右鍵，不要擋掉。
+function failedUseLeavesTile(tileId) {
+    return tileId === IDS.SIGN || tileId === IDS.TOMBSTONE || tileId === IDS.BED;
 }
 
 function updateInteraction() {
@@ -4692,7 +4835,9 @@ function updateInteraction() {
         // 1. 星怒 (Starfury)
         if (handItem && handItem.id === IDS.STARFURY) {
             if (player.mana >= 8) { // 消耗 8
-                if (frameCount % 30 === 0) { // 冷卻
+                // 點一下也要射得出。冷卻從這一發算起，間隔仍是 30 幀。
+                if (frameCount - starShotFrame >= 30) {
+                    starShotFrame = frameCount;
                     player.mana -= 8;
                     if (player.mana < 0) player.mana = 0; // 防止魔力变成负数
                     updateHealthUI();
@@ -4701,25 +4846,56 @@ function updateInteraction() {
                     if (consumeDurability(handItem, 1)) {
                         updateUI();
                         mouse.left = false;
-                        return; // 武器損壞
                     }
                     
                     let sx = mouse.worldX + (Math.random()-0.5)*150;
                     let sy = camera.y - 50; 
                     let angle = Math.atan2(mouse.worldY - sy, mouse.worldX - sx);
+                    let svx = Math.cos(angle) * 14;
+                    let svy = Math.sin(angle) * 14;
+                    // 出生在石頭裡會立刻消失。沿著準星走到第一格空氣。整段都是石頭就從人身上射出。
+                    let birthTx = Math.floor(sx / TILE_SIZE);
+                    let birthTy = Math.floor(sy / TILE_SIZE);
+                    let birthInside = birthTx >= 0 && birthTx < CHUNK_W && birthTy >= 0 && birthTy < CHUNK_H;
+                    let birthDef = birthInside ? BLOCKS[getTile(birthTx, birthTy)] : null;
+                    if (birthDef && birthDef.solid) {
+                        let foundAir = false;
+                        for (let step = 0; step < 100; step++) {
+                            let toMx = mouse.worldX - sx;
+                            let toMy = mouse.worldY - sy;
+                            if (toMx * svx + toMy * svy <= 0) break;
+                            sx += svx;
+                            sy += svy;
+                            let tx = Math.floor(sx / TILE_SIZE);
+                            let ty = Math.floor(sy / TILE_SIZE);
+                            if (tx < 0 || tx >= CHUNK_W || ty < 0 || ty >= CHUNK_H) break;
+                            let def = BLOCKS[getTile(tx, ty)];
+                            if (!def || !def.solid) { foundAir = true; break; }
+                        }
+                        if (!foundAir) {
+                            sx = player.x + player.w / 2;
+                            sy = player.y + player.h / 2;
+                            angle = Math.atan2(mouse.worldY - sy, mouse.worldX - sx);
+                            svx = Math.cos(angle) * 14;
+                            svy = Math.sin(angle) * 14;
+                        }
+                    }
                     projectiles.push({ 
                         x:sx, y:sy, 
-                        vx:Math.cos(angle)*14, vy:Math.sin(angle)*14, 
+                        vx:svx, vy:svy, 
                         damage:15, type:'star', color:'#ff4081', angle:angle 
                     });
                     playSound('shoot');
                 }
             }
+            return; // 星怒不挖地
         }
         // 2. 魔法法杖 (Magic Staff)
         else if (handItem && handItem.id === IDS.MAGIC_STAFF) {
             if (player.mana >= 5) { // 消耗 5
-                if (frameCount % 20 === 0) {
+                // 點一下也要射得出。冷卻從這一發算起，間隔仍是 20 幀。
+                if (frameCount - staffShotFrame >= 20) {
+                    staffShotFrame = frameCount;
                     player.mana -= 5; // 扣除魔力
                     if (player.mana < 0) player.mana = 0; // 防止魔力变成负数
                     updateHealthUI(); // 更新 UI
@@ -4728,7 +4904,6 @@ function updateInteraction() {
                     if (consumeDurability(handItem, 1)) {
                         updateUI();
                         mouse.left = false;
-                        return; // 武器損壞
                     }
                     
                     let angle = Math.atan2(mouse.worldY - (player.y+20), mouse.worldX - (player.x+10));
@@ -4740,6 +4915,7 @@ function updateInteraction() {
                     playSound('shoot');
                 }
             }
+            return; // 法杖不挖地
         }
         // 弓箭射擊
         else if (handItem && handItem.id === IDS.WOOD_BOW) {
@@ -4749,7 +4925,6 @@ function updateInteraction() {
                 if (consumeDurability(handItem, 1)) {
                     updateUI();
                     mouse.left = false;
-                    return; // 武器損壞
                 }
                 
                 let angle = Math.atan2(mouse.worldY - (player.y + 20), mouse.worldX - (player.x + 10));
@@ -4771,10 +4946,13 @@ function updateInteraction() {
                 playSound('shoot');
                 updateUI();
                 mouse.left = false;
-                return;
             }
+            return; // 弓不近戰也不挖地
         }
 
+        // 專用左鍵不走近戰：鉤爪、釣竿、迴旋鏢、捕蟲網、錘子有自己的左鍵
+        let ownLeftClick = handItem && (handItem.id === IDS.GRAPPLING_HOOK || handItem.id === IDS.BOOMERANG || handItem.id === IDS.HAMMER || (handDef && (handDef.isFishingRod || handDef.isNet)));
+        if (!ownLeftClick) {
         // 近戰攻擊 (修復了重複變數的問題)
         let range = (handDef && handDef.range) ? handDef.range : 60;
         for (let i = mobs.length - 1; i >= 0; i--) {
@@ -4792,14 +4970,13 @@ function updateInteraction() {
                     spawnFloatText(m.x + m.w / 2, m.y, String(Math.floor(dmg)), "#ffeb3b");
                 }
 
-                // 消耗武器耐久度（如果是武器）
-                if (handItem && ((handItem.id >= IDS.WOOD_SWORD && handItem.id <= IDS.DIAMOND_SWORD) || 
-                    handItem.id === IDS.MAGIC_STAFF || handItem.id === IDS.STARFURY || 
+                // 打怪只扣劍。鑽石鎬的編號在木劍和鑽石劍中間，不能用範圍判斷。
+                if (handItem && (handItem.id === IDS.WOOD_SWORD || handItem.id === IDS.STONE_SWORD || handItem.id === IDS.IRON_SWORD || handItem.id === IDS.GOLD_SWORD || handItem.id === IDS.DIAMOND_SWORD ||
+                    handItem.id === IDS.MAGIC_STAFF || handItem.id === IDS.STARFURY ||
                     handItem.id === IDS.BLADE_OF_GRASS || handItem.id === IDS.BOOMERANG)) {
                     if (consumeDurability(handItem, 1)) {
                         updateUI();
                         mouse.left = false;
-                        return; // 武器損壞，停止攻擊
                     }
                 }
                 
@@ -4813,6 +4990,7 @@ function updateInteraction() {
                 mouse.left = false;
                 return;
             }
+        }
         }
     }
 
@@ -4857,6 +5035,8 @@ function updateInteraction() {
                     return;
                 }
             }
+            mouse.left = false;
+            return; // 捕蟲網不挖地
         }
         
         // 1. 鉤爪 (Grappling Hook)
@@ -4867,7 +5047,6 @@ function updateInteraction() {
                 if (consumeDurability(handItem, 1)) {
                     updateUI();
                     mouse.left = false;
-                    return; // 工具損壞
                 }
                 
                 let angle = Math.atan2(mouse.worldY - (player.y+20), mouse.worldX - (player.x+10));
@@ -4932,7 +5111,6 @@ function updateInteraction() {
                 if (consumeDurability(handItem, 1)) {
                     updateUI();
                     mouse.left = false;
-                    return; // 武器損壞
                 }
                 
                 let angle = Math.atan2(mouse.worldY - (player.y+20), mouse.worldX - (player.x+10));
@@ -4964,14 +5142,10 @@ function updateInteraction() {
                 if (consumeDurability(handItem, 1)) {
                     updateUI();
                     mouse.left = false;
-                    return; // 工具損壞
                 }
                 
-                // 簡單掉落判定
-                if (wallId === IDS.WOOD_WALL) spawnDrop(tx*TILE_SIZE, ty*TILE_SIZE, IDS.WOOD_WALL);
-                else if (wallId === IDS.STONE_WALL) spawnDrop(tx*TILE_SIZE, ty*TILE_SIZE, IDS.STONE_WALL);
-                else if (wallId === IDS.GLASS_WALL) spawnDrop(tx*TILE_SIZE, ty*TILE_SIZE, IDS.GLASS_WALL);
-                else if (wallId === IDS.BRICK_WALL) spawnDrop(tx*TILE_SIZE, ty*TILE_SIZE, IDS.BRICK_WALL);
+                // 可放置的牆拆了要掉回來。柵欄也是牆，不能只寫四種。天然石牆沒有 isWall，拆了不掉。
+                if (BLOCKS[wallId] && BLOCKS[wallId].isWall) spawnDrop(tx*TILE_SIZE, ty*TILE_SIZE, wallId);
                 
                 mouse.left = false;
                 return;
@@ -4979,8 +5153,10 @@ function updateInteraction() {
             // 處理非放置類物品（寶石、橡實、鑽石等）
             if (id !== IDS.AIR && id !== IDS.BEDROCK && id !== IDS.LAVA && id !== IDS.WATER) {
                 let blockDef = BLOCKS[id];
+                // 陶罐、蜘蛛網、小麥後面有自己的掉落。這裡直接掉這格，會把那些結果蓋掉。
+                let hammerHasOwnDrop = id === IDS.POT || id === IDS.COBWEB || id === IDS.WHEAT_CROP || id === IDS.WHEAT_RIPE;
                 // 檢查是否為非放置類物品（沒有 solid 或 hardness 很低，且不是工具/武器）
-                if (blockDef && !blockDef.solid && (blockDef.breakInstantly || (blockDef.hardness && blockDef.hardness <= 1))) {
+                if (!hammerHasOwnDrop && blockDef && !blockDef.solid && (blockDef.breakInstantly || (blockDef.hardness && blockDef.hardness <= 1))) {
                     // 排除工具、武器、裝備等不應該被錘子拆除的物品
                     if (!(id >= 20 && id < 40) && // 工具
                         id !== IDS.WOOD_BOW && id !== IDS.ARROW && // 武器
@@ -5087,12 +5263,11 @@ function updateInteraction() {
             if (mining.progress >= (BLOCKS[id] ? BLOCKS[id].hardness : 10) || (BLOCKS[id] && BLOCKS[id].breakInstantly)) {
                 playSound('mine');
                 
-                // 消耗稿子耐久度（如果是稿子類工具）
-                if (handItem && handItem.id >= IDS.WOOD_PICK && handItem.id <= IDS.DIAMOND_PICK) {
+                // 只有鎬才扣耐久。劍的編號夾在木鎬和鑽石鎬中間，不能用範圍判斷。
+                if (handItem && (handItem.id === IDS.WOOD_PICK || handItem.id === IDS.STONE_PICK || handItem.id === IDS.IRON_PICK || handItem.id === IDS.GOLD_PICK || handItem.id === IDS.DIAMOND_PICK)) {
                     if (consumeDurability(handItem, 1)) {
                         updateUI();
                         mouse.left = false;
-                        return; // 工具損壞，停止挖掘
                     }
                 }
                 
@@ -5164,35 +5339,10 @@ function updateInteraction() {
                     let chestKey = `${tx}_${ty}`;
                     let chestItems = chestData[chestKey];
                     if (chestItems && Array.isArray(chestItems)) {
-                        // 掉落箱子內的所有物品
-                        chestItems.forEach(item => {
-                            if (item && item.id !== IDS.AIR && item.count > 0) {
-                                // 根據數量掉落多個物品
-                                for (let i = 0; i < item.count; i++) {
-                                    let offsetX = (Math.random() - 0.5) * 20;
-                                    let offsetY = (Math.random() - 0.5) * 20;
-                                    let drop = {
-                                        x: tx * TILE_SIZE + 10 + offsetX,
-                                        y: ty * TILE_SIZE + 10 + offsetY,
-                                        w: 12,
-                                        h: 12,
-                                        vx: (Math.random() - 0.5) * 4,
-                                        vy: -3,
-                                        id: item.id,
-                                        life: 3000,
-                                        spawnTime: frameCount
-                                    };
-                                    // 如果有耐久度，複製耐久度
-                                    if (item.durability !== undefined) {
-                                        drop.durability = item.durability;
-                                    }
-                                    drops.push(drop);
-                                }
-                            }
-                        });
-                        // 清除箱子數據
+                        spillChest(chestItems, tx * TILE_SIZE + 10, ty * TILE_SIZE + 10);
                         delete chestData[chestKey];
                     }
+                    closeChestAt(tx, ty);
                     // 掉落箱子本身
                     spawnDrop(tx * TILE_SIZE + 10, ty * TILE_SIZE + 10, IDS.CHEST);
                 }
@@ -5207,6 +5357,8 @@ function updateInteraction() {
                 spawnDrop(tx * TILE_SIZE + 10, ty * TILE_SIZE + 10, id);
                 }
                 
+                // 挖掉告示牌要清文字。爆炸和墓碑已經清，挖掘沒清，下一塊會讀到舊字。
+                if (id === IDS.SIGN) delete signData[tx + '_' + ty];
                 setTile(tx, ty, IDS.AIR);
                 mining.active = false;
             }
@@ -5254,10 +5406,25 @@ function updateInteraction() {
             mouse.right = false;
             return;
         }
-        if (id === IDS.LOOT_CHEST || id === IDS.SKYWARE_CHEST) {
-            // 探索寶箱：只開一次，打開後直接掉落獎勵並清空方塊
-            if (typeof openLootChest === 'function') {
-                openLootChest(tx, ty, id);
+        if (id === IDS.SKYWARE_CHEST) {
+            playSound('mine');
+            setTile(tx, ty, IDS.AIR);
+            createParticle(tx * TILE_SIZE, ty * TILE_SIZE, "#0288d1", 1.0);
+            spawnDrop(tx * TILE_SIZE, ty * TILE_SIZE, IDS.STARFURY);
+            spawnDrop(tx * TILE_SIZE, ty * TILE_SIZE, IDS.GOLD_BAR);
+            mouse.right = false;
+            return;
+        }
+        if (id === IDS.LOOT_CHEST) {
+            playSound('mine');
+            setTile(tx, ty, IDS.AIR);
+            createParticle(tx * TILE_SIZE, ty * TILE_SIZE, "#ff6f00", 1.0);
+            let loot = [IDS.TORCH, IDS.IRON_BAR, IDS.GOLD_BAR, IDS.DIAMOND, IDS.ARROW, IDS.TNT, IDS.COAL_ORE, IDS.IRON_ORE, IDS.GOLD_ORE];
+            let dropCount = 2 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < dropCount; i++) {
+                let offsetX = (Math.random() - 0.5) * 20;
+                let offsetY = (Math.random() - 0.5) * 20;
+                spawnDrop(tx * TILE_SIZE + offsetX, ty * TILE_SIZE + offsetY, loot[Math.floor(Math.random() * loot.length)]);
             }
             mouse.right = false;
             return;
@@ -5324,11 +5491,15 @@ function updateInteraction() {
                 spawnFloatText(player.x, player.y, `魔力上限提升! (${player.maxMana}/${MAX_MANA_LIMIT})`, "#2979ff");
                 updateHealthUI(); 
                 updateUI();
+                mouse.right = false;
+                return;
+            } else if (failedUseLeavesTile(id)) {
+                // 沒吃到水晶，留給告示牌、墓碑或床。
             } else {
                 spawnFloatText(player.x, player.y, "魔力上限已達最大值!", "#999");
+                mouse.right = false;
+                return;
             }
-            mouse.right = false;
-            return;
         }
         
         // 1. 吃食物 (生魚、麵包、熟魚、魚湯)
@@ -5350,15 +5521,15 @@ function updateInteraction() {
                     player.buffs.wellFed = info.buffTime;
                     spawnFloatText(player.x, player.y, "美味!", "#ffcc80");
                     hasEffect = true;
-                } else {
+                } else if (!failedUseLeavesTile(id)) {
                     spawnFloatText(player.x, player.y, "已有更長的buff!", "#ffcc80");
                 }
             } else if (hasEffect) {
                 spawnFloatText(player.x, player.y, "+" + info.heal + " HP", "#4caf50");
             }
             
-            // 只有有效果时才消耗物品（避免满血时浪费食物）
-            if (hasEffect || info.buffTime) {
+            // 只有真的補到血或換上更長的飽食才消耗
+            if (hasEffect) {
                 playSound('drink');
                 handItem.count--;
                 if (handItem.count <= 0) {
@@ -5366,30 +5537,64 @@ function updateInteraction() {
                     handItem.count = 0;
                 }
                 updateUI();
-            } else {
+                mouse.right = false;
+                return;
+            } else if (failedUseLeavesTile(id)) {
+                // 沒吃成，留給告示牌、墓碑或床。
+            } else if (!info.buffTime) {
                 spawnFloatText(player.x, player.y, "生命值已滿!", "#999");
+                mouse.right = false;
+                return;
+            } else {
+                mouse.right = false;
+                return;
             }
+        }
+
+        // 有標價的東西右鍵換成錢。黃金鯉魚寫了賣錢，右鍵卻把它放成方塊。
+        if (handItem && BLOCKS[handItem.id] && BLOCKS[handItem.id].value > 0) {
+            let worth = BLOCKS[handItem.id].value;
+            if (!player.coins) player.coins = 0;
+            player.coins += worth;
+            handItem.count--;
+            if (handItem.count <= 0) {
+                handItem.id = IDS.AIR;
+                handItem.count = 0;
+            }
+            updateUI();
+            spawnFloatText(player.x, player.y, "+" + worth + " 銅幣", "#ffd700");
+            playSound('drink');
             mouse.right = false;
             return;
         }
         
         // 1. 放置告示牌 (輸入文字，右鍵互動：視為互動元素的一種)
-        if (handItem && handItem.id === IDS.SIGN) {
-            if (id === IDS.AIR || id === IDS.GRASS) { // 允許插在草上
-                let text = prompt("請輸入告示牌文字:", "這裡有寶藏");
-                if (text) {
-                    setTile(tx, ty, IDS.SIGN);
-                    signData[`${tx}_${ty}`] = text; // 儲存文字
-                    handItem.count--;
-                    if (handItem.count <= 0) {
-                        handItem.id = IDS.AIR;
-                        handItem.count = 0;
-                    }
-                    updateUI();
-                    mouse.right = false; 
+        if (handItem && handItem.id === IDS.SIGN && (id === IDS.AIR || id === IDS.GRASS)) {
+            let placeX = tx;
+            let placeY = ty;
+            if (id === IDS.GRASS) {
+                // 插在草上。換成告示牌會把地面挖一個洞。
+                if (ty <= 0 || getTile(tx, ty - 1) !== IDS.AIR) {
+                    spawnFloatText(player.x, player.y, "上方空間不足，無法放置!", "#ff5252");
+                    mouse.right = false;
                     return;
                 }
+                placeY = ty - 1;
             }
+            let text = prompt("請輸入告示牌文字:", "這裡有寶藏");
+            if (text) {
+                setTile(placeX, placeY, IDS.SIGN);
+                signData[`${placeX}_${placeY}`] = text; // 儲存文字
+                handItem.count--;
+                if (handItem.count <= 0) {
+                    handItem.id = IDS.AIR;
+                    handItem.count = 0;
+                }
+                updateUI();
+            }
+            // 取消輸入不放告示牌。不在這裡停的話，會落到後面的一般放置，牌子照樣被放下去。
+            mouse.right = false;
+            return;
         }
         
         // 2. 閱讀告示牌 (右鍵互動，不消耗物品)
@@ -5411,6 +5616,7 @@ function updateInteraction() {
         if (handItem && handItem.id === IDS.PAINT_BRUSH) {
             // 檢查背包有沒有油漆
             let paintItem = player.inventory.find(i => BLOCKS[i.id] && BLOCKS[i.id].isPaint);
+            let painted = false;
             if (paintItem) {
                 let colorId = BLOCKS[paintItem.id].isPaint; // 1, 2, 3
                 let idx = ty * CHUNK_W + tx;
@@ -5419,6 +5625,8 @@ function updateInteraction() {
                 if (tiles[idx] !== IDS.AIR || walls[idx] !== IDS.AIR) {
                     if (tileColors[idx] !== colorId) { // 如果顏色不同才染
                         tileColors[idx] = colorId;
+                        painted = true;
+                        let splash = BLOCKS[paintItem.id].color;
                         paintItem.count--; // 消耗油漆
                         if (paintItem.count <= 0) {
                             paintItem.id = IDS.AIR;
@@ -5429,32 +5637,41 @@ function updateInteraction() {
                         if (consumeDurability(handItem, 1)) {
                             updateUI();
                             mouse.right = false;
-                            return; // 工具損壞
                         }
                         
-                        createParticle(mouse.worldX, mouse.worldY, BLOCKS[paintItem.id].color, 0.5);
+                        createParticle(mouse.worldX, mouse.worldY, splash, 0.5);
                         playSound('slime'); // 濕濕的聲音
                         updateUI();
                     }
                 }
-            } else {
-                spawnFloatText(player.x, player.y, "需要油漆!", "#fff");
             }
-            mouse.right = false; 
-            return;
+            if (painted) {
+                mouse.right = false;
+                return;
+            } else if (!failedUseLeavesTile(id)) {
+                if (!paintItem) spawnFloatText(player.x, player.y, "需要油漆!", "#fff");
+                mouse.right = false;
+                return;
+            }
+            // 沒刷上，留給告示牌、墓碑或床。
         }
         
         // --- 在花盆上種花 ---
         if (handItem && handItem.id === IDS.FLOWER) {
             if (id === IDS.CLAY_POT) {
-                spawnFloatText(tx*TILE_SIZE, ty*TILE_SIZE, "好香!", "#e91e63");
-                handItem.count--;
-                if (handItem.count <= 0) {
-                    handItem.id = IDS.AIR;
-                    handItem.count = 0;
+                if (getTile(tx, ty - 1) === IDS.AIR) {
+                    setTile(tx, ty - 1, IDS.FLOWER);
+                    spawnFloatText(tx * TILE_SIZE, ty * TILE_SIZE, "好香!", "#e91e63");
+                    handItem.count--;
+                    if (handItem.count <= 0) {
+                        handItem.id = IDS.AIR;
+                        handItem.count = 0;
+                    }
+                    updateUI();
+                } else {
+                    spawnFloatText(player.x, player.y, "上方空間不足，無法種植!", "#ff5252");
                 }
-                updateUI();
-                mouse.right = false; 
+                mouse.right = false;
                 return;
             }
         }
@@ -5485,42 +5702,40 @@ function updateInteraction() {
                     mouse.right = false; 
                     return;
                 }
+                // 耕地上面不是空氣就說空間不足，右鍵不要空轉。
+                spawnFloatText(player.x, player.y, "上方空間不足，無法種植!", "#ff5252");
+                mouse.right = false;
+                return;
             }
         }
         
         // 4. 種橡實 (種樹)
-        if (handItem && handItem.id === IDS.ACORN) {
-            // 只能點擊土地（GRASS或DIRT），不能點擊空氣方塊
-            if (id === IDS.GRASS || id === IDS.DIRT) {
-                // 檢查目標方塊上方是否為空氣（可以種植）
-                if (getTile(tx, ty-1) === IDS.AIR) {
-                    setTile(tx, ty-1, IDS.SAPLING); // 在土地上方放置樹苗
-                    handItem.count--;
-                    if (handItem.count <= 0) {
-                        handItem.id = IDS.AIR;
-                        handItem.count = 0;
-                    }
-                    updateUI();
-                    mouse.right = false; 
-                    return;
-                } else {
-                    // 上方不是空氣，無法種植
-                    spawnFloatText(player.x, player.y, "上方空間不足，無法種植!", "#ff5252");
-                    mouse.right = false;
-                    return;
+        if (handItem && handItem.id === IDS.ACORN && (id === IDS.GRASS || id === IDS.DIRT)) {
+            // 不是草地或泥土就留給後面，例如床。
+            // 檢查目標方塊上方是否為空氣（可以種植）
+            if (getTile(tx, ty-1) === IDS.AIR) {
+                setTile(tx, ty-1, IDS.SAPLING); // 在土地上方放置樹苗
+                handItem.count--;
+                if (handItem.count <= 0) {
+                    handItem.id = IDS.AIR;
+                    handItem.count = 0;
                 }
+                updateUI();
+                mouse.right = false; 
+                return;
             } else {
-                // 點擊的不是土地，無法種植
-                spawnFloatText(player.x, player.y, "只能在草地上種植!", "#ff5252");
+                // 上方不是空氣，無法種植
+                spawnFloatText(player.x, player.y, "上方空間不足，無法種植!", "#ff5252");
                 mouse.right = false;
                 return;
             }
         }
         
         // 釋放生物
-        if (handItem && (handItem.id === IDS.ITEM_BUNNY || handItem.id === IDS.ITEM_FIREFLY)) {
+        if (handItem && (handItem.id === IDS.ITEM_BUNNY || handItem.id === IDS.ITEM_FIREFLY) && id === IDS.AIR) {
+            // 只能放在空氣。不是空氣就留給後面，例如床。點在方塊裡會把這隻消耗掉；點在空氣格底部，腳會插進地板。
             let type = (handItem.id === IDS.ITEM_BUNNY) ? 'bunny' : 'firefly';
-            spawnMob(mouse.worldX, mouse.worldY, type);
+            spawnMob(tx * TILE_SIZE, ty * TILE_SIZE, type);
             handItem.count--;
             if (handItem.count <= 0) {
                 handItem.id = IDS.AIR;
@@ -5556,7 +5771,7 @@ function updateInteraction() {
                 if (!player.buffs.swiftness || info.buffTime > player.buffs.swiftness) {
                     player.buffs.swiftness = info.buffTime;
                     buffUpdated = true;
-                } else {
+                } else if (!failedUseLeavesTile(id)) {
                     spawnFloatText(player.x, player.y, "已有更長的敏捷buff!", "#76ff03");
                 }
             }
@@ -5564,7 +5779,7 @@ function updateInteraction() {
                 if (!player.buffs.shine || info.buffTime > player.buffs.shine) {
                     player.buffs.shine = info.buffTime;
                     buffUpdated = true;
-                } else {
+                } else if (!failedUseLeavesTile(id)) {
                     spawnFloatText(player.x, player.y, "已有更長的光芒buff!", "#ffeb3b");
                 }
             }
@@ -5579,9 +5794,13 @@ function updateInteraction() {
                     handItem.count = 0;
                 }
                 updateUI();
+                mouse.right = false;
+                return;
+            } else if (!failedUseLeavesTile(id)) {
+                mouse.right = false;
+                return;
             }
-            mouse.right = false;
-            return;
+            // 沒換上，留給告示牌、墓碑或床。
         }
         
         // 1. 喝藥水 (治療藥水)
@@ -5597,58 +5816,68 @@ function updateInteraction() {
                 updateUI();
                 spawnFloatText(player.x, player.y, "+3 HP", "#4caf50");
                 playSound('mine'); // 暫用音效
+                mouse.right = false;
+                return;
+            } else if (!failedUseLeavesTile(id)) {
+                spawnFloatText(player.x, player.y, "生命值已滿!", "#999");
+                mouse.right = false;
+                return;
             }
-            mouse.right = false; 
-            return;
+            // 沒喝到，留給告示牌、墓碑或床。
         }
         
         // 5. 裝備頭盔
         if (handItem && BLOCKS[handItem.id] && BLOCKS[handItem.id].isArmor) {
             // 檢查頭盔是否有耐久度且已損壞
             if (handItem.durability !== undefined && handItem.durability <= 0) {
-                spawnFloatText(player.x, player.y, "頭盔已損壞!", "#ff5252");
-                mouse.right = false;
-                return;
-            }
-            
-            // 原本的簡單交換邏輯：手中的頭盔 ↔ 裝備槽的頭盔
+                if (!failedUseLeavesTile(id)) {
+                    spawnFloatText(player.x, player.y, "頭盔已損壞!", "#ff5252");
+                    mouse.right = false;
+                    return;
+                }
+                // 沒裝上，留給告示牌、墓碑或床。
+            } else {
+            // 頭盔只消耗一頂。一疊時不能把整疊換掉，也不能把脫下來的那頂變成一整疊。
             let oldHead = player.equip.head;
-            let oldHeadDefense = (oldHead !== 0 && oldHead !== IDS.AIR && BLOCKS[oldHead]) ? (BLOCKS[oldHead].defense || 0) : 0;
-            let newHeadDefense = BLOCKS[handItem.id] ? (BLOCKS[handItem.id].defense || 0) : 0;
-            
-            // 如果已經裝備了頭盔，且新頭盔防禦力更低，提示但不阻止（讓玩家自己決定）
-            if (oldHead !== 0 && oldHead !== IDS.AIR && newHeadDefense < oldHeadDefense) {
+            let hadOld = oldHead !== 0 && oldHead !== IDS.AIR;
+            let newId = handItem.id;
+            if (handItem.count > 1 && hadOld && !inventoryCanHold(oldHead, 1)) {
+                if (!failedUseLeavesTile(id)) {
+                    spawnFloatText(player.x, player.y, "背包已滿!", "#ff5252");
+                    mouse.right = false;
+                    return;
+                }
+                // 沒裝上，留給告示牌、墓碑或床。
+            } else {
+            let oldHeadDefense = hadOld && BLOCKS[oldHead] ? (BLOCKS[oldHead].defense || 0) : 0;
+            let newHeadDefense = BLOCKS[newId] ? (BLOCKS[newId].defense || 0) : 0;
+            if (hadOld && newHeadDefense < oldHeadDefense) {
                 spawnFloatText(player.x, player.y, "新頭盔防禦力較低", "#ff9800");
             }
-            
-            // 執行交換：手中的頭盔 → 裝備槽，裝備槽的頭盔 → 手中
-            player.equip.head = handItem.id;
-            handItem.id = (oldHead === 0 || oldHead === IDS.AIR) ? IDS.AIR : oldHead;
-            if (handItem.id === IDS.AIR) {
-                handItem.count = 0;
-                handItem.durability = undefined;
-            } else {
-                // 如果交換回來的頭盔有耐久度定義，初始化耐久度（如果沒有設置）
-                if (BLOCKS[handItem.id] && BLOCKS[handItem.id].durability && handItem.durability === undefined) {
-                    handItem.durability = BLOCKS[handItem.id].durability;
+            player.equip.head = newId;
+            if (!hadOld) {
+                handItem.count--;
+                if (handItem.count <= 0) {
+                    handItem.id = IDS.AIR;
+                    handItem.count = 0;
+                    handItem.durability = undefined;
                 }
+            } else if (handItem.count <= 1) {
+                handItem.id = oldHead;
+                handItem.count = 1;
+                handItem.durability = undefined;
+                if (BLOCKS[oldHead] && BLOCKS[oldHead].durability) handItem.durability = BLOCKS[oldHead].durability;
+            } else {
+                handItem.count--;
+                addToInventory(oldHead, 1);
             }
             
             updateUI(); 
             playSound('mine');
             mouse.right = false; 
             return;
-        }
-        
-        // 2. 開啟天域寶箱（id 已在函數開頭定義）
-        if (id === IDS.SKYWARE_CHEST) {
-            playSound('mine'); 
-            setTile(tx, ty, IDS.AIR);
-            createParticle(tx*TILE_SIZE, ty*TILE_SIZE, "#0288d1", 1.0);
-            spawnDrop(tx*TILE_SIZE, ty*TILE_SIZE, IDS.STARFURY); // 必掉星怒
-            spawnDrop(tx*TILE_SIZE, ty*TILE_SIZE, IDS.GOLD_BAR);
-            mouse.right = false; 
-            return;
+            }
+            }
         }
         
         if (id === IDS.BED) {
@@ -5671,26 +5900,15 @@ function updateInteraction() {
             mouse.right = false; 
             return; 
         }
-        // 探索宝箱（LOOT_CHEST）- 打开后消失并掉落随机物品
-        if (id === IDS.LOOT_CHEST) {
-            playSound('mine'); // 播放打开音效
-            setTile(tx, ty, IDS.AIR);
-            createParticle(tx * TILE_SIZE, ty * TILE_SIZE, "#ff6f00", 1.0);
-            // 掉落 2-4 个随机物品
-            let loot = [IDS.TORCH, IDS.IRON_BAR, IDS.GOLD_BAR, IDS.DIAMOND, IDS.ARROW, IDS.TNT, IDS.COAL_ORE, IDS.IRON_ORE, IDS.GOLD_ORE];
-            let dropCount = 2 + Math.floor(Math.random() * 3); // 2-4 个物品
-            for (let i = 0; i < dropCount; i++) {
-                let offsetX = (Math.random() - 0.5) * 20;
-                let offsetY = (Math.random() - 0.5) * 20;
-                spawnDrop(tx * TILE_SIZE + offsetX, ty * TILE_SIZE + offsetY, loot[Math.floor(Math.random() * loot.length)]);
-            }
-            mouse.right = false;
-            return;
-        }
-
         // --- 建造傳送門 ---
         if (handItem && handItem.id === IDS.TELEPORTER) {
-            if (id === IDS.AIR || (BLOCKS[id] && BLOCKS[id].transparent)) {
+            // 只能放在空氣。透明方塊也算的話，玻璃、火把、另一座傳送門會被直接換掉。
+            if (id !== IDS.AIR) {
+                spawnFloatText(player.x, player.y, "這裡不能放傳送門!", "#ff5252");
+                mouse.right = false;
+                return;
+            }
+            if (id === IDS.AIR) {
                 // 1. 檢查數量限制
                 if (teleporters.length >= 5) {
                     spawnFloatText(player.x, player.y, "傳送門數量已達上限 (5個)！", "#ff5252");
@@ -5736,6 +5954,15 @@ function updateInteraction() {
             
             if (def.isWall) {
                 if (id === IDS.AIR || (targetBlock && targetBlock.transparent)) {
+                    // 已經放好的牆再蓋一層，舊的那面直接消失。先拆掉才能換。
+                    if (tx >= 0 && tx < CHUNK_W && ty >= 0 && ty < CHUNK_H) {
+                        let oldWall = walls[ty * CHUNK_W + tx];
+                        if (oldWall !== IDS.AIR && BLOCKS[oldWall] && BLOCKS[oldWall].isWall) {
+                            spawnFloatText(player.x, player.y, "這裡已經有牆!", "#ff5252");
+                            mouse.right = false;
+                            return;
+                        }
+                    }
                     setWall(tx, ty, handItem.id);
                     handItem.count--;
                     if (handItem.count <= 0) {
@@ -5766,10 +5993,21 @@ function updateInteraction() {
                     let collides = false;
                     if (handItem.id === IDS.SAPLING) {
                         let belowId = getTile(tx, ty + 1);
-                        if (belowId !== IDS.GRASS && belowId !== IDS.DIRT) return;
+                        // 沒有草地或泥土就不要空轉。
+                        if (belowId !== IDS.GRASS && belowId !== IDS.DIRT) {
+                            spawnFloatText(player.x, player.y, "只能種在草地或泥土上!", "#ff5252");
+                            mouse.right = false;
+                            return;
+                        }
                     }
-                    // 防止工具、武器、非放置類物品被放置到地上
-                    if ((handItem.id >= 20 && handItem.id < 40) || 
+                    // 晶火磚可以放。20 到 39 裡還有晶火磚，不能整段都當成工具。
+                    // 工具和種子不要變成方塊。
+                    let unplaceable = handItem.id === IDS.WOOD_PICK || handItem.id === IDS.STONE_PICK || handItem.id === IDS.IRON_PICK || handItem.id === IDS.GOLD_PICK || handItem.id === IDS.DIAMOND_PICK
+                        || handItem.id === IDS.WOOD_SWORD || handItem.id === IDS.STONE_SWORD || handItem.id === IDS.IRON_SWORD || handItem.id === IDS.GOLD_SWORD || handItem.id === IDS.DIAMOND_SWORD
+                        || handItem.id === IDS.SAPPHIRE || handItem.id === IDS.EMERALD || handItem.id === IDS.TOMBSTONE;
+                    if (unplaceable ||
+                        def.toolSpeed || def.durability || def.isNet || def.isPaint || def.passive || def.consumable || def.isPetItem ||
+                        handItem.id === IDS.SEEDS || handItem.id === IDS.EYE_SUMMON ||
                         handItem.id === IDS.WOOD_BOW || 
                         handItem.id === IDS.ARROW ||
                         def.isTool || 
@@ -5836,6 +6074,7 @@ function updateInteraction() {
 }
 
 // 消耗工具/武器耐久度
+// 最後一點耐久仍算這一下。壞了只更新畫面，呼叫端不要因此直接 return。
 function consumeDurability(item, amount = 1) {
     if (!item || item.id === IDS.AIR || !BLOCKS[item.id]) return false;
     let def = BLOCKS[item.id];
@@ -5867,18 +6106,52 @@ function slotIsEmpty(s) {
 
 const ADVENTURE_MAX_STACK = 999;
 
-function inventoryCanHold(id, count) {
-    if (!id || id === IDS.AIR || count <= 0 || !BLOCKS[id]) return false;
-    if (BLOCKS[id].durability) {
-        return player.inventory.some(slotIsEmpty);
-    }
+function roomInSlots(slots, id) {
+    if (!id || id === IDS.AIR || !BLOCKS[id]) return 0;
+    if (BLOCKS[id].durability) return slots.some(slotIsEmpty) ? 1 : 0;
     let room = 0;
-    for (let i = 0; i < player.inventory.length; i++) {
-        let s = player.inventory[i];
+    for (let i = 0; i < slots.length; i++) {
+        let s = slots[i];
         if (s.id === id && s.count > 0 && s.count < ADVENTURE_MAX_STACK) room += ADVENTURE_MAX_STACK - s.count;
         else if (slotIsEmpty(s)) room += ADVENTURE_MAX_STACK;
     }
-    return room >= count;
+    return room;
+}
+
+function inventoryRoom(id) {
+    return roomInSlots(player.inventory, id);
+}
+
+function slotsAfterCost(costMap) {
+    let slots = player.inventory.map(s => ({ id: s.id, count: s.count || 0 }));
+    for (let id in costMap) {
+        let itemId = parseInt(id);
+        let needed = costMap[id];
+        let hasDurability = BLOCKS[itemId] && BLOCKS[itemId].durability;
+        for (let s of slots) {
+            if (needed <= 0) break;
+            if (s.id !== itemId || s.count <= 0) continue;
+            if (hasDurability) {
+                s.id = IDS.AIR;
+                s.count = 0;
+                needed--;
+            } else {
+                let consume = Math.min(needed, s.count);
+                s.count -= consume;
+                needed -= consume;
+                if (s.count <= 0) {
+                    s.id = IDS.AIR;
+                    s.count = 0;
+                }
+            }
+        }
+    }
+    return slots;
+}
+
+function inventoryCanHold(id, count) {
+    if (!id || id === IDS.AIR || count <= 0 || !BLOCKS[id]) return false;
+    return inventoryRoom(id) >= count;
 }
 
 function addToInventory(id, count, durability) {
@@ -6100,10 +6373,10 @@ function craftSelected() {
     }
     if (!can) return;
     
-    if (!inventoryCanHold(r.out.id, r.out.count || 1)) {
-        // 背包已滿，只顯示提示訊息（不消耗材料，不掉落物品）
+    // 合成先算空位：材料用完會空出的格子也算進去，放不下就不扣材料
+    if (roomInSlots(slotsAfterCost(costMap), r.out.id) < (r.out.count || 1)) {
         spawnFloatText(player.x, player.y, "背包已滿!", "#ff5252");
-        return; // 不執行合成，不消耗材料
+        return;
     }
     
     // 背包有空槽位，開始消耗材料
@@ -6311,7 +6584,7 @@ function createParticle(x, y, color, life=1.0) {
     particles.push({ x: x, y: y, vx: (Math.random()-0.5)*6, vy: (Math.random()-0.5)*6, color: color, life: life, size: Math.random()*4+2 }); 
 }
 function takeDamage(amount) {
-    if (player.invincibleTimer > 0) return;
+    if (player.invincibleTimer > 0) return false;
     
     // --- 防禦力公式：每點防禦減少 0.5 傷害 ---
     if (!player.defense) player.defense = 0;
@@ -6352,8 +6625,14 @@ function takeDamage(amount) {
             // 優先順序：腳下 → 腳下上方一格 → 左側 → 右側
             let placed = false;
             if (ty >= 0 && ty < CHUNK_H && getTile(tx, ty) === IDS.AIR) {
-                tiles[ty * CHUNK_W + tx] = IDS.TOMBSTONE; // 直接設置，不使用 setTile 避免觸發光照更新
-                console.log(`[墓碑生成] 直接設置在: (${tx}, ${ty}), 設置後方塊ID: ${tiles[ty * CHUNK_W + tx]}`);
+                // 墓碑不懸在天上。人在空中死掉時腳下是空氣，往下放到地面上的那格空氣。
+                let placeY = ty;
+                for (let y = ty + 1; y < CHUNK_H; y++) {
+                    if (getTile(tx, y) !== IDS.AIR) break;
+                    placeY = y;
+                }
+                tiles[placeY * CHUNK_W + tx] = IDS.TOMBSTONE; // 直接設置，不使用 setTile 避免觸發光照更新
+                console.log(`[墓碑生成] 直接設置在: (${tx}, ${placeY}), 設置後方塊ID: ${tiles[placeY * CHUNK_W + tx]}`);
                 placed = true;
             } else if (ty > 0 && getTile(tx, ty-1) === IDS.AIR) {
                 tiles[(ty-1) * CHUNK_W + tx] = IDS.TOMBSTONE;
@@ -6374,8 +6653,8 @@ function takeDamage(amount) {
             
             if (!placed) {
                 console.warn(`[墓碑生成] 無法找到合適位置，強制放置在: (${tx}, ${ty})`);
-                // 如果所有位置都不行，強制放在腳下（覆蓋現有方塊）
-                if (ty >= 0 && ty < CHUNK_H) {
+                // 墓碑不吞箱子：先把腳下那格的東西退出來，再蓋墓碑。基岩不蓋。
+                if (ty >= 0 && ty < CHUNK_H && releaseCoveredTile(tx, ty)) {
                     tiles[ty * CHUNK_W + tx] = IDS.TOMBSTONE;
                     console.log(`[墓碑生成] 強制設置後方塊ID: ${tiles[ty * CHUNK_W + tx]}`);
                 }
@@ -6384,7 +6663,49 @@ function takeDamage(amount) {
         
         // 執行重生邏輯
         respawnPlayer();
+        return true;
     }
+    return false;
+}
+
+function releaseCoveredTile(tx, ty) {
+    let id = getTile(tx, ty);
+    if (id === IDS.BEDROCK) return false;
+    if (id === IDS.AIR) return true;
+    let px = tx * TILE_SIZE + 10;
+    let py = ty * TILE_SIZE + 10;
+    if (id === IDS.CHEST) {
+        let key = tx + '_' + ty;
+        let items = chestData[key];
+        if (items && Array.isArray(items)) {
+            spillChest(items, px, py);
+            delete chestData[key];
+        }
+        closeChestAt(tx, ty);
+        spawnDrop(px, py, IDS.CHEST);
+    } else if (id === IDS.TELEPORTER) {
+        let ti = teleporters.findIndex(t => t.x === tx && t.y === ty);
+        if (ti !== -1) teleporters.splice(ti, 1);
+        spawnDrop(px, py, IDS.TELEPORTER);
+    } else if (id === IDS.SIGN) {
+        delete signData[tx + '_' + ty];
+        spawnDrop(px, py, IDS.SIGN);
+    } else if (id === IDS.DOOR_CLOSED || id === IDS.DOOR_OPEN) {
+        let aboveId = getTile(tx, ty - 1);
+        let belowId = getTile(tx, ty + 1);
+        if (aboveId === IDS.DOOR_CLOSED || aboveId === IDS.DOOR_OPEN) {
+            tiles[(ty - 1) * CHUNK_W + tx] = IDS.AIR;
+            clearPaintIfBare(tx, ty - 1);
+        }
+        if (belowId === IDS.DOOR_CLOSED || belowId === IDS.DOOR_OPEN) {
+            tiles[(ty + 1) * CHUNK_W + tx] = IDS.AIR;
+            clearPaintIfBare(tx, ty + 1);
+        }
+        spawnDrop(px, py, IDS.DOOR_CLOSED);
+    } else if (id !== IDS.WATER && id !== IDS.LAVA && id !== IDS.GRASS) {
+        spawnDrop(px, py, id);
+    }
+    return true;
 }
 
 // 重生玩家函數（用於死亡和自殺）
@@ -6401,10 +6722,16 @@ function respawnPlayer() {
     // 清除所有按键状态，防止复活后继续移动
     keys = {};
     // 重置钩子和钓鱼状态
-    if (player.hook) player.hook.active = false;
+    releaseHook();
     if (player.fishing) player.fishing.active = false;
     player.wKeyLocked = false;
     updateHealthUI();
+}
+
+function releaseHook() {
+    if (!player.hook) return;
+    player.hook.active = false;
+    player.hook.state = 0;
 }
 
 // 自殺函數（用於K鍵）
@@ -6583,7 +6910,15 @@ window.addEventListener('wheel', e => {
     updateUI(); 
 }, { passive: true });
 window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
-window.addEventListener('mousedown', e => { if(e.button===0)mouse.left=true; if(e.button===2)mouse.right=true; });
+// 點介面不要挖地。快捷欄、選單、手機按鈕的那一下不該同時打到畫面裡的方塊。
+function adventurePointerOnUi(target) {
+    return !!(target && target.closest && target.closest('#hotbar-container, #crafting-menu, #chest-menu, #merchant-menu, #teleport-menu, #adv-phone-stick, #adv-phone-jump, #adv-phone-actions'));
+}
+window.addEventListener('mousedown', e => {
+    if (adventurePointerOnUi(e.target)) return;
+    if(e.button===0)mouse.left=true;
+    if(e.button===2)mouse.right=true;
+});
 window.addEventListener('mouseup', e => { if(e.button===0)mouse.left=false; if(e.button===2)mouse.right=false; });
 window.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('resize', () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; ctx.imageSmoothingEnabled = false; });
@@ -6804,7 +7139,7 @@ function performTeleport(targetX, targetY) {
     player.vy = 0;
     // 重置跳躍計數和鉤爪狀態
     player.jumpCount = 0;
-    if (player.hook) player.hook.active = false;
+    releaseHook();
     
     // 防止位置溢出
     if (player.x < 0) player.x = 0;
@@ -6825,6 +7160,14 @@ function performTeleport(targetX, targetY) {
     // 防止相機溢出
     camera.x = Math.max(0, Math.min(camera.x, CHUNK_W*TILE_SIZE - width));
     camera.y = Math.max(0, Math.min(camera.y, CHUNK_H*TILE_SIZE - height));
+}
+
+function closeChestAt(tx, ty) {
+    // 箱子拆掉要關介面。東西已經掉出來，介面還開著再拿一次會變兩份。
+    if (!currentChest || currentChest.x !== tx || currentChest.y !== ty) return;
+    let menu = document.getElementById('chest-menu');
+    if (menu) menu.style.display = 'none';
+    currentChest = null;
 }
 
 function toggleChest(tileX, tileY) {
@@ -7000,6 +7343,7 @@ function handleChestClick(idx) {
             // 先嘗試疊加到箱子中相同物品的格子上
             let itemToStore = { id: pItem.id, count: pItem.count };
             let foundSameItem = false;
+            let exchanged = false;
             
             // 先檢查點擊的槽位是否是相同物品
             if (cItem.id === pItem.id && cItem.count > 0 && cItem.count < 999) {
@@ -7058,18 +7402,21 @@ function handleChestClick(idx) {
                     cItem.count = tempCount;
                     cItem.durability = undefined;
                     itemToStore.count = 0;
+                    exchanged = true; // 交換過的東西留在手上。不能當成已經全部放進箱子。
                 }
             }
             
-            // 更新玩家手上的物品
-            if (itemToStore.count > 0) {
-                // 還有剩餘，留在手上
-                pItem.count = itemToStore.count;
-            } else {
-                // 全部放入，清空手上
-                pItem.id = IDS.AIR;
-                pItem.count = 0;
-                pItem.durability = undefined;
+            // 更新玩家手上的物品。交換過的留著，不要清掉。
+            if (!exchanged) {
+                if (itemToStore.count > 0) {
+                    // 還有剩餘，留在手上
+                    pItem.count = itemToStore.count;
+                } else {
+                    // 全部放入，清空手上
+                    pItem.id = IDS.AIR;
+                    pItem.count = 0;
+                    pItem.durability = undefined;
+                }
             }
         }
     } else if (cItem && cItem.id !== IDS.AIR && cItem.id !== 0 && cItem.count > 0 && BLOCKS[cItem.id]) {
@@ -7282,44 +7629,45 @@ function updateMerchantUI() {
         div.onclick = () => selectMerchantItem(idx);
         grid.appendChild(div);
     });
-    
-    if (currentMerchantItem !== null) {
-        selectMerchantItem(currentMerchantItem);
+
+    // 商人選單不遞迴：這裡只畫畫面，不再回頭呼叫選取。
+    let nameEl = document.getElementById('merchant-name');
+    let descEl = document.getElementById('merchant-desc');
+    let priceEl = document.getElementById('merchant-price');
+    let btn = document.getElementById('merchant-buy-btn');
+    let iconBox = document.getElementById('merchant-icon');
+    if (currentMerchantItem !== null && MERCHANT_ITEMS[currentMerchantItem]) {
+        let item = MERCHANT_ITEMS[currentMerchantItem];
+        if (iconBox) {
+            iconBox.innerHTML = '';
+            let cvs = document.createElement('canvas');
+            cvs.width = 48;
+            cvs.height = 48;
+            let c = cvs.getContext('2d');
+            c.imageSmoothingEnabled = false;
+            if (BLOCKS[item.id] && BLOCKS[item.id].icon) c.drawImage(BLOCKS[item.id].icon, 0, 0, 48, 48);
+            else if (BLOCKS[item.id]) {
+                c.fillStyle = BLOCKS[item.id].color || '#fff';
+                c.fillRect(0, 0, 48, 48);
+            }
+            iconBox.appendChild(cvs);
+        }
+        if (nameEl) nameEl.innerText = item.name;
+        if (descEl) descEl.innerText = item.desc;
+        if (priceEl) priceEl.innerText = `價格: ${item.price} 銅幣`;
+        if (btn) btn.disabled = (player.coins || 0) < item.price;
     } else {
-        document.getElementById('merchant-name').innerText = "選擇商品";
-        document.getElementById('merchant-desc').innerText = "";
-        document.getElementById('merchant-price').innerText = "";
-        document.getElementById('merchant-buy-btn').disabled = true;
+        if (iconBox) iconBox.innerHTML = '';
+        if (nameEl) nameEl.innerText = "選擇商品";
+        if (descEl) descEl.innerText = "";
+        if (priceEl) priceEl.innerText = "";
+        if (btn) btn.disabled = true;
     }
 }
 
 function selectMerchantItem(idx) {
     currentMerchantItem = idx;
-    let item = MERCHANT_ITEMS[idx];
-    
-    let iconBox = document.getElementById('merchant-icon');
-    iconBox.innerHTML = '';
-    let cvs = document.createElement('canvas');
-    cvs.width = 48;
-    cvs.height = 48;
-    let c = cvs.getContext('2d');
-    c.imageSmoothingEnabled = false;
-    if (BLOCKS[item.id] && BLOCKS[item.id].icon) {
-        c.drawImage(BLOCKS[item.id].icon, 0, 0, 48, 48);
-    } else if (BLOCKS[item.id]) {
-        c.fillStyle = BLOCKS[item.id].color || '#fff';
-        c.fillRect(0, 0, 48, 48);
-    }
-    iconBox.appendChild(cvs);
-    
-    document.getElementById('merchant-name').innerText = item.name;
-    document.getElementById('merchant-desc').innerText = item.desc;
-    document.getElementById('merchant-price').innerText = `價格: ${item.price} 銅幣`;
-    
-    let btn = document.getElementById('merchant-buy-btn');
-    btn.disabled = (player.coins || 0) < item.price;
-    
-    updateMerchantUI(); // 更新选中状态
+    updateMerchantUI();
 }
 
 function buyMerchantItem() {
